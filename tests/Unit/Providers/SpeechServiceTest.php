@@ -60,8 +60,12 @@ test('it returns a new instance when setting format', function () {
 test('it speaks text with defaults', function () {
     $mockRequest = Mockery::mock();
 
+    // Mock the GeneratedAudio object with base64 property
+    $mockAudio = new stdClass;
+    $mockAudio->base64 = base64_encode('decoded-audio-data');
+
     $mockResponse = new stdClass;
-    $mockResponse->audio = 'base64-encoded-audio-data';
+    $mockResponse->audio = $mockAudio;
 
     $this->prismBuilder
         ->shouldReceive('forSpeech')
@@ -77,7 +81,7 @@ test('it speaks text with defaults', function () {
     $result = $this->service->speak('Hello world');
 
     expect($result)->toBe([
-        'audio' => 'base64-encoded-audio-data',
+        'audio' => 'decoded-audio-data',
         'format' => 'mp3',
     ]);
 });
@@ -85,8 +89,12 @@ test('it speaks text with defaults', function () {
 test('it speaks with custom voice', function () {
     $mockRequest = Mockery::mock();
 
+    // Mock the GeneratedAudio object with base64 property
+    $mockAudio = new stdClass;
+    $mockAudio->base64 = base64_encode('audio-data');
+
     $mockResponse = new stdClass;
-    $mockResponse->audio = 'audio-data';
+    $mockResponse->audio = $mockAudio;
 
     $this->prismBuilder
         ->shouldReceive('forSpeech')
@@ -111,8 +119,12 @@ test('it speaks with custom voice', function () {
 test('it chains fluent methods for speak', function () {
     $mockRequest = Mockery::mock();
 
+    // Mock the GeneratedAudio object with base64 property
+    $mockAudio = new stdClass;
+    $mockAudio->base64 = base64_encode('audio-data');
+
     $mockResponse = new stdClass;
-    $mockResponse->audio = 'audio-data';
+    $mockResponse->audio = $mockAudio;
 
     $this->prismBuilder
         ->shouldReceive('forSpeech')

@@ -110,7 +110,8 @@ class ToolBuilder
     protected function buildPrismTool(ToolContract $tool, ToolContext $context): PrismTool
     {
         // Create the handler that uses the executor
-        $handler = fn (array $args): string => $this->executor
+        // Use variadic args since Prism unpacks tool arguments as named parameters
+        $handler = fn (...$args): string => $this->executor
             ->execute($tool, $args, $context)
             ->text;
 

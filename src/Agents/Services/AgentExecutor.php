@@ -254,15 +254,7 @@ class AgentExecutor implements AgentExecutorContract
     {
         $usage = $this->usageExtractor->extract($agent->provider(), $prismResponse);
 
-        $toolCalls = [];
-        if (property_exists($prismResponse, 'toolCalls') && $prismResponse->toolCalls) {
-            foreach ($prismResponse->toolCalls as $call) {
-                $toolCalls[] = [
-                    'name' => $call->name,
-                    'arguments' => $call->arguments(),
-                ];
-            }
-        }
+        $toolCalls = $this->extractToolCalls($prismResponse);
 
         return new AgentResponse(
             text: $prismResponse->text ?? null,
@@ -272,6 +264,51 @@ class AgentExecutor implements AgentExecutorContract
                 'finish_reason' => $prismResponse->finishReason->value ?? null,
             ],
         );
+    }
+
+    /**
+     * Extract tool calls from the Prism response.
+     *
+     * Prism stores tool calls in the steps array, with each step containing
+     * both the tool calls and their results.
+     *
+     * @return array<int, array{name: string, arguments: array<string, mixed>, result: string|null}>
+     */
+    protected function extractToolCalls(mixed $prismResponse): array
+    {
+        $toolCalls = [];
+
+        // Extract from steps (Prism's multi-step tool execution)
+        if (property_exists($prismResponse, 'steps') && $prismResponse->steps) {
+            foreach ($prismResponse->steps as $step) {
+                if (isset($step->toolCalls) && ! empty($step->toolCalls)) {
+                    foreach ($step->toolCalls as $i => $call) {
+                        $result = null;
+                        if (isset($step->toolResults[$i])) {
+                            $result = $step->toolResults[$i]->result ?? null;
+                        }
+                        $toolCalls[] = [
+                            'name' => $call->name,
+                            'arguments' => $call->arguments(),
+                            'result' => $result,
+                        ];
+                    }
+                }
+            }
+        }
+
+        // Fallback to direct toolCalls property if no steps
+        if (empty($toolCalls) && property_exists($prismResponse, 'toolCalls') && $prismResponse->toolCalls) {
+            foreach ($prismResponse->toolCalls as $call) {
+                $toolCalls[] = [
+                    'name' => $call->name,
+                    'arguments' => $call->arguments(),
+                    'result' => null,
+                ];
+            }
+        }
+
+        return $toolCalls;
     }
 
     /**

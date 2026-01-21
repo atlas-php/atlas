@@ -52,10 +52,15 @@ test('it returns a new instance when setting quality', function () {
 test('it generates image with defaults', function () {
     $mockRequest = Mockery::mock();
 
+    // Mock the GeneratedImage object
+    $mockImage = new stdClass;
+    $mockImage->url = 'https://example.com/image.png';
+    $mockImage->base64 = null;
+    $mockImage->revisedPrompt = 'A beautiful sunset over mountains';
+
+    // Mock the Prism response with images array
     $mockResponse = new stdClass;
-    $mockResponse->url = 'https://example.com/image.png';
-    $mockResponse->base64 = null;
-    $mockResponse->revisedPrompt = 'A beautiful sunset over mountains';
+    $mockResponse->images = [$mockImage];
 
     $this->prismBuilder
         ->shouldReceive('forImage')
@@ -80,10 +85,15 @@ test('it generates image with defaults', function () {
 test('it chains fluent methods', function () {
     $mockRequest = Mockery::mock();
 
+    // Mock the GeneratedImage object
+    $mockImage = new stdClass;
+    $mockImage->url = 'https://example.com/image.png';
+    $mockImage->base64 = null;
+    $mockImage->revisedPrompt = null;
+
+    // Mock the Prism response with images array
     $mockResponse = new stdClass;
-    $mockResponse->url = 'https://example.com/image.png';
-    $mockResponse->base64 = null;
-    $mockResponse->revisedPrompt = null;
+    $mockResponse->images = [$mockImage];
 
     $this->prismBuilder
         ->shouldReceive('forImage')

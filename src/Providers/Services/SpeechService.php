@@ -106,8 +106,19 @@ class SpeechService
         $request = $this->prismBuilder->forSpeech($provider, $model, $text, $requestOptions);
         $response = $request->asAudio();
 
+        // Extract audio content from GeneratedAudio object
+        $audioContent = '';
+        if (isset($response->audio)) {
+            $audio = $response->audio;
+            if (property_exists($audio, 'base64') && $audio->base64) {
+                $audioContent = base64_decode($audio->base64);
+            } elseif (method_exists($audio, 'content')) {
+                $audioContent = $audio->content();
+            }
+        }
+
         return [
-            'audio' => $response->audio ?? '',
+            'audio' => $audioContent,
             'format' => $format,
         ];
     }

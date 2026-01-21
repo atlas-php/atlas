@@ -92,10 +92,13 @@ class ImageService
         $request = $this->prismBuilder->forImage($provider, $model, $prompt, $requestOptions);
         $response = $request->generate();
 
+        // Prism returns images in an array
+        $image = $response->images[0] ?? null;
+
         return [
-            'url' => $response->url ?? null,
-            'base64' => $response->base64 ?? null,
-            'revised_prompt' => $response->revisedPrompt ?? null,
+            'url' => $image?->url ?? null,
+            'base64' => $image?->base64 ?? null,
+            'revised_prompt' => $image?->revisedPrompt ?? null,
         ];
     }
 }

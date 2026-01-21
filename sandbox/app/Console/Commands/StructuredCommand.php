@@ -103,7 +103,8 @@ class StructuredCommand extends Command
                         new StringSchema('email', 'The person\'s email address'),
                         new StringSchema('occupation', 'The person\'s job or occupation'),
                     ],
-                    requiredFields: ['name', 'age'],
+                    // OpenAI requires all properties in requiredFields for structured output
+                    requiredFields: ['name', 'age', 'email', 'occupation'],
                 ),
             ],
             'product' => [
@@ -117,7 +118,8 @@ class StructuredCommand extends Command
                         new StringSchema('category', 'The product category'),
                         new BooleanSchema('inStock', 'Whether the product is in stock'),
                     ],
-                    requiredFields: ['name', 'price'],
+                    // OpenAI requires all properties in requiredFields for structured output
+                    requiredFields: ['name', 'price', 'category', 'inStock'],
                 ),
             ],
             'review' => [
@@ -132,7 +134,8 @@ class StructuredCommand extends Command
                         new ArraySchema('pros', 'List of positive points', new StringSchema('pro', 'A positive point')),
                         new ArraySchema('cons', 'List of negative points', new StringSchema('con', 'A negative point')),
                     ],
-                    requiredFields: ['rating', 'body'],
+                    // OpenAI requires all properties in requiredFields for structured output
+                    requiredFields: ['rating', 'title', 'body', 'pros', 'cons'],
                 ),
             ],
         ];
