@@ -1,0 +1,58 @@
+/.phpunit.cache
+/node_modules
+/public/build
+/public/hot
+/public/storage
+/storage/*.key
+/vendor
+build/
+.env
+.env.backup
+.env.production
+.env.testing
+.phpactor.json
+.phpunit.result.cache
+Homestead.json
+Homestead.yaml
+auth.json
+npm-debug.log
+yarn-error.log
+/.fleet
+/.idea
+/.vscode
+/bootstrap/ssr
+
+# VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+
+# Intellij idea
+*.iml
+.idea
+
+# OSX
+.DS_Store
+.AppleDouble
+.LSOverride
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+components.d.ts
+auto-imports.d.ts
+
+# Allow the sandbox .env file to ship with defaults for local usage.
+!sandbox/.env
+/sandbox/storage/app/generated/*
+/sandbox/storage/app/generated
+/sandbox/storage/app/nexus/*
+/sandbox/storage/app/nexus/
+
+# Package-specific ignores
+composer.lock
