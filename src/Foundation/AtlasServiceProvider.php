@@ -134,6 +134,8 @@ class AtlasServiceProvider extends ServiceProvider
 
         $this->app->singleton(AtlasManager::class, function (Container $app): AtlasManager {
             return new AtlasManager(
+                $app->make(AgentResolver::class),
+                $app->make(AgentExecutorContract::class),
                 $app->make(EmbeddingService::class),
                 $app->make(ImageService::class),
                 $app->make(SpeechService::class),

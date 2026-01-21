@@ -1,0 +1,46 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    name: Lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: dom, curl, mbstring, zip
+          coverage: none
+      - run: composer install --prefer-dist --no-interaction --no-progress
+      - run: composer lint:test
+
+  analyse:
+    runs-on: ubuntu-latest
+    name: Static Analysis
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: dom, curl, mbstring, zip
+          coverage: none
+      - run: composer install --prefer-dist --no-interaction --no-progress
+      - run: composer analyse
+
+  tests:
+    runs-on: ubuntu-latest
+    name: Tests (PHP 8.4)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: dom, curl, mbstring, zip
+          coverage: none
+      - run: composer install --prefer-dist --no-interaction --no-progress
+      - run: composer test

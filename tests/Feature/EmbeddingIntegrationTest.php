@@ -2,10 +2,14 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
+use Atlasphp\Atlas\Agents\Services\AgentResolver;
 use Atlasphp\Atlas\Providers\Contracts\EmbeddingProviderContract;
 use Atlasphp\Atlas\Providers\Facades\Atlas;
 use Atlasphp\Atlas\Providers\Services\AtlasManager;
 use Atlasphp\Atlas\Providers\Services\EmbeddingService;
+use Atlasphp\Atlas\Providers\Services\ImageService;
+use Atlasphp\Atlas\Providers\Services\SpeechService;
 
 beforeEach(function () {
     // Mock the embedding provider to avoid real API calls
@@ -38,9 +42,11 @@ beforeEach(function () {
     // Rebind AtlasManager to use the new EmbeddingService
     $this->app->singleton(AtlasManager::class, function ($app) {
         return new AtlasManager(
+            $app->make(AgentResolver::class),
+            $app->make(AgentExecutorContract::class),
             $app->make(EmbeddingService::class),
-            $app->make(\Atlasphp\Atlas\Providers\Services\ImageService::class),
-            $app->make(\Atlasphp\Atlas\Providers\Services\SpeechService::class),
+            $app->make(ImageService::class),
+            $app->make(SpeechService::class),
         );
     });
 });

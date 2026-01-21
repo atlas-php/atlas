@@ -1,0 +1,249 @@
+<?php
+
+declare(strict_types=1);
+
+use Atlasphp\Atlas\Agents\Contracts\AgentRegistryContract;
+use Atlasphp\Atlas\Agents\Support\AgentResponse;
+use Atlasphp\Atlas\Providers\Contracts\PrismBuilderContract;
+use Atlasphp\Atlas\Providers\Facades\Atlas;
+use Atlasphp\Atlas\Providers\Services\AtlasManager;
+use Atlasphp\Atlas\Providers\Services\ImageService;
+use Atlasphp\Atlas\Providers\Services\SpeechService;
+use Atlasphp\Atlas\Providers\Support\MessageContextBuilder;
+use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
+
+test('facade resolves atlas manager', function () {
+    expect(Atlas::getFacadeRoot())->toBeInstanceOf(AtlasManager::class);
+});
+
+test('it executes simple chat', function () {
+    $mockResponse = new class
+    {
+        public ?string $text = 'Hello from agent';
+
+        public array $toolCalls = [];
+
+        public object $finishReason;
+
+        public function __construct()
+        {
+            $this->finishReason = new class
+            {
+                public string $value = 'stop';
+            };
+        }
+    };
+
+    $mockPendingRequest = Mockery::mock();
+    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withProviderTool')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
+
+    $prismBuilder = Mockery::mock(PrismBuilderContract::class);
+    $prismBuilder->shouldReceive('forPrompt')->andReturn($mockPendingRequest);
+
+    app()->instance(PrismBuilderContract::class, $prismBuilder);
+
+    // Register the agent
+    $registry = app(AgentRegistryContract::class);
+    $registry->register(TestAgent::class);
+
+    $response = Atlas::chat('test-agent', 'Hello');
+
+    expect($response)->toBeInstanceOf(AgentResponse::class);
+    expect($response->text)->toBe('Hello from agent');
+});
+
+test('it executes chat with forMessages', function () {
+    $mockResponse = new class
+    {
+        public ?string $text = 'Continuing conversation';
+
+        public array $toolCalls = [];
+
+        public object $finishReason;
+
+        public function __construct()
+        {
+            $this->finishReason = new class
+            {
+                public string $value = 'stop';
+            };
+        }
+    };
+
+    $mockPendingRequest = Mockery::mock();
+    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withProviderTool')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
+
+    $prismBuilder = Mockery::mock(PrismBuilderContract::class);
+    $prismBuilder->shouldReceive('forMessages')->andReturn($mockPendingRequest);
+
+    app()->instance(PrismBuilderContract::class, $prismBuilder);
+
+    $registry = app(AgentRegistryContract::class);
+    $registry->register(TestAgent::class);
+
+    $messages = [
+        ['role' => 'user', 'content' => 'Hello'],
+        ['role' => 'assistant', 'content' => 'Hi there!'],
+    ];
+
+    $builder = Atlas::forMessages($messages);
+    expect($builder)->toBeInstanceOf(MessageContextBuilder::class);
+    expect($builder->getMessages())->toBe($messages);
+
+    $response = $builder->chat('test-agent', 'Continue');
+    expect($response)->toBeInstanceOf(AgentResponse::class);
+    expect($response->text)->toBe('Continuing conversation');
+});
+
+test('it executes chat with variables', function () {
+    $mockResponse = new class
+    {
+        public ?string $text = 'Hello John';
+
+        public array $toolCalls = [];
+
+        public object $finishReason;
+
+        public function __construct()
+        {
+            $this->finishReason = new class
+            {
+                public string $value = 'stop';
+            };
+        }
+    };
+
+    $mockPendingRequest = Mockery::mock();
+    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withProviderTool')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
+
+    $prismBuilder = Mockery::mock(PrismBuilderContract::class);
+    $prismBuilder->shouldReceive('forMessages')->andReturn($mockPendingRequest);
+
+    app()->instance(PrismBuilderContract::class, $prismBuilder);
+
+    $registry = app(AgentRegistryContract::class);
+    $registry->register(TestAgent::class);
+
+    $response = Atlas::forMessages([['role' => 'user', 'content' => 'Hello']])
+        ->withVariables(['user_name' => 'John'])
+        ->chat('test-agent', 'Continue');
+
+    expect($response)->toBeInstanceOf(AgentResponse::class);
+    expect($response->text)->toBe('Hello John');
+});
+
+test('it executes chat with metadata', function () {
+    $mockResponse = new class
+    {
+        public ?string $text = 'Response with metadata';
+
+        public array $toolCalls = [];
+
+        public object $finishReason;
+
+        public function __construct()
+        {
+            $this->finishReason = new class
+            {
+                public string $value = 'stop';
+            };
+        }
+    };
+
+    $mockPendingRequest = Mockery::mock();
+    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withProviderTool')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
+
+    $prismBuilder = Mockery::mock(PrismBuilderContract::class);
+    $prismBuilder->shouldReceive('forMessages')->andReturn($mockPendingRequest);
+
+    app()->instance(PrismBuilderContract::class, $prismBuilder);
+
+    $registry = app(AgentRegistryContract::class);
+    $registry->register(TestAgent::class);
+
+    $response = Atlas::forMessages([['role' => 'user', 'content' => 'Hello']])
+        ->withMetadata(['session_id' => 'abc123'])
+        ->chat('test-agent', 'Continue');
+
+    expect($response)->toBeInstanceOf(AgentResponse::class);
+    expect($response->text)->toBe('Response with metadata');
+});
+
+test('it executes structured output', function () {
+    $mockResponse = new class
+    {
+        public mixed $structured = ['name' => 'John', 'age' => 30];
+
+        public object $finishReason;
+
+        public function __construct()
+        {
+            $this->finishReason = new class
+            {
+                public string $value = 'stop';
+            };
+        }
+    };
+
+    $mockPendingRequest = Mockery::mock();
+    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withProviderTool')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('asStructured')->andReturn($mockResponse);
+
+    $mockSchema = Mockery::mock(\Prism\Prism\Contracts\Schema::class);
+
+    $prismBuilder = Mockery::mock(PrismBuilderContract::class);
+    $prismBuilder->shouldReceive('forStructured')->andReturn($mockPendingRequest);
+
+    app()->instance(PrismBuilderContract::class, $prismBuilder);
+
+    $registry = app(AgentRegistryContract::class);
+    $registry->register(TestAgent::class);
+
+    $response = Atlas::chat('test-agent', 'Extract person info', null, $mockSchema);
+
+    expect($response)->toBeInstanceOf(AgentResponse::class);
+    expect($response->structured)->toBe(['name' => 'John', 'age' => 30]);
+});
+
+test('it returns image service', function () {
+    $imageService = Atlas::image();
+
+    expect($imageService)->toBeInstanceOf(ImageService::class);
+});
+
+test('it returns image service with provider and model', function () {
+    $imageService = Atlas::image('openai', 'dall-e-3');
+
+    expect($imageService)->toBeInstanceOf(ImageService::class);
+});
+
+test('it returns speech service', function () {
+    $speechService = Atlas::speech();
+
+    expect($speechService)->toBeInstanceOf(SpeechService::class);
+});
+
+test('it returns speech service with provider and model', function () {
+    $speechService = Atlas::speech('openai', 'tts-1-hd');
+
+    expect($speechService)->toBeInstanceOf(SpeechService::class);
+});

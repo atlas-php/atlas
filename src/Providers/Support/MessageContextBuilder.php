@@ -4,68 +4,91 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Providers\Support;
 
+use Atlasphp\Atlas\Agents\Contracts\AgentContract;
+use Atlasphp\Atlas\Agents\Support\AgentResponse;
+use Atlasphp\Atlas\Agents\Support\ExecutionContext;
+use Atlasphp\Atlas\Providers\Services\AtlasManager;
+use Prism\Prism\Contracts\Schema;
+
 /**
- * Builder for constructing message context for AI providers.
+ * Immutable builder for conversation context in multi-turn chats.
  *
- * Phase 1: Stub class with basic structure.
- * Full implementation will be added in Phase 3 for chat functionality.
+ * Provides a fluent API for building conversation context with messages,
+ * variables for system prompt interpolation, and metadata for pipeline middleware.
+ * Each method returns a new instance to maintain immutability.
  */
-class MessageContextBuilder
+final readonly class MessageContextBuilder
 {
     /**
-     * The messages being built.
-     *
-     * @var array<int, array{role: string, content: string}>
+     * @param  AtlasManager  $manager  The Atlas manager for execution.
+     * @param  array<int, array{role: string, content: string}>  $messages  Conversation history.
+     * @param  array<string, mixed>  $variables  Variables for system prompt interpolation.
+     * @param  array<string, mixed>  $metadata  Additional metadata for pipeline middleware.
      */
-    protected array $messages = [];
+    public function __construct(
+        private AtlasManager $manager,
+        private array $messages = [],
+        private array $variables = [],
+        private array $metadata = [],
+    ) {}
 
     /**
-     * Add a system message.
+     * Create a new builder with the given variables.
      *
-     * @param  string  $content  The message content.
+     * Variables are used for system prompt interpolation (e.g., {user_name}).
+     *
+     * @param  array<string, mixed>  $variables  Variables to set.
      */
-    public function system(string $content): static
+    public function withVariables(array $variables): self
     {
-        $this->messages[] = [
-            'role' => 'system',
-            'content' => $content,
-        ];
-
-        return $this;
+        return new self(
+            $this->manager,
+            $this->messages,
+            $variables,
+            $this->metadata,
+        );
     }
 
     /**
-     * Add a user message.
+     * Create a new builder with the given metadata.
      *
-     * @param  string  $content  The message content.
+     * Metadata is passed to pipeline middleware for custom processing.
+     *
+     * @param  array<string, mixed>  $metadata  Metadata to set.
      */
-    public function user(string $content): static
+    public function withMetadata(array $metadata): self
     {
-        $this->messages[] = [
-            'role' => 'user',
-            'content' => $content,
-        ];
-
-        return $this;
+        return new self(
+            $this->manager,
+            $this->messages,
+            $this->variables,
+            $metadata,
+        );
     }
 
     /**
-     * Add an assistant message.
+     * Execute a chat with an agent using this context.
      *
-     * @param  string  $content  The message content.
+     * @param  string|AgentContract  $agent  The agent key, class, or instance.
+     * @param  string  $input  The user input message.
+     * @param  Schema|null  $schema  Optional schema for structured output.
      */
-    public function assistant(string $content): static
-    {
-        $this->messages[] = [
-            'role' => 'assistant',
-            'content' => $content,
-        ];
+    public function chat(
+        string|AgentContract $agent,
+        string $input,
+        ?Schema $schema = null,
+    ): AgentResponse {
+        $context = new ExecutionContext(
+            messages: $this->messages,
+            variables: $this->variables,
+            metadata: $this->metadata,
+        );
 
-        return $this;
+        return $this->manager->executeWithContext($agent, $input, $context, $schema);
     }
 
     /**
-     * Get all built messages.
+     * Get the conversation messages.
      *
      * @return array<int, array{role: string, content: string}>
      */
@@ -75,12 +98,22 @@ class MessageContextBuilder
     }
 
     /**
-     * Reset the builder.
+     * Get the variables.
+     *
+     * @return array<string, mixed>
      */
-    public function reset(): static
+    public function getVariables(): array
     {
-        $this->messages = [];
+        return $this->variables;
+    }
 
-        return $this;
+    /**
+     * Get the metadata.
+     *
+     * @return array<string, mixed>
+     */
+    public function getMetadata(): array
+    {
+        return $this->metadata;
     }
 }
