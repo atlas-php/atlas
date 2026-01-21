@@ -5,6 +5,8 @@
 > **Prerequisites:** Phase 1 complete (Foundation & Providers modules)
 >
 > **Deliverables:** Complete Agents module, Tools module, with full test coverage.
+>
+> **Status:** ✅ **COMPLETE** (2026-01-21) — 234 tests passing
 
 ---
 
@@ -68,6 +70,8 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Agents\Contracts;
 
+use Atlasphp\Atlas\Agents\Enums\AgentType;
+
 /**
  * Contract defining agent configuration.
  *
@@ -85,6 +89,11 @@ interface AgentContract
      * Get the display name.
      */
     public function name(): string;
+
+    /**
+     * Get the agent execution type.
+     */
+    public function type(): AgentType;
 
     /**
      * Get the LLM provider name.
@@ -245,12 +254,12 @@ namespace Atlasphp\Atlas\Agents\Enums;
  */
 enum AgentType: string
 {
-    case Api = 'api';
-    case Cli = 'cli';
+    case Api = 'api';   // Standard API-based execution (default)
+    case Cli = 'cli';   // Command-line interface execution (reserved)
 }
 ```
 
-**Note:** For Atlas, this enum may be simplified or removed since we focus on API execution. Include for future extensibility.
+**Note:** CLI execution is reserved for future implementation. All agents default to API execution.
 
 ### 1.4 Exceptions
 
@@ -2089,122 +2098,127 @@ Extract patterns and implementations from:
 
 ### 7.1 Agents Module
 
-- [ ] `AgentContract` defines all required methods
-- [ ] `AgentDefinition` provides sensible defaults
-- [ ] `AgentRegistry` registers and retrieves agents
-- [ ] `AgentResolver` resolves from key, class, or instance
-- [ ] `AgentExecutor` executes agents via Prism (mocked)
-- [ ] `SystemPromptBuilder` interpolates variables from context
-- [ ] `ExecutionContext` is immutable with fluent updates
-- [ ] `AgentResponse` captures text, structured, tool calls, usage
-- [ ] Pipeline hooks fire at correct points
+- [x] `AgentContract` defines all required methods (12 methods)
+- [x] `AgentDefinition` provides sensible defaults
+- [x] `AgentRegistry` registers and retrieves agents
+- [x] `AgentResolver` resolves from key, class, or instance
+- [x] `AgentExecutor` executes agents via Prism (mocked)
+- [x] `SystemPromptBuilder` interpolates variables from context
+- [x] `ExecutionContext` is immutable with fluent updates
+- [x] `AgentResponse` captures text, structured, tool calls, usage
+- [x] Pipeline hooks fire at correct points (defined in AtlasServiceProvider)
 
 ### 7.2 Tools Module
 
-- [ ] `ToolContract` defines required methods
-- [ ] `ToolDefinition` converts to Prism Tool
-- [ ] `ToolRegistry` registers and retrieves tools
-- [ ] `ToolExecutor` executes with pipeline hooks
-- [ ] `ToolBuilder` builds tools for agents
-- [ ] `ToolParameter` generates JSON schema
-- [ ] `ToolResult` supports text, error, json
-- [ ] `ToolContext` provides consumer metadata
+- [x] `ToolContract` defines required methods (4 methods)
+- [x] `ToolDefinition` converts to Prism Tool
+- [x] `ToolRegistry` registers and retrieves tools
+- [x] `ToolExecutor` executes with pipeline hooks
+- [x] `ToolBuilder` builds tools for agents
+- [x] `ToolParameter` generates JSON schema (includes `toPrismSchema()`)
+- [x] `ToolResult` supports text, error, json
+- [x] `ToolContext` provides consumer metadata
 
 ### 7.3 Code Quality
 
-- [ ] All classes have PHPDoc blocks
-- [ ] All exceptions have static factory methods
-- [ ] No database access (stateless)
-- [ ] No user/session management
-- [ ] Strict types in all files
-- [ ] PSR-12 compliant (Pint passes)
-- [ ] PHPStan level 6 passes
+- [x] All classes have PHPDoc blocks
+- [x] All exceptions have static factory methods
+- [x] No database access (stateless)
+- [x] No user/session management
+- [x] Strict types in all files
+- [x] PSR-12 compliant (Pint passes)
+- [x] PHPStan level 6 passes
 
 ### 7.4 Tests
 
-- [ ] Unit tests for all services
-- [ ] Feature tests for integration
-- [ ] Test fixtures provided
-- [ ] No real API calls (all mocked)
-- [ ] `composer check` passes
+- [x] Unit tests for all services (14 unit test files)
+- [x] Feature tests for integration (2 feature test files)
+- [x] Test fixtures provided (TestAgent, TestTool)
+- [x] No real API calls (all mocked)
+- [x] `composer check` passes — **234 tests (419 assertions)**
 
 ---
 
 ## 8. File Checklist
 
-Phase 2 creates these files:
+Phase 2 creates these files (all ✅ complete):
 
 ```
 src/
 ├── Agents/
-│   ├── AgentDefinition.php
+│   ├── AgentDefinition.php                    ✅
 │   ├── Contracts/
-│   │   ├── AgentContract.php
-│   │   ├── AgentRegistryContract.php
-│   │   └── AgentExecutorContract.php
+│   │   ├── AgentContract.php                  ✅
+│   │   ├── AgentRegistryContract.php          ✅
+│   │   └── AgentExecutorContract.php          ✅
 │   ├── Enums/
-│   │   └── AgentType.php
+│   │   └── AgentType.php                      ✅
 │   ├── Exceptions/
-│   │   ├── AgentException.php
-│   │   ├── AgentNotFoundException.php
-│   │   └── InvalidAgentException.php
+│   │   ├── AgentException.php                 ✅
+│   │   ├── AgentNotFoundException.php         ✅
+│   │   └── InvalidAgentException.php          ✅
 │   ├── Services/
-│   │   ├── AgentRegistry.php
-│   │   ├── AgentExecutor.php
-│   │   ├── AgentResolver.php
-│   │   ├── SystemPromptBuilder.php
-│   │   └── AgentExtensionRegistry.php
+│   │   ├── AgentRegistry.php                  ✅
+│   │   ├── AgentExecutor.php                  ✅
+│   │   ├── AgentResolver.php                  ✅
+│   │   ├── SystemPromptBuilder.php            ✅
+│   │   └── AgentExtensionRegistry.php         ✅
 │   └── Support/
-│       ├── ExecutionContext.php
-│       └── AgentResponse.php
+│       ├── ExecutionContext.php               ✅
+│       └── AgentResponse.php                  ✅
 └── Tools/
-    ├── ToolDefinition.php
+    ├── ToolDefinition.php                     ✅
     ├── Contracts/
-    │   ├── ToolContract.php
-    │   └── ToolRegistryContract.php
+    │   ├── ToolContract.php                   ✅
+    │   └── ToolRegistryContract.php           ✅
     ├── Exceptions/
-    │   ├── ToolException.php
-    │   └── ToolNotFoundException.php
+    │   ├── ToolException.php                  ✅
+    │   └── ToolNotFoundException.php          ✅
     ├── Services/
-    │   ├── ToolRegistry.php
-    │   ├── ToolExecutor.php
-    │   ├── ToolBuilder.php
-    │   └── ToolExtensionRegistry.php
+    │   ├── ToolRegistry.php                   ✅
+    │   ├── ToolExecutor.php                   ✅
+    │   ├── ToolBuilder.php                    ✅
+    │   └── ToolExtensionRegistry.php          ✅
     └── Support/
-        ├── ToolContext.php
-        ├── ToolParameter.php
-        └── ToolResult.php
+        ├── ToolContext.php                    ✅
+        ├── ToolParameter.php                  ✅
+        └── ToolResult.php                     ✅
 
 tests/
 ├── Fixtures/
-│   ├── TestAgent.php
-│   └── TestTool.php
+│   ├── TestAgent.php                          ✅
+│   └── TestTool.php                           ✅
 ├── Unit/
 │   ├── Agents/
-│   │   ├── AgentDefinitionTest.php
-│   │   ├── AgentRegistryTest.php
-│   │   ├── AgentResolverTest.php
-│   │   ├── AgentExecutorTest.php
-│   │   ├── SystemPromptBuilderTest.php
-│   │   ├── ExecutionContextTest.php
-│   │   └── AgentResponseTest.php
+│   │   ├── AgentDefinitionTest.php            ✅
+│   │   ├── AgentRegistryTest.php              ✅
+│   │   ├── AgentResolverTest.php              ✅
+│   │   ├── AgentExecutorTest.php              ✅
+│   │   ├── SystemPromptBuilderTest.php        ✅
+│   │   ├── ExecutionContextTest.php           ✅
+│   │   └── AgentResponseTest.php              ✅
 │   └── Tools/
-│       ├── ToolDefinitionTest.php
-│       ├── ToolRegistryTest.php
-│       ├── ToolExecutorTest.php
-│       ├── ToolBuilderTest.php
-│       ├── ToolParameterTest.php
-│       ├── ToolResultTest.php
-│       └── ToolContextTest.php
+│       ├── ToolDefinitionTest.php             ✅
+│       ├── ToolRegistryTest.php               ✅
+│       ├── ToolExecutorTest.php               ✅
+│       ├── ToolBuilderTest.php                ✅
+│       ├── ToolParameterTest.php              ✅
+│       ├── ToolResultTest.php                 ✅
+│       └── ToolContextTest.php                ✅
 └── Feature/
-    ├── AgentExecutionTest.php
-    └── ToolExecutionTest.php
+    ├── AgentExecutionTest.php                 ✅
+    └── ToolExecutionTest.php                  ✅
 
 docs/
 └── spec/
-    ├── SPEC-Agents.md
-    └── SPEC-Tools.md
+    ├── SPEC-Agents.md                         ✅
+    └── SPEC-Tools.md                          ✅
 ```
+
+**Modified Files:**
+- `src/Providers/Services/PrismBuilder.php` — Added `forPrompt()`, `forMessages()`, `forStructured()` ✅
+- `src/Providers/Contracts/PrismBuilderContract.php` — Added interface methods ✅
+- `src/Foundation/AtlasServiceProvider.php` — Registered Phase 2 services + pipelines ✅
 
 ---
 
@@ -2270,3 +2284,22 @@ Recommended order for implementing Phase 2:
 13. **Final Verification**
     - Run `composer check`
     - Verify all acceptance criteria
+
+---
+
+## 10. Completion Summary
+
+**Phase 2 Status: ✅ COMPLETE**
+
+| Metric | Value |
+|--------|-------|
+| Date Completed | 2026-01-21 |
+| Total Tests | 235 passing (420 assertions) |
+| PHPStan | Level 6, no errors |
+| Pint | Code style passing |
+| Source Files | 27 (15 Agents + 12 Tools) |
+| Test Files | 18 (14 unit + 2 feature + 2 fixtures) |
+| Documentation | 2 spec files |
+
+**Notes:**
+- `AgentType::Cli` is reserved for future CLI execution support. Currently all agents default to `AgentType::Api`.

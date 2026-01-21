@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Providers\Contracts;
 
+use Prism\Prism\Contracts\Schema;
 use Prism\Prism\ValueObjects\Media\Audio;
 
 /**
@@ -52,4 +53,55 @@ interface PrismBuilderContract
      * @param  array<string, mixed>  $options  Additional options.
      */
     public function forTranscription(string $provider, string $model, Audio $audio, array $options = []): mixed;
+
+    /**
+     * Build a text request for a single prompt.
+     *
+     * @param  string  $provider  The provider name.
+     * @param  string  $model  The model name.
+     * @param  string  $input  The user input.
+     * @param  string  $systemPrompt  The system prompt.
+     * @param  array<int, mixed>  $tools  Optional tools.
+     */
+    public function forPrompt(
+        string $provider,
+        string $model,
+        string $input,
+        string $systemPrompt,
+        array $tools = [],
+    ): mixed;
+
+    /**
+     * Build a text request for multi-turn conversation.
+     *
+     * @param  string  $provider  The provider name.
+     * @param  string  $model  The model name.
+     * @param  array<int, array{role: string, content: string}>  $messages  The conversation messages.
+     * @param  string  $systemPrompt  The system prompt.
+     * @param  array<int, mixed>  $tools  Optional tools.
+     */
+    public function forMessages(
+        string $provider,
+        string $model,
+        array $messages,
+        string $systemPrompt,
+        array $tools = [],
+    ): mixed;
+
+    /**
+     * Build a structured output request.
+     *
+     * @param  string  $provider  The provider name.
+     * @param  string  $model  The model name.
+     * @param  Schema  $schema  The output schema.
+     * @param  string  $input  The user input.
+     * @param  string  $systemPrompt  The system prompt.
+     */
+    public function forStructured(
+        string $provider,
+        string $model,
+        Schema $schema,
+        string $input,
+        string $systemPrompt,
+    ): mixed;
 }

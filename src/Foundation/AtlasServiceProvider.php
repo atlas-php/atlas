@@ -4,6 +4,13 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Foundation;
 
+use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
+use Atlasphp\Atlas\Agents\Contracts\AgentRegistryContract;
+use Atlasphp\Atlas\Agents\Services\AgentExecutor;
+use Atlasphp\Atlas\Agents\Services\AgentExtensionRegistry;
+use Atlasphp\Atlas\Agents\Services\AgentRegistry;
+use Atlasphp\Atlas\Agents\Services\AgentResolver;
+use Atlasphp\Atlas\Agents\Services\SystemPromptBuilder;
 use Atlasphp\Atlas\Foundation\Services\PipelineRegistry;
 use Atlasphp\Atlas\Foundation\Services\PipelineRunner;
 use Atlasphp\Atlas\Providers\Contracts\EmbeddingProviderContract;
@@ -16,6 +23,11 @@ use Atlasphp\Atlas\Providers\Services\PrismBuilder;
 use Atlasphp\Atlas\Providers\Services\ProviderConfigService;
 use Atlasphp\Atlas\Providers\Services\SpeechService;
 use Atlasphp\Atlas\Providers\Services\UsageExtractorRegistry;
+use Atlasphp\Atlas\Tools\Contracts\ToolRegistryContract;
+use Atlasphp\Atlas\Tools\Services\ToolBuilder;
+use Atlasphp\Atlas\Tools\Services\ToolExecutor;
+use Atlasphp\Atlas\Tools\Services\ToolExtensionRegistry;
+use Atlasphp\Atlas\Tools\Services\ToolRegistry;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Support\ServiceProvider;
@@ -36,6 +48,8 @@ class AtlasServiceProvider extends ServiceProvider
 
         $this->registerFoundationServices();
         $this->registerProviderServices();
+        $this->registerAgentServices();
+        $this->registerToolServices();
     }
 
     /**
@@ -175,5 +189,70 @@ class AtlasServiceProvider extends ServiceProvider
             'tool.after_execute',
             'Pipeline executed after tool completes',
         );
+    }
+
+    /**
+     * Register agent services.
+     */
+    protected function registerAgentServices(): void
+    {
+        $this->app->singleton(AgentRegistryContract::class, function (Container $app): AgentRegistry {
+            return new AgentRegistry($app);
+        });
+
+        $this->app->singleton(AgentResolver::class, function (Container $app): AgentResolver {
+            return new AgentResolver(
+                $app->make(AgentRegistryContract::class),
+                $app,
+            );
+        });
+
+        $this->app->singleton(SystemPromptBuilder::class, function (Container $app): SystemPromptBuilder {
+            return new SystemPromptBuilder(
+                $app->make(PipelineRunner::class),
+            );
+        });
+
+        $this->app->singleton(AgentExecutorContract::class, function (Container $app): AgentExecutor {
+            return new AgentExecutor(
+                $app->make(PrismBuilderContract::class),
+                $app->make(ToolBuilder::class),
+                $app->make(SystemPromptBuilder::class),
+                $app->make(PipelineRunner::class),
+                $app->make(UsageExtractorRegistry::class),
+            );
+        });
+
+        $this->app->singleton(AgentExtensionRegistry::class, function (): AgentExtensionRegistry {
+            return new AgentExtensionRegistry;
+        });
+    }
+
+    /**
+     * Register tool services.
+     */
+    protected function registerToolServices(): void
+    {
+        $this->app->singleton(ToolRegistryContract::class, function (Container $app): ToolRegistry {
+            return new ToolRegistry($app);
+        });
+
+        $this->app->singleton(ToolExecutor::class, function (Container $app): ToolExecutor {
+            return new ToolExecutor(
+                $app->make(PipelineRunner::class),
+            );
+        });
+
+        $this->app->singleton(ToolBuilder::class, function (Container $app): ToolBuilder {
+            return new ToolBuilder(
+                $app->make(ToolRegistryContract::class),
+                $app->make(ToolExecutor::class),
+                $app,
+            );
+        });
+
+        $this->app->singleton(ToolExtensionRegistry::class, function (): ToolExtensionRegistry {
+            return new ToolExtensionRegistry;
+        });
     }
 }

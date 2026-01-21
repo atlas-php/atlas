@@ -6,17 +6,23 @@ namespace Atlasphp\Atlas\Providers\Services;
 
 use Atlasphp\Atlas\Providers\Contracts\PrismBuilderContract;
 use Prism\Prism\Audio\PendingRequest as AudioPendingRequest;
+use Prism\Prism\Contracts\Schema;
 use Prism\Prism\Embeddings\PendingRequest as EmbeddingsPendingRequest;
 use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Images\PendingRequest as ImagePendingRequest;
+use Prism\Prism\Structured\PendingRequest as StructuredPendingRequest;
+use Prism\Prism\Text\PendingRequest as TextPendingRequest;
 use Prism\Prism\ValueObjects\Media\Audio;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\SystemMessage;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
 
 /**
  * Builder for creating Prism requests across all modalities.
  *
  * Internal service used by capability services to build API requests.
- * Provides methods for embeddings, images, and speech operations.
+ * Provides methods for embeddings, images, speech, and text operations.
  */
 class PrismBuilder implements PrismBuilderContract
 {
@@ -103,6 +109,107 @@ class PrismBuilder implements PrismBuilderContract
         return Prism::audio()
             ->using($this->mapProvider($provider), $model)
             ->withInput($audio);
+    }
+
+    /**
+     * Build a text request for a single prompt.
+     *
+     * @param  string  $provider  The provider name.
+     * @param  string  $model  The model name.
+     * @param  string  $input  The user input.
+     * @param  string  $systemPrompt  The system prompt.
+     * @param  array<int, mixed>  $tools  Optional tools.
+     */
+    public function forPrompt(
+        string $provider,
+        string $model,
+        string $input,
+        string $systemPrompt,
+        array $tools = [],
+    ): TextPendingRequest {
+        $request = Prism::text()
+            ->using($this->mapProvider($provider), $model)
+            ->withSystemPrompt($systemPrompt)
+            ->withPrompt($input);
+
+        if ($tools !== []) {
+            $request = $request->withTools($tools);
+        }
+
+        return $request;
+    }
+
+    /**
+     * Build a text request for multi-turn conversation.
+     *
+     * @param  string  $provider  The provider name.
+     * @param  string  $model  The model name.
+     * @param  array<int, array{role: string, content: string}>  $messages  The conversation messages.
+     * @param  string  $systemPrompt  The system prompt.
+     * @param  array<int, mixed>  $tools  Optional tools.
+     */
+    public function forMessages(
+        string $provider,
+        string $model,
+        array $messages,
+        string $systemPrompt,
+        array $tools = [],
+    ): TextPendingRequest {
+        $request = Prism::text()
+            ->using($this->mapProvider($provider), $model)
+            ->withSystemPrompt($systemPrompt)
+            ->withMessages($this->convertMessages($messages));
+
+        if ($tools !== []) {
+            $request = $request->withTools($tools);
+        }
+
+        return $request;
+    }
+
+    /**
+     * Build a structured output request.
+     *
+     * @param  string  $provider  The provider name.
+     * @param  string  $model  The model name.
+     * @param  Schema  $schema  The output schema.
+     * @param  string  $input  The user input.
+     * @param  string  $systemPrompt  The system prompt.
+     */
+    public function forStructured(
+        string $provider,
+        string $model,
+        Schema $schema,
+        string $input,
+        string $systemPrompt,
+    ): StructuredPendingRequest {
+        return Prism::structured()
+            ->using($this->mapProvider($provider), $model)
+            ->withSystemPrompt($systemPrompt)
+            ->withPrompt($input)
+            ->withSchema($schema);
+    }
+
+    /**
+     * Convert message arrays to Prism message objects.
+     *
+     * @param  array<int, array{role: string, content: string}>  $messages
+     * @return array<int, UserMessage|AssistantMessage|SystemMessage>
+     */
+    protected function convertMessages(array $messages): array
+    {
+        $converted = [];
+
+        foreach ($messages as $message) {
+            $converted[] = match ($message['role']) {
+                'user' => new UserMessage($message['content']),
+                'assistant' => new AssistantMessage($message['content']),
+                'system' => new SystemMessage($message['content']),
+                default => new UserMessage($message['content']),
+            };
+        }
+
+        return $converted;
     }
 
     /**
