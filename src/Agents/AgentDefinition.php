@@ -76,9 +76,13 @@ abstract class AgentDefinition implements AgentContract
     }
 
     /**
-     * Get provider-specific tools.
+     * Get provider-specific tools (e.g., 'web_search', 'code_execution').
      *
-     * @return array<int, string>
+     * Return simple tool names or arrays with options:
+     *   ['web_search']
+     *   [['type' => 'web_search', 'max_results' => 5]]
+     *
+     * @return array<int, string|array{type: string, ...}>
      */
     public function providerTools(): array
     {

@@ -61,7 +61,16 @@ interface AgentContract
     /**
      * Get provider-specific tools (e.g., 'web_search', 'code_execution').
      *
-     * @return array<int, string>
+     * Can be a simple list of tool names:
+     *   ['web_search', 'code_execution']
+     *
+     * Or with options:
+     *   [
+     *       'web_search',
+     *       ['type' => 'code_execution', 'container' => 'python'],
+     *   ]
+     *
+     * @return array<int, string|array{type: string, ...}>
      */
     public function providerTools(): array;
 

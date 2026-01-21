@@ -32,10 +32,19 @@ class DefaultUsageExtractor implements UsageExtractorContract
         if (is_object($response) && property_exists($response, 'usage')) {
             $usage = $response->usage;
 
+            $promptTokens = $usage->promptTokens ?? $usage->prompt_tokens ?? 0;
+            $completionTokens = $usage->completionTokens ?? $usage->completion_tokens ?? 0;
+            $totalTokens = $usage->totalTokens ?? $usage->total_tokens ?? null;
+
+            // Calculate total if not provided
+            if ($totalTokens === null) {
+                $totalTokens = $promptTokens + $completionTokens;
+            }
+
             return [
-                'prompt_tokens' => $usage->promptTokens ?? $usage->prompt_tokens ?? 0,
-                'completion_tokens' => $usage->completionTokens ?? $usage->completion_tokens ?? 0,
-                'total_tokens' => $usage->totalTokens ?? $usage->total_tokens ?? 0,
+                'prompt_tokens' => $promptTokens,
+                'completion_tokens' => $completionTokens,
+                'total_tokens' => $totalTokens,
             ];
         }
 

@@ -15,6 +15,7 @@ use Atlasphp\Atlas\Providers\Services\UsageExtractorRegistry;
 use Atlasphp\Atlas\Tools\Services\ToolBuilder;
 use Atlasphp\Atlas\Tools\Support\ToolContext;
 use Prism\Prism\Contracts\Schema;
+use Prism\Prism\ValueObjects\ProviderTool;
 use Throwable;
 
 /**
@@ -240,11 +241,57 @@ class AgentExecutor implements AgentExecutorContract
         }
 
         // Apply provider tools if any
-        foreach ($agent->providerTools() as $providerTool) {
-            $request = $request->withProviderTool($providerTool);
+        $providerTools = $this->buildProviderTools($agent->providerTools());
+        if ($providerTools !== []) {
+            $request = $request->withProviderTools($providerTools);
         }
 
         return $request;
+    }
+
+    /**
+     * Convert agent provider tool definitions to Prism ProviderTool objects.
+     *
+     * Accepts simple strings or arrays with options:
+     *   - 'web_search' => ProviderTool(type: 'web_search')
+     *   - ['type' => 'web_search', 'max_results' => 5] => ProviderTool with options
+     *   - ProviderTool instance => passed through
+     *
+     * @param  array<int, string|array<string, mixed>|ProviderTool>  $tools
+     * @return array<int, ProviderTool>
+     */
+    protected function buildProviderTools(array $tools): array
+    {
+        $providerTools = array_map(function ($tool) {
+            // Already a ProviderTool instance
+            if ($tool instanceof ProviderTool) {
+                return $tool;
+            }
+
+            // Simple string type
+            if (is_string($tool)) {
+                return new ProviderTool(type: $tool);
+            }
+
+            // Array with type and options
+            if (isset($tool['type'])) {
+                $type = $tool['type'];
+                $name = $tool['name'] ?? null;
+                unset($tool['type'], $tool['name']);
+
+                return new ProviderTool(
+                    type: $type,
+                    name: $name,
+                    options: $tool,
+                );
+            }
+
+            // Unknown format, skip
+            return null;
+        }, $tools);
+
+        // Filter out nulls
+        return array_values(array_filter($providerTools));
     }
 
     /**

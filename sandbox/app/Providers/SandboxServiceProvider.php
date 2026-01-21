@@ -10,7 +10,12 @@ use App\Console\Commands\ImageCommand;
 use App\Console\Commands\SpeechCommand;
 use App\Console\Commands\StructuredCommand;
 use App\Console\Commands\ToolsCommand;
+use App\Services\Agents\AnthropicAssistantAgent;
+use App\Services\Agents\AnthropicToolDemoAgent;
+use App\Services\Agents\GeminiAssistantAgent;
+use App\Services\Agents\GeminiToolDemoAgent;
 use App\Services\Agents\GeneralAssistantAgent;
+use App\Services\Agents\OpenAIWebSearchAgent;
 use App\Services\Agents\StructuredOutputAgent;
 use App\Services\Agents\ToolDemoAgent;
 use App\Services\ThreadStorageService;
@@ -79,6 +84,11 @@ class SandboxServiceProvider extends ServiceProvider
         $registry->register(GeneralAssistantAgent::class);
         $registry->register(ToolDemoAgent::class);
         $registry->register(StructuredOutputAgent::class);
+        $registry->register(AnthropicAssistantAgent::class);
+        $registry->register(AnthropicToolDemoAgent::class);
+        $registry->register(GeminiAssistantAgent::class);
+        $registry->register(GeminiToolDemoAgent::class);
+        $registry->register(OpenAIWebSearchAgent::class);
     }
 
     /**
