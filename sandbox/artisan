@@ -1,0 +1,30 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Atlas Sandbox Artisan Console
+ *
+ * Provides console commands for testing Atlas functionality
+ * against real AI providers in an isolated environment.
+ */
+
+define('LARAVEL_START', microtime(true));
+
+// Bootstrap the application
+$app = require __DIR__.'/bootstrap.php';
+
+// Get the kernel
+$kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+
+// Run the console application
+$status = $kernel->handle(
+    $input = new Symfony\Component\Console\Input\ArgvInput,
+    new Symfony\Component\Console\Output\ConsoleOutput
+);
+
+// Terminate the application
+$kernel->terminate($input, $status);
+
+exit($status);

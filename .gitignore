@@ -47,7 +47,9 @@ Temporary Items
 components.d.ts
 auto-imports.d.ts
 
-# Sandbox storage (ignore generated files, keep .gitkeep)
+# Sandbox
+sandbox/vendor/
+sandbox/composer.lock
 sandbox/storage/threads/*.json
 sandbox/storage/outputs/*
 !sandbox/storage/threads/.gitkeep
