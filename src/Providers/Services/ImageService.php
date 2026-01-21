@@ -96,9 +96,9 @@ class ImageService
         $image = $response->images[0] ?? null;
 
         return [
-            'url' => $image?->url ?? null,
-            'base64' => $image?->base64 ?? null,
-            'revised_prompt' => $image?->revisedPrompt ?? null,
+            'url' => $image?->url,
+            'base64' => $image?->base64,
+            'revised_prompt' => $image?->revisedPrompt,
         ];
     }
 }
