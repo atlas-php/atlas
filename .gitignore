@@ -47,8 +47,11 @@ Temporary Items
 components.d.ts
 auto-imports.d.ts
 
-# Allow the sandbox .env file to ship with defaults for local usage.
-!sandbox/.env
+# Sandbox storage (ignore generated files, keep .gitkeep)
+sandbox/storage/threads/*.json
+sandbox/storage/outputs/*
+!sandbox/storage/threads/.gitkeep
+!sandbox/storage/outputs/.gitkeep
 /sandbox/storage/app/generated/*
 /sandbox/storage/app/generated
 /sandbox/storage/app/nexus/*
