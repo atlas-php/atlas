@@ -50,10 +50,14 @@ auto-imports.d.ts
 # Sandbox
 sandbox/vendor/
 sandbox/composer.lock
+sandbox/bootstrap/cache/*
+!sandbox/bootstrap/cache/.gitkeep
 sandbox/storage/threads/*.json
 sandbox/storage/outputs/*
+sandbox/storage/logs/*
 !sandbox/storage/threads/.gitkeep
 !sandbox/storage/outputs/.gitkeep
+!sandbox/storage/logs/.gitkeep
 /sandbox/storage/app/generated/*
 /sandbox/storage/app/generated
 /sandbox/storage/app/nexus/*
