@@ -1,10 +1,14 @@
 # Phase 1: Foundation & Providers
 
+> **Status:** ✅ COMPLETE (2026-01-21)
+>
 > **Purpose:** Establish project infrastructure and implement the Foundation and Providers modules.
 >
 > **Prerequisites:** None (this is the first phase)
 >
 > **Deliverables:** Complete Foundation module, Providers module, project tooling, and configuration.
+>
+> **Results:** 86 tests passing, 161 assertions, PHPStan level 6, Pint formatting
 
 ---
 
@@ -1101,46 +1105,61 @@ Extract patterns and implementations from:
 
 ## 8. Acceptance Criteria
 
+> **Status: COMPLETE** - All criteria verified on 2026-01-21
+
 ### 8.1 Infrastructure
 
-- [ ] `composer install` completes without errors
-- [ ] `composer check` passes (lint, analyse, test)
-- [ ] Package auto-discovery works
-- [ ] Config publishes to `config/atlas.php`
+- [x] `composer install` completes without errors
+- [x] `composer check` passes (lint, analyse, test) - 86 tests, 161 assertions
+- [x] Package auto-discovery works (AtlasServiceProvider registered)
+- [x] Config publishes to `config/atlas.php`
 
 ### 8.2 Foundation Module
 
-- [ ] `PipelineRegistry` registers handlers with priority
-- [ ] `PipelineRunner` executes handlers in correct order
-- [ ] `AbstractExtensionRegistry` provides base extension management
-- [ ] Core pipelines defined at boot
-- [ ] All contracts have implementations
+- [x] `PipelineRegistry` registers handlers with priority
+- [x] `PipelineRunner` executes handlers in correct order
+- [x] `AbstractExtensionRegistry` provides base extension management
+- [x] Core pipelines defined at boot (6 pipelines: agent.before_execute, agent.after_execute, agent.system_prompt.before_build, agent.system_prompt.after_build, tool.before_execute, tool.after_execute)
+- [x] All contracts have implementations
 
 ### 8.3 Providers Module
 
-- [ ] `PrismBuilder` creates Prism requests for all modalities
-- [ ] `EmbeddingService` generates embeddings (via mock)
-- [ ] `ImageService` fluent API works correctly
-- [ ] `SpeechService` fluent API works correctly
-- [ ] `UsageExtractorRegistry` extracts usage data
-- [ ] Atlas facade accessible
+- [x] `PrismBuilder` creates Prism requests for all modalities (embeddings, image, speech, transcription)
+- [x] `EmbeddingService` generates embeddings (via mock)
+- [x] `ImageService` fluent API works correctly (using/model/size/quality/generate)
+- [x] `SpeechService` fluent API works correctly (using/model/transcriptionModel/voice/format/speak/transcribe)
+- [x] `UsageExtractorRegistry` extracts usage data
+- [x] Atlas facade accessible
 
 ### 8.4 Code Quality
 
-- [ ] All classes have PHPDoc blocks
-- [ ] All exceptions have static factory methods
-- [ ] No direct database access
-- [ ] No user/session/state management
-- [ ] Strict types declared in all files
-- [ ] PSR-12 compliant (Pint passes)
-- [ ] PHPStan level 6 passes
+- [x] All classes have PHPDoc blocks
+- [x] All exceptions have static factory methods (AtlasException, ProviderException)
+- [x] No direct database access
+- [x] No user/session/state management
+- [x] Strict types declared in all files
+- [x] PSR-12 compliant (Pint passes)
+- [x] PHPStan level 6 passes
 
 ### 8.5 Tests
 
-- [ ] Unit tests for all services
-- [ ] Feature tests for integration
-- [ ] No real API calls (all mocked)
-- [ ] 100% of acceptance criteria verified by tests
+- [x] Unit tests for all services (9 test files covering all Foundation and Provider services)
+- [x] Feature tests for integration (ServiceProviderTest, EmbeddingIntegrationTest)
+- [x] No real API calls (all mocked via Mockery and Prism facade mocking)
+- [x] 100% of acceptance criteria verified by tests
+
+### 8.6 Additional Implementations (Beyond Original Plan)
+
+- [x] `PrismBuilderContract` interface added for improved testability
+
+### 8.7 Implementation Notes
+
+**Deviations from original plan:**
+
+1. **phpstan.neon** - Removed `checkMissingIterableValueType: false` option as it's invalid in current PHPStan versions
+2. **PrismBuilderContract** - Added new contract interface to allow mocking PrismBuilder in unit tests (PHP's strict return type enforcement required this)
+3. **Config structure** - Added `providers` section and `chat` config; removed `default_provider` in favor of per-modality provider/model settings
+4. **TestCase** - Includes PrismServiceProvider in loaded providers for facade mocking support
 
 ---
 
@@ -1171,6 +1190,7 @@ atlas/
 │   └── Providers/
 │       ├── Contracts/
 │       │   ├── EmbeddingProviderContract.php
+│       │   ├── PrismBuilderContract.php          # Added for testability
 │       │   └── UsageExtractorContract.php
 │       ├── Embedding/
 │       │   └── PrismEmbeddingProvider.php
