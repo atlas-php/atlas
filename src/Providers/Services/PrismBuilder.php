@@ -205,7 +205,9 @@ class PrismBuilder implements PrismBuilderContract
                 'user' => new UserMessage($message['content']),
                 'assistant' => new AssistantMessage($message['content']),
                 'system' => new SystemMessage($message['content']),
-                default => new UserMessage($message['content']),
+                default => throw new \InvalidArgumentException(
+                    sprintf('Unknown message role: %s. Valid roles are: user, assistant, system.', $message['role'])
+                ),
             };
         }
 

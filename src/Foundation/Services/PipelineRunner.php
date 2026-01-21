@@ -75,6 +75,16 @@ class PipelineRunner
                 ? $this->container->make($handler)
                 : $handler;
 
+            if (! $instance instanceof PipelineContract) {
+                throw new \InvalidArgumentException(
+                    sprintf(
+                        'Pipeline handler must implement %s, got %s.',
+                        PipelineContract::class,
+                        is_object($instance) ? get_class($instance) : gettype($instance)
+                    )
+                );
+            }
+
             return $instance->handle($passable, $next);
         };
     }

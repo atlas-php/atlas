@@ -7,6 +7,7 @@ namespace Atlasphp\Atlas\Tools\Services;
 use Atlasphp\Atlas\Agents\Contracts\AgentContract;
 use Atlasphp\Atlas\Tools\Contracts\ToolContract;
 use Atlasphp\Atlas\Tools\Contracts\ToolRegistryContract;
+use Atlasphp\Atlas\Tools\Support\PrismParameterConverter;
 use Atlasphp\Atlas\Tools\Support\ToolContext;
 use Atlasphp\Atlas\Tools\ToolDefinition;
 use Illuminate\Contracts\Container\Container;
@@ -134,41 +135,7 @@ class ToolBuilder
         $prismTool->for($tool->description());
 
         foreach ($tool->parameters() as $param) {
-            $method = match ($param->type) {
-                'string' => 'withStringParameter',
-                'integer', 'number' => 'withNumberParameter',
-                'boolean' => 'withBooleanParameter',
-                'array' => 'withArrayParameter',
-                'object' => 'withObjectParameter',
-                default => 'withStringParameter',
-            };
-
-            if ($param->enum !== null) {
-                $prismTool->withEnumParameter(
-                    $param->name,
-                    $param->description,
-                    $param->enum,
-                    $param->required,
-                );
-
-                continue;
-            }
-
-            if ($method === 'withArrayParameter') {
-                $schema = $param->toPrismSchema();
-                $prismTool->withParameter($schema, $param->required);
-
-                continue;
-            }
-
-            if ($method === 'withObjectParameter') {
-                $schema = $param->toPrismSchema();
-                $prismTool->withParameter($schema, $param->required);
-
-                continue;
-            }
-
-            $prismTool->{$method}($param->name, $param->description, $param->required);
+            PrismParameterConverter::addParameter($prismTool, $param);
         }
 
         $prismTool->using($handler);

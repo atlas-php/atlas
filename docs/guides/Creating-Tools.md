@@ -40,8 +40,7 @@ class LookupOrderTool extends ToolDefinition
     public function parameters(): array
     {
         return [
-            ToolParameter::string('order_id', 'The order ID to look up')
-                ->required(),
+            ToolParameter::string('order_id', 'The order ID to look up', required: true),
         ];
     }
 
@@ -99,37 +98,31 @@ public function tools(): array
 ### String Parameter
 
 ```php
-ToolParameter::string('name', 'Description')
-    ->required()
-    ->default('value');
+ToolParameter::string('name', 'Description', required: true, default: 'value');
 ```
 
 ### Integer Parameter
 
 ```php
-ToolParameter::integer('count', 'Number of items')
-    ->required();
+ToolParameter::integer('count', 'Number of items', required: true);
 ```
 
 ### Number Parameter (Float)
 
 ```php
-ToolParameter::number('price', 'Item price')
-    ->required();
+ToolParameter::number('price', 'Item price', required: true);
 ```
 
 ### Boolean Parameter
 
 ```php
-ToolParameter::boolean('include_details', 'Include full details')
-    ->default(false);
+ToolParameter::boolean('include_details', 'Include full details', required: false, default: false);
 ```
 
 ### Enum Parameter
 
 ```php
-ToolParameter::enum('status', ['pending', 'shipped', 'delivered'], 'Order status')
-    ->required();
+ToolParameter::enum('status', 'Order status', ['pending', 'shipped', 'delivered'], required: true);
 ```
 
 ### Array Parameter
@@ -142,10 +135,10 @@ ToolParameter::array('tags', 'List of tags', 'string');
 
 ```php
 ToolParameter::object('address', 'Shipping address', [
-    ToolParameter::string('street', 'Street address')->required(),
-    ToolParameter::string('city', 'City')->required(),
-    ToolParameter::string('zip', 'ZIP code')->required(),
-]);
+    ToolParameter::string('street', 'Street address', required: true),
+    ToolParameter::string('city', 'City', required: true),
+    ToolParameter::string('zip', 'ZIP code', required: true),
+], required: true);
 ```
 
 ## Tool Results
@@ -205,7 +198,7 @@ If the agent doesn't use your tool:
 ### Parameter Validation
 
 If you receive unexpected parameter values:
-1. Mark required parameters with `->required()`
+1. Mark required parameters with `required: true`
 2. Use appropriate parameter types
 3. Provide meaningful descriptions
 

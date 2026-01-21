@@ -14,6 +14,18 @@ use Atlasphp\Atlas\Foundation\Services\PipelineRunner;
  * Interpolates {variable} placeholders in system prompts using
  * values from the execution context. Supports both snake_case
  * and camelCase variable names.
+ *
+ * **Important: Singleton State Behavior**
+ *
+ * This service is registered as a singleton and maintains mutable state
+ * (global variables and sections). In long-running processes like Laravel
+ * Octane or queue workers, registered variables and sections will persist
+ * across requests unless explicitly cleared.
+ *
+ * For request-scoped variables, prefer passing them via ExecutionContext::$variables
+ * rather than using registerVariable(). If you use registerVariable() in
+ * long-running processes, ensure you call unregisterVariable() or create
+ * a fresh instance when needed.
  */
 class SystemPromptBuilder
 {

@@ -24,7 +24,7 @@ class ProviderConfigService
      *
      * @return array<string, mixed>
      *
-     * @throws ProviderException If provider configuration is missing.
+     * @throws ProviderException If provider configuration is missing or invalid.
      */
     public function getProviderConfig(string $provider): array
     {
@@ -32,6 +32,14 @@ class ProviderConfigService
 
         if ($config === null) {
             throw ProviderException::missingConfiguration('provider', $provider);
+        }
+
+        if (! is_array($config)) {
+            throw ProviderException::invalidConfigurationValue(
+                'provider',
+                $provider,
+                'Configuration must be an array'
+            );
         }
 
         return $config;

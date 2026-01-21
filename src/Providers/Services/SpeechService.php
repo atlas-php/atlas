@@ -111,7 +111,11 @@ class SpeechService
         if (isset($response->audio)) {
             $audio = $response->audio;
             if (property_exists($audio, 'base64') && $audio->base64) {
-                $audioContent = base64_decode($audio->base64);
+                $decoded = base64_decode($audio->base64, true);
+                if ($decoded === false) {
+                    throw new \RuntimeException('Failed to decode audio base64 content: invalid base64 data');
+                }
+                $audioContent = $decoded;
             } elseif (method_exists($audio, 'content')) {
                 $audioContent = $audio->content();
             }

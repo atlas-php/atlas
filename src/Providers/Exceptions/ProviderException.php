@@ -35,6 +35,18 @@ class ProviderException extends AtlasException
     }
 
     /**
+     * Create an exception for invalid provider configuration value.
+     *
+     * @param  string  $key  The invalid configuration key.
+     * @param  string  $provider  The provider name.
+     * @param  string  $reason  The reason the configuration is invalid.
+     */
+    public static function invalidConfigurationValue(string $key, string $provider, string $reason): self
+    {
+        return new self("Invalid configuration '{$key}' for provider '{$provider}': {$reason}.");
+    }
+
+    /**
      * Create an exception for API errors.
      *
      * @param  string  $provider  The provider name.

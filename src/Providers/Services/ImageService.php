@@ -92,8 +92,9 @@ class ImageService
         $request = $this->prismBuilder->forImage($provider, $model, $prompt, $requestOptions);
         $response = $request->generate();
 
-        // Prism returns images in an array
-        $image = $response->images[0] ?? null;
+        // Prism returns images in an array - safely access the property
+        $images = $response->images ?? [];
+        $image = $images[0] ?? null;
 
         return [
             'url' => $image?->url,

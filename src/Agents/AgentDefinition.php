@@ -16,19 +16,35 @@ use Atlasphp\Atlas\Agents\Enums\AgentType;
 abstract class AgentDefinition implements AgentContract
 {
     /**
+     * Cached key value derived from class name.
+     */
+    private ?string $cachedKey = null;
+
+    /**
+     * Cached name value derived from class name.
+     */
+    private ?string $cachedName = null;
+
+    /**
      * Get the unique key identifying this agent.
      *
      * Defaults to the class name in kebab-case.
      */
     public function key(): string
     {
+        if ($this->cachedKey !== null) {
+            return $this->cachedKey;
+        }
+
         $class = (new \ReflectionClass($this))->getShortName();
 
         // Remove common suffixes
         $class = preg_replace('/Agent$/', '', $class) ?? $class;
 
         // Convert to kebab-case
-        return strtolower(preg_replace('/(?<!^)[A-Z]/', '-$0', $class) ?? $class);
+        $this->cachedKey = strtolower(preg_replace('/(?<!^)[A-Z]/', '-$0', $class) ?? $class);
+
+        return $this->cachedKey;
     }
 
     /**
@@ -38,13 +54,19 @@ abstract class AgentDefinition implements AgentContract
      */
     public function name(): string
     {
+        if ($this->cachedName !== null) {
+            return $this->cachedName;
+        }
+
         $class = (new \ReflectionClass($this))->getShortName();
 
         // Remove common suffixes
         $class = preg_replace('/Agent$/', '', $class) ?? $class;
 
         // Convert to words
-        return trim(preg_replace('/(?<!^)[A-Z]/', ' $0', $class) ?? $class);
+        $this->cachedName = trim(preg_replace('/(?<!^)[A-Z]/', ' $0', $class) ?? $class);
+
+        return $this->cachedName;
     }
 
     /**

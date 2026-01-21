@@ -127,13 +127,29 @@ class PipelineRegistry
     /**
      * Set a pipeline's active state.
      *
+     * This method only updates the active state for pipelines that have
+     * been explicitly defined or have registered handlers. It will not
+     * create implicit definitions for unknown pipelines.
+     *
      * @param  string  $name  The pipeline name.
      * @param  bool  $active  The active state.
+     *
+     * @throws \InvalidArgumentException If the pipeline has not been defined and has no handlers.
      */
     public function setActive(string $name, bool $active): static
     {
+        if (! isset($this->definitions[$name]) && ! isset($this->handlers[$name])) {
+            throw new \InvalidArgumentException(
+                sprintf('Cannot set active state for undefined pipeline: %s. Define the pipeline first using define().', $name)
+            );
+        }
+
         if (! isset($this->definitions[$name])) {
-            $this->define($name, '', $active);
+            // Pipeline has handlers but no definition - create minimal definition
+            $this->definitions[$name] = [
+                'description' => '',
+                'active' => $active,
+            ];
         } else {
             $this->definitions[$name]['active'] = $active;
         }

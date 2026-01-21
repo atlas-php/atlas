@@ -262,36 +262,49 @@ class AgentExecutor implements AgentExecutorContract
      */
     protected function buildProviderTools(array $tools): array
     {
-        $providerTools = array_map(function ($tool) {
+        $providerTools = [];
+
+        foreach ($tools as $index => $tool) {
             // Already a ProviderTool instance
             if ($tool instanceof ProviderTool) {
-                return $tool;
+                $providerTools[] = $tool;
+
+                continue;
             }
 
             // Simple string type
             if (is_string($tool)) {
-                return new ProviderTool(type: $tool);
+                $providerTools[] = new ProviderTool(type: $tool);
+
+                continue;
             }
 
+            // At this point $tool must be an array (after ProviderTool and string checks)
             // Array with type and options
             if (isset($tool['type'])) {
                 $type = $tool['type'];
                 $name = $tool['name'] ?? null;
                 unset($tool['type'], $tool['name']);
 
-                return new ProviderTool(
+                $providerTools[] = new ProviderTool(
                     type: $type,
                     name: $name,
                     options: $tool,
                 );
+
+                continue;
             }
 
-            // Unknown format, skip
-            return null;
-        }, $tools);
+            // Array without 'type' key - invalid format
+            throw new \InvalidArgumentException(
+                sprintf(
+                    'Invalid provider tool format at index %d. Array must have a "type" key.',
+                    $index
+                )
+            );
+        }
 
-        // Filter out nulls
-        return array_values(array_filter($providerTools));
+        return $providerTools;
     }
 
     /**

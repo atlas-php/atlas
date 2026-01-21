@@ -48,7 +48,11 @@ final readonly class ToolResult
      */
     public static function json(array $data): self
     {
-        $encoded = json_encode($data, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
+        try {
+            $encoded = json_encode($data, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
+        } catch (\JsonException $e) {
+            return self::error('Failed to encode tool result as JSON: '.$e->getMessage());
+        }
 
         return new self($encoded, false);
     }

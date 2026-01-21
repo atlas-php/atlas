@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Tools;
 
 use Atlasphp\Atlas\Tools\Contracts\ToolContract;
+use Atlasphp\Atlas\Tools\Support\PrismParameterConverter;
 use Atlasphp\Atlas\Tools\Support\ToolParameter;
 use Prism\Prism\Tool as PrismTool;
 
@@ -38,55 +39,12 @@ abstract class ToolDefinition implements ToolContract
         $tool->for($this->description());
 
         foreach ($this->parameters() as $param) {
-            $this->addParameterToTool($tool, $param);
+            PrismParameterConverter::addParameter($tool, $param);
         }
 
         $tool->using($handler);
 
         return $tool;
-    }
-
-    /**
-     * Add a parameter to the Prism tool.
-     */
-    protected function addParameterToTool(PrismTool $tool, ToolParameter $param): void
-    {
-        $method = match ($param->type) {
-            'string' => 'withStringParameter',
-            'integer' => 'withNumberParameter',
-            'number' => 'withNumberParameter',
-            'boolean' => 'withBooleanParameter',
-            'array' => 'withArrayParameter',
-            'object' => 'withObjectParameter',
-            default => 'withStringParameter',
-        };
-
-        if ($param->enum !== null) {
-            $tool->withEnumParameter(
-                $param->name,
-                $param->description,
-                $param->enum,
-                $param->required,
-            );
-
-            return;
-        }
-
-        if ($method === 'withArrayParameter') {
-            $schema = $param->toPrismSchema();
-            $tool->withParameter($schema, $param->required);
-
-            return;
-        }
-
-        if ($method === 'withObjectParameter') {
-            $schema = $param->toPrismSchema();
-            $tool->withParameter($schema, $param->required);
-
-            return;
-        }
-
-        $tool->{$method}($param->name, $param->description, $param->required);
     }
 
     /**

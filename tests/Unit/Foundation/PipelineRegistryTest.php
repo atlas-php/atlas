@@ -80,11 +80,20 @@ test('it can set active state', function () {
     expect($this->registry->active('test.pipeline'))->toBeFalse();
 });
 
-test('it can set active state for undefined pipeline', function () {
-    $this->registry->setActive('new.pipeline', false);
+test('it throws when setting active state for undefined pipeline', function () {
+    expect(fn () => $this->registry->setActive('new.pipeline', false))
+        ->toThrow(\InvalidArgumentException::class, 'Cannot set active state for undefined pipeline');
+});
 
-    expect($this->registry->active('new.pipeline'))->toBeFalse();
-    expect($this->registry->definitions())->toHaveKey('new.pipeline');
+test('it can set active state for pipeline with handlers but no definition', function () {
+    // Register a handler without defining the pipeline
+    $this->registry->register('handler.only.pipeline', TestPipelineHandler::class);
+
+    // Should work because the pipeline has handlers
+    $this->registry->setActive('handler.only.pipeline', false);
+
+    expect($this->registry->active('handler.only.pipeline'))->toBeFalse();
+    expect($this->registry->definitions())->toHaveKey('handler.only.pipeline');
 });
 
 test('it returns all pipeline names', function () {

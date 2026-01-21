@@ -55,4 +55,29 @@ interface ToolRegistryContract
      * @return array<string, ToolContract>
      */
     public function only(array $names): array;
+
+    /**
+     * Get all registered tool names.
+     *
+     * @return array<int, string>
+     */
+    public function names(): array;
+
+    /**
+     * Unregister a tool by its name.
+     *
+     * @param  string  $name  The tool name.
+     * @return bool True if the tool was unregistered, false if not found.
+     */
+    public function unregister(string $name): bool;
+
+    /**
+     * Get the count of registered tools.
+     */
+    public function count(): int;
+
+    /**
+     * Clear all registered tools.
+     */
+    public function clear(): void;
 }
