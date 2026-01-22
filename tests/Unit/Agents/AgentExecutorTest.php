@@ -1579,6 +1579,109 @@ test('stream extracts usage from stream end event', function () {
     expect($endEvent->totalTokens())->toBe(75);
 });
 
+test('stream returns empty usage when stream end event has null usage', function () {
+    $prismStreamEndEvent = new \Prism\Prism\Streaming\Events\StreamEndEvent(
+        id: 'evt_end',
+        timestamp: 1234567890,
+        finishReason: \Prism\Prism\Enums\FinishReason::Stop,
+        usage: null,
+    );
+
+    $mockStreamGenerator = function () use ($prismStreamEndEvent) {
+        yield $prismStreamEndEvent;
+    };
+
+    $mockPendingRequest = Mockery::mock();
+    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('asStream')->andReturn($mockStreamGenerator());
+
+    $this->prismBuilder
+        ->shouldReceive('forPrompt')
+        ->once()
+        ->andReturn($mockPendingRequest);
+
+    $executor = new AgentExecutor(
+        $this->prismBuilder,
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->usageExtractor,
+    );
+
+    $agent = new TestAgent;
+    $stream = $executor->stream($agent, 'Hello');
+    $events = iterator_to_array($stream);
+
+    $endEvent = $events[0];
+    expect($endEvent)->toBeInstanceOf(\Atlasphp\Atlas\Streaming\Events\StreamEndEvent::class);
+    expect($endEvent->usage)->toBe([]);
+    expect($endEvent->promptTokens())->toBe(0);
+    expect($endEvent->completionTokens())->toBe(0);
+    expect($endEvent->totalTokens())->toBe(0);
+});
+
+test('stream converts Prism error event to Atlas error event', function () {
+    $prismErrorEvent = new \Prism\Prism\Streaming\Events\ErrorEvent(
+        id: 'err_123',
+        timestamp: 1234567890,
+        errorType: 'rate_limit',
+        message: 'Rate limit exceeded',
+        recoverable: true,
+    );
+
+    $prismUsage = new \Prism\Prism\ValueObjects\Usage(
+        promptTokens: 10,
+        completionTokens: 0,
+    );
+
+    $prismStreamEndEvent = new \Prism\Prism\Streaming\Events\StreamEndEvent(
+        id: 'evt_end',
+        timestamp: 1234567891,
+        finishReason: \Prism\Prism\Enums\FinishReason::Stop,
+        usage: $prismUsage,
+    );
+
+    $mockStreamGenerator = function () use ($prismErrorEvent, $prismStreamEndEvent) {
+        yield $prismErrorEvent;
+        yield $prismStreamEndEvent;
+    };
+
+    $mockPendingRequest = Mockery::mock();
+    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('asStream')->andReturn($mockStreamGenerator());
+
+    $this->prismBuilder
+        ->shouldReceive('forPrompt')
+        ->once()
+        ->andReturn($mockPendingRequest);
+
+    $executor = new AgentExecutor(
+        $this->prismBuilder,
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->usageExtractor,
+    );
+
+    $agent = new TestAgent;
+    $stream = $executor->stream($agent, 'Hello');
+    $events = iterator_to_array($stream);
+
+    expect($events)->toHaveCount(2);
+    expect($events[0])->toBeInstanceOf(\Atlasphp\Atlas\Streaming\Events\ErrorEvent::class);
+    expect($events[0]->id)->toBe('err_123');
+    expect($events[0]->timestamp)->toBe(1234567890);
+    expect($events[0]->errorType)->toBe('rate_limit');
+    expect($events[0]->message)->toBe('Rate limit exceeded');
+    expect($events[0]->recoverable)->toBeTrue();
+});
+
 // ===========================================
 // PROVIDER TOOLS TESTS
 // ===========================================

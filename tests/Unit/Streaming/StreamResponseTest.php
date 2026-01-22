@@ -341,3 +341,122 @@ test('it accumulates text from multiple deltas in order', function () {
 
     expect($stream->text())->toBe('Hello, World!');
 });
+
+test('toResponse iterates all events during streaming', function () {
+    $events = [
+        new TextDeltaEvent('evt_1', 1234567890, 'Hello'),
+        new TextDeltaEvent('evt_2', 1234567891, ' World'),
+        new StreamEndEvent('evt_3', 1234567892, 'stop', ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15]),
+    ];
+
+    $stream = new StreamResponse(createTestGenerator($events));
+    $response = $stream->toResponse();
+
+    // Execute the streaming callback (output goes to stdout due to flush())
+    ob_start();
+    $response->sendContent();
+    ob_end_clean();
+
+    // Verify all events were processed
+    expect($stream->events())->toHaveCount(3);
+    expect($stream->text())->toBe('Hello World');
+    expect($stream->finishReason())->toBe('stop');
+    expect($stream->totalTokens())->toBe(15);
+});
+
+test('toResponse calls onComplete callback after streaming', function () {
+    $events = [
+        new TextDeltaEvent('evt_1', time(), 'Test'),
+        new StreamEndEvent('evt_2', time(), 'stop', []),
+    ];
+
+    $callbackCalled = false;
+    $receivedStream = null;
+
+    $stream = new StreamResponse(createTestGenerator($events));
+    $response = $stream->toResponse(function ($s) use (&$callbackCalled, &$receivedStream) {
+        $callbackCalled = true;
+        $receivedStream = $s;
+    });
+
+    // Capture and discard output
+    ob_start();
+    $response->sendContent();
+    ob_end_clean();
+
+    expect($callbackCalled)->toBeTrue();
+    expect($receivedStream)->toBe($stream);
+    expect($receivedStream->text())->toBe('Test');
+});
+
+test('toResponse onComplete receives fully populated stream', function () {
+    $events = [
+        new TextDeltaEvent('evt_1', time(), 'Hello '),
+        new TextDeltaEvent('evt_2', time(), 'World'),
+        new ToolCallStartEvent('evt_3', time(), 'call_1', 'search', ['q' => 'test']),
+        new ToolCallEndEvent('evt_4', time(), 'call_1', 'search', '{"found": true}', true),
+        new StreamEndEvent('evt_5', time(), 'stop', ['prompt_tokens' => 10, 'completion_tokens' => 20, 'total_tokens' => 30]),
+    ];
+
+    $capturedText = null;
+    $capturedToolCalls = null;
+    $capturedTokens = null;
+
+    $stream = new StreamResponse(createTestGenerator($events));
+    $response = $stream->toResponse(function ($s) use (&$capturedText, &$capturedToolCalls, &$capturedTokens) {
+        $capturedText = $s->text();
+        $capturedToolCalls = $s->toolCalls();
+        $capturedTokens = $s->totalTokens();
+    });
+
+    ob_start();
+    $response->sendContent();
+    ob_end_clean();
+
+    expect($capturedText)->toBe('Hello World');
+    expect($capturedToolCalls)->toHaveCount(1);
+    expect($capturedToolCalls[0]['result'])->toBe('{"found": true}');
+    expect($capturedTokens)->toBe(30);
+});
+
+test('toResponse works without onComplete callback', function () {
+    $events = [
+        new TextDeltaEvent('evt_1', time(), 'Test'),
+        new StreamEndEvent('evt_2', time(), 'stop', []),
+    ];
+
+    $stream = new StreamResponse(createTestGenerator($events));
+    $response = $stream->toResponse();
+
+    ob_start();
+    $response->sendContent();
+    ob_end_clean();
+
+    // Verify stream was fully processed
+    expect($stream->events())->toHaveCount(2);
+    expect($stream->text())->toBe('Test');
+});
+
+test('individual events produce valid SSE format', function () {
+    // Test that each event type produces valid SSE
+    $textEvent = new TextDeltaEvent('evt_1', 1234567890, 'Test');
+    $endEvent = new StreamEndEvent('evt_2', 1234567891, 'stop', []);
+
+    $textSse = $textEvent->toSse();
+    $endSse = $endEvent->toSse();
+
+    // Verify SSE format: event line, data line, blank line
+    expect($textSse)->toContain('event: text.delta');
+    expect($textSse)->toContain('data: ');
+    expect($textSse)->toContain('"text":"Test"');
+
+    expect($endSse)->toContain('event: stream.end');
+    expect($endSse)->toContain('data: ');
+    expect($endSse)->toContain('"finish_reason":"stop"');
+
+    // Verify data is valid JSON
+    preg_match('/data: (.+)/', $textSse, $matches);
+    $decoded = json_decode($matches[1], true);
+    expect($decoded)->toBeArray();
+    expect($decoded['type'])->toBe('text.delta');
+});
