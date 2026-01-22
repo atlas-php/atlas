@@ -7,7 +7,7 @@
 
 # Atlas
 
-**The AI agent framework for Laravel.** Built on [Prism PHP](https://github.com/prism-php/prism).
+**The production-grade AI agent framework for Laravel.** Built on [Prism PHP](https://github.com/prism-php/prism).
 
 ```php
 $response = Atlas::chat('support-agent', 'I need help with my order');
@@ -21,11 +21,13 @@ Atlas gives you the infrastructure to build real applications; Prism handles the
 
 - **Agents** — Define many agents. Register once, use anywhere.
 - **Tools** — Give agents access to abilities directly to your services.
-- **System Prompt Templates** — Variables like `{user_name}` interpolate at runtime.
-- **Execution Pipelines** — Hook into any stage for logging, metrics, or auth.
+- **System Prompts** — Variables like `{user_name}` interpolate at runtime.
+- **Pipelines** — Hook into any stage for logging, metrics, or auth.
 - **Multi-Provider** — OpenAI, Anthropic, others. Switch with config.
 - **Beyond Chat** — Embeddings, images, and speech through one facade.
 
+### Note from the Author
+> _I've been building Atlas through many iterations over the past year. This version (RC4) is stable, battle-tested, and already powering large-scale production applications. The roadmap includes Nexus; a companion package that will handle persistence and AI orchestration, complementing Atlas's stateless design. If you have any suggestions feel free to submit an issue. -TM_
 ---
 
 ## Table of Contents
