@@ -144,3 +144,17 @@ test('it returns defaults for missing atlas config', function () {
         'transcription_model' => 'whisper-1',
     ]);
 });
+
+test('it throws when provider config is not an array', function () {
+    $config = new Repository([
+        'atlas' => [
+            'providers' => [
+                'invalid-provider' => 'not-an-array',
+            ],
+        ],
+    ]);
+    $service = new ProviderConfigService($config);
+
+    expect(fn () => $service->getProviderConfig('invalid-provider'))
+        ->toThrow(ProviderException::class, "Invalid configuration 'provider' for provider 'invalid-provider': Configuration must be an array.");
+});

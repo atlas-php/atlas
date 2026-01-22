@@ -32,3 +32,10 @@ test('it creates api error exception with default code', function () {
     expect($exception)->toBeInstanceOf(ProviderException::class);
     expect($exception->getCode())->toBe(0);
 });
+
+test('it creates exception for invalid configuration value', function () {
+    $exception = ProviderException::invalidConfigurationValue('provider', 'openai', 'Configuration must be an array');
+
+    expect($exception)->toBeInstanceOf(ProviderException::class);
+    expect($exception->getMessage())->toBe("Invalid configuration 'provider' for provider 'openai': Configuration must be an array.");
+});

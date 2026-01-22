@@ -240,11 +240,10 @@ composer check
 
 ---
 
-## Requirements
+## Contributing
 
-* PHP 8.4+
-* Laravel 12.x
+We welcome contributions! Please see our [Contributing Guide](.github/CONTRIBUTING.md) for details.
 
 ## License
 
-MIT
+Atlas is open-sourced software licensed under the [MIT license](LICENSE).

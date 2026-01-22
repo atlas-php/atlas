@@ -55,6 +55,44 @@ test('it returns a new instance when setting quality', function () {
     expect($newService)->not->toBe($this->service);
 });
 
+test('it returns a new instance when setting provider options', function () {
+    $newService = $this->service->withProviderOptions(['style' => 'vivid']);
+
+    expect($newService)->toBeInstanceOf(ImageService::class);
+    expect($newService)->not->toBe($this->service);
+});
+
+test('it merges provider options', function () {
+    $mockRequest = Mockery::mock();
+
+    $mockImage = new stdClass;
+    $mockImage->url = 'https://example.com/image.png';
+    $mockImage->base64 = null;
+    $mockImage->revisedPrompt = null;
+
+    $mockResponse = new stdClass;
+    $mockResponse->images = [$mockImage];
+
+    $this->prismBuilder
+        ->shouldReceive('forImage')
+        ->with('openai', 'dall-e-3', 'A sunset', Mockery::on(function ($options) {
+            return isset($options['style']) && $options['style'] === 'vivid'
+                && isset($options['response_format']) && $options['response_format'] === 'url';
+        }))
+        ->once()
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('generate')
+        ->once()
+        ->andReturn($mockResponse);
+
+    $this->service
+        ->withProviderOptions(['style' => 'vivid'])
+        ->withProviderOptions(['response_format' => 'url'])
+        ->generate('A sunset');
+});
+
 test('it generates image with defaults', function () {
     $mockRequest = Mockery::mock();
 

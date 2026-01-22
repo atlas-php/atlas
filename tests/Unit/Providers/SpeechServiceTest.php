@@ -63,6 +63,78 @@ test('it returns a new instance when setting format', function () {
     expect($newService)->not->toBe($this->service);
 });
 
+test('it returns a new instance when setting speed', function () {
+    $newService = $this->service->speed(1.5);
+
+    expect($newService)->toBeInstanceOf(SpeechService::class);
+    expect($newService)->not->toBe($this->service);
+});
+
+test('it returns a new instance when setting provider options', function () {
+    $newService = $this->service->withProviderOptions(['language' => 'en']);
+
+    expect($newService)->toBeInstanceOf(SpeechService::class);
+    expect($newService)->not->toBe($this->service);
+});
+
+test('it speaks with custom speed', function () {
+    $mockRequest = Mockery::mock();
+
+    $mockAudio = new stdClass;
+    $mockAudio->base64 = base64_encode('audio-data');
+
+    $mockResponse = new stdClass;
+    $mockResponse->audio = $mockAudio;
+
+    $this->prismBuilder
+        ->shouldReceive('forSpeech')
+        ->with('openai', 'tts-1', 'Hello', Mockery::on(function ($options) {
+            return isset($options['speed']) && $options['speed'] === 1.5;
+        }))
+        ->once()
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('asAudio')
+        ->once()
+        ->andReturn($mockResponse);
+
+    $result = $this->service
+        ->speed(1.5)
+        ->speak('Hello');
+
+    expect($result)->toHaveKey('audio');
+});
+
+test('it merges provider options', function () {
+    $mockRequest = Mockery::mock();
+
+    $mockAudio = new stdClass;
+    $mockAudio->base64 = base64_encode('audio-data');
+
+    $mockResponse = new stdClass;
+    $mockResponse->audio = $mockAudio;
+
+    $this->prismBuilder
+        ->shouldReceive('forSpeech')
+        ->with('openai', 'tts-1', 'Hello', Mockery::on(function ($options) {
+            return isset($options['language']) && $options['language'] === 'en'
+                && isset($options['timbre']) && $options['timbre'] === 'warm';
+        }))
+        ->once()
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('asAudio')
+        ->once()
+        ->andReturn($mockResponse);
+
+    $this->service
+        ->withProviderOptions(['language' => 'en'])
+        ->withProviderOptions(['timbre' => 'warm'])
+        ->speak('Hello');
+});
+
 test('it speaks text with defaults', function () {
     $mockRequest = Mockery::mock();
 
