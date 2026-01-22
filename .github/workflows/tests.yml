@@ -1,4 +1,4 @@
-name: Build
+name: Automated Tests
 
 on:
   push:
@@ -41,6 +41,13 @@ jobs:
         with:
           php-version: '8.4'
           extensions: dom, curl, mbstring, zip
-          coverage: none
+          coverage: xdebug
       - run: composer install --prefer-dist --no-interaction --no-progress
-      - run: composer test
+      - name: Run tests with coverage
+        run: vendor/bin/pest --coverage --coverage-clover=coverage.xml
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage.xml
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
