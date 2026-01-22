@@ -4,8 +4,8 @@
   </a>
 </p>
 <p align="center">
-    <a href="https://github.com/atlasphp/atlas/actions"><img src="https://github.com/atlasphp/atlas/workflows/Automated%20Tests/badge.svg" alt="Automated Tests"></a>
-    <a href="https://codecov.io/gh/atlasphp/atlas"><img src="https://codecov.io/gh/atlasphp/atlas/branch/main/graph/badge.svg" alt="Code Coverage"></a>
+    <a href="https://github.com/atlas-php/atlas/actions"><img src="https://github.com/atlas-php/atlas/workflows/Automated%20Tests/badge.svg" alt="Automated Tests"></a>
+    <a href="https://codecov.io/gh/atlas-php/atlas"><img src="https://codecov.io/gh/atlas-php/atlas/branch/main/graph/badge.svg" alt="Code Coverage"></a>
     <img src="https://img.shields.io/badge/php-8.4%2B-blue?style=flat-square" alt="PHP Version">
     <img src="https://img.shields.io/badge/laravel-12.x-orange?style=flat-square" alt="Laravel">
     <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License">
