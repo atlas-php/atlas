@@ -7,8 +7,10 @@ Agents are the core building blocks in Atlas. An agent is a stateless execution 
 An agent defines:
 - **Provider** — The AI service (OpenAI, Anthropic, etc.)
 - **Model** — The specific model to use
-- **System Prompt** — Instructions that shape the agent's behavior
-- **Tools** — Functions the agent can call during execution
+- **System Prompt** — Instructions that shape the agent's behavior (supports variable interpolation)
+- **Tools** — Custom functions the agent can call during execution
+- **Provider Tools** — Built-in provider capabilities (web search, code execution, etc.)
+- **Settings** — Temperature, token limits, and execution constraints
 
 ```php
 use Atlasphp\Atlas\Agents\AgentDefinition;
@@ -36,6 +38,23 @@ class CustomerSupportAgent extends AgentDefinition
             LookupOrderTool::class,
             RefundTool::class,
         ];
+    }
+
+    public function providerTools(): array
+    {
+        return [
+            'web_search',  // Enable web search capability
+        ];
+    }
+
+    public function temperature(): ?float
+    {
+        return 0.7;
+    }
+
+    public function maxTokens(): ?int
+    {
+        return 2000;
     }
 }
 ```
@@ -111,12 +130,37 @@ Atlas resolves agents in this order:
 | `key()` | Class name in kebab-case | Unique identifier for registry |
 | `name()` | Class name with spaces | Display name |
 | `description()` | `null` | Agent description |
-| `tools()` | `[]` | Tool classes available to agent |
-| `providerTools()` | `[]` | Provider-specific tools |
+| `tools()` | `[]` | Custom tool classes available to agent |
+| `providerTools()` | `[]` | Provider-specific tools (web search, code execution) |
 | `temperature()` | `null` | Sampling temperature (0-2) |
 | `maxTokens()` | `null` | Maximum response tokens |
 | `maxSteps()` | `null` | Maximum tool use iterations |
 | `settings()` | `[]` | Additional provider settings |
+
+### Provider Tools
+
+Provider tools are built-in capabilities offered by AI providers. They can be specified as simple strings or with configuration options:
+
+```php
+public function providerTools(): array
+{
+    return [
+        // Simple string format
+        'web_search',
+
+        // With options
+        ['type' => 'code_execution', 'container' => 'python'],
+
+        // With name override
+        ['type' => 'web_search', 'name' => 'search', 'max_results' => 5],
+    ];
+}
+```
+
+Common provider tools include:
+- `web_search` / `web_search_preview` — Search the web for current information
+- `code_execution` — Execute code in a sandboxed environment
+- `file_search` — Search through uploaded files
 
 ## Agent Types
 
@@ -137,57 +181,74 @@ public function type(): AgentType
 ## Example: Complete Agent
 
 ```php
-class AnalysisAgent extends AgentDefinition
+class ResearchAgent extends AgentDefinition
 {
     public function key(): string
     {
-        return 'sentiment-analyzer';
+        return 'research-assistant';
     }
 
     public function name(): string
     {
-        return 'Sentiment Analyzer';
+        return 'Research Assistant';
     }
 
     public function description(): ?string
     {
-        return 'Analyzes text sentiment and emotions';
+        return 'Researches topics using web search and analyzes findings';
     }
 
     public function provider(): string
     {
-        return 'anthropic';
+        return 'openai';
     }
 
     public function model(): string
     {
-        return 'claude-3-sonnet';
+        return 'gpt-4o';
     }
 
     public function systemPrompt(): string
     {
         return <<<PROMPT
-        You are an expert sentiment analyst.
-        Analyze the given text and identify:
-        - Overall sentiment (positive, negative, neutral)
-        - Key emotions present
-        - Confidence level
+        You are a research assistant for {company_name}.
+        Your role is to:
+        - Search for current information on requested topics
+        - Analyze and summarize findings
+        - Provide citations for sources
+        - Answer follow-up questions accurately
         PROMPT;
     }
 
     public function tools(): array
     {
-        return [];
+        return [
+            SaveNoteTool::class,
+            CreateReportTool::class,
+        ];
+    }
+
+    public function providerTools(): array
+    {
+        return [
+            'web_search',
+            ['type' => 'code_execution', 'container' => 'python'],
+        ];
     }
 
     public function temperature(): ?float
     {
-        return 0.3; // Lower for more consistent analysis
+        return 0.3; // Lower for more accurate research
     }
 
     public function maxTokens(): ?int
     {
-        return 500;
+        return 4000;
+    }
+
+    public function maxSteps(): ?int
+    {
+        return 10; // Allow multiple tool iterations
     }
 }
 ```

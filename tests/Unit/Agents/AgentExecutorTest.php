@@ -893,6 +893,243 @@ test('it preserves original exception in AgentException', function () {
     }
 });
 
+test('it rethrows AgentException without wrapping', function () {
+    $container = new Container;
+    $registry = new PipelineRegistry;
+    $runner = new PipelineRunner($registry, $container);
+
+    // Define and activate the error pipeline
+    $registry->define('agent.on_error', 'Error pipeline');
+
+    // Reset static state
+    AgentErrorCapturingHandler::reset();
+    $registry->register('agent.on_error', AgentErrorCapturingHandler::class);
+
+    $originalException = \Atlasphp\Atlas\Agents\Exceptions\AgentException::executionFailed(
+        'test-agent',
+        'Custom agent error'
+    );
+
+    $prismBuilder = Mockery::mock(PrismBuilderContract::class);
+    $prismBuilder->shouldReceive('forPrompt')
+        ->andThrow($originalException);
+
+    $systemPromptBuilder = new SystemPromptBuilder($runner);
+    $toolRegistry = new ToolRegistry($container);
+    $toolExecutor = new ToolExecutor($runner);
+    $toolBuilder = new ToolBuilder($toolRegistry, $toolExecutor, $container);
+    $usageExtractor = new UsageExtractorRegistry;
+
+    $executor = new AgentExecutor(
+        $prismBuilder,
+        $toolBuilder,
+        $systemPromptBuilder,
+        $runner,
+        $usageExtractor,
+    );
+
+    $agent = new TestAgent;
+
+    try {
+        $executor->execute($agent, 'Hello');
+        $this->fail('Expected AgentException to be thrown');
+    } catch (\Atlasphp\Atlas\Agents\Exceptions\AgentException $e) {
+        // Should be the exact same exception, not wrapped
+        expect($e)->toBe($originalException);
+        expect($e->getMessage())->toBe("Agent 'test-agent' execution failed: Custom agent error");
+        // Should have no previous exception (wasn't wrapped)
+        expect($e->getPrevious())->toBeNull();
+    }
+
+    // Error pipeline should still have been called
+    expect(AgentErrorCapturingHandler::$called)->toBeTrue();
+    expect(AgentErrorCapturingHandler::$data['exception'])->toBe($originalException);
+});
+
+test('it combines messages with input for structured requests', function () {
+    $mockResponse = new class
+    {
+        public mixed $structured = ['name' => 'John'];
+
+        public object $finishReason;
+
+        public function __construct()
+        {
+            $this->finishReason = new class
+            {
+                public string $value = 'stop';
+            };
+        }
+    };
+
+    $mockPendingRequest = Mockery::mock();
+    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('asStructured')->andReturn($mockResponse);
+
+    $mockSchema = Mockery::mock(\Prism\Prism\Contracts\Schema::class);
+
+    // Capture the combined input
+    $capturedInput = null;
+    $this->prismBuilder
+        ->shouldReceive('forStructured')
+        ->once()
+        ->withArgs(function ($provider, $model, $schema, $input, $systemPrompt) use (&$capturedInput) {
+            $capturedInput = $input;
+
+            return true;
+        })
+        ->andReturn($mockPendingRequest);
+
+    $executor = new AgentExecutor(
+        $this->prismBuilder,
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->usageExtractor,
+    );
+
+    $context = new ExecutionContext(
+        messages: [
+            ['role' => 'user', 'content' => 'My name is John.'],
+            ['role' => 'assistant', 'content' => 'Nice to meet you, John!'],
+        ],
+    );
+
+    $agent = new TestAgent;
+    $executor->execute($agent, 'What is my name?', $context, $mockSchema);
+
+    // Verify the combined format
+    expect($capturedInput)->toBe("User: My name is John.\n\nAssistant: Nice to meet you, John!\n\nUser: What is my name?");
+});
+
+test('it throws InvalidArgumentException for provider tool array without type key', function () {
+    $mockResponse = new class
+    {
+        public ?string $text = 'Hello';
+
+        public array $toolCalls = [];
+
+        public object $finishReason;
+
+        public function __construct()
+        {
+            $this->finishReason = new class
+            {
+                public string $value = 'stop';
+            };
+        }
+    };
+
+    $mockPendingRequest = Mockery::mock();
+    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
+
+    $this->prismBuilder
+        ->shouldReceive('forPrompt')
+        ->andReturn($mockPendingRequest);
+
+    $executor = new AgentExecutor(
+        $this->prismBuilder,
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->usageExtractor,
+    );
+
+    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithInvalidProviderTools;
+
+    try {
+        $executor->execute($agent, 'Hello');
+        $this->fail('Expected exception to be thrown');
+    } catch (\Atlasphp\Atlas\Agents\Exceptions\AgentException $e) {
+        // The InvalidArgumentException gets wrapped in an AgentException
+        expect($e->getMessage())->toContain('Invalid provider tool format at index 0');
+        expect($e->getPrevious())->toBeInstanceOf(\InvalidArgumentException::class);
+        expect($e->getPrevious()->getMessage())->toBe('Invalid provider tool format at index 0. Array must have a "type" key.');
+    }
+});
+
+test('it passes through ProviderTool instances unchanged', function () {
+    $mockResponse = new class
+    {
+        public ?string $text = 'Hello';
+
+        public array $toolCalls = [];
+
+        public array $steps = [];
+
+        public object $finishReason;
+
+        public function __construct()
+        {
+            $this->finishReason = new class
+            {
+                public string $value = 'stop';
+            };
+        }
+    };
+
+    $mockPendingRequest = Mockery::mock();
+    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withProviderTools')
+        ->once()
+        ->with(Mockery::on(function ($tools) {
+            // Verify tools is an array of ProviderTool objects
+            if (! is_array($tools) || count($tools) !== 2) {
+                return false;
+            }
+
+            // First tool should be the ProviderTool instance passed through unchanged
+            $first = $tools[0];
+            if (! $first instanceof \Prism\Prism\ValueObjects\ProviderTool) {
+                return false;
+            }
+            if ($first->type !== 'web_search') {
+                return false;
+            }
+            if ($first->name !== 'custom_search') {
+                return false;
+            }
+            if ($first->options !== ['max_results' => 10]) {
+                return false;
+            }
+
+            // Second tool should be code_execution string converted
+            $second = $tools[1];
+            if (! $second instanceof \Prism\Prism\ValueObjects\ProviderTool) {
+                return false;
+            }
+            if ($second->type !== 'code_execution') {
+                return false;
+            }
+
+            return true;
+        }))
+        ->andReturnSelf();
+    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
+
+    $this->prismBuilder
+        ->shouldReceive('forPrompt')
+        ->once()
+        ->andReturn($mockPendingRequest);
+
+    $executor = new AgentExecutor(
+        $this->prismBuilder,
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->usageExtractor,
+    );
+
+    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithProviderToolInstances;
+    $response = $executor->execute($agent, 'Hello');
+
+    expect($response)->toBeInstanceOf(AgentResponse::class);
+});
+
 // Pipeline Handler Classes for Tests
 
 class AgentErrorCapturingHandler implements \Atlasphp\Atlas\Foundation\Contracts\PipelineContract

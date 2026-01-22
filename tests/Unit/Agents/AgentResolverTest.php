@@ -50,3 +50,42 @@ test('it prefers registry over container', function () {
 
     expect($resolved)->toBe($registeredAgent);
 });
+
+test('it throws AgentException when container instantiation fails', function () {
+    // Create a class that will fail to instantiate due to missing dependencies
+    $class = AgentWithUnresolvableDependency::class;
+
+    try {
+        $this->resolver->resolve($class);
+        $this->fail('Expected AgentException to be thrown');
+    } catch (AgentException $e) {
+        expect($e->getMessage())->toContain('Failed to resolve agent:');
+        expect($e->getMessage())->toContain($class);
+    }
+});
+
+test('it throws InvalidAgentException when class does not implement AgentContract', function () {
+    $class = NotAnAgent::class;
+
+    $this->resolver->resolve($class);
+})->throws(\Atlasphp\Atlas\Agents\Exceptions\InvalidAgentException::class);
+
+// Test helper classes
+
+class AgentWithUnresolvableDependency
+{
+    public function __construct(UnresolvableService $service) {}
+}
+
+class UnresolvableService
+{
+    public function __construct()
+    {
+        throw new \RuntimeException('Cannot instantiate');
+    }
+}
+
+class NotAnAgent
+{
+    public function doSomething(): void {}
+}
