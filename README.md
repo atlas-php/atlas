@@ -1,130 +1,197 @@
+<p align="center">
+  <img src="https://img.shields.io/badge/php-8.4%2B-blue?style=flat-square" alt="PHP Version">
+  <img src="https://img.shields.io/badge/laravel-12.x-orange?style=flat-square" alt="Laravel">
+  <a href="https://github.com/atlas-php/atlas"><img src="https://github.com/atlas-php/atlas/workflows/Build/badge.svg" alt="Build Status"></a>
+  <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License">
+</p>
+
 # Atlas
 
-[![Build](https://github.com/atlas-php/atlas/workflows/Build/badge.svg)](https://github.com/atlas-php/atlas/actions)
-[![PHP Version](https://img.shields.io/badge/php-8.4%2B-blue)](https://www.php.net/)
-[![Laravel](https://img.shields.io/badge/laravel-12.x-orange)](https://laravel.com/)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+**The AI agent framework for Laravel.** Built on [Prism PHP](https://github.com/prism-php/prism).
 
-A Laravel package for AI-powered features with provider abstraction. Build AI agents, execute tools, generate embeddings, create images, and synthesize speech through a clean, stateless API.
+```php
+$response = Atlas::chat('support-agent', 'I need help with my order');
+```
 
-## Features
+---
 
-- **Agent System** - Define AI agents with specific configurations, system prompts, and tools
-- **Tool Execution** - Create callable tools that agents can invoke during execution
-- **Multi-Provider Support** - OpenAI, Anthropic, and other providers through Prism
-- **Embeddings** - Generate text embeddings for semantic search and RAG
-- **Image Generation** - Create images with DALL-E and other providers
-- **Speech** - Text-to-speech and speech-to-text capabilities
-- **Pipeline System** - Extensible middleware for customization
-- **Stateless Design** - Your application manages all persistence
+## Why Atlas?
 
-## Requirements
+Prism handles LLM communication. Atlas gives you the structure to build real applications:
 
-- PHP 8.4+
-- Laravel 12.x
+- **Agents** — Define agents as classes. Register once, use anywhere. No scattered API calls.
+- **Tools** — Give agents abilities with validated parameters. No manual JSON schemas.
+- **System Prompt Templates** — Variables like `{user_name}` interpolate at runtime.
+- **Execution Pipelines** — Hook into any stage for logging, metrics, or auth.
+- **Multi-Provider** — OpenAI, Anthropic, others. Switch with config.
+- **Beyond Chat** — Embeddings, images, and speech through one facade.
+
+---
+
+## Table of Contents
+
+- [Installation](#installation)
+- [Agents](#agents)
+- [Tools](#tools)
+- [Conversations](#conversations)
+- [Embeddings](#embeddings)
+- [Images](#images)
+- [Speech](#speech)
+- [Pipelines](#pipelines)
+- [Configuration](#configuration)
+- [Testing](#testing)
+- [Documentation](#documentation)
+
+---
 
 ## Installation
 
 ```bash
 composer require atlas-php/atlas
-```
-
-Publish the configuration:
-
-```bash
 php artisan vendor:publish --tag=atlas-config
 ```
 
-## Quick Start
-
-### Chat with an Agent
-
-```php
-use Atlasphp\Atlas\Providers\Facades\Atlas;
-
-// Simple chat
-$response = Atlas::chat('support-agent', 'Hello, I need help!');
-echo $response->text;
-
-// With conversation history
-$response = Atlas::forMessages($previousMessages)
-    ->withVariables(['user_name' => 'Alice'])
-    ->chat('support-agent', 'Continue our conversation');
+```env
+OPENAI_API_KEY=sk-...
 ```
 
-### Define an Agent
+---
+
+## Agents
+
+Define an agent with its provider, model, prompt, and tools:
 
 ```php
 use Atlasphp\Atlas\Agents\AgentDefinition;
 
 class SupportAgent extends AgentDefinition
 {
-    public function provider(): string
-    {
-        return 'openai';
-    }
-
-    public function model(): string
-    {
-        return 'gpt-4o';
-    }
+    public function provider(): string { return 'openai'; }
+    public function model(): string { return 'gpt-4o'; }
 
     public function systemPrompt(): string
     {
-        return 'You are a helpful support agent. The user is {user_name}.';
+        return 'You are a support agent for {company}. Customer: {customer_name}.';
     }
 
     public function tools(): array
     {
-        return [LookupOrderTool::class];
+        return [LookupOrderTool::class, RefundTool::class];
     }
 }
 ```
 
-### Create a Tool
+Register in a service provider:
+
+```php
+app(AgentRegistryContract::class)->register(SupportAgent::class);
+```
+
+Use by key, class, or instance:
+
+```php
+Atlas::chat('support', 'Hello');
+Atlas::chat(SupportAgent::class, 'Hello');
+Atlas::chat(new SupportAgent(), 'Hello');
+```
+
+---
+
+## Tools
+
+Give agents abilities with typed parameters:
 
 ```php
 use Atlasphp\Atlas\Tools\ToolDefinition;
-use Atlasphp\Atlas\Tools\Support\ToolParameter;
-use Atlasphp\Atlas\Tools\Support\ToolResult;
+use Atlasphp\Atlas\Tools\Support\{ToolParameter, ToolResult, ToolContext};
 
 class LookupOrderTool extends ToolDefinition
 {
-    public function name(): string
-    {
-        return 'lookup_order';
-    }
-
-    public function description(): string
-    {
-        return 'Look up order details by ID';
-    }
+    public function name(): string { return 'lookup_order'; }
+    public function description(): string { return 'Look up order by ID'; }
 
     public function parameters(): array
     {
         return [
-            ToolParameter::string('order_id', 'The order ID')->required(),
+            ToolParameter::string('order_id', 'The order ID', required: true),
         ];
     }
 
-    public function handle(array $arguments, ToolContext $context): ToolResult
+    public function handle(array $args, ToolContext $context): ToolResult
     {
-        $order = Order::find($arguments['order_id']);
-        return ToolResult::json($order->toArray());
+        $order = Order::find($args['order_id']);
+        
+        return $order 
+            ? ToolResult::json($order->toArray())
+            : ToolResult::error('Order not found');
     }
 }
 ```
 
-### Generate Embeddings
+Register tools:
 
 ```php
-$embedding = Atlas::embed('Hello, world!');
-// [0.123, 0.456, ...]
-
-$embeddings = Atlas::embedBatch(['Text 1', 'Text 2']);
+app(ToolRegistryContract::class)->register(LookupOrderTool::class);
 ```
 
-### Generate Images
+Pass context to tools:
+
+```php
+$response = Atlas::forMessages($messages)
+    ->withMetadata(['user_id' => $user->id])
+    ->chat('support', $input);
+
+// In tool: $context->getMeta('user_id')
+```
+
+Parameter types: `string`, `integer`, `number`, `boolean`, `enum`, `array`, `object`.
+
+---
+
+## Conversations
+
+Atlas is stateless. You manage history:
+
+```php
+$messages = [
+    ['role' => 'user', 'content' => 'Order 12345'],
+    ['role' => 'assistant', 'content' => 'Found it. How can I help?'],
+];
+
+$response = Atlas::forMessages($messages)
+    ->withVariables(['customer_name' => 'Alice', 'company' => 'Acme'])
+    ->chat('support', 'Where is my package?');
+```
+
+For structured output:
+
+```php
+$schema = new ObjectSchema(
+    name: 'sentiment',
+    properties: [
+        new StringSchema('sentiment', 'positive, negative, neutral'),
+        new NumberSchema('confidence', '0-1'),
+    ],
+    requiredFields: ['sentiment', 'confidence'],
+);
+
+$response = Atlas::chat('analyzer', 'I love this!', schema: $schema);
+echo $response->structured['sentiment']; // "positive"
+```
+
+---
+
+## Embeddings
+
+```php
+$vector = Atlas::embed('Hello world');              // Single
+$vectors = Atlas::embedBatch(['Text 1', 'Text 2']); // Batch
+$dims = Atlas::embeddingDimensions();               // 1536
+```
+
+---
+
+## Images
 
 ```php
 $result = Atlas::image('openai', 'dall-e-3')
@@ -134,67 +201,100 @@ $result = Atlas::image('openai', 'dall-e-3')
 echo $result['url'];
 ```
 
-### Text-to-Speech
+---
+
+## Speech
 
 ```php
+// Text to speech
 $result = Atlas::speech('openai', 'tts-1')
     ->voice('nova')
-    ->speak('Hello, world!');
+    ->speak('Hello world');
 
 file_put_contents('audio.mp3', base64_decode($result['audio']));
+
+// Speech to text
+$result = Atlas::speech()->transcribe('/path/to/audio.mp3');
+echo $result['text'];
 ```
+
+---
+
+## Pipelines
+
+Hook into execution for logging, metrics, or custom logic:
+
+```php
+use Atlasphp\Atlas\Foundation\Contracts\PipelineContract;
+
+class LoggingMiddleware implements PipelineContract
+{
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        logger()->info('Executing', ['agent' => $data['agent']->key()]);
+        return $next($data);
+    }
+}
+
+app(PipelineRegistry::class)->register('agent.before_execute', LoggingMiddleware::class);
+```
+
+Available hooks: `agent.before_execute`, `agent.after_execute`, `tool.before_execute`, `tool.after_execute`, `embedding.before_generate`, `image.before_generate`, and more.
+
+---
 
 ## Configuration
 
-Configure your providers in `config/atlas.php`:
-
 ```php
+// config/atlas.php
 return [
     'providers' => [
-        'openai' => [
-            'api_key' => env('OPENAI_API_KEY'),
-        ],
+        'openai' => ['api_key' => env('OPENAI_API_KEY')],
+        'anthropic' => ['api_key' => env('ANTHROPIC_API_KEY')],
     ],
-    'chat' => [
-        'provider' => 'openai',
-        'model' => 'gpt-4o',
-    ],
-    'embedding' => [
-        'provider' => 'openai',
-        'model' => 'text-embedding-3-small',
-        'dimensions' => 1536,
-    ],
+    'chat' => ['provider' => 'openai', 'model' => 'gpt-4o'],
+    'embedding' => ['provider' => 'openai', 'model' => 'text-embedding-3-small'],
 ];
 ```
 
-## Documentation
-
-- [Installation Guide](docs/guides/Installation.md)
-- [Creating Agents](docs/guides/Creating-Agents.md)
-- [Creating Tools](docs/guides/Creating-Tools.md)
-- [Multi-Turn Conversations](docs/guides/Multi-Turn-Conversations.md)
-- [Extending Atlas](docs/guides/Extending-Atlas.md)
-
-Technical specifications are available in [docs/spec/](docs/spec/).
-
-## Philosophy
-
-Atlas is designed around these principles:
-
-1. **Stateless** - Atlas doesn't manage conversations or state. Your application owns all persistence.
-2. **Provider Agnostic** - Switch between OpenAI, Anthropic, and others without code changes.
-3. **Composable** - Mix agents, tools, and pipelines to build complex AI workflows.
-4. **Testable** - Everything is mockable and testable without real API calls.
+---
 
 ## Testing
 
-```bash
-composer test        # Run tests
-composer lint        # Fix code style
-composer analyse     # Static analysis
-composer check       # All checks
+```php
+Atlas::fake();
+
+Atlas::shouldReceive('chat')
+    ->with('support', 'Hello')
+    ->andReturn(new AgentResponse(['text' => 'Hi!']));
 ```
+
+```bash
+composer test     # Tests
+composer check    # All checks
+```
+
+---
+
+## Documentation
+
+| Guide | Description |
+|-------|-------------|
+| [Installation](docs/guides/Installation.md) | Setup walkthrough |
+| [Creating Agents](docs/guides/Creating-Agents.md) | Agent configuration |
+| [Creating Tools](docs/guides/Creating-Tools.md) | Tool parameters and results |
+| [Multi-Turn Conversations](docs/guides/Multi-Turn-Conversations.md) | Conversation handling |
+| [Extending Atlas](docs/guides/Extending-Atlas.md) | Pipeline middleware |
+
+Specs: [docs/spec/](docs/spec/)
+
+---
+
+## Requirements
+
+- PHP 8.4+
+- Laravel 12.x
 
 ## License
 
-MIT License. See [LICENSE](LICENSE) for details.
+MIT
