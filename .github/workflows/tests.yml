@@ -55,9 +55,10 @@ jobs:
           head -30 coverage.xml || echo "Cannot read file"
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         with:
           files: ./coverage.xml
-          token: ${{ secrets.CODECOV_TOKEN }}
           slug: atlas-php/atlas
           fail_ci_if_error: true
           verbose: true
