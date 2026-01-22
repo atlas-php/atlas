@@ -7,7 +7,7 @@ Handle multi-turn conversations with history, variables, and metadata.
 ## Prerequisites
 
 - Atlas installed and configured
-- An agent created (see [Creating Agents](./Creating-Agents.md))
+- An agent created (see [Creating Agents](./creating-agents.md))
 
 ## Steps
 
@@ -199,6 +199,6 @@ If responses seem to ignore history:
 
 ## Next Steps
 
-- [Extending Atlas](/guides/Extending-Atlas) — Add pipeline middleware
+- [Extending Atlas](/guides/extending-atlas) — Add pipeline middleware
 - [Conversations](/core-concepts/conversations) — Conversation concepts
 - [Structured Output](/core-concepts/structured-output) — Schema-based responses

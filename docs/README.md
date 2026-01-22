@@ -9,11 +9,11 @@
 | Resource | Description |
 |----------|-------------|
 | [Usage Guide](./USAGE.md) | Primary facade usage patterns |
-| [Installation Guide](./guides/Installation.md) | Get started with Atlas |
-| [Creating Agents](./guides/Creating-Agents.md) | Build custom AI agents |
-| [Creating Tools](./guides/Creating-Tools.md) | Define tools for agents |
-| [Multi-Turn Conversations](./guides/Multi-Turn-Conversations.md) | Handle conversation context |
-| [Extending Atlas](./guides/Extending-Atlas.md) | Pipeline middleware and extensions |
+| [Installation Guide](./guides/installation.md) | Get started with Atlas |
+| [Creating Agents](./guides/creating-agents.md) | Build custom AI agents |
+| [Creating Tools](./guides/creating-tools.md) | Define tools for agents |
+| [Multi-Turn Conversations](./guides/multi-turn-conversations.md) | Handle conversation context |
+| [Extending Atlas](./guides/extending-atlas.md) | Pipeline middleware and extensions |
 
 ---
 

@@ -394,4 +394,4 @@ class LookupOrderTool extends ToolDefinition
 
 - [AgentContract](/api-reference/agent-contract) — Agent interface
 - [Context Objects](/api-reference/context-objects) — ToolContext details
-- [Creating Tools](/guides/Creating-Tools) — Step-by-step guide
+- [Creating Tools](/guides/creating-tools) — Step-by-step guide

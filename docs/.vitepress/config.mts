@@ -54,10 +54,10 @@ export default defineConfig({
         text: 'Guides',
         collapsed: true,
         items: [
-          { text: 'Creating Agents', link: '/guides/Creating-Agents' },
-          { text: 'Creating Tools', link: '/guides/Creating-Tools' },
-          { text: 'Multi-Turn Conversations', link: '/guides/Multi-Turn-Conversations' },
-          { text: 'Extending Atlas', link: '/guides/Extending-Atlas' },
+          { text: 'Creating Agents', link: '/guides/creating-agents' },
+          { text: 'Creating Tools', link: '/guides/creating-tools' },
+          { text: 'Multi-Turn Conversations', link: '/guides/multi-turn-conversations' },
+          { text: 'Extending Atlas', link: '/guides/extending-atlas' },
           { text: 'Testing', link: '/guides/testing' },
         ]
       },

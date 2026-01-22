@@ -359,4 +359,4 @@ class CustomerSupportAgent extends AgentDefinition
 
 - [ToolContract](/api-reference/tool-contract) — Tool interface
 - [Response Objects](/api-reference/response-objects) — AgentResponse
-- [Creating Agents](/guides/Creating-Agents) — Step-by-step guide
+- [Creating Agents](/guides/creating-agents) — Step-by-step guide

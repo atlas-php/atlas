@@ -156,6 +156,6 @@ If `{variable}` placeholders appear in output:
 
 ## Next Steps
 
-- [Creating Tools](/guides/Creating-Tools) — Add tools for your agents
-- [Multi-Turn Conversations](/guides/Multi-Turn-Conversations) — Handle conversation context
+- [Creating Tools](/guides/creating-tools) — Add tools for your agents
+- [Multi-Turn Conversations](/guides/multi-turn-conversations) — Handle conversation context
 - [Agents](/core-concepts/agents) — Agent concepts deep dive
