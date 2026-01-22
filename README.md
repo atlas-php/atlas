@@ -33,7 +33,9 @@ Atlas handles **application-level AI concerns** while Prism handles **LLM commun
 * Extend behavior (logging, auth, metrics) without touching the core
 
 ### Note from the Author
-> _Atlas has gone through many iterations over the past year. This RC4 release is stable, battle-tested, and already running in large-scale production. Atlas is intentionally stateless; persistence and orchestration will live in Nexus, a companion package currently in development. Feedback and issues are always welcome. — TM_
+> _Atlas has been built through deliberate iteration over the past year. This RC4 release reflects a stable, battle-tested core already running in large-scale production. Atlas is intentionally stateless, with persistence and orchestration planned for Nexus, a companion package in active development. Feedback and issues are always welcome._
+>
+> _— TM_
 
 ---
 

@@ -81,11 +81,13 @@ ATLAS_SPEECH_PROVIDER=openai
 ],
 ```
 
-Available models:
+Common models include:
 - **Chat:** `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo`, `gpt-3.5-turbo`
 - **Embeddings:** `text-embedding-3-small`, `text-embedding-3-large`, `text-embedding-ada-002`
 - **Images:** `dall-e-3`, `dall-e-2`
 - **Speech:** `tts-1`, `tts-1-hd`, `whisper-1`
+
+Any model supported by OpenAI can be used.
 
 ### Anthropic
 
@@ -98,8 +100,10 @@ Available models:
 ],
 ```
 
-Available models:
+Common models include:
 - **Chat:** `claude-3-opus`, `claude-3-sonnet`, `claude-3-haiku`, `claude-3-5-sonnet`
+
+Any model supported by Anthropic can be used.
 
 ## Chat Configuration
 

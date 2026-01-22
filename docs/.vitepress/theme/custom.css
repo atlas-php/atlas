@@ -9,8 +9,9 @@
   --vp-c-brand-3: var(--atlas-blue-dark);
   --vp-c-brand-soft: rgba(30, 58, 95, 0.14);
 
-  --vp-button-brand-bg: var(--atlas-blue);
-  --vp-button-brand-hover-bg: var(--atlas-blue-light);
+  --vp-button-brand-bg: #2563eb;
+  --vp-button-brand-hover-bg: #3b82f6;
+  --vp-button-brand-active-bg: #1d4ed8;
 
   --vp-home-hero-name-color: var(--atlas-blue);
   --vp-home-hero-name-background: none;
@@ -22,6 +23,27 @@
 .dark {
   --vp-c-brand-1: var(--atlas-cyan);
   --vp-c-brand-2: var(--atlas-blue-light);
+  --vp-button-brand-bg: #3b82f6;
+  --vp-button-brand-hover-bg: #60a5fa;
+}
+
+/* Brand button pop effect */
+.VPButton.brand {
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+  transition: all 0.3s ease;
+}
+
+.VPButton.brand:hover {
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
+  transform: translateY(-2px);
+}
+
+.dark .VPButton.brand {
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.3);
+}
+
+.dark .VPButton.brand:hover {
+  box-shadow: 0 6px 20px rgba(96, 165, 250, 0.4);
 }
 
 /* Feature boxes with subtle glow and border */
@@ -76,18 +98,19 @@
     0 0 30px rgba(74, 158, 255, 0.1);
 }
 
-/* Hero title - solid and readable */
+/* Hero title - gradient effect */
 .VPHero .name {
-  color: var(--atlas-blue) !important;
-  background: none !important;
-  -webkit-background-clip: unset !important;
-  background-clip: unset !important;
-  -webkit-text-fill-color: var(--atlas-blue) !important;
+  background: linear-gradient(135deg, var(--atlas-blue) 0%, var(--atlas-cyan) 50%, var(--atlas-blue-light) 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
 }
 
 .dark .VPHero .name {
-  color: var(--atlas-cyan) !important;
-  -webkit-text-fill-color: var(--atlas-cyan) !important;
+  background: linear-gradient(135deg, var(--atlas-cyan) 0%, #6db3f2 50%, var(--atlas-blue-light) 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
 }
 
 /* Reduce hero image glow */
@@ -98,6 +121,26 @@
 
 .dark .VPHero .image-bg {
   opacity: 0.4;
+}
+
+/* Hero logo hover effect */
+.VPHero .VPImage {
+  transition: filter 0.5s ease;
+  filter: drop-shadow(0 0 0 transparent);
+}
+
+.VPHero .VPImage:hover {
+  filter:
+    drop-shadow(0 0 15px rgba(74, 158, 255, 0.6))
+    drop-shadow(0 0 30px rgba(74, 158, 255, 0.4))
+    drop-shadow(0 0 45px rgba(37, 99, 235, 0.3));
+}
+
+.dark .VPHero .VPImage:hover {
+  filter:
+    drop-shadow(0 0 20px rgba(74, 158, 255, 0.8))
+    drop-shadow(0 0 40px rgba(74, 158, 255, 0.5))
+    drop-shadow(0 0 60px rgba(96, 165, 250, 0.3));
 }
 
 /* Glass effect header */

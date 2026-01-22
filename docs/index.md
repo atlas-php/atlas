@@ -2,7 +2,6 @@
 layout: home
 
 hero:
-  name: Atlas
   text: AI Agents for Laravel
   tagline: Build AI-powered production-grade applications with structure and scale.
   image:
