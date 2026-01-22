@@ -5,7 +5,8 @@ hero:
   text: "AI Agents for <span class='text-laravel'>Laravel</span>"
   tagline: Build AI-powered production-grade applications with structure and scale.
   image:
-    src: /atlas-logo-2.png
+    light: /atlas-logo-5.png
+    dark: /atlas-logo-2.png
     alt: Atlas
   actions:
     - theme: brand
@@ -17,10 +18,10 @@ hero:
 
 features:
   - icon: 🤖
-    title: Intelligent Agents
+    title: Agent Registry
     details: Create AI agents with custom personalities, tools, and behaviors. Define once, reuse everywhere.
   - icon: 🔧
-    title: Tool Calling
+    title: Tool Registry
     details: Let AI call your PHP code. Define typed tools that interact with your database, APIs, and services.
   - icon: 🎯
     title: Multi-Provider
