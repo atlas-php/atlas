@@ -113,7 +113,49 @@ test('runIfActive treats undefined pipelines as active', function () {
     expect($result['count'])->toBe(1);
 });
 
+test('it throws InvalidArgumentException when handler does not implement PipelineContract', function () {
+    // Register a class that doesn't implement PipelineContract
+    $this->registry->register('test.pipeline', InvalidHandler::class);
+
+    $this->runner->run('test.pipeline', ['key' => 'value']);
+})->throws(
+    \InvalidArgumentException::class,
+    'Pipeline handler must implement '.PipelineContract::class.', got InvalidHandler.'
+);
+
+test('it throws InvalidArgumentException with correct type for non-object handler result', function () {
+    // Create a mock container that returns a non-object
+    $container = new class extends Container
+    {
+        public function make($abstract, array $parameters = []): mixed
+        {
+            if ($abstract === 'NonObjectHandler') {
+                return 'not an object';
+            }
+
+            return parent::make($abstract, $parameters);
+        }
+    };
+
+    $runner = new PipelineRunner($this->registry, $container);
+    $this->registry->register('test.pipeline', 'NonObjectHandler');
+
+    $runner->run('test.pipeline', ['key' => 'value']);
+})->throws(
+    \InvalidArgumentException::class,
+    'Pipeline handler must implement '.PipelineContract::class.', got string.'
+);
+
 // Test Handler Classes
+
+class InvalidHandler
+{
+    // Does not implement PipelineContract
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        return $next($data);
+    }
+}
 
 class CountingHandler implements PipelineContract
 {

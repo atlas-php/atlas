@@ -238,15 +238,6 @@ composer check
 
 **[Official Documentation](https://atlasphp.org)** — Full guides, API reference, and examples.
 
-| Guide                                                               | Description                 |
-|---------------------------------------------------------------------|-----------------------------|
-| [Installation](docs/guides/installation.md)                         | Setup and configuration     |
-| [Creating Agents](docs/guides/creating-agents.md)                   | Agent definitions           |
-| [Creating Tools](docs/guides/creating-tools.md)                     | Tool parameters             |
-| [Multi-Turn Conversations](docs/guides/multi-turn-conversations.md) | Conversation handling       |
-| [Extending Atlas](docs/guides/extending-atlas.md)                   | Pipelines                   |
-
-
 ---
 
 ## Requirements

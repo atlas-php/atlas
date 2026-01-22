@@ -98,3 +98,90 @@ test('tool handler executes via executor', function () {
     // but we can verify the tool was built correctly
     expect($tools[0])->toBeInstanceOf(PrismTool::class);
 });
+
+test('tool handler returns text property from executor result', function () {
+    $tool = new TestTool;
+    $context = new ToolContext;
+
+    // Build the tool
+    $tools = $this->builder->buildFromInstances([$tool], $context);
+    $prismTool = $tools[0];
+
+    // Get the handler via reflection and invoke it
+    $reflection = new ReflectionClass($prismTool);
+    $handlerProperty = $reflection->getProperty('fn');
+    $handlerProperty->setAccessible(true);
+    $handler = $handlerProperty->getValue($prismTool);
+
+    // Execute the handler with test arguments
+    $result = $handler(input: 'test input');
+
+    // Should return the text property from ToolResult
+    expect($result)->toBe('Result: test input');
+});
+
+test('it builds tool manually for non-ToolDefinition implementations', function () {
+    $tool = new \Atlasphp\Atlas\Tests\Fixtures\RawToolContract;
+    $context = new ToolContext;
+
+    $tools = $this->builder->buildFromInstances([$tool], $context);
+
+    expect($tools)->toHaveCount(1);
+    expect($tools[0])->toBeInstanceOf(PrismTool::class);
+});
+
+test('manually built tool has correct name and description', function () {
+    $tool = new \Atlasphp\Atlas\Tests\Fixtures\RawToolContract;
+    $context = new ToolContext;
+
+    $tools = $this->builder->buildFromInstances([$tool], $context);
+    $prismTool = $tools[0];
+
+    // Get name and description via reflection
+    $reflection = new ReflectionClass($prismTool);
+
+    $nameProperty = $reflection->getProperty('name');
+    $nameProperty->setAccessible(true);
+
+    $descProperty = $reflection->getProperty('description');
+    $descProperty->setAccessible(true);
+
+    expect($nameProperty->getValue($prismTool))->toBe('raw_tool');
+    expect($descProperty->getValue($prismTool))->toBe('A raw tool that implements ToolContract directly');
+});
+
+test('manually built tool handler executes correctly', function () {
+    $tool = new \Atlasphp\Atlas\Tests\Fixtures\RawToolContract;
+    $context = new ToolContext;
+
+    $tools = $this->builder->buildFromInstances([$tool], $context);
+    $prismTool = $tools[0];
+
+    // Get the handler via reflection
+    $reflection = new ReflectionClass($prismTool);
+    $handlerProperty = $reflection->getProperty('fn');
+    $handlerProperty->setAccessible(true);
+    $handler = $handlerProperty->getValue($prismTool);
+
+    // Execute the handler
+    $result = $handler(query: 'test query', limit: 5);
+
+    expect($result)->toBe('Searched for: test query (limit: 5)');
+});
+
+test('manually built tool includes parameters', function () {
+    $tool = new \Atlasphp\Atlas\Tests\Fixtures\RawToolContract;
+    $context = new ToolContext;
+
+    $tools = $this->builder->buildFromInstances([$tool], $context);
+    $prismTool = $tools[0];
+
+    // Get parameters via reflection
+    $reflection = new ReflectionClass($prismTool);
+    $paramsProperty = $reflection->getProperty('parameters');
+    $paramsProperty->setAccessible(true);
+    $parameters = $paramsProperty->getValue($prismTool);
+
+    // Should have 2 parameters
+    expect($parameters)->toHaveCount(2);
+});

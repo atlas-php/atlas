@@ -66,3 +66,30 @@ test('it converts error to array', function () {
         'is_error' => true,
     ]);
 });
+
+test('it returns error result when json encoding fails', function () {
+    // Create data that cannot be JSON encoded (resource)
+    $resource = fopen('php://memory', 'r');
+    $data = ['resource' => $resource];
+
+    $result = ToolResult::json($data);
+
+    fclose($resource);
+
+    expect($result->isError)->toBeTrue();
+    expect($result->text)->toContain('Failed to encode tool result as JSON:');
+});
+
+test('it returns error result for circular reference in json', function () {
+    // Create circular reference that cannot be JSON encoded
+    $obj = new stdClass;
+    $obj->self = $obj;
+
+    // We need to use an array with the object
+    $data = ['circular' => $obj];
+
+    $result = ToolResult::json($data);
+
+    expect($result->isError)->toBeTrue();
+    expect($result->text)->toContain('Failed to encode tool result as JSON:');
+});
