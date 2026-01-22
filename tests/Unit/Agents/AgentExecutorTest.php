@@ -607,3 +607,332 @@ test('it falls back to direct toolCalls when no steps present', function () {
     expect($response->toolCalls[0]['arguments'])->toBe(['format' => 'Y-m-d']);
     expect($response->toolCalls[0]['result'])->toBeNull();
 });
+
+test('it runs agent.on_error pipeline when execution fails', function () {
+    $container = new Container;
+    $registry = new PipelineRegistry;
+    $runner = new PipelineRunner($registry, $container);
+
+    // Define and activate the error pipeline
+    $registry->define('agent.on_error', 'Error pipeline');
+
+    // Reset static state
+    AgentErrorCapturingHandler::reset();
+    $registry->register('agent.on_error', AgentErrorCapturingHandler::class);
+
+    $prismBuilder = Mockery::mock(PrismBuilderContract::class);
+    $prismBuilder->shouldReceive('forPrompt')
+        ->andThrow(new \RuntimeException('API Error'));
+
+    $systemPromptBuilder = new SystemPromptBuilder($runner);
+    $toolRegistry = new ToolRegistry($container);
+    $toolExecutor = new ToolExecutor($runner);
+    $toolBuilder = new ToolBuilder($toolRegistry, $toolExecutor, $container);
+    $usageExtractor = new UsageExtractorRegistry;
+
+    $executor = new AgentExecutor(
+        $prismBuilder,
+        $toolBuilder,
+        $systemPromptBuilder,
+        $runner,
+        $usageExtractor,
+    );
+
+    $agent = new TestAgent;
+
+    try {
+        $executor->execute($agent, 'Hello');
+    } catch (\Atlasphp\Atlas\Agents\Exceptions\AgentException $e) {
+        // Expected
+    }
+
+    expect(AgentErrorCapturingHandler::$called)->toBeTrue();
+    expect(AgentErrorCapturingHandler::$data)->not->toBeNull();
+    expect(AgentErrorCapturingHandler::$data['agent'])->toBe($agent);
+    expect(AgentErrorCapturingHandler::$data['input'])->toBe('Hello');
+    expect(AgentErrorCapturingHandler::$data['exception'])->toBeInstanceOf(\RuntimeException::class);
+});
+
+test('it includes system_prompt in after_execute pipeline data', function () {
+    $container = new Container;
+    $registry = new PipelineRegistry;
+    $runner = new PipelineRunner($registry, $container);
+
+    // Define and activate the after pipeline
+    $registry->define('agent.after_execute', 'After pipeline');
+
+    // Reset static state
+    AgentAfterExecuteCapturingHandler::reset();
+    $registry->register('agent.after_execute', AgentAfterExecuteCapturingHandler::class);
+
+    $mockResponse = new class
+    {
+        public ?string $text = 'Hello';
+
+        public array $toolCalls = [];
+
+        public object $finishReason;
+
+        public function __construct()
+        {
+            $this->finishReason = new class
+            {
+                public string $value = 'stop';
+            };
+        }
+    };
+
+    $mockPendingRequest = Mockery::mock();
+    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
+
+    $prismBuilder = Mockery::mock(PrismBuilderContract::class);
+    $prismBuilder->shouldReceive('forPrompt')->andReturn($mockPendingRequest);
+
+    $systemPromptBuilder = new SystemPromptBuilder($runner);
+    $toolRegistry = new ToolRegistry($container);
+    $toolExecutor = new ToolExecutor($runner);
+    $toolBuilder = new ToolBuilder($toolRegistry, $toolExecutor, $container);
+    $usageExtractor = new UsageExtractorRegistry;
+
+    $executor = new AgentExecutor(
+        $prismBuilder,
+        $toolBuilder,
+        $systemPromptBuilder,
+        $runner,
+        $usageExtractor,
+    );
+
+    $agent = new TestAgent;
+    $executor->execute($agent, 'Hello');
+
+    expect(AgentAfterExecuteCapturingHandler::$data)->not->toBeNull();
+    expect(array_key_exists('system_prompt', AgentAfterExecuteCapturingHandler::$data))->toBeTrue();
+    expect(AgentAfterExecuteCapturingHandler::$data['system_prompt'])->toBeString();
+});
+
+test('it extracts tool call id from response steps', function () {
+    // Create mock tool call with id
+    $mockToolCall = new class
+    {
+        public string $id = 'call_123abc';
+
+        public string $name = 'calculator';
+
+        public function arguments(): array
+        {
+            return ['operation' => 'add'];
+        }
+    };
+
+    $mockToolResult = new class
+    {
+        public string $result = '8';
+    };
+
+    $mockStep = new class($mockToolCall, $mockToolResult)
+    {
+        public array $toolCalls;
+
+        public array $toolResults;
+
+        public function __construct($toolCall, $toolResult)
+        {
+            $this->toolCalls = [$toolCall];
+            $this->toolResults = [$toolResult];
+        }
+    };
+
+    $mockResponse = new class($mockStep)
+    {
+        public ?string $text = 'Result';
+
+        public array $toolCalls = [];
+
+        public array $steps;
+
+        public object $finishReason;
+
+        public function __construct($step)
+        {
+            $this->steps = [$step];
+            $this->finishReason = new class
+            {
+                public string $value = 'stop';
+            };
+        }
+    };
+
+    $mockPendingRequest = Mockery::mock();
+    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
+
+    $this->prismBuilder
+        ->shouldReceive('forPrompt')
+        ->once()
+        ->andReturn($mockPendingRequest);
+
+    $executor = new AgentExecutor(
+        $this->prismBuilder,
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->usageExtractor,
+    );
+
+    $agent = new TestAgent;
+    $response = $executor->execute($agent, 'Calculate');
+
+    expect($response->toolCalls)->toHaveCount(1);
+    expect($response->toolCalls[0]['id'])->toBe('call_123abc');
+    expect($response->toolCalls[0]['name'])->toBe('calculator');
+});
+
+test('it extracts null id when tool call has no id', function () {
+    // Create mock tool call without id
+    $mockToolCall = new class
+    {
+        public string $name = 'calculator';
+
+        public function arguments(): array
+        {
+            return ['operation' => 'add'];
+        }
+    };
+
+    $mockStep = new class($mockToolCall)
+    {
+        public array $toolCalls;
+
+        public array $toolResults = [];
+
+        public function __construct($toolCall)
+        {
+            $this->toolCalls = [$toolCall];
+        }
+    };
+
+    $mockResponse = new class($mockStep)
+    {
+        public ?string $text = 'Result';
+
+        public array $toolCalls = [];
+
+        public array $steps;
+
+        public object $finishReason;
+
+        public function __construct($step)
+        {
+            $this->steps = [$step];
+            $this->finishReason = new class
+            {
+                public string $value = 'stop';
+            };
+        }
+    };
+
+    $mockPendingRequest = Mockery::mock();
+    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
+
+    $this->prismBuilder
+        ->shouldReceive('forPrompt')
+        ->once()
+        ->andReturn($mockPendingRequest);
+
+    $executor = new AgentExecutor(
+        $this->prismBuilder,
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->usageExtractor,
+    );
+
+    $agent = new TestAgent;
+    $response = $executor->execute($agent, 'Calculate');
+
+    expect($response->toolCalls)->toHaveCount(1);
+    expect($response->toolCalls[0]['id'])->toBeNull();
+});
+
+test('it preserves original exception in AgentException', function () {
+    $mockPendingRequest = Mockery::mock();
+    $mockPendingRequest->shouldReceive('forPrompt')
+        ->andThrow(new \RuntimeException('Original error'));
+
+    $this->prismBuilder
+        ->shouldReceive('forPrompt')
+        ->andThrow(new \RuntimeException('Original error'));
+
+    $executor = new AgentExecutor(
+        $this->prismBuilder,
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->usageExtractor,
+    );
+
+    $agent = new TestAgent;
+
+    try {
+        $executor->execute($agent, 'Hello');
+        $this->fail('Expected AgentException to be thrown');
+    } catch (\Atlasphp\Atlas\Agents\Exceptions\AgentException $e) {
+        expect($e->getPrevious())->toBeInstanceOf(\RuntimeException::class);
+        expect($e->getPrevious()->getMessage())->toBe('Original error');
+    }
+});
+
+// Pipeline Handler Classes for Tests
+
+class AgentErrorCapturingHandler implements \Atlasphp\Atlas\Foundation\Contracts\PipelineContract
+{
+    public static bool $called = false;
+
+    public static ?array $data = null;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+        self::$data = null;
+    }
+
+    public function handle(mixed $data, \Closure $next): mixed
+    {
+        self::$called = true;
+        self::$data = $data;
+
+        return $next($data);
+    }
+}
+
+class AgentAfterExecuteCapturingHandler implements \Atlasphp\Atlas\Foundation\Contracts\PipelineContract
+{
+    public static bool $called = false;
+
+    public static ?array $data = null;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+        self::$data = null;
+    }
+
+    public function handle(mixed $data, \Closure $next): mixed
+    {
+        self::$called = true;
+        self::$data = $data;
+
+        return $next($data);
+    }
+}

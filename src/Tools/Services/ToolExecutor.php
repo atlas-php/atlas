@@ -65,11 +65,39 @@ class ToolExecutor
 
             return $afterData['result'];
         } catch (ToolException $e) {
+            $this->handleToolError($tool, $args, $context, $e);
+
             return ToolResult::error($e->getMessage());
         } catch (Throwable $e) {
+            $this->handleToolError($tool, $args, $context, $e);
+
             return ToolResult::error(
                 "Tool '{$tool->name()}' failed: {$e->getMessage()}",
             );
         }
+    }
+
+    /**
+     * Handle a tool execution error by running the error pipeline.
+     *
+     * @param  ToolContract  $tool  The tool that failed.
+     * @param  array<string, mixed>  $args  The arguments that were passed.
+     * @param  ToolContext  $context  The execution context.
+     * @param  Throwable  $exception  The exception that occurred.
+     */
+    protected function handleToolError(
+        ToolContract $tool,
+        array $args,
+        ToolContext $context,
+        Throwable $exception,
+    ): void {
+        $errorData = [
+            'tool' => $tool,
+            'args' => $args,
+            'context' => $context,
+            'exception' => $exception,
+        ];
+
+        $this->pipelineRunner->runIfActive('tool.on_error', $errorData);
     }
 }

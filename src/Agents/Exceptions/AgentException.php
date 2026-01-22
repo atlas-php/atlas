@@ -18,10 +18,15 @@ class AgentException extends Exception
      *
      * @param  string  $agentKey  The agent key.
      * @param  string  $reason  The failure reason.
+     * @param  \Throwable|null  $previous  The previous exception for chaining.
      */
-    public static function executionFailed(string $agentKey, string $reason): self
+    public static function executionFailed(string $agentKey, string $reason, ?\Throwable $previous = null): self
     {
-        return new self("Agent '{$agentKey}' execution failed: {$reason}");
+        return new self(
+            "Agent '{$agentKey}' execution failed: {$reason}",
+            0,
+            $previous,
+        );
     }
 
     /**

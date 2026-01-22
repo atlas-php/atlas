@@ -50,6 +50,7 @@ class AgentExecutor implements AgentExecutorContract
     ): AgentResponse {
         // Create default context if not provided
         $context = $context ?? new ExecutionContext;
+        $systemPrompt = null;
 
         try {
             // Run before_execute pipeline
@@ -83,6 +84,7 @@ class AgentExecutor implements AgentExecutorContract
                 'input' => $input,
                 'context' => $context,
                 'response' => $response,
+                'system_prompt' => $systemPrompt,
             ];
 
             /** @var array{response: AgentResponse} $afterData */
@@ -93,10 +95,42 @@ class AgentExecutor implements AgentExecutorContract
 
             return $afterData['response'];
         } catch (AgentException $e) {
+            $this->handleExecutionError($agent, $input, $context, $systemPrompt, $schema, $e);
             throw $e;
         } catch (Throwable $e) {
-            throw AgentException::executionFailed($agent->key(), $e->getMessage());
+            $this->handleExecutionError($agent, $input, $context, $systemPrompt, $schema, $e);
+            throw AgentException::executionFailed($agent->key(), $e->getMessage(), $e);
         }
+    }
+
+    /**
+     * Handle an execution error by running the error pipeline.
+     *
+     * @param  AgentContract  $agent  The agent that failed.
+     * @param  string  $input  The input that was being processed.
+     * @param  ExecutionContext  $context  The execution context.
+     * @param  string|null  $systemPrompt  The system prompt (if built).
+     * @param  Schema|null  $schema  The schema (if provided).
+     * @param  Throwable  $exception  The exception that occurred.
+     */
+    protected function handleExecutionError(
+        AgentContract $agent,
+        string $input,
+        ExecutionContext $context,
+        ?string $systemPrompt,
+        ?Schema $schema,
+        Throwable $exception,
+    ): void {
+        $errorData = [
+            'agent' => $agent,
+            'input' => $input,
+            'context' => $context,
+            'system_prompt' => $systemPrompt,
+            'schema' => $schema,
+            'exception' => $exception,
+        ];
+
+        $this->pipelineRunner->runIfActive('agent.on_error', $errorData);
     }
 
     /**
@@ -332,7 +366,7 @@ class AgentExecutor implements AgentExecutorContract
      * Prism stores tool calls in the steps array, with each step containing
      * both the tool calls and their results.
      *
-     * @return array<int, array{name: string, arguments: array<string, mixed>, result: string|null}>
+     * @return array<int, array{id: string|null, name: string, arguments: array<string, mixed>, result: string|null}>
      */
     protected function extractToolCalls(mixed $prismResponse): array
     {
@@ -348,6 +382,7 @@ class AgentExecutor implements AgentExecutorContract
                             $result = $step->toolResults[$i]->result ?? null;
                         }
                         $toolCalls[] = [
+                            'id' => $call->id ?? null,
                             'name' => $call->name,
                             'arguments' => $call->arguments(),
                             'result' => $result,
@@ -361,6 +396,7 @@ class AgentExecutor implements AgentExecutorContract
         if (empty($toolCalls) && property_exists($prismResponse, 'toolCalls') && $prismResponse->toolCalls) {
             foreach ($prismResponse->toolCalls as $call) {
                 $toolCalls[] = [
+                    'id' => $call->id ?? null,
                     'name' => $call->name,
                     'arguments' => $call->arguments(),
                     'result' => null,

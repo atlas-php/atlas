@@ -15,7 +15,7 @@ final readonly class AgentResponse
     /**
      * @param  string|null  $text  The text response from the agent.
      * @param  mixed  $structured  Structured output when using schema.
-     * @param  array<int, array{name: string, arguments: array<string, mixed>}>  $toolCalls  Tool calls made by the agent.
+     * @param  array<int, array{id: string|null, name: string, arguments: array<string, mixed>, result: string|null}>  $toolCalls  Tool calls made by the agent.
      * @param  array<string, int>  $usage  Token usage statistics.
      * @param  array<string, mixed>  $metadata  Additional response metadata.
      */
@@ -50,7 +50,7 @@ final readonly class AgentResponse
     /**
      * Create a response with tool calls.
      *
-     * @param  array<int, array{name: string, arguments: array<string, mixed>}>  $toolCalls
+     * @param  array<int, array{id: string|null, name: string, arguments: array<string, mixed>, result: string|null}>  $toolCalls
      */
     public static function withToolCalls(array $toolCalls): self
     {

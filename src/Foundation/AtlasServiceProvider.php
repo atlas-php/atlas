@@ -191,6 +191,16 @@ class AtlasServiceProvider extends ServiceProvider
             'tool.after_execute',
             'Pipeline executed after tool completes',
         );
+
+        $registry->define(
+            'agent.on_error',
+            'Pipeline executed when agent execution fails',
+        );
+
+        $registry->define(
+            'tool.on_error',
+            'Pipeline executed when tool execution fails',
+        );
     }
 
     /**
