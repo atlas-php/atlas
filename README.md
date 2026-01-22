@@ -17,10 +17,10 @@ $response = Atlas::chat('support-agent', 'I need help with my order');
 
 ## Why Atlas?
 
-Prism handles LLM communication. Atlas gives you the structure to build real applications:
+Atlas gives you the infrastructure to build real applications; Prism handles the LLM communications.
 
-- **Agents** — Define agents as classes. Register once, use anywhere. No scattered API calls.
-- **Tools** — Give agents abilities with validated parameters. No manual JSON schemas.
+- **Agents** — Define many agents. Register once, use anywhere.
+- **Tools** — Give agents access to abilities directly to your services.
 - **System Prompt Templates** — Variables like `{user_name}` interpolate at runtime.
 - **Execution Pipelines** — Hook into any stage for logging, metrics, or auth.
 - **Multi-Provider** — OpenAI, Anthropic, others. Switch with config.
@@ -76,7 +76,10 @@ class SupportAgent extends AgentDefinition
 
     public function tools(): array
     {
-        return [LookupOrderTool::class, RefundTool::class];
+        return [
+            LookupOrderTool::class, 
+            RefundTool::class
+        ];
     }
 }
 ```
@@ -278,13 +281,13 @@ composer check    # All checks
 
 ## Documentation
 
-| Guide | Description |
-|-------|-------------|
-| [Installation](docs/guides/Installation.md) | Setup walkthrough |
-| [Creating Agents](docs/guides/Creating-Agents.md) | Agent configuration |
-| [Creating Tools](docs/guides/Creating-Tools.md) | Tool parameters and results |
-| [Multi-Turn Conversations](docs/guides/Multi-Turn-Conversations.md) | Conversation handling |
-| [Extending Atlas](docs/guides/Extending-Atlas.md) | Pipeline middleware |
+| Guide                                                               | Description                 |
+|---------------------------------------------------------------------|-----------------------------|
+| [Installation](docs/guides/Installation.md)                         | Setup walkthrough           |
+| [Creating Agents](docs/guides/Creating-Agents.md)                   | Agent configuration         |
+| [Creating Tools](docs/guides/Creating-Tools.md)                     | Tool parameters and results |
+| [Multi-Turn Conversations](docs/guides/Multi-Turn-Conversations.md) | Conversation handling       |
+| [Extending Atlas](docs/guides/Extending-Atlas.md)                   | Pipeline middleware         |
 
 Specs: [docs/spec/](docs/spec/)
 
