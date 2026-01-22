@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://atlasphp.org">
-    <img src="./atlas-logo-2.png" alt="Atlas logo" height="180">
+    <img src="./atlas-logo-3.png" alt="Atlas logo" height="180">
   </a>
 </p>
 <p align="center">
