@@ -1,7 +1,10 @@
 <p align="center">
-  <img src="./atlas-logo-2.png" alt="Atlas logo" height="180">
+  <a href="https://atlasphp.org">
+    <img src="./atlas-logo-2.png" alt="Atlas logo" height="180">
+  </a>
 </p>
 <p align="center">
+    <a href="https://atlasphp.org"><img src="https://img.shields.io/badge/docs-atlasphp.org-blue?style=flat-square" alt="Documentation"></a>
     <a href="https://github.com/atlas-php/atlas"><img src="https://github.com/atlas-php/atlas/workflows/Build/badge.svg" alt="Tests"></a>
     <img src="https://img.shields.io/badge/php-8.4%2B-blue?style=flat-square" alt="PHP Version">
     <img src="https://img.shields.io/badge/laravel-12.x-orange?style=flat-square" alt="Laravel">
@@ -51,11 +54,11 @@ Atlas handles **application-level AI concerns** while Prism handles **LLM commun
 
 | Feature             | What it does                                                   | Learn more                                             |
 |---------------------|----------------------------------------------------------------|--------------------------------------------------------|
-| **Agent Registry**  | Define agents once, use anywhere by key, class, or instance    | [Guide](docs/guides/Creating-Agents.md)                |
-| **Tool Registry**   | Connect agents to your business services with typed parameters | [Guide](docs/guides/Creating-Tools.md)                 |
-| **Dynamic Prompts** | Variables like `{user_name}` interpolate at runtime            | [Guide](docs/guides/Creating-Agents.md#system-prompts) |
-| **Pipelines**       | Extend Atlas for logging, auth, metrics—without coupling       | [Guide](docs/guides/Extending-Atlas.md)                |
-| **Multi-Provider**  | OpenAI, Anthropic, others. Swap via config                     | [Guide](docs/guides/Installation.md#configuration)     |
+| **Agent Registry**  | Define agents once, use anywhere by key, class, or instance    | [Guide](docs/guides/creating-agents.md)                |
+| **Tool Registry**   | Connect agents to your business services with typed parameters | [Guide](docs/guides/creating-tools.md)                 |
+| **Dynamic Prompts** | Variables like `{user_name}` interpolate at runtime            | [Guide](docs/guides/creating-agents.md#system-prompts) |
+| **Pipelines**       | Extend Atlas for logging, auth, metrics—without coupling       | [Guide](docs/guides/extending-atlas.md)                |
+| **Multi-Provider**  | OpenAI, Anthropic, others. Swap via config                     | [Guide](docs/guides/installation.md#configuration)     |
 
 Beyond chat: [Embeddings](#embeddings) · [Images](#images) · [Speech](#speech)
 
@@ -233,13 +236,15 @@ composer check
 
 ## Documentation
 
+**[Official Documentation](https://atlasphp.org)** — Full guides, API reference, and examples.
+
 | Guide                                                               | Description                 |
 |---------------------------------------------------------------------|-----------------------------|
-| [Installation](docs/guides/Installation.md)                         | Setup and configuration     |
-| [Creating Agents](docs/guides/Creating-Agents.md)                   | Agent definitions           |
-| [Creating Tools](docs/guides/Creating-Tools.md)                     | Tool parameters             |
-| [Multi-Turn Conversations](docs/guides/Multi-Turn-Conversations.md) | Conversation handling       |
-| [Extending Atlas](docs/guides/Extending-Atlas.md)                   | Pipelines                   |
+| [Installation](docs/guides/installation.md)                         | Setup and configuration     |
+| [Creating Agents](docs/guides/creating-agents.md)                   | Agent definitions           |
+| [Creating Tools](docs/guides/creating-tools.md)                     | Tool parameters             |
+| [Multi-Turn Conversations](docs/guides/multi-turn-conversations.md) | Conversation handling       |
+| [Extending Atlas](docs/guides/extending-atlas.md)                   | Pipelines                   |
 
 
 ---
