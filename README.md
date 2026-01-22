@@ -7,7 +7,7 @@
 
 # Atlas
 
-**The production-grade AI agent framework for Laravel.** Built on [Prism PHP](https://github.com/prism-php/prism).
+Atlas is a Laravel package for building AI-powered applications with structure and scale. It provides reusable agents, typed tools, system prompt templating, and execution pipelines—all through a clean, stateless API. Built on [Prism PHP](https://github.com/prism-php/prism), Atlas lets you focus on your application logic instead of wiring up AI infrastructure.
 
 ```php
 $response = Atlas::chat('support-agent', 'I need help with my order');
@@ -50,11 +50,8 @@ Atlas gives you the infrastructure to build real applications; Prism handles the
 
 ```bash
 composer require atlas-php/atlas
-php artisan vendor:publish --tag=atlas-config
-```
 
-```env
-OPENAI_API_KEY=sk-...
+php artisan vendor:publish --tag=atlas-config
 ```
 
 ---
