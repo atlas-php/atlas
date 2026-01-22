@@ -193,6 +193,8 @@ $response = Atlas::forMessages($messages)
 
 ## Embeddings
 
+Convert text into vector representations for semantic search, similarity matching, and RAG applications.
+
 ```php
 $vector = Atlas::embed('Hello world');
 ```
@@ -200,6 +202,8 @@ $vector = Atlas::embed('Hello world');
 ---
 
 ## Images
+
+Generate images from text prompts using DALL-E or other supported providers.
 
 ```php
 $result = Atlas::image('openai', 'dall-e-3')->generate('A sunset over mountains');
@@ -209,6 +213,8 @@ $result = Atlas::image('openai', 'dall-e-3')->generate('A sunset over mountains'
 
 ## Speech
 
+Convert text to speech or transcribe audio to text with a simple, fluent API.
+
 ```php
 $result = Atlas::speech()->transcribe('/path/to/audio.mp3');
 ```
@@ -217,11 +223,33 @@ $result = Atlas::speech()->transcribe('/path/to/audio.mp3');
 
 ## Configuration
 
+Atlas supports all major AI providers out of the box.
+
 ```php
 return [
     'providers' => [
-        'openai' => ['api_key' => env('OPENAI_API_KEY')],
-        'anthropic' => ['api_key' => env('ANTHROPIC_API_KEY')],
+        'openai' => [
+            'api_key' => env('OPENAI_API_KEY'),
+        ],
+        'anthropic' => [
+            'api_key' => env('ANTHROPIC_API_KEY'),
+        ],
+        'gemini' => [
+            'api_key' => env('GEMINI_API_KEY'),
+        ],
+        'mistral' => [
+            'api_key' => env('MISTRAL_API_KEY'),
+        ],
+        'groq' => [
+            'api_key' => env('GROQ_API_KEY'),
+        ],
+        'xai' => [
+            'api_key' => env('XAI_API_KEY'),
+        ],
+        // Custom or self-hosted providers
+        'ollama' => [
+            'url' => env('OLLAMA_URL', 'http://localhost:11434'),
+        ],
     ],
 ];
 ```
@@ -251,8 +279,6 @@ composer check     # Run all checks
 ## Documentation
 
 **[Official Documentation](https://atlasphp.org)** — Full guides, API reference, and examples.
-
----
 
 ## Contributing
 
