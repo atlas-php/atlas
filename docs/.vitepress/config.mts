@@ -45,6 +45,7 @@ export default defineConfig({
         text: 'Capabilities',
         items: [
           { text: 'Chat', link: '/capabilities/chat' },
+          { text: 'Streaming', link: '/capabilities/streaming' },
           { text: 'Embeddings', link: '/capabilities/embeddings' },
           { text: 'Image Generation', link: '/capabilities/images' },
           { text: 'Speech', link: '/capabilities/speech' },

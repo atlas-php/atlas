@@ -1005,6 +1005,584 @@ test('it combines messages with input for structured requests', function () {
     expect($capturedInput)->toBe("User: My name is John.\n\nAssistant: Nice to meet you, John!\n\nUser: What is my name?");
 });
 
+// ===========================================
+// STREAMING TESTS
+// ===========================================
+
+test('stream returns StreamResponse', function () {
+    $prismTextDeltaEvent = new \Prism\Prism\Streaming\Events\TextDeltaEvent(
+        id: 'evt_1',
+        timestamp: 1234567890,
+        delta: 'Hello',
+        messageId: 'msg_1',
+    );
+
+    $prismUsage = new \Prism\Prism\ValueObjects\Usage(
+        promptTokens: 10,
+        completionTokens: 5,
+    );
+
+    $prismStreamEndEvent = new \Prism\Prism\Streaming\Events\StreamEndEvent(
+        id: 'evt_2',
+        timestamp: 1234567891,
+        finishReason: \Prism\Prism\Enums\FinishReason::Stop,
+        usage: $prismUsage,
+    );
+
+    $mockStreamGenerator = function () use ($prismTextDeltaEvent, $prismStreamEndEvent) {
+        yield $prismTextDeltaEvent;
+        yield $prismStreamEndEvent;
+    };
+
+    $mockPendingRequest = Mockery::mock();
+    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('asStream')->andReturn($mockStreamGenerator());
+
+    $this->prismBuilder
+        ->shouldReceive('forPrompt')
+        ->andReturn($mockPendingRequest);
+
+    $executor = new AgentExecutor(
+        $this->prismBuilder,
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->usageExtractor,
+    );
+
+    $agent = new TestAgent;
+    $stream = $executor->stream($agent, 'Hello');
+
+    // Verify return type
+    expect($stream)->toBeInstanceOf(\Atlasphp\Atlas\Streaming\StreamResponse::class);
+
+    // Iterate to trigger execution (generators are lazy)
+    iterator_to_array($stream);
+});
+
+test('stream generates text delta events', function () {
+    // Create real Prism TextDeltaEvent
+    $prismTextDeltaEvent = new \Prism\Prism\Streaming\Events\TextDeltaEvent(
+        id: 'evt_1',
+        timestamp: 1234567890,
+        delta: 'Hello World',
+        messageId: 'msg_1',
+    );
+
+    // Create real Prism StreamEndEvent with usage
+    $prismUsage = new \Prism\Prism\ValueObjects\Usage(
+        promptTokens: 10,
+        completionTokens: 5,
+    );
+
+    $prismStreamEndEvent = new \Prism\Prism\Streaming\Events\StreamEndEvent(
+        id: 'evt_2',
+        timestamp: 1234567891,
+        finishReason: \Prism\Prism\Enums\FinishReason::Stop,
+        usage: $prismUsage,
+    );
+
+    $mockStreamGenerator = function () use ($prismTextDeltaEvent, $prismStreamEndEvent) {
+        yield $prismTextDeltaEvent;
+        yield $prismStreamEndEvent;
+    };
+
+    $mockPendingRequest = Mockery::mock();
+    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('asStream')->andReturn($mockStreamGenerator());
+
+    $this->prismBuilder
+        ->shouldReceive('forPrompt')
+        ->once()
+        ->andReturn($mockPendingRequest);
+
+    $executor = new AgentExecutor(
+        $this->prismBuilder,
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->usageExtractor,
+    );
+
+    $agent = new TestAgent;
+    $stream = $executor->stream($agent, 'Hello');
+
+    // Iterate and collect events
+    $events = iterator_to_array($stream);
+
+    expect($events)->toHaveCount(2);
+    expect($events[0])->toBeInstanceOf(\Atlasphp\Atlas\Streaming\Events\TextDeltaEvent::class);
+    expect($events[0]->text)->toBe('Hello World');
+    expect($events[1])->toBeInstanceOf(\Atlasphp\Atlas\Streaming\Events\StreamEndEvent::class);
+    expect($events[1]->finishReason)->toBe('stop');
+});
+
+test('stream runs stream.on_event pipeline for each event', function () {
+    $container = new Container;
+    $registry = new PipelineRegistry;
+    $runner = new PipelineRunner($registry, $container);
+
+    // Define and activate the stream pipelines
+    $registry->define('stream.on_event', 'Stream event pipeline');
+
+    StreamOnEventCapturingHandler::reset();
+    $registry->register('stream.on_event', StreamOnEventCapturingHandler::class);
+
+    // Create real Prism events
+    $prismTextDeltaEvent = new \Prism\Prism\Streaming\Events\TextDeltaEvent(
+        id: 'evt_1',
+        timestamp: 1234567890,
+        delta: 'Hello',
+        messageId: 'msg_1',
+    );
+
+    $prismUsage = new \Prism\Prism\ValueObjects\Usage(
+        promptTokens: 10,
+        completionTokens: 5,
+    );
+
+    $prismStreamEndEvent = new \Prism\Prism\Streaming\Events\StreamEndEvent(
+        id: 'evt_2',
+        timestamp: 1234567891,
+        finishReason: \Prism\Prism\Enums\FinishReason::Stop,
+        usage: $prismUsage,
+    );
+
+    $mockStreamGenerator = function () use ($prismTextDeltaEvent, $prismStreamEndEvent) {
+        yield $prismTextDeltaEvent;
+        yield $prismStreamEndEvent;
+    };
+
+    $mockPendingRequest = Mockery::mock();
+    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('asStream')->andReturn($mockStreamGenerator());
+
+    $prismBuilder = Mockery::mock(PrismBuilderContract::class);
+    $prismBuilder->shouldReceive('forPrompt')->andReturn($mockPendingRequest);
+
+    $systemPromptBuilder = new SystemPromptBuilder($runner);
+    $toolRegistry = new ToolRegistry($container);
+    $toolExecutor = new ToolExecutor($runner);
+    $toolBuilder = new ToolBuilder($toolRegistry, $toolExecutor, $container);
+    $usageExtractor = new UsageExtractorRegistry;
+
+    $executor = new AgentExecutor(
+        $prismBuilder,
+        $toolBuilder,
+        $systemPromptBuilder,
+        $runner,
+        $usageExtractor,
+    );
+
+    $agent = new TestAgent;
+    $stream = $executor->stream($agent, 'Hello');
+    iterator_to_array($stream);
+
+    expect(StreamOnEventCapturingHandler::$events)->toHaveCount(2);
+    expect(StreamOnEventCapturingHandler::$events[0]['event'])->toBeInstanceOf(\Atlasphp\Atlas\Streaming\Events\TextDeltaEvent::class);
+    expect(StreamOnEventCapturingHandler::$events[0]['agent'])->toBe($agent);
+});
+
+test('stream runs stream.after_complete pipeline when stream ends', function () {
+    $container = new Container;
+    $registry = new PipelineRegistry;
+    $runner = new PipelineRunner($registry, $container);
+
+    // Define and activate the stream pipelines
+    $registry->define('stream.after_complete', 'Stream after complete pipeline');
+
+    StreamAfterCompleteCapturingHandler::reset();
+    $registry->register('stream.after_complete', StreamAfterCompleteCapturingHandler::class);
+
+    $prismUsage = new \Prism\Prism\ValueObjects\Usage(
+        promptTokens: 10,
+        completionTokens: 5,
+    );
+
+    $prismStreamEndEvent = new \Prism\Prism\Streaming\Events\StreamEndEvent(
+        id: 'evt_1',
+        timestamp: 1234567890,
+        finishReason: \Prism\Prism\Enums\FinishReason::Stop,
+        usage: $prismUsage,
+    );
+
+    $mockStreamGenerator = function () use ($prismStreamEndEvent) {
+        yield $prismStreamEndEvent;
+    };
+
+    $mockPendingRequest = Mockery::mock();
+    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('asStream')->andReturn($mockStreamGenerator());
+
+    $prismBuilder = Mockery::mock(PrismBuilderContract::class);
+    $prismBuilder->shouldReceive('forPrompt')->andReturn($mockPendingRequest);
+
+    $systemPromptBuilder = new SystemPromptBuilder($runner);
+    $toolRegistry = new ToolRegistry($container);
+    $toolExecutor = new ToolExecutor($runner);
+    $toolBuilder = new ToolBuilder($toolRegistry, $toolExecutor, $container);
+    $usageExtractor = new UsageExtractorRegistry;
+
+    $executor = new AgentExecutor(
+        $prismBuilder,
+        $toolBuilder,
+        $systemPromptBuilder,
+        $runner,
+        $usageExtractor,
+    );
+
+    $agent = new TestAgent;
+    $stream = $executor->stream($agent, 'Hello');
+    iterator_to_array($stream);
+
+    expect(StreamAfterCompleteCapturingHandler::$called)->toBeTrue();
+    expect(StreamAfterCompleteCapturingHandler::$data['agent'])->toBe($agent);
+    expect(StreamAfterCompleteCapturingHandler::$data['input'])->toBe('Hello');
+    expect(array_key_exists('system_prompt', StreamAfterCompleteCapturingHandler::$data))->toBeTrue();
+});
+
+test('stream runs agent.on_error pipeline when execution fails', function () {
+    $container = new Container;
+    $registry = new PipelineRegistry;
+    $runner = new PipelineRunner($registry, $container);
+
+    // Define and activate the error pipeline
+    $registry->define('agent.on_error', 'Error pipeline');
+
+    AgentErrorCapturingHandler::reset();
+    $registry->register('agent.on_error', AgentErrorCapturingHandler::class);
+
+    $prismBuilder = Mockery::mock(PrismBuilderContract::class);
+    $prismBuilder->shouldReceive('forPrompt')
+        ->andThrow(new \RuntimeException('Stream API Error'));
+
+    $systemPromptBuilder = new SystemPromptBuilder($runner);
+    $toolRegistry = new ToolRegistry($container);
+    $toolExecutor = new ToolExecutor($runner);
+    $toolBuilder = new ToolBuilder($toolRegistry, $toolExecutor, $container);
+    $usageExtractor = new UsageExtractorRegistry;
+
+    $executor = new AgentExecutor(
+        $prismBuilder,
+        $toolBuilder,
+        $systemPromptBuilder,
+        $runner,
+        $usageExtractor,
+    );
+
+    $agent = new TestAgent;
+
+    try {
+        $stream = $executor->stream($agent, 'Hello');
+        iterator_to_array($stream);
+    } catch (\Atlasphp\Atlas\Agents\Exceptions\AgentException $e) {
+        // Expected
+    }
+
+    expect(AgentErrorCapturingHandler::$called)->toBeTrue();
+    expect(AgentErrorCapturingHandler::$data['agent'])->toBe($agent);
+    expect(AgentErrorCapturingHandler::$data['exception'])->toBeInstanceOf(\RuntimeException::class);
+});
+
+test('stream yields error event when execution fails', function () {
+    $mockPendingRequest = Mockery::mock();
+    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('asStream')
+        ->andThrow(new \RuntimeException('Stream failed'));
+
+    $this->prismBuilder
+        ->shouldReceive('forPrompt')
+        ->once()
+        ->andReturn($mockPendingRequest);
+
+    $executor = new AgentExecutor(
+        $this->prismBuilder,
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->usageExtractor,
+    );
+
+    $agent = new TestAgent;
+    $stream = $executor->stream($agent, 'Hello');
+
+    $events = [];
+    try {
+        foreach ($stream as $event) {
+            $events[] = $event;
+        }
+    } catch (\Atlasphp\Atlas\Agents\Exceptions\AgentException $e) {
+        // Expected
+    }
+
+    expect($events)->toHaveCount(1);
+    expect($events[0])->toBeInstanceOf(\Atlasphp\Atlas\Streaming\Events\ErrorEvent::class);
+    expect($events[0]->message)->toBe('Stream failed');
+    expect($events[0]->recoverable)->toBeFalse();
+});
+
+test('stream uses forMessages when context has messages', function () {
+    $prismUsage = new \Prism\Prism\ValueObjects\Usage(
+        promptTokens: 10,
+        completionTokens: 5,
+    );
+
+    $prismStreamEndEvent = new \Prism\Prism\Streaming\Events\StreamEndEvent(
+        id: 'evt_1',
+        timestamp: 1234567890,
+        finishReason: \Prism\Prism\Enums\FinishReason::Stop,
+        usage: $prismUsage,
+    );
+
+    $mockStreamGenerator = function () use ($prismStreamEndEvent) {
+        yield $prismStreamEndEvent;
+    };
+
+    $mockPendingRequest = Mockery::mock();
+    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('asStream')->andReturn($mockStreamGenerator());
+
+    $this->prismBuilder
+        ->shouldReceive('forMessages')
+        ->once()
+        ->andReturn($mockPendingRequest);
+
+    $executor = new AgentExecutor(
+        $this->prismBuilder,
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->usageExtractor,
+    );
+
+    $context = new ExecutionContext(
+        messages: [['role' => 'user', 'content' => 'Previous message']],
+    );
+
+    $agent = new TestAgent;
+    $stream = $executor->stream($agent, 'Hello', $context);
+    iterator_to_array($stream);
+
+    // Mockery will fail if forMessages was not called
+    expect(true)->toBeTrue();
+});
+
+test('stream converts tool call events', function () {
+    // Create real Prism ToolCallEvent
+    $prismToolCall = new \Prism\Prism\ValueObjects\ToolCall(
+        id: 'call_123',
+        name: 'calculator',
+        arguments: ['operation' => 'add', 'a' => 5, 'b' => 3],
+    );
+
+    $prismToolCallEvent = new \Prism\Prism\Streaming\Events\ToolCallEvent(
+        id: 'evt_1',
+        timestamp: 1234567890,
+        toolCall: $prismToolCall,
+        messageId: 'msg_1',
+    );
+
+    // Create real Prism ToolResultEvent
+    $prismToolResult = new \Prism\Prism\ValueObjects\ToolResult(
+        toolCallId: 'call_123',
+        toolName: 'calculator',
+        args: ['operation' => 'add', 'a' => 5, 'b' => 3],
+        result: '8',
+    );
+
+    $prismToolResultEvent = new \Prism\Prism\Streaming\Events\ToolResultEvent(
+        id: 'evt_2',
+        timestamp: 1234567891,
+        toolResult: $prismToolResult,
+        messageId: 'msg_1',
+        success: true,
+    );
+
+    // Create real Prism StreamEndEvent
+    $prismUsage = new \Prism\Prism\ValueObjects\Usage(
+        promptTokens: 10,
+        completionTokens: 5,
+    );
+
+    $prismStreamEndEvent = new \Prism\Prism\Streaming\Events\StreamEndEvent(
+        id: 'evt_3',
+        timestamp: 1234567892,
+        finishReason: \Prism\Prism\Enums\FinishReason::Stop,
+        usage: $prismUsage,
+    );
+
+    $mockStreamGenerator = function () use ($prismToolCallEvent, $prismToolResultEvent, $prismStreamEndEvent) {
+        yield $prismToolCallEvent;
+        yield $prismToolResultEvent;
+        yield $prismStreamEndEvent;
+    };
+
+    $mockPendingRequest = Mockery::mock();
+    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('asStream')->andReturn($mockStreamGenerator());
+
+    $this->prismBuilder
+        ->shouldReceive('forPrompt')
+        ->once()
+        ->andReturn($mockPendingRequest);
+
+    $executor = new AgentExecutor(
+        $this->prismBuilder,
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->usageExtractor,
+    );
+
+    $agent = new TestAgent;
+    $stream = $executor->stream($agent, 'What is 5 + 3?');
+    $events = iterator_to_array($stream);
+
+    expect($events)->toHaveCount(3);
+    expect($events[0])->toBeInstanceOf(\Atlasphp\Atlas\Streaming\Events\ToolCallStartEvent::class);
+    expect($events[0]->toolId)->toBe('call_123');
+    expect($events[0]->toolName)->toBe('calculator');
+    expect($events[0]->arguments)->toBe(['operation' => 'add', 'a' => 5, 'b' => 3]);
+
+    expect($events[1])->toBeInstanceOf(\Atlasphp\Atlas\Streaming\Events\ToolCallEndEvent::class);
+    expect($events[1]->toolId)->toBe('call_123');
+    expect($events[1]->toolName)->toBe('calculator');
+    expect($events[1]->result)->toBe('8');
+    expect($events[1]->success)->toBeTrue();
+});
+
+test('stream converts stream start event', function () {
+    $prismStreamStartEvent = new \Prism\Prism\Streaming\Events\StreamStartEvent(
+        id: 'evt_start',
+        timestamp: 1234567890,
+        model: 'gpt-4',
+        provider: 'openai',
+    );
+
+    $prismUsage = new \Prism\Prism\ValueObjects\Usage(
+        promptTokens: 10,
+        completionTokens: 5,
+    );
+
+    $prismStreamEndEvent = new \Prism\Prism\Streaming\Events\StreamEndEvent(
+        id: 'evt_end',
+        timestamp: 1234567891,
+        finishReason: \Prism\Prism\Enums\FinishReason::Stop,
+        usage: $prismUsage,
+    );
+
+    $mockStreamGenerator = function () use ($prismStreamStartEvent, $prismStreamEndEvent) {
+        yield $prismStreamStartEvent;
+        yield $prismStreamEndEvent;
+    };
+
+    $mockPendingRequest = Mockery::mock();
+    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('asStream')->andReturn($mockStreamGenerator());
+
+    $this->prismBuilder
+        ->shouldReceive('forPrompt')
+        ->once()
+        ->andReturn($mockPendingRequest);
+
+    $executor = new AgentExecutor(
+        $this->prismBuilder,
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->usageExtractor,
+    );
+
+    $agent = new TestAgent;
+    $stream = $executor->stream($agent, 'Hello');
+    $events = iterator_to_array($stream);
+
+    expect($events[0])->toBeInstanceOf(\Atlasphp\Atlas\Streaming\Events\StreamStartEvent::class);
+    expect($events[0]->model)->toBe('gpt-4');
+    expect($events[0]->provider)->toBe('openai');
+});
+
+test('stream extracts usage from stream end event', function () {
+    $prismUsage = new \Prism\Prism\ValueObjects\Usage(
+        promptTokens: 50,
+        completionTokens: 25,
+    );
+
+    $prismStreamEndEvent = new \Prism\Prism\Streaming\Events\StreamEndEvent(
+        id: 'evt_end',
+        timestamp: 1234567890,
+        finishReason: \Prism\Prism\Enums\FinishReason::Stop,
+        usage: $prismUsage,
+    );
+
+    $mockStreamGenerator = function () use ($prismStreamEndEvent) {
+        yield $prismStreamEndEvent;
+    };
+
+    $mockPendingRequest = Mockery::mock();
+    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('asStream')->andReturn($mockStreamGenerator());
+
+    $this->prismBuilder
+        ->shouldReceive('forPrompt')
+        ->once()
+        ->andReturn($mockPendingRequest);
+
+    $executor = new AgentExecutor(
+        $this->prismBuilder,
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->usageExtractor,
+    );
+
+    $agent = new TestAgent;
+    $stream = $executor->stream($agent, 'Hello');
+    $events = iterator_to_array($stream);
+
+    $endEvent = $events[0];
+    expect($endEvent)->toBeInstanceOf(\Atlasphp\Atlas\Streaming\Events\StreamEndEvent::class);
+    expect($endEvent->usage)->toBe([
+        'prompt_tokens' => 50,
+        'completion_tokens' => 25,
+        'total_tokens' => 75,
+    ]);
+    expect($endEvent->promptTokens())->toBe(50);
+    expect($endEvent->completionTokens())->toBe(25);
+    expect($endEvent->totalTokens())->toBe(75);
+});
+
+// ===========================================
+// PROVIDER TOOLS TESTS
+// ===========================================
+
 test('it throws InvalidArgumentException for provider tool array without type key', function () {
     $mockResponse = new class
     {
@@ -1154,6 +1732,44 @@ class AgentErrorCapturingHandler implements \Atlasphp\Atlas\Foundation\Contracts
 }
 
 class AgentAfterExecuteCapturingHandler implements \Atlasphp\Atlas\Foundation\Contracts\PipelineContract
+{
+    public static bool $called = false;
+
+    public static ?array $data = null;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+        self::$data = null;
+    }
+
+    public function handle(mixed $data, \Closure $next): mixed
+    {
+        self::$called = true;
+        self::$data = $data;
+
+        return $next($data);
+    }
+}
+
+class StreamOnEventCapturingHandler implements \Atlasphp\Atlas\Foundation\Contracts\PipelineContract
+{
+    public static array $events = [];
+
+    public static function reset(): void
+    {
+        self::$events = [];
+    }
+
+    public function handle(mixed $data, \Closure $next): mixed
+    {
+        self::$events[] = $data;
+
+        return $next($data);
+    }
+}
+
+class StreamAfterCompleteCapturingHandler implements \Atlasphp\Atlas\Foundation\Contracts\PipelineContract
 {
     public static bool $called = false;
 

@@ -301,3 +301,120 @@ test('it executes with context', function () {
 
     expect($result)->toBe($response);
 });
+
+// ===========================================
+// STREAMING TESTS
+// ===========================================
+
+test('it executes chat with stream true calls executor stream', function () {
+    $agent = new TestAgent;
+    $streamResponse = Mockery::mock(\Atlasphp\Atlas\Streaming\StreamResponse::class);
+
+    $this->agentResolver
+        ->shouldReceive('resolve')
+        ->once()
+        ->with('test-agent')
+        ->andReturn($agent);
+
+    $this->agentExecutor
+        ->shouldReceive('stream')
+        ->once()
+        ->with($agent, 'Hello', null)
+        ->andReturn($streamResponse);
+
+    $result = $this->manager->chat('test-agent', 'Hello', stream: true);
+
+    expect($result)->toBe($streamResponse);
+});
+
+test('it executes chat with messages and stream true', function () {
+    $agent = new TestAgent;
+    $messages = [['role' => 'user', 'content' => 'Previous']];
+    $streamResponse = Mockery::mock(\Atlasphp\Atlas\Streaming\StreamResponse::class);
+
+    $this->agentResolver
+        ->shouldReceive('resolve')
+        ->once()
+        ->with('test-agent')
+        ->andReturn($agent);
+
+    $this->agentExecutor
+        ->shouldReceive('stream')
+        ->once()
+        ->withArgs(function ($a, $input, $context) use ($agent, $messages) {
+            return $a === $agent
+                && $input === 'Hello'
+                && $context instanceof ExecutionContext
+                && $context->messages === $messages;
+        })
+        ->andReturn($streamResponse);
+
+    $result = $this->manager->chat('test-agent', 'Hello', $messages, stream: true);
+
+    expect($result)->toBe($streamResponse);
+});
+
+test('it streams with context', function () {
+    $agent = new TestAgent;
+    $context = new ExecutionContext(
+        messages: [['role' => 'user', 'content' => 'Hello']],
+        variables: ['user_name' => 'John'],
+        metadata: ['session_id' => 'abc'],
+    );
+    $streamResponse = Mockery::mock(\Atlasphp\Atlas\Streaming\StreamResponse::class);
+
+    $this->agentResolver
+        ->shouldReceive('resolve')
+        ->once()
+        ->with('test-agent')
+        ->andReturn($agent);
+
+    $this->agentExecutor
+        ->shouldReceive('stream')
+        ->once()
+        ->with($agent, 'Continue', $context)
+        ->andReturn($streamResponse);
+
+    $result = $this->manager->streamWithContext('test-agent', 'Continue', $context);
+
+    expect($result)->toBe($streamResponse);
+});
+
+test('it executes chat without stream returns agent response', function () {
+    $agent = new TestAgent;
+    $response = AgentResponse::text('Hello');
+
+    $this->agentResolver
+        ->shouldReceive('resolve')
+        ->once()
+        ->with('test-agent')
+        ->andReturn($agent);
+
+    $this->agentExecutor
+        ->shouldReceive('execute')
+        ->once()
+        ->with($agent, 'Hello', null, null)
+        ->andReturn($response);
+
+    $result = $this->manager->chat('test-agent', 'Hello', stream: false);
+
+    expect($result)->toBe($response);
+    expect($result)->toBeInstanceOf(AgentResponse::class);
+});
+
+test('it throws exception when streaming with schema', function () {
+    $agent = new TestAgent;
+    $schema = Mockery::mock(\Prism\Prism\Contracts\Schema::class);
+
+    $this->agentResolver
+        ->shouldReceive('resolve')
+        ->once()
+        ->with('test-agent')
+        ->andReturn($agent);
+
+    expect(fn () => $this->manager->chat('test-agent', 'Hello', schema: $schema, stream: true))
+        ->toThrow(
+            \InvalidArgumentException::class,
+            'Streaming does not support structured output (schema). Use stream: false for structured responses.'
+        );
+});

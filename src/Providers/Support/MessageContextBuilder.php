@@ -8,6 +8,7 @@ use Atlasphp\Atlas\Agents\Contracts\AgentContract;
 use Atlasphp\Atlas\Agents\Support\AgentResponse;
 use Atlasphp\Atlas\Agents\Support\ExecutionContext;
 use Atlasphp\Atlas\Providers\Services\AtlasManager;
+use Atlasphp\Atlas\Streaming\StreamResponse;
 use Prism\Prism\Contracts\Schema;
 
 /**
@@ -69,20 +70,29 @@ final readonly class MessageContextBuilder
     /**
      * Execute a chat with an agent using this context.
      *
+     * When stream is false (default), returns an AgentResponse with the complete response.
+     * When stream is true, returns a StreamResponse that can be iterated for real-time events.
+     *
      * @param  string|AgentContract  $agent  The agent key, class, or instance.
      * @param  string  $input  The user input message.
-     * @param  Schema|null  $schema  Optional schema for structured output.
+     * @param  Schema|null  $schema  Optional schema for structured output (not supported with streaming).
+     * @param  bool  $stream  Whether to stream the response.
      */
     public function chat(
         string|AgentContract $agent,
         string $input,
         ?Schema $schema = null,
-    ): AgentResponse {
+        bool $stream = false,
+    ): AgentResponse|StreamResponse {
         $context = new ExecutionContext(
             messages: $this->messages,
             variables: $this->variables,
             metadata: $this->metadata,
         );
+
+        if ($stream) {
+            return $this->manager->streamWithContext($agent, $input, $context);
+        }
 
         return $this->manager->executeWithContext($agent, $input, $context, $schema);
     }
