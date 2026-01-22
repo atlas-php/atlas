@@ -34,5 +34,5 @@ features:
     details: You control persistence. Atlas handles AI logic while you manage conversation storage.
   - icon: ⚡
     title: Beyond Chat
-    details: Embeddings, image generation, and speech services with the same clean API.
+    details: Embeddings, image generation, and speech services with a clean API.
 ---
