@@ -2,7 +2,7 @@
 layout: home
 
 hero:
-  text: "AI Agents for <span class='laravel-text'>Laravel</span>"
+  text: "AI Agents for <span class='text-laravel'>Laravel</span>"
   tagline: Build AI-powered production-grade applications with structure and scale.
   image:
     src: /atlas-logo-2.png

@@ -108,10 +108,22 @@
     0 0 30px rgba(74, 158, 255, 0.1);
 }
 
-/* Laravel text in hero - white */
-.VPHero .laravel-text {
+/* Hero text colors */
+.VPHero .text {
+  color: #000000 !important;
+}
+
+.dark .VPHero .text {
   color: #ffffff !important;
-  -webkit-text-fill-color: #ffffff !important;
+}
+
+/* Hero text - Laravel in blue */
+.VPHero .text-laravel {
+  color: var(--atlas-blue) !important;
+}
+
+.dark .VPHero .text-laravel {
+  color: var(--atlas-cyan) !important;
 }
 
 /* Hero title - gradient effect */
@@ -139,9 +151,42 @@
   opacity: 0.4;
 }
 
+/* Hero logo glow animation on load - uses wrapper */
+.VPHero .image-container {
+  animation: logoGlowFade 4s ease-out forwards;
+}
+
+.dark .VPHero .image-container {
+  animation: logoGlowFadeDark 4s ease-out forwards;
+}
+
+@keyframes logoGlowFade {
+  0% {
+    filter:
+      drop-shadow(0 0 15px rgba(74, 158, 255, 0.6))
+      drop-shadow(0 0 30px rgba(74, 158, 255, 0.4))
+      drop-shadow(0 0 45px rgba(37, 99, 235, 0.3));
+  }
+  100% {
+    filter: drop-shadow(0 0 0 transparent);
+  }
+}
+
+@keyframes logoGlowFadeDark {
+  0% {
+    filter:
+      drop-shadow(0 0 20px rgba(74, 158, 255, 0.8))
+      drop-shadow(0 0 40px rgba(74, 158, 255, 0.5))
+      drop-shadow(0 0 60px rgba(96, 165, 250, 0.3));
+  }
+  100% {
+    filter: drop-shadow(0 0 0 transparent);
+  }
+}
+
 /* Hero logo hover effect */
 .VPHero .VPImage {
-  transition: filter 0.5s ease;
+  transition: filter 0.8s ease;
   filter: drop-shadow(0 0 0 transparent);
 }
 
