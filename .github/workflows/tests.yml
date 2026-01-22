@@ -45,14 +45,19 @@ jobs:
       - run: composer install --prefer-dist --no-interaction --no-progress
       - name: Run tests with coverage
         run: vendor/bin/pest --coverage --coverage-clover=coverage.xml
-      - name: Verify coverage file exists
+      - name: Debug coverage file
         run: |
-          ls -la coverage.xml
-          head -20 coverage.xml
+          echo "=== Checking coverage file ==="
+          ls -la coverage.xml || echo "coverage.xml not found!"
+          echo "=== File size ==="
+          wc -l coverage.xml || echo "Cannot count lines"
+          echo "=== First 30 lines ==="
+          head -30 coverage.xml || echo "Cannot read file"
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v4
         with:
           files: ./coverage.xml
-          fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
+          slug: atlas-php/atlas
+          fail_ci_if_error: true
           verbose: true
