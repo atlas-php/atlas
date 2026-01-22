@@ -23,7 +23,7 @@ $response = Atlas::chat('support-agent', 'I need help with my order');
 Atlas handles **application-level AI concerns** while Prism handles **LLM communication**.
 
 * Build reusable, composable agents—not one-off prompts
-* Keep AI logic stateless, testable, and framework-native.
+* Keep AI logic stateless, testable, and framework-native
 * Extend behavior (logging, auth, metrics) without touching the core
 
 ### Note from the Author
