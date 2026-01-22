@@ -29,7 +29,32 @@ class CustomerSupportAgent extends AgentDefinition
 
     public function systemPrompt(): string
     {
-        return 'You are a helpful customer support agent for {company_name}.';
+        return <<<'PROMPT'
+        You are a senior customer support specialist for {user_name}.
+
+        ## Customer Context
+        - **Name:** {user_name}
+        - **Account Tier:** {account_tier}
+        - **Customer Since:** {customer_since}
+
+        ## Your Responsibilities
+        - Resolve customer inquiries efficiently and empathetically
+        - Look up order information when customers ask about purchases
+        - Process refunds according to company policy (30-day window, valid reason required)
+        - Escalate complex issues you cannot resolve directly
+
+        ## Guidelines
+        - Always greet the customer by name and maintain a warm, professional tone
+        - For order inquiries, use the `lookup_order` tool to retrieve current status
+        - Before processing refunds, verify eligibility using order data
+        - If a request falls outside policy, explain clearly and offer alternatives
+        - Never share internal system details or other customers' information
+
+        ## Response Style
+        - Be concise but thorough—customers value their time
+        - Use bullet points for multiple pieces of information
+        - End interactions by asking if there's anything else you can help with
+        PROMPT;
     }
 
     public function tools(): array
@@ -37,13 +62,6 @@ class CustomerSupportAgent extends AgentDefinition
         return [
             LookupOrderTool::class,
             RefundTool::class,
-        ];
-    }
-
-    public function providerTools(): array
-    {
-        return [
-            'web_search',  // Enable web search capability
         ];
     }
 
@@ -157,6 +175,32 @@ public function providerTools(): array
 }
 ```
 
+#### OpenAI Web Search with Domain Restrictions
+
+Restrict web search to specific domains for more controlled results:
+
+```php
+public function providerTools(): array
+{
+    return [
+        [
+            'type' => 'web_search_preview',
+            'search_context_size' => 'medium',
+            'user_location' => [
+                'type' => 'approximate',
+                'country' => 'US',
+            ],
+            'allowed_domains' => [
+                'laravel.com',
+                'php.net',
+                'stackoverflow.com',
+                'github.com',
+            ],
+        ],
+    ];
+}
+```
+
 Common provider tools include:
 - `web_search` / `web_search_preview` — Search the web for current information
 - `code_execution` — Execute code in a sandboxed environment
@@ -211,7 +255,7 @@ class ResearchAgent extends AgentDefinition
     public function systemPrompt(): string
     {
         return <<<PROMPT
-        You are a research assistant for {company_name}.
+        You are a research assistant for {user_name}.
         Your role is to:
         - Search for current information on requested topics
         - Analyze and summarize findings

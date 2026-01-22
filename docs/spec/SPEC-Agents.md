@@ -328,7 +328,7 @@ class CustomerSupportAgent extends AgentDefinition
     public function systemPrompt(): string
     {
         return <<<PROMPT
-        You are a helpful customer support agent for {company_name}.
+        You are a helpful customer support agent for {user_name}.
         The customer's name is {customer_name}.
         Their account tier is {account_tier}.
         PROMPT;
@@ -357,7 +357,7 @@ $executor = app(AgentExecutorContract::class);
 $context = new ExecutionContext(
     messages: $conversationHistory,
     variables: [
-        'company_name' => 'Acme Inc',
+        'user_name' => 'Acme Inc',
         'customer_name' => 'Jane Doe',
         'account_tier' => 'premium',
     ],

@@ -317,7 +317,7 @@ class CustomerSupportAgent extends AgentDefinition
     public function systemPrompt(): string
     {
         return <<<PROMPT
-        You are a customer support agent for {company_name}.
+        You are a customer support agent for {user_name}.
         Help the customer with their inquiry.
         Be professional, helpful, and concise.
         PROMPT;

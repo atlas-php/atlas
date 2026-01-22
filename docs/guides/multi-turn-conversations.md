@@ -57,7 +57,7 @@ $response = Atlas::forMessages($messages)
     ->withVariables([
         'user_name' => $user->name,
         'account_tier' => $user->subscription->tier,
-        'company_name' => config('app.name'),
+        'app_name' => config('app.name'),
     ])
     ->chat('support-agent', $userInput);
 ```

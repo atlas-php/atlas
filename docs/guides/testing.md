@@ -50,7 +50,7 @@ public function test_system_prompt_contains_expected_variables(): void
     $agent = new CustomerSupportAgent();
     $prompt = $agent->systemPrompt();
 
-    $this->assertStringContains('{company_name}', $prompt);
+    $this->assertStringContains('{user_name}', $prompt);
     $this->assertStringContains('{customer_name}', $prompt);
 }
 ```

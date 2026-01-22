@@ -92,7 +92,7 @@ $response = Atlas::forMessages($messages)
     ->withVariables([
         'user_name' => 'Alice',
         'account_tier' => 'premium',
-        'company_name' => 'Acme Inc',
+        'app_name' => 'Acme Inc',
     ])
     ->chat('support-agent', 'What features do I have access to?');
 ```
