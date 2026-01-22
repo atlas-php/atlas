@@ -104,6 +104,6 @@ For high-volume applications, implement rate limiting middleware or use queued o
 
 ## Next Steps
 
-- [Creating Agents](./Creating-Agents.md) - Build your first AI agent
-- [Creating Tools](./Creating-Tools.md) - Add callable tools for agents
+- [Creating Agents](./creating-agents.md) - Build your first AI agent
+- [Creating Tools](./creating-tools.md) - Add callable tools for agents
 - [SPEC-Providers](../spec/SPEC-Providers.md) - Provider configuration details
