@@ -10,6 +10,9 @@
     <img src="https://img.shields.io/badge/laravel-12.x-orange?style=flat-square" alt="Laravel">
     <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License">
 </p>
+<p align="center">
+    📚 <a href="https://atlasphp.org"><strong>Official Documentation</strong></a>
+</p>
 
 # Atlas
 
@@ -45,7 +48,7 @@ Atlas handles **application-level AI concerns** while Prism handles **LLM commun
 * [Images](#images)
 * [Speech](#speech)
 * [Configuration](#configuration)
-* [Testing](#testing)
+* [Code Quality & Testing](#code-quality--testing)
 * [Documentation](#documentation)
 
 ---
@@ -225,11 +228,22 @@ return [
 
 ---
 
-## Testing
+## Code Quality & Testing
+
+Atlas maintains high code quality standards with comprehensive tooling:
+
+| Tool | Purpose |
+|------|---------|
+| [Pest PHP](https://pestphp.com) | Elegant testing framework with 450+ tests |
+| [Laravel Pint](https://laravel.com/docs/pint) | Code style enforcement (PSR-12) |
+| [Larastan](https://github.com/larastan/larastan) | Static analysis at max level |
+| [Codecov](https://codecov.io/gh/atlas-php/atlas) | Code coverage tracking |
 
 ```bash
-composer test
-composer check
+composer test      # Run tests
+composer lint      # Fix code style
+composer analyse   # Run static analysis
+composer check     # Run all checks
 ```
 
 ---

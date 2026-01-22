@@ -516,6 +516,92 @@ test('it includes voice in before_speak pipeline data', function () {
     expect(SpeechBeforeSpeakHandler::$data['voice'])->toBe('nova');
 });
 
+test('it throws RuntimeException when base64 decoding fails', function () {
+    $mockRequest = Mockery::mock();
+
+    // Create audio object with invalid base64 data
+    $mockAudio = new stdClass;
+    $mockAudio->base64 = '!!!invalid-base64-data!!!';
+
+    $mockResponse = new stdClass;
+    $mockResponse->audio = $mockAudio;
+
+    $this->prismBuilder
+        ->shouldReceive('forSpeech')
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('asAudio')
+        ->andReturn($mockResponse);
+
+    expect(fn () => $this->service->speak('Hello'))
+        ->toThrow(\RuntimeException::class, 'Failed to decode audio base64 content: invalid base64 data');
+});
+
+test('it extracts audio content via content method when base64 not available', function () {
+    $mockRequest = Mockery::mock();
+
+    // Create audio object with content() method instead of base64
+    $mockAudio = new class
+    {
+        public function content(): string
+        {
+            return 'audio-content-from-method';
+        }
+    };
+
+    $mockResponse = new stdClass;
+    $mockResponse->audio = $mockAudio;
+
+    $this->prismBuilder
+        ->shouldReceive('forSpeech')
+        ->with('openai', 'tts-1', 'Hello', Mockery::type('array'))
+        ->once()
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('asAudio')
+        ->once()
+        ->andReturn($mockResponse);
+
+    $result = $this->service->speak('Hello');
+
+    expect($result['audio'])->toBe('audio-content-from-method');
+    expect($result['format'])->toBe('mp3');
+});
+
+test('it transcribes audio from file path string', function () {
+    // Create a temporary audio file for testing
+    $tempFile = sys_get_temp_dir().'/test-audio-'.uniqid().'.mp3';
+    file_put_contents($tempFile, 'fake audio content');
+
+    $mockRequest = Mockery::mock();
+    $mockResponse = new stdClass;
+    $mockResponse->text = 'Transcribed from file path';
+    $mockResponse->language = 'en';
+    $mockResponse->duration = 3.5;
+
+    $this->prismBuilder
+        ->shouldReceive('forTranscription')
+        ->with('openai', 'whisper-1', Mockery::type(\Prism\Prism\ValueObjects\Media\Audio::class), [])
+        ->once()
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('asText')
+        ->once()
+        ->andReturn($mockResponse);
+
+    $result = $this->service->transcribe($tempFile);
+
+    // Clean up temp file
+    unlink($tempFile);
+
+    expect($result['text'])->toBe('Transcribed from file path');
+    expect($result['language'])->toBe('en');
+    expect($result['duration'])->toBe(3.5);
+});
+
 // Pipeline Handler Classes for Tests
 
 class SpeechBeforeSpeakHandler implements PipelineContract
