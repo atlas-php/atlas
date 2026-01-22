@@ -199,5 +199,6 @@ If responses seem to ignore history:
 
 ## Next Steps
 
-- [Extending Atlas](./Extending-Atlas.md) - Add pipeline middleware
-- [SPEC-Facade](../spec/SPEC-Facade.md) - AtlasManager API reference
+- [Extending Atlas](/guides/Extending-Atlas) — Add pipeline middleware
+- [Conversations](/core-concepts/conversations) — Conversation concepts
+- [Structured Output](/core-concepts/structured-output) — Schema-based responses

@@ -204,5 +204,6 @@ If you receive unexpected parameter values:
 
 ## Next Steps
 
-- [Creating Agents](./Creating-Agents.md) - Add tools to agents
-- [SPEC-Tools](../spec/SPEC-Tools.md) - Tool module specification
+- [Creating Agents](/guides/Creating-Agents) — Add tools to agents
+- [Tools](/core-concepts/tools) — Tool concepts deep dive
+- [Pipelines](/core-concepts/pipelines) — Add middleware to tool execution

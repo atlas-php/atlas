@@ -1,5 +1,5 @@
 /.phpunit.cache
-/node_modules
+node_modules
 /public/build
 /public/hot
 /public/storage
@@ -62,6 +62,10 @@ sandbox/storage/logs/*
 /sandbox/storage/app/generated
 /sandbox/storage/app/nexus/*
 /sandbox/storage/app/nexus/
+
+# VitePress
+docs/.vitepress/cache
+docs/.vitepress/dist
 
 # Package-specific ignores
 composer.lock

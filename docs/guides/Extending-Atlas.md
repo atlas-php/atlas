@@ -265,5 +265,6 @@ If handlers run in unexpected order:
 
 ## Next Steps
 
-- [SPEC-Foundation](../spec/SPEC-Foundation.md) - Pipeline system internals
-- [Creating Agents](./Creating-Agents.md) - Agent configuration
+- [Pipelines](/core-concepts/pipelines) — Pipeline concepts deep dive
+- [Error Handling](/advanced/error-handling) — Handle errors in pipelines
+- [Performance](/advanced/performance) — Optimize extensions
