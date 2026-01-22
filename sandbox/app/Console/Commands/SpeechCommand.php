@@ -23,6 +23,7 @@ class SpeechCommand extends Command
                             {--speak= : Text to convert to speech}
                             {--transcribe= : Audio file path to transcribe}
                             {--voice=nova : Voice selection}
+                            {--speed=1.0 : Speech speed (0.25-4.0)}
                             {--format=mp3 : Audio format}';
 
     /**
@@ -59,15 +60,17 @@ class SpeechCommand extends Command
     protected function handleTts(string $text): int
     {
         $voice = $this->option('voice');
+        $speed = (float) $this->option('speed');
         $format = $this->option('format');
 
-        $this->displayTtsHeader($text, $voice, $format);
+        $this->displayTtsHeader($text, $voice, $speed, $format);
 
         try {
             $this->info('Generating speech...');
 
             $response = Atlas::speech()
                 ->voice($voice)
+                ->speed($speed)
                 ->speak($text);
 
             $this->displayTtsResponse($response, $format);
@@ -119,13 +122,14 @@ class SpeechCommand extends Command
     /**
      * Display TTS header.
      */
-    protected function displayTtsHeader(string $text, string $voice, string $format): void
+    protected function displayTtsHeader(string $text, string $voice, float $speed, string $format): void
     {
         $this->line('');
         $this->line('=== Atlas Speech Test (TTS) ===');
         $this->line('Provider: '.config('atlas.speech.provider', 'openai'));
         $this->line('Model: '.config('atlas.speech.model', 'tts-1'));
         $this->line("Voice: {$voice}");
+        $this->line("Speed: {$speed}x");
         $this->line("Format: {$format}");
         $this->line('');
         $this->line("Input Text: \"{$text}\"");

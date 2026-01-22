@@ -24,11 +24,26 @@ test('it generates single embedding', function () {
 
     $this->provider
         ->shouldReceive('generate')
-        ->with('test text')
+        ->with('test text', [])
         ->once()
         ->andReturn($expectedEmbedding);
 
     $result = $this->service->generate('test text');
+
+    expect($result)->toBe($expectedEmbedding);
+});
+
+test('it generates single embedding with options', function () {
+    $expectedEmbedding = [0.1, 0.2, 0.3];
+    $options = ['dimensions' => 256];
+
+    $this->provider
+        ->shouldReceive('generate')
+        ->with('test text', $options)
+        ->once()
+        ->andReturn($expectedEmbedding);
+
+    $result = $this->service->generate('test text', $options);
 
     expect($result)->toBe($expectedEmbedding);
 });
@@ -41,11 +56,29 @@ test('it generates batch embeddings', function () {
 
     $this->provider
         ->shouldReceive('generateBatch')
-        ->with(['text 1', 'text 2'])
+        ->with(['text 1', 'text 2'], [])
         ->once()
         ->andReturn($expectedEmbeddings);
 
     $result = $this->service->generateBatch(['text 1', 'text 2']);
+
+    expect($result)->toBe($expectedEmbeddings);
+});
+
+test('it generates batch embeddings with options', function () {
+    $expectedEmbeddings = [
+        [0.1, 0.2, 0.3],
+        [0.4, 0.5, 0.6],
+    ];
+    $options = ['dimensions' => 256];
+
+    $this->provider
+        ->shouldReceive('generateBatch')
+        ->with(['text 1', 'text 2'], $options)
+        ->once()
+        ->andReturn($expectedEmbeddings);
+
+    $result = $this->service->generateBatch(['text 1', 'text 2'], $options);
 
     expect($result)->toBe($expectedEmbeddings);
 });
@@ -69,7 +102,7 @@ test('it runs embedding.before_generate pipeline', function () {
     $expectedEmbedding = [0.1, 0.2, 0.3];
     $this->provider
         ->shouldReceive('generate')
-        ->with('test text')
+        ->with('test text', [])
         ->once()
         ->andReturn($expectedEmbedding);
 
@@ -80,6 +113,7 @@ test('it runs embedding.before_generate pipeline', function () {
     expect(EmbeddingBeforeGenerateHandler::$data['text'])->toBe('test text');
     expect(EmbeddingBeforeGenerateHandler::$data['provider'])->toBe('openai');
     expect(EmbeddingBeforeGenerateHandler::$data['model'])->toBe('text-embedding-3-small');
+    expect(EmbeddingBeforeGenerateHandler::$data['options'])->toBe([]);
 });
 
 test('it runs embedding.after_generate pipeline', function () {
@@ -90,7 +124,7 @@ test('it runs embedding.after_generate pipeline', function () {
     $expectedEmbedding = [0.1, 0.2, 0.3];
     $this->provider
         ->shouldReceive('generate')
-        ->with('test text')
+        ->with('test text', [])
         ->once()
         ->andReturn($expectedEmbedding);
 
@@ -102,6 +136,7 @@ test('it runs embedding.after_generate pipeline', function () {
     expect(EmbeddingAfterGenerateHandler::$data['provider'])->toBe('openai');
     expect(EmbeddingAfterGenerateHandler::$data['model'])->toBe('text-embedding-3-small');
     expect(EmbeddingAfterGenerateHandler::$data['result'])->toBe($expectedEmbedding);
+    expect(EmbeddingAfterGenerateHandler::$data['options'])->toBe([]);
 });
 
 test('it allows before_generate pipeline to modify text', function () {
@@ -111,7 +146,7 @@ test('it allows before_generate pipeline to modify text', function () {
     $expectedEmbedding = [0.1, 0.2, 0.3];
     $this->provider
         ->shouldReceive('generate')
-        ->with('MODIFIED: original text')
+        ->with('MODIFIED: original text', [])
         ->once()
         ->andReturn($expectedEmbedding);
 
@@ -128,7 +163,7 @@ test('it runs embedding.before_generate_batch pipeline', function () {
     $expectedEmbeddings = [[0.1], [0.2]];
     $this->provider
         ->shouldReceive('generateBatch')
-        ->with(['text 1', 'text 2'])
+        ->with(['text 1', 'text 2'], [])
         ->once()
         ->andReturn($expectedEmbeddings);
 
@@ -139,6 +174,7 @@ test('it runs embedding.before_generate_batch pipeline', function () {
     expect(EmbeddingBeforeGenerateBatchHandler::$data['texts'])->toBe(['text 1', 'text 2']);
     expect(EmbeddingBeforeGenerateBatchHandler::$data['provider'])->toBe('openai');
     expect(EmbeddingBeforeGenerateBatchHandler::$data['model'])->toBe('text-embedding-3-small');
+    expect(EmbeddingBeforeGenerateBatchHandler::$data['options'])->toBe([]);
 });
 
 test('it runs embedding.after_generate_batch pipeline', function () {
@@ -149,7 +185,7 @@ test('it runs embedding.after_generate_batch pipeline', function () {
     $expectedEmbeddings = [[0.1], [0.2]];
     $this->provider
         ->shouldReceive('generateBatch')
-        ->with(['text 1', 'text 2'])
+        ->with(['text 1', 'text 2'], [])
         ->once()
         ->andReturn($expectedEmbeddings);
 
@@ -161,6 +197,7 @@ test('it runs embedding.after_generate_batch pipeline', function () {
     expect(EmbeddingAfterGenerateBatchHandler::$data['provider'])->toBe('openai');
     expect(EmbeddingAfterGenerateBatchHandler::$data['model'])->toBe('text-embedding-3-small');
     expect(EmbeddingAfterGenerateBatchHandler::$data['result'])->toBe($expectedEmbeddings);
+    expect(EmbeddingAfterGenerateBatchHandler::$data['options'])->toBe([]);
 });
 
 test('it runs embedding.on_error pipeline when generate fails', function () {

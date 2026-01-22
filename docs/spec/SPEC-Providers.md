@@ -54,9 +54,11 @@ Contract for embedding providers.
 ```php
 interface EmbeddingProviderContract
 {
-    public function generate(string $text): array;
-    public function generateBatch(array $texts): array;
+    public function generate(string $text, array $options = []): array;
+    public function generateBatch(array $texts, array $options = []): array;
     public function dimensions(): int;
+    public function provider(): string;
+    public function model(): string;
 }
 ```
 
@@ -67,10 +69,25 @@ Service layer that delegates to the configured provider.
 ```php
 $service = app(EmbeddingService::class);
 
+// Basic usage
 $embedding = $service->generate('Sample text');
 $embeddings = $service->generateBatch(['text 1', 'text 2', 'text 3']);
 $dimensions = $service->dimensions();
+
+// With options (dimensions, encoding_format, etc.)
+$embedding = $service->generate('Sample text', [
+    'dimensions' => 256,
+]);
+
+$embeddings = $service->generateBatch(['text 1', 'text 2'], [
+    'dimensions' => 512,
+    'encoding_format' => 'float',
+]);
 ```
+
+**Options:**
+- `dimensions` - Output embedding dimensions (for models that support variable dimensions)
+- `encoding_format` - Encoding format ('float' or 'base64')
 
 ### PrismEmbeddingProvider
 
@@ -107,6 +124,15 @@ $result = $service
     ->quality('hd')
     ->generate('A futuristic city');
 
+// With provider-specific options
+$result = $service
+    ->using('openai')
+    ->model('dall-e-3')
+    ->size('1024x1024')
+    ->quality('hd')
+    ->withProviderOptions(['style' => 'vivid'])
+    ->generate('A photorealistic portrait');
+
 // Result structure
 [
     'url' => 'https://...',      // Image URL
@@ -120,7 +146,12 @@ $result = $service
 - `model(string $model): self` - Set model
 - `size(string $size): self` - Set image size
 - `quality(string $quality): self` - Set quality
+- `withProviderOptions(array $options): self` - Set provider-specific options
 - `generate(string $prompt, array $options = []): array` - Generate image
+
+**Provider Options (OpenAI):**
+- `style` - Image style ('vivid' or 'natural')
+- `response_format` - Response format ('url' or 'b64_json')
 
 ---
 
@@ -140,6 +171,15 @@ $result = $service
     ->format('mp3')
     ->speak('Hello, world!');
 
+// With speed control and provider options
+$result = $service
+    ->using('openai')
+    ->model('tts-1')
+    ->voice('nova')
+    ->speed(1.25)
+    ->withProviderOptions(['language' => 'en'])
+    ->speak('Hello, world!');
+
 // Result structure
 [
     'audio' => '...',  // Base64 encoded audio
@@ -155,6 +195,13 @@ $result = $service
     ->transcriptionModel('whisper-1')
     ->transcribe('/path/to/audio.mp3');
 
+// With provider options
+$result = $service
+    ->using('openai')
+    ->transcriptionModel('whisper-1')
+    ->withProviderOptions(['language' => 'en', 'prompt' => 'Technical jargon'])
+    ->transcribe('/path/to/audio.mp3');
+
 // Result structure
 [
     'text' => '...',      // Transcribed text
@@ -168,9 +215,19 @@ $result = $service
 - `model(string $model): self` - Set TTS model
 - `transcriptionModel(string $model): self` - Set transcription model
 - `voice(string $voice): self` - Set voice for TTS
+- `speed(float $speed): self` - Set speech speed (0.25-4.0 for OpenAI)
 - `format(string $format): self` - Set audio format
+- `withProviderOptions(array $options): self` - Set provider-specific options
 - `speak(string $text, array $options = []): array` - Convert text to speech
 - `transcribe(Audio|string $audio, array $options = []): array` - Transcribe audio
+
+**Provider Options (OpenAI TTS):**
+- `speed` - Speech speed (0.25 to 4.0, default 1.0)
+
+**Provider Options (OpenAI Transcription):**
+- `language` - Language code (e.g., 'en', 'es', 'fr')
+- `prompt` - Context or vocabulary hints
+- `temperature` - Sampling temperature (0-1)
 
 ---
 
@@ -181,18 +238,29 @@ Internal service for building Prism requests. Used by capability services.
 ```php
 $builder = app(PrismBuilder::class);
 
-// Embeddings
-$request = $builder->forEmbeddings('openai', 'text-embedding-3-small', 'text');
+// Embeddings (with options)
+$request = $builder->forEmbeddings('openai', 'text-embedding-3-small', 'text', [
+    'dimensions' => 256,
+]);
 
-// Images
-$request = $builder->forImage('openai', 'dall-e-3', 'A sunset');
+// Images (with provider options)
+$request = $builder->forImage('openai', 'dall-e-3', 'A sunset', [
+    'style' => 'vivid',
+]);
 
-// Speech
-$request = $builder->forSpeech('openai', 'tts-1', 'Hello');
+// Speech (with voice and provider options)
+$request = $builder->forSpeech('openai', 'tts-1', 'Hello', [
+    'voice' => 'nova',
+    'speed' => 1.25,
+]);
 
-// Transcription
-$request = $builder->forTranscription('openai', 'whisper-1', $audio);
+// Transcription (with provider options)
+$request = $builder->forTranscription('openai', 'whisper-1', $audio, [
+    'language' => 'en',
+]);
 ```
+
+All provider-specific options are passed through via Prism's `withProviderOptions()` method.
 
 ---
 

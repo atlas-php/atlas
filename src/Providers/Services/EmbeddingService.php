@@ -24,9 +24,11 @@ class EmbeddingService
     /**
      * Generate an embedding for a single text input.
      *
+     * @param  string  $text  The text to embed.
+     * @param  array<string, mixed>  $options  Additional options (dimensions, encoding_format, etc.).
      * @return array<int, float>
      */
-    public function generate(string $text): array
+    public function generate(string $text, array $options = []): array
     {
         $provider = $this->provider->provider();
         $model = $this->provider->model();
@@ -37,24 +39,27 @@ class EmbeddingService
                 'text' => $text,
                 'provider' => $provider,
                 'model' => $model,
+                'options' => $options,
             ];
 
-            /** @var array{text: string, provider: string, model: string} $beforeData */
+            /** @var array{text: string, provider: string, model: string, options: array<string, mixed>} $beforeData */
             $beforeData = $this->pipelineRunner->runIfActive(
                 'embedding.before_generate',
                 $beforeData,
             );
 
             $text = $beforeData['text'];
+            $options = $beforeData['options'];
 
             // Generate embedding
-            $result = $this->provider->generate($text);
+            $result = $this->provider->generate($text, $options);
 
             // Run after_generate pipeline
             $afterData = [
                 'text' => $text,
                 'provider' => $provider,
                 'model' => $model,
+                'options' => $options,
                 'result' => $result,
             ];
 
@@ -75,9 +80,10 @@ class EmbeddingService
      * Generate embeddings for multiple text inputs.
      *
      * @param  array<string>  $texts  The texts to embed.
+     * @param  array<string, mixed>  $options  Additional options (dimensions, encoding_format, etc.).
      * @return array<int, array<int, float>>
      */
-    public function generateBatch(array $texts): array
+    public function generateBatch(array $texts, array $options = []): array
     {
         $provider = $this->provider->provider();
         $model = $this->provider->model();
@@ -88,24 +94,27 @@ class EmbeddingService
                 'texts' => $texts,
                 'provider' => $provider,
                 'model' => $model,
+                'options' => $options,
             ];
 
-            /** @var array{texts: array<string>, provider: string, model: string} $beforeData */
+            /** @var array{texts: array<string>, provider: string, model: string, options: array<string, mixed>} $beforeData */
             $beforeData = $this->pipelineRunner->runIfActive(
                 'embedding.before_generate_batch',
                 $beforeData,
             );
 
             $texts = $beforeData['texts'];
+            $options = $beforeData['options'];
 
             // Generate embeddings
-            $result = $this->provider->generateBatch($texts);
+            $result = $this->provider->generateBatch($texts, $options);
 
             // Run after_generate_batch pipeline
             $afterData = [
                 'texts' => $texts,
                 'provider' => $provider,
                 'model' => $model,
+                'options' => $options,
                 'result' => $result,
             ];
 

@@ -27,6 +27,15 @@ class SpeechService
 
     private ?string $format = null;
 
+    private ?float $speed = null;
+
+    /**
+     * Provider-specific options to pass through to Prism.
+     *
+     * @var array<string, mixed>
+     */
+    private array $providerOptions = [];
+
     public function __construct(
         private readonly PrismBuilderContract $prismBuilder,
         private readonly ProviderConfigService $configService,
@@ -89,6 +98,33 @@ class SpeechService
     }
 
     /**
+     * Set the speech speed (0.25 to 4.0 for OpenAI).
+     */
+    public function speed(float $speed): self
+    {
+        $clone = clone $this;
+        $clone->speed = $speed;
+
+        return $clone;
+    }
+
+    /**
+     * Set provider-specific options.
+     *
+     * These options are passed directly to the provider via Prism's withProviderOptions().
+     * Use this for provider-specific features like language, timbre, etc.
+     *
+     * @param  array<string, mixed>  $options  Provider-specific options.
+     */
+    public function withProviderOptions(array $options): self
+    {
+        $clone = clone $this;
+        $clone->providerOptions = array_merge($clone->providerOptions, $options);
+
+        return $clone;
+    }
+
+    /**
      * Convert text to speech.
      *
      * @param  string  $text  The text to convert.
@@ -124,10 +160,14 @@ class SpeechService
             $model = $beforeData['model'];
             $format = $beforeData['format'];
 
+            // Build request options from fluent methods
             $requestOptions = array_filter([
                 'voice' => $beforeData['voice'],
-                'format' => $format,
+                'speed' => $this->speed ?? $options['speed'] ?? null,
             ]);
+
+            // Merge with provider-specific options (provider options take precedence)
+            $requestOptions = array_merge($requestOptions, $this->providerOptions);
 
             $request = $this->prismBuilder->forSpeech($provider, $model, $text, $requestOptions);
             $response = $request->asAudio();

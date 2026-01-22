@@ -161,6 +161,17 @@ $similarDocs = Document::query()
     ->get();
 ```
 
+### With Options
+
+```php
+// Specify output dimensions (for models that support it)
+$embedding = Atlas::embed('What is the return policy?', ['dimensions' => 256]);
+// Returns array of 256 floats
+
+// Batch with options
+$embeddings = Atlas::embedBatch($texts, ['dimensions' => 512]);
+```
+
 ### Batch Embeddings
 
 ```php
@@ -216,6 +227,18 @@ $imageContent = file_get_contents($result['url']);
 Storage::put('images/robot.png', $imageContent);
 ```
 
+### With Provider-Specific Options
+
+```php
+$result = Atlas::image()
+    ->using('openai')
+    ->model('dall-e-3')
+    ->size('1024x1024')
+    ->quality('hd')
+    ->withProviderOptions(['style' => 'vivid'])  // OpenAI: 'vivid' or 'natural'
+    ->generate('A photorealistic portrait');
+```
+
 ### Fluent Configuration
 
 ```php
@@ -251,12 +274,31 @@ $result = Atlas::speech('openai', 'tts-1')
     ->speak('Thank you for calling. How can I help you today?');
 ```
 
+### With Speed Control
+
+```php
+$result = Atlas::speech('openai', 'tts-1')
+    ->voice('nova')
+    ->speed(1.25)  // 0.25 to 4.0 for OpenAI
+    ->speak('This is faster speech.');
+```
+
 ### HD Quality Speech
 
 ```php
 $result = Atlas::speech('openai', 'tts-1-hd')
     ->voice('alloy')
     ->speak('This is high-definition audio quality.');
+```
+
+### With Provider-Specific Options
+
+```php
+$result = Atlas::speech()
+    ->voice('nova')
+    ->speed(1.0)
+    ->withProviderOptions(['language' => 'en'])
+    ->speak('Hello world!');
 ```
 
 ### Speech to Text (Transcription)
@@ -274,6 +316,18 @@ echo $result['duration'];  // Audio duration in seconds
 ```php
 $result = Atlas::speech()
     ->transcriptionModel('whisper-1')
+    ->transcribe($uploadedFile->path());
+```
+
+### Transcription with Options
+
+```php
+$result = Atlas::speech()
+    ->transcriptionModel('whisper-1')
+    ->withProviderOptions([
+        'language' => 'en',
+        'prompt' => 'Technical terminology context',
+    ])
     ->transcribe($uploadedFile->path());
 ```
 
@@ -348,9 +402,23 @@ if ($response->hasUsage()) {
 | `Atlas::chat($agent, $input, null, $schema)` | Structured output |
 | `Atlas::forMessages($messages)` | Multi-turn context builder |
 | `Atlas::embed($text)` | Single text embedding |
+| `Atlas::embed($text, $options)` | Single embedding with options |
 | `Atlas::embedBatch($texts)` | Batch embeddings |
+| `Atlas::embedBatch($texts, $options)` | Batch embeddings with options |
 | `Atlas::embeddingDimensions()` | Get vector dimensions |
 | `Atlas::image()` | Image generation service |
 | `Atlas::image($provider, $model)` | Image with specific config |
 | `Atlas::speech()` | Speech service |
 | `Atlas::speech($provider, $model)` | Speech with specific config |
+
+### Service Method Chaining
+
+| Service | Method | Description |
+|---------|--------|-------------|
+| Image | `->size($size)` | Set image dimensions (e.g., '1024x1024') |
+| Image | `->quality($quality)` | Set quality ('standard', 'hd') |
+| Image | `->withProviderOptions($options)` | Set provider-specific options |
+| Speech | `->voice($voice)` | Set TTS voice |
+| Speech | `->speed($speed)` | Set speech speed (0.25-4.0) |
+| Speech | `->format($format)` | Set audio format |
+| Speech | `->withProviderOptions($options)` | Set provider-specific options |

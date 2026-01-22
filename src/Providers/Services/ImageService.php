@@ -24,6 +24,13 @@ class ImageService
 
     private ?string $quality = null;
 
+    /**
+     * Provider-specific options to pass through to Prism.
+     *
+     * @var array<string, mixed>
+     */
+    private array $providerOptions = [];
+
     public function __construct(
         private readonly PrismBuilderContract $prismBuilder,
         private readonly ProviderConfigService $configService,
@@ -75,6 +82,22 @@ class ImageService
     }
 
     /**
+     * Set provider-specific options.
+     *
+     * These options are passed directly to the provider via Prism's withProviderOptions().
+     * Use this for provider-specific features like style, response_format, etc.
+     *
+     * @param  array<string, mixed>  $options  Provider-specific options.
+     */
+    public function withProviderOptions(array $options): self
+    {
+        $clone = clone $this;
+        $clone->providerOptions = array_merge($clone->providerOptions, $options);
+
+        return $clone;
+    }
+
+    /**
      * Generate an image from the given prompt.
      *
      * @param  string  $prompt  The image prompt.
@@ -108,10 +131,14 @@ class ImageService
             $provider = $beforeData['provider'];
             $model = $beforeData['model'];
 
+            // Build request options from fluent methods
             $requestOptions = array_filter([
                 'size' => $beforeData['size'],
                 'quality' => $beforeData['quality'],
             ]);
+
+            // Merge with provider-specific options (provider options take precedence)
+            $requestOptions = array_merge($requestOptions, $this->providerOptions);
 
             $request = $this->prismBuilder->forImage($provider, $model, $prompt, $requestOptions);
             $response = $request->generate();

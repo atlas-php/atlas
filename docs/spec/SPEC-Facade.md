@@ -152,14 +152,18 @@ public function getMetadata(): array
 
 ```php
 // Single text
-Atlas::embed(string $text): array<int, float>
+Atlas::embed(string $text, array $options = []): array<int, float>
 
 // Multiple texts
-Atlas::embedBatch(array $texts): array<int, array<int, float>>
+Atlas::embedBatch(array $texts, array $options = []): array<int, array<int, float>>
 
 // Get dimensions
 Atlas::embeddingDimensions(): int
 ```
+
+**Options:**
+- `dimensions` - Output embedding dimensions (for models that support variable dimensions)
+- `encoding_format` - Encoding format ('float' or 'base64')
 
 **Example:**
 
@@ -167,8 +171,15 @@ Atlas::embeddingDimensions(): int
 $embedding = Atlas::embed('Hello, world!');
 // [0.123, 0.456, ...]
 
+// With custom dimensions
+$embedding = Atlas::embed('Hello, world!', ['dimensions' => 256]);
+// [0.123, 0.456, ...] (256 floats)
+
 $embeddings = Atlas::embedBatch(['Text 1', 'Text 2']);
 // [[0.123, ...], [0.456, ...]]
+
+// Batch with options
+$embeddings = Atlas::embedBatch(['Text 1', 'Text 2'], ['dimensions' => 512]);
 
 $dimensions = Atlas::embeddingDimensions();
 // 1536
@@ -194,6 +205,13 @@ $result = Atlas::image('openai', 'dall-e-3')
     ->quality('hd')
     ->generate('A sunset over mountains');
 
+// With provider-specific options
+$result = Atlas::image('openai', 'dall-e-3')
+    ->size('1024x1024')
+    ->quality('hd')
+    ->withProviderOptions(['style' => 'vivid'])  // OpenAI: 'vivid' or 'natural'
+    ->generate('A photorealistic portrait');
+
 // Result structure
 [
     'url' => 'https://...',
@@ -201,6 +219,14 @@ $result = Atlas::image('openai', 'dall-e-3')
     'revised_prompt' => '...',
 ]
 ```
+
+**ImageService Methods:**
+- `using(string $provider): self` - Set provider
+- `model(string $model): self` - Set model
+- `size(string $size): self` - Set image size
+- `quality(string $quality): self` - Set quality
+- `withProviderOptions(array $options): self` - Set provider-specific options
+- `generate(string $prompt, array $options = []): array` - Generate image
 
 ---
 
@@ -220,6 +246,18 @@ $result = Atlas::speech()
     ->speak('Hello, world!');
 // ['audio' => '...', 'format' => 'mp3']
 
+// With speed control
+$result = Atlas::speech()
+    ->voice('nova')
+    ->speed(1.25)  // 0.25 to 4.0 for OpenAI
+    ->speak('Faster speech.');
+
+// With provider-specific options
+$result = Atlas::speech()
+    ->voice('nova')
+    ->withProviderOptions(['language' => 'en'])
+    ->speak('Hello!');
+
 // With specific provider and model
 $result = Atlas::speech('openai', 'tts-1-hd')
     ->speak('Hello!');
@@ -229,7 +267,24 @@ $result = Atlas::speech()
     ->transcriptionModel('whisper-1')
     ->transcribe('/path/to/audio.mp3');
 // ['text' => '...', 'language' => 'en', 'duration' => 5.2]
+
+// Transcription with options
+$result = Atlas::speech()
+    ->transcriptionModel('whisper-1')
+    ->withProviderOptions(['language' => 'en', 'prompt' => 'Technical context'])
+    ->transcribe('/path/to/audio.mp3');
 ```
+
+**SpeechService Methods:**
+- `using(string $provider): self` - Set provider
+- `model(string $model): self` - Set TTS model
+- `transcriptionModel(string $model): self` - Set transcription model
+- `voice(string $voice): self` - Set voice for TTS
+- `speed(float $speed): self` - Set speech speed (0.25-4.0 for OpenAI)
+- `format(string $format): self` - Set audio format
+- `withProviderOptions(array $options): self` - Set provider-specific options
+- `speak(string $text, array $options = []): array` - Convert text to speech
+- `transcribe(Audio|string $audio, array $options = []): array` - Transcribe audio
 
 ---
 
@@ -332,20 +387,24 @@ $person = $response->structured;
 ### Multimodal Operations
 
 ```php
-// Embedding
-$vector = Atlas::embed('Search query');
+// Embedding with custom dimensions
+$vector = Atlas::embed('Search query', ['dimensions' => 256]);
 
-// Image generation
+// Image generation with provider options
 $image = Atlas::image('openai', 'dall-e-3')
     ->size('1024x1024')
+    ->quality('hd')
+    ->withProviderOptions(['style' => 'vivid'])
     ->generate('A futuristic city');
 
-// Text to speech
+// Text to speech with speed
 $audio = Atlas::speech('openai', 'tts-1')
     ->voice('alloy')
+    ->speed(1.0)
     ->speak('Welcome to Atlas!');
 
-// Transcription
+// Transcription with options
 $text = Atlas::speech()
+    ->withProviderOptions(['language' => 'en'])
     ->transcribe('/path/to/recording.mp3');
 ```

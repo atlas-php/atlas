@@ -21,8 +21,9 @@ interface PrismBuilderContract
      * @param  string  $provider  The provider name.
      * @param  string  $model  The model name.
      * @param  string|array<string>  $input  Single text or array of texts.
+     * @param  array<string, mixed>  $options  Additional options (dimensions, encoding_format, etc.).
      */
-    public function forEmbeddings(string $provider, string $model, string|array $input): mixed;
+    public function forEmbeddings(string $provider, string $model, string|array $input, array $options = []): mixed;
 
     /**
      * Build an image generation request.

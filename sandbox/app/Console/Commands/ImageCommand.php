@@ -23,6 +23,7 @@ class ImageCommand extends Command
                             {prompt : The image generation prompt}
                             {--size=1024x1024 : Image dimensions}
                             {--quality=standard : Quality level (standard|hd)}
+                            {--style=vivid : Style (vivid|natural)}
                             {--save= : Save to filename in storage/outputs}';
 
     /**
@@ -40,9 +41,10 @@ class ImageCommand extends Command
         $prompt = $this->argument('prompt');
         $size = $this->option('size');
         $quality = $this->option('quality');
+        $style = $this->option('style');
         $saveAs = $this->option('save');
 
-        $this->displayHeader($prompt, $size, $quality);
+        $this->displayHeader($prompt, $size, $quality, $style);
 
         try {
             $this->info('Generating image...');
@@ -50,6 +52,7 @@ class ImageCommand extends Command
             $response = Atlas::image()
                 ->size($size)
                 ->quality($quality)
+                ->withProviderOptions(['style' => $style])
                 ->generate($prompt);
 
             $this->displayResponse($response, $saveAs);
@@ -66,7 +69,7 @@ class ImageCommand extends Command
     /**
      * Display the command header.
      */
-    protected function displayHeader(string $prompt, string $size, string $quality): void
+    protected function displayHeader(string $prompt, string $size, string $quality, string $style): void
     {
         $this->line('');
         $this->line('=== Atlas Image Generation Test ===');
@@ -76,6 +79,7 @@ class ImageCommand extends Command
         $this->line("Prompt: \"{$prompt}\"");
         $this->line("Size: {$size}");
         $this->line("Quality: {$quality}");
+        $this->line("Style: {$style}");
         $this->line('');
     }
 

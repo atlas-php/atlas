@@ -15,17 +15,19 @@ interface EmbeddingProviderContract
      * Generate an embedding for a single text input.
      *
      * @param  string  $text  The text to embed.
+     * @param  array<string, mixed>  $options  Additional options (dimensions, encoding_format, etc.).
      * @return array<int, float> The embedding vector.
      */
-    public function generate(string $text): array;
+    public function generate(string $text, array $options = []): array;
 
     /**
      * Generate embeddings for multiple text inputs.
      *
      * @param  array<int, string>  $texts  The texts to embed.
+     * @param  array<string, mixed>  $options  Additional options (dimensions, encoding_format, etc.).
      * @return array<int, array<int, float>> Array of embedding vectors.
      */
-    public function generateBatch(array $texts): array;
+    public function generateBatch(array $texts, array $options = []): array;
 
     /**
      * Get the dimensions of the embedding vectors.

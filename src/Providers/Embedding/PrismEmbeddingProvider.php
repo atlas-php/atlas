@@ -26,14 +26,16 @@ class PrismEmbeddingProvider implements EmbeddingProviderContract
      * Generate an embedding for a single text input.
      *
      * @param  string  $text  The text to embed.
+     * @param  array<string, mixed>  $options  Additional options (dimensions, encoding_format, etc.).
      * @return array<int, float> The embedding vector.
      */
-    public function generate(string $text): array
+    public function generate(string $text, array $options = []): array
     {
         $request = $this->prismBuilder->forEmbeddings(
             $this->provider,
             $this->model,
             $text,
+            $options,
         );
 
         $response = $request->asEmbeddings();
@@ -49,9 +51,10 @@ class PrismEmbeddingProvider implements EmbeddingProviderContract
      * Generate embeddings for multiple text inputs.
      *
      * @param  array<int, string>  $texts  The texts to embed.
+     * @param  array<string, mixed>  $options  Additional options (dimensions, encoding_format, etc.).
      * @return array<int, array<int, float>> Array of embedding vectors.
      */
-    public function generateBatch(array $texts): array
+    public function generateBatch(array $texts, array $options = []): array
     {
         if ($texts === []) {
             return [];
@@ -65,6 +68,7 @@ class PrismEmbeddingProvider implements EmbeddingProviderContract
                 $this->provider,
                 $this->model,
                 $batch,
+                $options,
             );
 
             $response = $request->asEmbeddings();

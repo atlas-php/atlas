@@ -32,20 +32,28 @@ class PrismBuilder implements PrismBuilderContract
      * @param  string  $provider  The provider name.
      * @param  string  $model  The model name.
      * @param  string|array<string>  $input  Single text or array of texts.
+     * @param  array<string, mixed>  $options  Additional options (dimensions, encoding_format, etc.).
      */
     public function forEmbeddings(
         string $provider,
         string $model,
         string|array $input,
+        array $options = [],
     ): EmbeddingsPendingRequest {
         $request = Prism::embeddings()
             ->using($this->mapProvider($provider), $model);
 
         if (is_array($input)) {
-            return $request->fromArray($input);
+            $request = $request->fromArray($input);
+        } else {
+            $request = $request->fromInput($input);
         }
 
-        return $request->fromInput($input);
+        if ($options !== []) {
+            $request = $request->withProviderOptions($options);
+        }
+
+        return $request;
     }
 
     /**
@@ -54,7 +62,7 @@ class PrismBuilder implements PrismBuilderContract
      * @param  string  $provider  The provider name.
      * @param  string  $model  The model name.
      * @param  string  $prompt  The image prompt.
-     * @param  array<string, mixed>  $options  Additional options.
+     * @param  array<string, mixed>  $options  Additional options (size, quality, style, etc.).
      */
     public function forImage(
         string $provider,
@@ -62,9 +70,15 @@ class PrismBuilder implements PrismBuilderContract
         string $prompt,
         array $options = [],
     ): ImagePendingRequest {
-        return Prism::image()
+        $request = Prism::image()
             ->using($this->mapProvider($provider), $model)
             ->withPrompt($prompt);
+
+        if ($options !== []) {
+            $request = $request->withProviderOptions($options);
+        }
+
+        return $request;
     }
 
     /**
@@ -73,7 +87,7 @@ class PrismBuilder implements PrismBuilderContract
      * @param  string  $provider  The provider name.
      * @param  string  $model  The model name.
      * @param  string  $text  The text to convert.
-     * @param  array<string, mixed>  $options  Additional options.
+     * @param  array<string, mixed>  $options  Additional options (voice, speed, language, etc.).
      */
     public function forSpeech(
         string $provider,
@@ -85,8 +99,15 @@ class PrismBuilder implements PrismBuilderContract
             ->using($this->mapProvider($provider), $model)
             ->withInput($text);
 
+        // Apply voice via dedicated method
         if (isset($options['voice'])) {
             $request = $request->withVoice($options['voice']);
+            unset($options['voice']);
+        }
+
+        // Pass remaining options (speed, language, etc.) to provider
+        if ($options !== []) {
+            $request = $request->withProviderOptions($options);
         }
 
         return $request;
@@ -98,7 +119,7 @@ class PrismBuilder implements PrismBuilderContract
      * @param  string  $provider  The provider name.
      * @param  string  $model  The model name.
      * @param  Audio  $audio  The audio to transcribe.
-     * @param  array<string, mixed>  $options  Additional options.
+     * @param  array<string, mixed>  $options  Additional options (language, prompt, etc.).
      */
     public function forTranscription(
         string $provider,
@@ -106,9 +127,15 @@ class PrismBuilder implements PrismBuilderContract
         Audio $audio,
         array $options = [],
     ): AudioPendingRequest {
-        return Prism::audio()
+        $request = Prism::audio()
             ->using($this->mapProvider($provider), $model)
             ->withInput($audio);
+
+        if ($options !== []) {
+            $request = $request->withProviderOptions($options);
+        }
+
+        return $request;
     }
 
     /**
