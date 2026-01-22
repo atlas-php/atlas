@@ -1,6 +1,10 @@
 codecov:
   require_ci_to_pass: false
 
+ignore:
+  - "sandbox/**/*"
+  - "tests/**/*"
+
 coverage:
   precision: 2
   round: down
