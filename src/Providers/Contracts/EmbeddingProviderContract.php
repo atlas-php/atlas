@@ -33,4 +33,18 @@ interface EmbeddingProviderContract
      * @return int The number of dimensions.
      */
     public function dimensions(): int;
+
+    /**
+     * Get the provider name.
+     *
+     * @return string The provider name (e.g., 'openai', 'anthropic').
+     */
+    public function provider(): string;
+
+    /**
+     * Get the model name.
+     *
+     * @return string The model name (e.g., 'text-embedding-3-small').
+     */
+    public function model(): string;
 }

@@ -2,13 +2,16 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Foundation\Contracts\PipelineContract;
+use Atlasphp\Atlas\Foundation\Services\PipelineRegistry;
+use Atlasphp\Atlas\Foundation\Services\PipelineRunner;
 use Atlasphp\Atlas\Providers\Contracts\PrismBuilderContract;
 use Atlasphp\Atlas\Providers\Services\ProviderConfigService;
 use Atlasphp\Atlas\Providers\Services\SpeechService;
 use Illuminate\Config\Repository;
+use Illuminate\Container\Container;
 
 beforeEach(function () {
-    // Mock the contract interface to avoid return type enforcement
     $this->prismBuilder = Mockery::mock(PrismBuilderContract::class);
     $this->configService = new ProviderConfigService(new Repository([
         'atlas' => [
@@ -19,7 +22,10 @@ beforeEach(function () {
             ],
         ],
     ]));
-    $this->service = new SpeechService($this->prismBuilder, $this->configService);
+    $this->container = new Container;
+    $this->registry = new PipelineRegistry;
+    $this->pipelineRunner = new PipelineRunner($this->registry, $this->container);
+    $this->service = new SpeechService($this->prismBuilder, $this->configService, $this->pipelineRunner);
 });
 
 test('it returns a new instance when using provider', function () {
@@ -60,7 +66,6 @@ test('it returns a new instance when setting format', function () {
 test('it speaks text with defaults', function () {
     $mockRequest = Mockery::mock();
 
-    // Mock the GeneratedAudio object with base64 property
     $mockAudio = new stdClass;
     $mockAudio->base64 = base64_encode('decoded-audio-data');
 
@@ -89,7 +94,6 @@ test('it speaks text with defaults', function () {
 test('it speaks with custom voice', function () {
     $mockRequest = Mockery::mock();
 
-    // Mock the GeneratedAudio object with base64 property
     $mockAudio = new stdClass;
     $mockAudio->base64 = base64_encode('audio-data');
 
@@ -119,7 +123,6 @@ test('it speaks with custom voice', function () {
 test('it chains fluent methods for speak', function () {
     $mockRequest = Mockery::mock();
 
-    // Mock the GeneratedAudio object with base64 property
     $mockAudio = new stdClass;
     $mockAudio->base64 = base64_encode('audio-data');
 
@@ -146,3 +149,414 @@ test('it chains fluent methods for speak', function () {
 
     expect($result['format'])->toBe('wav');
 });
+
+test('it runs speech.before_speak pipeline', function () {
+    $this->registry->define('speech.before_speak', 'Before speak pipeline');
+    SpeechBeforeSpeakHandler::reset();
+    $this->registry->register('speech.before_speak', SpeechBeforeSpeakHandler::class);
+
+    $mockRequest = Mockery::mock();
+    $mockAudio = new stdClass;
+    $mockAudio->base64 = base64_encode('audio-data');
+
+    $mockResponse = new stdClass;
+    $mockResponse->audio = $mockAudio;
+
+    $this->prismBuilder
+        ->shouldReceive('forSpeech')
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('asAudio')
+        ->andReturn($mockResponse);
+
+    $this->service->speak('Hello world');
+
+    expect(SpeechBeforeSpeakHandler::$called)->toBeTrue();
+    expect(SpeechBeforeSpeakHandler::$data)->not->toBeNull();
+    expect(SpeechBeforeSpeakHandler::$data['text'])->toBe('Hello world');
+    expect(SpeechBeforeSpeakHandler::$data['provider'])->toBe('openai');
+    expect(SpeechBeforeSpeakHandler::$data['model'])->toBe('tts-1');
+    expect(SpeechBeforeSpeakHandler::$data['format'])->toBe('mp3');
+});
+
+test('it runs speech.after_speak pipeline', function () {
+    $this->registry->define('speech.after_speak', 'After speak pipeline');
+    SpeechAfterSpeakHandler::reset();
+    $this->registry->register('speech.after_speak', SpeechAfterSpeakHandler::class);
+
+    $mockRequest = Mockery::mock();
+    $mockAudio = new stdClass;
+    $mockAudio->base64 = base64_encode('audio-data');
+
+    $mockResponse = new stdClass;
+    $mockResponse->audio = $mockAudio;
+
+    $this->prismBuilder
+        ->shouldReceive('forSpeech')
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('asAudio')
+        ->andReturn($mockResponse);
+
+    $this->service
+        ->voice('nova')
+        ->format('wav')
+        ->speak('Hello world');
+
+    expect(SpeechAfterSpeakHandler::$called)->toBeTrue();
+    expect(SpeechAfterSpeakHandler::$data)->not->toBeNull();
+    expect(SpeechAfterSpeakHandler::$data['text'])->toBe('Hello world');
+    expect(SpeechAfterSpeakHandler::$data['provider'])->toBe('openai');
+    expect(SpeechAfterSpeakHandler::$data['model'])->toBe('tts-1');
+    expect(SpeechAfterSpeakHandler::$data['voice'])->toBe('nova');
+    expect(SpeechAfterSpeakHandler::$data['format'])->toBe('wav');
+    expect(SpeechAfterSpeakHandler::$data['result'])->toHaveKeys(['audio', 'format']);
+});
+
+test('it allows before_speak pipeline to modify text', function () {
+    $this->registry->define('speech.before_speak', 'Before speak pipeline');
+    $this->registry->register('speech.before_speak', SpeechTextModifyingHandler::class);
+
+    $mockRequest = Mockery::mock();
+    $mockAudio = new stdClass;
+    $mockAudio->base64 = base64_encode('audio-data');
+
+    $mockResponse = new stdClass;
+    $mockResponse->audio = $mockAudio;
+
+    $this->prismBuilder
+        ->shouldReceive('forSpeech')
+        ->with('openai', 'tts-1', 'MODIFIED: Hello', Mockery::type('array'))
+        ->once()
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('asAudio')
+        ->andReturn($mockResponse);
+
+    $this->service->speak('Hello');
+});
+
+test('it runs speech.on_error pipeline when speak fails', function () {
+    $this->registry->define('speech.on_error', 'Error pipeline');
+    SpeechErrorHandler::reset();
+    $this->registry->register('speech.on_error', SpeechErrorHandler::class);
+
+    $mockRequest = Mockery::mock();
+
+    $this->prismBuilder
+        ->shouldReceive('forSpeech')
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('asAudio')
+        ->andThrow(new \RuntimeException('Speech API Error'));
+
+    try {
+        $this->service
+            ->voice('nova')
+            ->format('wav')
+            ->speak('Hello');
+    } catch (\RuntimeException $e) {
+        // Expected
+    }
+
+    expect(SpeechErrorHandler::$called)->toBeTrue();
+    expect(SpeechErrorHandler::$data)->not->toBeNull();
+    expect(SpeechErrorHandler::$data['operation'])->toBe('speak');
+    expect(SpeechErrorHandler::$data['text'])->toBe('Hello');
+    expect(SpeechErrorHandler::$data['provider'])->toBe('openai');
+    expect(SpeechErrorHandler::$data['model'])->toBe('tts-1');
+    expect(SpeechErrorHandler::$data['voice'])->toBe('nova');
+    expect(SpeechErrorHandler::$data['format'])->toBe('wav');
+    expect(SpeechErrorHandler::$data['exception'])->toBeInstanceOf(\RuntimeException::class);
+    expect(SpeechErrorHandler::$data['exception']->getMessage())->toBe('Speech API Error');
+});
+
+test('it rethrows exception after running speak error pipeline', function () {
+    $this->registry->define('speech.on_error', 'Error pipeline');
+    SpeechErrorHandler::reset();
+    $this->registry->register('speech.on_error', SpeechErrorHandler::class);
+
+    $mockRequest = Mockery::mock();
+
+    $this->prismBuilder
+        ->shouldReceive('forSpeech')
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('asAudio')
+        ->andThrow(new \RuntimeException('Speech API Error'));
+
+    expect(fn () => $this->service->speak('Hello'))
+        ->toThrow(\RuntimeException::class, 'Speech API Error');
+});
+
+test('it runs speech.before_transcribe pipeline', function () {
+    $this->registry->define('speech.before_transcribe', 'Before transcribe pipeline');
+    SpeechBeforeTranscribeHandler::reset();
+    $this->registry->register('speech.before_transcribe', SpeechBeforeTranscribeHandler::class);
+
+    $mockRequest = Mockery::mock();
+    $mockResponse = new stdClass;
+    $mockResponse->text = 'Transcribed text';
+    $mockResponse->language = 'en';
+    $mockResponse->duration = 5.5;
+
+    $this->prismBuilder
+        ->shouldReceive('forTranscription')
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('asText')
+        ->andReturn($mockResponse);
+
+    // Use a mock Audio object to avoid file validation
+    $mockAudio = Mockery::mock(\Prism\Prism\ValueObjects\Media\Audio::class);
+    $this->service->transcribe($mockAudio);
+
+    expect(SpeechBeforeTranscribeHandler::$called)->toBeTrue();
+    expect(SpeechBeforeTranscribeHandler::$data)->not->toBeNull();
+    expect(SpeechBeforeTranscribeHandler::$data['audio'])->toBe($mockAudio);
+    expect(SpeechBeforeTranscribeHandler::$data['provider'])->toBe('openai');
+    expect(SpeechBeforeTranscribeHandler::$data['model'])->toBe('whisper-1');
+});
+
+test('it runs speech.after_transcribe pipeline', function () {
+    $this->registry->define('speech.after_transcribe', 'After transcribe pipeline');
+    SpeechAfterTranscribeHandler::reset();
+    $this->registry->register('speech.after_transcribe', SpeechAfterTranscribeHandler::class);
+
+    $mockRequest = Mockery::mock();
+    $mockResponse = new stdClass;
+    $mockResponse->text = 'Transcribed text';
+    $mockResponse->language = 'en';
+    $mockResponse->duration = 5.5;
+
+    $this->prismBuilder
+        ->shouldReceive('forTranscription')
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('asText')
+        ->andReturn($mockResponse);
+
+    // Use a mock Audio object to avoid file validation
+    $mockAudio = Mockery::mock(\Prism\Prism\ValueObjects\Media\Audio::class);
+    $this->service->transcribe($mockAudio, ['language' => 'en']);
+
+    expect(SpeechAfterTranscribeHandler::$called)->toBeTrue();
+    expect(SpeechAfterTranscribeHandler::$data)->not->toBeNull();
+    expect(SpeechAfterTranscribeHandler::$data['audio'])->toBe($mockAudio);
+    expect(SpeechAfterTranscribeHandler::$data['provider'])->toBe('openai');
+    expect(SpeechAfterTranscribeHandler::$data['model'])->toBe('whisper-1');
+    expect(SpeechAfterTranscribeHandler::$data['options'])->toBe(['language' => 'en']);
+    expect(SpeechAfterTranscribeHandler::$data['result'])->toBe([
+        'text' => 'Transcribed text',
+        'language' => 'en',
+        'duration' => 5.5,
+    ]);
+});
+
+test('it runs speech.on_error pipeline when transcribe fails', function () {
+    $this->registry->define('speech.on_error', 'Error pipeline');
+    SpeechErrorHandler::reset();
+    $this->registry->register('speech.on_error', SpeechErrorHandler::class);
+
+    $mockRequest = Mockery::mock();
+
+    $this->prismBuilder
+        ->shouldReceive('forTranscription')
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('asText')
+        ->andThrow(new \RuntimeException('Transcription API Error'));
+
+    // Use a mock Audio object to avoid file validation
+    $mockAudio = Mockery::mock(\Prism\Prism\ValueObjects\Media\Audio::class);
+
+    try {
+        $this->service->transcribe($mockAudio, ['language' => 'en']);
+    } catch (\RuntimeException $e) {
+        // Expected
+    }
+
+    expect(SpeechErrorHandler::$called)->toBeTrue();
+    expect(SpeechErrorHandler::$data)->not->toBeNull();
+    expect(SpeechErrorHandler::$data['operation'])->toBe('transcribe');
+    expect(SpeechErrorHandler::$data['audio'])->toBe($mockAudio);
+    expect(SpeechErrorHandler::$data['provider'])->toBe('openai');
+    expect(SpeechErrorHandler::$data['model'])->toBe('whisper-1');
+    expect(SpeechErrorHandler::$data['options'])->toBe(['language' => 'en']);
+    expect(SpeechErrorHandler::$data['exception'])->toBeInstanceOf(\RuntimeException::class);
+    expect(SpeechErrorHandler::$data['exception']->getMessage())->toBe('Transcription API Error');
+});
+
+test('it rethrows exception after running transcribe error pipeline', function () {
+    $this->registry->define('speech.on_error', 'Error pipeline');
+    SpeechErrorHandler::reset();
+    $this->registry->register('speech.on_error', SpeechErrorHandler::class);
+
+    $mockRequest = Mockery::mock();
+
+    $this->prismBuilder
+        ->shouldReceive('forTranscription')
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('asText')
+        ->andThrow(new \RuntimeException('Transcription API Error'));
+
+    // Use a mock Audio object to avoid file validation
+    $mockAudio = Mockery::mock(\Prism\Prism\ValueObjects\Media\Audio::class);
+
+    expect(fn () => $this->service->transcribe($mockAudio))
+        ->toThrow(\RuntimeException::class, 'Transcription API Error');
+});
+
+test('it includes voice in before_speak pipeline data', function () {
+    $this->registry->define('speech.before_speak', 'Before speak pipeline');
+    SpeechBeforeSpeakHandler::reset();
+    $this->registry->register('speech.before_speak', SpeechBeforeSpeakHandler::class);
+
+    $mockRequest = Mockery::mock();
+    $mockAudio = new stdClass;
+    $mockAudio->base64 = base64_encode('audio-data');
+
+    $mockResponse = new stdClass;
+    $mockResponse->audio = $mockAudio;
+
+    $this->prismBuilder
+        ->shouldReceive('forSpeech')
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('asAudio')
+        ->andReturn($mockResponse);
+
+    $this->service
+        ->voice('nova')
+        ->speak('Hello');
+
+    expect(SpeechBeforeSpeakHandler::$data['voice'])->toBe('nova');
+});
+
+// Pipeline Handler Classes for Tests
+
+class SpeechBeforeSpeakHandler implements PipelineContract
+{
+    public static bool $called = false;
+
+    public static ?array $data = null;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+        self::$data = null;
+    }
+
+    public function handle(mixed $data, \Closure $next): mixed
+    {
+        self::$called = true;
+        self::$data = $data;
+
+        return $next($data);
+    }
+}
+
+class SpeechAfterSpeakHandler implements PipelineContract
+{
+    public static bool $called = false;
+
+    public static ?array $data = null;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+        self::$data = null;
+    }
+
+    public function handle(mixed $data, \Closure $next): mixed
+    {
+        self::$called = true;
+        self::$data = $data;
+
+        return $next($data);
+    }
+}
+
+class SpeechTextModifyingHandler implements PipelineContract
+{
+    public function handle(mixed $data, \Closure $next): mixed
+    {
+        $data['text'] = 'MODIFIED: '.$data['text'];
+
+        return $next($data);
+    }
+}
+
+class SpeechBeforeTranscribeHandler implements PipelineContract
+{
+    public static bool $called = false;
+
+    public static ?array $data = null;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+        self::$data = null;
+    }
+
+    public function handle(mixed $data, \Closure $next): mixed
+    {
+        self::$called = true;
+        self::$data = $data;
+
+        return $next($data);
+    }
+}
+
+class SpeechAfterTranscribeHandler implements PipelineContract
+{
+    public static bool $called = false;
+
+    public static ?array $data = null;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+        self::$data = null;
+    }
+
+    public function handle(mixed $data, \Closure $next): mixed
+    {
+        self::$called = true;
+        self::$data = $data;
+
+        return $next($data);
+    }
+}
+
+class SpeechErrorHandler implements PipelineContract
+{
+    public static bool $called = false;
+
+    public static ?array $data = null;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+        self::$data = null;
+    }
+
+    public function handle(mixed $data, \Closure $next): mixed
+    {
+        self::$called = true;
+        self::$data = $data;
+
+        return $next($data);
+    }
+}

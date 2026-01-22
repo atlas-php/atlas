@@ -4,17 +4,21 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Providers\Services;
 
+use Atlasphp\Atlas\Foundation\Services\PipelineRunner;
 use Atlasphp\Atlas\Providers\Contracts\EmbeddingProviderContract;
+use Throwable;
 
 /**
  * Service layer for generating text embeddings.
  *
- * Delegates to the configured embedding provider while providing a clean API.
+ * Delegates to the configured embedding provider while providing a clean API
+ * with pipeline middleware support for observability.
  */
 class EmbeddingService
 {
     public function __construct(
         private readonly EmbeddingProviderContract $provider,
+        private readonly PipelineRunner $pipelineRunner,
     ) {}
 
     /**
@@ -24,7 +28,47 @@ class EmbeddingService
      */
     public function generate(string $text): array
     {
-        return $this->provider->generate($text);
+        $provider = $this->provider->provider();
+        $model = $this->provider->model();
+
+        try {
+            // Run before_generate pipeline
+            $beforeData = [
+                'text' => $text,
+                'provider' => $provider,
+                'model' => $model,
+            ];
+
+            /** @var array{text: string, provider: string, model: string} $beforeData */
+            $beforeData = $this->pipelineRunner->runIfActive(
+                'embedding.before_generate',
+                $beforeData,
+            );
+
+            $text = $beforeData['text'];
+
+            // Generate embedding
+            $result = $this->provider->generate($text);
+
+            // Run after_generate pipeline
+            $afterData = [
+                'text' => $text,
+                'provider' => $provider,
+                'model' => $model,
+                'result' => $result,
+            ];
+
+            /** @var array{result: array<int, float>} $afterData */
+            $afterData = $this->pipelineRunner->runIfActive(
+                'embedding.after_generate',
+                $afterData,
+            );
+
+            return $afterData['result'];
+        } catch (Throwable $e) {
+            $this->handleError('generate', $text, null, $provider, $model, $e);
+            throw $e;
+        }
     }
 
     /**
@@ -35,7 +79,47 @@ class EmbeddingService
      */
     public function generateBatch(array $texts): array
     {
-        return $this->provider->generateBatch($texts);
+        $provider = $this->provider->provider();
+        $model = $this->provider->model();
+
+        try {
+            // Run before_generate_batch pipeline
+            $beforeData = [
+                'texts' => $texts,
+                'provider' => $provider,
+                'model' => $model,
+            ];
+
+            /** @var array{texts: array<string>, provider: string, model: string} $beforeData */
+            $beforeData = $this->pipelineRunner->runIfActive(
+                'embedding.before_generate_batch',
+                $beforeData,
+            );
+
+            $texts = $beforeData['texts'];
+
+            // Generate embeddings
+            $result = $this->provider->generateBatch($texts);
+
+            // Run after_generate_batch pipeline
+            $afterData = [
+                'texts' => $texts,
+                'provider' => $provider,
+                'model' => $model,
+                'result' => $result,
+            ];
+
+            /** @var array{result: array<int, array<int, float>>} $afterData */
+            $afterData = $this->pipelineRunner->runIfActive(
+                'embedding.after_generate_batch',
+                $afterData,
+            );
+
+            return $afterData['result'];
+        } catch (Throwable $e) {
+            $this->handleError('generate_batch', null, $texts, $provider, $model, $e);
+            throw $e;
+        }
     }
 
     /**
@@ -44,5 +128,35 @@ class EmbeddingService
     public function dimensions(): int
     {
         return $this->provider->dimensions();
+    }
+
+    /**
+     * Handle an error by running the error pipeline.
+     *
+     * @param  string  $operation  The operation that failed ('generate' or 'generate_batch').
+     * @param  string|null  $text  The single text (if generating single).
+     * @param  array<string>|null  $texts  The batch texts (if generating batch).
+     * @param  string  $provider  The provider being used.
+     * @param  string  $model  The model being used.
+     * @param  Throwable  $exception  The exception that occurred.
+     */
+    protected function handleError(
+        string $operation,
+        ?string $text,
+        ?array $texts,
+        string $provider,
+        string $model,
+        Throwable $exception,
+    ): void {
+        $errorData = [
+            'operation' => $operation,
+            'text' => $text,
+            'texts' => $texts,
+            'provider' => $provider,
+            'model' => $model,
+            'exception' => $exception,
+        ];
+
+        $this->pipelineRunner->runIfActive('embedding.on_error', $errorData);
     }
 }

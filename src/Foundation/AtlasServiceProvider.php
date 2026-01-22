@@ -111,6 +111,7 @@ class AtlasServiceProvider extends ServiceProvider
         $this->app->singleton(EmbeddingService::class, function (Container $app): EmbeddingService {
             return new EmbeddingService(
                 $app->make(EmbeddingProviderContract::class),
+                $app->make(PipelineRunner::class),
             );
         });
 
@@ -118,6 +119,7 @@ class AtlasServiceProvider extends ServiceProvider
             return new ImageService(
                 $app->make(PrismBuilder::class),
                 $app->make(ProviderConfigService::class),
+                $app->make(PipelineRunner::class),
             );
         });
 
@@ -125,6 +127,7 @@ class AtlasServiceProvider extends ServiceProvider
             return new SpeechService(
                 $app->make(PrismBuilder::class),
                 $app->make(ProviderConfigService::class),
+                $app->make(PipelineRunner::class),
             );
         });
 
@@ -200,6 +203,74 @@ class AtlasServiceProvider extends ServiceProvider
         $registry->define(
             'tool.on_error',
             'Pipeline executed when tool execution fails',
+        );
+
+        // Embedding service pipelines
+        $registry->define(
+            'embedding.before_generate',
+            'Pipeline executed before generating a single embedding',
+        );
+
+        $registry->define(
+            'embedding.after_generate',
+            'Pipeline executed after generating a single embedding',
+        );
+
+        $registry->define(
+            'embedding.before_generate_batch',
+            'Pipeline executed before generating batch embeddings',
+        );
+
+        $registry->define(
+            'embedding.after_generate_batch',
+            'Pipeline executed after generating batch embeddings',
+        );
+
+        $registry->define(
+            'embedding.on_error',
+            'Pipeline executed when embedding generation fails',
+        );
+
+        // Image service pipelines
+        $registry->define(
+            'image.before_generate',
+            'Pipeline executed before generating an image',
+        );
+
+        $registry->define(
+            'image.after_generate',
+            'Pipeline executed after generating an image',
+        );
+
+        $registry->define(
+            'image.on_error',
+            'Pipeline executed when image generation fails',
+        );
+
+        // Speech service pipelines
+        $registry->define(
+            'speech.before_speak',
+            'Pipeline executed before text-to-speech conversion',
+        );
+
+        $registry->define(
+            'speech.after_speak',
+            'Pipeline executed after text-to-speech conversion',
+        );
+
+        $registry->define(
+            'speech.before_transcribe',
+            'Pipeline executed before speech-to-text transcription',
+        );
+
+        $registry->define(
+            'speech.after_transcribe',
+            'Pipeline executed after speech-to-text transcription',
+        );
+
+        $registry->define(
+            'speech.on_error',
+            'Pipeline executed when speech operation fails',
         );
     }
 

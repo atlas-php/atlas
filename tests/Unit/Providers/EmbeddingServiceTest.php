@@ -2,12 +2,21 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Foundation\Contracts\PipelineContract;
+use Atlasphp\Atlas\Foundation\Services\PipelineRegistry;
+use Atlasphp\Atlas\Foundation\Services\PipelineRunner;
 use Atlasphp\Atlas\Providers\Contracts\EmbeddingProviderContract;
 use Atlasphp\Atlas\Providers\Services\EmbeddingService;
+use Illuminate\Container\Container;
 
 beforeEach(function () {
     $this->provider = Mockery::mock(EmbeddingProviderContract::class);
-    $this->service = new EmbeddingService($this->provider);
+    $this->provider->shouldReceive('provider')->andReturn('openai');
+    $this->provider->shouldReceive('model')->andReturn('text-embedding-3-small');
+    $this->container = new Container;
+    $this->registry = new PipelineRegistry;
+    $this->pipelineRunner = new PipelineRunner($this->registry, $this->container);
+    $this->service = new EmbeddingService($this->provider, $this->pipelineRunner);
 });
 
 test('it generates single embedding', function () {
@@ -51,3 +60,287 @@ test('it returns dimensions', function () {
 
     expect($result)->toBe(1536);
 });
+
+test('it runs embedding.before_generate pipeline', function () {
+    $this->registry->define('embedding.before_generate', 'Before generate pipeline');
+    EmbeddingBeforeGenerateHandler::reset();
+    $this->registry->register('embedding.before_generate', EmbeddingBeforeGenerateHandler::class);
+
+    $expectedEmbedding = [0.1, 0.2, 0.3];
+    $this->provider
+        ->shouldReceive('generate')
+        ->with('test text')
+        ->once()
+        ->andReturn($expectedEmbedding);
+
+    $this->service->generate('test text');
+
+    expect(EmbeddingBeforeGenerateHandler::$called)->toBeTrue();
+    expect(EmbeddingBeforeGenerateHandler::$data)->not->toBeNull();
+    expect(EmbeddingBeforeGenerateHandler::$data['text'])->toBe('test text');
+    expect(EmbeddingBeforeGenerateHandler::$data['provider'])->toBe('openai');
+    expect(EmbeddingBeforeGenerateHandler::$data['model'])->toBe('text-embedding-3-small');
+});
+
+test('it runs embedding.after_generate pipeline', function () {
+    $this->registry->define('embedding.after_generate', 'After generate pipeline');
+    EmbeddingAfterGenerateHandler::reset();
+    $this->registry->register('embedding.after_generate', EmbeddingAfterGenerateHandler::class);
+
+    $expectedEmbedding = [0.1, 0.2, 0.3];
+    $this->provider
+        ->shouldReceive('generate')
+        ->with('test text')
+        ->once()
+        ->andReturn($expectedEmbedding);
+
+    $this->service->generate('test text');
+
+    expect(EmbeddingAfterGenerateHandler::$called)->toBeTrue();
+    expect(EmbeddingAfterGenerateHandler::$data)->not->toBeNull();
+    expect(EmbeddingAfterGenerateHandler::$data['text'])->toBe('test text');
+    expect(EmbeddingAfterGenerateHandler::$data['provider'])->toBe('openai');
+    expect(EmbeddingAfterGenerateHandler::$data['model'])->toBe('text-embedding-3-small');
+    expect(EmbeddingAfterGenerateHandler::$data['result'])->toBe($expectedEmbedding);
+});
+
+test('it allows before_generate pipeline to modify text', function () {
+    $this->registry->define('embedding.before_generate', 'Before generate pipeline');
+    $this->registry->register('embedding.before_generate', EmbeddingTextModifyingHandler::class);
+
+    $expectedEmbedding = [0.1, 0.2, 0.3];
+    $this->provider
+        ->shouldReceive('generate')
+        ->with('MODIFIED: original text')
+        ->once()
+        ->andReturn($expectedEmbedding);
+
+    $result = $this->service->generate('original text');
+
+    expect($result)->toBe($expectedEmbedding);
+});
+
+test('it runs embedding.before_generate_batch pipeline', function () {
+    $this->registry->define('embedding.before_generate_batch', 'Before generate batch pipeline');
+    EmbeddingBeforeGenerateBatchHandler::reset();
+    $this->registry->register('embedding.before_generate_batch', EmbeddingBeforeGenerateBatchHandler::class);
+
+    $expectedEmbeddings = [[0.1], [0.2]];
+    $this->provider
+        ->shouldReceive('generateBatch')
+        ->with(['text 1', 'text 2'])
+        ->once()
+        ->andReturn($expectedEmbeddings);
+
+    $this->service->generateBatch(['text 1', 'text 2']);
+
+    expect(EmbeddingBeforeGenerateBatchHandler::$called)->toBeTrue();
+    expect(EmbeddingBeforeGenerateBatchHandler::$data)->not->toBeNull();
+    expect(EmbeddingBeforeGenerateBatchHandler::$data['texts'])->toBe(['text 1', 'text 2']);
+    expect(EmbeddingBeforeGenerateBatchHandler::$data['provider'])->toBe('openai');
+    expect(EmbeddingBeforeGenerateBatchHandler::$data['model'])->toBe('text-embedding-3-small');
+});
+
+test('it runs embedding.after_generate_batch pipeline', function () {
+    $this->registry->define('embedding.after_generate_batch', 'After generate batch pipeline');
+    EmbeddingAfterGenerateBatchHandler::reset();
+    $this->registry->register('embedding.after_generate_batch', EmbeddingAfterGenerateBatchHandler::class);
+
+    $expectedEmbeddings = [[0.1], [0.2]];
+    $this->provider
+        ->shouldReceive('generateBatch')
+        ->with(['text 1', 'text 2'])
+        ->once()
+        ->andReturn($expectedEmbeddings);
+
+    $this->service->generateBatch(['text 1', 'text 2']);
+
+    expect(EmbeddingAfterGenerateBatchHandler::$called)->toBeTrue();
+    expect(EmbeddingAfterGenerateBatchHandler::$data)->not->toBeNull();
+    expect(EmbeddingAfterGenerateBatchHandler::$data['texts'])->toBe(['text 1', 'text 2']);
+    expect(EmbeddingAfterGenerateBatchHandler::$data['provider'])->toBe('openai');
+    expect(EmbeddingAfterGenerateBatchHandler::$data['model'])->toBe('text-embedding-3-small');
+    expect(EmbeddingAfterGenerateBatchHandler::$data['result'])->toBe($expectedEmbeddings);
+});
+
+test('it runs embedding.on_error pipeline when generate fails', function () {
+    $this->registry->define('embedding.on_error', 'Error pipeline');
+    EmbeddingErrorHandler::reset();
+    $this->registry->register('embedding.on_error', EmbeddingErrorHandler::class);
+
+    $this->provider
+        ->shouldReceive('generate')
+        ->andThrow(new \RuntimeException('API Error'));
+
+    try {
+        $this->service->generate('test text');
+    } catch (\RuntimeException $e) {
+        // Expected
+    }
+
+    expect(EmbeddingErrorHandler::$called)->toBeTrue();
+    expect(EmbeddingErrorHandler::$data)->not->toBeNull();
+    expect(EmbeddingErrorHandler::$data['operation'])->toBe('generate');
+    expect(EmbeddingErrorHandler::$data['text'])->toBe('test text');
+    expect(EmbeddingErrorHandler::$data['texts'])->toBeNull();
+    expect(EmbeddingErrorHandler::$data['provider'])->toBe('openai');
+    expect(EmbeddingErrorHandler::$data['model'])->toBe('text-embedding-3-small');
+    expect(EmbeddingErrorHandler::$data['exception'])->toBeInstanceOf(\RuntimeException::class);
+    expect(EmbeddingErrorHandler::$data['exception']->getMessage())->toBe('API Error');
+});
+
+test('it runs embedding.on_error pipeline when generateBatch fails', function () {
+    $this->registry->define('embedding.on_error', 'Error pipeline');
+    EmbeddingErrorHandler::reset();
+    $this->registry->register('embedding.on_error', EmbeddingErrorHandler::class);
+
+    $this->provider
+        ->shouldReceive('generateBatch')
+        ->andThrow(new \RuntimeException('Batch API Error'));
+
+    try {
+        $this->service->generateBatch(['text 1', 'text 2']);
+    } catch (\RuntimeException $e) {
+        // Expected
+    }
+
+    expect(EmbeddingErrorHandler::$called)->toBeTrue();
+    expect(EmbeddingErrorHandler::$data)->not->toBeNull();
+    expect(EmbeddingErrorHandler::$data['operation'])->toBe('generate_batch');
+    expect(EmbeddingErrorHandler::$data['text'])->toBeNull();
+    expect(EmbeddingErrorHandler::$data['texts'])->toBe(['text 1', 'text 2']);
+    expect(EmbeddingErrorHandler::$data['provider'])->toBe('openai');
+    expect(EmbeddingErrorHandler::$data['model'])->toBe('text-embedding-3-small');
+    expect(EmbeddingErrorHandler::$data['exception'])->toBeInstanceOf(\RuntimeException::class);
+    expect(EmbeddingErrorHandler::$data['exception']->getMessage())->toBe('Batch API Error');
+});
+
+test('it rethrows exception after running error pipeline', function () {
+    $this->registry->define('embedding.on_error', 'Error pipeline');
+    EmbeddingErrorHandler::reset();
+    $this->registry->register('embedding.on_error', EmbeddingErrorHandler::class);
+
+    $this->provider
+        ->shouldReceive('generate')
+        ->andThrow(new \RuntimeException('API Error'));
+
+    expect(fn () => $this->service->generate('test text'))
+        ->toThrow(\RuntimeException::class, 'API Error');
+});
+
+// Pipeline Handler Classes for Tests
+
+class EmbeddingBeforeGenerateHandler implements PipelineContract
+{
+    public static bool $called = false;
+
+    public static ?array $data = null;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+        self::$data = null;
+    }
+
+    public function handle(mixed $data, \Closure $next): mixed
+    {
+        self::$called = true;
+        self::$data = $data;
+
+        return $next($data);
+    }
+}
+
+class EmbeddingAfterGenerateHandler implements PipelineContract
+{
+    public static bool $called = false;
+
+    public static ?array $data = null;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+        self::$data = null;
+    }
+
+    public function handle(mixed $data, \Closure $next): mixed
+    {
+        self::$called = true;
+        self::$data = $data;
+
+        return $next($data);
+    }
+}
+
+class EmbeddingTextModifyingHandler implements PipelineContract
+{
+    public function handle(mixed $data, \Closure $next): mixed
+    {
+        $data['text'] = 'MODIFIED: '.$data['text'];
+
+        return $next($data);
+    }
+}
+
+class EmbeddingBeforeGenerateBatchHandler implements PipelineContract
+{
+    public static bool $called = false;
+
+    public static ?array $data = null;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+        self::$data = null;
+    }
+
+    public function handle(mixed $data, \Closure $next): mixed
+    {
+        self::$called = true;
+        self::$data = $data;
+
+        return $next($data);
+    }
+}
+
+class EmbeddingAfterGenerateBatchHandler implements PipelineContract
+{
+    public static bool $called = false;
+
+    public static ?array $data = null;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+        self::$data = null;
+    }
+
+    public function handle(mixed $data, \Closure $next): mixed
+    {
+        self::$called = true;
+        self::$data = $data;
+
+        return $next($data);
+    }
+}
+
+class EmbeddingErrorHandler implements PipelineContract
+{
+    public static bool $called = false;
+
+    public static ?array $data = null;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+        self::$data = null;
+    }
+
+    public function handle(mixed $data, \Closure $next): mixed
+    {
+        self::$called = true;
+        self::$data = $data;
+
+        return $next($data);
+    }
+}

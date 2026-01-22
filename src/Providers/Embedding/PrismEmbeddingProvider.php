@@ -86,4 +86,24 @@ class PrismEmbeddingProvider implements EmbeddingProviderContract
     {
         return $this->dimensions;
     }
+
+    /**
+     * Get the provider name.
+     *
+     * @return string The provider name.
+     */
+    public function provider(): string
+    {
+        return $this->provider;
+    }
+
+    /**
+     * Get the model name.
+     *
+     * @return string The model name.
+     */
+    public function model(): string
+    {
+        return $this->model;
+    }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
 use Atlasphp\Atlas\Agents\Services\AgentResolver;
+use Atlasphp\Atlas\Foundation\Services\PipelineRunner;
 use Atlasphp\Atlas\Providers\Contracts\EmbeddingProviderContract;
 use Atlasphp\Atlas\Providers\Facades\Atlas;
 use Atlasphp\Atlas\Providers\Services\AtlasManager;
@@ -32,11 +33,20 @@ beforeEach(function () {
     $mockProvider->shouldReceive('dimensions')
         ->andReturn(1536);
 
+    $mockProvider->shouldReceive('provider')
+        ->andReturn('openai');
+
+    $mockProvider->shouldReceive('model')
+        ->andReturn('text-embedding-3-small');
+
     $this->app->instance(EmbeddingProviderContract::class, $mockProvider);
 
     // Rebind EmbeddingService to use the mocked provider
     $this->app->singleton(EmbeddingService::class, function ($app) use ($mockProvider) {
-        return new EmbeddingService($mockProvider);
+        return new EmbeddingService(
+            $mockProvider,
+            $app->make(PipelineRunner::class),
+        );
     });
 
     // Rebind AtlasManager to use the new EmbeddingService
