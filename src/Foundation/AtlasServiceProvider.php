@@ -272,6 +272,17 @@ class AtlasServiceProvider extends ServiceProvider
             'speech.on_error',
             'Pipeline executed when speech operation fails',
         );
+
+        // Streaming pipelines (streaming-specific hooks only)
+        $registry->define(
+            'stream.on_event',
+            'Pipeline executed for each stream event',
+        );
+
+        $registry->define(
+            'stream.after_complete',
+            'Pipeline executed after streaming completes',
+        );
     }
 
     /**

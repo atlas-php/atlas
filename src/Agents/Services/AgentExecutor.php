@@ -12,9 +12,25 @@ use Atlasphp\Atlas\Agents\Support\ExecutionContext;
 use Atlasphp\Atlas\Foundation\Services\PipelineRunner;
 use Atlasphp\Atlas\Providers\Contracts\PrismBuilderContract;
 use Atlasphp\Atlas\Providers\Services\UsageExtractorRegistry;
+use Atlasphp\Atlas\Streaming\Events\ErrorEvent;
+use Atlasphp\Atlas\Streaming\Events\StreamEndEvent;
+use Atlasphp\Atlas\Streaming\Events\StreamStartEvent;
+use Atlasphp\Atlas\Streaming\Events\TextDeltaEvent;
+use Atlasphp\Atlas\Streaming\Events\ToolCallEndEvent;
+use Atlasphp\Atlas\Streaming\Events\ToolCallStartEvent;
+use Atlasphp\Atlas\Streaming\StreamEvent;
+use Atlasphp\Atlas\Streaming\StreamResponse;
 use Atlasphp\Atlas\Tools\Services\ToolBuilder;
 use Atlasphp\Atlas\Tools\Support\ToolContext;
+use Generator;
 use Prism\Prism\Contracts\Schema;
+use Prism\Prism\Streaming\Events\ErrorEvent as PrismErrorEvent;
+use Prism\Prism\Streaming\Events\StreamEndEvent as PrismStreamEndEvent;
+use Prism\Prism\Streaming\Events\StreamEvent as PrismStreamEvent;
+use Prism\Prism\Streaming\Events\StreamStartEvent as PrismStreamStartEvent;
+use Prism\Prism\Streaming\Events\TextDeltaEvent as PrismTextDeltaEvent;
+use Prism\Prism\Streaming\Events\ToolCallEvent as PrismToolCallEvent;
+use Prism\Prism\Streaming\Events\ToolResultEvent as PrismToolResultEvent;
 use Prism\Prism\ValueObjects\ProviderTool;
 use Throwable;
 
@@ -23,6 +39,7 @@ use Throwable;
  *
  * Orchestrates system prompt building, tool preparation, and
  * Prism request execution with pipeline middleware support.
+ * Supports both blocking and streaming execution modes.
  */
 class AgentExecutor implements AgentExecutorContract
 {
@@ -48,122 +65,221 @@ class AgentExecutor implements AgentExecutorContract
         ?ExecutionContext $context = null,
         ?Schema $schema = null,
     ): AgentResponse {
-        // Create default context if not provided
         $context = $context ?? new ExecutionContext;
         $systemPrompt = null;
 
         try {
-            // Run before_execute pipeline
-            $beforeData = [
-                'agent' => $agent,
-                'input' => $input,
-                'context' => $context,
-                'schema' => $schema,
-            ];
-
-            /** @var array{agent: AgentContract, input: string, context: ExecutionContext, schema: Schema|null} $beforeData */
-            $beforeData = $this->pipelineRunner->runIfActive(
-                'agent.before_execute',
-                $beforeData,
-            );
-
-            $agent = $beforeData['agent'];
-            $input = $beforeData['input'];
-            $context = $beforeData['context'];
-            $schema = $beforeData['schema'];
-
-            // Build system prompt
-            $systemPrompt = $this->systemPromptBuilder->build($agent, $context);
+            // Prepare the execution (shared with streaming)
+            $prepared = $this->prepareExecution($agent, $input, $context, $schema);
+            $agent = $prepared['agent'];
+            $input = $prepared['input'];
+            $context = $prepared['context'];
+            $schema = $prepared['schema'];
+            $systemPrompt = $prepared['systemPrompt'];
+            $request = $prepared['request'];
 
             // Execute the request
-            $response = $this->executeRequest($agent, $input, $context, $systemPrompt, $schema);
+            $response = $schema !== null
+                ? $this->executeStructuredRequest($agent, $input, $context, $systemPrompt, $schema)
+                : $this->executeTextRequestWithPreparedRequest($request, $agent);
 
             // Run after_execute pipeline
-            $afterData = [
+            $afterData = $this->pipelineRunner->runIfActive('agent.after_execute', [
                 'agent' => $agent,
                 'input' => $input,
                 'context' => $context,
                 'response' => $response,
                 'system_prompt' => $systemPrompt,
-            ];
+            ]);
 
-            /** @var array{response: AgentResponse} $afterData */
-            $afterData = $this->pipelineRunner->runIfActive(
-                'agent.after_execute',
-                $afterData,
-            );
+            /** @var AgentResponse $response */
+            $response = $afterData['response'];
 
-            return $afterData['response'];
+            return $response;
         } catch (AgentException $e) {
-            $this->handleExecutionError($agent, $input, $context, $systemPrompt, $schema, $e);
+            $this->handleError($agent, $input, $context, $systemPrompt, $e);
             throw $e;
         } catch (Throwable $e) {
-            $this->handleExecutionError($agent, $input, $context, $systemPrompt, $schema, $e);
+            $this->handleError($agent, $input, $context, $systemPrompt, $e);
             throw AgentException::executionFailed($agent->key(), $e->getMessage(), $e);
         }
     }
 
     /**
-     * Handle an execution error by running the error pipeline.
+     * Stream a response from an agent.
      *
-     * @param  AgentContract  $agent  The agent that failed.
-     * @param  string  $input  The input that was being processed.
-     * @param  ExecutionContext  $context  The execution context.
-     * @param  string|null  $systemPrompt  The system prompt (if built).
-     * @param  Schema|null  $schema  The schema (if provided).
-     * @param  Throwable  $exception  The exception that occurred.
+     * Uses the same preparation as execute() but returns events via generator.
+     *
+     * @param  AgentContract  $agent  The agent to execute.
+     * @param  string  $input  The user input message.
+     * @param  ExecutionContext|null  $context  Optional execution context.
      */
-    protected function handleExecutionError(
+    public function stream(
+        AgentContract $agent,
+        string $input,
+        ?ExecutionContext $context = null,
+    ): StreamResponse {
+        $context = $context ?? new ExecutionContext;
+
+        return new StreamResponse(
+            $this->createStreamGenerator($agent, $input, $context)
+        );
+    }
+
+    /**
+     * Prepare execution by running before pipeline, building system prompt, and building request.
+     *
+     * Shared between execute() and stream() to avoid duplication.
+     *
+     * @return array{agent: AgentContract, input: string, context: ExecutionContext, schema: Schema|null, systemPrompt: string, request: mixed}
+     */
+    protected function prepareExecution(
+        AgentContract $agent,
+        string $input,
+        ExecutionContext $context,
+        ?Schema $schema = null,
+    ): array {
+        // Run before_execute pipeline (used by both execute and stream)
+        $beforeData = $this->pipelineRunner->runIfActive('agent.before_execute', [
+            'agent' => $agent,
+            'input' => $input,
+            'context' => $context,
+            'schema' => $schema,
+        ]);
+
+        /** @var AgentContract $agent */
+        $agent = $beforeData['agent'];
+        /** @var string $input */
+        $input = $beforeData['input'];
+        /** @var ExecutionContext $context */
+        $context = $beforeData['context'];
+        /** @var Schema|null $schema */
+        $schema = $beforeData['schema'] ?? null;
+
+        // Build system prompt
+        $systemPrompt = $this->systemPromptBuilder->build($agent, $context);
+
+        // Build request (for text/stream - structured has its own path)
+        $request = $schema === null
+            ? $this->buildTextRequest($agent, $input, $context, $systemPrompt)
+            : null;
+
+        return [
+            'agent' => $agent,
+            'input' => $input,
+            'context' => $context,
+            'schema' => $schema,
+            'systemPrompt' => $systemPrompt,
+            'request' => $request,
+        ];
+    }
+
+    /**
+     * Create the generator that produces stream events.
+     *
+     * @return Generator<int, StreamEvent>
+     */
+    protected function createStreamGenerator(
+        AgentContract $agent,
+        string $input,
+        ExecutionContext $context,
+    ): Generator {
+        $systemPrompt = null;
+
+        try {
+            // Use shared preparation
+            $prepared = $this->prepareExecution($agent, $input, $context);
+            $agent = $prepared['agent'];
+            $input = $prepared['input'];
+            $context = $prepared['context'];
+            $systemPrompt = $prepared['systemPrompt'];
+            $request = $prepared['request'];
+
+            // Get Prism stream and convert to Atlas events
+            /** @var Generator<PrismStreamEvent> $prismStream */
+            $prismStream = $request->asStream();
+
+            foreach ($prismStream as $prismEvent) {
+                $atlasEvent = $this->convertStreamEvent($prismEvent);
+
+                if ($atlasEvent !== null) {
+                    // Run stream.on_event pipeline (streaming-specific)
+                    $this->pipelineRunner->runIfActive('stream.on_event', [
+                        'event' => $atlasEvent,
+                        'agent' => $agent,
+                        'context' => $context,
+                    ]);
+
+                    yield $atlasEvent;
+                }
+            }
+
+            // Run stream.after_complete pipeline (streaming-specific, called when stream ends)
+            $this->pipelineRunner->runIfActive('stream.after_complete', [
+                'agent' => $agent,
+                'input' => $input,
+                'context' => $context,
+                'system_prompt' => $systemPrompt,
+            ]);
+
+        } catch (AgentException $e) {
+            $this->handleError($agent, $input, $context, $systemPrompt, $e);
+
+            yield $this->createErrorEvent($e);
+
+            throw $e;
+        } catch (Throwable $e) {
+            $this->handleError($agent, $input, $context, $systemPrompt, $e);
+
+            yield $this->createErrorEvent($e);
+
+            throw AgentException::executionFailed($agent->key(), $e->getMessage(), $e);
+        }
+    }
+
+    /**
+     * Handle an error by running the error pipeline.
+     */
+    protected function handleError(
         AgentContract $agent,
         string $input,
         ExecutionContext $context,
         ?string $systemPrompt,
-        ?Schema $schema,
         Throwable $exception,
     ): void {
-        $errorData = [
+        $this->pipelineRunner->runIfActive('agent.on_error', [
             'agent' => $agent,
             'input' => $input,
             'context' => $context,
             'system_prompt' => $systemPrompt,
-            'schema' => $schema,
             'exception' => $exception,
-        ];
-
-        $this->pipelineRunner->runIfActive('agent.on_error', $errorData);
+        ]);
     }
 
     /**
-     * Execute the Prism request based on whether we have a schema.
+     * Execute a text request with a prepared Prism request.
      */
-    protected function executeRequest(
+    protected function executeTextRequestWithPreparedRequest(mixed $request, AgentContract $agent): AgentResponse
+    {
+        $prismResponse = $request->asText();
+
+        return $this->buildResponse($agent, $prismResponse);
+    }
+
+    /**
+     * Build a text request for the agent.
+     *
+     * @return mixed The configured Prism pending request.
+     */
+    protected function buildTextRequest(
         AgentContract $agent,
         string $input,
         ExecutionContext $context,
         string $systemPrompt,
-        ?Schema $schema,
-    ): AgentResponse {
-        if ($schema !== null) {
-            return $this->executeStructuredRequest($agent, $input, $context, $systemPrompt, $schema);
-        }
-
-        return $this->executeTextRequest($agent, $input, $context, $systemPrompt);
-    }
-
-    /**
-     * Execute a text (non-structured) request.
-     */
-    protected function executeTextRequest(
-        AgentContract $agent,
-        string $input,
-        ExecutionContext $context,
-        string $systemPrompt,
-    ): AgentResponse {
-        // Build tools
+    ): mixed {
         $toolContext = new ToolContext($context->metadata);
         $tools = $this->toolBuilder->buildForAgent($agent, $toolContext);
 
-        // Build Prism request
         $request = $context->hasMessages()
             ? $this->prismBuilder->forMessages(
                 $agent->provider(),
@@ -180,14 +296,7 @@ class AgentExecutor implements AgentExecutorContract
                 $tools,
             );
 
-        // Apply agent settings
-        $request = $this->applyAgentSettings($request, $agent);
-
-        // Execute
-        $prismResponse = $request->asText();
-
-        // Build response
-        return $this->buildResponse($agent, $prismResponse);
+        return $this->applyAgentSettings($request, $agent);
     }
 
     /**
@@ -200,7 +309,6 @@ class AgentExecutor implements AgentExecutorContract
         string $systemPrompt,
         Schema $schema,
     ): AgentResponse {
-        // Build Prism request for structured output
         $request = $this->prismBuilder->forStructured(
             $agent->provider(),
             $agent->model(),
@@ -209,13 +317,9 @@ class AgentExecutor implements AgentExecutorContract
             $systemPrompt,
         );
 
-        // Apply agent settings
         $request = $this->applyAgentSettings($request, $agent);
-
-        // Execute
         $prismResponse = $request->asStructured();
 
-        // Build response with structured data
         return $this->buildStructuredResponse($agent, $prismResponse);
     }
 
@@ -227,12 +331,7 @@ class AgentExecutor implements AgentExecutorContract
     protected function buildMessages(ExecutionContext $context, string $input): array
     {
         $messages = $context->messages;
-
-        // Add the current input as the last user message
-        $messages[] = [
-            'role' => 'user',
-            'content' => $input,
-        ];
+        $messages[] = ['role' => 'user', 'content' => $input];
 
         return $messages;
     }
@@ -274,7 +373,6 @@ class AgentExecutor implements AgentExecutorContract
             $request = $request->withMaxSteps($agent->maxSteps());
         }
 
-        // Apply provider tools if any
         $providerTools = $this->buildProviderTools($agent->providerTools());
         if ($providerTools !== []) {
             $request = $request->withProviderTools($providerTools);
@@ -286,11 +384,6 @@ class AgentExecutor implements AgentExecutorContract
     /**
      * Convert agent provider tool definitions to Prism ProviderTool objects.
      *
-     * Accepts simple strings or arrays with options:
-     *   - 'web_search' => ProviderTool(type: 'web_search')
-     *   - ['type' => 'web_search', 'max_results' => 5] => ProviderTool with options
-     *   - ProviderTool instance => passed through
-     *
      * @param  array<int, string|array<string, mixed>|ProviderTool>  $tools
      * @return array<int, ProviderTool>
      */
@@ -299,22 +392,18 @@ class AgentExecutor implements AgentExecutorContract
         $providerTools = [];
 
         foreach ($tools as $index => $tool) {
-            // Already a ProviderTool instance
             if ($tool instanceof ProviderTool) {
                 $providerTools[] = $tool;
 
                 continue;
             }
 
-            // Simple string type
             if (is_string($tool)) {
                 $providerTools[] = new ProviderTool(type: $tool);
 
                 continue;
             }
 
-            // At this point $tool must be an array (after ProviderTool and string checks)
-            // Array with type and options
             if (isset($tool['type'])) {
                 $type = $tool['type'];
                 $name = $tool['name'] ?? null;
@@ -329,12 +418,8 @@ class AgentExecutor implements AgentExecutorContract
                 continue;
             }
 
-            // Array without 'type' key - invalid format
             throw new \InvalidArgumentException(
-                sprintf(
-                    'Invalid provider tool format at index %d. Array must have a "type" key.',
-                    $index
-                )
+                sprintf('Invalid provider tool format at index %d. Array must have a "type" key.', $index)
             );
         }
 
@@ -347,24 +432,18 @@ class AgentExecutor implements AgentExecutorContract
     protected function buildResponse(AgentContract $agent, mixed $prismResponse): AgentResponse
     {
         $usage = $this->usageExtractor->extract($agent->provider(), $prismResponse);
-
         $toolCalls = $this->extractToolCalls($prismResponse);
 
         return new AgentResponse(
             text: $prismResponse->text ?? null,
             toolCalls: $toolCalls,
             usage: $usage,
-            metadata: [
-                'finish_reason' => $prismResponse->finishReason->value ?? null,
-            ],
+            metadata: ['finish_reason' => $prismResponse->finishReason->value ?? null],
         );
     }
 
     /**
      * Extract tool calls from the Prism response.
-     *
-     * Prism stores tool calls in the steps array, with each step containing
-     * both the tool calls and their results.
      *
      * @return array<int, array{id: string|null, name: string, arguments: array<string, mixed>, result: string|null}>
      */
@@ -372,15 +451,11 @@ class AgentExecutor implements AgentExecutorContract
     {
         $toolCalls = [];
 
-        // Extract from steps (Prism's multi-step tool execution)
         if (property_exists($prismResponse, 'steps') && $prismResponse->steps) {
             foreach ($prismResponse->steps as $step) {
                 if (isset($step->toolCalls) && ! empty($step->toolCalls)) {
                     foreach ($step->toolCalls as $i => $call) {
-                        $result = null;
-                        if (isset($step->toolResults[$i])) {
-                            $result = $step->toolResults[$i]->result ?? null;
-                        }
+                        $result = $step->toolResults[$i]->result ?? null;
                         $toolCalls[] = [
                             'id' => $call->id ?? null,
                             'name' => $call->name,
@@ -392,7 +467,6 @@ class AgentExecutor implements AgentExecutorContract
             }
         }
 
-        // Fallback to direct toolCalls property if no steps
         if (empty($toolCalls) && property_exists($prismResponse, 'toolCalls') && $prismResponse->toolCalls) {
             foreach ($prismResponse->toolCalls as $call) {
                 $toolCalls[] = [
@@ -417,9 +491,88 @@ class AgentExecutor implements AgentExecutorContract
         return new AgentResponse(
             structured: $prismResponse->structured ?? null,
             usage: $usage,
-            metadata: [
-                'finish_reason' => $prismResponse->finishReason->value ?? null,
-            ],
+            metadata: ['finish_reason' => $prismResponse->finishReason->value ?? null],
+        );
+    }
+
+    /**
+     * Convert a Prism stream event to an Atlas stream event.
+     */
+    protected function convertStreamEvent(PrismStreamEvent $event): ?StreamEvent
+    {
+        return match (true) {
+            $event instanceof PrismStreamStartEvent => new StreamStartEvent(
+                id: $event->id,
+                timestamp: $event->timestamp,
+                model: $event->model,
+                provider: $event->provider,
+            ),
+            $event instanceof PrismTextDeltaEvent => new TextDeltaEvent(
+                id: $event->id,
+                timestamp: $event->timestamp,
+                text: $event->delta,
+            ),
+            $event instanceof PrismToolCallEvent => new ToolCallStartEvent(
+                id: $event->id,
+                timestamp: $event->timestamp,
+                toolId: $event->toolCall->id ?? uniqid('tool_'),
+                toolName: $event->toolCall->name,
+                arguments: $event->toolCall->arguments(),
+            ),
+            $event instanceof PrismToolResultEvent => new ToolCallEndEvent(
+                id: $event->id,
+                timestamp: $event->timestamp,
+                toolId: $event->toolResult->toolCallId,
+                toolName: '',
+                result: $event->toolResult->result,
+                success: $event->success,
+            ),
+            $event instanceof PrismStreamEndEvent => new StreamEndEvent(
+                id: $event->id,
+                timestamp: $event->timestamp,
+                finishReason: $event->finishReason->value ?? null,
+                usage: $this->extractStreamUsage($event),
+            ),
+            $event instanceof PrismErrorEvent => new ErrorEvent(
+                id: $event->id,
+                timestamp: $event->timestamp,
+                errorType: $event->errorType,
+                message: $event->message,
+                recoverable: $event->recoverable,
+            ),
+            default => null,
+        };
+    }
+
+    /**
+     * Extract usage statistics from the StreamEndEvent.
+     *
+     * @return array<string, int>
+     */
+    protected function extractStreamUsage(PrismStreamEndEvent $event): array
+    {
+        if ($event->usage === null) {
+            return [];
+        }
+
+        return [
+            'prompt_tokens' => $event->usage->promptTokens,
+            'completion_tokens' => $event->usage->completionTokens,
+            'total_tokens' => $event->usage->promptTokens + $event->usage->completionTokens,
+        ];
+    }
+
+    /**
+     * Create an error event from an exception.
+     */
+    protected function createErrorEvent(Throwable $e): ErrorEvent
+    {
+        return new ErrorEvent(
+            id: uniqid('error_'),
+            timestamp: time(),
+            errorType: $e instanceof AgentException ? 'agent_error' : 'execution_error',
+            message: $e->getMessage(),
+            recoverable: false,
         );
     }
 }

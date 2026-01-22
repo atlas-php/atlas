@@ -10,6 +10,7 @@ use Atlasphp\Atlas\Agents\Services\AgentResolver;
 use Atlasphp\Atlas\Agents\Support\AgentResponse;
 use Atlasphp\Atlas\Agents\Support\ExecutionContext;
 use Atlasphp\Atlas\Providers\Support\MessageContextBuilder;
+use Atlasphp\Atlas\Streaming\StreamResponse;
 use Prism\Prism\Contracts\Schema;
 
 /**
@@ -31,22 +32,31 @@ class AtlasManager
     /**
      * Execute a chat with an agent.
      *
+     * When stream is false (default), returns an AgentResponse with the complete response.
+     * When stream is true, returns a StreamResponse that can be iterated for real-time events.
+     *
      * @param  string|AgentContract  $agent  The agent key, class, or instance.
      * @param  string  $input  The user input message.
      * @param  array<int, array{role: string, content: string}>|null  $messages  Optional conversation history.
-     * @param  Schema|null  $schema  Optional schema for structured output.
+     * @param  Schema|null  $schema  Optional schema for structured output (not supported with streaming).
+     * @param  bool  $stream  Whether to stream the response.
      */
     public function chat(
         string|AgentContract $agent,
         string $input,
         ?array $messages = null,
         ?Schema $schema = null,
-    ): AgentResponse {
+        bool $stream = false,
+    ): AgentResponse|StreamResponse {
         $resolvedAgent = $this->agentResolver->resolve($agent);
 
         $context = $messages !== null
             ? new ExecutionContext(messages: $messages)
             : null;
+
+        if ($stream) {
+            return $this->agentExecutor->stream($resolvedAgent, $input, $context);
+        }
 
         return $this->agentExecutor->execute($resolvedAgent, $input, $context, $schema);
     }
@@ -80,6 +90,25 @@ class AtlasManager
         $resolvedAgent = $this->agentResolver->resolve($agent);
 
         return $this->agentExecutor->execute($resolvedAgent, $input, $context, $schema);
+    }
+
+    /**
+     * Stream a response from an agent with a full execution context.
+     *
+     * Used internally by MessageContextBuilder to stream with variables and metadata.
+     *
+     * @param  string|AgentContract  $agent  The agent key, class, or instance.
+     * @param  string  $input  The user input message.
+     * @param  ExecutionContext  $context  The execution context with messages, variables, and metadata.
+     */
+    public function streamWithContext(
+        string|AgentContract $agent,
+        string $input,
+        ExecutionContext $context,
+    ): StreamResponse {
+        $resolvedAgent = $this->agentResolver->resolve($agent);
+
+        return $this->agentExecutor->stream($resolvedAgent, $input, $context);
     }
 
     /**

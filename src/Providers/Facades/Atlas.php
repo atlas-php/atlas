@@ -10,13 +10,14 @@ use Atlasphp\Atlas\Providers\Services\AtlasManager;
 use Atlasphp\Atlas\Providers\Services\ImageService;
 use Atlasphp\Atlas\Providers\Services\SpeechService;
 use Atlasphp\Atlas\Providers\Support\MessageContextBuilder;
+use Atlasphp\Atlas\Streaming\StreamResponse;
 use Illuminate\Support\Facades\Facade;
 use Prism\Prism\Contracts\Schema;
 
 /**
  * Facade for Atlas functionality.
  *
- * @method static AgentResponse chat(string|AgentContract $agent, string $input, ?array<int, array{role: string, content: string}> $messages = null, ?Schema $schema = null)
+ * @method static AgentResponse|StreamResponse chat(string|AgentContract $agent, string $input, ?array<int, array{role: string, content: string}> $messages = null, ?Schema $schema = null, bool $stream = false)
  * @method static MessageContextBuilder forMessages(array<int, array{role: string, content: string}> $messages)
  * @method static array<int, float> embed(string $text)
  * @method static array<int, array<int, float>> embedBatch(array<int, string> $texts)
