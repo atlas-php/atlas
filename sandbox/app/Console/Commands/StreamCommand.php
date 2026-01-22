@@ -127,10 +127,10 @@ class StreamCommand extends Command
     protected function displayToolCallStart(ToolCallStartEvent $event): void
     {
         $this->newLine();
-        $this->warn("[TOOL CALL START]");
+        $this->warn('[TOOL CALL START]');
         $this->line("  Tool Name: {$event->toolName}");
         $this->line("  Tool ID: {$event->toolId}");
-        $this->line("  Arguments: ".json_encode($event->arguments));
+        $this->line('  Arguments: '.json_encode($event->arguments));
     }
 
     /**
@@ -139,11 +139,11 @@ class StreamCommand extends Command
     protected function displayToolCallEnd(ToolCallEndEvent $event): void
     {
         $status = $event->success ? '<fg=green>success</>' : '<fg=red>failed</>';
-        $this->info("[TOOL CALL END]");
+        $this->info('[TOOL CALL END]');
         $this->line("  Tool Name: {$event->toolName}");
         $this->line("  Tool ID: {$event->toolId}");
         $this->line("  Status: {$status}");
-        $this->line("  Result: ".(is_array($event->result) ? json_encode($event->result) : $event->result));
+        $this->line('  Result: '.(is_array($event->result) ? json_encode($event->result) : $event->result));
     }
 
     /**
@@ -173,9 +173,9 @@ class StreamCommand extends Command
             $this->line('Tool calls: '.count($toolCalls));
             foreach ($toolCalls as $i => $call) {
                 $this->line("  [{$i}] {$call['name']}");
-                $this->line("      ID: ".($call['id'] ?? 'N/A'));
-                $this->line("      Args: ".json_encode($call['arguments'] ?? []));
-                $this->line("      Result: ".(is_array($call['result'] ?? null) ? json_encode($call['result']) : ($call['result'] ?? 'N/A')));
+                $this->line('      ID: '.($call['id'] ?? 'N/A'));
+                $this->line('      Args: '.json_encode($call['arguments'] ?? []));
+                $this->line('      Result: '.(is_array($call['result'] ?? null) ? json_encode($call['result']) : ($call['result'] ?? 'N/A')));
             }
         }
 

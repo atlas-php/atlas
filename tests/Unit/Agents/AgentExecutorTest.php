@@ -1467,6 +1467,7 @@ test('stream converts tool call events', function () {
 
     expect($events[1])->toBeInstanceOf(\Atlasphp\Atlas\Streaming\Events\ToolCallEndEvent::class);
     expect($events[1]->toolId)->toBe('call_123');
+    expect($events[1]->toolName)->toBe('calculator');
     expect($events[1]->result)->toBe('8');
     expect($events[1]->success)->toBeTrue();
 });
