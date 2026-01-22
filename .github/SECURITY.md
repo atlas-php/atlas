@@ -32,7 +32,7 @@ When reporting, please include:
 Security updates are provided for the latest major version only.
 
 | Version | Supported          |
-| ------- | ------------------ |
+|---------|--------------------|
 | 1.x     | :white_check_mark: |
 
 Thank you for helping keep Atlas secure.
