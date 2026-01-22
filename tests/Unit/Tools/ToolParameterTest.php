@@ -95,6 +95,58 @@ test('it includes default in schema', function () {
     expect($schema['default'])->toBe('default');
 });
 
+test('it includes items in schema for array parameter', function () {
+    $items = ['type' => 'string', 'description' => 'A tag'];
+    $param = ToolParameter::array('tags', 'List of tags', $items);
+
+    $schema = $param->toSchema();
+
+    expect($schema['type'])->toBe('array');
+    expect($schema['items'])->toBe($items);
+});
+
+test('it includes properties in schema for object parameter', function () {
+    $properties = [
+        ToolParameter::string('name', 'The name', required: true),
+        ToolParameter::integer('age', 'The age', required: true),
+    ];
+    $param = ToolParameter::object('user', 'The user', $properties);
+
+    $schema = $param->toSchema();
+
+    expect($schema['type'])->toBe('object');
+    expect($schema['properties'])->toHaveKey('name');
+    expect($schema['properties'])->toHaveKey('age');
+    expect($schema['properties']['name']['type'])->toBe('string');
+    expect($schema['properties']['age']['type'])->toBe('integer');
+    expect($schema['required'])->toBe(['name', 'age']);
+});
+
+test('it only includes required properties that are actually required', function () {
+    $properties = [
+        ToolParameter::string('name', 'The name', required: true),
+        ToolParameter::string('nickname', 'The nickname', required: false),
+    ];
+    $param = ToolParameter::object('user', 'The user', $properties);
+
+    $schema = $param->toSchema();
+
+    expect($schema['required'])->toBe(['name']);
+    expect($schema['required'])->not->toContain('nickname');
+});
+
+test('it omits required key when no properties are required', function () {
+    $properties = [
+        ToolParameter::string('name', 'The name', required: false),
+        ToolParameter::string('nickname', 'The nickname', required: false),
+    ];
+    $param = ToolParameter::object('user', 'The user', $properties);
+
+    $schema = $param->toSchema();
+
+    expect($schema)->not->toHaveKey('required');
+});
+
 test('it converts to Prism StringSchema', function () {
     $param = ToolParameter::string('name', 'The name');
 
@@ -151,4 +203,77 @@ test('it converts to Prism ObjectSchema', function () {
     $schema = $param->toPrismSchema();
 
     expect($schema)->toBeInstanceOf(ObjectSchema::class);
+});
+
+test('it builds array schema with string items', function () {
+    $param = ToolParameter::array('names', 'List of names', ['type' => 'string']);
+
+    $schema = $param->toPrismSchema();
+
+    expect($schema)->toBeInstanceOf(ArraySchema::class);
+    expect($schema->name())->toBe('names');
+});
+
+test('it builds array schema with string items and description', function () {
+    $param = ToolParameter::array('names', 'List of names', [
+        'type' => 'string',
+        'description' => 'A person name',
+    ]);
+
+    $schema = $param->toPrismSchema();
+
+    expect($schema)->toBeInstanceOf(ArraySchema::class);
+});
+
+test('it builds array schema with integer items', function () {
+    $param = ToolParameter::array('counts', 'List of counts', ['type' => 'integer']);
+
+    $schema = $param->toPrismSchema();
+
+    expect($schema)->toBeInstanceOf(ArraySchema::class);
+});
+
+test('it builds array schema with number items', function () {
+    $param = ToolParameter::array('prices', 'List of prices', ['type' => 'number']);
+
+    $schema = $param->toPrismSchema();
+
+    expect($schema)->toBeInstanceOf(ArraySchema::class);
+});
+
+test('it builds array schema with boolean items', function () {
+    $param = ToolParameter::array('flags', 'List of flags', ['type' => 'boolean']);
+
+    $schema = $param->toPrismSchema();
+
+    expect($schema)->toBeInstanceOf(ArraySchema::class);
+});
+
+test('it builds array schema with unknown item type falls back to string', function () {
+    $param = ToolParameter::array('items', 'List of items', ['type' => 'unknown']);
+
+    $schema = $param->toPrismSchema();
+
+    expect($schema)->toBeInstanceOf(ArraySchema::class);
+});
+
+test('it builds array schema with default string items when no items specified', function () {
+    $param = ToolParameter::array('tags', 'List of tags');
+
+    $schema = $param->toPrismSchema();
+
+    expect($schema)->toBeInstanceOf(ArraySchema::class);
+});
+
+test('it falls back to string schema for unknown type in toPrismSchema', function () {
+    $param = new ToolParameter(
+        name: 'custom',
+        type: 'custom_type',
+        description: 'A custom param',
+        required: true,
+    );
+
+    $schema = $param->toPrismSchema();
+
+    expect($schema)->toBeInstanceOf(StringSchema::class);
 });
