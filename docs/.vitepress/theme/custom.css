@@ -70,6 +70,16 @@
   box-shadow: 0 4px 20px rgba(74, 158, 255, 0.2);
 }
 
+/* Feature title blue color */
+.VPFeature .title {
+  color: var(--atlas-blue) !important;
+  font-weight: 600;
+}
+
+.dark .VPFeature .title {
+  color: var(--atlas-cyan) !important;
+}
+
 /* Code blocks with subtle blue glow */
 .vp-doc [class*='language-'] {
   border-left: none;
@@ -96,6 +106,12 @@
   box-shadow:
     0 0 15px rgba(74, 158, 255, 0.2),
     0 0 30px rgba(74, 158, 255, 0.1);
+}
+
+/* Laravel text in hero - white */
+.VPHero .laravel-text {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
 }
 
 /* Hero title - gradient effect */

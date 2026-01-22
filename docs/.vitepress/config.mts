@@ -17,8 +17,7 @@ export default defineConfig({
     nav: [
       { text: 'Home', link: '/' },
       { text: 'Docs', link: '/getting-started/introduction' },
-      { text: 'API Reference', link: '/api-reference/atlas-facade' },
-      { text: 'GitHub', link: 'https://github.com/atlas-php/atlas' }
+      { text: 'API Reference', link: '/api-reference/atlas-facade' }
     ],
 
     sidebar: [

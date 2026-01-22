@@ -22,6 +22,13 @@ Pipelines intercept key operations and allow you to:
 | `agent.system_prompt.after_build` | After building system prompt |
 | `agent.on_error` | When agent execution fails |
 
+### Streaming Pipelines
+
+| Pipeline | Trigger |
+|----------|---------|
+| `stream.on_event` | For each streaming event received |
+| `stream.after_complete` | After streaming completes |
+
 ### Tool Pipelines
 
 | Pipeline | Trigger |
@@ -163,6 +170,27 @@ Each pipeline receives specific data:
     'agent' => AgentContract,
     'context' => ?ExecutionContext,
     'prompt' => string,  // The built prompt
+]
+```
+
+### stream.on_event
+
+```php
+[
+    'event' => StreamEvent,
+    'agent' => AgentContract,
+    'context' => ?ExecutionContext,
+]
+```
+
+### stream.after_complete
+
+```php
+[
+    'agent' => AgentContract,
+    'input' => string,
+    'context' => ?ExecutionContext,
+    'system_prompt' => string,
 ]
 ```
 
