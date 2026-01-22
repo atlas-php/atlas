@@ -132,6 +132,27 @@ test('ToolCallEndEvent defaults success to true', function () {
     expect($event->success)->toBeTrue();
 });
 
+test('ToolCallEndEvent converts to array', function () {
+    $event = new ToolCallEndEvent(
+        id: 'evt_101',
+        timestamp: 1234567893,
+        toolId: 'call_abc',
+        toolName: 'search',
+        result: '{"results": []}',
+        success: true,
+    );
+
+    expect($event->toArray())->toBe([
+        'id' => 'evt_101',
+        'type' => 'tool.call.end',
+        'timestamp' => 1234567893,
+        'tool_id' => 'call_abc',
+        'tool_name' => 'search',
+        'result' => '{"results": []}',
+        'success' => true,
+    ]);
+});
+
 test('StreamEndEvent has correct type and properties', function () {
     $event = new StreamEndEvent(
         id: 'evt_999',
@@ -181,6 +202,46 @@ test('StreamEndEvent returns zero for missing usage', function () {
     expect($event->totalTokens())->toBe(0);
 });
 
+test('StreamEndEvent converts to array', function () {
+    $event = new StreamEndEvent(
+        id: 'evt_999',
+        timestamp: 1234567899,
+        finishReason: 'stop',
+        usage: [
+            'prompt_tokens' => 10,
+            'completion_tokens' => 20,
+            'total_tokens' => 30,
+        ],
+    );
+
+    expect($event->toArray())->toBe([
+        'id' => 'evt_999',
+        'type' => 'stream.end',
+        'timestamp' => 1234567899,
+        'finish_reason' => 'stop',
+        'usage' => [
+            'prompt_tokens' => 10,
+            'completion_tokens' => 20,
+            'total_tokens' => 30,
+        ],
+    ]);
+});
+
+test('StreamEndEvent converts to array with null values', function () {
+    $event = new StreamEndEvent(
+        id: 'evt_999',
+        timestamp: 1234567899,
+    );
+
+    expect($event->toArray())->toBe([
+        'id' => 'evt_999',
+        'type' => 'stream.end',
+        'timestamp' => 1234567899,
+        'finish_reason' => null,
+        'usage' => [],
+    ]);
+});
+
 test('ErrorEvent has correct type and properties', function () {
     $event = new ErrorEvent(
         id: 'err_123',
@@ -205,6 +266,25 @@ test('ErrorEvent defaults recoverable to false', function () {
     );
 
     expect($event->recoverable)->toBeFalse();
+});
+
+test('ErrorEvent converts to array', function () {
+    $event = new ErrorEvent(
+        id: 'err_123',
+        timestamp: 1234567890,
+        errorType: 'rate_limit',
+        message: 'Rate limit exceeded',
+        recoverable: true,
+    );
+
+    expect($event->toArray())->toBe([
+        'id' => 'err_123',
+        'type' => 'error',
+        'timestamp' => 1234567890,
+        'error_type' => 'rate_limit',
+        'message' => 'Rate limit exceeded',
+        'recoverable' => true,
+    ]);
 });
 
 test('events can be converted to SSE format', function () {

@@ -203,3 +203,96 @@ test('it preserves immutability across chain', function () {
     expect($builder4->getVariables())->toBe(['name' => 'Jane']);
     expect($builder4->getMetadata())->toBe(['id' => '123']);
 });
+
+// ===========================================
+// STREAMING TESTS
+// ===========================================
+
+test('it executes chat with stream true', function () {
+    $agent = new TestAgent;
+    $messages = [['role' => 'user', 'content' => 'Hello']];
+    $variables = ['user_name' => 'John'];
+    $metadata = ['session_id' => 'abc123'];
+    $streamResponse = Mockery::mock(\Atlasphp\Atlas\Streaming\StreamResponse::class);
+
+    $this->agentResolver
+        ->shouldReceive('resolve')
+        ->once()
+        ->with('test-agent')
+        ->andReturn($agent);
+
+    $this->agentExecutor
+        ->shouldReceive('stream')
+        ->once()
+        ->withArgs(function ($a, $input, $context) use ($agent, $messages, $variables, $metadata) {
+            return $a === $agent
+                && $input === 'Continue'
+                && $context instanceof ExecutionContext
+                && $context->messages === $messages
+                && $context->variables === $variables
+                && $context->metadata === $metadata;
+        })
+        ->andReturn($streamResponse);
+
+    $builder = new MessageContextBuilder($this->manager, $messages);
+    $result = $builder
+        ->withVariables($variables)
+        ->withMetadata($metadata)
+        ->chat('test-agent', 'Continue', stream: true);
+
+    expect($result)->toBe($streamResponse);
+    expect($result)->toBeInstanceOf(\Atlasphp\Atlas\Streaming\StreamResponse::class);
+});
+
+test('it executes chat without stream returns agent response', function () {
+    $agent = new TestAgent;
+    $messages = [['role' => 'user', 'content' => 'Hello']];
+    $response = AgentResponse::text('Hello');
+
+    $this->agentResolver
+        ->shouldReceive('resolve')
+        ->once()
+        ->with('test-agent')
+        ->andReturn($agent);
+
+    $this->agentExecutor
+        ->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($a, $input, $context, $schema) use ($agent) {
+            return $a === $agent
+                && $input === 'Continue'
+                && $context instanceof ExecutionContext
+                && $schema === null;
+        })
+        ->andReturn($response);
+
+    $builder = new MessageContextBuilder($this->manager, $messages);
+    $result = $builder->chat('test-agent', 'Continue', stream: false);
+
+    expect($result)->toBe($response);
+    expect($result)->toBeInstanceOf(AgentResponse::class);
+});
+
+test('it does not support schema with streaming', function () {
+    // Schema is not passed when streaming, streaming always uses stream path
+    $agent = new TestAgent;
+    $messages = [['role' => 'user', 'content' => 'Hello']];
+    $streamResponse = Mockery::mock(\Atlasphp\Atlas\Streaming\StreamResponse::class);
+
+    $this->agentResolver
+        ->shouldReceive('resolve')
+        ->once()
+        ->with('test-agent')
+        ->andReturn($agent);
+
+    // When stream: true, it should call stream() not execute()
+    $this->agentExecutor
+        ->shouldReceive('stream')
+        ->once()
+        ->andReturn($streamResponse);
+
+    $builder = new MessageContextBuilder($this->manager, $messages);
+    $result = $builder->chat('test-agent', 'Extract', stream: true);
+
+    expect($result)->toBe($streamResponse);
+});

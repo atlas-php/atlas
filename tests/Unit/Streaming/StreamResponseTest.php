@@ -200,3 +200,144 @@ test('toResponse returns StreamedResponse', function () {
     expect($response)->toBeInstanceOf(Symfony\Component\HttpFoundation\StreamedResponse::class);
     expect($response->headers->get('Content-Type'))->toBe('text/event-stream');
 });
+
+test('toResponse includes proper SSE headers', function () {
+    $events = [
+        new StreamEndEvent('evt_1', time(), 'stop', []),
+    ];
+
+    $stream = new StreamResponse(createTestGenerator($events));
+    $response = $stream->toResponse();
+
+    expect($response->headers->get('Content-Type'))->toBe('text/event-stream');
+    expect($response->headers->get('Cache-Control'))->toContain('no-cache');
+    expect($response->headers->get('Connection'))->toBe('keep-alive');
+    expect($response->headers->get('X-Accel-Buffering'))->toBe('no');
+});
+
+test('toResponse accepts custom headers', function () {
+    $events = [
+        new StreamEndEvent('evt_1', time(), 'stop', []),
+    ];
+
+    $stream = new StreamResponse(createTestGenerator($events));
+    $response = $stream->toResponse(headers: ['X-Custom-Header' => 'custom-value']);
+
+    expect($response->headers->get('X-Custom-Header'))->toBe('custom-value');
+    expect($response->headers->get('Content-Type'))->toBe('text/event-stream');
+});
+
+test('it handles multiple tool calls with matching results', function () {
+    $events = [
+        new ToolCallStartEvent('evt_1', time(), 'call_1', 'search', ['query' => 'test']),
+        new ToolCallStartEvent('evt_2', time(), 'call_2', 'calculate', ['a' => 5]),
+        new ToolCallEndEvent('evt_3', time(), 'call_1', 'search', '{"results": ["a", "b"]}', true),
+        new ToolCallEndEvent('evt_4', time(), 'call_2', 'calculate', '10', true),
+        new StreamEndEvent('evt_5', time(), 'stop', []),
+    ];
+
+    $stream = new StreamResponse(createTestGenerator($events));
+    iterator_to_array($stream);
+
+    $toolCalls = $stream->toolCalls();
+
+    expect($toolCalls)->toHaveCount(2);
+    expect($toolCalls[0]['id'])->toBe('call_1');
+    expect($toolCalls[0]['name'])->toBe('search');
+    expect($toolCalls[0]['result'])->toBe('{"results": ["a", "b"]}');
+    expect($toolCalls[1]['id'])->toBe('call_2');
+    expect($toolCalls[1]['name'])->toBe('calculate');
+    expect($toolCalls[1]['result'])->toBe('10');
+});
+
+test('it returns null finish reason when no StreamEndEvent', function () {
+    $events = [
+        new TextDeltaEvent('evt_1', time(), 'Test'),
+    ];
+
+    $stream = new StreamResponse(createTestGenerator($events));
+    iterator_to_array($stream);
+
+    expect($stream->finishReason())->toBeNull();
+});
+
+test('it returns zero for prompt and completion tokens when no StreamEndEvent', function () {
+    $events = [
+        new TextDeltaEvent('evt_1', time(), 'Test'),
+    ];
+
+    $stream = new StreamResponse(createTestGenerator($events));
+    iterator_to_array($stream);
+
+    expect($stream->promptTokens())->toBe(0);
+    expect($stream->completionTokens())->toBe(0);
+    expect($stream->totalTokens())->toBe(0);
+});
+
+test('collect only iterates once', function () {
+    $iterationCount = 0;
+    $events = [
+        new TextDeltaEvent('evt_1', time(), 'Test'),
+        new StreamEndEvent('evt_2', time(), 'stop', []),
+    ];
+
+    $generator = function () use ($events, &$iterationCount) {
+        foreach ($events as $event) {
+            $iterationCount++;
+            yield $event;
+        }
+    };
+
+    $stream = new StreamResponse($generator());
+    $stream->collect();
+    $stream->collect(); // Second call should not re-iterate
+
+    expect($iterationCount)->toBe(2); // Only 2 events yielded once
+});
+
+test('it handles multiple errors', function () {
+    $events = [
+        new ErrorEvent('err_1', time(), 'rate_limit', 'Rate limit', true),
+        new ErrorEvent('err_2', time(), 'timeout', 'Request timeout', false),
+        new StreamEndEvent('evt_3', time(), 'error', []),
+    ];
+
+    $stream = new StreamResponse(createTestGenerator($events));
+    iterator_to_array($stream);
+
+    expect($stream->hasErrors())->toBeTrue();
+    expect($stream->errors())->toHaveCount(2);
+    expect($stream->errors()[0]->errorType)->toBe('rate_limit');
+    expect($stream->errors()[1]->errorType)->toBe('timeout');
+});
+
+test('it tracks tool call without matching end event', function () {
+    $events = [
+        new ToolCallStartEvent('evt_1', time(), 'call_1', 'search', ['query' => 'test']),
+        new StreamEndEvent('evt_2', time(), 'stop', []),
+    ];
+
+    $stream = new StreamResponse(createTestGenerator($events));
+    iterator_to_array($stream);
+
+    $toolCalls = $stream->toolCalls();
+
+    expect($toolCalls)->toHaveCount(1);
+    expect($toolCalls[0]['id'])->toBe('call_1');
+    expect($toolCalls[0]['result'])->toBeNull();
+});
+
+test('it accumulates text from multiple deltas in order', function () {
+    $events = [
+        new TextDeltaEvent('evt_1', time(), 'Hello'),
+        new TextDeltaEvent('evt_2', time(), ', '),
+        new TextDeltaEvent('evt_3', time(), 'World'),
+        new TextDeltaEvent('evt_4', time(), '!'),
+        new StreamEndEvent('evt_5', time(), 'stop', []),
+    ];
+
+    $stream = new StreamResponse(createTestGenerator($events));
+    iterator_to_array($stream);
+
+    expect($stream->text())->toBe('Hello, World!');
+});
