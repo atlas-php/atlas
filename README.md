@@ -1,4 +1,7 @@
 <p align="center">
+  <img src="./atlas-logo-2.png" alt="Atlas logo" height="180">
+</p>
+<p align="center">
     <a href="https://github.com/atlas-php/atlas"><img src="https://github.com/atlas-php/atlas/workflows/Build/badge.svg" alt="Tests"></a>
     <img src="https://img.shields.io/badge/php-8.4%2B-blue?style=flat-square" alt="PHP Version">
     <img src="https://img.shields.io/badge/laravel-12.x-orange?style=flat-square" alt="Laravel">
