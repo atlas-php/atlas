@@ -7,7 +7,7 @@
 
 # Atlas
 
-Atlas is a Laravel package for building AI-powered applications with structure and scale. It provides reusable agents, typed tools, system prompt templating, and execution pipelines—all through a clean, stateless API. Built on Prism PHP, Atlas lets you focus on your application logic instead of wiring up AI infrastructure.
+Atlas is a Laravel package for building AI-powered applications with structure and scale. It provides reusable agents, typed tools, system prompt templating, and execution pipelines; all through a clean, stateless API. Built on Prism PHP, Atlas lets you focus on your application logic instead of wiring up the AI infrastructure.
 
 ```php
 $response = Atlas::chat('support-agent', 'I need help with my order');
@@ -287,8 +287,6 @@ composer check    # All checks
 | [Creating Tools](docs/guides/Creating-Tools.md)                     | Tool parameters and results |
 | [Multi-Turn Conversations](docs/guides/Multi-Turn-Conversations.md) | Conversation handling       |
 | [Extending Atlas](docs/guides/Extending-Atlas.md)                   | Pipeline middleware         |
-
-Specs: [docs/spec/](docs/spec/)
 
 ---
 
