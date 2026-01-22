@@ -90,4 +90,4 @@ Atlas uses a pipeline middleware system for extensibility:
 
 ## Contributing
 
-For development guidelines, see [AGENTS.md](../AGENTS.md) in the repository root.
+For development guidelines, see the [AGENTS.md](https://github.com/atlasphp/atlas/blob/main/AGENTS.md) file in the repository.
