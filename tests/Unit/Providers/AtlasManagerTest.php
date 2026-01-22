@@ -401,3 +401,20 @@ test('it executes chat without stream returns agent response', function () {
     expect($result)->toBe($response);
     expect($result)->toBeInstanceOf(AgentResponse::class);
 });
+
+test('it throws exception when streaming with schema', function () {
+    $agent = new TestAgent;
+    $schema = Mockery::mock(\Prism\Prism\Contracts\Schema::class);
+
+    $this->agentResolver
+        ->shouldReceive('resolve')
+        ->once()
+        ->with('test-agent')
+        ->andReturn($agent);
+
+    expect(fn () => $this->manager->chat('test-agent', 'Hello', schema: $schema, stream: true))
+        ->toThrow(
+            \InvalidArgumentException::class,
+            'Streaming does not support structured output (schema). Use stream: false for structured responses.'
+        );
+});

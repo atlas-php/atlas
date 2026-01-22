@@ -523,7 +523,7 @@ class AgentExecutor implements AgentExecutorContract
                 id: $event->id,
                 timestamp: $event->timestamp,
                 toolId: $event->toolResult->toolCallId,
-                toolName: '',
+                toolName: $event->toolResult->toolName,
                 result: $event->toolResult->result,
                 success: $event->success,
             ),

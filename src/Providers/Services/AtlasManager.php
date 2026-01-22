@@ -55,6 +55,12 @@ class AtlasManager
             : null;
 
         if ($stream) {
+            if ($schema !== null) {
+                throw new \InvalidArgumentException(
+                    'Streaming does not support structured output (schema). Use stream: false for structured responses.'
+                );
+            }
+
             return $this->agentExecutor->stream($resolvedAgent, $input, $context);
         }
 
