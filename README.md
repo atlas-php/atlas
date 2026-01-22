@@ -7,7 +7,7 @@
 
 # Atlas
 
-Atlas is a Laravel package for building AI-powered applications with structure and scale. It provides reusable agents, typed tools, system prompt templating, and execution pipelines—all through a clean, stateless API. Built on [Prism PHP](https://github.com/prism-php/prism), Atlas lets you focus on your application logic instead of wiring up AI infrastructure.
+Atlas is a Laravel package for building AI-powered applications with structure and scale. It provides reusable agents, typed tools, system prompt templating, and execution pipelines—all through a clean, stateless API. Built on Prism PHP, Atlas lets you focus on your application logic instead of wiring up AI infrastructure.
 
 ```php
 $response = Atlas::chat('support-agent', 'I need help with my order');
@@ -17,7 +17,7 @@ $response = Atlas::chat('support-agent', 'I need help with my order');
 
 ## Why Atlas?
 
-Atlas gives you the infrastructure to build real applications; Prism handles the LLM communications.
+Atlas gives you the infrastructure to build real applications; [Prism PHP](https://github.com/prism-php/prism) handles the LLM communications.
 
 - **Agents** — Define many agents. Register once, use anywhere.
 - **Tools** — Give agents access to abilities directly to your services.
@@ -27,7 +27,7 @@ Atlas gives you the infrastructure to build real applications; Prism handles the
 - **Beyond Chat** — Embeddings, images, and speech through one facade.
 
 ### Note from the Author
-> _I've been building Atlas through many iterations over the past year. This version (RC4) is stable, battle-tested, and already powering large-scale production applications. The roadmap includes Nexus; a companion package that will handle persistence and AI orchestration, complementing Atlas's stateless design. If you have any suggestions feel free to submit an issue. -TM_
+> _I've been building Atlas through many iterations over the past year. This version (RC4) is stable, battle-tested, and already powering large-scale production applications. The roadmap includes Nexus; a companion package that will handle persistence and AI orchestration, complementing Atlas's stateless design. If you have any suggestions, feel free to submit an issue. -TM_
 ---
 
 ## Table of Contents
