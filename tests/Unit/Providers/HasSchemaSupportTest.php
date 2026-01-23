@@ -72,25 +72,21 @@ test('chained withSchema calls replace schema', function () {
 // AUTO-BUILD TESTS
 // ===========================================
 
-test('withSchema auto-builds SchemaBuilder', function () {
-    $builder = Schema::object('test', 'Test schema')
-        ->string('name', 'The name');
+test('withSchema auto-builds SchemaBuilder directly', function () {
+    // Schema::object() returns a SchemaBuilder (not SchemaProperty)
+    $builder = Schema::object('empty', 'Empty schema');
 
-    expect($builder)->toBeInstanceOf(SchemaProperty::class);
-
-    // Get the underlying builder for this test
-    $schemaBuilder = Schema::object('test', 'Test schema')
-        ->string('name', 'The name');
+    expect($builder)->toBeInstanceOf(SchemaBuilder::class);
 
     $instance = new TestSchemaClass;
-    $clone = $instance->withSchema($schemaBuilder);
+    $clone = $instance->withSchema($builder);
 
     $result = $clone->exposeGetSchema();
 
     expect($result)->toBeInstanceOf(ObjectSchema::class);
-    expect($result->name)->toBe('test');
-    expect($result->description)->toBe('Test schema');
-    expect($result->properties)->toHaveCount(1);
+    expect($result->name)->toBe('empty');
+    expect($result->description)->toBe('Empty schema');
+    expect($result->properties)->toHaveCount(0);
 });
 
 test('withSchema auto-builds SchemaProperty', function () {
