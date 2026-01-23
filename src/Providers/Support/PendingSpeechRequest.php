@@ -46,7 +46,7 @@ final class PendingSpeechRequest
     /**
      * Set the voice for text-to-speech.
      */
-    public function voice(string $voice): static
+    public function withVoice(string $voice): static
     {
         $clone = clone $this;
         $clone->voice = $voice;
@@ -68,7 +68,7 @@ final class PendingSpeechRequest
     /**
      * Set the speech speed (0.25 to 4.0 for OpenAI).
      */
-    public function speed(float $speed): static
+    public function withSpeed(float $speed): static
     {
         $clone = clone $this;
         $clone->speed = $speed;

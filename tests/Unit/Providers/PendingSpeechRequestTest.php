@@ -43,8 +43,8 @@ test('transcriptionModel returns new instance with transcription model', functio
     expect($result)->toBeInstanceOf(PendingSpeechRequest::class);
 });
 
-test('voice returns new instance with voice', function () {
-    $result = $this->request->voice('alloy');
+test('withVoice returns new instance with voice', function () {
+    $result = $this->request->withVoice('alloy');
 
     expect($result)->not->toBe($this->request);
     expect($result)->toBeInstanceOf(PendingSpeechRequest::class);
@@ -57,8 +57,8 @@ test('format returns new instance with format', function () {
     expect($result)->toBeInstanceOf(PendingSpeechRequest::class);
 });
 
-test('speed returns new instance with speed', function () {
-    $result = $this->request->speed(1.5);
+test('withSpeed returns new instance with speed', function () {
+    $result = $this->request->withSpeed(1.5);
 
     expect($result)->not->toBe($this->request);
     expect($result)->toBeInstanceOf(PendingSpeechRequest::class);
@@ -158,7 +158,7 @@ test('generate passes voice to service options', function () {
         }), null)
         ->andReturn($expected);
 
-    $result = $this->request->voice('nova')->generate('Hello world');
+    $result = $this->request->withVoice('nova')->generate('Hello world');
 
     expect($result)->toBe($expected);
 });
@@ -190,7 +190,7 @@ test('generate passes speed to service options', function () {
         }), null)
         ->andReturn($expected);
 
-    $result = $this->request->speed(1.5)->generate('Hello world');
+    $result = $this->request->withSpeed(1.5)->generate('Hello world');
 
     expect($result)->toBe($expected);
 });
@@ -324,9 +324,9 @@ test('chaining speak preserves all config', function () {
 
     $result = $this->request
         ->withProvider('openai', 'tts-1-hd')
-        ->voice('alloy')
+        ->withVoice('alloy')
         ->format('mp3')
-        ->speed(1.25)
+        ->withSpeed(1.25)
         ->withProviderOptions(['language' => 'en'])
         ->withMetadata($metadata)
         ->withRetry(3, 1000)

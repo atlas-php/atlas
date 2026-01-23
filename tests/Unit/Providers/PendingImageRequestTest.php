@@ -36,15 +36,15 @@ test('withProvider with model returns new instance with both', function () {
     expect($result)->toBeInstanceOf(PendingImageRequest::class);
 });
 
-test('size returns new instance with size', function () {
-    $result = $this->request->size('1024x1024');
+test('withSize returns new instance with size', function () {
+    $result = $this->request->withSize('1024x1024');
 
     expect($result)->not->toBe($this->request);
     expect($result)->toBeInstanceOf(PendingImageRequest::class);
 });
 
-test('quality returns new instance with quality', function () {
-    $result = $this->request->quality('hd');
+test('withQuality returns new instance with quality', function () {
+    $result = $this->request->withQuality('hd');
 
     expect($result)->not->toBe($this->request);
     expect($result)->toBeInstanceOf(PendingImageRequest::class);
@@ -144,7 +144,7 @@ test('generate passes size to service options', function () {
         }), null)
         ->andReturn($expected);
 
-    $result = $this->request->size('1024x1024')->generate('A sunset');
+    $result = $this->request->withSize('1024x1024')->generate('A sunset');
 
     expect($result)->toBe($expected);
 });
@@ -160,7 +160,7 @@ test('generate passes quality to service options', function () {
         }), null)
         ->andReturn($expected);
 
-    $result = $this->request->quality('hd')->generate('A sunset');
+    $result = $this->request->withQuality('hd')->generate('A sunset');
 
     expect($result)->toBe($expected);
 });
@@ -232,8 +232,8 @@ test('chaining preserves all config', function () {
 
     $result = $this->request
         ->withProvider('openai', 'dall-e-3')
-        ->size('1024x1024')
-        ->quality('hd')
+        ->withSize('1024x1024')
+        ->withQuality('hd')
         ->withProviderOptions(['style' => 'vivid'])
         ->withMetadata($metadata)
         ->withRetry(3, 1000)

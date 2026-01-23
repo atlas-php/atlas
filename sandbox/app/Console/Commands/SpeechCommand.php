@@ -69,8 +69,8 @@ class SpeechCommand extends Command
             $this->info('Generating speech...');
 
             $response = Atlas::speech()
-                ->voice($voice)
-                ->speed($speed)
+                ->withVoice($voice)
+                ->withSpeed($speed)
                 ->generate($text);
 
             $this->displayTtsResponse($response, $format);
