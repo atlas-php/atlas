@@ -20,6 +20,7 @@ use Atlasphp\Atlas\Providers\Services\AtlasManager;
 use Atlasphp\Atlas\Providers\Services\EmbeddingService;
 use Atlasphp\Atlas\Providers\Services\ImageService;
 use Atlasphp\Atlas\Providers\Services\MediaConverter;
+use Atlasphp\Atlas\Providers\Services\ModerationService;
 use Atlasphp\Atlas\Providers\Services\PrismBuilder;
 use Atlasphp\Atlas\Providers\Services\ProviderConfigService;
 use Atlasphp\Atlas\Providers\Services\SpeechService;
@@ -140,6 +141,14 @@ class AtlasServiceProvider extends ServiceProvider
             );
         });
 
+        $this->app->singleton(ModerationService::class, function (Container $app): ModerationService {
+            return new ModerationService(
+                $app->make(PrismBuilder::class),
+                $app->make(ProviderConfigService::class),
+                $app->make(PipelineRunner::class),
+            );
+        });
+
         $this->app->singleton(UsageExtractorRegistry::class, function (): UsageExtractorRegistry {
             return new UsageExtractorRegistry;
         });
@@ -151,6 +160,7 @@ class AtlasServiceProvider extends ServiceProvider
                 $app->make(EmbeddingService::class),
                 $app->make(ImageService::class),
                 $app->make(SpeechService::class),
+                $app->make(ModerationService::class),
             );
         });
     }
@@ -280,6 +290,22 @@ class AtlasServiceProvider extends ServiceProvider
         $registry->define(
             'speech.on_error',
             'Pipeline executed when speech operation fails',
+        );
+
+        // Moderation service pipelines
+        $registry->define(
+            'moderation.before_moderate',
+            'Pipeline executed before content moderation',
+        );
+
+        $registry->define(
+            'moderation.after_moderate',
+            'Pipeline executed after content moderation',
+        );
+
+        $registry->define(
+            'moderation.on_error',
+            'Pipeline executed when content moderation fails',
         );
 
         // Streaming pipelines (streaming-specific hooks only)

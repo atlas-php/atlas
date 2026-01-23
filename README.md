@@ -51,6 +51,7 @@ Atlas handles **application-level AI concerns** while Prism handles **LLM commun
 * [Embeddings](#embeddings)
 * [Images](#images)
 * [Speech](#speech)
+* [Moderation](#moderation)
 * [Configuration](#configuration)
 * [Code Quality & Testing](#code-quality--testing)
 * [Documentation](#documentation)
@@ -67,7 +68,7 @@ Atlas handles **application-level AI concerns** while Prism handles **LLM commun
 | **Pipelines**       | Extend Atlas for logging, auth, metrics—without coupling       | [Guide](docs/guides/extending-atlas.md)                |
 | **Multi-Provider**  | OpenAI, Anthropic, others. Swap via config                     | [Guide](docs/guides/installation.md#configuration)     |
 
-Beyond chat: [Embeddings](#embeddings) · [Images](#images) · [Speech](#speech)
+Beyond chat: [Embeddings](#embeddings) · [Images](#images) · [Speech](#speech) · [Moderation](#moderation)
 
 ---
 
@@ -227,6 +228,24 @@ $result = Atlas::speech()->generate('Hello world');
 
 // Speech-to-text
 $result = Atlas::speech()->transcribe('/path/to/audio.mp3');
+```
+
+---
+
+## Moderation
+
+Moderate content for safety using OpenAI's moderation API.
+
+```php
+$result = Atlas::moderation()->moderate('Text to check');
+
+if ($result->isFlagged()) {
+    $categories = $result->categories();
+    $scores = $result->categoryScores();
+}
+
+// Batch moderation
+$result = Atlas::moderation()->moderate(['Text 1', 'Text 2']);
 ```
 
 ---

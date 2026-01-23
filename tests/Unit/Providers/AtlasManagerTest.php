@@ -8,9 +8,11 @@ use Atlasphp\Atlas\Agents\Support\PendingAgentRequest;
 use Atlasphp\Atlas\Providers\Services\AtlasManager;
 use Atlasphp\Atlas\Providers\Services\EmbeddingService;
 use Atlasphp\Atlas\Providers\Services\ImageService;
+use Atlasphp\Atlas\Providers\Services\ModerationService;
 use Atlasphp\Atlas\Providers\Services\SpeechService;
 use Atlasphp\Atlas\Providers\Support\PendingEmbeddingRequest;
 use Atlasphp\Atlas\Providers\Support\PendingImageRequest;
+use Atlasphp\Atlas\Providers\Support\PendingModerationRequest;
 use Atlasphp\Atlas\Providers\Support\PendingSpeechRequest;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
 
@@ -20,6 +22,7 @@ beforeEach(function () {
     $this->embeddingService = Mockery::mock(EmbeddingService::class);
     $this->imageService = Mockery::mock(ImageService::class);
     $this->speechService = Mockery::mock(SpeechService::class);
+    $this->moderationService = Mockery::mock(ModerationService::class);
 
     $this->manager = new AtlasManager(
         $this->agentResolver,
@@ -27,6 +30,7 @@ beforeEach(function () {
         $this->embeddingService,
         $this->imageService,
         $this->speechService,
+        $this->moderationService,
     );
 });
 
@@ -110,4 +114,26 @@ test('speech returns PendingSpeechRequest with provider and model', function () 
     $result = $this->manager->speech('openai', 'tts-1-hd');
 
     expect($result)->toBeInstanceOf(PendingSpeechRequest::class);
+});
+
+// ===========================================
+// MODERATION SERVICE TESTS
+// ===========================================
+
+test('moderation returns PendingModerationRequest', function () {
+    $result = $this->manager->moderation();
+
+    expect($result)->toBeInstanceOf(PendingModerationRequest::class);
+});
+
+test('moderation returns PendingModerationRequest with provider', function () {
+    $result = $this->manager->moderation('openai');
+
+    expect($result)->toBeInstanceOf(PendingModerationRequest::class);
+});
+
+test('moderation returns PendingModerationRequest with provider and model', function () {
+    $result = $this->manager->moderation('openai', 'omni-moderation-latest');
+
+    expect($result)->toBeInstanceOf(PendingModerationRequest::class);
 });
