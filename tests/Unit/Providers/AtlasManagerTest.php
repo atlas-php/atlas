@@ -137,3 +137,9 @@ test('moderation returns PendingModerationRequest with provider and model', func
 
     expect($result)->toBeInstanceOf(PendingModerationRequest::class);
 });
+
+test('moderation returns PendingModerationRequest with model only', function () {
+    $result = $this->manager->moderation(null, 'text-moderation-latest');
+
+    expect($result)->toBeInstanceOf(PendingModerationRequest::class);
+});
