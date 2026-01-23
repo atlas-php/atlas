@@ -17,9 +17,6 @@ use Illuminate\Support\Facades\Facade;
  *
  * @method static PendingAgentRequest agent(string|AgentContract $agent)
  * @method static PendingEmbeddingRequest embedding()
- * @method static array<int, float> embed(string $text)
- * @method static array<int, array<int, float>> embedBatch(array<int, string> $texts)
- * @method static int embeddingDimensions()
  * @method static PendingImageRequest image(?string $provider = null, ?string $model = null)
  * @method static PendingSpeechRequest speech(?string $provider = null, ?string $model = null)
  *

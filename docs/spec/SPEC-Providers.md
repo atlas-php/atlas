@@ -26,9 +26,9 @@ The main entry point for Atlas capabilities.
 use Atlasphp\Atlas\Providers\Facades\Atlas;
 
 // Generate embeddings
-$embedding = Atlas::embed('Hello world');
-$embeddings = Atlas::embedBatch(['text 1', 'text 2']);
-$dimensions = Atlas::embeddingDimensions();
+$embedding = Atlas::embedding()->generate('Hello world');
+$embeddings = Atlas::embedding()->generate(['text 1', 'text 2']);
+$dimensions = Atlas::embedding()->dimensions();
 
 // Access image service
 $result = Atlas::image()
@@ -369,12 +369,12 @@ use Atlasphp\Atlas\Providers\Facades\Atlas;
 
 // Index documents
 $documents = ['Document 1 content', 'Document 2 content'];
-$embeddings = Atlas::embedBatch($documents);
+$embeddings = Atlas::embedding()->generate($documents);
 
 // Store embeddings with documents...
 
 // Search with query embedding
-$queryEmbedding = Atlas::embed('search query');
+$queryEmbedding = Atlas::embedding()->generate('search query');
 // Compare with stored embeddings using cosine similarity...
 ```
 

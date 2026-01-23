@@ -200,7 +200,7 @@ $response = Atlas::agent('support')
 Convert text into vector representations for semantic search, similarity matching, and RAG applications.
 
 ```php
-$vector = Atlas::embed('Hello world');
+$vector = Atlas::embedding()->generate('Hello world');
 ```
 
 ---

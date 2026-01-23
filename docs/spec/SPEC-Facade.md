@@ -151,36 +151,33 @@ $response = Atlas::agent('support-agent')
 
 ```php
 // Single text
-Atlas::embed(string $text, array $options = []): array<int, float>
+Atlas::embedding()->generate(string $text): array<int, float>
 
-// Multiple texts
-Atlas::embedBatch(array $texts, array $options = []): array<int, array<int, float>>
+// Multiple texts (array input)
+Atlas::embedding()->generate(array $texts): array<int, array<int, float>>
 
 // Get dimensions
-Atlas::embeddingDimensions(): int
+Atlas::embedding()->dimensions(): int
 ```
-
-**Options:**
-- `dimensions` - Output embedding dimensions (for models that support variable dimensions)
-- `encoding_format` - Encoding format ('float' or 'base64')
 
 **Example:**
 
 ```php
-$embedding = Atlas::embed('Hello, world!');
+// Single embedding
+$embedding = Atlas::embedding()->generate('Hello, world!');
 // [0.123, 0.456, ...]
 
-// With custom dimensions
-$embedding = Atlas::embed('Hello, world!', ['dimensions' => 256]);
-// [0.123, 0.456, ...] (256 floats)
-
-$embeddings = Atlas::embedBatch(['Text 1', 'Text 2']);
+// Batch embeddings (pass array)
+$embeddings = Atlas::embedding()->generate(['Text 1', 'Text 2']);
 // [[0.123, ...], [0.456, ...]]
 
-// Batch with options
-$embeddings = Atlas::embedBatch(['Text 1', 'Text 2'], ['dimensions' => 512]);
+// With retry and metadata
+$embedding = Atlas::embedding()
+    ->withRetry(3, 1000)
+    ->withMetadata(['user_id' => 123])
+    ->generate('Hello, world!');
 
-$dimensions = Atlas::embeddingDimensions();
+$dimensions = Atlas::embedding()->dimensions();
 // 1536
 ```
 
@@ -385,8 +382,9 @@ $person = $response->structured;
 ### Multimodal Operations
 
 ```php
-// Embedding with custom dimensions
-$vector = Atlas::embed('Search query', ['dimensions' => 256]);
+// Embedding (single or batch)
+$vector = Atlas::embedding()->generate('Search query');
+$vectors = Atlas::embedding()->generate(['query 1', 'query 2']);
 
 // Image generation with provider options
 $image = Atlas::image('openai', 'dall-e-3')

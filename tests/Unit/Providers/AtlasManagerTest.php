@@ -68,45 +68,6 @@ test('embedding returns PendingEmbeddingRequest', function () {
     expect($result)->toBeInstanceOf(PendingEmbeddingRequest::class);
 });
 
-test('embed generates embedding', function () {
-    $embedding = [0.1, 0.2, 0.3];
-
-    $this->embeddingService
-        ->shouldReceive('generate')
-        ->once()
-        ->with('Hello')
-        ->andReturn($embedding);
-
-    $result = $this->manager->embed('Hello');
-
-    expect($result)->toBe($embedding);
-});
-
-test('embedBatch generates batch embeddings', function () {
-    $embeddings = [[0.1, 0.2], [0.3, 0.4]];
-
-    $this->embeddingService
-        ->shouldReceive('generateBatch')
-        ->once()
-        ->with(['Hello', 'World'])
-        ->andReturn($embeddings);
-
-    $result = $this->manager->embedBatch(['Hello', 'World']);
-
-    expect($result)->toBe($embeddings);
-});
-
-test('embeddingDimensions returns dimensions', function () {
-    $this->embeddingService
-        ->shouldReceive('dimensions')
-        ->once()
-        ->andReturn(1536);
-
-    $result = $this->manager->embeddingDimensions();
-
-    expect($result)->toBe(1536);
-});
-
 // ===========================================
 // IMAGE SERVICE TESTS
 // ===========================================

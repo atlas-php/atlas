@@ -140,12 +140,7 @@ Configure vector embedding generation:
 
 ### Variable Dimensions
 
-Some models support custom dimensions:
-
-```php
-// Using smaller dimensions for faster similarity search
-$embedding = Atlas::embed('Hello world', ['dimensions' => 256]);
-```
+Some models support custom dimensions. When using variable dimensions, configure the default in your configuration or pass provider-specific options through metadata.
 
 ## Image Configuration
 

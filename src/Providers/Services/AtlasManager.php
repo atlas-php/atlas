@@ -59,42 +59,6 @@ class AtlasManager
     }
 
     /**
-     * Generate an embedding for a single text input.
-     *
-     * Simple shortcut when no configuration is needed.
-     *
-     * @param  string  $text  The text to embed.
-     * @return array<int, float> The embedding vector.
-     */
-    public function embed(string $text): array
-    {
-        return $this->embeddingService->generate($text);
-    }
-
-    /**
-     * Generate embeddings for multiple text inputs.
-     *
-     * Simple shortcut when no configuration is needed.
-     *
-     * @param  array<string>  $texts  The texts to embed.
-     * @return array<int, array<int, float>> Array of embedding vectors.
-     */
-    public function embedBatch(array $texts): array
-    {
-        return $this->embeddingService->generateBatch($texts);
-    }
-
-    /**
-     * Get the dimensions of embedding vectors.
-     *
-     * @return int The number of dimensions.
-     */
-    public function embeddingDimensions(): int
-    {
-        return $this->embeddingService->dimensions();
-    }
-
-    /**
      * Start building an image generation request with configuration.
      *
      * Returns a fluent builder for configuring provider, model, size,

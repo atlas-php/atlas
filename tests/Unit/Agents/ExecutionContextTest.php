@@ -106,3 +106,100 @@ test('it reports hasMeta correctly', function () {
     expect($context->hasMeta('key'))->toBeTrue();
     expect($context->hasMeta('missing'))->toBeFalse();
 });
+
+test('it creates with provider and model overrides', function () {
+    $context = new ExecutionContext([], [], [], 'anthropic', 'claude-3-opus');
+
+    expect($context->providerOverride)->toBe('anthropic');
+    expect($context->modelOverride)->toBe('claude-3-opus');
+});
+
+test('it creates new instance with provider override', function () {
+    $context = new ExecutionContext;
+
+    $newContext = $context->withProviderOverride('anthropic');
+
+    expect($newContext)->not->toBe($context);
+    expect($newContext->providerOverride)->toBe('anthropic');
+    expect($context->providerOverride)->toBeNull();
+});
+
+test('it creates new instance with model override', function () {
+    $context = new ExecutionContext;
+
+    $newContext = $context->withModelOverride('gpt-4-turbo');
+
+    expect($newContext)->not->toBe($context);
+    expect($newContext->modelOverride)->toBe('gpt-4-turbo');
+    expect($context->modelOverride)->toBeNull();
+});
+
+test('withProviderOverride preserves other values', function () {
+    $context = new ExecutionContext(
+        [['role' => 'user', 'content' => 'Hello']],
+        ['key' => 'value'],
+        ['meta' => 'data'],
+        null,
+        'gpt-4',
+    );
+
+    $newContext = $context->withProviderOverride('anthropic');
+
+    expect($newContext->messages)->toBe([['role' => 'user', 'content' => 'Hello']]);
+    expect($newContext->variables)->toBe(['key' => 'value']);
+    expect($newContext->metadata)->toBe(['meta' => 'data']);
+    expect($newContext->providerOverride)->toBe('anthropic');
+    expect($newContext->modelOverride)->toBe('gpt-4');
+});
+
+test('withModelOverride preserves other values', function () {
+    $context = new ExecutionContext(
+        [['role' => 'user', 'content' => 'Hello']],
+        ['key' => 'value'],
+        ['meta' => 'data'],
+        'openai',
+        null,
+    );
+
+    $newContext = $context->withModelOverride('gpt-4-turbo');
+
+    expect($newContext->messages)->toBe([['role' => 'user', 'content' => 'Hello']]);
+    expect($newContext->variables)->toBe(['key' => 'value']);
+    expect($newContext->metadata)->toBe(['meta' => 'data']);
+    expect($newContext->providerOverride)->toBe('openai');
+    expect($newContext->modelOverride)->toBe('gpt-4-turbo');
+});
+
+test('it reports hasProviderOverride correctly', function () {
+    $withoutOverride = new ExecutionContext;
+    $withOverride = new ExecutionContext([], [], [], 'anthropic');
+
+    expect($withoutOverride->hasProviderOverride())->toBeFalse();
+    expect($withOverride->hasProviderOverride())->toBeTrue();
+});
+
+test('it reports hasModelOverride correctly', function () {
+    $withoutOverride = new ExecutionContext;
+    $withOverride = new ExecutionContext([], [], [], null, 'gpt-4-turbo');
+
+    expect($withoutOverride->hasModelOverride())->toBeFalse();
+    expect($withOverride->hasModelOverride())->toBeTrue();
+});
+
+test('withProviderOverride can clear override with null', function () {
+    $context = new ExecutionContext([], [], [], 'anthropic');
+
+    $newContext = $context->withProviderOverride(null);
+
+    expect($newContext->providerOverride)->toBeNull();
+    expect($newContext->hasProviderOverride())->toBeFalse();
+});
+
+test('withModelOverride can clear override with null', function () {
+    $context = new ExecutionContext([], [], [], null, 'gpt-4-turbo');
+
+    $newContext = $context->withModelOverride(null);
+
+    expect($newContext->modelOverride)->toBeNull();
+    expect($newContext->hasModelOverride())->toBeFalse();
+});

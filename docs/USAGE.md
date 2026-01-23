@@ -142,7 +142,7 @@ Generate vector embeddings for semantic search, RAG, and similarity matching.
 ### Single Embedding
 
 ```php
-$embedding = Atlas::embed('What is the return policy?');
+$embedding = Atlas::embedding()->generate('What is the return policy?');
 // Returns array of 1536 floats (for text-embedding-3-small)
 
 // Use for similarity search
@@ -150,17 +150,6 @@ $similarDocs = Document::query()
     ->orderByRaw('embedding <-> ?', [json_encode($embedding)])
     ->limit(5)
     ->get();
-```
-
-### With Options
-
-```php
-// Specify output dimensions (for models that support it)
-$embedding = Atlas::embed('What is the return policy?', ['dimensions' => 256]);
-// Returns array of 256 floats
-
-// Batch with options
-$embeddings = Atlas::embedBatch($texts, ['dimensions' => 512]);
 ```
 
 ### Batch Embeddings
@@ -172,14 +161,14 @@ $texts = [
     'Do you offer refunds?',
 ];
 
-$embeddings = Atlas::embedBatch($texts);
+$embeddings = Atlas::embedding()->generate($texts);
 // Returns array of 3 embedding vectors
 ```
 
 ### Get Embedding Dimensions
 
 ```php
-$dimensions = Atlas::embeddingDimensions();
+$dimensions = Atlas::embedding()->dimensions();
 // 1536 (for text-embedding-3-small)
 ```
 
@@ -392,11 +381,9 @@ if ($response->hasUsage()) {
 | `Atlas::agent($agent)->withMessages($messages)->chat($input)` | Chat with history |
 | `Atlas::agent($agent)->withVariables($vars)->chat($input)` | Chat with variables |
 | `Atlas::agent($agent)->withSchema($schema)->chat($input)` | Structured output |
-| `Atlas::embed($text)` | Single text embedding |
-| `Atlas::embed($text, $options)` | Single embedding with options |
-| `Atlas::embedBatch($texts)` | Batch embeddings |
-| `Atlas::embedBatch($texts, $options)` | Batch embeddings with options |
-| `Atlas::embeddingDimensions()` | Get vector dimensions |
+| `Atlas::embedding()->generate($text)` | Single text embedding |
+| `Atlas::embedding()->generate($texts)` | Batch embeddings (array input) |
+| `Atlas::embedding()->dimensions()` | Get vector dimensions |
 | `Atlas::image()` | Image generation service |
 | `Atlas::image($provider, $model)` | Image with specific config |
 | `Atlas::speech()` | Speech service |

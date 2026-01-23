@@ -85,7 +85,7 @@ return [
 use Atlasphp\Atlas\Providers\Facades\Atlas;
 
 // Test embedding
-$embedding = Atlas::embed('Hello, world!');
+$embedding = Atlas::embedding()->generate('Hello, world!');
 dd(count($embedding)); // Should output: 1536
 ```
 

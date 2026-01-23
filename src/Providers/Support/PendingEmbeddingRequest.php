@@ -22,30 +22,30 @@ final class PendingEmbeddingRequest
     ) {}
 
     /**
-     * Generate an embedding for a single text input.
+     * Generate embedding(s) for text input.
      *
-     * @param  string  $text  The text to embed.
-     * @return array<int, float> The embedding vector.
+     * @param  string|array<string>  $input  Single text or array of texts.
+     * @return array<int, float>|array<int, array<int, float>> Embedding vector(s).
      */
-    public function generate(string $text): array
+    public function generate(string|array $input): array
     {
         $metadata = $this->getMetadata();
         $options = $metadata !== [] ? ['metadata' => $metadata] : [];
 
-        return $this->embeddingService->generate($text, $options, $this->getRetryArray());
+        if (is_string($input)) {
+            return $this->embeddingService->generate($input, $options, $this->getRetryArray());
+        }
+
+        return $this->embeddingService->generateBatch($input, $options, $this->getRetryArray());
     }
 
     /**
-     * Generate embeddings for multiple text inputs.
+     * Get the dimensions of embedding vectors.
      *
-     * @param  array<string>  $texts  The texts to embed.
-     * @return array<int, array<int, float>> Array of embedding vectors.
+     * @return int The number of dimensions.
      */
-    public function generateBatch(array $texts): array
+    public function dimensions(): int
     {
-        $metadata = $this->getMetadata();
-        $options = $metadata !== [] ? ['metadata' => $metadata] : [];
-
-        return $this->embeddingService->generateBatch($texts, $options, $this->getRetryArray());
+        return $this->embeddingService->dimensions();
     }
 }

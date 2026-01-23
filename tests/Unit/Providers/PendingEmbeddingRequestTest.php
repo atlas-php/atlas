@@ -31,7 +31,7 @@ test('withRetry returns new instance with retry config', function () {
     expect($result)->toBeInstanceOf(PendingEmbeddingRequest::class);
 });
 
-test('generate calls service with empty options when no config', function () {
+test('generate with string calls service generate', function () {
     $embedding = [0.1, 0.2, 0.3];
 
     $this->embeddingService
@@ -45,7 +45,21 @@ test('generate calls service with empty options when no config', function () {
     expect($result)->toBe($embedding);
 });
 
-test('generate calls service with metadata', function () {
+test('generate with array calls service generateBatch', function () {
+    $embeddings = [[0.1, 0.2], [0.3, 0.4]];
+
+    $this->embeddingService
+        ->shouldReceive('generateBatch')
+        ->once()
+        ->with(['Hello', 'World'], [], null)
+        ->andReturn($embeddings);
+
+    $result = $this->request->generate(['Hello', 'World']);
+
+    expect($result)->toBe($embeddings);
+});
+
+test('generate with string and metadata', function () {
     $embedding = [0.1, 0.2, 0.3];
     $metadata = ['user_id' => 123];
 
@@ -60,7 +74,22 @@ test('generate calls service with metadata', function () {
     expect($result)->toBe($embedding);
 });
 
-test('generate calls service with retry config', function () {
+test('generate with array and metadata', function () {
+    $embeddings = [[0.1, 0.2], [0.3, 0.4]];
+    $metadata = ['user_id' => 123];
+
+    $this->embeddingService
+        ->shouldReceive('generateBatch')
+        ->once()
+        ->with(['Hello', 'World'], ['metadata' => $metadata], null)
+        ->andReturn($embeddings);
+
+    $result = $this->request->withMetadata($metadata)->generate(['Hello', 'World']);
+
+    expect($result)->toBe($embeddings);
+});
+
+test('generate with string and retry', function () {
     $embedding = [0.1, 0.2, 0.3];
 
     $this->embeddingService
@@ -80,36 +109,7 @@ test('generate calls service with retry config', function () {
     expect($result)->toBe($embedding);
 });
 
-test('generateBatch calls service with empty options when no config', function () {
-    $embeddings = [[0.1, 0.2], [0.3, 0.4]];
-
-    $this->embeddingService
-        ->shouldReceive('generateBatch')
-        ->once()
-        ->with(['Hello', 'World'], [], null)
-        ->andReturn($embeddings);
-
-    $result = $this->request->generateBatch(['Hello', 'World']);
-
-    expect($result)->toBe($embeddings);
-});
-
-test('generateBatch calls service with metadata', function () {
-    $embeddings = [[0.1, 0.2], [0.3, 0.4]];
-    $metadata = ['user_id' => 123];
-
-    $this->embeddingService
-        ->shouldReceive('generateBatch')
-        ->once()
-        ->with(['Hello', 'World'], ['metadata' => $metadata], null)
-        ->andReturn($embeddings);
-
-    $result = $this->request->withMetadata($metadata)->generateBatch(['Hello', 'World']);
-
-    expect($result)->toBe($embeddings);
-});
-
-test('generateBatch calls service with retry config', function () {
+test('generate with array and retry', function () {
     $embeddings = [[0.1, 0.2], [0.3, 0.4]];
 
     $this->embeddingService
@@ -124,12 +124,12 @@ test('generateBatch calls service with retry config', function () {
         })
         ->andReturn($embeddings);
 
-    $result = $this->request->withRetry(3, 1000)->generateBatch(['Hello', 'World']);
+    $result = $this->request->withRetry(3, 1000)->generate(['Hello', 'World']);
 
     expect($result)->toBe($embeddings);
 });
 
-test('chaining preserves all config', function () {
+test('chaining preserves config for string', function () {
     $embedding = [0.1, 0.2, 0.3];
     $metadata = ['user_id' => 123];
 
@@ -153,6 +153,30 @@ test('chaining preserves all config', function () {
     expect($result)->toBe($embedding);
 });
 
+test('chaining preserves config for array', function () {
+    $embeddings = [[0.1, 0.2], [0.3, 0.4]];
+    $metadata = ['user_id' => 123];
+
+    $this->embeddingService
+        ->shouldReceive('generateBatch')
+        ->once()
+        ->withArgs(function ($texts, $options, $retry) use ($metadata) {
+            return $texts === ['Hello', 'World']
+                && $options === ['metadata' => $metadata]
+                && $retry !== null
+                && $retry[0] === 3
+                && $retry[1] === 1000;
+        })
+        ->andReturn($embeddings);
+
+    $result = $this->request
+        ->withMetadata($metadata)
+        ->withRetry(3, 1000)
+        ->generate(['Hello', 'World']);
+
+    expect($result)->toBe($embeddings);
+});
+
 test('withRetry with array of delays', function () {
     $embedding = [0.1, 0.2, 0.3];
 
@@ -169,4 +193,15 @@ test('withRetry with array of delays', function () {
     $result = $this->request->withRetry([100, 200, 300])->generate('Hello');
 
     expect($result)->toBe($embedding);
+});
+
+test('dimensions returns service dimensions', function () {
+    $this->embeddingService
+        ->shouldReceive('dimensions')
+        ->once()
+        ->andReturn(1536);
+
+    $result = $this->request->dimensions();
+
+    expect($result)->toBe(1536);
 });

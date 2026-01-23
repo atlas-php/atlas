@@ -33,8 +33,11 @@ $response = Atlas::agent('support-agent')
     ->withSchema($schema)
     ->chat('Extract the data');
 
-// Embeddings
-$embedding = Atlas::embed('Hello world');
+// Embeddings (single text)
+$embedding = Atlas::embedding()->generate('Hello world');
+
+// Embeddings (batch)
+$embeddings = Atlas::embedding()->generate(['text 1', 'text 2']);
 
 // Embedding with configuration
 $embedding = Atlas::embedding()
@@ -307,61 +310,18 @@ Atlas::embedding()
 **Example:**
 
 ```php
+// Single text
+$embedding = Atlas::embedding()->generate('Hello world');
+
+// Batch (array input)
+$embeddings = Atlas::embedding()->generate(['text 1', 'text 2']);
+
+// With configuration
 $embedding = Atlas::embedding()
     ->withMetadata(['user_id' => 123])
     ->withRetry(3, 1000)
     ->generate('Hello world');
 ```
-
-### embed()
-
-Simple shortcut for embedding a single text.
-
-```php
-Atlas::embed(string $text): array<int, float>
-```
-
-**Parameters:**
-- `$text` — Text to embed
-
-**Returns:** Array of floats (embedding vector)
-
-**Example:**
-
-```php
-$embedding = Atlas::embed('Hello, world!');
-// [0.123, 0.456, ...]
-```
-
-### embedBatch()
-
-Simple shortcut for embedding multiple texts.
-
-```php
-Atlas::embedBatch(array $texts): array<int, array<int, float>>
-```
-
-**Parameters:**
-- `$texts` — Array of texts to embed
-
-**Returns:** Array of embedding vectors
-
-**Example:**
-
-```php
-$embeddings = Atlas::embedBatch(['Text 1', 'Text 2']);
-// [[0.123, ...], [0.456, ...]]
-```
-
-### embeddingDimensions()
-
-Get configured embedding dimensions.
-
-```php
-Atlas::embeddingDimensions(): int
-```
-
-**Returns:** Number of dimensions (e.g., 1536)
 
 ## Embedding Builder
 
@@ -390,18 +350,43 @@ Configure retry behavior.
 
 ### generate()
 
-Generate embedding for a single text.
+Generate embedding(s) for text input. Accepts either a single string or an array of strings.
 
 ```php
-->generate(string $text): array<int, float>
+// Single text
+->generate(string $input): array<int, float>
+
+// Batch (array input)
+->generate(array $input): array<int, array<int, float>>
 ```
 
-### generateBatch()
-
-Generate embeddings for multiple texts.
+**Examples:**
 
 ```php
-->generateBatch(array $texts): array<int, array<int, float>>
+// Single embedding
+$embedding = Atlas::embedding()->generate('Hello world');
+// [0.123, 0.456, ...]
+
+// Batch embeddings
+$embeddings = Atlas::embedding()->generate(['Text 1', 'Text 2']);
+// [[0.123, ...], [0.456, ...]]
+```
+
+### dimensions()
+
+Get configured embedding dimensions.
+
+```php
+->dimensions(): int
+```
+
+**Returns:** Number of dimensions (e.g., 1536)
+
+**Example:**
+
+```php
+$dimensions = Atlas::embedding()->dimensions();
+// 1536
 ```
 
 ## Image Methods
@@ -508,10 +493,9 @@ $result = Atlas::speech()
 | `Atlas::agent($agent)->withMessages($msgs)->chat($input)` | Chat with history |
 | `Atlas::agent($agent)->withSchema($schema)->chat($input)` | Structured output |
 | `Atlas::agent($agent)->chat($input, stream: true)` | Streaming response |
-| `Atlas::embedding()` | Get embedding builder |
-| `Atlas::embed($text)` | Simple embedding |
-| `Atlas::embedBatch($texts)` | Batch embeddings |
-| `Atlas::embeddingDimensions()` | Get dimensions |
+| `Atlas::embedding()->generate($text)` | Single embedding |
+| `Atlas::embedding()->generate($texts)` | Batch embeddings (array input) |
+| `Atlas::embedding()->dimensions()` | Get embedding dimensions |
 | `Atlas::image()` | Image builder |
 | `Atlas::speech()` | Speech builder |
 

@@ -39,7 +39,7 @@ class EmbedCommand extends Command
     {
         // Show dimensions only
         if ($this->option('dimensions')) {
-            $dimensions = Atlas::embeddingDimensions();
+            $dimensions = Atlas::embedding()->dimensions();
             $this->info("Configured embedding dimensions: {$dimensions}");
 
             return self::SUCCESS;
@@ -81,7 +81,7 @@ class EmbedCommand extends Command
         $this->line('=== Atlas Embedding Test ===');
         $this->line('Provider: '.config('atlas.embedding.provider', 'openai'));
         $this->line('Model: '.config('atlas.embedding.model', 'text-embedding-3-small'));
-        $this->line('Dimensions: '.Atlas::embeddingDimensions());
+        $this->line('Dimensions: '.Atlas::embedding()->dimensions());
         $this->line('');
     }
 
@@ -94,7 +94,7 @@ class EmbedCommand extends Command
         $this->line('');
 
         try {
-            $embedding = Atlas::embed($text);
+            $embedding = Atlas::embedding()->generate($text);
 
             $this->displayEmbeddingAnalysis($embedding);
             $this->displayVerification($embedding);
@@ -136,7 +136,7 @@ class EmbedCommand extends Command
         $this->info("Processing {$count} texts...");
 
         try {
-            $embeddings = Atlas::embedBatch($texts);
+            $embeddings = Atlas::embedding()->generate($texts);
 
             foreach ($embeddings as $i => $embedding) {
                 $this->line('');
@@ -188,7 +188,7 @@ class EmbedCommand extends Command
         $this->info("Processing {$count} texts from file...");
 
         try {
-            $embeddings = Atlas::embedBatch($texts);
+            $embeddings = Atlas::embedding()->generate($texts);
 
             foreach ($embeddings as $i => $embedding) {
                 $this->line('');
@@ -244,7 +244,7 @@ class EmbedCommand extends Command
      */
     protected function displayVerification(array $embedding): void
     {
-        $expectedDimensions = Atlas::embeddingDimensions();
+        $expectedDimensions = Atlas::embedding()->dimensions();
         $count = count($embedding);
 
         // Calculate magnitude
