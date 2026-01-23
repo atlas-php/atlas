@@ -198,13 +198,14 @@ class ChatCommand extends Command
 
             // Send message to agent
             try {
-                $thread = $storage->addMessage($thread, 'user', $input);
-
                 $response = Atlas::agent($agentKey)
                     ->withMessages($thread['messages'])
                     ->chat($input);
 
                 $text = $response->text ?? '[No response]';
+
+                // Add both messages to history after successful response
+                $thread = $storage->addMessage($thread, 'user', $input);
                 $thread = $storage->addMessage($thread, 'assistant', $text);
                 $thread = $storage->addTokens($thread, $response->totalTokens());
                 $storage->save($thread);

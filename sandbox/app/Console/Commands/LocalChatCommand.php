@@ -91,8 +91,6 @@ class LocalChatCommand extends Command
 
             // Send message to local LLM via Atlas
             try {
-                $messages[] = ['role' => 'user', 'content' => $input];
-
                 $request = Atlas::agent('local-l-m')
                     ->withModel($model)
                     ->withMessages($messages);
@@ -106,6 +104,9 @@ class LocalChatCommand extends Command
                 $response = $request->chat($input);
 
                 $text = $response->text ?? '[No response]';
+
+                // Add both messages to history for next turn
+                $messages[] = ['role' => 'user', 'content' => $input];
                 $messages[] = ['role' => 'assistant', 'content' => $text];
 
                 // Display response
