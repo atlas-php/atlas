@@ -25,6 +25,7 @@ use Atlasphp\Atlas\Tools\Services\ToolBuilder;
 use Atlasphp\Atlas\Tools\Support\ToolContext;
 use Generator;
 use Prism\Prism\Contracts\Schema;
+use Prism\Prism\Enums\StructuredMode;
 use Prism\Prism\Streaming\Events\ErrorEvent as PrismErrorEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent as PrismStreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent as PrismStreamEvent;
@@ -61,6 +62,7 @@ class AgentExecutor implements AgentExecutorContract
      * @param  ExecutionContext|null  $context  Optional execution context.
      * @param  Schema|null  $schema  Optional schema for structured output.
      * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
+     * @param  StructuredMode|null  $structuredMode  Optional mode for structured output (Auto, Structured, Json).
      */
     public function execute(
         AgentContract $agent,
@@ -68,6 +70,7 @@ class AgentExecutor implements AgentExecutorContract
         ?ExecutionContext $context = null,
         ?Schema $schema = null,
         ?array $retry = null,
+        ?StructuredMode $structuredMode = null,
     ): AgentResponse {
         $context = $context ?? new ExecutionContext;
         $systemPrompt = null;
@@ -85,7 +88,7 @@ class AgentExecutor implements AgentExecutorContract
 
             // Execute the request
             $response = $schema !== null
-                ? $this->executeStructuredRequest($agent, $input, $context, $systemPrompt, $schema, $retry)
+                ? $this->executeStructuredRequest($agent, $input, $context, $systemPrompt, $schema, $retry, $structuredMode)
                 : $this->executeTextRequestWithPreparedRequest($request, $agent);
 
             // Run after_execute pipeline
@@ -323,6 +326,7 @@ class AgentExecutor implements AgentExecutorContract
      * Execute a structured output request.
      *
      * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
+     * @param  StructuredMode|null  $structuredMode  Optional mode for structured output.
      */
     protected function executeStructuredRequest(
         AgentContract $agent,
@@ -331,6 +335,7 @@ class AgentExecutor implements AgentExecutorContract
         string $systemPrompt,
         Schema $schema,
         ?array $retry = null,
+        ?StructuredMode $structuredMode = null,
     ): AgentResponse {
         // Use context overrides if present, otherwise fall back to agent config
         $provider = $context->providerOverride ?? $agent->provider();
@@ -343,6 +348,7 @@ class AgentExecutor implements AgentExecutorContract
             $context->hasMessages() ? $this->combineMessagesWithInput($context, $input) : $input,
             $systemPrompt,
             $retry,
+            $structuredMode,
         );
 
         $request = $this->applyAgentSettings($request, $agent);

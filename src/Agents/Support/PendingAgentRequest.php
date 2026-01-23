@@ -12,6 +12,7 @@ use Atlasphp\Atlas\Providers\Support\HasMetadataSupport;
 use Atlasphp\Atlas\Providers\Support\HasProviderSupport;
 use Atlasphp\Atlas\Providers\Support\HasRetrySupport;
 use Atlasphp\Atlas\Providers\Support\HasSchemaSupport;
+use Atlasphp\Atlas\Providers\Support\HasStructuredModeSupport;
 use Atlasphp\Atlas\Providers\Support\HasVariablesSupport;
 use Atlasphp\Atlas\Streaming\StreamResponse;
 
@@ -29,6 +30,7 @@ final class PendingAgentRequest
     use HasProviderSupport;
     use HasRetrySupport;
     use HasSchemaSupport;
+    use HasStructuredModeSupport;
     use HasVariablesSupport;
 
     public function __construct(
@@ -99,6 +101,7 @@ final class PendingAgentRequest
             $context,
             $schema,
             $this->getRetryArray(),
+            $this->getStructuredMode(),
         );
     }
 }

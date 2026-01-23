@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Providers\Support;
 
+use Atlasphp\Atlas\Schema\SchemaBuilder;
+use Atlasphp\Atlas\Schema\SchemaProperty;
 use Prism\Prism\Contracts\Schema;
 
 /**
@@ -23,12 +25,22 @@ trait HasSchemaSupport
     /**
      * Set the schema for structured output.
      *
-     * @param  Schema  $schema  The schema defining the expected response structure.
+     * Accepts either a built Schema, a SchemaBuilder, or a SchemaProperty
+     * (which will be automatically built).
+     *
+     * @param  Schema|SchemaBuilder|SchemaProperty  $schema  The schema or builder defining the expected response structure.
      */
-    public function withSchema(Schema $schema): static
+    public function withSchema(Schema|SchemaBuilder|SchemaProperty $schema): static
     {
         $clone = clone $this;
-        $clone->schema = $schema;
+
+        if ($schema instanceof SchemaBuilder) {
+            $clone->schema = $schema->build();
+        } elseif ($schema instanceof SchemaProperty) {
+            $clone->schema = $schema->build();
+        } else {
+            $clone->schema = $schema;
+        }
 
         return $clone;
     }

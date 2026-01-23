@@ -9,6 +9,7 @@ use Prism\Prism\Audio\PendingRequest as AudioPendingRequest;
 use Prism\Prism\Contracts\Schema;
 use Prism\Prism\Embeddings\PendingRequest as EmbeddingsPendingRequest;
 use Prism\Prism\Enums\Provider;
+use Prism\Prism\Enums\StructuredMode;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Images\PendingRequest as ImagePendingRequest;
 use Prism\Prism\Structured\PendingRequest as StructuredPendingRequest;
@@ -215,6 +216,7 @@ class PrismBuilder implements PrismBuilderContract
      * @param  string  $input  The user input.
      * @param  string  $systemPrompt  The system prompt.
      * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
+     * @param  StructuredMode|null  $structuredMode  Optional mode (Auto, Structured, Json).
      */
     public function forStructured(
         string $provider,
@@ -223,12 +225,17 @@ class PrismBuilder implements PrismBuilderContract
         string $input,
         string $systemPrompt,
         ?array $retry = null,
+        ?StructuredMode $structuredMode = null,
     ): StructuredPendingRequest {
         $request = Prism::structured()
             ->using($this->mapProvider($provider), $model)
             ->withSystemPrompt($systemPrompt)
             ->withPrompt($input)
             ->withSchema($schema);
+
+        if ($structuredMode !== null) {
+            $request = $request->usingStructuredMode($structuredMode);
+        }
 
         return $this->applyRetry($request, $retry);
     }

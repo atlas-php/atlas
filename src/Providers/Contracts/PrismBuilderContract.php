@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Providers\Contracts;
 
 use Prism\Prism\Contracts\Schema;
+use Prism\Prism\Enums\StructuredMode;
 use Prism\Prism\ValueObjects\Media\Audio;
 
 /**
@@ -106,6 +107,7 @@ interface PrismBuilderContract
      * @param  string  $input  The user input.
      * @param  string  $systemPrompt  The system prompt.
      * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
+     * @param  StructuredMode|null  $structuredMode  Optional mode (Auto, Structured, Json).
      */
     public function forStructured(
         string $provider,
@@ -114,5 +116,6 @@ interface PrismBuilderContract
         string $input,
         string $systemPrompt,
         ?array $retry = null,
+        ?StructuredMode $structuredMode = null,
     ): mixed;
 }
