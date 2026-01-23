@@ -65,8 +65,9 @@ $response = Atlas::agent('support-agent')
 
 | Method | Description |
 |--------|-------------|
-| `withProvider(string $provider)` | Override agent's provider at runtime |
+| `withProvider(string $provider, ?string $model = null)` | Override agent's provider and optionally model |
 | `withModel(string $model)` | Override agent's model at runtime |
+| `withProviderOptions(array $options)` | Provider-specific options |
 | `withMessages(array $messages)` | Conversation history array |
 | `withVariables(array $variables)` | Variables for system prompt interpolation |
 | `withMetadata(array $metadata)` | Metadata for pipeline middleware and tools |

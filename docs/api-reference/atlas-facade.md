@@ -423,10 +423,8 @@ $result = Atlas::image('openai', 'dall-e-3')
 
 | Method | Description |
 |--------|-------------|
-| `withProvider(string $provider)` | Override provider |
+| `withProvider(string $provider, ?string $model = null)` | Override provider and optionally model |
 | `withModel(string $model)` | Override model |
-| `using(string $provider)` | Alias for withProvider |
-| `model(string $model)` | Alias for withModel |
 | `size(string $size)` | Set image size |
 | `quality(string $quality)` | Set quality |
 | `withProviderOptions(array $options)` | Provider-specific options |

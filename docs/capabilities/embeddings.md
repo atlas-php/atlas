@@ -253,6 +253,27 @@ $embedding = Atlas::embedding()
     ->generate('Hello world');
 ```
 
+## Provider Override
+
+Override the configured provider or model at runtime:
+
+```php
+// Use a different model
+$embedding = Atlas::embedding()
+    ->withModel('text-embedding-3-large')
+    ->generate('Hello world');
+
+// Use a different provider and model
+$embedding = Atlas::embedding()
+    ->withProvider('anthropic', 'claude-embedding-1')
+    ->generate('Hello world');
+
+// Pass provider-specific options
+$embedding = Atlas::embedding()
+    ->withProviderOptions(['dimensions' => 256])
+    ->generate('Hello world');
+```
+
 ## API Summary
 
 | Method | Description |
@@ -260,6 +281,9 @@ $embedding = Atlas::embedding()
 | `Atlas::embedding()->generate($text)` | Single text embedding |
 | `Atlas::embedding()->generate($texts)` | Batch embeddings (array input) |
 | `Atlas::embedding()->dimensions()` | Get configured vector dimensions |
+| `Atlas::embedding()->withProvider($provider, $model)` | Override provider/model |
+| `Atlas::embedding()->withModel($model)` | Override model |
+| `Atlas::embedding()->withProviderOptions($options)` | Provider-specific options |
 | `Atlas::embedding()->withRetry(...)->generate($text)` | With retry |
 | `Atlas::embedding()->withMetadata([...])->generate($text)` | With metadata |
 
