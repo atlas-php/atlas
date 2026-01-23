@@ -351,6 +351,7 @@ class AgentExecutor implements AgentExecutorContract
             );
 
         $request = $this->applyAgentSettings($request, $agent);
+        $request = $this->applyProviderOptions($request, $context);
 
         return $this->applyToolChoice($request, $context);
     }
@@ -385,6 +386,7 @@ class AgentExecutor implements AgentExecutorContract
         );
 
         $request = $this->applyAgentSettings($request, $agent);
+        $request = $this->applyProviderOptions($request, $context);
         $prismResponse = $request->asStructured();
 
         return $this->buildStructuredResponse($agent, $prismResponse);
@@ -483,6 +485,22 @@ class AgentExecutor implements AgentExecutorContract
 
         // String tool name - force specific tool
         return $request->withToolChoice($toolChoice);
+    }
+
+    /**
+     * Apply provider options from the execution context.
+     *
+     * @param  mixed  $request  The Prism pending request.
+     * @param  ExecutionContext  $context  The execution context.
+     * @return mixed The modified request.
+     */
+    protected function applyProviderOptions(mixed $request, ExecutionContext $context): mixed
+    {
+        if (! $context->hasProviderOptions()) {
+            return $request;
+        }
+
+        return $request->withProviderOptions($context->providerOptions);
     }
 
     /**

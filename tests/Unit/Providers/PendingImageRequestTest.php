@@ -278,3 +278,99 @@ test('fluent config overrides additional options', function () {
 
     expect($result)->toBe($expected);
 });
+
+test('whenProvider returns new instance with callback', function () {
+    $result = $this->request->whenProvider('openai', fn ($r) => $r);
+
+    expect($result)->not->toBe($this->request);
+    expect($result)->toBeInstanceOf(PendingImageRequest::class);
+});
+
+test('whenProvider applies callback when provider matches', function () {
+    config(['atlas.image.provider' => 'openai']);
+
+    $expected = ['url' => 'https://example.com/image.png', 'base64' => null, 'revised_prompt' => null];
+
+    $this->imageService
+        ->shouldReceive('generate')
+        ->once()
+        ->with('A sunset', Mockery::on(function ($options) {
+            return isset($options['provider_options']) && $options['provider_options']['style'] === 'vivid';
+        }), null)
+        ->andReturn($expected);
+
+    $result = $this->request
+        ->whenProvider('openai', fn ($r) => $r->withProviderOptions(['style' => 'vivid']))
+        ->generate('A sunset');
+
+    expect($result)->toBe($expected);
+});
+
+test('whenProvider does not apply callback when provider does not match', function () {
+    config(['atlas.image.provider' => 'anthropic']);
+
+    $expected = ['url' => 'https://example.com/image.png', 'base64' => null, 'revised_prompt' => null];
+
+    $this->imageService
+        ->shouldReceive('generate')
+        ->once()
+        ->with('A sunset', Mockery::on(function ($options) {
+            // Should NOT have the style option since provider doesn't match
+            return ! isset($options['provider_options']) || ! isset($options['provider_options']['style']);
+        }), null)
+        ->andReturn($expected);
+
+    $result = $this->request
+        ->whenProvider('openai', fn ($r) => $r->withProviderOptions(['style' => 'vivid']))
+        ->generate('A sunset');
+
+    expect($result)->toBe($expected);
+});
+
+test('whenProvider uses provider override for matching', function () {
+    config(['atlas.image.provider' => 'anthropic']);
+
+    $expected = ['url' => 'https://example.com/image.png', 'base64' => null, 'revised_prompt' => null];
+
+    $this->imageService
+        ->shouldReceive('generate')
+        ->once()
+        ->with('A sunset', Mockery::on(function ($options) {
+            return $options['provider'] === 'openai'
+                && isset($options['provider_options'])
+                && $options['provider_options']['style'] === 'vivid';
+        }), null)
+        ->andReturn($expected);
+
+    // Even though config says anthropic, withProvider sets openai, so openai callback should apply
+    $result = $this->request
+        ->withProvider('openai')
+        ->whenProvider('openai', fn ($r) => $r->withProviderOptions(['style' => 'vivid']))
+        ->generate('A sunset');
+
+    expect($result)->toBe($expected);
+});
+
+test('whenProvider chains multiple provider configs', function () {
+    config(['atlas.image.provider' => 'openai']);
+
+    $expected = ['url' => 'https://example.com/image.png', 'base64' => null, 'revised_prompt' => null];
+
+    $this->imageService
+        ->shouldReceive('generate')
+        ->once()
+        ->with('A sunset', Mockery::on(function ($options) {
+            // Only OpenAI callback should apply
+            return isset($options['provider_options'])
+                && $options['provider_options']['style'] === 'vivid'
+                && ! isset($options['provider_options']['cacheType']);
+        }), null)
+        ->andReturn($expected);
+
+    $result = $this->request
+        ->whenProvider('openai', fn ($r) => $r->withProviderOptions(['style' => 'vivid']))
+        ->whenProvider('anthropic', fn ($r) => $r->withProviderOptions(['cacheType' => 'ephemeral']))
+        ->generate('A sunset');
+
+    expect($result)->toBe($expected);
+});

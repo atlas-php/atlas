@@ -323,3 +323,96 @@ test('dimensions returns service dimensions', function () {
 
     expect($result)->toBe(1536);
 });
+
+test('whenProvider returns new instance with callback', function () {
+    $result = $this->request->whenProvider('openai', fn ($r) => $r);
+
+    expect($result)->not->toBe($this->request);
+    expect($result)->toBeInstanceOf(PendingEmbeddingRequest::class);
+});
+
+test('whenProvider applies callback when provider matches', function () {
+    config(['atlas.embedding.provider' => 'openai']);
+
+    $embedding = [0.1, 0.2, 0.3];
+
+    $this->embeddingService
+        ->shouldReceive('generate')
+        ->once()
+        ->with('Hello', Mockery::on(function ($options) {
+            return isset($options['provider_options']) && $options['provider_options']['dimensions'] === 256;
+        }), null)
+        ->andReturn($embedding);
+
+    $result = $this->request
+        ->whenProvider('openai', fn ($r) => $r->withProviderOptions(['dimensions' => 256]))
+        ->generate('Hello');
+
+    expect($result)->toBe($embedding);
+});
+
+test('whenProvider does not apply callback when provider does not match', function () {
+    config(['atlas.embedding.provider' => 'anthropic']);
+
+    $embedding = [0.1, 0.2, 0.3];
+
+    $this->embeddingService
+        ->shouldReceive('generate')
+        ->once()
+        ->with('Hello', Mockery::on(function ($options) {
+            return ! isset($options['provider_options']) || ! isset($options['provider_options']['dimensions']);
+        }), null)
+        ->andReturn($embedding);
+
+    $result = $this->request
+        ->whenProvider('openai', fn ($r) => $r->withProviderOptions(['dimensions' => 256]))
+        ->generate('Hello');
+
+    expect($result)->toBe($embedding);
+});
+
+test('whenProvider uses provider override for matching', function () {
+    config(['atlas.embedding.provider' => 'anthropic']);
+
+    $embedding = [0.1, 0.2, 0.3];
+
+    $this->embeddingService
+        ->shouldReceive('generate')
+        ->once()
+        ->with('Hello', Mockery::on(function ($options) {
+            return $options['provider'] === 'openai'
+                && isset($options['provider_options'])
+                && $options['provider_options']['dimensions'] === 256;
+        }), null)
+        ->andReturn($embedding);
+
+    $result = $this->request
+        ->withProvider('openai')
+        ->whenProvider('openai', fn ($r) => $r->withProviderOptions(['dimensions' => 256]))
+        ->generate('Hello');
+
+    expect($result)->toBe($embedding);
+});
+
+test('whenProvider chains multiple provider configs', function () {
+    config(['atlas.embedding.provider' => 'openai']);
+
+    $embedding = [0.1, 0.2, 0.3];
+
+    $this->embeddingService
+        ->shouldReceive('generate')
+        ->once()
+        ->with('Hello', Mockery::on(function ($options) {
+            return isset($options['provider_options'])
+                && $options['provider_options']['dimensions'] === 256
+                && ! isset($options['provider_options']['cacheType']);
+        }), null)
+        ->andReturn($embedding);
+
+    $result = $this->request
+        ->whenProvider('openai', fn ($r) => $r->withProviderOptions(['dimensions' => 256]))
+        ->whenProvider('anthropic', fn ($r) => $r->withProviderOptions(['cacheType' => 'ephemeral']))
+        ->generate('Hello');
+
+    expect($result)->toBe($embedding);
+});

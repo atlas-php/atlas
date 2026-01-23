@@ -15,6 +15,7 @@ use Atlasphp\Atlas\Providers\Services\EmbeddingService;
 final class PendingEmbeddingRequest
 {
     use HasMetadataSupport;
+    use HasProviderCallbacks;
     use HasProviderSupport;
     use HasRetrySupport;
 
@@ -30,13 +31,17 @@ final class PendingEmbeddingRequest
      */
     public function generate(string|array $input): array
     {
-        $options = $this->buildOptions();
+        // Resolve provider and apply any provider-specific callbacks
+        $provider = $this->getProviderOverride() ?? config('atlas.embedding.provider');
+        $self = $this->applyProviderCallbacks($provider);
+
+        $options = $self->buildOptions();
 
         if (is_string($input)) {
-            return $this->embeddingService->generate($input, $options, $this->getRetryArray());
+            return $self->embeddingService->generate($input, $options, $self->getRetryArray());
         }
 
-        return $this->embeddingService->generateBatch($input, $options, $this->getRetryArray());
+        return $self->embeddingService->generateBatch($input, $options, $self->getRetryArray());
     }
 
     /**

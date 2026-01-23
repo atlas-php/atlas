@@ -23,6 +23,7 @@ final readonly class ExecutionContext
      * @param  string|null  $modelOverride  Override the agent's configured model.
      * @param  array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>  $currentAttachments  Attachments for the current input message.
      * @param  ToolChoice|string|null  $toolChoice  Tool choice mode or specific tool name.
+     * @param  array<string, mixed>  $providerOptions  Provider-specific options to pass to Prism.
      */
     public function __construct(
         public array $messages = [],
@@ -32,6 +33,7 @@ final readonly class ExecutionContext
         public ?string $modelOverride = null,
         public array $currentAttachments = [],
         public ToolChoice|string|null $toolChoice = null,
+        public array $providerOptions = [],
     ) {}
 
     /**
@@ -41,7 +43,7 @@ final readonly class ExecutionContext
      */
     public function withMessages(array $messages): self
     {
-        return new self($messages, $this->variables, $this->metadata, $this->providerOverride, $this->modelOverride, $this->currentAttachments, $this->toolChoice);
+        return new self($messages, $this->variables, $this->metadata, $this->providerOverride, $this->modelOverride, $this->currentAttachments, $this->toolChoice, $this->providerOptions);
     }
 
     /**
@@ -51,7 +53,7 @@ final readonly class ExecutionContext
      */
     public function withVariables(array $variables): self
     {
-        return new self($this->messages, $variables, $this->metadata, $this->providerOverride, $this->modelOverride, $this->currentAttachments, $this->toolChoice);
+        return new self($this->messages, $variables, $this->metadata, $this->providerOverride, $this->modelOverride, $this->currentAttachments, $this->toolChoice, $this->providerOptions);
     }
 
     /**
@@ -61,7 +63,7 @@ final readonly class ExecutionContext
      */
     public function withMetadata(array $metadata): self
     {
-        return new self($this->messages, $this->variables, $metadata, $this->providerOverride, $this->modelOverride, $this->currentAttachments, $this->toolChoice);
+        return new self($this->messages, $this->variables, $metadata, $this->providerOverride, $this->modelOverride, $this->currentAttachments, $this->toolChoice, $this->providerOptions);
     }
 
     /**
@@ -71,7 +73,7 @@ final readonly class ExecutionContext
      */
     public function withProviderOverride(?string $provider): self
     {
-        return new self($this->messages, $this->variables, $this->metadata, $provider, $this->modelOverride, $this->currentAttachments, $this->toolChoice);
+        return new self($this->messages, $this->variables, $this->metadata, $provider, $this->modelOverride, $this->currentAttachments, $this->toolChoice, $this->providerOptions);
     }
 
     /**
@@ -81,7 +83,7 @@ final readonly class ExecutionContext
      */
     public function withModelOverride(?string $model): self
     {
-        return new self($this->messages, $this->variables, $this->metadata, $this->providerOverride, $model, $this->currentAttachments, $this->toolChoice);
+        return new self($this->messages, $this->variables, $this->metadata, $this->providerOverride, $model, $this->currentAttachments, $this->toolChoice, $this->providerOptions);
     }
 
     /**
@@ -99,6 +101,7 @@ final readonly class ExecutionContext
             $this->modelOverride,
             $this->currentAttachments,
             $this->toolChoice,
+            $this->providerOptions,
         );
     }
 
@@ -117,6 +120,7 @@ final readonly class ExecutionContext
             $this->modelOverride,
             $this->currentAttachments,
             $this->toolChoice,
+            $this->providerOptions,
         );
     }
 
@@ -135,6 +139,7 @@ final readonly class ExecutionContext
             $this->modelOverride,
             $attachments,
             $this->toolChoice,
+            $this->providerOptions,
         );
     }
 
@@ -153,7 +158,35 @@ final readonly class ExecutionContext
             $this->modelOverride,
             $this->currentAttachments,
             $toolChoice,
+            $this->providerOptions,
         );
+    }
+
+    /**
+     * Create a new context with the given provider options.
+     *
+     * @param  array<string, mixed>  $providerOptions  Provider-specific options.
+     */
+    public function withProviderOptions(array $providerOptions): self
+    {
+        return new self(
+            $this->messages,
+            $this->variables,
+            $this->metadata,
+            $this->providerOverride,
+            $this->modelOverride,
+            $this->currentAttachments,
+            $this->toolChoice,
+            $providerOptions,
+        );
+    }
+
+    /**
+     * Check if provider options are set.
+     */
+    public function hasProviderOptions(): bool
+    {
+        return $this->providerOptions !== [];
     }
 
     /**

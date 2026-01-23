@@ -10,6 +10,7 @@ use Atlasphp\Atlas\Agents\Services\AgentResolver;
 use Atlasphp\Atlas\Providers\Support\HasMediaSupport;
 use Atlasphp\Atlas\Providers\Support\HasMessagesSupport;
 use Atlasphp\Atlas\Providers\Support\HasMetadataSupport;
+use Atlasphp\Atlas\Providers\Support\HasProviderCallbacks;
 use Atlasphp\Atlas\Providers\Support\HasProviderSupport;
 use Atlasphp\Atlas\Providers\Support\HasRetrySupport;
 use Atlasphp\Atlas\Providers\Support\HasSchemaSupport;
@@ -30,6 +31,7 @@ final class PendingAgentRequest
     use HasMediaSupport;
     use HasMessagesSupport;
     use HasMetadataSupport;
+    use HasProviderCallbacks;
     use HasProviderSupport;
     use HasRetrySupport;
     use HasSchemaSupport;
@@ -60,14 +62,22 @@ final class PendingAgentRequest
     ): AgentResponse|StreamResponse {
         $resolvedAgent = $this->agentResolver->resolve($this->agent);
 
-        $messages = $this->getMessages();
-        $variables = $this->getVariables();
-        $metadata = $this->getMetadata();
-        $schema = $this->getSchema();
-        $providerOverride = $this->getProviderOverride();
-        $modelOverride = $this->getModelOverride();
-        $currentAttachments = $this->getCurrentAttachments();
-        $toolChoice = $this->getToolChoice();
+        // Resolve provider and apply any provider-specific callbacks
+        $resolvedProvider = $this->getProviderOverride()
+            ?? $resolvedAgent->provider()
+            ?? config('atlas.chat.provider');
+
+        $self = $this->applyProviderCallbacks($resolvedProvider);
+
+        $messages = $self->getMessages();
+        $variables = $self->getVariables();
+        $metadata = $self->getMetadata();
+        $schema = $self->getSchema();
+        $providerOverride = $self->getProviderOverride();
+        $modelOverride = $self->getModelOverride();
+        $currentAttachments = $self->getCurrentAttachments();
+        $toolChoice = $self->getToolChoice();
+        $providerOptions = $self->getProviderOptions();
 
         // Build context if any configuration is present
         $hasConfig = $messages !== []
@@ -76,7 +86,8 @@ final class PendingAgentRequest
             || $providerOverride !== null
             || $modelOverride !== null
             || $currentAttachments !== []
-            || $toolChoice !== null;
+            || $toolChoice !== null
+            || $providerOptions !== [];
 
         $context = $hasConfig
             ? new ExecutionContext(
@@ -87,6 +98,7 @@ final class PendingAgentRequest
                 modelOverride: $modelOverride,
                 currentAttachments: $currentAttachments,
                 toolChoice: $toolChoice,
+                providerOptions: $providerOptions,
             )
             : null;
 
@@ -97,21 +109,21 @@ final class PendingAgentRequest
                 );
             }
 
-            return $this->agentExecutor->stream(
+            return $self->agentExecutor->stream(
                 $resolvedAgent,
                 $input,
                 $context,
-                $this->getRetryArray(),
+                $self->getRetryArray(),
             );
         }
 
-        return $this->agentExecutor->execute(
+        return $self->agentExecutor->execute(
             $resolvedAgent,
             $input,
             $context,
             $schema,
-            $this->getRetryArray(),
-            $this->getStructuredMode(),
+            $self->getRetryArray(),
+            $self->getStructuredMode(),
         );
     }
 }

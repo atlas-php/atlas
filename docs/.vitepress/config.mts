@@ -79,6 +79,7 @@ export default defineConfig({
         collapsed: true,
         items: [
           { text: 'Stateless Architecture', link: '/advanced/stateless-architecture' },
+          { text: 'Custom Providers', link: '/advanced/custom-providers' },
           { text: 'Error Handling', link: '/advanced/error-handling' },
           { text: 'Performance', link: '/advanced/performance' },
         ]

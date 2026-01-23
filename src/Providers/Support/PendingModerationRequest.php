@@ -15,6 +15,7 @@ use Atlasphp\Atlas\Providers\Services\ModerationService;
 final class PendingModerationRequest
 {
     use HasMetadataSupport;
+    use HasProviderCallbacks;
     use HasProviderSupport;
     use HasRetrySupport;
 
@@ -30,7 +31,11 @@ final class PendingModerationRequest
      */
     public function moderate(string|array $input, array $options = []): ModerationResponse
     {
-        return $this->moderationService->moderate($input, $this->buildOptions($options), $this->getRetryArray());
+        // Resolve provider and apply any provider-specific callbacks
+        $provider = $this->getProviderOverride() ?? config('atlas.moderation.provider');
+        $self = $this->applyProviderCallbacks($provider);
+
+        return $self->moderationService->moderate($input, $self->buildOptions($options), $self->getRetryArray());
     }
 
     /**
