@@ -15,15 +15,22 @@ afterEach(function () {
     Mockery::close();
 });
 
-test('using returns new instance with provider', function () {
-    $result = $this->request->using('openai');
+test('withProvider returns new instance with provider', function () {
+    $result = $this->request->withProvider('openai');
 
     expect($result)->not->toBe($this->request);
     expect($result)->toBeInstanceOf(PendingSpeechRequest::class);
 });
 
-test('model returns new instance with model', function () {
-    $result = $this->request->model('tts-1');
+test('withModel returns new instance with model', function () {
+    $result = $this->request->withModel('tts-1');
+
+    expect($result)->not->toBe($this->request);
+    expect($result)->toBeInstanceOf(PendingSpeechRequest::class);
+});
+
+test('withProvider with model returns new instance with both', function () {
+    $result = $this->request->withProvider('openai', 'tts-1-hd');
 
     expect($result)->not->toBe($this->request);
     expect($result)->toBeInstanceOf(PendingSpeechRequest::class);
@@ -78,13 +85,13 @@ test('withRetry returns new instance with retry config', function () {
     expect($result)->toBeInstanceOf(PendingSpeechRequest::class);
 });
 
-test('speak calls service with empty config', function () {
+test('speak calls service with empty options when no config', function () {
     $expected = ['audio' => 'audio_data', 'format' => 'mp3'];
 
     $this->speechService
         ->shouldReceive('speak')
         ->once()
-        ->with('Hello world', [])
+        ->with('Hello world', [], null)
         ->andReturn($expected);
 
     $result = $this->request->speak('Hello world');
@@ -92,62 +99,63 @@ test('speak calls service with empty config', function () {
     expect($result)->toBe($expected);
 });
 
-test('speak calls configured service with provider', function () {
-    $configuredService = Mockery::mock(SpeechService::class);
+test('speak passes provider to service options', function () {
     $expected = ['audio' => 'audio_data', 'format' => 'mp3'];
 
     $this->speechService
-        ->shouldReceive('using')
-        ->once()
-        ->with('openai')
-        ->andReturn($configuredService);
-
-    $configuredService
         ->shouldReceive('speak')
         ->once()
-        ->with('Hello world', [])
+        ->with('Hello world', Mockery::on(function ($options) {
+            return $options['provider'] === 'openai';
+        }), null)
         ->andReturn($expected);
 
-    $result = $this->request->using('openai')->speak('Hello world');
+    $result = $this->request->withProvider('openai')->speak('Hello world');
 
     expect($result)->toBe($expected);
 });
 
-test('speak calls configured service with model', function () {
-    $configuredService = Mockery::mock(SpeechService::class);
+test('speak passes model to service options', function () {
     $expected = ['audio' => 'audio_data', 'format' => 'mp3'];
 
     $this->speechService
-        ->shouldReceive('model')
-        ->once()
-        ->with('tts-1-hd')
-        ->andReturn($configuredService);
-
-    $configuredService
         ->shouldReceive('speak')
         ->once()
-        ->with('Hello world', [])
+        ->with('Hello world', Mockery::on(function ($options) {
+            return $options['model'] === 'tts-1-hd';
+        }), null)
         ->andReturn($expected);
 
-    $result = $this->request->model('tts-1-hd')->speak('Hello world');
+    $result = $this->request->withModel('tts-1-hd')->speak('Hello world');
 
     expect($result)->toBe($expected);
 });
 
-test('speak calls configured service with voice', function () {
-    $configuredService = Mockery::mock(SpeechService::class);
+test('speak passes provider and model together to service options', function () {
     $expected = ['audio' => 'audio_data', 'format' => 'mp3'];
 
     $this->speechService
-        ->shouldReceive('voice')
-        ->once()
-        ->with('nova')
-        ->andReturn($configuredService);
-
-    $configuredService
         ->shouldReceive('speak')
         ->once()
-        ->with('Hello world', [])
+        ->with('Hello world', Mockery::on(function ($options) {
+            return $options['provider'] === 'openai' && $options['model'] === 'tts-1-hd';
+        }), null)
+        ->andReturn($expected);
+
+    $result = $this->request->withProvider('openai', 'tts-1-hd')->speak('Hello world');
+
+    expect($result)->toBe($expected);
+});
+
+test('speak passes voice to service options', function () {
+    $expected = ['audio' => 'audio_data', 'format' => 'mp3'];
+
+    $this->speechService
+        ->shouldReceive('speak')
+        ->once()
+        ->with('Hello world', Mockery::on(function ($options) {
+            return $options['voice'] === 'nova';
+        }), null)
         ->andReturn($expected);
 
     $result = $this->request->voice('nova')->speak('Hello world');
@@ -155,20 +163,15 @@ test('speak calls configured service with voice', function () {
     expect($result)->toBe($expected);
 });
 
-test('speak calls configured service with format', function () {
-    $configuredService = Mockery::mock(SpeechService::class);
+test('speak passes format to service options', function () {
     $expected = ['audio' => 'audio_data', 'format' => 'wav'];
 
     $this->speechService
-        ->shouldReceive('format')
-        ->once()
-        ->with('wav')
-        ->andReturn($configuredService);
-
-    $configuredService
         ->shouldReceive('speak')
         ->once()
-        ->with('Hello world', [])
+        ->with('Hello world', Mockery::on(function ($options) {
+            return $options['format'] === 'wav';
+        }), null)
         ->andReturn($expected);
 
     $result = $this->request->format('wav')->speak('Hello world');
@@ -176,20 +179,15 @@ test('speak calls configured service with format', function () {
     expect($result)->toBe($expected);
 });
 
-test('speak calls configured service with speed', function () {
-    $configuredService = Mockery::mock(SpeechService::class);
+test('speak passes speed to service options', function () {
     $expected = ['audio' => 'audio_data', 'format' => 'mp3'];
 
     $this->speechService
-        ->shouldReceive('speed')
-        ->once()
-        ->with(1.5)
-        ->andReturn($configuredService);
-
-    $configuredService
         ->shouldReceive('speak')
         ->once()
-        ->with('Hello world', [])
+        ->with('Hello world', Mockery::on(function ($options) {
+            return $options['speed'] === 1.5;
+        }), null)
         ->andReturn($expected);
 
     $result = $this->request->speed(1.5)->speak('Hello world');
@@ -197,20 +195,15 @@ test('speak calls configured service with speed', function () {
     expect($result)->toBe($expected);
 });
 
-test('speak calls configured service with provider options', function () {
-    $configuredService = Mockery::mock(SpeechService::class);
+test('speak passes provider options to service options', function () {
     $expected = ['audio' => 'audio_data', 'format' => 'mp3'];
 
     $this->speechService
-        ->shouldReceive('withProviderOptions')
-        ->once()
-        ->with(['language' => 'en'])
-        ->andReturn($configuredService);
-
-    $configuredService
         ->shouldReceive('speak')
         ->once()
-        ->with('Hello world', [])
+        ->with('Hello world', Mockery::on(function ($options) {
+            return isset($options['provider_options']) && $options['provider_options']['language'] === 'en';
+        }), null)
         ->andReturn($expected);
 
     $result = $this->request->withProviderOptions(['language' => 'en'])->speak('Hello world');
@@ -218,21 +211,16 @@ test('speak calls configured service with provider options', function () {
     expect($result)->toBe($expected);
 });
 
-test('speak calls configured service with metadata', function () {
-    $configuredService = Mockery::mock(SpeechService::class);
+test('speak passes metadata to service options', function () {
     $expected = ['audio' => 'audio_data', 'format' => 'mp3'];
     $metadata = ['user_id' => 123];
 
     $this->speechService
-        ->shouldReceive('withMetadata')
-        ->once()
-        ->with($metadata)
-        ->andReturn($configuredService);
-
-    $configuredService
         ->shouldReceive('speak')
         ->once()
-        ->with('Hello world', [])
+        ->with('Hello world', Mockery::on(function ($options) use ($metadata) {
+            return isset($options['metadata']) && $options['metadata'] === $metadata;
+        }), null)
         ->andReturn($expected);
 
     $result = $this->request->withMetadata($metadata)->speak('Hello world');
@@ -240,20 +228,14 @@ test('speak calls configured service with metadata', function () {
     expect($result)->toBe($expected);
 });
 
-test('speak calls configured service with retry', function () {
-    $configuredService = Mockery::mock(SpeechService::class);
+test('speak passes retry config to service', function () {
     $expected = ['audio' => 'audio_data', 'format' => 'mp3'];
+    $retryConfig = [3, 1000, null, true];
 
     $this->speechService
-        ->shouldReceive('withRetry')
-        ->once()
-        ->with(3, 1000, null, true)
-        ->andReturn($configuredService);
-
-    $configuredService
         ->shouldReceive('speak')
         ->once()
-        ->with('Hello world', [])
+        ->with('Hello world', [], $retryConfig)
         ->andReturn($expected);
 
     $result = $this->request->withRetry(3, 1000)->speak('Hello world');
@@ -261,13 +243,13 @@ test('speak calls configured service with retry', function () {
     expect($result)->toBe($expected);
 });
 
-test('transcribe calls service with empty config', function () {
+test('transcribe calls service with empty options when no config', function () {
     $expected = ['text' => 'Hello world', 'language' => 'en', 'duration' => 1.5];
 
     $this->speechService
         ->shouldReceive('transcribe')
         ->once()
-        ->with('/path/to/audio.mp3', [])
+        ->with('/path/to/audio.mp3', [], null)
         ->andReturn($expected);
 
     $result = $this->request->transcribe('/path/to/audio.mp3');
@@ -275,20 +257,31 @@ test('transcribe calls service with empty config', function () {
     expect($result)->toBe($expected);
 });
 
-test('transcribe calls configured service with transcription model', function () {
-    $configuredService = Mockery::mock(SpeechService::class);
+test('transcribe passes provider to service options', function () {
     $expected = ['text' => 'Hello world', 'language' => 'en', 'duration' => 1.5];
 
     $this->speechService
-        ->shouldReceive('transcriptionModel')
-        ->once()
-        ->with('whisper-1')
-        ->andReturn($configuredService);
-
-    $configuredService
         ->shouldReceive('transcribe')
         ->once()
-        ->with('/path/to/audio.mp3', [])
+        ->with('/path/to/audio.mp3', Mockery::on(function ($options) {
+            return $options['provider'] === 'anthropic';
+        }), null)
+        ->andReturn($expected);
+
+    $result = $this->request->withProvider('anthropic')->transcribe('/path/to/audio.mp3');
+
+    expect($result)->toBe($expected);
+});
+
+test('transcribe passes transcription_model to service options', function () {
+    $expected = ['text' => 'Hello world', 'language' => 'en', 'duration' => 1.5];
+
+    $this->speechService
+        ->shouldReceive('transcribe')
+        ->once()
+        ->with('/path/to/audio.mp3', Mockery::on(function ($options) {
+            return $options['transcription_model'] === 'whisper-1';
+        }), null)
         ->andReturn($expected);
 
     $result = $this->request->transcriptionModel('whisper-1')->transcribe('/path/to/audio.mp3');
@@ -296,45 +289,41 @@ test('transcribe calls configured service with transcription model', function ()
     expect($result)->toBe($expected);
 });
 
-test('chaining speak preserves all config', function () {
-    $step1 = Mockery::mock(SpeechService::class);
-    $step2 = Mockery::mock(SpeechService::class);
-    $step3 = Mockery::mock(SpeechService::class);
-    $step4 = Mockery::mock(SpeechService::class);
-    $step5 = Mockery::mock(SpeechService::class);
-    $step6 = Mockery::mock(SpeechService::class);
-    $step7 = Mockery::mock(SpeechService::class);
+test('transcribe passes retry config to service', function () {
+    $expected = ['text' => 'Hello world', 'language' => 'en', 'duration' => 1.5];
+    $retryConfig = [3, 1000, null, true];
 
+    $this->speechService
+        ->shouldReceive('transcribe')
+        ->once()
+        ->with('/path/to/audio.mp3', [], $retryConfig)
+        ->andReturn($expected);
+
+    $result = $this->request->withRetry(3, 1000)->transcribe('/path/to/audio.mp3');
+
+    expect($result)->toBe($expected);
+});
+
+test('chaining speak preserves all config', function () {
     $expected = ['audio' => 'audio_data', 'format' => 'mp3'];
     $metadata = ['user_id' => 123];
 
     $this->speechService
-        ->shouldReceive('using')
-        ->with('openai')
-        ->andReturn($step1);
-
-    $step1->shouldReceive('model')->with('tts-1-hd')->andReturn($step2);
-    $step2->shouldReceive('voice')->with('alloy')->andReturn($step3);
-    $step3->shouldReceive('format')->with('mp3')->andReturn($step4);
-    $step4->shouldReceive('speed')->with(1.25)->andReturn($step5);
-    $step5->shouldReceive('withProviderOptions')->with(['language' => 'en'])->andReturn($step6);
-    $step6->shouldReceive('withMetadata')->with($metadata)->andReturn($step7);
-
-    // No transcriptionModel in speak chain, so withRetry is on step7
-    $step7
-        ->shouldReceive('withRetry')
-        ->with(3, 1000, null, true)
-        ->andReturn($step7);
-
-    $step7
         ->shouldReceive('speak')
         ->once()
-        ->with('Hello world', [])
+        ->with('Hello world', Mockery::on(function ($options) use ($metadata) {
+            return $options['provider'] === 'openai'
+                && $options['model'] === 'tts-1-hd'
+                && $options['voice'] === 'alloy'
+                && $options['format'] === 'mp3'
+                && $options['speed'] === 1.25
+                && isset($options['provider_options']) && $options['provider_options']['language'] === 'en'
+                && isset($options['metadata']) && $options['metadata'] === $metadata;
+        }), [3, 1000, null, true])
         ->andReturn($expected);
 
     $result = $this->request
-        ->using('openai')
-        ->model('tts-1-hd')
+        ->withProvider('openai', 'tts-1-hd')
         ->voice('alloy')
         ->format('mp3')
         ->speed(1.25)
@@ -346,32 +335,36 @@ test('chaining speak preserves all config', function () {
     expect($result)->toBe($expected);
 });
 
-test('speak passes options to service', function () {
+test('speak merges additional options', function () {
     $expected = ['audio' => 'audio_data', 'format' => 'mp3'];
-    $options = ['extra_option' => true];
+    $additionalOptions = ['extra_option' => true];
 
     $this->speechService
         ->shouldReceive('speak')
         ->once()
-        ->with('Hello world', $options)
+        ->with('Hello world', Mockery::on(function ($options) {
+            return isset($options['extra_option']) && $options['extra_option'] === true;
+        }), null)
         ->andReturn($expected);
 
-    $result = $this->request->speak('Hello world', $options);
+    $result = $this->request->speak('Hello world', $additionalOptions);
 
     expect($result)->toBe($expected);
 });
 
-test('transcribe passes options to service', function () {
+test('transcribe merges additional options', function () {
     $expected = ['text' => 'Hello world', 'language' => 'en', 'duration' => 1.5];
-    $options = ['extra_option' => true];
+    $additionalOptions = ['extra_option' => true];
 
     $this->speechService
         ->shouldReceive('transcribe')
         ->once()
-        ->with('/path/to/audio.mp3', $options)
+        ->with('/path/to/audio.mp3', Mockery::on(function ($options) {
+            return isset($options['extra_option']) && $options['extra_option'] === true;
+        }), null)
         ->andReturn($expected);
 
-    $result = $this->request->transcribe('/path/to/audio.mp3', $options);
+    $result = $this->request->transcribe('/path/to/audio.mp3', $additionalOptions);
 
     expect($result)->toBe($expected);
 });

@@ -211,8 +211,7 @@ Storage::put('images/robot.png', $imageContent);
 
 ```php
 $result = Atlas::image()
-    ->using('openai')
-    ->model('dall-e-3')
+    ->withProvider('openai', 'dall-e-3')
     ->size('1024x1024')
     ->quality('hd')
     ->withProviderOptions(['style' => 'vivid'])  // OpenAI: 'vivid' or 'natural'
@@ -223,8 +222,7 @@ $result = Atlas::image()
 
 ```php
 $result = Atlas::image()
-    ->using('openai')
-    ->model('dall-e-3')
+    ->withProvider('openai', 'dall-e-3')
     ->size('1792x1024')
     ->quality('standard')
     ->generate('An abstract painting of emotions');

@@ -6,6 +6,7 @@ use Atlasphp\Atlas\Foundation\Contracts\PipelineContract;
 use Atlasphp\Atlas\Foundation\Services\PipelineRegistry;
 use Atlasphp\Atlas\Foundation\Services\PipelineRunner;
 use Atlasphp\Atlas\Providers\Contracts\EmbeddingProviderContract;
+use Atlasphp\Atlas\Providers\Contracts\PrismBuilderContract;
 use Atlasphp\Atlas\Providers\Services\EmbeddingService;
 use Atlasphp\Atlas\Providers\Services\ProviderConfigService;
 use Illuminate\Container\Container;
@@ -19,7 +20,14 @@ beforeEach(function () {
     $this->pipelineRunner = new PipelineRunner($this->registry, $this->container);
     $this->configService = Mockery::mock(ProviderConfigService::class);
     $this->configService->shouldReceive('getRetryConfig')->andReturn(null);
-    $this->service = new EmbeddingService($this->provider, $this->pipelineRunner, $this->configService);
+    $this->configService->shouldReceive('getEmbeddingConfig')->andReturn([
+        'provider' => 'openai',
+        'model' => 'text-embedding-3-small',
+        'dimensions' => 1536,
+        'batch_size' => 100,
+    ]);
+    $this->prismBuilder = Mockery::mock(PrismBuilderContract::class);
+    $this->service = new EmbeddingService($this->provider, $this->pipelineRunner, $this->configService, $this->prismBuilder);
 });
 
 test('it generates single embedding', function () {
@@ -310,7 +318,7 @@ test('it uses config retry when explicit retry is null', function () {
     $configService = Mockery::mock(ProviderConfigService::class);
     $configService->shouldReceive('getRetryConfig')->andReturn($configRetry);
 
-    $service = new EmbeddingService($this->provider, $this->pipelineRunner, $configService);
+    $service = new EmbeddingService($this->provider, $this->pipelineRunner, $configService, $this->prismBuilder);
 
     $this->provider
         ->shouldReceive('generate')

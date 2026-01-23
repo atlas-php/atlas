@@ -28,113 +28,6 @@ beforeEach(function () {
     $this->service = new SpeechService($this->prismBuilder, $this->configService, $this->pipelineRunner);
 });
 
-test('it returns a new instance when using provider', function () {
-    $newService = $this->service->using('anthropic');
-
-    expect($newService)->toBeInstanceOf(SpeechService::class);
-    expect($newService)->not->toBe($this->service);
-});
-
-test('it returns a new instance when setting model', function () {
-    $newService = $this->service->model('tts-1-hd');
-
-    expect($newService)->toBeInstanceOf(SpeechService::class);
-    expect($newService)->not->toBe($this->service);
-});
-
-test('it returns a new instance when setting transcription model', function () {
-    $newService = $this->service->transcriptionModel('whisper-1');
-
-    expect($newService)->toBeInstanceOf(SpeechService::class);
-    expect($newService)->not->toBe($this->service);
-});
-
-test('it returns a new instance when setting voice', function () {
-    $newService = $this->service->voice('alloy');
-
-    expect($newService)->toBeInstanceOf(SpeechService::class);
-    expect($newService)->not->toBe($this->service);
-});
-
-test('it returns a new instance when setting format', function () {
-    $newService = $this->service->format('wav');
-
-    expect($newService)->toBeInstanceOf(SpeechService::class);
-    expect($newService)->not->toBe($this->service);
-});
-
-test('it returns a new instance when setting speed', function () {
-    $newService = $this->service->speed(1.5);
-
-    expect($newService)->toBeInstanceOf(SpeechService::class);
-    expect($newService)->not->toBe($this->service);
-});
-
-test('it returns a new instance when setting provider options', function () {
-    $newService = $this->service->withProviderOptions(['language' => 'en']);
-
-    expect($newService)->toBeInstanceOf(SpeechService::class);
-    expect($newService)->not->toBe($this->service);
-});
-
-test('it speaks with custom speed', function () {
-    $mockRequest = Mockery::mock();
-
-    $mockAudio = new stdClass;
-    $mockAudio->base64 = base64_encode('audio-data');
-
-    $mockResponse = new stdClass;
-    $mockResponse->audio = $mockAudio;
-
-    $this->prismBuilder
-        ->shouldReceive('forSpeech')
-        ->with('openai', 'tts-1', 'Hello', Mockery::on(function ($options) {
-            return isset($options['speed']) && $options['speed'] === 1.5;
-        }), null)
-        ->once()
-        ->andReturn($mockRequest);
-
-    $mockRequest
-        ->shouldReceive('asAudio')
-        ->once()
-        ->andReturn($mockResponse);
-
-    $result = $this->service
-        ->speed(1.5)
-        ->speak('Hello');
-
-    expect($result)->toHaveKey('audio');
-});
-
-test('it merges provider options', function () {
-    $mockRequest = Mockery::mock();
-
-    $mockAudio = new stdClass;
-    $mockAudio->base64 = base64_encode('audio-data');
-
-    $mockResponse = new stdClass;
-    $mockResponse->audio = $mockAudio;
-
-    $this->prismBuilder
-        ->shouldReceive('forSpeech')
-        ->with('openai', 'tts-1', 'Hello', Mockery::on(function ($options) {
-            return isset($options['language']) && $options['language'] === 'en'
-                && isset($options['timbre']) && $options['timbre'] === 'warm';
-        }), null)
-        ->once()
-        ->andReturn($mockRequest);
-
-    $mockRequest
-        ->shouldReceive('asAudio')
-        ->once()
-        ->andReturn($mockResponse);
-
-    $this->service
-        ->withProviderOptions(['language' => 'en'])
-        ->withProviderOptions(['timbre' => 'warm'])
-        ->speak('Hello');
-});
-
 test('it speaks text with defaults', function () {
     $mockRequest = Mockery::mock();
 
@@ -163,6 +56,56 @@ test('it speaks text with defaults', function () {
     ]);
 });
 
+test('it speaks with provider override', function () {
+    $mockRequest = Mockery::mock();
+
+    $mockAudio = new stdClass;
+    $mockAudio->base64 = base64_encode('audio-data');
+
+    $mockResponse = new stdClass;
+    $mockResponse->audio = $mockAudio;
+
+    $this->prismBuilder
+        ->shouldReceive('forSpeech')
+        ->with('anthropic', 'tts-1', 'Hello', Mockery::type('array'), null)
+        ->once()
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('asAudio')
+        ->once()
+        ->andReturn($mockResponse);
+
+    $result = $this->service->speak('Hello', ['provider' => 'anthropic']);
+
+    expect($result)->toHaveKey('audio');
+});
+
+test('it speaks with model override', function () {
+    $mockRequest = Mockery::mock();
+
+    $mockAudio = new stdClass;
+    $mockAudio->base64 = base64_encode('audio-data');
+
+    $mockResponse = new stdClass;
+    $mockResponse->audio = $mockAudio;
+
+    $this->prismBuilder
+        ->shouldReceive('forSpeech')
+        ->with('openai', 'tts-1-hd', 'Hello', Mockery::type('array'), null)
+        ->once()
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('asAudio')
+        ->once()
+        ->andReturn($mockResponse);
+
+    $result = $this->service->speak('Hello', ['model' => 'tts-1-hd']);
+
+    expect($result)->toHaveKey('audio');
+});
+
 test('it speaks with custom voice', function () {
     $mockRequest = Mockery::mock();
 
@@ -185,14 +128,12 @@ test('it speaks with custom voice', function () {
         ->once()
         ->andReturn($mockResponse);
 
-    $result = $this->service
-        ->voice('nova')
-        ->speak('Hello');
+    $result = $this->service->speak('Hello', ['voice' => 'nova']);
 
     expect($result)->toHaveKey('audio');
 });
 
-test('it chains fluent methods for speak', function () {
+test('it speaks with custom speed', function () {
     $mockRequest = Mockery::mock();
 
     $mockAudio = new stdClass;
@@ -203,7 +144,9 @@ test('it chains fluent methods for speak', function () {
 
     $this->prismBuilder
         ->shouldReceive('forSpeech')
-        ->with('anthropic', 'custom-tts', 'Hello', Mockery::type('array'), null)
+        ->with('openai', 'tts-1', 'Hello', Mockery::on(function ($options) {
+            return isset($options['speed']) && $options['speed'] === 1.5;
+        }), null)
         ->once()
         ->andReturn($mockRequest);
 
@@ -212,14 +155,56 @@ test('it chains fluent methods for speak', function () {
         ->once()
         ->andReturn($mockResponse);
 
-    $result = $this->service
-        ->using('anthropic')
-        ->model('custom-tts')
-        ->voice('alloy')
-        ->format('wav')
-        ->speak('Hello');
+    $result = $this->service->speak('Hello', ['speed' => 1.5]);
+
+    expect($result)->toHaveKey('audio');
+});
+
+test('it speaks with custom format', function () {
+    $mockRequest = Mockery::mock();
+
+    $mockAudio = new stdClass;
+    $mockAudio->base64 = base64_encode('audio-data');
+
+    $mockResponse = new stdClass;
+    $mockResponse->audio = $mockAudio;
+
+    $this->prismBuilder
+        ->shouldReceive('forSpeech')
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('asAudio')
+        ->andReturn($mockResponse);
+
+    $result = $this->service->speak('Hello', ['format' => 'wav']);
 
     expect($result['format'])->toBe('wav');
+});
+
+test('it merges provider options', function () {
+    $mockRequest = Mockery::mock();
+
+    $mockAudio = new stdClass;
+    $mockAudio->base64 = base64_encode('audio-data');
+
+    $mockResponse = new stdClass;
+    $mockResponse->audio = $mockAudio;
+
+    $this->prismBuilder
+        ->shouldReceive('forSpeech')
+        ->with('openai', 'tts-1', 'Hello', Mockery::on(function ($options) {
+            return isset($options['language']) && $options['language'] === 'en';
+        }), null)
+        ->once()
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('asAudio')
+        ->once()
+        ->andReturn($mockResponse);
+
+    $this->service->speak('Hello', ['provider_options' => ['language' => 'en']]);
 });
 
 test('it runs speech.before_speak pipeline', function () {
@@ -272,10 +257,7 @@ test('it runs speech.after_speak pipeline', function () {
         ->shouldReceive('asAudio')
         ->andReturn($mockResponse);
 
-    $this->service
-        ->voice('nova')
-        ->format('wav')
-        ->speak('Hello world');
+    $this->service->speak('Hello world', ['voice' => 'nova', 'format' => 'wav']);
 
     expect(SpeechAfterSpeakHandler::$called)->toBeTrue();
     expect(SpeechAfterSpeakHandler::$data)->not->toBeNull();
@@ -327,10 +309,7 @@ test('it runs speech.on_error pipeline when speak fails', function () {
         ->andThrow(new \RuntimeException('Speech API Error'));
 
     try {
-        $this->service
-            ->voice('nova')
-            ->format('wav')
-            ->speak('Hello');
+        $this->service->speak('Hello', ['voice' => 'nova', 'format' => 'wav']);
     } catch (\RuntimeException $e) {
         // Expected
     }
@@ -424,7 +403,6 @@ test('it runs speech.after_transcribe pipeline', function () {
     expect(SpeechAfterTranscribeHandler::$data['audio'])->toBe($mockAudio);
     expect(SpeechAfterTranscribeHandler::$data['provider'])->toBe('openai');
     expect(SpeechAfterTranscribeHandler::$data['model'])->toBe('whisper-1');
-    expect(SpeechAfterTranscribeHandler::$data['options'])->toBe(['language' => 'en']);
     expect(SpeechAfterTranscribeHandler::$data['result'])->toBe([
         'text' => 'Transcribed text',
         'language' => 'en',
@@ -462,7 +440,6 @@ test('it runs speech.on_error pipeline when transcribe fails', function () {
     expect(SpeechErrorHandler::$data['audio'])->toBe($mockAudio);
     expect(SpeechErrorHandler::$data['provider'])->toBe('openai');
     expect(SpeechErrorHandler::$data['model'])->toBe('whisper-1');
-    expect(SpeechErrorHandler::$data['options'])->toBe(['language' => 'en']);
     expect(SpeechErrorHandler::$data['exception'])->toBeInstanceOf(\RuntimeException::class);
     expect(SpeechErrorHandler::$data['exception']->getMessage())->toBe('Transcription API Error');
 });
@@ -509,9 +486,7 @@ test('it includes voice in before_speak pipeline data', function () {
         ->shouldReceive('asAudio')
         ->andReturn($mockResponse);
 
-    $this->service
-        ->voice('nova')
-        ->speak('Hello');
+    $this->service->speak('Hello', ['voice' => 'nova']);
 
     expect(SpeechBeforeSpeakHandler::$data['voice'])->toBe('nova');
 });
@@ -519,13 +494,6 @@ test('it includes voice in before_speak pipeline data', function () {
 // ===========================================
 // RETRY TESTS
 // ===========================================
-
-test('it returns a new instance when setting retry', function () {
-    $newService = $this->service->withRetry(3, 1000);
-
-    expect($newService)->toBeInstanceOf(SpeechService::class);
-    expect($newService)->not->toBe($this->service);
-});
 
 test('it passes retry to PrismBuilder for speak', function () {
     $mockRequest = Mockery::mock();
@@ -548,9 +516,7 @@ test('it passes retry to PrismBuilder for speak', function () {
         ->once()
         ->andReturn($mockResponse);
 
-    $this->service
-        ->withRetry(3, 1000, null, true)
-        ->speak('Hello');
+    $this->service->speak('Hello', [], $retryConfig);
 });
 
 test('it passes retry to PrismBuilder for transcribe', function () {
@@ -566,7 +532,7 @@ test('it passes retry to PrismBuilder for transcribe', function () {
 
     $this->prismBuilder
         ->shouldReceive('forTranscription')
-        ->with('openai', 'whisper-1', $mockAudio, [], $retryConfig)
+        ->with('openai', 'whisper-1', $mockAudio, Mockery::type('array'), $retryConfig)
         ->once()
         ->andReturn($mockRequest);
 
@@ -575,12 +541,10 @@ test('it passes retry to PrismBuilder for transcribe', function () {
         ->once()
         ->andReturn($mockResponse);
 
-    $this->service
-        ->withRetry(3, 1000, null, true)
-        ->transcribe($mockAudio);
+    $this->service->transcribe($mockAudio, [], $retryConfig);
 });
 
-test('it uses config retry when withRetry is not called', function () {
+test('it uses config retry when explicit retry is null', function () {
     // Create service with config that has retry enabled
     $configService = new ProviderConfigService(new Repository([
         'atlas' => [
@@ -645,35 +609,7 @@ test('it passes retry with closure to PrismBuilder for speak', function () {
         ->once()
         ->andReturn($mockResponse);
 
-    $this->service
-        ->withRetry(3, $sleepFn)
-        ->speak('Hello');
-});
-
-test('it passes retry with array of delays to PrismBuilder for speak', function () {
-    $mockRequest = Mockery::mock();
-    $mockAudio = new stdClass;
-    $mockAudio->base64 = base64_encode('audio-data');
-
-    $mockResponse = new stdClass;
-    $mockResponse->audio = $mockAudio;
-
-    $this->prismBuilder
-        ->shouldReceive('forSpeech')
-        ->with('openai', 'tts-1', 'Hello', Mockery::type('array'), Mockery::on(function ($retry) {
-            return is_array($retry) && $retry[0] === [100, 200, 300];
-        }))
-        ->once()
-        ->andReturn($mockRequest);
-
-    $mockRequest
-        ->shouldReceive('asAudio')
-        ->once()
-        ->andReturn($mockResponse);
-
-    $this->service
-        ->withRetry([100, 200, 300])
-        ->speak('Hello');
+    $this->service->speak('Hello', [], [3, $sleepFn, null, true]);
 });
 
 test('it throws RuntimeException when base64 decoding fails', function () {
@@ -743,7 +679,7 @@ test('it transcribes audio from file path string', function () {
 
     $this->prismBuilder
         ->shouldReceive('forTranscription')
-        ->with('openai', 'whisper-1', Mockery::type(\Prism\Prism\ValueObjects\Media\Audio::class), [], null)
+        ->with('openai', 'whisper-1', Mockery::type(\Prism\Prism\ValueObjects\Media\Audio::class), Mockery::type('array'), null)
         ->once()
         ->andReturn($mockRequest);
 
@@ -760,6 +696,31 @@ test('it transcribes audio from file path string', function () {
     expect($result['text'])->toBe('Transcribed from file path');
     expect($result['language'])->toBe('en');
     expect($result['duration'])->toBe(3.5);
+});
+
+test('it transcribes with transcription_model override', function () {
+    $mockRequest = Mockery::mock();
+    $mockResponse = new stdClass;
+    $mockResponse->text = 'Transcribed text';
+    $mockResponse->language = 'en';
+    $mockResponse->duration = 5.5;
+
+    $mockAudio = Mockery::mock(\Prism\Prism\ValueObjects\Media\Audio::class);
+
+    $this->prismBuilder
+        ->shouldReceive('forTranscription')
+        ->with('openai', 'whisper-2', $mockAudio, Mockery::type('array'), null)
+        ->once()
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('asText')
+        ->once()
+        ->andReturn($mockResponse);
+
+    $result = $this->service->transcribe($mockAudio, ['transcription_model' => 'whisper-2']);
+
+    expect($result['text'])->toBe('Transcribed text');
 });
 
 // Pipeline Handler Classes for Tests

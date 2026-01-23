@@ -113,6 +113,7 @@ class AtlasServiceProvider extends ServiceProvider
                 $app->make(EmbeddingProviderContract::class),
                 $app->make(PipelineRunner::class),
                 $app->make(ProviderConfigService::class),
+                $app->make(PrismBuilder::class),
             );
         });
 

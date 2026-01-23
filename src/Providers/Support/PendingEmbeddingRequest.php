@@ -9,12 +9,13 @@ use Atlasphp\Atlas\Providers\Services\EmbeddingService;
 /**
  * Fluent builder for embedding operations.
  *
- * Provides a fluent API for configuring embedding generation with metadata
- * and retry support. Uses immutable cloning for method chaining.
+ * Provides a fluent API for configuring embedding generation with metadata,
+ * provider options, and retry support. Uses immutable cloning for method chaining.
  */
 final class PendingEmbeddingRequest
 {
     use HasMetadataSupport;
+    use HasProviderSupport;
     use HasRetrySupport;
 
     public function __construct(
@@ -29,8 +30,7 @@ final class PendingEmbeddingRequest
      */
     public function generate(string|array $input): array
     {
-        $metadata = $this->getMetadata();
-        $options = $metadata !== [] ? ['metadata' => $metadata] : [];
+        $options = $this->buildOptions();
 
         if (is_string($input)) {
             return $this->embeddingService->generate($input, $options, $this->getRetryArray());
@@ -47,5 +47,37 @@ final class PendingEmbeddingRequest
     public function dimensions(): int
     {
         return $this->embeddingService->dimensions();
+    }
+
+    /**
+     * Build the options array from fluent configuration.
+     *
+     * @return array<string, mixed>
+     */
+    private function buildOptions(): array
+    {
+        $options = [];
+
+        $provider = $this->getProviderOverride();
+        if ($provider !== null) {
+            $options['provider'] = $provider;
+        }
+
+        $model = $this->getModelOverride();
+        if ($model !== null) {
+            $options['model'] = $model;
+        }
+
+        $providerOptions = $this->getProviderOptions();
+        if ($providerOptions !== []) {
+            $options['provider_options'] = $providerOptions;
+        }
+
+        $metadata = $this->getMetadata();
+        if ($metadata !== []) {
+            $options['metadata'] = $metadata;
+        }
+
+        return $options;
     }
 }

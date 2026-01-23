@@ -59,8 +59,7 @@ $result = Atlas::speech('openai', 'tts-1-hd')
 
 ```php
 $result = Atlas::speech()
-    ->using('openai')
-    ->model('tts-1')
+    ->withProvider('openai', 'tts-1')
     ->voice('nova')
     ->format('mp3')
     ->speed(1.0)
@@ -149,8 +148,8 @@ Configure defaults in `config/atlas.php`:
 
 | Method | Description |
 |--------|-------------|
-| `using(string $provider)` | Set provider |
-| `model(string $model)` | Set TTS model |
+| `withProvider(string $provider, ?string $model = null)` | Set provider and optionally model |
+| `withModel(string $model)` | Set TTS model |
 | `transcriptionModel(string $model)` | Set transcription model |
 | `voice(string $voice)` | Set voice for TTS |
 | `speed(float $speed)` | Set speech speed (0.25-4.0) |

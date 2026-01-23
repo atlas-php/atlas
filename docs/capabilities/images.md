@@ -18,14 +18,18 @@ echo $result['revised_prompt']; // AI-revised prompt (if applicable)
 ```php
 $result = Atlas::image('openai', 'dall-e-3')
     ->generate('A futuristic cityscape');
+
+// Or using the fluent method
+$result = Atlas::image()
+    ->withProvider('openai', 'dall-e-3')
+    ->generate('A futuristic cityscape');
 ```
 
 ## Fluent Configuration
 
 ```php
 $result = Atlas::image()
-    ->using('openai')
-    ->model('dall-e-3')
+    ->withProvider('openai', 'dall-e-3')
     ->size('1024x1024')
     ->quality('hd')
     ->generate('A photorealistic portrait of a robot');
@@ -96,8 +100,8 @@ Configure defaults in `config/atlas.php`:
 
 | Method | Description |
 |--------|-------------|
-| `using(string $provider)` | Set provider |
-| `model(string $model)` | Set model |
+| `withProvider(string $provider, ?string $model = null)` | Set provider and optionally model |
+| `withModel(string $model)` | Set model |
 | `size(string $size)` | Set image dimensions |
 | `quality(string $quality)` | Set quality level |
 | `withProviderOptions(array $options)` | Set provider-specific options |

@@ -72,11 +72,9 @@ class AtlasManager
         $request = new PendingImageRequest($this->imageService);
 
         if ($provider !== null) {
-            $request = $request->using($provider);
-        }
-
-        if ($model !== null) {
-            $request = $request->model($model);
+            $request = $request->withProvider($provider, $model);
+        } elseif ($model !== null) {
+            $request = $request->withModel($model);
         }
 
         return $request;
@@ -96,11 +94,9 @@ class AtlasManager
         $request = new PendingSpeechRequest($this->speechService);
 
         if ($provider !== null) {
-            $request = $request->using($provider);
-        }
-
-        if ($model !== null) {
-            $request = $request->model($model);
+            $request = $request->withProvider($provider, $model);
+        } elseif ($model !== null) {
+            $request = $request->withModel($model);
         }
 
         return $request;

@@ -32,8 +32,7 @@ $dimensions = Atlas::embedding()->dimensions();
 
 // Access image service
 $result = Atlas::image()
-    ->using('openai')
-    ->model('dall-e-3')
+    ->withProvider('openai', 'dall-e-3')
     ->size('1024x1024')
     ->generate('A beautiful sunset');
 
@@ -118,16 +117,14 @@ $result = $service->generate('A mountain landscape');
 
 // With fluent configuration
 $result = $service
-    ->using('openai')
-    ->model('dall-e-3')
+    ->withProvider('openai', 'dall-e-3')
     ->size('1024x1024')
     ->quality('hd')
     ->generate('A futuristic city');
 
 // With provider-specific options
 $result = $service
-    ->using('openai')
-    ->model('dall-e-3')
+    ->withProvider('openai', 'dall-e-3')
     ->size('1024x1024')
     ->quality('hd')
     ->withProviderOptions(['style' => 'vivid'])
@@ -142,8 +139,8 @@ $result = $service
 ```
 
 **Methods:**
-- `using(string $provider): self` - Set provider
-- `model(string $model): self` - Set model
+- `withProvider(string $provider, ?string $model = null): self` - Set provider and optionally model
+- `withModel(string $model): self` - Set model
 - `size(string $size): self` - Set image size
 - `quality(string $quality): self` - Set quality
 - `withProviderOptions(array $options): self` - Set provider-specific options
@@ -165,16 +162,14 @@ Fluent API for text-to-speech and speech-to-text operations.
 $service = app(SpeechService::class);
 
 $result = $service
-    ->using('openai')
-    ->model('tts-1')
+    ->withProvider('openai', 'tts-1')
     ->voice('alloy')
     ->format('mp3')
     ->speak('Hello, world!');
 
 // With speed control and provider options
 $result = $service
-    ->using('openai')
-    ->model('tts-1')
+    ->withProvider('openai', 'tts-1')
     ->voice('nova')
     ->speed(1.25)
     ->withProviderOptions(['language' => 'en'])
@@ -191,13 +186,13 @@ $result = $service
 
 ```php
 $result = $service
-    ->using('openai')
+    ->withProvider('openai')
     ->transcriptionModel('whisper-1')
     ->transcribe('/path/to/audio.mp3');
 
 // With provider options
 $result = $service
-    ->using('openai')
+    ->withProvider('openai')
     ->transcriptionModel('whisper-1')
     ->withProviderOptions(['language' => 'en', 'prompt' => 'Technical jargon'])
     ->transcribe('/path/to/audio.mp3');
@@ -211,8 +206,8 @@ $result = $service
 ```
 
 **Methods:**
-- `using(string $provider): self` - Set provider
-- `model(string $model): self` - Set TTS model
+- `withProvider(string $provider, ?string $model = null): self` - Set provider and optionally model
+- `withModel(string $model): self` - Set TTS model
 - `transcriptionModel(string $model): self` - Set transcription model
 - `voice(string $voice): self` - Set voice for TTS
 - `speed(float $speed): self` - Set speech speed (0.25-4.0 for OpenAI)
@@ -383,8 +378,7 @@ $queryEmbedding = Atlas::embedding()->generate('search query');
 ```php
 // OpenAI DALL-E
 $result = Atlas::image()
-    ->using('openai')
-    ->model('dall-e-3')
+    ->withProvider('openai', 'dall-e-3')
     ->generate('A cat wearing a hat');
 
 // Access the generated image

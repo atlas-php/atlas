@@ -6,36 +6,15 @@ namespace Atlasphp\Atlas\Providers\Services;
 
 use Atlasphp\Atlas\Foundation\Services\PipelineRunner;
 use Atlasphp\Atlas\Providers\Contracts\PrismBuilderContract;
-use Atlasphp\Atlas\Providers\Support\HasMetadataSupport;
-use Atlasphp\Atlas\Providers\Support\HasRetrySupport;
 use Throwable;
 
 /**
- * Service for image generation operations.
+ * Stateless service for image generation operations.
  *
- * Provides a fluent API for generating images using configured providers.
- * Uses clone pattern for immutability with pipeline middleware support.
+ * Provides image generation using configured providers with pipeline middleware support.
  */
 class ImageService
 {
-    use HasMetadataSupport;
-    use HasRetrySupport;
-
-    private ?string $provider = null;
-
-    private ?string $model = null;
-
-    private ?string $size = null;
-
-    private ?string $quality = null;
-
-    /**
-     * Provider-specific options to pass through to Prism.
-     *
-     * @var array<string, mixed>
-     */
-    private array $providerOptions = [];
-
     public function __construct(
         private readonly PrismBuilderContract $prismBuilder,
         private readonly ProviderConfigService $configService,
@@ -43,77 +22,22 @@ class ImageService
     ) {}
 
     /**
-     * Set the provider for image generation.
-     */
-    public function using(string $provider): self
-    {
-        $clone = clone $this;
-        $clone->provider = $provider;
-
-        return $clone;
-    }
-
-    /**
-     * Set the model for image generation.
-     */
-    public function model(string $model): self
-    {
-        $clone = clone $this;
-        $clone->model = $model;
-
-        return $clone;
-    }
-
-    /**
-     * Set the image size.
-     */
-    public function size(string $size): self
-    {
-        $clone = clone $this;
-        $clone->size = $size;
-
-        return $clone;
-    }
-
-    /**
-     * Set the image quality.
-     */
-    public function quality(string $quality): self
-    {
-        $clone = clone $this;
-        $clone->quality = $quality;
-
-        return $clone;
-    }
-
-    /**
-     * Set provider-specific options.
-     *
-     * These options are passed directly to the provider via Prism's withProviderOptions().
-     * Use this for provider-specific features like style, response_format, etc.
-     *
-     * @param  array<string, mixed>  $options  Provider-specific options.
-     */
-    public function withProviderOptions(array $options): self
-    {
-        $clone = clone $this;
-        $clone->providerOptions = array_merge($clone->providerOptions, $options);
-
-        return $clone;
-    }
-
-    /**
      * Generate an image from the given prompt.
      *
      * @param  string  $prompt  The image prompt.
-     * @param  array<string, mixed>  $options  Additional options.
+     * @param  array<string, mixed>  $options  Options including provider, model, size, quality, metadata, providerOptions.
+     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      * @return array{url: string|null, base64: string|null, revised_prompt: string|null}
      */
-    public function generate(string $prompt, array $options = []): array
+    public function generate(string $prompt, array $options = [], ?array $retry = null): array
     {
         $imageConfig = $this->configService->getImageConfig();
-        $provider = $this->provider ?? $options['provider'] ?? $imageConfig['provider'];
-        $model = $this->model ?? $options['model'] ?? $imageConfig['model'];
+        $provider = $options['provider'] ?? $imageConfig['provider'];
+        $model = $options['model'] ?? $imageConfig['model'];
+        $size = $options['size'] ?? null;
+        $quality = $options['quality'] ?? null;
+        $metadata = $options['metadata'] ?? [];
+        $providerOptions = $options['provider_options'] ?? [];
 
         try {
             // Run before_generate pipeline
@@ -122,9 +46,9 @@ class ImageService
                 'provider' => $provider,
                 'model' => $model,
                 'options' => $options,
-                'size' => $this->size ?? $options['size'] ?? null,
-                'quality' => $this->quality ?? $options['quality'] ?? null,
-                'metadata' => $this->getMetadata(),
+                'size' => $size,
+                'quality' => $quality,
+                'metadata' => $metadata,
             ];
 
             /** @var array{prompt: string, provider: string, model: string, options: array<string, mixed>, size: string|null, quality: string|null, metadata: array<string, mixed>} $beforeData */
@@ -137,17 +61,17 @@ class ImageService
             $provider = $beforeData['provider'];
             $model = $beforeData['model'];
 
-            // Build request options from fluent methods
+            // Build request options
             $requestOptions = array_filter([
                 'size' => $beforeData['size'],
                 'quality' => $beforeData['quality'],
             ]);
 
-            // Merge with provider-specific options (provider options take precedence)
-            $requestOptions = array_merge($requestOptions, $this->providerOptions);
+            // Merge with provider-specific options
+            $requestOptions = array_merge($requestOptions, $providerOptions);
 
             // Use explicit retry config or fall back to config-based retry
-            $retry = $this->getRetryArray() ?? $this->configService->getRetryConfig();
+            $retry = $retry ?? $this->configService->getRetryConfig();
 
             $request = $this->prismBuilder->forImage($provider, $model, $prompt, $requestOptions, $retry);
             $response = $request->generate();
@@ -169,7 +93,7 @@ class ImageService
                 'model' => $model,
                 'size' => $beforeData['size'],
                 'quality' => $beforeData['quality'],
-                'metadata' => $this->getMetadata(),
+                'metadata' => $metadata,
                 'result' => $result,
             ];
 
@@ -181,15 +105,7 @@ class ImageService
 
             return $afterData['result'];
         } catch (Throwable $e) {
-            $this->handleError(
-                $prompt,
-                $provider,
-                $model,
-                $this->size ?? $options['size'] ?? null,
-                $this->quality ?? $options['quality'] ?? null,
-                $this->getMetadata(),
-                $e,
-            );
+            $this->handleError($prompt, $provider, $model, $size, $quality, $metadata, $e);
             throw $e;
         }
     }

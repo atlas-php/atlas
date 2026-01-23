@@ -28,36 +28,9 @@ final class PendingSpeechRequest
 
     private ?float $speed = null;
 
-    /**
-     * Provider-specific options to pass through to Prism.
-     *
-     * @var array<string, mixed>
-     */
-    private array $providerOptions = [];
-
     public function __construct(
         private readonly SpeechService $speechService,
     ) {}
-
-    /**
-     * Set the provider for speech operations.
-     *
-     * Alias for withProvider() for convenience.
-     */
-    public function using(string $provider): static
-    {
-        return $this->withProvider($provider);
-    }
-
-    /**
-     * Set the model for text-to-speech operations.
-     *
-     * Alias for withModel() for convenience.
-     */
-    public function model(string $model): static
-    {
-        return $this->withModel($model);
-    }
 
     /**
      * Set the model for speech-to-text (transcription) operations.
@@ -104,22 +77,6 @@ final class PendingSpeechRequest
     }
 
     /**
-     * Set provider-specific options.
-     *
-     * These options are passed directly to the provider via Prism's withProviderOptions().
-     * Use this for provider-specific features like language, timbre, etc.
-     *
-     * @param  array<string, mixed>  $options  Provider-specific options.
-     */
-    public function withProviderOptions(array $options): static
-    {
-        $clone = clone $this;
-        $clone->providerOptions = array_merge($clone->providerOptions, $options);
-
-        return $clone;
-    }
-
-    /**
      * Convert text to speech.
      *
      * @param  string  $text  The text to convert.
@@ -128,9 +85,7 @@ final class PendingSpeechRequest
      */
     public function speak(string $text, array $options = []): array
     {
-        $service = $this->buildConfiguredService();
-
-        return $service->speak($text, $options);
+        return $this->speechService->speak($text, $this->buildSpeakOptions($options), $this->getRetryArray());
     }
 
     /**
@@ -142,57 +97,83 @@ final class PendingSpeechRequest
      */
     public function transcribe(Audio|string $audio, array $options = []): array
     {
-        $service = $this->buildConfiguredService();
-
-        return $service->transcribe($audio, $options);
+        return $this->speechService->transcribe($audio, $this->buildTranscribeOptions($options), $this->getRetryArray());
     }
 
     /**
-     * Build a configured SpeechService instance with all fluent settings applied.
+     * Build the options array for speak operations.
+     *
+     * @param  array<string, mixed>  $additionalOptions
+     * @return array<string, mixed>
      */
-    private function buildConfiguredService(): SpeechService
+    private function buildSpeakOptions(array $additionalOptions = []): array
     {
-        $service = $this->speechService;
+        $options = $additionalOptions;
 
         $provider = $this->getProviderOverride();
         if ($provider !== null) {
-            $service = $service->using($provider);
+            $options['provider'] = $provider;
         }
 
         $model = $this->getModelOverride();
         if ($model !== null) {
-            $service = $service->model($model);
-        }
-
-        if ($this->transcriptionModel !== null) {
-            $service = $service->transcriptionModel($this->transcriptionModel);
+            $options['model'] = $model;
         }
 
         if ($this->voice !== null) {
-            $service = $service->voice($this->voice);
+            $options['voice'] = $this->voice;
         }
 
         if ($this->format !== null) {
-            $service = $service->format($this->format);
+            $options['format'] = $this->format;
         }
 
         if ($this->speed !== null) {
-            $service = $service->speed($this->speed);
+            $options['speed'] = $this->speed;
         }
 
-        if ($this->providerOptions !== []) {
-            $service = $service->withProviderOptions($this->providerOptions);
+        $providerOptions = $this->getProviderOptions();
+        if ($providerOptions !== []) {
+            $options['provider_options'] = $providerOptions;
         }
 
-        if ($this->getMetadata() !== []) {
-            $service = $service->withMetadata($this->getMetadata());
+        $metadata = $this->getMetadata();
+        if ($metadata !== []) {
+            $options['metadata'] = $metadata;
         }
 
-        $retryConfig = $this->getRetryArray();
-        if ($retryConfig !== null) {
-            $service = $service->withRetry(...$retryConfig);
+        return $options;
+    }
+
+    /**
+     * Build the options array for transcribe operations.
+     *
+     * @param  array<string, mixed>  $additionalOptions
+     * @return array<string, mixed>
+     */
+    private function buildTranscribeOptions(array $additionalOptions = []): array
+    {
+        $options = $additionalOptions;
+
+        $provider = $this->getProviderOverride();
+        if ($provider !== null) {
+            $options['provider'] = $provider;
         }
 
-        return $service;
+        if ($this->transcriptionModel !== null) {
+            $options['transcription_model'] = $this->transcriptionModel;
+        }
+
+        $providerOptions = $this->getProviderOptions();
+        if ($providerOptions !== []) {
+            $options['provider_options'] = $providerOptions;
+        }
+
+        $metadata = $this->getMetadata();
+        if ($metadata !== []) {
+            $options['metadata'] = $metadata;
+        }
+
+        return $options;
     }
 }

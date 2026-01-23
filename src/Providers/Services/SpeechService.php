@@ -6,41 +6,17 @@ namespace Atlasphp\Atlas\Providers\Services;
 
 use Atlasphp\Atlas\Foundation\Services\PipelineRunner;
 use Atlasphp\Atlas\Providers\Contracts\PrismBuilderContract;
-use Atlasphp\Atlas\Providers\Support\HasMetadataSupport;
-use Atlasphp\Atlas\Providers\Support\HasRetrySupport;
 use Prism\Prism\ValueObjects\Media\Audio;
+use RuntimeException;
 use Throwable;
 
 /**
- * Service for text-to-speech and speech-to-text operations.
+ * Stateless service for text-to-speech and speech-to-text operations.
  *
- * Provides a fluent API for speech operations with pipeline middleware support.
- * Uses clone pattern for immutability.
+ * Provides speech operations with pipeline middleware support.
  */
 class SpeechService
 {
-    use HasMetadataSupport;
-    use HasRetrySupport;
-
-    private ?string $provider = null;
-
-    private ?string $model = null;
-
-    private ?string $transcriptionModel = null;
-
-    private ?string $voice = null;
-
-    private ?string $format = null;
-
-    private ?float $speed = null;
-
-    /**
-     * Provider-specific options to pass through to Prism.
-     *
-     * @var array<string, mixed>
-     */
-    private array $providerOptions = [];
-
     public function __construct(
         private readonly PrismBuilderContract $prismBuilder,
         private readonly ProviderConfigService $configService,
@@ -48,100 +24,23 @@ class SpeechService
     ) {}
 
     /**
-     * Set the provider for speech operations.
-     */
-    public function using(string $provider): self
-    {
-        $clone = clone $this;
-        $clone->provider = $provider;
-
-        return $clone;
-    }
-
-    /**
-     * Set the model for text-to-speech operations.
-     */
-    public function model(string $model): self
-    {
-        $clone = clone $this;
-        $clone->model = $model;
-
-        return $clone;
-    }
-
-    /**
-     * Set the model for speech-to-text (transcription) operations.
-     */
-    public function transcriptionModel(string $model): self
-    {
-        $clone = clone $this;
-        $clone->transcriptionModel = $model;
-
-        return $clone;
-    }
-
-    /**
-     * Set the voice for text-to-speech.
-     */
-    public function voice(string $voice): self
-    {
-        $clone = clone $this;
-        $clone->voice = $voice;
-
-        return $clone;
-    }
-
-    /**
-     * Set the output format for audio.
-     */
-    public function format(string $format): self
-    {
-        $clone = clone $this;
-        $clone->format = $format;
-
-        return $clone;
-    }
-
-    /**
-     * Set the speech speed (0.25 to 4.0 for OpenAI).
-     */
-    public function speed(float $speed): self
-    {
-        $clone = clone $this;
-        $clone->speed = $speed;
-
-        return $clone;
-    }
-
-    /**
-     * Set provider-specific options.
-     *
-     * These options are passed directly to the provider via Prism's withProviderOptions().
-     * Use this for provider-specific features like language, timbre, etc.
-     *
-     * @param  array<string, mixed>  $options  Provider-specific options.
-     */
-    public function withProviderOptions(array $options): self
-    {
-        $clone = clone $this;
-        $clone->providerOptions = array_merge($clone->providerOptions, $options);
-
-        return $clone;
-    }
-
-    /**
      * Convert text to speech.
      *
      * @param  string  $text  The text to convert.
-     * @param  array<string, mixed>  $options  Additional options.
+     * @param  array<string, mixed>  $options  Options including provider, model, voice, format, speed, metadata, provider_options.
+     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      * @return array{audio: string, format: string}
      */
-    public function speak(string $text, array $options = []): array
+    public function speak(string $text, array $options = [], ?array $retry = null): array
     {
         $speechConfig = $this->configService->getSpeechConfig();
-        $provider = $this->provider ?? $options['provider'] ?? $speechConfig['provider'];
-        $model = $this->model ?? $options['model'] ?? $speechConfig['model'];
-        $format = $this->format ?? $options['format'] ?? 'mp3';
+        $provider = $options['provider'] ?? $speechConfig['provider'];
+        $model = $options['model'] ?? $speechConfig['model'];
+        $voice = $options['voice'] ?? null;
+        $format = $options['format'] ?? 'mp3';
+        $speed = $options['speed'] ?? null;
+        $metadata = $options['metadata'] ?? [];
+        $providerOptions = $options['provider_options'] ?? [];
 
         try {
             // Run before_speak pipeline
@@ -150,9 +49,9 @@ class SpeechService
                 'provider' => $provider,
                 'model' => $model,
                 'format' => $format,
-                'voice' => $this->voice ?? $options['voice'] ?? null,
+                'voice' => $voice,
                 'options' => $options,
-                'metadata' => $this->getMetadata(),
+                'metadata' => $metadata,
             ];
 
             /** @var array{text: string, provider: string, model: string, format: string, voice: string|null, options: array<string, mixed>, metadata: array<string, mixed>} $beforeData */
@@ -166,17 +65,17 @@ class SpeechService
             $model = $beforeData['model'];
             $format = $beforeData['format'];
 
-            // Build request options from fluent methods
+            // Build request options
             $requestOptions = array_filter([
                 'voice' => $beforeData['voice'],
-                'speed' => $this->speed ?? $options['speed'] ?? null,
+                'speed' => $speed,
             ]);
 
-            // Merge with provider-specific options (provider options take precedence)
-            $requestOptions = array_merge($requestOptions, $this->providerOptions);
+            // Merge with provider-specific options
+            $requestOptions = array_merge($requestOptions, $providerOptions);
 
             // Use explicit retry config or fall back to config-based retry
-            $retry = $this->getRetryArray() ?? $this->configService->getRetryConfig();
+            $retry = $retry ?? $this->configService->getRetryConfig();
 
             $request = $this->prismBuilder->forSpeech($provider, $model, $text, $requestOptions, $retry);
             $response = $request->asAudio();
@@ -188,7 +87,7 @@ class SpeechService
                 if (property_exists($audio, 'base64') && $audio->base64) {
                     $decoded = base64_decode($audio->base64, true);
                     if ($decoded === false) {
-                        throw new \RuntimeException('Failed to decode audio base64 content: invalid base64 data');
+                        throw new RuntimeException('Failed to decode audio base64 content: invalid base64 data');
                     }
                     $audioContent = $decoded;
                 } elseif (method_exists($audio, 'content')) {
@@ -208,7 +107,7 @@ class SpeechService
                 'model' => $model,
                 'voice' => $beforeData['voice'],
                 'format' => $format,
-                'metadata' => $this->getMetadata(),
+                'metadata' => $metadata,
                 'result' => $result,
             ];
 
@@ -220,15 +119,7 @@ class SpeechService
 
             return $afterData['result'];
         } catch (Throwable $e) {
-            $this->handleSpeakError(
-                $text,
-                $provider,
-                $model,
-                $this->voice ?? $options['voice'] ?? null,
-                $format,
-                $this->getMetadata(),
-                $e,
-            );
+            $this->handleSpeakError($text, $provider, $model, $voice, $format, $metadata, $e);
             throw $e;
         }
     }
@@ -237,14 +128,17 @@ class SpeechService
      * Transcribe audio to text (speech-to-text).
      *
      * @param  Audio|string  $audio  Audio object or file path.
-     * @param  array<string, mixed>  $options  Additional options.
+     * @param  array<string, mixed>  $options  Options including provider, transcription_model, metadata, provider_options.
+     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      * @return array{text: string, language: string|null, duration: float|null}
      */
-    public function transcribe(Audio|string $audio, array $options = []): array
+    public function transcribe(Audio|string $audio, array $options = [], ?array $retry = null): array
     {
         $speechConfig = $this->configService->getSpeechConfig();
-        $provider = $this->provider ?? $options['provider'] ?? $speechConfig['provider'];
-        $model = $this->transcriptionModel ?? $options['model'] ?? $speechConfig['transcription_model'];
+        $provider = $options['provider'] ?? $speechConfig['provider'];
+        $model = $options['transcription_model'] ?? $speechConfig['transcription_model'];
+        $metadata = $options['metadata'] ?? [];
+        $providerOptions = $options['provider_options'] ?? [];
 
         try {
             // Run before_transcribe pipeline
@@ -253,7 +147,7 @@ class SpeechService
                 'provider' => $provider,
                 'model' => $model,
                 'options' => $options,
-                'metadata' => $this->getMetadata(),
+                'metadata' => $metadata,
             ];
 
             /** @var array{audio: Audio|string, provider: string, model: string, options: array<string, mixed>, metadata: array<string, mixed>} $beforeData */
@@ -271,10 +165,13 @@ class SpeechService
                 ? $audio
                 : Audio::fromLocalPath($audio);
 
-            // Use explicit retry config or fall back to config-based retry
-            $retry = $this->getRetryArray() ?? $this->configService->getRetryConfig();
+            // Merge provider options
+            $requestOptions = array_merge($options, $providerOptions);
 
-            $request = $this->prismBuilder->forTranscription($provider, $model, $audioObject, $options, $retry);
+            // Use explicit retry config or fall back to config-based retry
+            $retry = $retry ?? $this->configService->getRetryConfig();
+
+            $request = $this->prismBuilder->forTranscription($provider, $model, $audioObject, $requestOptions, $retry);
             $response = $request->asText();
 
             $result = [
@@ -289,7 +186,7 @@ class SpeechService
                 'provider' => $provider,
                 'model' => $model,
                 'options' => $options,
-                'metadata' => $this->getMetadata(),
+                'metadata' => $metadata,
                 'result' => $result,
             ];
 
@@ -301,7 +198,7 @@ class SpeechService
 
             return $afterData['result'];
         } catch (Throwable $e) {
-            $this->handleTranscribeError($audio, $provider, $model, $options, $this->getMetadata(), $e);
+            $this->handleTranscribeError($audio, $provider, $model, $options, $metadata, $e);
             throw $e;
         }
     }

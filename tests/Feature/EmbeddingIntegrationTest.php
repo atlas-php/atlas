@@ -6,6 +6,7 @@ use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
 use Atlasphp\Atlas\Agents\Services\AgentResolver;
 use Atlasphp\Atlas\Foundation\Services\PipelineRunner;
 use Atlasphp\Atlas\Providers\Contracts\EmbeddingProviderContract;
+use Atlasphp\Atlas\Providers\Contracts\PrismBuilderContract;
 use Atlasphp\Atlas\Providers\Facades\Atlas;
 use Atlasphp\Atlas\Providers\Services\AtlasManager;
 use Atlasphp\Atlas\Providers\Services\EmbeddingService;
@@ -48,6 +49,7 @@ beforeEach(function () {
             $mockProvider,
             $app->make(PipelineRunner::class),
             $app->make(ProviderConfigService::class),
+            $app->make(PrismBuilderContract::class),
         );
     });
 

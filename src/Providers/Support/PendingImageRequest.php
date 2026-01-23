@@ -22,36 +22,9 @@ final class PendingImageRequest
 
     private ?string $quality = null;
 
-    /**
-     * Provider-specific options to pass through to Prism.
-     *
-     * @var array<string, mixed>
-     */
-    private array $providerOptions = [];
-
     public function __construct(
         private readonly ImageService $imageService,
     ) {}
-
-    /**
-     * Set the provider for image generation.
-     *
-     * Alias for withProvider() for convenience.
-     */
-    public function using(string $provider): static
-    {
-        return $this->withProvider($provider);
-    }
-
-    /**
-     * Set the model for image generation.
-     *
-     * Alias for withModel() for convenience.
-     */
-    public function model(string $model): static
-    {
-        return $this->withModel($model);
-    }
 
     /**
      * Set the image size.
@@ -76,22 +49,6 @@ final class PendingImageRequest
     }
 
     /**
-     * Set provider-specific options.
-     *
-     * These options are passed directly to the provider via Prism's withProviderOptions().
-     * Use this for provider-specific features like style, response_format, etc.
-     *
-     * @param  array<string, mixed>  $options  Provider-specific options.
-     */
-    public function withProviderOptions(array $options): static
-    {
-        $clone = clone $this;
-        $clone->providerOptions = array_merge($clone->providerOptions, $options);
-
-        return $clone;
-    }
-
-    /**
      * Generate an image from the given prompt.
      *
      * @param  string  $prompt  The image prompt.
@@ -100,49 +57,47 @@ final class PendingImageRequest
      */
     public function generate(string $prompt, array $options = []): array
     {
-        $service = $this->buildConfiguredService();
-
-        return $service->generate($prompt, $options);
+        return $this->imageService->generate($prompt, $this->buildOptions($options), $this->getRetryArray());
     }
 
     /**
-     * Build a configured ImageService instance with all fluent settings applied.
+     * Build the options array from fluent configuration.
+     *
+     * @param  array<string, mixed>  $additionalOptions
+     * @return array<string, mixed>
      */
-    private function buildConfiguredService(): ImageService
+    private function buildOptions(array $additionalOptions = []): array
     {
-        $service = $this->imageService;
+        $options = $additionalOptions;
 
         $provider = $this->getProviderOverride();
         if ($provider !== null) {
-            $service = $service->using($provider);
+            $options['provider'] = $provider;
         }
 
         $model = $this->getModelOverride();
         if ($model !== null) {
-            $service = $service->model($model);
+            $options['model'] = $model;
         }
 
         if ($this->size !== null) {
-            $service = $service->size($this->size);
+            $options['size'] = $this->size;
         }
 
         if ($this->quality !== null) {
-            $service = $service->quality($this->quality);
+            $options['quality'] = $this->quality;
         }
 
-        if ($this->providerOptions !== []) {
-            $service = $service->withProviderOptions($this->providerOptions);
+        $providerOptions = $this->getProviderOptions();
+        if ($providerOptions !== []) {
+            $options['provider_options'] = $providerOptions;
         }
 
-        if ($this->getMetadata() !== []) {
-            $service = $service->withMetadata($this->getMetadata());
+        $metadata = $this->getMetadata();
+        if ($metadata !== []) {
+            $options['metadata'] = $metadata;
         }
 
-        $retryConfig = $this->getRetryArray();
-        if ($retryConfig !== null) {
-            $service = $service->withRetry(...$retryConfig);
-        }
-
-        return $service;
+        return $options;
     }
 }
