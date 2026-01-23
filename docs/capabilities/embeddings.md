@@ -16,13 +16,13 @@ Embeddings are numerical representations of text that capture semantic meaning. 
 ```php
 use Atlasphp\Atlas\Providers\Facades\Atlas;
 
-$embedding = Atlas::embed('What is the return policy?');
+$embedding = Atlas::embeddings()->generate('What is the return policy?');
 // Returns array of 1536 floats (for text-embedding-3-small)
 ```
 
 ## Batch Embeddings
 
-Process multiple texts efficiently:
+Process multiple texts efficiently by passing an array:
 
 ```php
 $texts = [
@@ -31,27 +31,14 @@ $texts = [
     'Do you offer refunds?',
 ];
 
-$embeddings = Atlas::embedBatch($texts);
+$embeddings = Atlas::embeddings()->generate($texts);
 // Returns array of 3 embedding vectors
-```
-
-## Custom Dimensions
-
-Some models support variable output dimensions:
-
-```php
-// Smaller dimensions for faster similarity search
-$embedding = Atlas::embed('Hello world', ['dimensions' => 256]);
-// Returns array of 256 floats
-
-// Batch with options
-$embeddings = Atlas::embedBatch($texts, ['dimensions' => 512]);
 ```
 
 ## Get Configured Dimensions
 
 ```php
-$dimensions = Atlas::embeddingDimensions();
+$dimensions = Atlas::embeddings()->dimensions();
 // 1536 (for text-embedding-3-small)
 ```
 
@@ -93,12 +80,12 @@ ATLAS_EMBEDDING_BATCH_SIZE=100
 // Index documents
 $documents = Document::all();
 foreach ($documents as $doc) {
-    $doc->embedding = Atlas::embed($doc->content);
+    $doc->embedding = Atlas::embeddings()->generate($doc->content);
     $doc->save();
 }
 
 // Search with query
-$queryEmbedding = Atlas::embed('How do I reset my password?');
+$queryEmbedding = Atlas::embeddings()->generate('How do I reset my password?');
 
 // Find similar documents (using pgvector)
 $results = Document::query()
@@ -115,7 +102,7 @@ class RagService
     public function answer(string $question): string
     {
         // 1. Generate query embedding
-        $queryEmbedding = Atlas::embed($question);
+        $queryEmbedding = Atlas::embeddings()->generate($question);
 
         // 2. Find relevant documents
         $context = Document::query()
@@ -125,9 +112,9 @@ class RagService
             ->join("\n\n");
 
         // 3. Generate answer with context
-        $response = Atlas::forMessages([])
+        $response = Atlas::agent('rag-agent')
             ->withVariables(['context' => $context])
-            ->chat('rag-agent', $question);
+            ->chat($question);
 
         return $response->text;
     }
@@ -199,11 +186,11 @@ class DocumentChunker
 
 ```php
 // Good - single batch request
-$embeddings = Atlas::embedBatch($texts);
+$embeddings = Atlas::embeddings()->generate($texts);
 
 // Less efficient - multiple requests
 foreach ($texts as $text) {
-    $embeddings[] = Atlas::embed($text);
+    $embeddings[] = Atlas::embeddings()->generate($text);
 }
 ```
 
@@ -211,17 +198,7 @@ foreach ($texts as $text) {
 
 ```php
 $cacheKey = 'embedding:' . md5($text);
-$embedding = Cache::remember($cacheKey, 3600, fn() => Atlas::embed($text));
-```
-
-### 3. Use Appropriate Dimensions
-
-```php
-// For similarity search with many documents
-$embedding = Atlas::embed($text, ['dimensions' => 256]);
-
-// For high-precision matching
-$embedding = Atlas::embed($text, ['dimensions' => 1536]);
+$embedding = Cache::remember($cacheKey, 3600, fn() => Atlas::embeddings()->generate($text));
 ```
 
 ## Database Storage
@@ -250,15 +227,65 @@ CREATE TABLE documents (
 );
 ```
 
+## Retry & Resilience
+
+Enable automatic retries for embedding requests using the fluent pattern:
+
+```php
+// Simple retry: 3 attempts, 1 second delay
+$embedding = Atlas::embeddings()
+    ->withRetry(3, 1000)
+    ->generate('Hello world');
+
+// Batch with retry
+$embeddings = Atlas::embeddings()
+    ->withRetry(3, 1000)
+    ->generate($texts);
+
+// Exponential backoff
+$embedding = Atlas::embeddings()
+    ->withRetry(3, fn($attempt) => (2 ** $attempt) * 100)
+    ->generate('Hello world');
+
+// Only retry on rate limits
+$embedding = Atlas::embeddings()
+    ->withRetry(3, 1000, fn($e) => $e->getCode() === 429)
+    ->generate('Hello world');
+```
+
+## Provider Override
+
+Override the configured provider or model at runtime:
+
+```php
+// Use a different model
+$embedding = Atlas::embeddings()
+    ->withModel('text-embedding-3-large')
+    ->generate('Hello world');
+
+// Use a different provider and model
+$embedding = Atlas::embeddings()
+    ->withProvider('anthropic', 'claude-embedding-1')
+    ->generate('Hello world');
+
+// Pass provider-specific options
+$embedding = Atlas::embeddings()
+    ->withProviderOptions(['dimensions' => 256])
+    ->generate('Hello world');
+```
+
 ## API Summary
 
 | Method | Description |
 |--------|-------------|
-| `Atlas::embed($text)` | Single text embedding |
-| `Atlas::embed($text, $options)` | Single embedding with options |
-| `Atlas::embedBatch($texts)` | Batch embeddings |
-| `Atlas::embedBatch($texts, $options)` | Batch embeddings with options |
-| `Atlas::embeddingDimensions()` | Get configured vector dimensions |
+| `Atlas::embeddings()->generate($text)` | Single text embedding |
+| `Atlas::embeddings()->generate($texts)` | Batch embeddings (array input) |
+| `Atlas::embeddings()->dimensions()` | Get configured vector dimensions |
+| `Atlas::embeddings()->withProvider($provider, $model)` | Override provider/model |
+| `Atlas::embeddings()->withModel($model)` | Override model |
+| `Atlas::embeddings()->withProviderOptions($options)` | Provider-specific options |
+| `Atlas::embeddings()->withRetry(...)->generate($text)` | With retry |
+| `Atlas::embeddings()->withMetadata([...])->generate($text)` | With metadata |
 
 ## Next Steps
 

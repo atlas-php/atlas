@@ -27,42 +27,122 @@ beforeEach(function () {
     $this->service = new ImageService($this->prismBuilder, $this->configService, $this->pipelineRunner);
 });
 
-test('it returns a new instance when using provider', function () {
-    $newService = $this->service->using('anthropic');
+test('it generates image with defaults', function () {
+    $mockRequest = Mockery::mock();
 
-    expect($newService)->toBeInstanceOf(ImageService::class);
-    expect($newService)->not->toBe($this->service);
+    $mockImage = new stdClass;
+    $mockImage->url = 'https://example.com/image.png';
+    $mockImage->base64 = null;
+    $mockImage->revisedPrompt = null;
+
+    $mockResponse = new stdClass;
+    $mockResponse->images = [$mockImage];
+
+    $this->prismBuilder
+        ->shouldReceive('forImage')
+        ->with('openai', 'dall-e-3', 'A sunset', [], null)
+        ->once()
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('generate')
+        ->once()
+        ->andReturn($mockResponse);
+
+    $result = $this->service->generate('A sunset');
+
+    expect($result)->toBeArray();
+    expect($result['url'])->toBe('https://example.com/image.png');
 });
 
-test('it returns a new instance when setting model', function () {
-    $newService = $this->service->model('dall-e-2');
+test('it generates image with provider override', function () {
+    $mockRequest = Mockery::mock();
 
-    expect($newService)->toBeInstanceOf(ImageService::class);
-    expect($newService)->not->toBe($this->service);
+    $mockImage = new stdClass;
+    $mockImage->url = 'https://example.com/image.png';
+    $mockImage->base64 = null;
+    $mockImage->revisedPrompt = null;
+
+    $mockResponse = new stdClass;
+    $mockResponse->images = [$mockImage];
+
+    $this->prismBuilder
+        ->shouldReceive('forImage')
+        ->with('anthropic', 'dall-e-3', 'A sunset', [], null)
+        ->once()
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('generate')
+        ->once()
+        ->andReturn($mockResponse);
+
+    $result = $this->service->generate('A sunset', ['provider' => 'anthropic']);
+
+    expect($result)->toBeArray();
+    expect($result['url'])->toBe('https://example.com/image.png');
 });
 
-test('it returns a new instance when setting size', function () {
-    $newService = $this->service->size('1024x1024');
+test('it generates image with model override', function () {
+    $mockRequest = Mockery::mock();
 
-    expect($newService)->toBeInstanceOf(ImageService::class);
-    expect($newService)->not->toBe($this->service);
+    $mockImage = new stdClass;
+    $mockImage->url = 'https://example.com/image.png';
+    $mockImage->base64 = null;
+    $mockImage->revisedPrompt = null;
+
+    $mockResponse = new stdClass;
+    $mockResponse->images = [$mockImage];
+
+    $this->prismBuilder
+        ->shouldReceive('forImage')
+        ->with('openai', 'dall-e-2', 'A sunset', [], null)
+        ->once()
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('generate')
+        ->once()
+        ->andReturn($mockResponse);
+
+    $result = $this->service->generate('A sunset', ['model' => 'dall-e-2']);
+
+    expect($result)->toBeArray();
+    expect($result['url'])->toBe('https://example.com/image.png');
 });
 
-test('it returns a new instance when setting quality', function () {
-    $newService = $this->service->quality('hd');
+test('it generates image with size and quality', function () {
+    $mockRequest = Mockery::mock();
 
-    expect($newService)->toBeInstanceOf(ImageService::class);
-    expect($newService)->not->toBe($this->service);
+    $mockImage = new stdClass;
+    $mockImage->url = 'https://example.com/image.png';
+    $mockImage->base64 = null;
+    $mockImage->revisedPrompt = null;
+
+    $mockResponse = new stdClass;
+    $mockResponse->images = [$mockImage];
+
+    $this->prismBuilder
+        ->shouldReceive('forImage')
+        ->with('openai', 'dall-e-3', 'A sunset', ['size' => '1024x1024', 'quality' => 'hd'], null)
+        ->once()
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('generate')
+        ->once()
+        ->andReturn($mockResponse);
+
+    $result = $this->service->generate('A sunset', [
+        'size' => '1024x1024',
+        'quality' => 'hd',
+    ]);
+
+    expect($result)->toBeArray();
+    expect($result['url'])->toBe('https://example.com/image.png');
 });
 
-test('it returns a new instance when setting provider options', function () {
-    $newService = $this->service->withProviderOptions(['style' => 'vivid']);
-
-    expect($newService)->toBeInstanceOf(ImageService::class);
-    expect($newService)->not->toBe($this->service);
-});
-
-test('it merges provider options', function () {
+test('it passes provider options to PrismBuilder', function () {
     $mockRequest = Mockery::mock();
 
     $mockImage = new stdClass;
@@ -76,9 +156,8 @@ test('it merges provider options', function () {
     $this->prismBuilder
         ->shouldReceive('forImage')
         ->with('openai', 'dall-e-3', 'A sunset', Mockery::on(function ($options) {
-            return isset($options['style']) && $options['style'] === 'vivid'
-                && isset($options['response_format']) && $options['response_format'] === 'url';
-        }))
+            return isset($options['style']) && $options['style'] === 'vivid';
+        }), null)
         ->once()
         ->andReturn($mockRequest);
 
@@ -87,44 +166,10 @@ test('it merges provider options', function () {
         ->once()
         ->andReturn($mockResponse);
 
-    $this->service
-        ->withProviderOptions(['style' => 'vivid'])
-        ->withProviderOptions(['response_format' => 'url'])
-        ->generate('A sunset');
+    $this->service->generate('A sunset', ['provider_options' => ['style' => 'vivid']]);
 });
 
-test('it generates image with defaults', function () {
-    $mockRequest = Mockery::mock();
-
-    $mockImage = new stdClass;
-    $mockImage->url = 'https://example.com/image.png';
-    $mockImage->base64 = null;
-    $mockImage->revisedPrompt = 'A beautiful sunset over mountains';
-
-    $mockResponse = new stdClass;
-    $mockResponse->images = [$mockImage];
-
-    $this->prismBuilder
-        ->shouldReceive('forImage')
-        ->with('openai', 'dall-e-3', 'A sunset', Mockery::type('array'))
-        ->once()
-        ->andReturn($mockRequest);
-
-    $mockRequest
-        ->shouldReceive('generate')
-        ->once()
-        ->andReturn($mockResponse);
-
-    $result = $this->service->generate('A sunset');
-
-    expect($result)->toBe([
-        'url' => 'https://example.com/image.png',
-        'base64' => null,
-        'revised_prompt' => 'A beautiful sunset over mountains',
-    ]);
-});
-
-test('it chains fluent methods', function () {
+test('it passes retry to PrismBuilder', function () {
     $mockRequest = Mockery::mock();
 
     $mockImage = new stdClass;
@@ -135,9 +180,11 @@ test('it chains fluent methods', function () {
     $mockResponse = new stdClass;
     $mockResponse->images = [$mockImage];
 
+    $retryConfig = [3, 1000, null, true];
+
     $this->prismBuilder
         ->shouldReceive('forImage')
-        ->with('anthropic', 'custom-model', 'A sunset', Mockery::type('array'))
+        ->with('openai', 'dall-e-3', 'A sunset', [], $retryConfig)
         ->once()
         ->andReturn($mockRequest);
 
@@ -146,14 +193,7 @@ test('it chains fluent methods', function () {
         ->once()
         ->andReturn($mockResponse);
 
-    $result = $this->service
-        ->using('anthropic')
-        ->model('custom-model')
-        ->size('512x512')
-        ->quality('standard')
-        ->generate('A sunset');
-
-    expect($result)->toHaveKeys(['url', 'base64', 'revised_prompt']);
+    $this->service->generate('A sunset', [], $retryConfig);
 });
 
 test('it runs image.before_generate pipeline', function () {
@@ -162,20 +202,17 @@ test('it runs image.before_generate pipeline', function () {
     $this->registry->register('image.before_generate', ImageBeforeGenerateHandler::class);
 
     $mockRequest = Mockery::mock();
-    $mockImage = new stdClass;
-    $mockImage->url = 'https://example.com/image.png';
-    $mockImage->base64 = null;
-    $mockImage->revisedPrompt = null;
-
     $mockResponse = new stdClass;
-    $mockResponse->images = [$mockImage];
+    $mockResponse->images = [];
 
     $this->prismBuilder
         ->shouldReceive('forImage')
+        ->once()
         ->andReturn($mockRequest);
 
     $mockRequest
         ->shouldReceive('generate')
+        ->once()
         ->andReturn($mockResponse);
 
     $this->service->generate('A sunset');
@@ -193,6 +230,7 @@ test('it runs image.after_generate pipeline', function () {
     $this->registry->register('image.after_generate', ImageAfterGenerateHandler::class);
 
     $mockRequest = Mockery::mock();
+
     $mockImage = new stdClass;
     $mockImage->url = 'https://example.com/image.png';
     $mockImage->base64 = null;
@@ -203,55 +241,20 @@ test('it runs image.after_generate pipeline', function () {
 
     $this->prismBuilder
         ->shouldReceive('forImage')
-        ->andReturn($mockRequest);
-
-    $mockRequest
-        ->shouldReceive('generate')
-        ->andReturn($mockResponse);
-
-    $this->service
-        ->size('1024x1024')
-        ->quality('hd')
-        ->generate('A sunset');
-
-    expect(ImageAfterGenerateHandler::$called)->toBeTrue();
-    expect(ImageAfterGenerateHandler::$data)->not->toBeNull();
-    expect(ImageAfterGenerateHandler::$data['prompt'])->toBe('A sunset');
-    expect(ImageAfterGenerateHandler::$data['provider'])->toBe('openai');
-    expect(ImageAfterGenerateHandler::$data['model'])->toBe('dall-e-3');
-    expect(ImageAfterGenerateHandler::$data['size'])->toBe('1024x1024');
-    expect(ImageAfterGenerateHandler::$data['quality'])->toBe('hd');
-    expect(ImageAfterGenerateHandler::$data['result'])->toBe([
-        'url' => 'https://example.com/image.png',
-        'base64' => null,
-        'revised_prompt' => 'Revised prompt',
-    ]);
-});
-
-test('it allows before_generate pipeline to modify prompt', function () {
-    $this->registry->define('image.before_generate', 'Before generate pipeline');
-    $this->registry->register('image.before_generate', ImagePromptModifyingHandler::class);
-
-    $mockRequest = Mockery::mock();
-    $mockImage = new stdClass;
-    $mockImage->url = 'https://example.com/image.png';
-    $mockImage->base64 = null;
-    $mockImage->revisedPrompt = null;
-
-    $mockResponse = new stdClass;
-    $mockResponse->images = [$mockImage];
-
-    $this->prismBuilder
-        ->shouldReceive('forImage')
-        ->with('openai', 'dall-e-3', 'MODIFIED: A sunset', Mockery::type('array'))
         ->once()
         ->andReturn($mockRequest);
 
     $mockRequest
         ->shouldReceive('generate')
+        ->once()
         ->andReturn($mockResponse);
 
     $this->service->generate('A sunset');
+
+    expect(ImageAfterGenerateHandler::$called)->toBeTrue();
+    expect(ImageAfterGenerateHandler::$data)->not->toBeNull();
+    expect(ImageAfterGenerateHandler::$data['prompt'])->toBe('A sunset');
+    expect(ImageAfterGenerateHandler::$data['result']['url'])->toBe('https://example.com/image.png');
 });
 
 test('it runs image.on_error pipeline when generate fails', function () {
@@ -263,17 +266,15 @@ test('it runs image.on_error pipeline when generate fails', function () {
 
     $this->prismBuilder
         ->shouldReceive('forImage')
+        ->once()
         ->andReturn($mockRequest);
 
     $mockRequest
         ->shouldReceive('generate')
-        ->andThrow(new \RuntimeException('Image API Error'));
+        ->andThrow(new \RuntimeException('API Error'));
 
     try {
-        $this->service
-            ->size('1024x1024')
-            ->quality('hd')
-            ->generate('A sunset');
+        $this->service->generate('A sunset');
     } catch (\RuntimeException $e) {
         // Expected
     }
@@ -283,37 +284,16 @@ test('it runs image.on_error pipeline when generate fails', function () {
     expect(ImageErrorHandler::$data['prompt'])->toBe('A sunset');
     expect(ImageErrorHandler::$data['provider'])->toBe('openai');
     expect(ImageErrorHandler::$data['model'])->toBe('dall-e-3');
-    expect(ImageErrorHandler::$data['size'])->toBe('1024x1024');
-    expect(ImageErrorHandler::$data['quality'])->toBe('hd');
     expect(ImageErrorHandler::$data['exception'])->toBeInstanceOf(\RuntimeException::class);
-    expect(ImageErrorHandler::$data['exception']->getMessage())->toBe('Image API Error');
 });
 
-test('it rethrows exception after running error pipeline', function () {
-    $this->registry->define('image.on_error', 'Error pipeline');
-    ImageErrorHandler::reset();
-    $this->registry->register('image.on_error', ImageErrorHandler::class);
+test('it includes size and quality in after_generate pipeline', function () {
+    $this->registry->define('image.after_generate', 'After generate pipeline');
+    ImageAfterGenerateHandler::reset();
+    $this->registry->register('image.after_generate', ImageAfterGenerateHandler::class);
 
     $mockRequest = Mockery::mock();
 
-    $this->prismBuilder
-        ->shouldReceive('forImage')
-        ->andReturn($mockRequest);
-
-    $mockRequest
-        ->shouldReceive('generate')
-        ->andThrow(new \RuntimeException('Image API Error'));
-
-    expect(fn () => $this->service->generate('A sunset'))
-        ->toThrow(\RuntimeException::class, 'Image API Error');
-});
-
-test('it includes size and quality in before_generate pipeline data', function () {
-    $this->registry->define('image.before_generate', 'Before generate pipeline');
-    ImageBeforeGenerateHandler::reset();
-    $this->registry->register('image.before_generate', ImageBeforeGenerateHandler::class);
-
-    $mockRequest = Mockery::mock();
     $mockImage = new stdClass;
     $mockImage->url = 'https://example.com/image.png';
     $mockImage->base64 = null;
@@ -324,19 +304,54 @@ test('it includes size and quality in before_generate pipeline data', function (
 
     $this->prismBuilder
         ->shouldReceive('forImage')
+        ->once()
         ->andReturn($mockRequest);
 
     $mockRequest
         ->shouldReceive('generate')
+        ->once()
         ->andReturn($mockResponse);
 
-    $this->service
-        ->size('1024x1024')
-        ->quality('hd')
-        ->generate('A sunset');
+    $this->service->generate('A sunset', ['size' => '1024x1024', 'quality' => 'hd']);
 
-    expect(ImageBeforeGenerateHandler::$data['size'])->toBe('1024x1024');
-    expect(ImageBeforeGenerateHandler::$data['quality'])->toBe('hd');
+    expect(ImageAfterGenerateHandler::$data['size'])->toBe('1024x1024');
+    expect(ImageAfterGenerateHandler::$data['quality'])->toBe('hd');
+});
+
+test('it uses config retry when explicit retry is null', function () {
+    $configRetry = [2, 500, null, true];
+    $configService = new ProviderConfigService(new Repository([
+        'atlas' => [
+            'image' => [
+                'provider' => 'openai',
+                'model' => 'dall-e-3',
+            ],
+            'retry' => [
+                'enabled' => true,
+                'times' => 2,
+                'delay_ms' => 500,
+            ],
+        ],
+    ]));
+
+    $service = new ImageService($this->prismBuilder, $configService, $this->pipelineRunner);
+
+    $mockRequest = Mockery::mock();
+    $mockResponse = new stdClass;
+    $mockResponse->images = [];
+
+    $this->prismBuilder
+        ->shouldReceive('forImage')
+        ->with('openai', 'dall-e-3', 'A sunset', [], $configRetry)
+        ->once()
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('generate')
+        ->once()
+        ->andReturn($mockResponse);
+
+    $service->generate('A sunset');
 });
 
 // Pipeline Handler Classes for Tests
@@ -378,16 +393,6 @@ class ImageAfterGenerateHandler implements PipelineContract
     {
         self::$called = true;
         self::$data = $data;
-
-        return $next($data);
-    }
-}
-
-class ImagePromptModifyingHandler implements PipelineContract
-{
-    public function handle(mixed $data, \Closure $next): mixed
-    {
-        $data['prompt'] = 'MODIFIED: '.$data['prompt'];
 
         return $next($data);
     }

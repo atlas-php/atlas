@@ -38,7 +38,7 @@ class ConversationSummarizer
         $toSummarize = array_slice($messages, 0, -10);
         $recent = array_slice($messages, -10);
 
-        $summary = Atlas::chat('summarizer', json_encode($toSummarize));
+        $summary = Atlas::agent('summarizer')->chat(json_encode($toSummarize));
 
         return [
             ['role' => 'system', 'content' => "Previous: {$summary->text}"],
@@ -83,7 +83,7 @@ class CachedEmbeddingService
     {
         $key = 'embedding:' . md5($text);
 
-        return Cache::remember($key, 86400, fn() => Atlas::embed($text));
+        return Cache::remember($key, 86400, fn() => Atlas::embeddings()->generate($text));
     }
 }
 ```
@@ -106,12 +106,12 @@ class CachedChatService
                 return AgentResponse::text($cached);
             }
 
-            $response = Atlas::chat('agent', $input);
+            $response = Atlas::agent('agent')->chat($input);
             Cache::put($key, $response->text, 3600);
             return $response;
         }
 
-        return Atlas::chat('agent', $input);
+        return Atlas::agent('agent')->chat($input);
     }
 
     private function isCacheable(string $input): bool
@@ -131,11 +131,11 @@ Use batch API for multiple texts:
 
 ```php
 // Good - single batch request
-$embeddings = Atlas::embedBatch($texts);
+$embeddings = Atlas::embeddings()->generate($texts);
 
 // Avoid - multiple requests
 foreach ($texts as $text) {
-    $embeddings[] = Atlas::embed($text);
+    $embeddings[] = Atlas::embeddings()->generate($text);
 }
 ```
 
@@ -152,7 +152,7 @@ class EmbeddingJob implements ShouldQueue
 
     public function handle(): void
     {
-        $embedding = Atlas::embed($this->document->content);
+        $embedding = Atlas::embeddings()->generate($this->document->content);
         $this->document->embedding = $embedding;
         $this->document->save();
     }

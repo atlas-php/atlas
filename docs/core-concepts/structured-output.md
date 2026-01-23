@@ -21,7 +21,7 @@ $schema = new ObjectSchema(
     requiredFields: ['sentiment', 'confidence'],
 );
 
-$response = Atlas::chat('analyzer', 'I love this product!', schema: $schema);
+$response = Atlas::agent('analyzer')->withSchema($schema)->chat('I love this product!');
 
 echo $response->structured['sentiment'];   // "positive"
 echo $response->structured['confidence'];  // 0.95
@@ -131,12 +131,14 @@ $schema = new ObjectSchema(
 );
 ```
 
-## Using with forMessages()
+## With Variables and Messages
 
 ```php
-$response = Atlas::forMessages($messages)
+$response = Atlas::agent('extractor')
+    ->withMessages($messages)
     ->withVariables(['user_name' => 'John'])
-    ->chat('extractor', 'Extract the data', $schema);
+    ->withSchema($schema)
+    ->chat('Extract the data');
 
 $data = $response->structured;
 ```
@@ -144,7 +146,7 @@ $data = $response->structured;
 ## Checking Responses
 
 ```php
-$response = Atlas::chat('agent', 'Analyze this', schema: $schema);
+$response = Atlas::agent('agent')->withSchema($schema)->chat('Analyze this');
 
 if ($response->hasStructured()) {
     $data = $response->structured;
@@ -173,11 +175,9 @@ $schema = new ObjectSchema(
     requiredFields: ['name'],
 );
 
-$response = Atlas::chat(
-    'extractor',
-    'Contact: John Smith, john@example.com, 555-1234',
-    schema: $schema,
-);
+$response = Atlas::agent('extractor')
+    ->withSchema($schema)
+    ->chat('Contact: John Smith, john@example.com, 555-1234');
 
 // $response->structured = ['name' => 'John Smith', 'email' => 'john@example.com', 'phone' => '555-1234']
 ```
@@ -198,11 +198,9 @@ $schema = new ObjectSchema(
     requiredFields: ['category', 'confidence'],
 );
 
-$response = Atlas::chat(
-    'classifier',
-    'I want to return my order and get a refund',
-    schema: $schema,
-);
+$response = Atlas::agent('classifier')
+    ->withSchema($schema)
+    ->chat('I want to return my order and get a refund');
 
 // $response->structured = ['category' => 'support', 'confidence' => 0.92, 'tags' => ['refund', 'return']]
 ```

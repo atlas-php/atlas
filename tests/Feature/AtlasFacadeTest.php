@@ -4,16 +4,25 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Agents\Contracts\AgentRegistryContract;
 use Atlasphp\Atlas\Agents\Support\AgentResponse;
+use Atlasphp\Atlas\Agents\Support\PendingAgentRequest;
 use Atlasphp\Atlas\Providers\Contracts\PrismBuilderContract;
 use Atlasphp\Atlas\Providers\Facades\Atlas;
 use Atlasphp\Atlas\Providers\Services\AtlasManager;
-use Atlasphp\Atlas\Providers\Services\ImageService;
-use Atlasphp\Atlas\Providers\Services\SpeechService;
-use Atlasphp\Atlas\Providers\Support\MessageContextBuilder;
+use Atlasphp\Atlas\Providers\Support\PendingEmbeddingRequest;
+use Atlasphp\Atlas\Providers\Support\PendingImageRequest;
+use Atlasphp\Atlas\Providers\Support\PendingSpeechRequest;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
 
 test('facade resolves atlas manager', function () {
     expect(Atlas::getFacadeRoot())->toBeInstanceOf(AtlasManager::class);
+});
+
+test('agent returns pending agent request', function () {
+    expect(Atlas::agent('test-agent'))->toBeInstanceOf(PendingAgentRequest::class);
+});
+
+test('embeddings returns pending embedding request', function () {
+    expect(Atlas::embeddings())->toBeInstanceOf(PendingEmbeddingRequest::class);
 });
 
 test('it executes simple chat', function () {
@@ -50,13 +59,13 @@ test('it executes simple chat', function () {
     $registry = app(AgentRegistryContract::class);
     $registry->register(TestAgent::class);
 
-    $response = Atlas::chat('test-agent', 'Hello');
+    $response = Atlas::agent('test-agent')->chat('Hello');
 
     expect($response)->toBeInstanceOf(AgentResponse::class);
     expect($response->text)->toBe('Hello from agent');
 });
 
-test('it executes chat with forMessages', function () {
+test('it executes chat with messages', function () {
     $mockResponse = new class
     {
         public ?string $text = 'Continuing conversation';
@@ -94,11 +103,10 @@ test('it executes chat with forMessages', function () {
         ['role' => 'assistant', 'content' => 'Hi there!'],
     ];
 
-    $builder = Atlas::forMessages($messages);
-    expect($builder)->toBeInstanceOf(MessageContextBuilder::class);
-    expect($builder->getMessages())->toBe($messages);
+    $response = Atlas::agent('test-agent')
+        ->withMessages($messages)
+        ->chat('Continue');
 
-    $response = $builder->chat('test-agent', 'Continue');
     expect($response)->toBeInstanceOf(AgentResponse::class);
     expect($response->text)->toBe('Continuing conversation');
 });
@@ -136,9 +144,10 @@ test('it executes chat with variables', function () {
     $registry = app(AgentRegistryContract::class);
     $registry->register(TestAgent::class);
 
-    $response = Atlas::forMessages([['role' => 'user', 'content' => 'Hello']])
+    $response = Atlas::agent('test-agent')
+        ->withMessages([['role' => 'user', 'content' => 'Hello']])
         ->withVariables(['user_name' => 'John'])
-        ->chat('test-agent', 'Continue');
+        ->chat('Continue');
 
     expect($response)->toBeInstanceOf(AgentResponse::class);
     expect($response->text)->toBe('Hello John');
@@ -177,9 +186,10 @@ test('it executes chat with metadata', function () {
     $registry = app(AgentRegistryContract::class);
     $registry->register(TestAgent::class);
 
-    $response = Atlas::forMessages([['role' => 'user', 'content' => 'Hello']])
+    $response = Atlas::agent('test-agent')
+        ->withMessages([['role' => 'user', 'content' => 'Hello']])
         ->withMetadata(['session_id' => 'abc123'])
-        ->chat('test-agent', 'Continue');
+        ->chat('Continue');
 
     expect($response)->toBeInstanceOf(AgentResponse::class);
     expect($response->text)->toBe('Response with metadata');
@@ -218,32 +228,34 @@ test('it executes structured output', function () {
     $registry = app(AgentRegistryContract::class);
     $registry->register(TestAgent::class);
 
-    $response = Atlas::chat('test-agent', 'Extract person info', null, $mockSchema);
+    $response = Atlas::agent('test-agent')
+        ->withSchema($mockSchema)
+        ->chat('Extract person info');
 
     expect($response)->toBeInstanceOf(AgentResponse::class);
     expect($response->structured)->toBe(['name' => 'John', 'age' => 30]);
 });
 
-test('it returns image service', function () {
-    $imageService = Atlas::image();
+test('it returns pending image request', function () {
+    $imageRequest = Atlas::image();
 
-    expect($imageService)->toBeInstanceOf(ImageService::class);
+    expect($imageRequest)->toBeInstanceOf(PendingImageRequest::class);
 });
 
-test('it returns image service with provider and model', function () {
-    $imageService = Atlas::image('openai', 'dall-e-3');
+test('it returns pending image request with provider and model', function () {
+    $imageRequest = Atlas::image('openai', 'dall-e-3');
 
-    expect($imageService)->toBeInstanceOf(ImageService::class);
+    expect($imageRequest)->toBeInstanceOf(PendingImageRequest::class);
 });
 
-test('it returns speech service', function () {
-    $speechService = Atlas::speech();
+test('it returns pending speech request', function () {
+    $speechRequest = Atlas::speech();
 
-    expect($speechService)->toBeInstanceOf(SpeechService::class);
+    expect($speechRequest)->toBeInstanceOf(PendingSpeechRequest::class);
 });
 
-test('it returns speech service with provider and model', function () {
-    $speechService = Atlas::speech('openai', 'tts-1-hd');
+test('it returns pending speech request with provider and model', function () {
+    $speechRequest = Atlas::speech('openai', 'tts-1-hd');
 
-    expect($speechService)->toBeInstanceOf(SpeechService::class);
+    expect($speechRequest)->toBeInstanceOf(PendingSpeechRequest::class);
 });

@@ -18,14 +18,18 @@ echo $result['revised_prompt']; // AI-revised prompt (if applicable)
 ```php
 $result = Atlas::image('openai', 'dall-e-3')
     ->generate('A futuristic cityscape');
+
+// Or using the fluent method
+$result = Atlas::image()
+    ->withProvider('openai', 'dall-e-3')
+    ->generate('A futuristic cityscape');
 ```
 
 ## Fluent Configuration
 
 ```php
 $result = Atlas::image()
-    ->using('openai')
-    ->model('dall-e-3')
+    ->withProvider('openai', 'dall-e-3')
     ->size('1024x1024')
     ->quality('hd')
     ->generate('A photorealistic portrait of a robot');
@@ -92,15 +96,17 @@ Configure defaults in `config/atlas.php`:
 ->withProviderOptions(['style' => 'natural']) // Subtle, realistic
 ```
 
-## ImageService Methods
+## PendingImageRequest Methods
 
 | Method | Description |
 |--------|-------------|
-| `using(string $provider)` | Set provider |
-| `model(string $model)` | Set model |
+| `withProvider(string $provider, ?string $model = null)` | Set provider and optionally model |
+| `withModel(string $model)` | Set model |
 | `size(string $size)` | Set image dimensions |
 | `quality(string $quality)` | Set quality level |
 | `withProviderOptions(array $options)` | Set provider-specific options |
+| `withMetadata(array $metadata)` | Set metadata for pipelines |
+| `withRetry($times, $delay, $when, $throw)` | Configure retry |
 | `generate(string $prompt, array $options = [])` | Generate image |
 
 ## Saving Images
@@ -177,6 +183,34 @@ class ImageGeneratorController extends Controller
         ]);
     }
 }
+```
+
+## Retry & Resilience
+
+Enable automatic retries for image generation:
+
+```php
+// Simple retry: 3 attempts, 1 second delay
+$result = Atlas::image()
+    ->withRetry(3, 1000)
+    ->generate('A sunset over mountains');
+
+// Exponential backoff
+$result = Atlas::image()
+    ->withRetry(3, fn($attempt) => (2 ** $attempt) * 100)
+    ->size('1024x1024')
+    ->generate('A sunset');
+
+// Only retry on rate limits
+$result = Atlas::image('openai', 'dall-e-3')
+    ->withRetry(3, 1000, fn($e) => $e->getCode() === 429)
+    ->generate('A landscape');
+
+// With metadata for pipeline observability
+$result = Atlas::image()
+    ->withMetadata(['user_id' => 123])
+    ->withRetry(3, 1000)
+    ->generate('A landscape');
 ```
 
 ## Error Handling

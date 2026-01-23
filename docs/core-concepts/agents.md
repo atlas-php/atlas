@@ -114,13 +114,13 @@ Agents can be referenced three ways:
 use Atlasphp\Atlas\Providers\Facades\Atlas;
 
 // By registry key
-$response = Atlas::chat('customer-support', 'Hello');
+$response = Atlas::agent('customer-support')->chat('Hello');
 
 // By class name
-$response = Atlas::chat(CustomerSupportAgent::class, 'Hello');
+$response = Atlas::agent(CustomerSupportAgent::class)->chat('Hello');
 
 // By instance
-$response = Atlas::chat(new CustomerSupportAgent(), 'Hello');
+$response = Atlas::agent(new CustomerSupportAgent())->chat('Hello');
 ```
 
 ## Agent Resolution

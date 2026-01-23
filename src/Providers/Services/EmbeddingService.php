@@ -6,10 +6,11 @@ namespace Atlasphp\Atlas\Providers\Services;
 
 use Atlasphp\Atlas\Foundation\Services\PipelineRunner;
 use Atlasphp\Atlas\Providers\Contracts\EmbeddingProviderContract;
+use Atlasphp\Atlas\Providers\Contracts\PrismBuilderContract;
 use Throwable;
 
 /**
- * Service layer for generating text embeddings.
+ * Stateless service layer for generating text embeddings.
  *
  * Delegates to the configured embedding provider while providing a clean API
  * with pipeline middleware support for observability.
@@ -19,19 +20,26 @@ class EmbeddingService
     public function __construct(
         private readonly EmbeddingProviderContract $provider,
         private readonly PipelineRunner $pipelineRunner,
+        private readonly ProviderConfigService $configService,
+        private readonly PrismBuilderContract $prismBuilder,
     ) {}
 
     /**
      * Generate an embedding for a single text input.
      *
      * @param  string  $text  The text to embed.
-     * @param  array<string, mixed>  $options  Additional options (dimensions, encoding_format, etc.).
+     * @param  array<string, mixed>  $options  Options including provider, model, metadata, provider_options.
+     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      * @return array<int, float>
      */
-    public function generate(string $text, array $options = []): array
+    public function generate(string $text, array $options = [], ?array $retry = null): array
     {
-        $provider = $this->provider->provider();
-        $model = $this->provider->model();
+        $providerOverride = $options['provider'] ?? null;
+        $modelOverride = $options['model'] ?? null;
+        $provider = $providerOverride ?? $this->provider->provider();
+        $model = $modelOverride ?? $this->provider->model();
+        $metadata = $options['metadata'] ?? [];
+        $providerOptions = $options['provider_options'] ?? [];
 
         try {
             // Run before_generate pipeline
@@ -40,9 +48,10 @@ class EmbeddingService
                 'provider' => $provider,
                 'model' => $model,
                 'options' => $options,
+                'metadata' => $metadata,
             ];
 
-            /** @var array{text: string, provider: string, model: string, options: array<string, mixed>} $beforeData */
+            /** @var array{text: string, provider: string, model: string, options: array<string, mixed>, metadata: array<string, mixed>} $beforeData */
             $beforeData = $this->pipelineRunner->runIfActive(
                 'embedding.before_generate',
                 $beforeData,
@@ -51,8 +60,20 @@ class EmbeddingService
             $text = $beforeData['text'];
             $options = $beforeData['options'];
 
-            // Generate embedding
-            $result = $this->provider->generate($text, $options);
+            // Use explicit retry config or fall back to config-based retry
+            $retry = $retry ?? $this->configService->getRetryConfig();
+
+            // Merge provider options into request options
+            $requestOptions = array_merge($options, $providerOptions);
+
+            // Generate embedding - use PrismBuilder directly if overrides are set
+            if ($providerOverride !== null || $modelOverride !== null) {
+                $request = $this->prismBuilder->forEmbeddings($provider, $model, $text, $requestOptions, $retry);
+                $response = $request->asEmbeddings();
+                $result = isset($response->embeddings[0]) ? $response->embeddings[0]->embedding : [];
+            } else {
+                $result = $this->provider->generate($text, $requestOptions, $retry);
+            }
 
             // Run after_generate pipeline
             $afterData = [
@@ -60,6 +81,7 @@ class EmbeddingService
                 'provider' => $provider,
                 'model' => $model,
                 'options' => $options,
+                'metadata' => $metadata,
                 'result' => $result,
             ];
 
@@ -71,7 +93,7 @@ class EmbeddingService
 
             return $afterData['result'];
         } catch (Throwable $e) {
-            $this->handleError('generate', $text, null, $provider, $model, $e);
+            $this->handleError('generate', $text, null, $provider, $model, $metadata, $e);
             throw $e;
         }
     }
@@ -80,13 +102,19 @@ class EmbeddingService
      * Generate embeddings for multiple text inputs.
      *
      * @param  array<string>  $texts  The texts to embed.
-     * @param  array<string, mixed>  $options  Additional options (dimensions, encoding_format, etc.).
+     * @param  array<string, mixed>  $options  Options including provider, model, metadata, provider_options.
+     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      * @return array<int, array<int, float>>
      */
-    public function generateBatch(array $texts, array $options = []): array
+    public function generateBatch(array $texts, array $options = [], ?array $retry = null): array
     {
-        $provider = $this->provider->provider();
-        $model = $this->provider->model();
+        $embeddingConfig = $this->configService->getEmbeddingConfig();
+        $providerOverride = $options['provider'] ?? null;
+        $modelOverride = $options['model'] ?? null;
+        $provider = $providerOverride ?? $this->provider->provider();
+        $model = $modelOverride ?? $this->provider->model();
+        $metadata = $options['metadata'] ?? [];
+        $providerOptions = $options['provider_options'] ?? [];
 
         try {
             // Run before_generate_batch pipeline
@@ -95,9 +123,10 @@ class EmbeddingService
                 'provider' => $provider,
                 'model' => $model,
                 'options' => $options,
+                'metadata' => $metadata,
             ];
 
-            /** @var array{texts: array<string>, provider: string, model: string, options: array<string, mixed>} $beforeData */
+            /** @var array{texts: array<string>, provider: string, model: string, options: array<string, mixed>, metadata: array<string, mixed>} $beforeData */
             $beforeData = $this->pipelineRunner->runIfActive(
                 'embedding.before_generate_batch',
                 $beforeData,
@@ -106,8 +135,29 @@ class EmbeddingService
             $texts = $beforeData['texts'];
             $options = $beforeData['options'];
 
-            // Generate embeddings
-            $result = $this->provider->generateBatch($texts, $options);
+            // Use explicit retry config or fall back to config-based retry
+            $retry = $retry ?? $this->configService->getRetryConfig();
+
+            // Merge provider options into request options
+            $requestOptions = array_merge($options, $providerOptions);
+
+            // Generate embeddings - use PrismBuilder directly if overrides are set
+            if ($providerOverride !== null || $modelOverride !== null) {
+                $batchSize = $embeddingConfig['batch_size'];
+                $result = [];
+                $batches = array_chunk($texts, $batchSize);
+
+                foreach ($batches as $batch) {
+                    $request = $this->prismBuilder->forEmbeddings($provider, $model, $batch, $requestOptions, $retry);
+                    $response = $request->asEmbeddings();
+
+                    foreach ($response->embeddings as $embedding) {
+                        $result[] = $embedding->embedding;
+                    }
+                }
+            } else {
+                $result = $this->provider->generateBatch($texts, $requestOptions, $retry);
+            }
 
             // Run after_generate_batch pipeline
             $afterData = [
@@ -115,6 +165,7 @@ class EmbeddingService
                 'provider' => $provider,
                 'model' => $model,
                 'options' => $options,
+                'metadata' => $metadata,
                 'result' => $result,
             ];
 
@@ -126,7 +177,7 @@ class EmbeddingService
 
             return $afterData['result'];
         } catch (Throwable $e) {
-            $this->handleError('generate_batch', null, $texts, $provider, $model, $e);
+            $this->handleError('generate_batch', null, $texts, $provider, $model, $metadata, $e);
             throw $e;
         }
     }
@@ -147,6 +198,7 @@ class EmbeddingService
      * @param  array<string>|null  $texts  The batch texts (if generating batch).
      * @param  string  $provider  The provider being used.
      * @param  string  $model  The model being used.
+     * @param  array<string, mixed>  $metadata  The metadata that was provided.
      * @param  Throwable  $exception  The exception that occurred.
      */
     protected function handleError(
@@ -155,6 +207,7 @@ class EmbeddingService
         ?array $texts,
         string $provider,
         string $model,
+        array $metadata,
         Throwable $exception,
     ): void {
         $errorData = [
@@ -163,6 +216,7 @@ class EmbeddingService
             'texts' => $texts,
             'provider' => $provider,
             'model' => $model,
+            'metadata' => $metadata,
             'exception' => $exception,
         ];
 

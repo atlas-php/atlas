@@ -7,7 +7,7 @@ Built on [Prism PHP](https://github.com/prism-php/prism), Atlas lets you focus o
 ## Quick Example
 
 ```php
-$response = Atlas::chat('support-agent', 'I need help with my order');
+$response = Atlas::agent('support-agent')->chat('I need help with my order');
 ```
 
 ## What Atlas Provides

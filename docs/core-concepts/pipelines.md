@@ -59,8 +59,8 @@ Pipelines intercept key operations and allow you to:
 
 | Pipeline | Trigger |
 |----------|---------|
-| `speech.before_speak` | Before text-to-speech conversion |
-| `speech.after_speak` | After text-to-speech conversion |
+| `speech.before_generate` | Before text-to-speech conversion |
+| `speech.after_generate` | After text-to-speech conversion |
 | `speech.before_transcribe` | Before speech-to-text transcription |
 | `speech.after_transcribe` | After speech-to-text transcription |
 | `speech.on_error` | When speech operation fails |
@@ -245,7 +245,7 @@ Each pipeline receives specific data:
 ]
 ```
 
-### speech.before_speak / speech.after_speak
+### speech.before_generate / speech.after_generate
 
 ```php
 [
@@ -363,7 +363,7 @@ Temporarily disable a pipeline:
 $registry->setActive('agent.before_execute', false);
 
 // Pipeline won't run
-$response = Atlas::chat('agent', 'input');
+$response = Atlas::agent('agent')->chat('input');
 
 // Re-enable
 $registry->setActive('agent.before_execute', true);

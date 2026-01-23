@@ -50,20 +50,24 @@ class AtlasManager
 }
 ```
 
-### MessageContextBuilder
+### PendingAgentRequest
 
-Immutable builder for conversation context:
+Immutable fluent builder for agent requests:
 
 ```php
 namespace Atlasphp\Atlas\Providers\Support;
 
-final readonly class MessageContextBuilder
+final class PendingAgentRequest
 {
+    use HasRetrySupport;
+
     public function __construct(
-        private AtlasManager $manager,
+        private readonly AtlasManager $manager,
+        private readonly string|AgentContract $agent,
         private array $messages = [],
         private array $variables = [],
         private array $metadata = [],
+        private ?Schema $schema = null,
     ) {}
 }
 ```
@@ -75,75 +79,70 @@ final readonly class MessageContextBuilder
 ### Basic Chat
 
 ```php
-Atlas::chat(
-    string|AgentContract $agent,
-    string $input,
-    ?array $messages = null,
-    ?Schema $schema = null,
-): AgentResponse
+Atlas::agent(string|AgentContract $agent): PendingAgentRequest
 ```
 
 **Parameters:**
 - `$agent` - Agent key, class name, or instance
-- `$input` - User message
-- `$messages` - Optional conversation history
-- `$schema` - Optional schema for structured output
 
 **Examples:**
 
 ```php
 // By registry key
-$response = Atlas::chat('support-agent', 'Hello');
+$response = Atlas::agent('support-agent')->chat('Hello');
 
 // By class name
-$response = Atlas::chat(SupportAgent::class, 'Hello');
+$response = Atlas::agent(SupportAgent::class)->chat('Hello');
 
 // By instance
-$response = Atlas::chat(new SupportAgent(), 'Hello');
+$response = Atlas::agent(new SupportAgent())->chat('Hello');
 
 // With history
-$response = Atlas::chat('support-agent', 'Continue', messages: $history);
+$response = Atlas::agent('support-agent')->withMessages($history)->chat('Continue');
 
 // Structured output
-$response = Atlas::chat('support-agent', 'Extract', schema: $schema);
+$response = Atlas::agent('support-agent')->withSchema($schema)->chat('Extract');
 echo $response->structured['field'];
 ```
 
-### Multi-Turn Conversations
+### PendingAgentRequest Methods
 
 ```php
-Atlas::forMessages(array $messages): MessageContextBuilder
-```
+// Add conversation history
+public function withMessages(array $messages): self
 
-Returns an immutable builder for context configuration:
-
-```php
-$response = Atlas::forMessages($messages)
-    ->withVariables(['user_name' => 'John'])
-    ->withMetadata(['user_id' => 123])
-    ->chat('support-agent', 'Continue');
-```
-
-### MessageContextBuilder Methods
-
-```php
 // Add variables for system prompt interpolation
 public function withVariables(array $variables): self
 
 // Add metadata for pipeline middleware
 public function withMetadata(array $metadata): self
 
-// Execute chat with current context
-public function chat(
-    string|AgentContract $agent,
-    string $input,
-    ?Schema $schema = null,
-): AgentResponse
+// Add schema for structured output
+public function withSchema(Schema $schema): self
 
-// Accessors
-public function getMessages(): array
-public function getVariables(): array
-public function getMetadata(): array
+// Configure retry behavior
+public function withRetry(
+    array|int $times,
+    Closure|int $sleepMilliseconds = 0,
+    ?callable $when = null,
+    bool $throw = true,
+): self
+
+// Execute chat with current context
+public function chat(string $input): AgentResponse
+
+// Execute streaming chat with current context
+public function stream(string $input): StreamResponse
+```
+
+**Fluent builder example:**
+
+```php
+$response = Atlas::agent('support-agent')
+    ->withMessages($messages)
+    ->withVariables(['user_name' => 'John'])
+    ->withMetadata(['user_id' => 123])
+    ->chat('Continue');
 ```
 
 ---
@@ -152,36 +151,33 @@ public function getMetadata(): array
 
 ```php
 // Single text
-Atlas::embed(string $text, array $options = []): array<int, float>
+Atlas::embeddings()->generate(string $text): array<int, float>
 
-// Multiple texts
-Atlas::embedBatch(array $texts, array $options = []): array<int, array<int, float>>
+// Multiple texts (array input)
+Atlas::embeddings()->generate(array $texts): array<int, array<int, float>>
 
 // Get dimensions
-Atlas::embeddingDimensions(): int
+Atlas::embeddings()->dimensions(): int
 ```
-
-**Options:**
-- `dimensions` - Output embedding dimensions (for models that support variable dimensions)
-- `encoding_format` - Encoding format ('float' or 'base64')
 
 **Example:**
 
 ```php
-$embedding = Atlas::embed('Hello, world!');
+// Single embedding
+$embedding = Atlas::embeddings()->generate('Hello, world!');
 // [0.123, 0.456, ...]
 
-// With custom dimensions
-$embedding = Atlas::embed('Hello, world!', ['dimensions' => 256]);
-// [0.123, 0.456, ...] (256 floats)
-
-$embeddings = Atlas::embedBatch(['Text 1', 'Text 2']);
+// Batch embeddings (pass array)
+$embeddings = Atlas::embeddings()->generate(['Text 1', 'Text 2']);
 // [[0.123, ...], [0.456, ...]]
 
-// Batch with options
-$embeddings = Atlas::embedBatch(['Text 1', 'Text 2'], ['dimensions' => 512]);
+// With retry and metadata
+$embedding = Atlas::embeddings()
+    ->withRetry(3, 1000)
+    ->withMetadata(['user_id' => 123])
+    ->generate('Hello, world!');
 
-$dimensions = Atlas::embeddingDimensions();
+$dimensions = Atlas::embeddings()->dimensions();
 // 1536
 ```
 
@@ -233,34 +229,34 @@ $result = Atlas::image('openai', 'dall-e-3')
 ## Speech API
 
 ```php
-Atlas::speech(?string $provider = null, ?string $model = null): SpeechService
+Atlas::speech(?string $provider = null, ?string $model = null): PendingSpeechRequest
 ```
 
-Returns a fluent `SpeechService` for text-to-speech and transcription:
+Returns a fluent `PendingSpeechRequest` for text-to-speech and transcription:
 
 ```php
 // Text to speech
 $result = Atlas::speech()
     ->voice('nova')
     ->format('mp3')
-    ->speak('Hello, world!');
+    ->generate('Hello, world!');
 // ['audio' => '...', 'format' => 'mp3']
 
 // With speed control
 $result = Atlas::speech()
     ->voice('nova')
     ->speed(1.25)  // 0.25 to 4.0 for OpenAI
-    ->speak('Faster speech.');
+    ->generate('Faster speech.');
 
 // With provider-specific options
 $result = Atlas::speech()
     ->voice('nova')
     ->withProviderOptions(['language' => 'en'])
-    ->speak('Hello!');
+    ->generate('Hello!');
 
 // With specific provider and model
 $result = Atlas::speech('openai', 'tts-1-hd')
-    ->speak('Hello!');
+    ->generate('Hello!');
 
 // Transcription
 $result = Atlas::speech()
@@ -275,7 +271,7 @@ $result = Atlas::speech()
     ->transcribe('/path/to/audio.mp3');
 ```
 
-**SpeechService Methods:**
+**PendingSpeechRequest Methods:**
 - `using(string $provider): self` - Set provider
 - `model(string $model): self` - Set TTS model
 - `transcriptionModel(string $model): self` - Set transcription model
@@ -283,7 +279,7 @@ $result = Atlas::speech()
 - `speed(float $speed): self` - Set speech speed (0.25-4.0 for OpenAI)
 - `format(string $format): self` - Set audio format
 - `withProviderOptions(array $options): self` - Set provider-specific options
-- `speak(string $text, array $options = []): array` - Convert text to speech
+- `generate(string $text, array $options = []): array` - Convert text to speech
 - `transcribe(Audio|string $audio, array $options = []): array` - Transcribe audio
 
 ---
@@ -338,7 +334,7 @@ $this->app->singleton(AtlasManager::class, function (Container $app): AtlasManag
 ### Simple Chat
 
 ```php
-$response = Atlas::chat('assistant', 'What is 2 + 2?');
+$response = Atlas::agent('assistant')->chat('What is 2 + 2?');
 echo $response->text; // "4"
 ```
 
@@ -350,10 +346,11 @@ $messages = [
     ['role' => 'assistant', 'content' => 'Hello Alice!'],
 ];
 
-$response = Atlas::forMessages($messages)
+$response = Atlas::agent('assistant')
+    ->withMessages($messages)
     ->withVariables(['timezone' => 'America/New_York'])
     ->withMetadata(['session_id' => 'abc123'])
-    ->chat('assistant', 'What is my name?');
+    ->chat('What is my name?');
 
 echo $response->text; // "Your name is Alice."
 ```
@@ -374,11 +371,9 @@ $schema = new ObjectSchema(
     requiredFields: ['name', 'email'],
 );
 
-$response = Atlas::chat(
-    'extractor',
-    'Extract: John Smith, john@example.com',
-    schema: $schema,
-);
+$response = Atlas::agent('extractor')
+    ->withSchema($schema)
+    ->chat('Extract: John Smith, john@example.com');
 
 $person = $response->structured;
 // ['name' => 'John Smith', 'email' => 'john@example.com']
@@ -387,8 +382,9 @@ $person = $response->structured;
 ### Multimodal Operations
 
 ```php
-// Embedding with custom dimensions
-$vector = Atlas::embed('Search query', ['dimensions' => 256]);
+// Embedding (single or batch)
+$vector = Atlas::embeddings()->generate('Search query');
+$vectors = Atlas::embeddings()->generate(['query 1', 'query 2']);
 
 // Image generation with provider options
 $image = Atlas::image('openai', 'dall-e-3')
@@ -401,7 +397,7 @@ $image = Atlas::image('openai', 'dall-e-3')
 $audio = Atlas::speech('openai', 'tts-1')
     ->voice('alloy')
     ->speed(1.0)
-    ->speak('Welcome to Atlas!');
+    ->generate('Welcome to Atlas!');
 
 // Transcription with options
 $text = Atlas::speech()

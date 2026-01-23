@@ -168,7 +168,7 @@ class AtlasIntegrationTest extends TestCase
 {
     public function test_simple_chat_returns_response(): void
     {
-        $response = Atlas::chat('test-agent', 'Say hello');
+        $response = Atlas::agent('test-agent')->chat('Say hello');
 
         $this->assertTrue($response->hasText());
         $this->assertNotEmpty($response->text);

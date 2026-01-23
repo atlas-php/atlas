@@ -41,7 +41,7 @@ class ConversationManager
         $old = array_slice($messages, 0, -10);
         $recent = array_slice($messages, -10);
 
-        $summary = Atlas::chat('summarizer', json_encode($old));
+        $summary = Atlas::agent('summarizer')->chat(json_encode($old));
 
         return [
             ['role' => 'system', 'content' => "Summary: {$summary->text}"],
@@ -58,8 +58,7 @@ Replay conversations for debugging or analysis:
 ```php
 // Replay a conversation up to a specific point
 $messagesUpToError = array_slice($conversation->messages, 0, 15);
-$response = Atlas::forMessages($messagesUpToError)
-    ->chat('agent', $originalInput);
+$response = Atlas::agent('agent')->withMessages($messagesUpToError)->chat($originalInput);
 ```
 
 ### 4. Multi-Tenant Support
@@ -68,9 +67,10 @@ Handle multiple tenants without state collision:
 
 ```php
 // Each request explicitly provides tenant context
-$response = Atlas::forMessages($messages)
+$response = Atlas::agent('agent')
+    ->withMessages($messages)
     ->withMetadata(['tenant_id' => $tenant->id])
-    ->chat('agent', $input);
+    ->chat($input);
 ```
 
 ### 5. Horizontal Scaling
@@ -130,14 +130,15 @@ class ChatController extends Controller
         $userMessage = $request->input('message');
 
         // 2. Build context from stored state
-        $response = Atlas::forMessages($conversation->messages)
+        $response = Atlas::agent('support-agent')
+            ->withMessages($conversation->messages)
             ->withVariables([
                 'user_name' => $request->user()->name,
             ])
             ->withMetadata([
                 'user_id' => $request->user()->id,
             ])
-            ->chat('support-agent', $userMessage);
+            ->chat($userMessage);
 
         // 3. Update stored state
         $conversation->messages = array_merge($conversation->messages, [
@@ -173,10 +174,11 @@ class ChatService
         $context = $this->contextBuilder->build($conversation);
 
         // Execute (stateless)
-        $response = Atlas::forMessages($context['messages'])
+        $response = Atlas::agent($conversation->agent_key)
+            ->withMessages($context['messages'])
             ->withVariables($context['variables'])
             ->withMetadata($context['metadata'])
-            ->chat($conversation->agent_key, $input);
+            ->chat($input);
 
         // Persist state
         $this->conversations->appendMessages($conversation, [

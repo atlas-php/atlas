@@ -11,6 +11,7 @@ use Atlasphp\Atlas\Agents\Support\AgentResponse;
 use Atlasphp\Atlas\Agents\Support\ExecutionContext;
 use Atlasphp\Atlas\Foundation\Services\PipelineRunner;
 use Atlasphp\Atlas\Providers\Contracts\PrismBuilderContract;
+use Atlasphp\Atlas\Providers\Services\ProviderConfigService;
 use Atlasphp\Atlas\Providers\Services\UsageExtractorRegistry;
 use Atlasphp\Atlas\Streaming\Events\ErrorEvent;
 use Atlasphp\Atlas\Streaming\Events\StreamEndEvent;
@@ -49,6 +50,7 @@ class AgentExecutor implements AgentExecutorContract
         protected SystemPromptBuilder $systemPromptBuilder,
         protected PipelineRunner $pipelineRunner,
         protected UsageExtractorRegistry $usageExtractor,
+        protected ProviderConfigService $configService,
     ) {}
 
     /**
@@ -58,19 +60,22 @@ class AgentExecutor implements AgentExecutorContract
      * @param  string  $input  The user input message.
      * @param  ExecutionContext|null  $context  Optional execution context.
      * @param  Schema|null  $schema  Optional schema for structured output.
+     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      */
     public function execute(
         AgentContract $agent,
         string $input,
         ?ExecutionContext $context = null,
         ?Schema $schema = null,
+        ?array $retry = null,
     ): AgentResponse {
         $context = $context ?? new ExecutionContext;
         $systemPrompt = null;
+        $retry = $retry ?? $this->configService->getRetryConfig();
 
         try {
             // Prepare the execution (shared with streaming)
-            $prepared = $this->prepareExecution($agent, $input, $context, $schema);
+            $prepared = $this->prepareExecution($agent, $input, $context, $schema, $retry);
             $agent = $prepared['agent'];
             $input = $prepared['input'];
             $context = $prepared['context'];
@@ -80,7 +85,7 @@ class AgentExecutor implements AgentExecutorContract
 
             // Execute the request
             $response = $schema !== null
-                ? $this->executeStructuredRequest($agent, $input, $context, $systemPrompt, $schema)
+                ? $this->executeStructuredRequest($agent, $input, $context, $systemPrompt, $schema, $retry)
                 : $this->executeTextRequestWithPreparedRequest($request, $agent);
 
             // Run after_execute pipeline
@@ -113,16 +118,19 @@ class AgentExecutor implements AgentExecutorContract
      * @param  AgentContract  $agent  The agent to execute.
      * @param  string  $input  The user input message.
      * @param  ExecutionContext|null  $context  Optional execution context.
+     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      */
     public function stream(
         AgentContract $agent,
         string $input,
         ?ExecutionContext $context = null,
+        ?array $retry = null,
     ): StreamResponse {
         $context = $context ?? new ExecutionContext;
+        $retry = $retry ?? $this->configService->getRetryConfig();
 
         return new StreamResponse(
-            $this->createStreamGenerator($agent, $input, $context)
+            $this->createStreamGenerator($agent, $input, $context, $retry)
         );
     }
 
@@ -131,6 +139,7 @@ class AgentExecutor implements AgentExecutorContract
      *
      * Shared between execute() and stream() to avoid duplication.
      *
+     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      * @return array{agent: AgentContract, input: string, context: ExecutionContext, schema: Schema|null, systemPrompt: string, request: mixed}
      */
     protected function prepareExecution(
@@ -138,6 +147,7 @@ class AgentExecutor implements AgentExecutorContract
         string $input,
         ExecutionContext $context,
         ?Schema $schema = null,
+        ?array $retry = null,
     ): array {
         // Run before_execute pipeline (used by both execute and stream)
         $beforeData = $this->pipelineRunner->runIfActive('agent.before_execute', [
@@ -161,7 +171,7 @@ class AgentExecutor implements AgentExecutorContract
 
         // Build request (for text/stream - structured has its own path)
         $request = $schema === null
-            ? $this->buildTextRequest($agent, $input, $context, $systemPrompt)
+            ? $this->buildTextRequest($agent, $input, $context, $systemPrompt, $retry)
             : null;
 
         return [
@@ -177,18 +187,20 @@ class AgentExecutor implements AgentExecutorContract
     /**
      * Create the generator that produces stream events.
      *
+     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      * @return Generator<int, StreamEvent>
      */
     protected function createStreamGenerator(
         AgentContract $agent,
         string $input,
         ExecutionContext $context,
+        ?array $retry = null,
     ): Generator {
         $systemPrompt = null;
 
         try {
             // Use shared preparation
-            $prepared = $this->prepareExecution($agent, $input, $context);
+            $prepared = $this->prepareExecution($agent, $input, $context, null, $retry);
             $agent = $prepared['agent'];
             $input = $prepared['input'];
             $context = $prepared['context'];
@@ -269,6 +281,7 @@ class AgentExecutor implements AgentExecutorContract
     /**
      * Build a text request for the agent.
      *
+     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      * @return mixed The configured Prism pending request.
      */
     protected function buildTextRequest(
@@ -276,24 +289,31 @@ class AgentExecutor implements AgentExecutorContract
         string $input,
         ExecutionContext $context,
         string $systemPrompt,
+        ?array $retry = null,
     ): mixed {
         $toolContext = new ToolContext($context->metadata);
         $tools = $this->toolBuilder->buildForAgent($agent, $toolContext);
 
+        // Use context overrides if present, otherwise fall back to agent config
+        $provider = $context->providerOverride ?? $agent->provider();
+        $model = $context->modelOverride ?? $agent->model();
+
         $request = $context->hasMessages()
             ? $this->prismBuilder->forMessages(
-                $agent->provider(),
-                $agent->model(),
+                $provider,
+                $model,
                 $this->buildMessages($context, $input),
                 $systemPrompt,
                 $tools,
+                $retry,
             )
             : $this->prismBuilder->forPrompt(
-                $agent->provider(),
-                $agent->model(),
+                $provider,
+                $model,
                 $input,
                 $systemPrompt,
                 $tools,
+                $retry,
             );
 
         return $this->applyAgentSettings($request, $agent);
@@ -301,6 +321,8 @@ class AgentExecutor implements AgentExecutorContract
 
     /**
      * Execute a structured output request.
+     *
+     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      */
     protected function executeStructuredRequest(
         AgentContract $agent,
@@ -308,13 +330,19 @@ class AgentExecutor implements AgentExecutorContract
         ExecutionContext $context,
         string $systemPrompt,
         Schema $schema,
+        ?array $retry = null,
     ): AgentResponse {
+        // Use context overrides if present, otherwise fall back to agent config
+        $provider = $context->providerOverride ?? $agent->provider();
+        $model = $context->modelOverride ?? $agent->model();
+
         $request = $this->prismBuilder->forStructured(
-            $agent->provider(),
-            $agent->model(),
+            $provider,
+            $model,
             $schema,
             $context->hasMessages() ? $this->combineMessagesWithInput($context, $input) : $input,
             $systemPrompt,
+            $retry,
         );
 
         $request = $this->applyAgentSettings($request, $agent);

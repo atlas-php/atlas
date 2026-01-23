@@ -36,22 +36,21 @@ $messages = [
 ### Simple Chat with History
 
 ```php
-$response = Atlas::chat(
-    'support-agent',
-    'What about my refund?',
-    messages: $previousMessages,
-);
+$response = Atlas::agent('support-agent')
+    ->withMessages($previousMessages)
+    ->chat('What about my refund?');
 ```
 
-### Using forMessages()
+### With Variables and Metadata
 
 For richer context with variables and metadata:
 
 ```php
-$response = Atlas::forMessages($messages)
+$response = Atlas::agent('support-agent')
+    ->withMessages($messages)
     ->withVariables(['user_name' => 'Alice'])
     ->withMetadata(['user_id' => 123])
-    ->chat('support-agent', 'Continue our conversation');
+    ->chat('Continue our conversation');
 ```
 
 ## Storing Conversations
@@ -86,14 +85,15 @@ class ChatController extends Controller
         $userMessage = $request->input('message');
 
         // Execute with full history
-        $response = Atlas::forMessages($conversation->messages)
+        $response = Atlas::agent('support-agent')
+            ->withMessages($conversation->messages)
             ->withVariables([
                 'user_name' => $request->user()->name,
             ])
             ->withMetadata([
                 'user_id' => $request->user()->id,
             ])
-            ->chat('support-agent', $userMessage);
+            ->chat($userMessage);
 
         // Update history
         $conversation->messages = array_merge($conversation->messages, [
@@ -112,14 +112,14 @@ class ChatController extends Controller
 
 ## Context Immutability
 
-`MessageContextBuilder` is immutable. Each method returns a new instance:
+`PendingAgentRequest` is immutable. Each method returns a new instance:
 
 ```php
-$builder1 = Atlas::forMessages($messages);
-$builder2 = $builder1->withVariables(['name' => 'John']);
+$builder1 = Atlas::agent('support-agent')->withVariables(['name' => 'John']);
+$builder2 = $builder1->withMetadata(['session' => 'abc']);
 
-// $builder1 still has empty variables
-// $builder2 has the variables set
+// $builder1 has only variables
+// $builder2 has both variables and metadata
 ```
 
 This allows safe method chaining without side effects.
@@ -156,7 +156,7 @@ $messages = [
 Monitor token usage:
 
 ```php
-$response = Atlas::chat('agent', 'Hello', messages: $messages);
+$response = Atlas::agent('agent')->withMessages($messages)->chat('Hello');
 
 if ($response->totalTokens() > 3000) {
     // Time to trim the conversation

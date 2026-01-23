@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
 use Atlasphp\Atlas\Agents\Services\AgentResolver;
-use Atlasphp\Atlas\Agents\Support\AgentResponse;
-use Atlasphp\Atlas\Agents\Support\ExecutionContext;
+use Atlasphp\Atlas\Agents\Support\PendingAgentRequest;
 use Atlasphp\Atlas\Providers\Services\AtlasManager;
 use Atlasphp\Atlas\Providers\Services\EmbeddingService;
 use Atlasphp\Atlas\Providers\Services\ImageService;
 use Atlasphp\Atlas\Providers\Services\SpeechService;
-use Atlasphp\Atlas\Providers\Support\MessageContextBuilder;
+use Atlasphp\Atlas\Providers\Support\PendingEmbeddingRequest;
+use Atlasphp\Atlas\Providers\Support\PendingImageRequest;
+use Atlasphp\Atlas\Providers\Support\PendingSpeechRequest;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
 
 beforeEach(function () {
@@ -33,388 +34,80 @@ afterEach(function () {
     Mockery::close();
 });
 
-test('it executes chat with agent key', function () {
+// ===========================================
+// AGENT TESTS
+// ===========================================
+
+test('agent returns PendingAgentRequest with agent key', function () {
+    $result = $this->manager->agent('test-agent');
+
+    expect($result)->toBeInstanceOf(PendingAgentRequest::class);
+});
+
+test('agent returns PendingAgentRequest with agent class', function () {
+    $result = $this->manager->agent(TestAgent::class);
+
+    expect($result)->toBeInstanceOf(PendingAgentRequest::class);
+});
+
+test('agent returns PendingAgentRequest with agent instance', function () {
     $agent = new TestAgent;
-    $response = AgentResponse::text('Hello');
 
-    $this->agentResolver
-        ->shouldReceive('resolve')
-        ->once()
-        ->with('test-agent')
-        ->andReturn($agent);
+    $result = $this->manager->agent($agent);
 
-    $this->agentExecutor
-        ->shouldReceive('execute')
-        ->once()
-        ->with($agent, 'Hello', null, null)
-        ->andReturn($response);
-
-    $result = $this->manager->chat('test-agent', 'Hello');
-
-    expect($result)->toBe($response);
+    expect($result)->toBeInstanceOf(PendingAgentRequest::class);
 });
 
-test('it executes chat with agent class', function () {
-    $agent = new TestAgent;
-    $response = AgentResponse::text('Hello');
+// ===========================================
+// EMBEDDING TESTS
+// ===========================================
 
-    $this->agentResolver
-        ->shouldReceive('resolve')
-        ->once()
-        ->with(TestAgent::class)
-        ->andReturn($agent);
+test('embeddings returns PendingEmbeddingRequest', function () {
+    $result = $this->manager->embeddings();
 
-    $this->agentExecutor
-        ->shouldReceive('execute')
-        ->once()
-        ->with($agent, 'Hello', null, null)
-        ->andReturn($response);
-
-    $result = $this->manager->chat(TestAgent::class, 'Hello');
-
-    expect($result)->toBe($response);
+    expect($result)->toBeInstanceOf(PendingEmbeddingRequest::class);
 });
 
-test('it executes chat with agent instance', function () {
-    $agent = new TestAgent;
-    $response = AgentResponse::text('Hello');
+// ===========================================
+// IMAGE SERVICE TESTS
+// ===========================================
 
-    $this->agentResolver
-        ->shouldReceive('resolve')
-        ->once()
-        ->with($agent)
-        ->andReturn($agent);
-
-    $this->agentExecutor
-        ->shouldReceive('execute')
-        ->once()
-        ->with($agent, 'Hello', null, null)
-        ->andReturn($response);
-
-    $result = $this->manager->chat($agent, 'Hello');
-
-    expect($result)->toBe($response);
-});
-
-test('it executes chat with messages', function () {
-    $agent = new TestAgent;
-    $messages = [['role' => 'user', 'content' => 'Previous']];
-    $response = AgentResponse::text('Hello');
-
-    $this->agentResolver
-        ->shouldReceive('resolve')
-        ->once()
-        ->with('test-agent')
-        ->andReturn($agent);
-
-    $this->agentExecutor
-        ->shouldReceive('execute')
-        ->once()
-        ->withArgs(function ($a, $input, $context, $schema) use ($agent, $messages) {
-            return $a === $agent
-                && $input === 'Hello'
-                && $context instanceof ExecutionContext
-                && $context->messages === $messages
-                && $schema === null;
-        })
-        ->andReturn($response);
-
-    $result = $this->manager->chat('test-agent', 'Hello', $messages);
-
-    expect($result)->toBe($response);
-});
-
-test('it executes chat with schema', function () {
-    $agent = new TestAgent;
-    $schema = Mockery::mock(\Prism\Prism\Contracts\Schema::class);
-    $response = AgentResponse::structured(['name' => 'John']);
-
-    $this->agentResolver
-        ->shouldReceive('resolve')
-        ->once()
-        ->with('test-agent')
-        ->andReturn($agent);
-
-    $this->agentExecutor
-        ->shouldReceive('execute')
-        ->once()
-        ->with($agent, 'Hello', null, $schema)
-        ->andReturn($response);
-
-    $result = $this->manager->chat('test-agent', 'Hello', null, $schema);
-
-    expect($result)->toBe($response);
-});
-
-test('it returns message context builder', function () {
-    $messages = [['role' => 'user', 'content' => 'Hello']];
-
-    $builder = $this->manager->forMessages($messages);
-
-    expect($builder)->toBeInstanceOf(MessageContextBuilder::class);
-    expect($builder->getMessages())->toBe($messages);
-});
-
-test('it generates embedding', function () {
-    $embedding = [0.1, 0.2, 0.3];
-
-    $this->embeddingService
-        ->shouldReceive('generate')
-        ->once()
-        ->with('Hello')
-        ->andReturn($embedding);
-
-    $result = $this->manager->embed('Hello');
-
-    expect($result)->toBe($embedding);
-});
-
-test('it generates batch embeddings', function () {
-    $embeddings = [[0.1, 0.2], [0.3, 0.4]];
-
-    $this->embeddingService
-        ->shouldReceive('generateBatch')
-        ->once()
-        ->with(['Hello', 'World'])
-        ->andReturn($embeddings);
-
-    $result = $this->manager->embedBatch(['Hello', 'World']);
-
-    expect($result)->toBe($embeddings);
-});
-
-test('it returns embedding dimensions', function () {
-    $this->embeddingService
-        ->shouldReceive('dimensions')
-        ->once()
-        ->andReturn(1536);
-
-    $result = $this->manager->embeddingDimensions();
-
-    expect($result)->toBe(1536);
-});
-
-test('it returns image service', function () {
+test('image returns PendingImageRequest', function () {
     $result = $this->manager->image();
 
-    expect($result)->toBe($this->imageService);
+    expect($result)->toBeInstanceOf(PendingImageRequest::class);
 });
 
-test('it returns image service with provider', function () {
-    $clonedService = Mockery::mock(ImageService::class);
-
-    $this->imageService
-        ->shouldReceive('using')
-        ->once()
-        ->with('openai')
-        ->andReturn($clonedService);
-
+test('image returns PendingImageRequest with provider', function () {
     $result = $this->manager->image('openai');
 
-    expect($result)->toBe($clonedService);
+    expect($result)->toBeInstanceOf(PendingImageRequest::class);
 });
 
-test('it returns image service with provider and model', function () {
-    $serviceWithProvider = Mockery::mock(ImageService::class);
-    $serviceWithModel = Mockery::mock(ImageService::class);
-
-    $this->imageService
-        ->shouldReceive('using')
-        ->once()
-        ->with('openai')
-        ->andReturn($serviceWithProvider);
-
-    $serviceWithProvider
-        ->shouldReceive('model')
-        ->once()
-        ->with('dall-e-3')
-        ->andReturn($serviceWithModel);
-
+test('image returns PendingImageRequest with provider and model', function () {
     $result = $this->manager->image('openai', 'dall-e-3');
 
-    expect($result)->toBe($serviceWithModel);
+    expect($result)->toBeInstanceOf(PendingImageRequest::class);
 });
 
-test('it returns speech service', function () {
+// ===========================================
+// SPEECH SERVICE TESTS
+// ===========================================
+
+test('speech returns PendingSpeechRequest', function () {
     $result = $this->manager->speech();
 
-    expect($result)->toBe($this->speechService);
+    expect($result)->toBeInstanceOf(PendingSpeechRequest::class);
 });
 
-test('it returns speech service with provider', function () {
-    $clonedService = Mockery::mock(SpeechService::class);
-
-    $this->speechService
-        ->shouldReceive('using')
-        ->once()
-        ->with('openai')
-        ->andReturn($clonedService);
-
+test('speech returns PendingSpeechRequest with provider', function () {
     $result = $this->manager->speech('openai');
 
-    expect($result)->toBe($clonedService);
+    expect($result)->toBeInstanceOf(PendingSpeechRequest::class);
 });
 
-test('it returns speech service with provider and model', function () {
-    $serviceWithProvider = Mockery::mock(SpeechService::class);
-    $serviceWithModel = Mockery::mock(SpeechService::class);
-
-    $this->speechService
-        ->shouldReceive('using')
-        ->once()
-        ->with('openai')
-        ->andReturn($serviceWithProvider);
-
-    $serviceWithProvider
-        ->shouldReceive('model')
-        ->once()
-        ->with('tts-1-hd')
-        ->andReturn($serviceWithModel);
-
+test('speech returns PendingSpeechRequest with provider and model', function () {
     $result = $this->manager->speech('openai', 'tts-1-hd');
 
-    expect($result)->toBe($serviceWithModel);
-});
-
-test('it executes with context', function () {
-    $agent = new TestAgent;
-    $context = new ExecutionContext(
-        messages: [['role' => 'user', 'content' => 'Hello']],
-        variables: ['user_name' => 'John'],
-        metadata: ['session_id' => 'abc'],
-    );
-    $response = AgentResponse::text('Hello John');
-
-    $this->agentResolver
-        ->shouldReceive('resolve')
-        ->once()
-        ->with('test-agent')
-        ->andReturn($agent);
-
-    $this->agentExecutor
-        ->shouldReceive('execute')
-        ->once()
-        ->with($agent, 'Continue', $context, null)
-        ->andReturn($response);
-
-    $result = $this->manager->executeWithContext('test-agent', 'Continue', $context);
-
-    expect($result)->toBe($response);
-});
-
-// ===========================================
-// STREAMING TESTS
-// ===========================================
-
-test('it executes chat with stream true calls executor stream', function () {
-    $agent = new TestAgent;
-    $streamResponse = Mockery::mock(\Atlasphp\Atlas\Streaming\StreamResponse::class);
-
-    $this->agentResolver
-        ->shouldReceive('resolve')
-        ->once()
-        ->with('test-agent')
-        ->andReturn($agent);
-
-    $this->agentExecutor
-        ->shouldReceive('stream')
-        ->once()
-        ->with($agent, 'Hello', null)
-        ->andReturn($streamResponse);
-
-    $result = $this->manager->chat('test-agent', 'Hello', stream: true);
-
-    expect($result)->toBe($streamResponse);
-});
-
-test('it executes chat with messages and stream true', function () {
-    $agent = new TestAgent;
-    $messages = [['role' => 'user', 'content' => 'Previous']];
-    $streamResponse = Mockery::mock(\Atlasphp\Atlas\Streaming\StreamResponse::class);
-
-    $this->agentResolver
-        ->shouldReceive('resolve')
-        ->once()
-        ->with('test-agent')
-        ->andReturn($agent);
-
-    $this->agentExecutor
-        ->shouldReceive('stream')
-        ->once()
-        ->withArgs(function ($a, $input, $context) use ($agent, $messages) {
-            return $a === $agent
-                && $input === 'Hello'
-                && $context instanceof ExecutionContext
-                && $context->messages === $messages;
-        })
-        ->andReturn($streamResponse);
-
-    $result = $this->manager->chat('test-agent', 'Hello', $messages, stream: true);
-
-    expect($result)->toBe($streamResponse);
-});
-
-test('it streams with context', function () {
-    $agent = new TestAgent;
-    $context = new ExecutionContext(
-        messages: [['role' => 'user', 'content' => 'Hello']],
-        variables: ['user_name' => 'John'],
-        metadata: ['session_id' => 'abc'],
-    );
-    $streamResponse = Mockery::mock(\Atlasphp\Atlas\Streaming\StreamResponse::class);
-
-    $this->agentResolver
-        ->shouldReceive('resolve')
-        ->once()
-        ->with('test-agent')
-        ->andReturn($agent);
-
-    $this->agentExecutor
-        ->shouldReceive('stream')
-        ->once()
-        ->with($agent, 'Continue', $context)
-        ->andReturn($streamResponse);
-
-    $result = $this->manager->streamWithContext('test-agent', 'Continue', $context);
-
-    expect($result)->toBe($streamResponse);
-});
-
-test('it executes chat without stream returns agent response', function () {
-    $agent = new TestAgent;
-    $response = AgentResponse::text('Hello');
-
-    $this->agentResolver
-        ->shouldReceive('resolve')
-        ->once()
-        ->with('test-agent')
-        ->andReturn($agent);
-
-    $this->agentExecutor
-        ->shouldReceive('execute')
-        ->once()
-        ->with($agent, 'Hello', null, null)
-        ->andReturn($response);
-
-    $result = $this->manager->chat('test-agent', 'Hello', stream: false);
-
-    expect($result)->toBe($response);
-    expect($result)->toBeInstanceOf(AgentResponse::class);
-});
-
-test('it throws exception when streaming with schema', function () {
-    $agent = new TestAgent;
-    $schema = Mockery::mock(\Prism\Prism\Contracts\Schema::class);
-
-    $this->agentResolver
-        ->shouldReceive('resolve')
-        ->once()
-        ->with('test-agent')
-        ->andReturn($agent);
-
-    expect(fn () => $this->manager->chat('test-agent', 'Hello', schema: $schema, stream: true))
-        ->toThrow(
-            \InvalidArgumentException::class,
-            'Streaming does not support structured output (schema). Use stream: false for structured responses.'
-        );
+    expect($result)->toBeInstanceOf(PendingSpeechRequest::class);
 });

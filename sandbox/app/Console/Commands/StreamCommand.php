@@ -67,7 +67,7 @@ class StreamCommand extends Command
 
         $this->info("Streaming response:\n");
 
-        $stream = Atlas::chat($agentKey, $prompt, stream: true);
+        $stream = Atlas::agent($agentKey)->chat($prompt, stream: true);
 
         $eventCount = 0;
         $startTime = microtime(true);

@@ -6,10 +6,12 @@ use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
 use Atlasphp\Atlas\Agents\Services\AgentResolver;
 use Atlasphp\Atlas\Foundation\Services\PipelineRunner;
 use Atlasphp\Atlas\Providers\Contracts\EmbeddingProviderContract;
+use Atlasphp\Atlas\Providers\Contracts\PrismBuilderContract;
 use Atlasphp\Atlas\Providers\Facades\Atlas;
 use Atlasphp\Atlas\Providers\Services\AtlasManager;
 use Atlasphp\Atlas\Providers\Services\EmbeddingService;
 use Atlasphp\Atlas\Providers\Services\ImageService;
+use Atlasphp\Atlas\Providers\Services\ProviderConfigService;
 use Atlasphp\Atlas\Providers\Services\SpeechService;
 
 beforeEach(function () {
@@ -46,6 +48,8 @@ beforeEach(function () {
         return new EmbeddingService(
             $mockProvider,
             $app->make(PipelineRunner::class),
+            $app->make(ProviderConfigService::class),
+            $app->make(PrismBuilderContract::class),
         );
     });
 
@@ -62,7 +66,7 @@ beforeEach(function () {
 });
 
 test('it generates embedding via facade', function () {
-    $embedding = Atlas::embed('test text');
+    $embedding = Atlas::embeddings()->generate('test text');
 
     expect($embedding)->toBeArray();
     expect(count($embedding))->toBe(1536);
@@ -70,7 +74,7 @@ test('it generates embedding via facade', function () {
 });
 
 test('it generates batch embeddings via facade', function () {
-    $embeddings = Atlas::embedBatch(['text 1', 'text 2', 'text 3']);
+    $embeddings = Atlas::embeddings()->generate(['text 1', 'text 2', 'text 3']);
 
     expect($embeddings)->toBeArray();
     expect(count($embeddings))->toBe(3);
@@ -81,7 +85,7 @@ test('it generates batch embeddings via facade', function () {
 });
 
 test('it returns configured dimensions via facade', function () {
-    $dimensions = Atlas::embeddingDimensions();
+    $dimensions = Atlas::embeddings()->dimensions();
 
     expect($dimensions)->toBe(1536);
 });
@@ -89,7 +93,7 @@ test('it returns configured dimensions via facade', function () {
 test('it generates embedding via manager', function () {
     $manager = $this->app->make(AtlasManager::class);
 
-    $embedding = $manager->embed('test text');
+    $embedding = $manager->embeddings()->generate('test text');
 
     expect($embedding)->toBeArray();
     expect(count($embedding))->toBe(1536);
@@ -98,20 +102,20 @@ test('it generates embedding via manager', function () {
 test('it generates batch embeddings via manager', function () {
     $manager = $this->app->make(AtlasManager::class);
 
-    $embeddings = $manager->embedBatch(['text 1', 'text 2']);
+    $embeddings = $manager->embeddings()->generate(['text 1', 'text 2']);
 
     expect($embeddings)->toBeArray();
     expect(count($embeddings))->toBe(2);
 });
 
-test('facade provides access to image service', function () {
-    $imageService = Atlas::image();
+test('facade provides access to image request', function () {
+    $imageRequest = Atlas::image();
 
-    expect($imageService)->toBeInstanceOf(\Atlasphp\Atlas\Providers\Services\ImageService::class);
+    expect($imageRequest)->toBeInstanceOf(\Atlasphp\Atlas\Providers\Support\PendingImageRequest::class);
 });
 
-test('facade provides access to speech service', function () {
-    $speechService = Atlas::speech();
+test('facade provides access to speech request', function () {
+    $speechRequest = Atlas::speech();
 
-    expect($speechService)->toBeInstanceOf(\Atlasphp\Atlas\Providers\Services\SpeechService::class);
+    expect($speechRequest)->toBeInstanceOf(\Atlasphp\Atlas\Providers\Support\PendingSpeechRequest::class);
 });

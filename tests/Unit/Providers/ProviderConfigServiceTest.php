@@ -158,3 +158,96 @@ test('it throws when provider config is not an array', function () {
     expect(fn () => $service->getProviderConfig('invalid-provider'))
         ->toThrow(ProviderException::class, "Invalid configuration 'provider' for provider 'invalid-provider': Configuration must be an array.");
 });
+
+// ===========================================
+// RETRY CONFIG TESTS
+// ===========================================
+
+test('getRetryConfig returns null when retry is disabled', function () {
+    $config = new Repository([
+        'atlas' => [
+            'retry' => [
+                'enabled' => false,
+            ],
+        ],
+    ]);
+    $service = new ProviderConfigService($config);
+
+    expect($service->getRetryConfig())->toBeNull();
+});
+
+test('getRetryConfig returns null when retry config is missing', function () {
+    $config = new Repository([]);
+    $service = new ProviderConfigService($config);
+
+    expect($service->getRetryConfig())->toBeNull();
+});
+
+test('getRetryConfig returns fixed delay config when enabled with fixed strategy', function () {
+    $config = new Repository([
+        'atlas' => [
+            'retry' => [
+                'enabled' => true,
+                'times' => 3,
+                'strategy' => 'fixed',
+                'delay_ms' => 1000,
+            ],
+        ],
+    ]);
+    $service = new ProviderConfigService($config);
+
+    $retry = $service->getRetryConfig();
+
+    expect($retry)->toBeArray();
+    expect($retry[0])->toBe(3);       // times
+    expect($retry[1])->toBe(1000);    // sleepMilliseconds (fixed)
+    expect($retry[2])->toBeNull();    // when
+    expect($retry[3])->toBeTrue();    // throw
+});
+
+test('getRetryConfig returns exponential delay config when enabled with exponential strategy', function () {
+    $config = new Repository([
+        'atlas' => [
+            'retry' => [
+                'enabled' => true,
+                'times' => 3,
+                'strategy' => 'exponential',
+                'delay_ms' => 100,
+            ],
+        ],
+    ]);
+    $service = new ProviderConfigService($config);
+
+    $retry = $service->getRetryConfig();
+
+    expect($retry)->toBeArray();
+    expect($retry[0])->toBe(3);              // times
+    expect($retry[1])->toBeInstanceOf(Closure::class);  // sleepMilliseconds (closure)
+    expect($retry[2])->toBeNull();           // when
+    expect($retry[3])->toBeTrue();           // throw
+
+    // Test the exponential backoff closure
+    $sleep = $retry[1];
+    expect($sleep(1))->toBe(100);   // 100 * 2^0 = 100
+    expect($sleep(2))->toBe(200);   // 100 * 2^1 = 200
+    expect($sleep(3))->toBe(400);   // 100 * 2^2 = 400
+});
+
+test('getRetryConfig uses default values when partially configured', function () {
+    $config = new Repository([
+        'atlas' => [
+            'retry' => [
+                'enabled' => true,
+            ],
+        ],
+    ]);
+    $service = new ProviderConfigService($config);
+
+    $retry = $service->getRetryConfig();
+
+    expect($retry)->toBeArray();
+    expect($retry[0])->toBe(3);      // default times
+    expect($retry[1])->toBe(1000);   // default delay_ms with fixed strategy
+    expect($retry[2])->toBeNull();   // when
+    expect($retry[3])->toBeTrue();   // throw
+});

@@ -7,7 +7,7 @@ Execute conversations with AI agents using the Atlas chat API.
 ```php
 use Atlasphp\Atlas\Providers\Facades\Atlas;
 
-$response = Atlas::chat('support-agent', 'Hello, I need help with my order');
+$response = Atlas::agent('support-agent')->chat('Hello, I need help with my order');
 
 echo $response->text;
 // "Hi! I'd be happy to help with your order. Could you provide your order number?"
@@ -19,13 +19,13 @@ Agents can be referenced three ways:
 
 ```php
 // By registry key
-$response = Atlas::chat('support-agent', 'Hello');
+$response = Atlas::agent('support-agent')->chat('Hello');
 
 // By class name
-$response = Atlas::chat(SupportAgent::class, 'Hello');
+$response = Atlas::agent(SupportAgent::class)->chat('Hello');
 
 // By instance
-$response = Atlas::chat(new SupportAgent(), 'Hello');
+$response = Atlas::agent(new SupportAgent())->chat('Hello');
 ```
 
 ## Chat with History
@@ -38,15 +38,18 @@ $messages = [
     ['role' => 'assistant', 'content' => 'I found your order. How can I help?'],
 ];
 
-$response = Atlas::chat('support-agent', 'Where is my package?', messages: $messages);
+$response = Atlas::agent('support-agent')
+    ->withMessages($messages)
+    ->chat('Where is my package?');
 ```
 
 ## Multi-Turn Conversations
 
-Use `forMessages()` for richer context:
+Use the fluent builder to configure all context:
 
 ```php
-$response = Atlas::forMessages($messages)
+$response = Atlas::agent('support-agent')
+    ->withMessages($messages)
     ->withVariables([
         'user_name' => 'Alice',
         'account_tier' => 'premium',
@@ -55,30 +58,32 @@ $response = Atlas::forMessages($messages)
         'user_id' => 123,
         'session_id' => 'abc-456',
     ])
-    ->chat('support-agent', 'Check my recent orders');
+    ->chat('Check my recent orders');
 ```
 
-### MessageContextBuilder Methods
+### Configuration Methods
 
-```php
-// Add variables for system prompt interpolation
-->withVariables(array $variables)
+| Method | Description |
+|--------|-------------|
+| `withProvider(string $provider, ?string $model = null)` | Override agent's provider and optionally model |
+| `withModel(string $model)` | Override agent's model at runtime |
+| `withProviderOptions(array $options)` | Provider-specific options |
+| `withMessages(array $messages)` | Conversation history array |
+| `withVariables(array $variables)` | Variables for system prompt interpolation |
+| `withMetadata(array $metadata)` | Metadata for pipeline middleware and tools |
+| `withSchema(Schema $schema)` | Schema for structured output |
+| `withRetry($times, $delay)` | Retry configuration for resilience |
 
-// Add metadata for pipeline middleware and tools
-->withMetadata(array $metadata)
+### Chat Method Parameters
 
-// Execute chat with current context
-->chat(string|AgentContract $agent, string $input, ?Schema $schema = null)
-
-// Accessors
-->getMessages()
-->getVariables()
-->getMetadata()
-```
+| Parameter | Description |
+|-----------|-------------|
+| `$input` | User message (required) |
+| `stream: true` | Enable streaming response |
 
 ## Structured Output
 
-Get schema-based responses:
+Get schema-based responses using the `withSchema()` fluent method:
 
 ```php
 use Prism\Prism\Schema\ObjectSchema;
@@ -95,7 +100,9 @@ $schema = new ObjectSchema(
     requiredFields: ['sentiment', 'confidence'],
 );
 
-$response = Atlas::chat('analyzer', 'I love this product!', schema: $schema);
+$response = Atlas::agent('analyzer')
+    ->withSchema($schema)
+    ->chat('I love this product!');
 
 echo $response->structured['sentiment'];    // "positive"
 echo $response->structured['confidence'];   // 0.95
@@ -162,7 +169,8 @@ class ChatController extends Controller
     {
         $userMessage = $request->input('message');
 
-        $response = Atlas::forMessages($conversation->messages)
+        $response = Atlas::agent('support-agent')
+            ->withMessages($conversation->messages)
             ->withVariables([
                 'user_name' => $request->user()->name,
                 'account_tier' => $request->user()->tier,
@@ -171,7 +179,7 @@ class ChatController extends Controller
                 'user_id' => $request->user()->id,
                 'conversation_id' => $conversation->id,
             ])
-            ->chat('support-agent', $userMessage);
+            ->chat($userMessage);
 
         // Update conversation history
         $conversation->messages = array_merge($conversation->messages, [
@@ -190,14 +198,43 @@ class ChatController extends Controller
 }
 ```
 
+## Retry & Resilience
+
+Enable automatic retries for chat requests:
+
+```php
+// Simple retry: 3 attempts, 1 second delay
+$response = Atlas::agent('agent')
+    ->withRetry(3, 1000)
+    ->chat('Hello');
+
+// Exponential backoff
+$response = Atlas::agent('agent')
+    ->withRetry(3, fn($attempt) => (2 ** $attempt) * 100)
+    ->chat('Hello');
+
+// With multi-turn context
+$response = Atlas::agent('agent')
+    ->withMessages($messages)
+    ->withVariables(['user_name' => 'Alice'])
+    ->withRetry(3, 1000)
+    ->chat('Continue');
+
+// Only retry on rate limits
+$response = Atlas::agent('agent')
+    ->withRetry(3, 1000, fn($e) => $e->getCode() === 429)
+    ->chat('Hello');
+```
+
 ## API Summary
 
 | Method | Description |
 |--------|-------------|
-| `Atlas::chat($agent, $input)` | Simple chat with agent |
-| `Atlas::chat($agent, $input, $messages)` | Chat with history |
-| `Atlas::chat($agent, $input, null, $schema)` | Structured output |
-| `Atlas::forMessages($messages)` | Multi-turn context builder |
+| `Atlas::agent($agent)->chat($input)` | Simple chat with agent |
+| `->withMessages($msgs)->chat($input)` | Chat with history |
+| `->withVariables($vars)->chat($input)` | Chat with variables |
+| `->withSchema($schema)->chat($input)` | Structured output |
+| `->withRetry(...)->chat(...)` | Chat with retry |
 
 ## Next Steps
 

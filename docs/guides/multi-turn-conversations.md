@@ -25,9 +25,9 @@ class Conversation extends Model
 }
 ```
 
-### 2. Use forMessages() for Context
+### 2. Pass Messages via withMessages()
 
-The `forMessages()` method creates a context builder for multi-turn chats:
+Pass conversation history using the fluent `withMessages()` method:
 
 ```php
 use Atlasphp\Atlas\Providers\Facades\Atlas;
@@ -37,8 +37,9 @@ $conversation = Conversation::find($id);
 $messages = $conversation->messages;
 
 // Continue the conversation
-$response = Atlas::forMessages($messages)
-    ->chat('support-agent', $userInput);
+$response = Atlas::agent('support-agent')
+    ->withMessages($messages)
+    ->chat($userInput);
 
 // Save the updated history
 $conversation->messages = array_merge($messages, [
@@ -50,33 +51,35 @@ $conversation->save();
 
 ### 3. Add Variables for System Prompt
 
-Variables interpolate into the agent's system prompt:
+Variables interpolate into the agent's system prompt. Use `withVariables()` to set them:
 
 ```php
-$response = Atlas::forMessages($messages)
+$response = Atlas::agent('support-agent')
+    ->withMessages($messages)
     ->withVariables([
         'user_name' => $user->name,
         'account_tier' => $user->subscription->tier,
         'app_name' => config('app.name'),
     ])
-    ->chat('support-agent', $userInput);
+    ->chat($userInput);
 ```
 
 If the agent's system prompt contains `{user_name}`, it becomes the actual user name.
 
 ### 4. Add Metadata for Pipeline Middleware
 
-Metadata passes through to pipeline middleware and tools:
+Metadata passes through to pipeline middleware and tools. Use `withMetadata()`:
 
 ```php
-$response = Atlas::forMessages($messages)
+$response = Atlas::agent('support-agent')
+    ->withMessages($messages)
     ->withVariables(['user_name' => $user->name])
     ->withMetadata([
         'user_id' => $user->id,
         'tenant_id' => $user->tenant_id,
         'session_id' => session()->getId(),
     ])
-    ->chat('support-agent', $userInput);
+    ->chat($userInput);
 ```
 
 Tools can access metadata via `ToolContext`:
@@ -91,7 +94,7 @@ public function handle(array $arguments, ToolContext $context): ToolResult
 
 ### 5. Structured Output
 
-For structured responses, pass a schema:
+For structured responses, use `withSchema()`:
 
 ```php
 use Prism\Prism\Schema\ObjectSchema;
@@ -107,8 +110,10 @@ $schema = new ObjectSchema(
     requiredFields: ['sentiment'],
 );
 
-$response = Atlas::forMessages($messages)
-    ->chat('analysis-agent', 'Analyze the sentiment', $schema);
+$response = Atlas::agent('analysis-agent')
+    ->withMessages($messages)
+    ->withSchema($schema)
+    ->chat('Analyze the sentiment');
 
 $sentiment = $response->structured['sentiment'];
 ```
@@ -129,14 +134,14 @@ Valid roles: `user`, `assistant`, `system` (for system messages in history).
 
 ## Immutability
 
-`MessageContextBuilder` is immutable. Each method returns a new instance:
+`PendingAgentRequest` is immutable. Each method returns a new instance:
 
 ```php
-$builder1 = Atlas::forMessages($messages);
-$builder2 = $builder1->withVariables(['name' => 'John']);
+$builder1 = Atlas::agent('support-agent')->withVariables(['name' => 'John']);
+$builder2 = $builder1->withMetadata(['session' => 'abc']);
 
-// $builder1 still has empty variables
-// $builder2 has the variables set
+// $builder1 has only variables
+// $builder2 has both variables and metadata
 ```
 
 This allows safe method chaining without side effects.
@@ -153,7 +158,8 @@ class ChatController extends Controller
         $userMessage = $request->input('message');
 
         // Build context with full state
-        $response = Atlas::forMessages($conversation->messages)
+        $response = Atlas::agent('support-agent')
+            ->withMessages($conversation->messages)
             ->withVariables([
                 'user_name' => $request->user()->name,
                 'account_tier' => $request->user()->tier,
@@ -162,7 +168,7 @@ class ChatController extends Controller
                 'user_id' => $request->user()->id,
                 'conversation_id' => $conversation->id,
             ])
-            ->chat('support-agent', $userMessage);
+            ->chat($userMessage);
 
         // Update conversation history
         $conversation->messages = array_merge($conversation->messages, [

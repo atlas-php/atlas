@@ -15,10 +15,10 @@ Streaming allows you to receive AI responses as they're generated, rather than w
 
 ```php
 // Non-streaming (default) - returns complete response
-$response = Atlas::chat('agent', 'Hello');  // Returns AgentResponse
+$response = Atlas::agent('agent')->chat('Hello');  // Returns AgentResponse
 
 // Streaming - returns iterable stream
-$stream = Atlas::chat('agent', 'Hello', stream: true);  // Returns StreamResponse
+$stream = Atlas::agent('agent')->chat('Hello', stream: true);  // Returns StreamResponse
 ```
 
 ## Quick Start
@@ -29,7 +29,7 @@ Enable streaming by passing `stream: true` to the `chat()` method:
 use Atlasphp\Atlas\Providers\Facades\Atlas;
 use Atlasphp\Atlas\Streaming\Events\TextDeltaEvent;
 
-$stream = Atlas::chat('support-agent', 'Hello!', stream: true);
+$stream = Atlas::agent('support-agent')->chat('Hello!', stream: true);
 
 foreach ($stream as $event) {
     if ($event instanceof TextDeltaEvent) {
@@ -58,7 +58,7 @@ foreach ($stream as $event) {
 The `StreamResponse` automatically accumulates text. Access it after iteration:
 
 ```php
-$stream = Atlas::chat('agent', 'Tell me a story', stream: true);
+$stream = Atlas::agent('agent')->chat( 'Tell me a story', stream: true);
 
 // Option 1: Iterate and access after
 foreach ($stream as $event) {
@@ -69,7 +69,7 @@ foreach ($stream as $event) {
 $fullText = $stream->text();  // Complete accumulated text
 
 // Option 2: Collect without manual iteration
-$stream = Atlas::chat('agent', 'Tell me a story', stream: true)->collect();
+$stream = Atlas::agent('agent')->chat( 'Tell me a story', stream: true)->collect();
 $fullText = $stream->text();  // Complete text available immediately
 ```
 
@@ -100,7 +100,7 @@ Atlas gives you complete control over how to record streaming data. Here are com
 ### Save Complete Response After Streaming
 
 ```php
-$stream = Atlas::chat('agent', $userMessage, stream: true);
+$stream = Atlas::agent('agent')->chat( $userMessage, stream: true);
 
 foreach ($stream as $event) {
     if ($event instanceof TextDeltaEvent) {
@@ -174,7 +174,7 @@ foreach ($toolCalls as $call) {
 Usage statistics (token counts) are available after the stream completes:
 
 ```php
-$stream = Atlas::chat('agent', 'Hello', stream: true);
+$stream = Atlas::agent('agent')->chat( 'Hello', stream: true);
 
 foreach ($stream as $event) {
     // Process events...
@@ -194,7 +194,7 @@ $finishReason = $stream->finishReason();       // 'stop'
 ### Track Usage for Billing
 
 ```php
-$stream = Atlas::chat('agent', $input, stream: true);
+$stream = Atlas::agent('agent')->chat( $input, stream: true);
 
 foreach ($stream as $event) {
     if ($event instanceof TextDeltaEvent) {
@@ -218,7 +218,7 @@ UsageLog::create([
 
 ## With Conversation History
 
-Use `forMessages()` for multi-turn conversations with streaming:
+Pass conversation history using the `messages:` argument:
 
 ```php
 $messages = [
@@ -226,10 +226,11 @@ $messages = [
     ['role' => 'assistant', 'content' => 'Hi there! How can I help?'],
 ];
 
-$stream = Atlas::forMessages($messages)
+$stream = Atlas::agent('support-agent')
+    ->withMessages($messages)
     ->withVariables(['user_name' => $user->name])
     ->withMetadata(['conversation_id' => $conversationId])
-    ->chat('support-agent', 'What can you do?', stream: true);
+    ->chat('What can you do?', stream: true);
 
 foreach ($stream as $event) {
     if ($event instanceof TextDeltaEvent) {
@@ -249,8 +250,9 @@ class ChatController extends Controller
 {
     public function stream(Request $request)
     {
-        $stream = Atlas::forMessages($request->messages)
-            ->chat('support-agent', $request->input, stream: true);
+        $stream = Atlas::agent('support-agent')
+            ->withMessages($request->messages)
+            ->chat($request->input, stream: true);
 
         return $stream->toResponse();
     }
@@ -600,9 +602,10 @@ class ChatService
             ->toArray();
 
         // Start streaming
-        $stream = Atlas::forMessages($messages)
+        $stream = Atlas::agent('support-agent')
+            ->withMessages($messages)
             ->withMetadata(['conversation_id' => $conversation->id])
-            ->chat('support-agent', $userMessage, stream: true);
+            ->chat($userMessage, stream: true);
 
         // Process and broadcast events
         foreach ($stream as $event) {

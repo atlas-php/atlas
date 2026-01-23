@@ -13,7 +13,7 @@ Execute conversations with AI agents.
 ```php
 use Atlasphp\Atlas\Providers\Facades\Atlas;
 
-$response = Atlas::chat('support-agent', 'Hello, I need help with my order');
+$response = Atlas::agent('support-agent')->chat('Hello, I need help with my order');
 
 echo $response->text;
 // "Hi! I'd be happy to help with your order. Could you provide your order number?"
@@ -25,10 +25,10 @@ echo $response->text;
 use App\Agents\SupportAgent;
 
 // By class name
-$response = Atlas::chat(SupportAgent::class, 'What is your return policy?');
+$response = Atlas::agent(SupportAgent::class)->chat('What is your return policy?');
 
 // By instance
-$response = Atlas::chat(new SupportAgent(), 'What is your return policy?');
+$response = Atlas::agent(new SupportAgent())->chat('What is your return policy?');
 ```
 
 ### Chat with Conversation History
@@ -39,7 +39,7 @@ $messages = [
     ['role' => 'assistant', 'content' => 'I found your order. How can I help?'],
 ];
 
-$response = Atlas::chat('support-agent', 'Where is my package?', messages: $messages);
+$response = Atlas::agent('support-agent')->withMessages($messages)->chat('Where is my package?');
 ```
 
 ### Chat with Structured Output
@@ -59,7 +59,7 @@ $schema = new ObjectSchema(
     requiredFields: ['sentiment', 'confidence'],
 );
 
-$response = Atlas::chat('analyzer', 'I love this product!', schema: $schema);
+$response = Atlas::agent('analyzer')->withSchema($schema)->chat('I love this product!');
 
 echo $response->structured['sentiment'];    // "positive"
 echo $response->structured['confidence'];   // 0.95
@@ -69,32 +69,21 @@ echo $response->structured['confidence'];   // 0.95
 
 ## Multi-Turn Conversations
 
-Use `forMessages()` for rich conversation context with variables and metadata.
-
-### Basic Usage
-
-```php
-$messages = [
-    ['role' => 'user', 'content' => 'Hello'],
-    ['role' => 'assistant', 'content' => 'Hi there! How can I help?'],
-];
-
-$response = Atlas::forMessages($messages)
-    ->chat('support-agent', 'I have a question about billing');
-```
+Build context fluently using the agent builder.
 
 ### With Variables
 
 Variables interpolate into the agent's system prompt:
 
 ```php
-$response = Atlas::forMessages($messages)
+$response = Atlas::agent('support-agent')
+    ->withMessages($messages)
     ->withVariables([
         'user_name' => 'Alice',
         'account_tier' => 'premium',
         'app_name' => 'Acme Inc',
     ])
-    ->chat('support-agent', 'What features do I have access to?');
+    ->chat('What features do I have access to?');
 ```
 
 ### With Metadata
@@ -102,14 +91,15 @@ $response = Atlas::forMessages($messages)
 Metadata is passed to pipeline middleware and tools:
 
 ```php
-$response = Atlas::forMessages($messages)
+$response = Atlas::agent('support-agent')
+    ->withMessages($messages)
     ->withVariables(['user_name' => 'Alice'])
     ->withMetadata([
         'user_id' => 123,
         'session_id' => 'abc-456',
         'tenant_id' => 'acme',
     ])
-    ->chat('support-agent', 'Check my recent orders');
+    ->chat('Check my recent orders');
 ```
 
 ### Complete Example
@@ -118,7 +108,8 @@ $response = Atlas::forMessages($messages)
 // Load conversation from database
 $conversation = Conversation::find($id);
 
-$response = Atlas::forMessages($conversation->messages)
+$response = Atlas::agent('support-agent')
+    ->withMessages($conversation->messages)
     ->withVariables([
         'user_name' => $user->name,
         'account_tier' => $user->subscription->tier,
@@ -127,7 +118,7 @@ $response = Atlas::forMessages($conversation->messages)
         'user_id' => $user->id,
         'conversation_id' => $conversation->id,
     ])
-    ->chat('support-agent', $request->input('message'));
+    ->chat($request->input('message'));
 
 // Save updated conversation
 $conversation->messages = array_merge($conversation->messages, [
@@ -151,7 +142,7 @@ Generate vector embeddings for semantic search, RAG, and similarity matching.
 ### Single Embedding
 
 ```php
-$embedding = Atlas::embed('What is the return policy?');
+$embedding = Atlas::embeddings()->generate('What is the return policy?');
 // Returns array of 1536 floats (for text-embedding-3-small)
 
 // Use for similarity search
@@ -159,17 +150,6 @@ $similarDocs = Document::query()
     ->orderByRaw('embedding <-> ?', [json_encode($embedding)])
     ->limit(5)
     ->get();
-```
-
-### With Options
-
-```php
-// Specify output dimensions (for models that support it)
-$embedding = Atlas::embed('What is the return policy?', ['dimensions' => 256]);
-// Returns array of 256 floats
-
-// Batch with options
-$embeddings = Atlas::embedBatch($texts, ['dimensions' => 512]);
 ```
 
 ### Batch Embeddings
@@ -181,14 +161,14 @@ $texts = [
     'Do you offer refunds?',
 ];
 
-$embeddings = Atlas::embedBatch($texts);
+$embeddings = Atlas::embeddings()->generate($texts);
 // Returns array of 3 embedding vectors
 ```
 
 ### Get Embedding Dimensions
 
 ```php
-$dimensions = Atlas::embeddingDimensions();
+$dimensions = Atlas::embeddings()->dimensions();
 // 1536 (for text-embedding-3-small)
 ```
 
@@ -231,8 +211,7 @@ Storage::put('images/robot.png', $imageContent);
 
 ```php
 $result = Atlas::image()
-    ->using('openai')
-    ->model('dall-e-3')
+    ->withProvider('openai', 'dall-e-3')
     ->size('1024x1024')
     ->quality('hd')
     ->withProviderOptions(['style' => 'vivid'])  // OpenAI: 'vivid' or 'natural'
@@ -243,8 +222,7 @@ $result = Atlas::image()
 
 ```php
 $result = Atlas::image()
-    ->using('openai')
-    ->model('dall-e-3')
+    ->withProvider('openai', 'dall-e-3')
     ->size('1792x1024')
     ->quality('standard')
     ->generate('An abstract painting of emotions');
@@ -252,14 +230,14 @@ $result = Atlas::image()
 
 ---
 
-## Speech
+## Audio
 
 Text-to-speech and speech-to-text capabilities.
 
 ### Text to Speech
 
 ```php
-$result = Atlas::speech()->speak('Hello, welcome to our service!');
+$result = Atlas::speech()->generate('Hello, welcome to our service!');
 
 // Save audio file
 file_put_contents('welcome.mp3', base64_decode($result['audio']));
@@ -271,7 +249,7 @@ file_put_contents('welcome.mp3', base64_decode($result['audio']));
 $result = Atlas::speech('openai', 'tts-1')
     ->voice('nova')
     ->format('mp3')
-    ->speak('Thank you for calling. How can I help you today?');
+    ->generate('Thank you for calling. How can I help you today?');
 ```
 
 ### With Speed Control
@@ -280,7 +258,7 @@ $result = Atlas::speech('openai', 'tts-1')
 $result = Atlas::speech('openai', 'tts-1')
     ->voice('nova')
     ->speed(1.25)  // 0.25 to 4.0 for OpenAI
-    ->speak('This is faster speech.');
+    ->generate('This is faster speech.');
 ```
 
 ### HD Quality Speech
@@ -288,7 +266,7 @@ $result = Atlas::speech('openai', 'tts-1')
 ```php
 $result = Atlas::speech('openai', 'tts-1-hd')
     ->voice('alloy')
-    ->speak('This is high-definition audio quality.');
+    ->generate('This is high-definition audio quality.');
 ```
 
 ### With Provider-Specific Options
@@ -298,7 +276,7 @@ $result = Atlas::speech()
     ->voice('nova')
     ->speed(1.0)
     ->withProviderOptions(['language' => 'en'])
-    ->speak('Hello world!');
+    ->generate('Hello world!');
 ```
 
 ### Speech to Text (Transcription)
@@ -340,7 +318,7 @@ All chat operations return an `AgentResponse` object.
 ### Text Response
 
 ```php
-$response = Atlas::chat('agent', 'Hello');
+$response = Atlas::agent('agent')->chat('Hello');
 
 if ($response->hasText()) {
     echo $response->text;
@@ -350,7 +328,7 @@ if ($response->hasText()) {
 ### Structured Response
 
 ```php
-$response = Atlas::chat('agent', 'Extract data', schema: $schema);
+$response = Atlas::agent('agent')->withSchema($schema)->chat('Extract data');
 
 if ($response->hasStructured()) {
     $data = $response->structured;
@@ -372,7 +350,7 @@ if ($response->hasToolCalls()) {
 ### Token Usage
 
 ```php
-$response = Atlas::chat('agent', 'Hello');
+$response = Atlas::agent('agent')->chat('Hello');
 
 echo $response->totalTokens();      // Total tokens used
 echo $response->promptTokens();     // Tokens in prompt
@@ -397,15 +375,13 @@ if ($response->hasUsage()) {
 
 | Method | Description |
 |--------|-------------|
-| `Atlas::chat($agent, $input)` | Simple chat with agent |
-| `Atlas::chat($agent, $input, $messages)` | Chat with history |
-| `Atlas::chat($agent, $input, null, $schema)` | Structured output |
-| `Atlas::forMessages($messages)` | Multi-turn context builder |
-| `Atlas::embed($text)` | Single text embedding |
-| `Atlas::embed($text, $options)` | Single embedding with options |
-| `Atlas::embedBatch($texts)` | Batch embeddings |
-| `Atlas::embedBatch($texts, $options)` | Batch embeddings with options |
-| `Atlas::embeddingDimensions()` | Get vector dimensions |
+| `Atlas::agent($agent)->chat($input)` | Simple chat with agent |
+| `Atlas::agent($agent)->withMessages($messages)->chat($input)` | Chat with history |
+| `Atlas::agent($agent)->withVariables($vars)->chat($input)` | Chat with variables |
+| `Atlas::agent($agent)->withSchema($schema)->chat($input)` | Structured output |
+| `Atlas::embeddings()->generate($text)` | Single text embedding |
+| `Atlas::embeddings()->generate($texts)` | Batch embeddings (array input) |
+| `Atlas::embeddings()->dimensions()` | Get vector dimensions |
 | `Atlas::image()` | Image generation service |
 | `Atlas::image($provider, $model)` | Image with specific config |
 | `Atlas::speech()` | Speech service |
@@ -418,7 +394,7 @@ if ($response->hasUsage()) {
 | Image | `->size($size)` | Set image dimensions (e.g., '1024x1024') |
 | Image | `->quality($quality)` | Set quality ('standard', 'hd') |
 | Image | `->withProviderOptions($options)` | Set provider-specific options |
-| Speech | `->voice($voice)` | Set TTS voice |
-| Speech | `->speed($speed)` | Set speech speed (0.25-4.0) |
-| Speech | `->format($format)` | Set audio format |
-| Speech | `->withProviderOptions($options)` | Set provider-specific options |
+| Audio | `->voice($voice)` | Set TTS voice |
+| Audio | `->speed($speed)` | Set speech speed (0.25-4.0) |
+| Audio | `->format($format)` | Set audio format |
+| Audio | `->withProviderOptions($options)` | Set provider-specific options |

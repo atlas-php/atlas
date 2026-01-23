@@ -100,25 +100,23 @@ public function boot(): void
 use Atlasphp\Atlas\Providers\Facades\Atlas;
 
 // Simple chat
-$response = Atlas::chat('customer-support', 'Hello, I need help with my order');
+$response = Atlas::agent('customer-support')->chat('Hello, I need help with my order');
 echo $response->text;
 
 // With conversation history
-$response = Atlas::chat(
-    'customer-support',
-    'What about my refund?',
-    messages: $previousMessages,
-);
+$response = Atlas::agent('customer-support')
+    ->withMessages($previousMessages)
+    ->chat('What about my refund?');
 
 // With variables (for system prompt interpolation)
-$response = Atlas::forMessages($messages)
+$response = Atlas::agent('customer-support')
+    ->withMessages($messages)
     ->withVariables([
-        'user_name' => 'Acme Inc',
         'user_name' => 'Jane Doe',
         'account_tier' => 'Premium',
         'customer_since' => 'March 2022',
     ])
-    ->chat('customer-support', 'I need assistance');
+    ->chat('I need assistance');
 ```
 
 ## Agent Configuration Options
@@ -156,7 +154,7 @@ public function systemPrompt(): string
 }
 ```
 
-Variables are provided via `ExecutionContext` or `MessageContextBuilder`.
+Variables are provided via `ExecutionContext` or `withVariables()`.
 
 ## Common Issues
 
