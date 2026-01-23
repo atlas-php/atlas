@@ -16,7 +16,7 @@ class GeneralAssistantAgent extends AgentDefinition
     /**
      * Get the AI provider for this agent.
      */
-    public function provider(): string
+    public function provider(): ?string
     {
         return 'openai';
     }
@@ -24,7 +24,7 @@ class GeneralAssistantAgent extends AgentDefinition
     /**
      * Get the model to use for this agent.
      */
-    public function model(): string
+    public function model(): ?string
     {
         return 'gpt-4o';
     }
@@ -32,7 +32,7 @@ class GeneralAssistantAgent extends AgentDefinition
     /**
      * Get the system prompt for this agent.
      */
-    public function systemPrompt(): string
+    public function systemPrompt(): ?string
     {
         return 'You are a helpful assistant. Be concise and helpful in your responses. '
             .'Keep answers focused and relevant to the user\'s questions.';

@@ -105,6 +105,97 @@ Common models include:
 
 Any model supported by Anthropic can be used.
 
+### Ollama (Local LLMs)
+
+Atlas supports local LLMs through the Ollama provider, which connects to [Ollama](https://ollama.ai/) servers:
+
+```php
+'providers' => [
+    'ollama' => [
+        'url' => env('OLLAMA_URL', 'http://localhost:11434'),
+    ],
+],
+```
+
+Environment variables:
+```env
+OLLAMA_URL=http://localhost:11434
+```
+
+Create an agent using a local model:
+
+```php
+class LocalAssistantAgent extends AgentDefinition
+{
+    public function provider(): string
+    {
+        return 'ollama';
+    }
+
+    public function model(): string
+    {
+        return 'llama3'; // Or any model installed on your Ollama server
+    }
+}
+```
+
+### LM Studio and Other OpenAI-Compatible Servers
+
+[LM Studio](https://lmstudio.ai/) and other local LLM servers that provide an OpenAI-compatible API can be used by configuring a custom URL with the OpenAI provider:
+
+```env
+# Point OpenAI URL to your local server
+OPENAI_URL=http://localhost:1234/v1
+OPENAI_API_KEY=not-needed  # LM Studio doesn't require an API key
+```
+
+Or create a dedicated agent that configures the URL at runtime:
+
+```php
+use Atlasphp\Atlas\Providers\Facades\Atlas;
+use Illuminate\Support\Facades\Config;
+
+// Configure the OpenAI provider URL at runtime
+Config::set('prism.providers.openai.url', 'http://localhost:1234/v1');
+Config::set('prism.providers.openai.api_key', 'not-needed');
+
+// Use Atlas with your local LLM agent
+$response = Atlas::agent('my-local-agent')
+    ->withModel('your-local-model-name')
+    ->chat('Hello!');
+
+echo $response->text;
+```
+
+You can also create a dedicated agent class:
+
+```php
+class LocalLMAgent extends AgentDefinition
+{
+    public function provider(): string
+    {
+        return 'openai'; // Uses OpenAI-compatible API
+    }
+
+    public function model(): string
+    {
+        return env('OLLAMA_MODEL', 'llama3');
+    }
+
+    public function systemPrompt(): string
+    {
+        return 'You are a helpful local assistant.';
+    }
+}
+```
+
+This approach works with any server that implements the OpenAI Chat Completions API:
+- **LM Studio** - GUI application for running local models
+- **Ollama** (with OpenAI compatibility mode)
+- **LocalAI** - Self-hosted alternative to OpenAI
+- **Text Generation WebUI** (with API extension)
+- **vLLM** - High-throughput serving engine
+
 ## Chat Configuration
 
 Default settings for chat operations:

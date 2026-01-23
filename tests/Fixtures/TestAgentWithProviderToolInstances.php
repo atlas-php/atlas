@@ -22,17 +22,17 @@ class TestAgentWithProviderToolInstances extends AgentDefinition
         return 'Test Agent With Provider Tool Instances';
     }
 
-    public function provider(): string
+    public function provider(): ?string
     {
         return 'openai';
     }
 
-    public function model(): string
+    public function model(): ?string
     {
         return 'gpt-4o';
     }
 
-    public function systemPrompt(): string
+    public function systemPrompt(): ?string
     {
         return 'You are a helpful assistant.';
     }

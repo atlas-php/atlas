@@ -86,14 +86,14 @@ use Atlasphp\Atlas\Agents\AgentDefinition;
 
 class SupportAgent extends AgentDefinition
 {
-    public function provider(): string { return 'openai'; }
-    
-    public function model(): string { return 'gpt-4o'; }
-    
-    public function systemPrompt(): string {
+    public function provider(): ?string { return 'openai'; }
+
+    public function model(): ?string { return 'gpt-4o'; }
+
+    public function systemPrompt(): ?string {
         return 'You help customers for {company}.';
     }
-    
+
     public function tools(): array {
         return [
             LookupOrderTool::class

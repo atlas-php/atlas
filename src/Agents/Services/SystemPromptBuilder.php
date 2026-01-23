@@ -55,11 +55,21 @@ class SystemPromptBuilder
     /**
      * Build the system prompt for an agent.
      *
+     * Returns null if the agent has no system prompt and no sections are registered.
+     * This allows the provider to use its default system prompt behavior.
+     *
      * @param  AgentContract  $agent  The agent to build the prompt for.
      * @param  ExecutionContext  $context  The execution context with variables.
      */
-    public function build(AgentContract $agent, ExecutionContext $context): string
+    public function build(AgentContract $agent, ExecutionContext $context): ?string
     {
+        $basePrompt = $agent->systemPrompt();
+
+        // If no system prompt and no sections, return null to skip system prompt entirely
+        if ($basePrompt === null && $this->sections === []) {
+            return null;
+        }
+
         // Run before_build pipeline
         $data = [
             'agent' => $agent,
@@ -74,12 +84,12 @@ class SystemPromptBuilder
         );
 
         // Get the base prompt and interpolate
-        $prompt = $agent->systemPrompt();
+        $prompt = $basePrompt ?? '';
         $prompt = $this->interpolate($prompt, $data['variables']);
 
         // Append sections
         if ($this->sections !== []) {
-            $prompt .= "\n\n".implode("\n\n", $this->sections);
+            $prompt .= ($prompt !== '' ? "\n\n" : '').implode("\n\n", $this->sections);
         }
 
         // Run after_build pipeline

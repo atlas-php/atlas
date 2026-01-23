@@ -14,17 +14,17 @@ use Atlasphp\Atlas\Agents\AgentDefinition;
  */
 class GeminiToolDemoAgent extends AgentDefinition
 {
-    public function provider(): string
+    public function provider(): ?string
     {
         return 'gemini';
     }
 
-    public function model(): string
+    public function model(): ?string
     {
         return 'gemini-2.0-flash';
     }
 
-    public function systemPrompt(): string
+    public function systemPrompt(): ?string
     {
         return 'You are a helpful assistant with access to tools. '
             .'Use the calculator for math, weather for weather queries, '

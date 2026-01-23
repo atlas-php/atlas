@@ -14,17 +14,17 @@ use Atlasphp\Atlas\Agents\AgentDefinition;
  */
 class AnthropicToolDemoAgent extends AgentDefinition
 {
-    public function provider(): string
+    public function provider(): ?string
     {
         return 'anthropic';
     }
 
-    public function model(): string
+    public function model(): ?string
     {
         return 'claude-sonnet-4-20250514';
     }
 
-    public function systemPrompt(): string
+    public function systemPrompt(): ?string
     {
         return 'You are a helpful assistant with access to tools. '
             .'Use the calculator for math, weather for weather queries, '

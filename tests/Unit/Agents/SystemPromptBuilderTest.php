@@ -791,6 +791,61 @@ test('it runs before_build pipeline', function () {
     expect($prompt)->toBe('Injected: pipeline_value');
 });
 
+// ============================================================================
+// Null System Prompt Tests
+// ============================================================================
+
+test('it returns null when agent has no system prompt and no sections', function () {
+    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    {
+        public function key(): string
+        {
+            return 'test';
+        }
+
+        public function systemPrompt(): ?string
+        {
+            return null;
+        }
+    };
+
+    $context = new ExecutionContext;
+    $prompt = $this->builder->build($agent, $context);
+
+    expect($prompt)->toBeNull();
+});
+
+test('it builds sections only when agent has null system prompt but sections exist', function () {
+    $this->builder->addSection('rules', '## Rules\nFollow these rules.');
+
+    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    {
+        public function key(): string
+        {
+            return 'test';
+        }
+
+        public function systemPrompt(): ?string
+        {
+            return null;
+        }
+    };
+
+    $context = new ExecutionContext;
+    $prompt = $this->builder->build($agent, $context);
+
+    expect($prompt)->toBe('## Rules\nFollow these rules.');
+});
+
+test('it handles agent with null system prompt using fixture', function () {
+    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentNoSystemPrompt;
+    $context = new ExecutionContext;
+
+    $prompt = $this->builder->build($agent, $context);
+
+    expect($prompt)->toBeNull();
+});
+
 test('it runs after_build pipeline', function () {
     $container = new Container;
     $registry = new PipelineRegistry;

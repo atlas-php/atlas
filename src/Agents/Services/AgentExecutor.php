@@ -168,7 +168,7 @@ class AgentExecutor implements AgentExecutorContract
      * Shared between execute() and stream() to avoid duplication.
      *
      * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
-     * @return array{agent: AgentContract, input: string, context: ExecutionContext, schema: Schema|null, systemPrompt: string, request: mixed}
+     * @return array{agent: AgentContract, input: string, context: ExecutionContext, schema: Schema|null, systemPrompt: string|null, request: mixed}
      */
     protected function prepareExecution(
         AgentContract $agent,
@@ -321,15 +321,15 @@ class AgentExecutor implements AgentExecutorContract
         AgentContract $agent,
         string $input,
         ExecutionContext $context,
-        string $systemPrompt,
+        ?string $systemPrompt,
         ?array $retry = null,
     ): mixed {
         $toolContext = new ToolContext($context->metadata);
         $tools = $this->toolBuilder->buildForAgent($agent, $toolContext);
 
-        // Use context overrides if present, otherwise fall back to agent config
-        $provider = $context->providerOverride ?? $agent->provider();
-        $model = $context->modelOverride ?? $agent->model();
+        // Use context overrides if present, otherwise fall back to agent config, then to config defaults
+        $provider = $context->providerOverride ?? $agent->provider() ?? config('atlas.chat.provider');
+        $model = $context->modelOverride ?? $agent->model() ?? config('atlas.chat.model');
 
         $request = $context->hasMessages()
             ? $this->prismBuilder->forMessages(
@@ -365,14 +365,14 @@ class AgentExecutor implements AgentExecutorContract
         AgentContract $agent,
         string $input,
         ExecutionContext $context,
-        string $systemPrompt,
+        ?string $systemPrompt,
         Schema $schema,
         ?array $retry = null,
         ?StructuredMode $structuredMode = null,
     ): AgentResponse {
-        // Use context overrides if present, otherwise fall back to agent config
-        $provider = $context->providerOverride ?? $agent->provider();
-        $model = $context->modelOverride ?? $agent->model();
+        // Use context overrides if present, otherwise fall back to agent config, then to config defaults
+        $provider = $context->providerOverride ?? $agent->provider() ?? config('atlas.chat.provider');
+        $model = $context->modelOverride ?? $agent->model() ?? config('atlas.chat.model');
 
         $request = $this->prismBuilder->forStructured(
             $provider,
@@ -535,7 +535,8 @@ class AgentExecutor implements AgentExecutorContract
      */
     protected function buildResponse(AgentContract $agent, mixed $prismResponse): AgentResponse
     {
-        $usage = $this->usageExtractor->extract($agent->provider(), $prismResponse);
+        $provider = $agent->provider() ?? config('atlas.chat.provider');
+        $usage = $this->usageExtractor->extract($provider, $prismResponse);
         $toolCalls = $this->extractToolCalls($prismResponse);
 
         return new AgentResponse(
@@ -590,7 +591,8 @@ class AgentExecutor implements AgentExecutorContract
      */
     protected function buildStructuredResponse(AgentContract $agent, mixed $prismResponse): AgentResponse
     {
-        $usage = $this->usageExtractor->extract($agent->provider(), $prismResponse);
+        $provider = $agent->provider() ?? config('atlas.chat.provider');
+        $usage = $this->usageExtractor->extract($provider, $prismResponse);
 
         return new AgentResponse(
             structured: $prismResponse->structured ?? null,

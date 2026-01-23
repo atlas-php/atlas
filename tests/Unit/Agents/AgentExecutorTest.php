@@ -1781,6 +1781,268 @@ test('it throws InvalidArgumentException for provider tool array without type ke
     }
 });
 
+// ===========================================
+// NULL SYSTEM PROMPT TESTS
+// ===========================================
+
+test('it executes agent with null system prompt', function () {
+    $mockResponse = new class
+    {
+        public ?string $text = 'Hello';
+
+        public array $toolCalls = [];
+
+        public object $finishReason;
+
+        public function __construct()
+        {
+            $this->finishReason = new class
+            {
+                public string $value = 'stop';
+            };
+        }
+    };
+
+    $mockPendingRequest = Mockery::mock();
+    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
+
+    // Verify null system prompt is passed
+    $this->prismBuilder
+        ->shouldReceive('forPrompt')
+        ->once()
+        ->withArgs(function ($provider, $model, $input, $systemPrompt) {
+            return $systemPrompt === null;
+        })
+        ->andReturn($mockPendingRequest);
+
+    $executor = new AgentExecutor(
+        $this->prismBuilder,
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->usageExtractor,
+        $this->configService,
+    );
+
+    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentNoSystemPrompt;
+    $response = $executor->execute($agent, 'Hello');
+
+    expect($response)->toBeInstanceOf(AgentResponse::class);
+    expect($response->text)->toBe('Hello');
+});
+
+test('it streams agent with null system prompt', function () {
+    $prismUsage = new \Prism\Prism\ValueObjects\Usage(
+        promptTokens: 10,
+        completionTokens: 5,
+    );
+
+    $prismStreamEndEvent = new \Prism\Prism\Streaming\Events\StreamEndEvent(
+        id: 'evt_1',
+        timestamp: 1234567890,
+        finishReason: \Prism\Prism\Enums\FinishReason::Stop,
+        usage: $prismUsage,
+    );
+
+    $mockStreamGenerator = function () use ($prismStreamEndEvent) {
+        yield $prismStreamEndEvent;
+    };
+
+    $mockPendingRequest = Mockery::mock();
+    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('asStream')->andReturn($mockStreamGenerator());
+
+    // Verify null system prompt is passed
+    $this->prismBuilder
+        ->shouldReceive('forPrompt')
+        ->once()
+        ->withArgs(function ($provider, $model, $input, $systemPrompt) {
+            return $systemPrompt === null;
+        })
+        ->andReturn($mockPendingRequest);
+
+    $executor = new AgentExecutor(
+        $this->prismBuilder,
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->usageExtractor,
+        $this->configService,
+    );
+
+    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentNoSystemPrompt;
+    $stream = $executor->stream($agent, 'Hello');
+    $events = iterator_to_array($stream);
+
+    expect($events)->toHaveCount(1);
+    expect($events[0])->toBeInstanceOf(\Atlasphp\Atlas\Streaming\Events\StreamEndEvent::class);
+});
+
+// ===========================================
+// CONFIG DEFAULT TESTS (NULL PROVIDER/MODEL)
+// ===========================================
+
+test('it uses config defaults when agent returns null provider and model', function () {
+    // Set up config to return defaults
+    config(['atlas.chat.provider' => 'anthropic']);
+    config(['atlas.chat.model' => 'claude-3-sonnet']);
+
+    $mockResponse = new class
+    {
+        public ?string $text = 'Hello';
+
+        public array $toolCalls = [];
+
+        public object $finishReason;
+
+        public function __construct()
+        {
+            $this->finishReason = new class
+            {
+                public string $value = 'stop';
+            };
+        }
+    };
+
+    $mockPendingRequest = Mockery::mock();
+    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
+
+    // Verify config defaults are used
+    $this->prismBuilder
+        ->shouldReceive('forPrompt')
+        ->once()
+        ->withArgs(function ($provider, $model) {
+            return $provider === 'anthropic' && $model === 'claude-3-sonnet';
+        })
+        ->andReturn($mockPendingRequest);
+
+    $executor = new AgentExecutor(
+        $this->prismBuilder,
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->usageExtractor,
+        $this->configService,
+    );
+
+    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithDefaults;
+    $response = $executor->execute($agent, 'Hello');
+
+    expect($response)->toBeInstanceOf(AgentResponse::class);
+});
+
+test('it uses config defaults for structured requests when agent returns null', function () {
+    // Set up config to return defaults
+    config(['atlas.chat.provider' => 'anthropic']);
+    config(['atlas.chat.model' => 'claude-3-sonnet']);
+
+    $mockResponse = new class
+    {
+        public mixed $structured = ['name' => 'John'];
+
+        public object $finishReason;
+
+        public function __construct()
+        {
+            $this->finishReason = new class
+            {
+                public string $value = 'stop';
+            };
+        }
+    };
+
+    $mockPendingRequest = Mockery::mock();
+    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('asStructured')->andReturn($mockResponse);
+
+    $mockSchema = Mockery::mock(\Prism\Prism\Contracts\Schema::class);
+
+    // Verify config defaults are used
+    $this->prismBuilder
+        ->shouldReceive('forStructured')
+        ->once()
+        ->withArgs(function ($provider, $model) {
+            return $provider === 'anthropic' && $model === 'claude-3-sonnet';
+        })
+        ->andReturn($mockPendingRequest);
+
+    $executor = new AgentExecutor(
+        $this->prismBuilder,
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->usageExtractor,
+        $this->configService,
+    );
+
+    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithDefaults;
+    $response = $executor->execute($agent, 'Hello', null, $mockSchema);
+
+    expect($response->structured)->toBe(['name' => 'John']);
+});
+
+test('context overrides take precedence over config defaults', function () {
+    // Set up config defaults
+    config(['atlas.chat.provider' => 'anthropic']);
+    config(['atlas.chat.model' => 'claude-3-sonnet']);
+
+    $mockResponse = new class
+    {
+        public ?string $text = 'Hello';
+
+        public array $toolCalls = [];
+
+        public object $finishReason;
+
+        public function __construct()
+        {
+            $this->finishReason = new class
+            {
+                public string $value = 'stop';
+            };
+        }
+    };
+
+    $mockPendingRequest = Mockery::mock();
+    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
+
+    // Context overrides should be used instead of config defaults
+    $this->prismBuilder
+        ->shouldReceive('forPrompt')
+        ->once()
+        ->withArgs(function ($provider, $model) {
+            return $provider === 'openai' && $model === 'gpt-4-turbo';
+        })
+        ->andReturn($mockPendingRequest);
+
+    $executor = new AgentExecutor(
+        $this->prismBuilder,
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->usageExtractor,
+        $this->configService,
+    );
+
+    $context = new ExecutionContext(
+        providerOverride: 'openai',
+        modelOverride: 'gpt-4-turbo',
+    );
+
+    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithDefaults;
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect($response)->toBeInstanceOf(AgentResponse::class);
+});
+
 test('it passes through ProviderTool instances unchanged', function () {
     $mockResponse = new class
     {
