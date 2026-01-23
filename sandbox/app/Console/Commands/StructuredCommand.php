@@ -5,17 +5,14 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use Atlasphp\Atlas\Providers\Facades\Atlas;
+use Atlasphp\Atlas\Schema\Schema;
+use Atlasphp\Atlas\Schema\SchemaBuilder;
 use Illuminate\Console\Command;
-use Prism\Prism\Schema\ArraySchema;
-use Prism\Prism\Schema\BooleanSchema;
-use Prism\Prism\Schema\NumberSchema;
-use Prism\Prism\Schema\ObjectSchema;
-use Prism\Prism\Schema\StringSchema;
 
 /**
  * Command for testing structured output extraction.
  *
- * Demonstrates schema-based data extraction from text.
+ * Demonstrates schema-based data extraction from text using the Schema Builder.
  */
 class StructuredCommand extends Command
 {
@@ -25,20 +22,21 @@ class StructuredCommand extends Command
      * @var string
      */
     protected $signature = 'atlas:structured
-                            {--schema=person : Predefined schema (person|product|review)}
-                            {--prompt= : Custom prompt for extraction}';
+                            {--schema=person : Predefined schema (person|product|review|order|sentiment|contact)}
+                            {--prompt= : Custom prompt for extraction}
+                            {--list : List all available schemas}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Test structured output extraction with Atlas';
+    protected $description = 'Test structured output extraction with Atlas Schema Builder';
 
     /**
      * Predefined schemas and prompts.
      *
-     * @var array<string, array{prompt: string, schema: ObjectSchema}>
+     * @var array<string, array{prompt: string, builder: callable, useJsonMode?: bool, requiredFields: array<string>}>
      */
     protected array $schemas = [];
 
@@ -48,6 +46,12 @@ class StructuredCommand extends Command
     public function handle(): int
     {
         $this->initializeSchemas();
+
+        if ($this->option('list')) {
+            $this->listSchemas();
+
+            return self::SUCCESS;
+        }
 
         $schemaKey = $this->option('schema');
         $prompt = $this->option('prompt');
@@ -60,25 +64,32 @@ class StructuredCommand extends Command
         }
 
         $schemaConfig = $this->schemas[$schemaKey];
-        $schema = $schemaConfig['schema'];
+        $schema = ($schemaConfig['builder'])();
         $defaultPrompt = $schemaConfig['prompt'];
+        $useJsonMode = $schemaConfig['useJsonMode'] ?? false;
+        $requiredFields = $schemaConfig['requiredFields'];
 
         // Use provided prompt or default
         $prompt = $prompt ?: $defaultPrompt;
 
-        $this->displayHeader($schemaKey, $prompt);
+        $this->displayHeader($schemaKey, $prompt, $useJsonMode);
         $this->displaySchemaDefinition($schema);
 
         try {
             $this->info('Extracting structured data...');
             $this->line('');
 
-            $response = Atlas::agent('structured-output')
-                ->withSchema($schema)
-                ->chat($prompt);
+            $agent = Atlas::agent('structured-output')->withSchema($schema);
+
+            // Use JSON mode for schemas with optional fields
+            if ($useJsonMode) {
+                $agent = $agent->usingJsonMode();
+            }
+
+            $response = $agent->chat($prompt);
 
             $this->displayResponse($response);
-            $this->displayVerification($response, $schema);
+            $this->displayVerification($response, $requiredFields);
 
             return self::SUCCESS;
         } catch (\Throwable $e) {
@@ -89,169 +100,151 @@ class StructuredCommand extends Command
     }
 
     /**
-     * Initialize predefined schemas.
+     * Initialize predefined schemas using the Schema Builder.
      */
     protected function initializeSchemas(): void
     {
         $this->schemas = [
+            // Basic schema with string and number fields
             'person' => [
                 'prompt' => 'Extract person info: John Smith is a 35-year-old software engineer at john@example.com',
-                'schema' => new ObjectSchema(
-                    name: 'person',
-                    description: 'Information about a person',
-                    properties: [
-                        new StringSchema('name', 'The person\'s full name'),
-                        new NumberSchema('age', 'The person\'s age in years'),
-                        new StringSchema('email', 'The person\'s email address'),
-                        new StringSchema('occupation', 'The person\'s job or occupation'),
-                    ],
-                    // OpenAI requires all properties in requiredFields for structured output
-                    requiredFields: ['name', 'age', 'email', 'occupation'],
-                ),
+                'builder' => fn () => Schema::object('person', 'Information about a person')
+                    ->string('name', 'The person\'s full name')
+                    ->number('age', 'The person\'s age in years')
+                    ->string('email', 'The person\'s email address')
+                    ->string('occupation', 'The person\'s job or occupation')
+                    ->build(),
+                'requiredFields' => ['name', 'age', 'email', 'occupation'],
             ],
+
+            // Schema with boolean field
             'product' => [
                 'prompt' => 'Extract product info: The iPhone 15 Pro costs $999 in the Electronics category and is currently in stock.',
-                'schema' => new ObjectSchema(
-                    name: 'product',
-                    description: 'Information about a product',
-                    properties: [
-                        new StringSchema('name', 'The product name'),
-                        new NumberSchema('price', 'The product price in dollars'),
-                        new StringSchema('category', 'The product category'),
-                        new BooleanSchema('inStock', 'Whether the product is in stock'),
-                    ],
-                    // OpenAI requires all properties in requiredFields for structured output
-                    requiredFields: ['name', 'price', 'category', 'inStock'],
-                ),
+                'builder' => fn () => Schema::object('product', 'Information about a product')
+                    ->string('name', 'The product name')
+                    ->number('price', 'The product price in dollars')
+                    ->string('category', 'The product category')
+                    ->boolean('inStock', 'Whether the product is in stock')
+                    ->build(),
+                'requiredFields' => ['name', 'price', 'category', 'inStock'],
             ],
+
+            // Schema with string arrays
             'review' => [
                 'prompt' => 'Extract review: "Amazing product! 5 stars. The quality is excellent and shipping was fast. Pros: Great value, durable. Cons: A bit heavy."',
-                'schema' => new ObjectSchema(
-                    name: 'review',
-                    description: 'A product review',
-                    properties: [
-                        new NumberSchema('rating', 'The rating from 1 to 5'),
-                        new StringSchema('title', 'A short title for the review'),
-                        new StringSchema('body', 'The main review text'),
-                        new ArraySchema('pros', 'List of positive points', new StringSchema('pro', 'A positive point')),
-                        new ArraySchema('cons', 'List of negative points', new StringSchema('con', 'A negative point')),
-                    ],
-                    // OpenAI requires all properties in requiredFields for structured output
-                    requiredFields: ['rating', 'title', 'body', 'pros', 'cons'],
-                ),
+                'builder' => fn () => Schema::object('review', 'A product review')
+                    ->number('rating', 'The rating from 1 to 5')
+                    ->string('title', 'A short title for the review')
+                    ->string('body', 'The main review text')
+                    ->stringArray('pros', 'List of positive points')
+                    ->stringArray('cons', 'List of negative points')
+                    ->build(),
+                'requiredFields' => ['rating', 'title', 'body', 'pros', 'cons'],
+            ],
+
+            // Schema with nested objects and arrays of objects
+            'order' => [
+                'prompt' => 'Extract order: Order #ORD-12345 from customer Jane Doe (jane@example.com). Items: 2x Widget at $19.99, 1x Gadget at $49.99. Total: $89.97',
+                'builder' => fn () => Schema::object('order', 'An order with customer and items')
+                    ->string('orderId', 'The order identifier')
+                    ->number('total', 'Total order amount in dollars')
+                    ->object('customer', 'Customer information', fn (SchemaBuilder $s) => $s
+                        ->string('name', 'Customer full name')
+                        ->string('email', 'Customer email address')
+                    )
+                    ->array('items', 'Ordered items', fn (SchemaBuilder $s) => $s
+                        ->string('name', 'Item name')
+                        ->number('quantity', 'Quantity ordered')
+                        ->number('price', 'Unit price in dollars')
+                    )
+                    ->build(),
+                'requiredFields' => ['orderId', 'total', 'customer', 'items'],
+            ],
+
+            // Schema with enum field
+            'sentiment' => [
+                'prompt' => 'Analyze sentiment: "I absolutely love this product! It exceeded all my expectations and I would highly recommend it to everyone."',
+                'builder' => fn () => Schema::object('sentiment', 'Sentiment analysis result')
+                    ->enum('sentiment', 'The detected sentiment', ['positive', 'negative', 'neutral'])
+                    ->number('confidence', 'Confidence score from 0 to 1')
+                    ->string('summary', 'Brief explanation of the sentiment')
+                    ->stringArray('keywords', 'Key words that indicate sentiment')
+                    ->build(),
+                'requiredFields' => ['sentiment', 'confidence', 'summary', 'keywords'],
+            ],
+
+            // Schema with optional fields - uses JSON mode
+            'contact' => [
+                'prompt' => 'Extract contact: Reach out to Mike Johnson at mike@company.com. He works at TechCorp.',
+                'builder' => fn () => Schema::object('contact', 'Contact information')
+                    ->string('name', 'Full name')
+                    ->string('email', 'Email address')
+                    ->string('phone', 'Phone number')->optional()
+                    ->string('company', 'Company name')->optional()
+                    ->string('title', 'Job title')->optional()
+                    ->build(),
+                'useJsonMode' => true, // JSON mode supports optional fields
+                'requiredFields' => ['name', 'email'], // Only name and email are required
             ],
         ];
     }
 
     /**
+     * List all available schemas.
+     */
+    protected function listSchemas(): void
+    {
+        $this->line('');
+        $this->line('=== Available Schemas ===');
+        $this->line('');
+
+        $descriptions = [
+            'person' => 'Basic schema with string and number fields',
+            'product' => 'Schema with boolean field',
+            'review' => 'Schema with string arrays (pros/cons)',
+            'order' => 'Schema with nested objects and arrays of objects',
+            'sentiment' => 'Schema with enum field for classification',
+            'contact' => 'Schema with optional fields (uses JSON mode)',
+        ];
+
+        foreach ($this->schemas as $key => $config) {
+            $desc = $descriptions[$key] ?? 'Custom schema';
+            $this->line("<info>{$key}</info> - {$desc}");
+        }
+
+        $this->line('');
+        $this->line('Usage: php artisan atlas:structured --schema=<name>');
+    }
+
+    /**
      * Display the command header.
      */
-    protected function displayHeader(string $schemaKey, string $prompt): void
+    protected function displayHeader(string $schemaKey, string $prompt, bool $useJsonMode = false): void
     {
         $this->line('');
         $this->line('=== Atlas Structured Output Test ===');
         $this->line('Agent: structured-output');
         $this->line("Schema: {$schemaKey}");
+
+        if ($useJsonMode) {
+            $this->line('Mode: JSON (allows optional fields)');
+        }
+
         $this->line('');
         $this->line("Prompt: \"{$prompt}\"");
         $this->line('');
     }
 
     /**
-     * Display the schema definition.
+     * Display the schema definition using toArray().
+     *
+     * @param  mixed  $schema  The Prism ObjectSchema.
      */
-    protected function displaySchemaDefinition(ObjectSchema $schema): void
+    protected function displaySchemaDefinition($schema): void
     {
         $this->line('--- Schema Definition ---');
-
-        // Build a simplified schema representation
-        $schemaArray = $this->schemaToArray($schema);
-        $this->line(json_encode($schemaArray, JSON_PRETTY_PRINT));
+        $this->line(json_encode($schema->toArray(), JSON_PRETTY_PRINT));
         $this->line('');
-    }
-
-    /**
-     * Convert schema to array for display.
-     *
-     * @return array<string, mixed>
-     */
-    protected function schemaToArray(ObjectSchema $schema): array
-    {
-        $properties = [];
-        $required = [];
-
-        foreach ($this->getSchemaProperties($schema) as $prop) {
-            $propSchema = $this->propertyToSchema($prop);
-            $properties[$prop->name()] = $propSchema;
-        }
-
-        foreach ($this->getSchemaRequiredFields($schema) as $field) {
-            $required[] = $field;
-        }
-
-        $result = [
-            'type' => 'object',
-            'properties' => $properties,
-        ];
-
-        if (! empty($required)) {
-            $result['required'] = $required;
-        }
-
-        return $result;
-    }
-
-    /**
-     * Convert a property to schema array.
-     *
-     * @return array<string, mixed>
-     */
-    protected function propertyToSchema(object $prop): array
-    {
-        $type = match (true) {
-            $prop instanceof StringSchema => 'string',
-            $prop instanceof NumberSchema => 'number',
-            $prop instanceof BooleanSchema => 'boolean',
-            $prop instanceof ArraySchema => 'array',
-            $prop instanceof ObjectSchema => 'object',
-            default => 'string',
-        };
-
-        return ['type' => $type];
-    }
-
-    /**
-     * Get properties from schema using reflection.
-     *
-     * @return array<object>
-     */
-    protected function getSchemaProperties(ObjectSchema $schema): array
-    {
-        try {
-            $reflection = new \ReflectionClass($schema);
-            $property = $reflection->getProperty('properties');
-
-            return $property->getValue($schema);
-        } catch (\ReflectionException) {
-            return [];
-        }
-    }
-
-    /**
-     * Get required fields from schema using reflection.
-     *
-     * @return array<string>
-     */
-    protected function getSchemaRequiredFields(ObjectSchema $schema): array
-    {
-        try {
-            $reflection = new \ReflectionClass($schema);
-            $property = $reflection->getProperty('requiredFields');
-
-            return $property->getValue($schema);
-        } catch (\ReflectionException) {
-            return [];
-        }
     }
 
     /**
@@ -286,8 +279,9 @@ class StructuredCommand extends Command
      * Display verification results.
      *
      * @param  \Atlasphp\Atlas\Agents\Support\AgentResponse  $response
+     * @param  array<string>  $requiredFields
      */
-    protected function displayVerification($response, ObjectSchema $schema): void
+    protected function displayVerification($response, array $requiredFields): void
     {
         $this->line('--- Verification ---');
 
@@ -303,10 +297,9 @@ class StructuredCommand extends Command
         $data = is_array($structured) ? $structured : (array) $structured;
 
         // Check structure matches
-        $this->info('[PASS] Response matches schema structure');
+        $this->info('[PASS] Response has structured data');
 
         // Check required fields
-        $requiredFields = $this->getSchemaRequiredFields($schema);
         $missingRequired = [];
 
         foreach ($requiredFields as $field) {
@@ -321,60 +314,6 @@ class StructuredCommand extends Command
             $this->error('[FAIL] Missing required fields: '.implode(', ', $missingRequired));
         }
 
-        // Check field types (basic validation)
-        $properties = $this->getSchemaProperties($schema);
-        $typeErrors = [];
-
-        foreach ($properties as $prop) {
-            $name = $prop->name();
-            if (! array_key_exists($name, $data)) {
-                continue;
-            }
-
-            $value = $data[$name];
-            $expectedType = match (true) {
-                $prop instanceof StringSchema => 'string',
-                $prop instanceof NumberSchema => 'number',
-                $prop instanceof BooleanSchema => 'boolean',
-                $prop instanceof ArraySchema => 'array',
-                $prop instanceof ObjectSchema => 'object',
-                default => null,
-            };
-
-            if ($expectedType && ! $this->validateType($value, $expectedType)) {
-                $typeErrors[] = "{$name} (expected {$expectedType})";
-            }
-        }
-
-        if (empty($typeErrors)) {
-            $this->info('[PASS] Field types are correct');
-        } else {
-            $this->error('[FAIL] Type mismatches: '.implode(', ', $typeErrors));
-        }
-
-        // Check for extra fields
-        $schemaFields = array_map(fn ($p) => $p->name(), $properties);
-        $extraFields = array_diff(array_keys($data), $schemaFields);
-
-        if (empty($extraFields)) {
-            $this->info('[PASS] No extra fields in response');
-        } else {
-            $this->warn('[WARN] Extra fields in response: '.implode(', ', $extraFields));
-        }
-    }
-
-    /**
-     * Validate a value against an expected type.
-     */
-    protected function validateType(mixed $value, string $expectedType): bool
-    {
-        return match ($expectedType) {
-            'string' => is_string($value),
-            'number' => is_int($value) || is_float($value),
-            'boolean' => is_bool($value),
-            'array' => is_array($value) && array_is_list($value),
-            'object' => is_array($value) || is_object($value),
-            default => true,
-        };
+        $this->info('[PASS] Structured output extraction complete');
     }
 }

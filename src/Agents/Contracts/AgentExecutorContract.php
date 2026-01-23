@@ -8,6 +8,7 @@ use Atlasphp\Atlas\Agents\Support\AgentResponse;
 use Atlasphp\Atlas\Agents\Support\ExecutionContext;
 use Atlasphp\Atlas\Streaming\StreamResponse;
 use Prism\Prism\Contracts\Schema;
+use Prism\Prism\Enums\StructuredMode;
 
 /**
  * Contract for agent execution implementations.
@@ -26,6 +27,7 @@ interface AgentExecutorContract
      * @param  ExecutionContext|null  $context  Optional execution context with messages and variables.
      * @param  Schema|null  $schema  Optional schema for structured output.
      * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
+     * @param  StructuredMode|null  $structuredMode  Optional mode for structured output (Auto, Structured, Json).
      */
     public function execute(
         AgentContract $agent,
@@ -33,6 +35,7 @@ interface AgentExecutorContract
         ?ExecutionContext $context = null,
         ?Schema $schema = null,
         ?array $retry = null,
+        ?StructuredMode $structuredMode = null,
     ): AgentResponse;
 
     /**

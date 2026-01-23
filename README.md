@@ -43,7 +43,7 @@ Atlas handles **application-level AI concerns** while Prism handles **LLM commun
 
 ## Table of Contents
 
-* [What You Get](#whats-included)
+* [What's Included](#whats-included)
 * [Installation & Quick Start](#installation--quick-start)
 * [Tools](#tools)
 * [Pipelines](#pipelines)

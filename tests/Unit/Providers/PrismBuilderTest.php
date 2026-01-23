@@ -555,3 +555,141 @@ test('forStructured passes retry to withClientRetry', function () {
 
     expect($request)->toBeInstanceOf(\Prism\Prism\Structured\PendingRequest::class);
 });
+
+// ===========================================
+// STRUCTURED MODE TESTS
+// ===========================================
+
+test('forStructured does not apply structured mode when null', function () {
+    $schema = Mockery::mock(\Prism\Prism\Contracts\Schema::class);
+
+    $mockRequest = Mockery::mock(\Prism\Prism\Structured\PendingRequest::class);
+    $mockRequest->shouldReceive('using')->andReturnSelf();
+    $mockRequest->shouldReceive('withSystemPrompt')->andReturnSelf();
+    $mockRequest->shouldReceive('withPrompt')->with('Extract data')->andReturnSelf();
+    $mockRequest->shouldReceive('withSchema')->with($schema)->andReturnSelf();
+    // usingStructuredMode should NOT be called when null
+    $mockRequest->shouldNotReceive('usingStructuredMode');
+
+    Prism::shouldReceive('structured')->andReturn($mockRequest);
+
+    $request = $this->builder->forStructured('openai', 'gpt-4o', $schema, 'Extract data', 'You are helpful.', null, null);
+
+    expect($request)->toBeInstanceOf(\Prism\Prism\Structured\PendingRequest::class);
+});
+
+test('forStructured applies Json structured mode when provided', function () {
+    $schema = Mockery::mock(\Prism\Prism\Contracts\Schema::class);
+
+    $mockRequest = Mockery::mock(\Prism\Prism\Structured\PendingRequest::class);
+    $mockRequest->shouldReceive('using')->andReturnSelf();
+    $mockRequest->shouldReceive('withSystemPrompt')->andReturnSelf();
+    $mockRequest->shouldReceive('withPrompt')->with('Extract data')->andReturnSelf();
+    $mockRequest->shouldReceive('withSchema')->with($schema)->andReturnSelf();
+    $mockRequest->shouldReceive('usingStructuredMode')
+        ->once()
+        ->with(\Prism\Prism\Enums\StructuredMode::Json)
+        ->andReturnSelf();
+
+    Prism::shouldReceive('structured')->andReturn($mockRequest);
+
+    $request = $this->builder->forStructured(
+        'openai',
+        'gpt-4o',
+        $schema,
+        'Extract data',
+        'You are helpful.',
+        null,
+        \Prism\Prism\Enums\StructuredMode::Json
+    );
+
+    expect($request)->toBeInstanceOf(\Prism\Prism\Structured\PendingRequest::class);
+});
+
+test('forStructured applies Structured mode when provided', function () {
+    $schema = Mockery::mock(\Prism\Prism\Contracts\Schema::class);
+
+    $mockRequest = Mockery::mock(\Prism\Prism\Structured\PendingRequest::class);
+    $mockRequest->shouldReceive('using')->andReturnSelf();
+    $mockRequest->shouldReceive('withSystemPrompt')->andReturnSelf();
+    $mockRequest->shouldReceive('withPrompt')->with('Extract data')->andReturnSelf();
+    $mockRequest->shouldReceive('withSchema')->with($schema)->andReturnSelf();
+    $mockRequest->shouldReceive('usingStructuredMode')
+        ->once()
+        ->with(\Prism\Prism\Enums\StructuredMode::Structured)
+        ->andReturnSelf();
+
+    Prism::shouldReceive('structured')->andReturn($mockRequest);
+
+    $request = $this->builder->forStructured(
+        'openai',
+        'gpt-4o',
+        $schema,
+        'Extract data',
+        'You are helpful.',
+        null,
+        \Prism\Prism\Enums\StructuredMode::Structured
+    );
+
+    expect($request)->toBeInstanceOf(\Prism\Prism\Structured\PendingRequest::class);
+});
+
+test('forStructured applies Auto mode when provided', function () {
+    $schema = Mockery::mock(\Prism\Prism\Contracts\Schema::class);
+
+    $mockRequest = Mockery::mock(\Prism\Prism\Structured\PendingRequest::class);
+    $mockRequest->shouldReceive('using')->andReturnSelf();
+    $mockRequest->shouldReceive('withSystemPrompt')->andReturnSelf();
+    $mockRequest->shouldReceive('withPrompt')->with('Extract data')->andReturnSelf();
+    $mockRequest->shouldReceive('withSchema')->with($schema)->andReturnSelf();
+    $mockRequest->shouldReceive('usingStructuredMode')
+        ->once()
+        ->with(\Prism\Prism\Enums\StructuredMode::Auto)
+        ->andReturnSelf();
+
+    Prism::shouldReceive('structured')->andReturn($mockRequest);
+
+    $request = $this->builder->forStructured(
+        'openai',
+        'gpt-4o',
+        $schema,
+        'Extract data',
+        'You are helpful.',
+        null,
+        \Prism\Prism\Enums\StructuredMode::Auto
+    );
+
+    expect($request)->toBeInstanceOf(\Prism\Prism\Structured\PendingRequest::class);
+});
+
+test('forStructured applies structured mode with retry', function () {
+    $schema = Mockery::mock(\Prism\Prism\Contracts\Schema::class);
+
+    $mockRequest = Mockery::mock(\Prism\Prism\Structured\PendingRequest::class);
+    $mockRequest->shouldReceive('using')->andReturnSelf();
+    $mockRequest->shouldReceive('withSystemPrompt')->andReturnSelf();
+    $mockRequest->shouldReceive('withPrompt')->with('Extract data')->andReturnSelf();
+    $mockRequest->shouldReceive('withSchema')->with($schema)->andReturnSelf();
+    $mockRequest->shouldReceive('usingStructuredMode')
+        ->once()
+        ->with(\Prism\Prism\Enums\StructuredMode::Json)
+        ->andReturnSelf();
+    $mockRequest->shouldReceive('withClientRetry')
+        ->once()
+        ->with(3, 1000, null, true)
+        ->andReturnSelf();
+
+    Prism::shouldReceive('structured')->andReturn($mockRequest);
+
+    $request = $this->builder->forStructured(
+        'openai',
+        'gpt-4o',
+        $schema,
+        'Extract data',
+        'You are helpful.',
+        [3, 1000, null, true],
+        \Prism\Prism\Enums\StructuredMode::Json
+    );
+
+    expect($request)->toBeInstanceOf(\Prism\Prism\Structured\PendingRequest::class);
+});

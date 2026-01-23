@@ -83,7 +83,7 @@ test('chat resolves agent and executes', function () {
     $this->agentExecutor
         ->shouldReceive('execute')
         ->once()
-        ->with($agent, 'Hello', null, null, null)
+        ->with($agent, 'Hello', null, null, null, null)
         ->andReturn($response);
 
     $result = $this->request->chat('Hello');
@@ -104,7 +104,7 @@ test('chat passes messages to context', function () {
     $this->agentExecutor
         ->shouldReceive('execute')
         ->once()
-        ->withArgs(function ($a, $input, $context, $schema, $retry) use ($agent, $messages) {
+        ->withArgs(function ($a, $input, $context, $schema, $retry, $structuredMode) use ($agent, $messages) {
             return $a === $agent
                 && $input === 'Hello'
                 && $context instanceof ExecutionContext
@@ -130,7 +130,7 @@ test('chat passes variables to context', function () {
     $this->agentExecutor
         ->shouldReceive('execute')
         ->once()
-        ->withArgs(function ($a, $input, $context, $schema, $retry) use ($agent, $variables) {
+        ->withArgs(function ($a, $input, $context, $schema, $retry, $structuredMode) use ($agent, $variables) {
             return $a === $agent
                 && $input === 'Hello'
                 && $context instanceof ExecutionContext
@@ -156,7 +156,7 @@ test('chat passes metadata to context', function () {
     $this->agentExecutor
         ->shouldReceive('execute')
         ->once()
-        ->withArgs(function ($a, $input, $context, $schema, $retry) use ($agent, $metadata) {
+        ->withArgs(function ($a, $input, $context, $schema, $retry, $structuredMode) use ($agent, $metadata) {
             return $a === $agent
                 && $input === 'Hello'
                 && $context instanceof ExecutionContext
@@ -181,7 +181,7 @@ test('chat passes retry config to executor', function () {
     $this->agentExecutor
         ->shouldReceive('execute')
         ->once()
-        ->withArgs(function ($a, $input, $context, $schema, $retry) use ($agent) {
+        ->withArgs(function ($a, $input, $context, $schema, $retry, $structuredMode) use ($agent) {
             return $a === $agent
                 && $input === 'Hello'
                 && $retry !== null
@@ -226,10 +226,40 @@ test('chat with schema returns structured response', function () {
     $this->agentExecutor
         ->shouldReceive('execute')
         ->once()
-        ->with($agent, 'Hello', null, $schema, null)
+        ->with($agent, 'Hello', null, $schema, null, null)
         ->andReturn($response);
 
     $result = $this->request->withSchema($schema)->chat('Hello');
+
+    expect($result)->toBe($response);
+});
+
+test('withSchema accepts SchemaBuilder and auto-builds', function () {
+    $agent = new TestAgent;
+    $response = AgentResponse::structured(['name' => 'John']);
+
+    $this->agentResolver
+        ->shouldReceive('resolve')
+        ->once()
+        ->andReturn($agent);
+
+    $this->agentExecutor
+        ->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($a, $input, $context, $schema, $retry, $structuredMode) use ($agent) {
+            // Verify the SchemaBuilder was auto-built into an ObjectSchema
+            return $a === $agent
+                && $input === 'Hello'
+                && $schema instanceof \Prism\Prism\Schema\ObjectSchema
+                && $schema->name === 'test'
+                && count($schema->properties) === 1;
+        })
+        ->andReturn($response);
+
+    $builder = \Atlasphp\Atlas\Schema\Schema::object('test', 'Test schema')
+        ->string('name', 'Name');
+
+    $result = $this->request->withSchema($builder)->chat('Hello');
 
     expect($result)->toBe($response);
 });
@@ -265,7 +295,7 @@ test('chaining preserves all config', function () {
     $this->agentExecutor
         ->shouldReceive('execute')
         ->once()
-        ->withArgs(function ($a, $input, $context, $schema, $retry) use ($agent, $messages, $variables, $metadata) {
+        ->withArgs(function ($a, $input, $context, $schema, $retry, $structuredMode) use ($agent, $messages, $variables, $metadata) {
             return $a === $agent
                 && $input === 'Hello'
                 && $context instanceof ExecutionContext
@@ -342,7 +372,7 @@ test('chat accepts agent instance', function () {
     $this->agentExecutor
         ->shouldReceive('execute')
         ->once()
-        ->with($agent, 'Hello', null, null, null)
+        ->with($agent, 'Hello', null, null, null, null)
         ->andReturn($response);
 
     $result = $request->chat('Hello');
@@ -369,7 +399,7 @@ test('chat accepts agent class string', function () {
     $this->agentExecutor
         ->shouldReceive('execute')
         ->once()
-        ->with($agent, 'Hello', null, null, null)
+        ->with($agent, 'Hello', null, null, null, null)
         ->andReturn($response);
 
     $result = $request->chat('Hello');
@@ -403,7 +433,7 @@ test('chat passes provider override to context', function () {
     $this->agentExecutor
         ->shouldReceive('execute')
         ->once()
-        ->withArgs(function ($a, $input, $context, $schema, $retry) use ($agent) {
+        ->withArgs(function ($a, $input, $context, $schema, $retry, $structuredMode) use ($agent) {
             return $a === $agent
                 && $input === 'Hello'
                 && $context instanceof ExecutionContext
@@ -428,7 +458,7 @@ test('chat passes model override to context', function () {
     $this->agentExecutor
         ->shouldReceive('execute')
         ->once()
-        ->withArgs(function ($a, $input, $context, $schema, $retry) use ($agent) {
+        ->withArgs(function ($a, $input, $context, $schema, $retry, $structuredMode) use ($agent) {
             return $a === $agent
                 && $input === 'Hello'
                 && $context instanceof ExecutionContext
@@ -453,7 +483,7 @@ test('chat passes both provider and model overrides to context', function () {
     $this->agentExecutor
         ->shouldReceive('execute')
         ->once()
-        ->withArgs(function ($a, $input, $context, $schema, $retry) use ($agent) {
+        ->withArgs(function ($a, $input, $context, $schema, $retry, $structuredMode) use ($agent) {
             return $a === $agent
                 && $input === 'Hello'
                 && $context instanceof ExecutionContext

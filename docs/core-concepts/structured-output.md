@@ -7,128 +7,240 @@ Atlas supports schema-based responses for extracting structured data from AI res
 Instead of free-form text, structured output returns data in a predefined format:
 
 ```php
-use Prism\Prism\Schema\ObjectSchema;
-use Prism\Prism\Schema\StringSchema;
-use Prism\Prism\Schema\NumberSchema;
+use Atlasphp\Atlas\Schema\Schema;
 
-$schema = new ObjectSchema(
-    name: 'sentiment',
-    description: 'Sentiment analysis result',
-    properties: [
-        new StringSchema('sentiment', 'The sentiment: positive, negative, or neutral'),
-        new NumberSchema('confidence', 'Confidence score from 0 to 1'),
-    ],
-    requiredFields: ['sentiment', 'confidence'],
-);
-
-$response = Atlas::agent('analyzer')->withSchema($schema)->chat('I love this product!');
+$response = Atlas::agent('analyzer')
+    ->withSchema(
+        Schema::object('sentiment', 'Sentiment analysis result')
+            ->enum('sentiment', 'The sentiment', ['positive', 'negative', 'neutral'])
+            ->number('confidence', 'Confidence score from 0 to 1')
+    )
+    ->chat('I love this product!');
 
 echo $response->structured['sentiment'];   // "positive"
 echo $response->structured['confidence'];  // 0.95
 ```
 
-## Schema Types
+## Schema Builder
 
-Atlas uses Prism's schema classes for type definitions.
+The Schema Builder provides a fluent API for defining schemas with automatic required field tracking.
 
-### String Schema
+### Basic Usage
 
 ```php
-use Prism\Prism\Schema\StringSchema;
+use Atlasphp\Atlas\Schema\Schema;
 
-new StringSchema('name', 'The person\'s full name');
+// Pass directly to withSchema() - no build() needed
+$response = Atlas::agent('extractor')
+    ->withSchema(
+        Schema::object('contact', 'Contact information')
+            ->string('name', 'Full name')
+            ->string('email', 'Email address')
+            ->number('age', 'Age in years')
+    )
+    ->chat('Extract: John Smith, john@example.com, 30 years old');
+
+// Or build separately if you need to reuse the schema
+$schema = Schema::object('contact', 'Contact information')
+    ->string('name', 'Full name')
+    ->string('email', 'Email address')
+    ->build();
 ```
 
-### Number Schema
+All fields are **required by default**, matching OpenAI's recommended practice.
+
+### Property Types
+
+#### String
 
 ```php
-use Prism\Prism\Schema\NumberSchema;
-
-new NumberSchema('score', 'A score between 0 and 100');
+->string('name', 'The person\'s full name')
 ```
 
-### Boolean Schema
+#### Number
 
 ```php
-use Prism\Prism\Schema\BooleanSchema;
-
-new BooleanSchema('is_valid', 'Whether the input is valid');
+->number('score', 'A score between 0 and 100')
 ```
 
-### Enum Schema
+#### Integer
 
 ```php
-use Prism\Prism\Schema\EnumSchema;
-
-new EnumSchema('status', 'The current status', ['pending', 'approved', 'rejected']);
+->integer('count', 'Number of items')
 ```
 
-### Array Schema
+#### Boolean
 
 ```php
-use Prism\Prism\Schema\ArraySchema;
-
-new ArraySchema(
-    'tags',
-    'List of relevant tags',
-    new StringSchema('tag', 'A single tag')
-);
+->boolean('is_valid', 'Whether the input is valid')
 ```
 
-### Object Schema
+#### Enum
 
 ```php
-use Prism\Prism\Schema\ObjectSchema;
-
-new ObjectSchema(
-    name: 'address',
-    description: 'A mailing address',
-    properties: [
-        new StringSchema('street', 'Street address'),
-        new StringSchema('city', 'City name'),
-        new StringSchema('zip', 'ZIP or postal code'),
-        new StringSchema('country', 'Country code'),
-    ],
-    requiredFields: ['street', 'city', 'country'],
-);
+->enum('status', 'The current status', ['pending', 'approved', 'rejected'])
 ```
 
-## Nested Schemas
+### Arrays
 
-Create complex nested structures:
+#### String Array
 
 ```php
-$schema = new ObjectSchema(
-    name: 'order_extraction',
-    description: 'Extracted order information',
-    properties: [
-        new StringSchema('order_id', 'The order identifier'),
-        new ObjectSchema(
-            name: 'customer',
-            description: 'Customer information',
-            properties: [
-                new StringSchema('name', 'Customer name'),
-                new StringSchema('email', 'Customer email'),
-            ],
-            requiredFields: ['name'],
-        ),
-        new ArraySchema(
-            'items',
-            'Ordered items',
-            new ObjectSchema(
-                name: 'item',
-                description: 'A single item',
-                properties: [
-                    new StringSchema('name', 'Item name'),
-                    new NumberSchema('quantity', 'Quantity ordered'),
-                    new NumberSchema('price', 'Unit price'),
-                ],
-                requiredFields: ['name', 'quantity'],
-            ),
-        ),
-    ],
-    requiredFields: ['order_id', 'items'],
-);
+->stringArray('tags', 'List of relevant tags')
+```
+
+#### Number Array
+
+```php
+->numberArray('scores', 'List of scores')
+```
+
+#### Object Array
+
+```php
+->array('items', 'Order items', fn($s) => $s
+    ->string('name', 'Item name')
+    ->number('quantity', 'Quantity')
+    ->number('price', 'Unit price')
+)
+```
+
+### Nested Objects
+
+```php
+->object('address', 'Mailing address', fn($s) => $s
+    ->string('street', 'Street address')
+    ->string('city', 'City name')
+    ->string('zip', 'ZIP or postal code')
+)
+```
+
+### Optional Fields
+
+Mark fields as optional with `->optional()`:
+
+```php
+Schema::object('user', 'User profile')
+    ->string('name', 'Full name')           // required
+    ->string('email', 'Email address')      // required
+    ->string('phone', 'Phone number')->optional()  // NOT required
+```
+
+### Nullable Fields
+
+Mark fields as nullable with `->nullable()` (implies optional):
+
+```php
+Schema::object('record', 'Data record')
+    ->string('id', 'Record ID')
+    ->string('notes', 'Optional notes')->nullable()
+```
+
+## Structured Output Modes
+
+By default, Atlas uses the provider's native structured output mode. For OpenAI, this requires **all fields to be required**. If you need optional fields, use JSON mode.
+
+### JSON Mode (for Optional Fields)
+
+Use `->usingJsonMode()` when your schema has optional fields:
+
+```php
+$response = Atlas::agent('extractor')
+    ->withSchema(
+        Schema::object('contact', 'Contact info')
+            ->string('name', 'Full name')
+            ->string('email', 'Email')
+            ->string('phone', 'Phone number')->optional()
+    )
+    ->usingJsonMode()  // Required for optional fields with OpenAI
+    ->chat('Extract: John at john@example.com');
+```
+
+### Available Modes
+
+```php
+// Let Atlas choose the best mode (default)
+->usingAutoMode()
+
+// Use native JSON schema (faster, but all fields must be required for OpenAI)
+->usingNativeMode()
+
+// Use JSON mode (allows optional fields, works with all providers)
+->usingJsonMode()
+```
+
+**When to use JSON mode:**
+- Your schema has `->optional()` fields
+- You need flexibility in what the model returns
+- You're working with providers that don't support native structured output
+
+## Complex Examples
+
+### Nested Schema with Optional Fields
+
+```php
+$response = Atlas::agent('order-extractor')
+    ->withSchema(
+        Schema::object('order', 'Order details')
+            ->string('id', 'Order ID')
+            ->object('customer', 'Customer info', fn($s) => $s
+                ->string('name', 'Customer name')
+                ->string('email', 'Email address')->optional()
+            )
+            ->array('items', 'Order items', fn($s) => $s
+                ->string('name', 'Item name')
+                ->number('quantity', 'Quantity')
+                ->number('price', 'Unit price')->optional()
+            )
+    )
+    ->usingJsonMode()
+    ->chat($orderText);
+```
+
+### Classification Schema
+
+```php
+$response = Atlas::agent('classifier')
+    ->withSchema(
+        Schema::object('classification', 'Content classification')
+            ->enum('category', 'Content category', ['support', 'sales', 'feedback', 'other'])
+            ->number('confidence', 'Classification confidence')
+            ->stringArray('tags', 'Relevant tags')->optional()
+    )
+    ->usingJsonMode()
+    ->chat('I want to return my order and get a refund');
+
+// $response->structured = ['category' => 'support', 'confidence' => 0.92, 'tags' => ['refund', 'return']]
+```
+
+### Data Extraction Schema
+
+```php
+$response = Atlas::agent('extractor')
+    ->withSchema(
+        Schema::object('contact', 'Extracted contact')
+            ->string('name', 'Full name')
+            ->string('email', 'Email address')->optional()
+            ->string('phone', 'Phone number')->optional()
+    )
+    ->usingJsonMode()
+    ->chat('Contact: John Smith, john@example.com, 555-1234');
+
+// $response->structured = ['name' => 'John Smith', 'email' => 'john@example.com', 'phone' => '555-1234']
+```
+
+### Summary Schema
+
+```php
+$response = Atlas::agent('summarizer')
+    ->withSchema(
+        Schema::object('summary', 'Article summary')
+            ->string('title', 'Suggested title')
+            ->string('summary', 'Brief summary (2-3 sentences)')
+            ->stringArray('key_points', 'Key takeaways')
+            ->enum('sentiment', 'Overall sentiment', ['positive', 'negative', 'neutral'])
+    )
+    ->chat($articleText);
 ```
 
 ## With Variables and Messages
@@ -137,7 +249,10 @@ $schema = new ObjectSchema(
 $response = Atlas::agent('extractor')
     ->withMessages($messages)
     ->withVariables(['user_name' => 'John'])
-    ->withSchema($schema)
+    ->withSchema(
+        Schema::object('data', 'Extracted data')
+            ->string('field', 'The field')
+    )
     ->chat('Extract the data');
 
 $data = $response->structured;
@@ -146,81 +261,22 @@ $data = $response->structured;
 ## Checking Responses
 
 ```php
-$response = Atlas::agent('agent')->withSchema($schema)->chat('Analyze this');
+$response = Atlas::agent('extractor')
+    ->withSchema(
+        Schema::object('person', 'Person details')
+            ->string('name', 'Full name')
+            ->string('email', 'Email address')
+    )
+    ->chat('Extract from: John Smith can be reached at john@example.com');
 
 if ($response->hasStructured()) {
-    $data = $response->structured;
-    // Process structured data
+    $person = $response->structured;
+    echo "Name: {$person['name']}";    // "John Smith"
+    echo "Email: {$person['email']}";  // "john@example.com"
 } else {
-    // Handle missing structured data
-    $text = $response->text;
+    // Handle case where extraction failed
+    echo "Could not extract person data";
 }
-```
-
-## Use Cases
-
-### Data Extraction
-
-Extract structured data from unstructured text:
-
-```php
-$schema = new ObjectSchema(
-    name: 'contact',
-    description: 'Contact information',
-    properties: [
-        new StringSchema('name', 'Full name'),
-        new StringSchema('email', 'Email address'),
-        new StringSchema('phone', 'Phone number'),
-    ],
-    requiredFields: ['name'],
-);
-
-$response = Atlas::agent('extractor')
-    ->withSchema($schema)
-    ->chat('Contact: John Smith, john@example.com, 555-1234');
-
-// $response->structured = ['name' => 'John Smith', 'email' => 'john@example.com', 'phone' => '555-1234']
-```
-
-### Classification
-
-Classify content into categories:
-
-```php
-$schema = new ObjectSchema(
-    name: 'classification',
-    description: 'Content classification',
-    properties: [
-        new EnumSchema('category', 'Content category', ['support', 'sales', 'feedback', 'other']),
-        new NumberSchema('confidence', 'Classification confidence'),
-        new ArraySchema('tags', 'Relevant tags', new StringSchema('tag', 'A tag')),
-    ],
-    requiredFields: ['category', 'confidence'],
-);
-
-$response = Atlas::agent('classifier')
-    ->withSchema($schema)
-    ->chat('I want to return my order and get a refund');
-
-// $response->structured = ['category' => 'support', 'confidence' => 0.92, 'tags' => ['refund', 'return']]
-```
-
-### Summarization
-
-Get structured summaries:
-
-```php
-$schema = new ObjectSchema(
-    name: 'summary',
-    description: 'Article summary',
-    properties: [
-        new StringSchema('title', 'Suggested title'),
-        new StringSchema('summary', 'Brief summary (2-3 sentences)'),
-        new ArraySchema('key_points', 'Key takeaways', new StringSchema('point', 'A key point')),
-        new EnumSchema('sentiment', 'Overall sentiment', ['positive', 'negative', 'neutral']),
-    ],
-    requiredFields: ['title', 'summary', 'key_points'],
-);
 ```
 
 ## Best Practices
@@ -229,27 +285,21 @@ $schema = new ObjectSchema(
 
 ```php
 // Good - specific descriptions
-new StringSchema('email', 'A valid email address in format user@domain.com');
+->string('email', 'A valid email address in format user@domain.com')
 
 // Less helpful
-new StringSchema('email', 'Email');
+->string('email', 'Email')
 ```
 
 ### 2. Use Required Fields Appropriately
 
-Only mark fields as required if they're truly essential:
+Only mark fields as optional if they're truly optional:
 
 ```php
-new ObjectSchema(
-    name: 'user',
-    description: 'User profile',
-    properties: [
-        new StringSchema('name', 'Full name'),
-        new StringSchema('email', 'Email address'),
-        new StringSchema('phone', 'Phone number'),  // Optional
-    ],
-    requiredFields: ['name', 'email'],  // Phone is optional
-);
+Schema::object('user', 'User profile')
+    ->string('name', 'Full name')         // Essential
+    ->string('email', 'Email address')    // Essential
+    ->string('phone', 'Phone number')->optional()  // Nice to have
 ```
 
 ### 3. Match Schema to Agent Purpose
