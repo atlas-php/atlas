@@ -195,46 +195,56 @@ public function handle(array $arguments, ToolContext $context): ToolResult
 }
 ```
 
-## MessageContextBuilder
+## PendingAgentRequest
 
-Immutable builder for constructing execution context via the facade.
+Immutable fluent builder for constructing agent chat requests with messages, variables, metadata, and retry configuration.
 
 ### Methods
 
-**withVariables()** — Add variables:
+**withMessages()** — Set conversation history:
+
+```php
+public function withMessages(array $messages): self
+```
+
+**withVariables()** — Set variables for system prompt interpolation:
 
 ```php
 public function withVariables(array $variables): self
 ```
 
-**withMetadata()** — Add metadata:
+**withMetadata()** — Set metadata for pipeline middleware and tools:
 
 ```php
 public function withMetadata(array $metadata): self
 ```
 
-**chat()** — Execute chat with context:
+**withRetry()** — Configure retry behavior:
+
+```php
+public function withRetry(
+    array|int $times,
+    Closure|int $sleepMilliseconds = 0,
+    ?callable $when = null,
+    bool $throw = true,
+): self
+```
+
+**chat()** — Execute chat with configured context:
 
 ```php
 public function chat(
-    string|AgentContract $agent,
     string $input,
     ?Schema $schema = null,
-): AgentResponse
-```
-
-**Accessors:**
-
-```php
-public function getMessages(): array
-public function getVariables(): array
-public function getMetadata(): array
+    bool $stream = false,
+): AgentResponse|StreamResponse
 ```
 
 ### Example Usage
 
 ```php
-$response = Atlas::forMessages($messages)
+$response = Atlas::agent('support-agent')
+    ->withMessages($messages)
     ->withVariables([
         'user_name' => $user->name,
         'company' => 'Acme',
@@ -243,7 +253,51 @@ $response = Atlas::forMessages($messages)
         'user_id' => $user->id,
         'tenant_id' => $user->tenant_id,
     ])
-    ->chat('support-agent', 'Hello');
+    ->chat('Hello');
+```
+
+## PendingEmbeddingRequest
+
+Immutable fluent builder for embedding operations with metadata and retry support.
+
+### Methods
+
+**withMetadata()** — Set metadata for pipeline middleware:
+
+```php
+public function withMetadata(array $metadata): self
+```
+
+**withRetry()** — Configure retry behavior:
+
+```php
+public function withRetry(
+    array|int $times,
+    Closure|int $sleepMilliseconds = 0,
+    ?callable $when = null,
+    bool $throw = true,
+): self
+```
+
+**generate()** — Generate embedding for a single text:
+
+```php
+public function generate(string $text): array<int, float>
+```
+
+**generateBatch()** — Generate embeddings for multiple texts:
+
+```php
+public function generateBatch(array $texts): array<int, array<int, float>>
+```
+
+### Example Usage
+
+```php
+$embedding = Atlas::embedding()
+    ->withMetadata(['user_id' => 123])
+    ->withRetry(3, 1000)
+    ->generate('Hello world');
 ```
 
 ## Immutability Pattern
@@ -276,7 +330,7 @@ Context flows through the execution pipeline:
 ```
 User Request
     ↓
-MessageContextBuilder (builds ExecutionContext)
+PendingAgentRequest/AtlasManager (builds ExecutionContext)
     ↓
 ExecutionContext (passed to agent executor)
     ↓
@@ -295,12 +349,13 @@ When the agent calls a tool, the `ToolContext` is created from the `ExecutionCon
 
 ```php
 // In your application code
-$response = Atlas::forMessages($messages)
+$response = Atlas::agent('agent')
+    ->withMessages($messages)
     ->withMetadata([
         'user_id' => 123,        // Available in ToolContext
         'tenant_id' => 'acme',   // Available in ToolContext
     ])
-    ->chat('agent', 'Look up my order');
+    ->chat('Look up my order');
 
 // In your tool
 public function handle(array $args, ToolContext $context): ToolResult

@@ -34,6 +34,7 @@ class EmbeddingService
     {
         $provider = $this->provider->provider();
         $model = $this->provider->model();
+        $metadata = $options['metadata'] ?? [];
 
         try {
             // Run before_generate pipeline
@@ -42,9 +43,10 @@ class EmbeddingService
                 'provider' => $provider,
                 'model' => $model,
                 'options' => $options,
+                'metadata' => $metadata,
             ];
 
-            /** @var array{text: string, provider: string, model: string, options: array<string, mixed>} $beforeData */
+            /** @var array{text: string, provider: string, model: string, options: array<string, mixed>, metadata: array<string, mixed>} $beforeData */
             $beforeData = $this->pipelineRunner->runIfActive(
                 'embedding.before_generate',
                 $beforeData,
@@ -65,6 +67,7 @@ class EmbeddingService
                 'provider' => $provider,
                 'model' => $model,
                 'options' => $options,
+                'metadata' => $metadata,
                 'result' => $result,
             ];
 
@@ -76,7 +79,7 @@ class EmbeddingService
 
             return $afterData['result'];
         } catch (Throwable $e) {
-            $this->handleError('generate', $text, null, $provider, $model, $e);
+            $this->handleError('generate', $text, null, $provider, $model, $metadata, $e);
             throw $e;
         }
     }
@@ -93,6 +96,7 @@ class EmbeddingService
     {
         $provider = $this->provider->provider();
         $model = $this->provider->model();
+        $metadata = $options['metadata'] ?? [];
 
         try {
             // Run before_generate_batch pipeline
@@ -101,9 +105,10 @@ class EmbeddingService
                 'provider' => $provider,
                 'model' => $model,
                 'options' => $options,
+                'metadata' => $metadata,
             ];
 
-            /** @var array{texts: array<string>, provider: string, model: string, options: array<string, mixed>} $beforeData */
+            /** @var array{texts: array<string>, provider: string, model: string, options: array<string, mixed>, metadata: array<string, mixed>} $beforeData */
             $beforeData = $this->pipelineRunner->runIfActive(
                 'embedding.before_generate_batch',
                 $beforeData,
@@ -124,6 +129,7 @@ class EmbeddingService
                 'provider' => $provider,
                 'model' => $model,
                 'options' => $options,
+                'metadata' => $metadata,
                 'result' => $result,
             ];
 
@@ -135,7 +141,7 @@ class EmbeddingService
 
             return $afterData['result'];
         } catch (Throwable $e) {
-            $this->handleError('generate_batch', null, $texts, $provider, $model, $e);
+            $this->handleError('generate_batch', null, $texts, $provider, $model, $metadata, $e);
             throw $e;
         }
     }
@@ -156,6 +162,7 @@ class EmbeddingService
      * @param  array<string>|null  $texts  The batch texts (if generating batch).
      * @param  string  $provider  The provider being used.
      * @param  string  $model  The model being used.
+     * @param  array<string, mixed>  $metadata  The metadata that was provided.
      * @param  Throwable  $exception  The exception that occurred.
      */
     protected function handleError(
@@ -164,6 +171,7 @@ class EmbeddingService
         ?array $texts,
         string $provider,
         string $model,
+        array $metadata,
         Throwable $exception,
     ): void {
         $errorData = [
@@ -172,6 +180,7 @@ class EmbeddingService
             'texts' => $texts,
             'provider' => $provider,
             'model' => $model,
+            'metadata' => $metadata,
             'exception' => $exception,
         ];
 

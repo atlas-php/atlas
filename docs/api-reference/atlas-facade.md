@@ -7,141 +7,232 @@ The Atlas Facade provides the primary API for interacting with Atlas. It exposes
 ```php
 use Atlasphp\Atlas\Providers\Facades\Atlas;
 
-// Chat with an agent
-$response = Atlas::chat('support-agent', 'Hello');
+// Chat with an agent (agent-first pattern)
+$response = Atlas::agent('support-agent')->chat('Hello');
 
-// Multi-turn conversation
-$response = Atlas::forMessages($messages)
+// Chat with conversation history
+$response = Atlas::agent('support-agent')
+    ->withMessages($messages)
+    ->chat('Continue');
+
+// With variables and metadata
+$response = Atlas::agent('support-agent')
+    ->withMessages($messages)
     ->withVariables(['user_name' => 'John'])
-    ->chat('support-agent', 'Continue');
+    ->withMetadata(['session_id' => 'abc'])
+    ->chat('Hello');
 
 // Embeddings
 $embedding = Atlas::embed('Hello world');
 
+// Embedding with configuration
+$embedding = Atlas::embedding()
+    ->withMetadata(['user_id' => 123])
+    ->withRetry(3, 1000)
+    ->generate('Hello world');
+
 // Image generation
-$result = Atlas::image()->generate('A sunset');
+$result = Atlas::image()
+    ->withMetadata(['user_id' => 123])
+    ->generate('A sunset');
 
 // Speech
-$audio = Atlas::speech()->speak('Hello');
+$audio = Atlas::speech()
+    ->withMetadata(['user_id' => 123])
+    ->speak('Hello');
 ```
 
-## Chat Methods
+## Agent Methods
 
-### chat()
+### agent()
 
-Execute a chat with an agent.
+Start building a chat request for an agent.
 
 ```php
-Atlas::chat(
-    string|AgentContract $agent,
-    string $input,
-    ?array $messages = null,
-    ?Schema $schema = null,
-): AgentResponse
+Atlas::agent(string|AgentContract $agent): PendingAgentRequest
 ```
 
 **Parameters:**
 - `$agent` — Agent key, class name, or instance
-- `$input` — User message
-- `$messages` — Optional conversation history
-- `$schema` — Optional schema for structured output
 
-**Returns:** `AgentResponse`
+**Returns:** `PendingAgentRequest` — Fluent builder for chat operations
 
 **Examples:**
 
 ```php
 // By registry key
-$response = Atlas::chat('support-agent', 'Hello');
+$response = Atlas::agent('support-agent')->chat('Hello');
 
 // By class name
-$response = Atlas::chat(SupportAgent::class, 'Hello');
+$response = Atlas::agent(SupportAgent::class)->chat('Hello');
 
 // By instance
-$response = Atlas::chat(new SupportAgent(), 'Hello');
-
-// With history
-$response = Atlas::chat('support-agent', 'Continue', messages: $history);
-
-// Structured output
-$response = Atlas::chat('support-agent', 'Extract', schema: $schema);
+$response = Atlas::agent(new SupportAgent())->chat('Hello');
 ```
 
-### forMessages()
+## PendingAgentRequest
 
-Create a context builder for multi-turn conversations.
+Immutable fluent builder for agent chat operations.
+
+### withMessages()
+
+Set conversation history.
 
 ```php
-Atlas::forMessages(array $messages): MessageContextBuilder
+public function withMessages(array $messages): self
 ```
 
 **Parameters:**
-- `$messages` — Conversation history array
-
-**Returns:** `MessageContextBuilder`
+- `$messages` — Array of `['role' => string, 'content' => string]`
 
 **Example:**
 
 ```php
-$response = Atlas::forMessages($messages)
-    ->withVariables(['user_name' => 'John'])
-    ->withMetadata(['user_id' => 123])
-    ->chat('support-agent', 'Continue');
+$response = Atlas::agent('support-agent')
+    ->withMessages([
+        ['role' => 'user', 'content' => 'Hello'],
+        ['role' => 'assistant', 'content' => 'Hi there!'],
+    ])
+    ->chat('Continue our conversation');
 ```
-
-## MessageContextBuilder
-
-Immutable builder for conversation context.
 
 ### withVariables()
 
-Add variables for system prompt interpolation.
+Set variables for system prompt interpolation.
 
 ```php
 public function withVariables(array $variables): self
 ```
 
+**Parameters:**
+- `$variables` — Variables for system prompt interpolation
+
+**Example:**
+
+```php
+$response = Atlas::agent('support-agent')
+    ->withVariables(['user_name' => 'John'])
+    ->chat('Hello');
+```
+
 ### withMetadata()
 
-Add metadata for pipeline middleware and tools.
+Set metadata for pipeline middleware and tools.
 
 ```php
 public function withMetadata(array $metadata): self
 ```
 
+**Parameters:**
+- `$metadata` — Metadata for pipelines and tools
+
+**Example:**
+
+```php
+$response = Atlas::agent('support-agent')
+    ->withMetadata(['session_id' => 'abc123', 'user_id' => 456])
+    ->chat('Hello');
+```
+
+### withRetry()
+
+Configure retry behavior for API requests.
+
+```php
+public function withRetry(
+    array|int $times,
+    Closure|int $sleepMilliseconds = 0,
+    ?callable $when = null,
+    bool $throw = true,
+): self
+```
+
+**Parameters:**
+- `$times` — Number of retries OR array of delay durations
+- `$sleepMilliseconds` — Fixed delay or callback for dynamic delay
+- `$when` — Condition to determine when to retry
+- `$throw` — Whether to throw after all retries fail
+
+**Example:**
+
+```php
+$response = Atlas::agent('support-agent')
+    ->withRetry(3, 1000)
+    ->chat('Hello');
+```
+
 ### chat()
 
-Execute chat with current context.
+Execute the chat with the configured agent.
 
 ```php
 public function chat(
-    string|AgentContract $agent,
     string $input,
     ?Schema $schema = null,
-): AgentResponse
+    bool $stream = false,
+): AgentResponse|StreamResponse
 ```
 
-### Accessors
+**Parameters:**
+- `$input` — User message
+- `$schema` — Optional schema for structured output
+- `$stream` — Whether to stream the response
+
+**Returns:** `AgentResponse` or `StreamResponse`
+
+**Examples:**
 
 ```php
-public function getMessages(): array
-public function getVariables(): array
-public function getMetadata(): array
+// Simple chat
+$response = Atlas::agent('support-agent')->chat('Hello');
+
+// Streaming
+$stream = Atlas::agent('support-agent')->chat('Hello', stream: true);
+
+// Structured output
+$response = Atlas::agent('support-agent')
+    ->chat('Extract person info', schema: $schema);
+
+// Full configuration
+$response = Atlas::agent('support-agent')
+    ->withMessages($history)
+    ->withVariables(['user_name' => 'John'])
+    ->withMetadata(['session_id' => 'abc'])
+    ->withRetry(3, 1000)
+    ->chat('Continue');
 ```
 
 ## Embedding Methods
 
-### embed()
+### embedding()
 
-Generate embedding for a single text.
+Get a fluent builder for embedding operations.
 
 ```php
-Atlas::embed(string $text, array $options = []): array<int, float>
+Atlas::embedding(): PendingEmbeddingRequest
+```
+
+**Returns:** `PendingEmbeddingRequest`
+
+**Example:**
+
+```php
+$embedding = Atlas::embedding()
+    ->withMetadata(['user_id' => 123])
+    ->withRetry(3, 1000)
+    ->generate('Hello world');
+```
+
+### embed()
+
+Simple shortcut for embedding a single text.
+
+```php
+Atlas::embed(string $text): array<int, float>
 ```
 
 **Parameters:**
 - `$text` — Text to embed
-- `$options` — Optional settings (`dimensions`, `encoding_format`)
 
 **Returns:** Array of floats (embedding vector)
 
@@ -150,22 +241,18 @@ Atlas::embed(string $text, array $options = []): array<int, float>
 ```php
 $embedding = Atlas::embed('Hello, world!');
 // [0.123, 0.456, ...]
-
-$embedding = Atlas::embed('Hello', ['dimensions' => 256]);
-// [0.123, ...] (256 floats)
 ```
 
 ### embedBatch()
 
-Generate embeddings for multiple texts.
+Simple shortcut for embedding multiple texts.
 
 ```php
-Atlas::embedBatch(array $texts, array $options = []): array<int, array<int, float>>
+Atlas::embedBatch(array $texts): array<int, array<int, float>>
 ```
 
 **Parameters:**
 - `$texts` — Array of texts to embed
-- `$options` — Optional settings
 
 **Returns:** Array of embedding vectors
 
@@ -186,6 +273,47 @@ Atlas::embeddingDimensions(): int
 
 **Returns:** Number of dimensions (e.g., 1536)
 
+## PendingEmbeddingRequest
+
+Immutable fluent builder for embedding operations with metadata and retry support.
+
+### withMetadata()
+
+Set metadata for pipeline middleware.
+
+```php
+public function withMetadata(array $metadata): self
+```
+
+### withRetry()
+
+Configure retry behavior.
+
+```php
+public function withRetry(
+    array|int $times,
+    Closure|int $sleepMilliseconds = 0,
+    ?callable $when = null,
+    bool $throw = true,
+): self
+```
+
+### generate()
+
+Generate embedding for a single text.
+
+```php
+public function generate(string $text): array<int, float>
+```
+
+### generateBatch()
+
+Generate embeddings for multiple texts.
+
+```php
+public function generateBatch(array $texts): array<int, array<int, float>>
+```
+
 ## Image Methods
 
 ### image()
@@ -205,11 +333,14 @@ Atlas::image(?string $provider = null, ?string $model = null): ImageService
 **Example:**
 
 ```php
-$result = Atlas::image()->generate('A sunset');
+$result = Atlas::image()
+    ->withMetadata(['user_id' => 123])
+    ->generate('A sunset');
 
 $result = Atlas::image('openai', 'dall-e-3')
     ->size('1024x1024')
     ->quality('hd')
+    ->withMetadata(['user_id' => 123])
     ->generate('A sunset');
 ```
 
@@ -222,6 +353,8 @@ $result = Atlas::image('openai', 'dall-e-3')
 | `size(string $size)` | Set image size |
 | `quality(string $quality)` | Set quality |
 | `withProviderOptions(array $options)` | Provider-specific options |
+| `withMetadata(array $metadata)` | Set metadata for pipelines |
+| `withRetry($times, $delay, $when, $throw)` | Configure retry |
 | `generate(string $prompt, array $options = [])` | Generate image |
 
 ## Speech Methods
@@ -246,10 +379,12 @@ Atlas::speech(?string $provider = null, ?string $model = null): SpeechService
 // Text to speech
 $result = Atlas::speech()
     ->voice('nova')
+    ->withMetadata(['user_id' => 123])
     ->speak('Hello!');
 
 // Transcription
 $result = Atlas::speech()
+    ->withMetadata(['user_id' => 123])
     ->transcribe('/path/to/audio.mp3');
 ```
 
@@ -264,6 +399,8 @@ $result = Atlas::speech()
 | `speed(float $speed)` | Set speech speed |
 | `format(string $format)` | Set audio format |
 | `withProviderOptions(array $options)` | Provider-specific options |
+| `withMetadata(array $metadata)` | Set metadata for pipelines |
+| `withRetry($times, $delay, $when, $throw)` | Configure retry |
 | `speak(string $text, array $options = [])` | Text to speech |
 | `transcribe(Audio\|string $audio, array $options = [])` | Speech to text |
 
@@ -271,18 +408,17 @@ $result = Atlas::speech()
 
 | Method | Description |
 |--------|-------------|
-| `Atlas::chat($agent, $input)` | Simple chat |
-| `Atlas::chat($agent, $input, $messages)` | Chat with history |
-| `Atlas::chat($agent, $input, null, $schema)` | Structured output |
-| `Atlas::forMessages($messages)` | Context builder |
-| `Atlas::embed($text)` | Single embedding |
-| `Atlas::embed($text, $options)` | Embedding with options |
+| `Atlas::agent($agent)` | Get chat builder for agent |
+| `Atlas::agent($agent)->chat($input)` | Simple chat |
+| `Atlas::agent($agent)->withMessages($msgs)->chat($input)` | Chat with history |
+| `Atlas::agent($agent)->chat($input, schema: $schema)` | Structured output |
+| `Atlas::agent($agent)->chat($input, stream: true)` | Streaming response |
+| `Atlas::embedding()` | Get embedding builder |
+| `Atlas::embed($text)` | Simple embedding |
 | `Atlas::embedBatch($texts)` | Batch embeddings |
 | `Atlas::embeddingDimensions()` | Get dimensions |
 | `Atlas::image()` | Image service |
-| `Atlas::image($provider, $model)` | Image with config |
 | `Atlas::speech()` | Speech service |
-| `Atlas::speech($provider, $model)` | Speech with config |
 
 ## Next Steps
 

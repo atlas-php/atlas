@@ -185,19 +185,25 @@ Enable automatic retries for image generation:
 
 ```php
 // Simple retry: 3 attempts, 1 second delay
-$result = Atlas::withRetry(3, 1000)
-    ->image()
+$result = Atlas::image()
+    ->withRetry(3, 1000)
     ->generate('A sunset over mountains');
 
 // Exponential backoff
-$result = Atlas::withRetry(3, fn($attempt) => (2 ** $attempt) * 100)
-    ->image()
+$result = Atlas::image()
+    ->withRetry(3, fn($attempt) => (2 ** $attempt) * 100)
     ->size('1024x1024')
     ->generate('A sunset');
 
 // Only retry on rate limits
-$result = Atlas::withRetry(3, 1000, fn($e) => $e->getCode() === 429)
-    ->image('openai', 'dall-e-3')
+$result = Atlas::image('openai', 'dall-e-3')
+    ->withRetry(3, 1000, fn($e) => $e->getCode() === 429)
+    ->generate('A landscape');
+
+// With metadata for pipeline observability
+$result = Atlas::image()
+    ->withMetadata(['user_id' => 123])
+    ->withRetry(3, 1000)
     ->generate('A landscape');
 ```
 

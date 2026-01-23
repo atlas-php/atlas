@@ -38,7 +38,7 @@ class ConversationSummarizer
         $toSummarize = array_slice($messages, 0, -10);
         $recent = array_slice($messages, -10);
 
-        $summary = Atlas::chat('summarizer', json_encode($toSummarize));
+        $summary = Atlas::agent('summarizer')->chat(json_encode($toSummarize));
 
         return [
             ['role' => 'system', 'content' => "Previous: {$summary->text}"],
@@ -106,12 +106,12 @@ class CachedChatService
                 return AgentResponse::text($cached);
             }
 
-            $response = Atlas::chat('agent', $input);
+            $response = Atlas::agent('agent')->chat($input);
             Cache::put($key, $response->text, 3600);
             return $response;
         }
 
-        return Atlas::chat('agent', $input);
+        return Atlas::agent('agent')->chat($input);
     }
 
     private function isCacheable(string $input): bool

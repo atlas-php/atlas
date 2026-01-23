@@ -33,13 +33,14 @@ public function systemPrompt(): string
 Variables are passed via `withVariables()`:
 
 ```php
-$response = Atlas::forMessages($messages)
+$response = Atlas::agent('support-agent')
+    ->withMessages($messages)
     ->withVariables([
         'user_name' => 'Acme Inc',
         'customer_name' => 'Jane Doe',
         'account_tier' => 'premium',
     ])
-    ->chat('support-agent', 'I need help');
+    ->chat('I need help');
 ```
 
 ### Variable Naming
@@ -202,12 +203,12 @@ If `{variable}` placeholders appear in output:
 
 ```php
 // Check variable names match
-$response = Atlas::forMessages([])
+$response = Atlas::agent('agent')
     ->withVariables([
         'user_name' => 'John',  // Matches {user_name}
         'userName' => 'John',   // Would match {userName}
     ])
-    ->chat('agent', 'Hello');
+    ->chat('Hello');
 ```
 
 ### Prompt Too Long

@@ -12,7 +12,7 @@ Base exception for Atlas errors:
 use Atlasphp\Atlas\Foundation\Exceptions\AtlasException;
 
 try {
-    $response = Atlas::chat('agent', 'Hello');
+    $response = Atlas::agent('agent')->chat('Hello');
 } catch (AtlasException $e) {
     Log::error('Atlas error', ['message' => $e->getMessage()]);
 }
@@ -26,7 +26,7 @@ Errors from AI providers:
 use Atlasphp\Atlas\Providers\Exceptions\ProviderException;
 
 try {
-    $response = Atlas::chat('agent', 'Hello');
+    $response = Atlas::agent('agent')->chat('Hello');
 } catch (ProviderException $e) {
     // Handle provider-specific errors
     // Rate limits, invalid API keys, model errors, etc.
@@ -39,7 +39,7 @@ When an agent cannot be resolved:
 
 ```php
 try {
-    $response = Atlas::chat('nonexistent-agent', 'Hello');
+    $response = Atlas::agent('nonexistent-agent')->chat('Hello');
 } catch (AtlasException $e) {
     // "Agent not found: nonexistent-agent"
 }
@@ -51,7 +51,7 @@ try {
 
 ```php
 try {
-    $response = Atlas::chat('agent', $input);
+    $response = Atlas::agent('agent')->chat($input);
 } catch (ProviderException $e) {
     if (str_contains($e->getMessage(), 'rate limit')) {
         // Implement retry with backoff
@@ -65,7 +65,7 @@ try {
 
 ```php
 try {
-    $response = Atlas::chat('agent', $input);
+    $response = Atlas::agent('agent')->chat($input);
 } catch (ProviderException $e) {
     if (str_contains($e->getMessage(), 'authentication')) {
         Log::critical('API key invalid or expired');
@@ -79,7 +79,7 @@ try {
 
 ```php
 try {
-    $response = Atlas::chat('agent', $input);
+    $response = Atlas::agent('agent')->chat($input);
 } catch (ProviderException $e) {
     if (str_contains($e->getMessage(), 'context length')) {
         // Message too long, try trimming
@@ -156,19 +156,19 @@ Atlas provides automatic retry functionality via `withRetry()`:
 
 ```php
 // Simple: 3 attempts, 1 second delay
-Atlas::withRetry(3, 1000)->chat('agent', 'Hello');
+Atlas::agent('agent')->withRetry(3, 1000)->chat('Hello');
 
 // Exponential backoff
-Atlas::withRetry(3, fn($attempt) => (2 ** $attempt) * 100)->chat('agent', 'Hello');
+Atlas::agent('agent')->withRetry(3, fn($attempt) => (2 ** $attempt) * 100)->chat('Hello');
 
 // Custom delays array
-Atlas::withRetry([100, 500, 2000])->chat('agent', 'Hello');
+Atlas::agent('agent')->withRetry([100, 500, 2000])->chat('Hello');
 
 // Only retry on rate limit errors
-Atlas::withRetry(3, 1000, fn($e) => $e->getCode() === 429)->chat('agent', 'Hello');
+Atlas::agent('agent')->withRetry(3, 1000, fn($e) => $e->getCode() === 429)->chat('Hello');
 
 // Suppress exceptions (return last response)
-$response = Atlas::withRetry(3, 1000, throw: false)->chat('agent', 'Hello');
+$response = Atlas::agent('agent')->withRetry(3, 1000, throw: false)->chat('Hello');
 ```
 
 **Parameters:**
@@ -183,11 +183,11 @@ $response = Atlas::withRetry(3, 1000, throw: false)->chat('agent', 'Hello');
 Works with all Atlas operations:
 
 ```php
-Atlas::withRetry(3, 1000)->chat('agent', 'Hello');
-Atlas::withRetry(3, 1000)->embed('text');
-Atlas::withRetry(3, 1000)->embedBatch(['text1', 'text2']);
-Atlas::withRetry(3, 1000)->image()->generate('A sunset');
-Atlas::withRetry(3, 1000)->speech()->speak('Hello');
+Atlas::agent('agent')->withRetry(3, 1000)->chat('Hello');
+Atlas::embedding()->withRetry(3, 1000)->embed('text');
+Atlas::embedding()->withRetry(3, 1000)->embedBatch(['text1', 'text2']);
+Atlas::image()->withRetry(3, 1000)->generate('A sunset');
+Atlas::speech()->withRetry(3, 1000)->speak('Hello');
 ```
 
 ### With Circuit Breaker
@@ -246,10 +246,10 @@ class ChatService
     {
         try {
             // Try primary agent
-            return Atlas::chat('primary-agent', $input);
+            return Atlas::agent('primary-agent')->chat($input);
         } catch (ProviderException $e) {
             // Fall back to simpler agent
-            return Atlas::chat('fallback-agent', $input);
+            return Atlas::agent('fallback-agent')->chat($input);
         }
     }
 }
@@ -263,7 +263,7 @@ class ChatService
     public function respond(string $input): AgentResponse
     {
         try {
-            return Atlas::chat('agent', $input);
+            return Atlas::agent('agent')->chat($input);
         } catch (\Exception $e) {
             Log::error('Chat failed', ['error' => $e->getMessage()]);
 
@@ -291,7 +291,7 @@ class ChatController extends Controller
         ]);
 
         try {
-            $response = Atlas::chat($validated['agent'], $validated['message']);
+            $response = Atlas::agent($validated['agent'])->chat($validated['message']);
             return response()->json(['message' => $response->text]);
         } catch (AtlasException $e) {
             return response()->json(['error' => 'Service error'], 503);

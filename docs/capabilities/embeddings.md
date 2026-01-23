@@ -125,9 +125,9 @@ class RagService
             ->join("\n\n");
 
         // 3. Generate answer with context
-        $response = Atlas::forMessages([])
+        $response = Atlas::agent('rag-agent')
             ->withVariables(['context' => $context])
-            ->chat('rag-agent', $question);
+            ->chat($question);
 
         return $response->text;
     }
@@ -252,34 +252,41 @@ CREATE TABLE documents (
 
 ## Retry & Resilience
 
-Enable automatic retries for embedding requests:
+Enable automatic retries for embedding requests using the fluent pattern:
 
 ```php
 // Simple retry: 3 attempts, 1 second delay
-$embedding = Atlas::withRetry(3, 1000)->embed('Hello world');
+$embedding = Atlas::embedding()
+    ->withRetry(3, 1000)
+    ->generate('Hello world');
 
 // Batch with retry
-$embeddings = Atlas::withRetry(3, 1000)->embedBatch($texts);
+$embeddings = Atlas::embedding()
+    ->withRetry(3, 1000)
+    ->generateBatch($texts);
 
 // Exponential backoff
-$embedding = Atlas::withRetry(3, fn($attempt) => (2 ** $attempt) * 100)
-    ->embed('Hello world');
+$embedding = Atlas::embedding()
+    ->withRetry(3, fn($attempt) => (2 ** $attempt) * 100)
+    ->generate('Hello world');
 
 // Only retry on rate limits
-$embedding = Atlas::withRetry(3, 1000, fn($e) => $e->getCode() === 429)
-    ->embed('Hello world');
+$embedding = Atlas::embedding()
+    ->withRetry(3, 1000, fn($e) => $e->getCode() === 429)
+    ->generate('Hello world');
 ```
 
 ## API Summary
 
 | Method | Description |
 |--------|-------------|
-| `Atlas::embed($text)` | Single text embedding |
+| `Atlas::embed($text)` | Single text embedding (simple shortcut) |
 | `Atlas::embed($text, $options)` | Single embedding with options |
-| `Atlas::embedBatch($texts)` | Batch embeddings |
+| `Atlas::embedBatch($texts)` | Batch embeddings (simple shortcut) |
 | `Atlas::embedBatch($texts, $options)` | Batch embeddings with options |
 | `Atlas::embeddingDimensions()` | Get configured vector dimensions |
-| `Atlas::withRetry(...)->embed($text)` | Embedding with retry |
+| `Atlas::embedding()->withRetry(...)->generate($text)` | Embedding with retry (fluent pattern) |
+| `Atlas::embedding()->withMetadata([...])->generate($text)` | Embedding with metadata for pipelines |
 
 ## Next Steps
 

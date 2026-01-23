@@ -90,8 +90,9 @@ $registry = app(AgentRegistryContract::class);
 $registry->register(SupportAgent::class);
 
 // Use the agent
-$response = Atlas::withVariables(['company' => 'Acme'])
-    ->chat('support', 'Where is my order?');
+$response = Atlas::agent('support')
+    ->withVariables(['company' => 'Acme'])
+    ->chat('Where is my order?');
 ```
 
 ## Common Issues

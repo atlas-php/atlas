@@ -50,20 +50,24 @@ class AtlasManager
 }
 ```
 
-### MessageContextBuilder
+### PendingAgentRequest
 
-Immutable builder for conversation context:
+Immutable fluent builder for agent requests:
 
 ```php
 namespace Atlasphp\Atlas\Providers\Support;
 
-final readonly class MessageContextBuilder
+final class PendingAgentRequest
 {
+    use HasRetrySupport;
+
     public function __construct(
-        private AtlasManager $manager,
+        private readonly AtlasManager $manager,
+        private readonly string|AgentContract $agent,
         private array $messages = [],
         private array $variables = [],
         private array $metadata = [],
+        private ?Schema $schema = null,
     ) {}
 }
 ```
@@ -75,75 +79,70 @@ final readonly class MessageContextBuilder
 ### Basic Chat
 
 ```php
-Atlas::chat(
-    string|AgentContract $agent,
-    string $input,
-    ?array $messages = null,
-    ?Schema $schema = null,
-): AgentResponse
+Atlas::agent(string|AgentContract $agent): PendingAgentRequest
 ```
 
 **Parameters:**
 - `$agent` - Agent key, class name, or instance
-- `$input` - User message
-- `$messages` - Optional conversation history
-- `$schema` - Optional schema for structured output
 
 **Examples:**
 
 ```php
 // By registry key
-$response = Atlas::chat('support-agent', 'Hello');
+$response = Atlas::agent('support-agent')->chat('Hello');
 
 // By class name
-$response = Atlas::chat(SupportAgent::class, 'Hello');
+$response = Atlas::agent(SupportAgent::class)->chat('Hello');
 
 // By instance
-$response = Atlas::chat(new SupportAgent(), 'Hello');
+$response = Atlas::agent(new SupportAgent())->chat('Hello');
 
 // With history
-$response = Atlas::chat('support-agent', 'Continue', messages: $history);
+$response = Atlas::agent('support-agent')->withMessages($history)->chat('Continue');
 
 // Structured output
-$response = Atlas::chat('support-agent', 'Extract', schema: $schema);
+$response = Atlas::agent('support-agent')->withSchema($schema)->chat('Extract');
 echo $response->structured['field'];
 ```
 
-### Multi-Turn Conversations
+### PendingAgentRequest Methods
 
 ```php
-Atlas::forMessages(array $messages): MessageContextBuilder
-```
+// Add conversation history
+public function withMessages(array $messages): self
 
-Returns an immutable builder for context configuration:
-
-```php
-$response = Atlas::forMessages($messages)
-    ->withVariables(['user_name' => 'John'])
-    ->withMetadata(['user_id' => 123])
-    ->chat('support-agent', 'Continue');
-```
-
-### MessageContextBuilder Methods
-
-```php
 // Add variables for system prompt interpolation
 public function withVariables(array $variables): self
 
 // Add metadata for pipeline middleware
 public function withMetadata(array $metadata): self
 
-// Execute chat with current context
-public function chat(
-    string|AgentContract $agent,
-    string $input,
-    ?Schema $schema = null,
-): AgentResponse
+// Add schema for structured output
+public function withSchema(Schema $schema): self
 
-// Accessors
-public function getMessages(): array
-public function getVariables(): array
-public function getMetadata(): array
+// Configure retry behavior
+public function withRetry(
+    array|int $times,
+    Closure|int $sleepMilliseconds = 0,
+    ?callable $when = null,
+    bool $throw = true,
+): self
+
+// Execute chat with current context
+public function chat(string $input): AgentResponse
+
+// Execute streaming chat with current context
+public function stream(string $input): StreamResponse
+```
+
+**Fluent builder example:**
+
+```php
+$response = Atlas::agent('support-agent')
+    ->withMessages($messages)
+    ->withVariables(['user_name' => 'John'])
+    ->withMetadata(['user_id' => 123])
+    ->chat('Continue');
 ```
 
 ---
@@ -338,7 +337,7 @@ $this->app->singleton(AtlasManager::class, function (Container $app): AtlasManag
 ### Simple Chat
 
 ```php
-$response = Atlas::chat('assistant', 'What is 2 + 2?');
+$response = Atlas::agent('assistant')->chat('What is 2 + 2?');
 echo $response->text; // "4"
 ```
 
@@ -350,10 +349,11 @@ $messages = [
     ['role' => 'assistant', 'content' => 'Hello Alice!'],
 ];
 
-$response = Atlas::forMessages($messages)
+$response = Atlas::agent('assistant')
+    ->withMessages($messages)
     ->withVariables(['timezone' => 'America/New_York'])
     ->withMetadata(['session_id' => 'abc123'])
-    ->chat('assistant', 'What is my name?');
+    ->chat('What is my name?');
 
 echo $response->text; // "Your name is Alice."
 ```
@@ -374,11 +374,9 @@ $schema = new ObjectSchema(
     requiredFields: ['name', 'email'],
 );
 
-$response = Atlas::chat(
-    'extractor',
-    'Extract: John Smith, john@example.com',
-    schema: $schema,
-);
+$response = Atlas::agent('extractor')
+    ->withSchema($schema)
+    ->chat('Extract: John Smith, john@example.com');
 
 $person = $response->structured;
 // ['name' => 'John Smith', 'email' => 'john@example.com']

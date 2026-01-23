@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Providers\Services;
 
 use Atlasphp\Atlas\Foundation\Services\PipelineRunner;
 use Atlasphp\Atlas\Providers\Contracts\PrismBuilderContract;
+use Atlasphp\Atlas\Providers\Support\HasMetadataSupport;
 use Atlasphp\Atlas\Providers\Support\HasRetrySupport;
 use Throwable;
 
@@ -17,6 +18,7 @@ use Throwable;
  */
 class ImageService
 {
+    use HasMetadataSupport;
     use HasRetrySupport;
 
     private ?string $provider = null;
@@ -122,9 +124,10 @@ class ImageService
                 'options' => $options,
                 'size' => $this->size ?? $options['size'] ?? null,
                 'quality' => $this->quality ?? $options['quality'] ?? null,
+                'metadata' => $this->getMetadata(),
             ];
 
-            /** @var array{prompt: string, provider: string, model: string, options: array<string, mixed>, size: string|null, quality: string|null} $beforeData */
+            /** @var array{prompt: string, provider: string, model: string, options: array<string, mixed>, size: string|null, quality: string|null, metadata: array<string, mixed>} $beforeData */
             $beforeData = $this->pipelineRunner->runIfActive(
                 'image.before_generate',
                 $beforeData,
@@ -166,6 +169,7 @@ class ImageService
                 'model' => $model,
                 'size' => $beforeData['size'],
                 'quality' => $beforeData['quality'],
+                'metadata' => $this->getMetadata(),
                 'result' => $result,
             ];
 
@@ -183,6 +187,7 @@ class ImageService
                 $model,
                 $this->size ?? $options['size'] ?? null,
                 $this->quality ?? $options['quality'] ?? null,
+                $this->getMetadata(),
                 $e,
             );
             throw $e;
@@ -197,6 +202,7 @@ class ImageService
      * @param  string  $model  The model that was used.
      * @param  string|null  $size  The size that was requested.
      * @param  string|null  $quality  The quality that was requested.
+     * @param  array<string, mixed>  $metadata  The metadata that was provided.
      * @param  Throwable  $exception  The exception that occurred.
      */
     protected function handleError(
@@ -205,6 +211,7 @@ class ImageService
         string $model,
         ?string $size,
         ?string $quality,
+        array $metadata,
         Throwable $exception,
     ): void {
         $errorData = [
@@ -213,6 +220,7 @@ class ImageService
             'model' => $model,
             'size' => $size,
             'quality' => $quality,
+            'metadata' => $metadata,
             'exception' => $exception,
         ];
 

@@ -241,10 +241,8 @@ class MeetingService
             ->transcribe($audioPath);
 
         // Summarize with AI
-        $summary = Atlas::chat(
-            'summarizer',
-            "Summarize this meeting transcript:\n\n{$transcription['text']}"
-        );
+        $summary = Atlas::agent('summarizer')
+            ->chat("Summarize this meeting transcript:\n\n{$transcription['text']}");
 
         return [
             'transcript' => $transcription['text'],
@@ -288,19 +286,19 @@ Atlas provides built-in retry functionality:
 
 ```php
 // Simple retry: 3 attempts, 1 second delay
-$result = Atlas::withRetry(3, 1000)
-    ->speech()
+$result = Atlas::speech()
+    ->withRetry(3, 1000)
     ->voice('nova')
     ->speak($text);
 
 // Exponential backoff
-$result = Atlas::withRetry(3, fn($attempt) => (2 ** $attempt) * 100)
-    ->speech()
+$result = Atlas::speech()
+    ->withRetry(3, fn($attempt) => (2 ** $attempt) * 100)
     ->speak($text);
 
 // Only retry on rate limits
-$result = Atlas::withRetry(3, 1000, fn($e) => $e->getCode() === 429)
-    ->speech()
+$result = Atlas::speech()
+    ->withRetry(3, 1000, fn($e) => $e->getCode() === 429)
     ->transcribe($audioPath);
 ```
 

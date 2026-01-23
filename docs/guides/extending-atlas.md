@@ -161,7 +161,7 @@ Temporarily disable a pipeline:
 $registry->setActive('agent.before_execute', false);
 
 // Pipeline won't run
-$response = Atlas::chat('agent', 'input');
+$response = Atlas::agent('agent')->chat('input');
 
 // Re-enable
 $registry->setActive('agent.before_execute', true);

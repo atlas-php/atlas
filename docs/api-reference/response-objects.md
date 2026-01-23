@@ -111,7 +111,7 @@ public function withUsage(array $usage): self
 ### Example Usage
 
 ```php
-$response = Atlas::chat('agent', 'Hello');
+$response = Atlas::agent('agent')->chat('Hello');
 
 // Check response type
 if ($response->hasText()) {
@@ -228,7 +228,7 @@ $schema = new ObjectSchema(
     requiredFields: ['sentiment', 'confidence'],
 );
 
-$response = Atlas::chat('analyzer', 'Analyze: Great product!', schema: $schema);
+$response = Atlas::agent('analyzer')->withSchema($schema)->chat('Analyze: Great product!');
 
 if ($response->hasStructured()) {
     $data = $response->structured;

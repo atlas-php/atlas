@@ -73,7 +73,7 @@ class StructuredCommand extends Command
             $this->info('Extracting structured data...');
             $this->line('');
 
-            $response = Atlas::chat('structured-output', $prompt, schema: $schema);
+            $response = Atlas::agent('structured-output')->chat($prompt, schema: $schema);
 
             $this->displayResponse($response);
             $this->displayVerification($response, $schema);

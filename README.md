@@ -19,7 +19,7 @@
 Atlas is a Laravel package for building AI-powered applications with structure and scale. It provides reusable agents, typed tools, system prompt templating, and execution pipelines—all through a clean, stateless API. Built on [Prism PHP](https://github.com/prism-php/prism), Atlas lets you focus on application logic instead of wiring AI infrastructure.
 
 ```php
-$response = Atlas::chat('support-agent', 'I need help with my order');
+$response = Atlas::agent('support-agent')->chat('I need help with my order');
 ```
 
 ---
@@ -105,8 +105,9 @@ class SupportAgent extends AgentDefinition
 ```php
 $agents->register(SupportAgent::class);
 
-$response = Atlas::withVariables(['company' => 'Acme'])
-    ->chat('support', 'Where is my order?');
+$response = Atlas::agent('support')
+    ->withVariables(['company' => 'Acme'])
+    ->chat('Where is my order?');
 ```
 
 ---
@@ -187,8 +188,9 @@ $messages = [
     ],
 ];
 
-$response = Atlas::forMessages($messages)
-    ->chat('support', 'Where is my package?');
+$response = Atlas::agent('support')
+    ->withMessages($messages)
+    ->chat('Where is my package?');
 ```
 
 ---

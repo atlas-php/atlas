@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Providers\Services;
 
 use Atlasphp\Atlas\Foundation\Services\PipelineRunner;
 use Atlasphp\Atlas\Providers\Contracts\PrismBuilderContract;
+use Atlasphp\Atlas\Providers\Support\HasMetadataSupport;
 use Atlasphp\Atlas\Providers\Support\HasRetrySupport;
 use Prism\Prism\ValueObjects\Media\Audio;
 use Throwable;
@@ -18,6 +19,7 @@ use Throwable;
  */
 class SpeechService
 {
+    use HasMetadataSupport;
     use HasRetrySupport;
 
     private ?string $provider = null;
@@ -150,9 +152,10 @@ class SpeechService
                 'format' => $format,
                 'voice' => $this->voice ?? $options['voice'] ?? null,
                 'options' => $options,
+                'metadata' => $this->getMetadata(),
             ];
 
-            /** @var array{text: string, provider: string, model: string, format: string, voice: string|null, options: array<string, mixed>} $beforeData */
+            /** @var array{text: string, provider: string, model: string, format: string, voice: string|null, options: array<string, mixed>, metadata: array<string, mixed>} $beforeData */
             $beforeData = $this->pipelineRunner->runIfActive(
                 'speech.before_speak',
                 $beforeData,
@@ -205,6 +208,7 @@ class SpeechService
                 'model' => $model,
                 'voice' => $beforeData['voice'],
                 'format' => $format,
+                'metadata' => $this->getMetadata(),
                 'result' => $result,
             ];
 
@@ -222,6 +226,7 @@ class SpeechService
                 $model,
                 $this->voice ?? $options['voice'] ?? null,
                 $format,
+                $this->getMetadata(),
                 $e,
             );
             throw $e;
@@ -248,9 +253,10 @@ class SpeechService
                 'provider' => $provider,
                 'model' => $model,
                 'options' => $options,
+                'metadata' => $this->getMetadata(),
             ];
 
-            /** @var array{audio: Audio|string, provider: string, model: string, options: array<string, mixed>} $beforeData */
+            /** @var array{audio: Audio|string, provider: string, model: string, options: array<string, mixed>, metadata: array<string, mixed>} $beforeData */
             $beforeData = $this->pipelineRunner->runIfActive(
                 'speech.before_transcribe',
                 $beforeData,
@@ -283,6 +289,7 @@ class SpeechService
                 'provider' => $provider,
                 'model' => $model,
                 'options' => $options,
+                'metadata' => $this->getMetadata(),
                 'result' => $result,
             ];
 
@@ -294,7 +301,7 @@ class SpeechService
 
             return $afterData['result'];
         } catch (Throwable $e) {
-            $this->handleTranscribeError($audio, $provider, $model, $options, $e);
+            $this->handleTranscribeError($audio, $provider, $model, $options, $this->getMetadata(), $e);
             throw $e;
         }
     }
@@ -307,6 +314,7 @@ class SpeechService
      * @param  string  $model  The model that was used.
      * @param  string|null  $voice  The voice that was requested.
      * @param  string  $format  The format that was requested.
+     * @param  array<string, mixed>  $metadata  The metadata that was provided.
      * @param  Throwable  $exception  The exception that occurred.
      */
     protected function handleSpeakError(
@@ -315,6 +323,7 @@ class SpeechService
         string $model,
         ?string $voice,
         string $format,
+        array $metadata,
         Throwable $exception,
     ): void {
         $errorData = [
@@ -324,6 +333,7 @@ class SpeechService
             'model' => $model,
             'voice' => $voice,
             'format' => $format,
+            'metadata' => $metadata,
             'exception' => $exception,
         ];
 
@@ -337,6 +347,7 @@ class SpeechService
      * @param  string  $provider  The provider that was used.
      * @param  string  $model  The model that was used.
      * @param  array<string, mixed>  $options  The options that were provided.
+     * @param  array<string, mixed>  $metadata  The metadata that was provided.
      * @param  Throwable  $exception  The exception that occurred.
      */
     protected function handleTranscribeError(
@@ -344,6 +355,7 @@ class SpeechService
         string $provider,
         string $model,
         array $options,
+        array $metadata,
         Throwable $exception,
     ): void {
         $errorData = [
@@ -352,6 +364,7 @@ class SpeechService
             'provider' => $provider,
             'model' => $model,
             'options' => $options,
+            'metadata' => $metadata,
             'exception' => $exception,
         ];
 

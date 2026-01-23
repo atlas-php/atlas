@@ -200,7 +200,7 @@ class ChatCommand extends Command
             try {
                 $thread = $storage->addMessage($thread, 'user', $input);
 
-                $response = Atlas::forMessages($thread['messages'])
+                $response = Atlas::withMessages($thread['messages'])
                     ->chat($agentKey, $input);
 
                 $text = $response->text ?? '[No response]';

@@ -13,7 +13,7 @@ Execute conversations with AI agents.
 ```php
 use Atlasphp\Atlas\Providers\Facades\Atlas;
 
-$response = Atlas::chat('support-agent', 'Hello, I need help with my order');
+$response = Atlas::agent('support-agent')->chat('Hello, I need help with my order');
 
 echo $response->text;
 // "Hi! I'd be happy to help with your order. Could you provide your order number?"
@@ -25,10 +25,10 @@ echo $response->text;
 use App\Agents\SupportAgent;
 
 // By class name
-$response = Atlas::chat(SupportAgent::class, 'What is your return policy?');
+$response = Atlas::agent(SupportAgent::class)->chat('What is your return policy?');
 
 // By instance
-$response = Atlas::chat(new SupportAgent(), 'What is your return policy?');
+$response = Atlas::agent(new SupportAgent())->chat('What is your return policy?');
 ```
 
 ### Chat with Conversation History
@@ -39,7 +39,7 @@ $messages = [
     ['role' => 'assistant', 'content' => 'I found your order. How can I help?'],
 ];
 
-$response = Atlas::chat('support-agent', 'Where is my package?', messages: $messages);
+$response = Atlas::agent('support-agent')->withMessages($messages)->chat('Where is my package?');
 ```
 
 ### Chat with Structured Output
@@ -59,7 +59,7 @@ $schema = new ObjectSchema(
     requiredFields: ['sentiment', 'confidence'],
 );
 
-$response = Atlas::chat('analyzer', 'I love this product!', schema: $schema);
+$response = Atlas::agent('analyzer')->withSchema($schema)->chat('I love this product!');
 
 echo $response->structured['sentiment'];    // "positive"
 echo $response->structured['confidence'];   // 0.95
@@ -69,32 +69,21 @@ echo $response->structured['confidence'];   // 0.95
 
 ## Multi-Turn Conversations
 
-Use `forMessages()` for rich conversation context with variables and metadata.
-
-### Basic Usage
-
-```php
-$messages = [
-    ['role' => 'user', 'content' => 'Hello'],
-    ['role' => 'assistant', 'content' => 'Hi there! How can I help?'],
-];
-
-$response = Atlas::forMessages($messages)
-    ->chat('support-agent', 'I have a question about billing');
-```
+Build context fluently using the agent builder.
 
 ### With Variables
 
 Variables interpolate into the agent's system prompt:
 
 ```php
-$response = Atlas::forMessages($messages)
+$response = Atlas::agent('support-agent')
+    ->withMessages($messages)
     ->withVariables([
         'user_name' => 'Alice',
         'account_tier' => 'premium',
         'app_name' => 'Acme Inc',
     ])
-    ->chat('support-agent', 'What features do I have access to?');
+    ->chat('What features do I have access to?');
 ```
 
 ### With Metadata
@@ -102,14 +91,15 @@ $response = Atlas::forMessages($messages)
 Metadata is passed to pipeline middleware and tools:
 
 ```php
-$response = Atlas::forMessages($messages)
+$response = Atlas::agent('support-agent')
+    ->withMessages($messages)
     ->withVariables(['user_name' => 'Alice'])
     ->withMetadata([
         'user_id' => 123,
         'session_id' => 'abc-456',
         'tenant_id' => 'acme',
     ])
-    ->chat('support-agent', 'Check my recent orders');
+    ->chat('Check my recent orders');
 ```
 
 ### Complete Example
@@ -118,7 +108,8 @@ $response = Atlas::forMessages($messages)
 // Load conversation from database
 $conversation = Conversation::find($id);
 
-$response = Atlas::forMessages($conversation->messages)
+$response = Atlas::agent('support-agent')
+    ->withMessages($conversation->messages)
     ->withVariables([
         'user_name' => $user->name,
         'account_tier' => $user->subscription->tier,
@@ -127,7 +118,7 @@ $response = Atlas::forMessages($conversation->messages)
         'user_id' => $user->id,
         'conversation_id' => $conversation->id,
     ])
-    ->chat('support-agent', $request->input('message'));
+    ->chat($request->input('message'));
 
 // Save updated conversation
 $conversation->messages = array_merge($conversation->messages, [
@@ -340,7 +331,7 @@ All chat operations return an `AgentResponse` object.
 ### Text Response
 
 ```php
-$response = Atlas::chat('agent', 'Hello');
+$response = Atlas::agent('agent')->chat('Hello');
 
 if ($response->hasText()) {
     echo $response->text;
@@ -350,7 +341,7 @@ if ($response->hasText()) {
 ### Structured Response
 
 ```php
-$response = Atlas::chat('agent', 'Extract data', schema: $schema);
+$response = Atlas::agent('agent')->withSchema($schema)->chat('Extract data');
 
 if ($response->hasStructured()) {
     $data = $response->structured;
@@ -372,7 +363,7 @@ if ($response->hasToolCalls()) {
 ### Token Usage
 
 ```php
-$response = Atlas::chat('agent', 'Hello');
+$response = Atlas::agent('agent')->chat('Hello');
 
 echo $response->totalTokens();      // Total tokens used
 echo $response->promptTokens();     // Tokens in prompt
@@ -397,10 +388,10 @@ if ($response->hasUsage()) {
 
 | Method | Description |
 |--------|-------------|
-| `Atlas::chat($agent, $input)` | Simple chat with agent |
-| `Atlas::chat($agent, $input, $messages)` | Chat with history |
-| `Atlas::chat($agent, $input, null, $schema)` | Structured output |
-| `Atlas::forMessages($messages)` | Multi-turn context builder |
+| `Atlas::agent($agent)->chat($input)` | Simple chat with agent |
+| `Atlas::agent($agent)->withMessages($messages)->chat($input)` | Chat with history |
+| `Atlas::agent($agent)->withVariables($vars)->chat($input)` | Chat with variables |
+| `Atlas::agent($agent)->withSchema($schema)->chat($input)` | Structured output |
 | `Atlas::embed($text)` | Single text embedding |
 | `Atlas::embed($text, $options)` | Single embedding with options |
 | `Atlas::embedBatch($texts)` | Batch embeddings |

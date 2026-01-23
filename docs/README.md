@@ -38,7 +38,7 @@ Atlas Facade
     │
     ├── AtlasManager (orchestration)
     │       ├── chat() → AgentResolver → AgentExecutor → Prism
-    │       ├── forMessages() → MessageContextBuilder
+    │       ├── withVariables() / withMetadata() → PendingAtlasRequest
     │       ├── embed() → EmbeddingService → Prism
     │       ├── image() → ImageService → Prism
     │       └── speech() → SpeechService → Prism

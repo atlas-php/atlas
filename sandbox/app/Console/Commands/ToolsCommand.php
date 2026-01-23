@@ -115,7 +115,7 @@ class ToolsCommand extends Command
 
         try {
             $startTime = microtime(true);
-            $response = Atlas::chat($agentKey, $prompt);
+            $response = Atlas::agent($agentKey)->chat($prompt);
             $duration = round(microtime(true) - $startTime, 3);
 
             $this->displayToolCalls($response);
