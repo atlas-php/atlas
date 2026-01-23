@@ -23,7 +23,7 @@ Atlas::agent('agent')->withRetry([100, 500, 2000])->chat('Hello');
 
 ### `withRetry()` Method
 
-Available on `PendingAgentRequest`, `PendingEmbeddingRequest`, `ImageService`, and `AudioService`.
+Available on `PendingAgentRequest`, `PendingEmbeddingRequest`, `ImageService`, and `SpeechService`.
 
 ```php
 public function withRetry(
