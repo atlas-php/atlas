@@ -499,3 +499,148 @@ test('chat passes both provider and model overrides to context', function () {
         ->withModel('claude-3-opus')
         ->chat('Hello');
 });
+
+// ===========================================
+// MEDIA SUPPORT TESTS
+// ===========================================
+
+test('withImage returns new instance with image attachment', function () {
+    $result = $this->request->withImage('https://example.com/image.jpg');
+
+    expect($result)->not->toBe($this->request);
+    expect($result)->toBeInstanceOf(PendingAgentRequest::class);
+});
+
+test('withDocument returns new instance with document attachment', function () {
+    $result = $this->request->withDocument('https://example.com/doc.pdf');
+
+    expect($result)->not->toBe($this->request);
+    expect($result)->toBeInstanceOf(PendingAgentRequest::class);
+});
+
+test('withAudio returns new instance with audio attachment', function () {
+    $result = $this->request->withAudio('https://example.com/audio.mp3');
+
+    expect($result)->not->toBe($this->request);
+    expect($result)->toBeInstanceOf(PendingAgentRequest::class);
+});
+
+test('withVideo returns new instance with video attachment', function () {
+    $result = $this->request->withVideo('https://example.com/video.mp4');
+
+    expect($result)->not->toBe($this->request);
+    expect($result)->toBeInstanceOf(PendingAgentRequest::class);
+});
+
+test('chat passes current attachments to context', function () {
+    $agent = new TestAgent;
+    $response = AgentResponse::text('I can see the image');
+
+    $this->agentResolver
+        ->shouldReceive('resolve')
+        ->once()
+        ->andReturn($agent);
+
+    $this->agentExecutor
+        ->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($a, $input, $context, $schema, $retry, $structuredMode) use ($agent) {
+            return $a === $agent
+                && $input === 'What do you see?'
+                && $context instanceof ExecutionContext
+                && $context->hasCurrentAttachments()
+                && count($context->currentAttachments) === 1
+                && $context->currentAttachments[0]['type'] === 'image'
+                && $context->currentAttachments[0]['source'] === 'url'
+                && $context->currentAttachments[0]['data'] === 'https://example.com/image.jpg';
+        })
+        ->andReturn($response);
+
+    $this->request
+        ->withImage('https://example.com/image.jpg')
+        ->chat('What do you see?');
+});
+
+test('chat passes multiple attachments to context', function () {
+    $agent = new TestAgent;
+    $response = AgentResponse::text('I can see multiple items');
+
+    $this->agentResolver
+        ->shouldReceive('resolve')
+        ->once()
+        ->andReturn($agent);
+
+    $this->agentExecutor
+        ->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($a, $input, $context, $schema, $retry, $structuredMode) use ($agent) {
+            return $a === $agent
+                && $input === 'Describe what you see'
+                && $context instanceof ExecutionContext
+                && $context->hasCurrentAttachments()
+                && count($context->currentAttachments) === 2
+                && $context->currentAttachments[0]['type'] === 'image'
+                && $context->currentAttachments[1]['type'] === 'document';
+        })
+        ->andReturn($response);
+
+    $this->request
+        ->withImage('https://example.com/image.jpg')
+        ->withDocument('https://example.com/doc.pdf')
+        ->chat('Describe what you see');
+});
+
+test('chat with attachments and messages creates context', function () {
+    $agent = new TestAgent;
+    $messages = [['role' => 'user', 'content' => 'Hello']];
+    $response = AgentResponse::text('I see the image');
+
+    $this->agentResolver
+        ->shouldReceive('resolve')
+        ->once()
+        ->andReturn($agent);
+
+    $this->agentExecutor
+        ->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($a, $input, $context, $schema, $retry, $structuredMode) use ($agent, $messages) {
+            return $a === $agent
+                && $input === 'Now look at this'
+                && $context instanceof ExecutionContext
+                && $context->messages === $messages
+                && $context->hasCurrentAttachments()
+                && count($context->currentAttachments) === 1;
+        })
+        ->andReturn($response);
+
+    $this->request
+        ->withMessages($messages)
+        ->withImage('https://example.com/image.jpg')
+        ->chat('Now look at this');
+});
+
+test('chat with only attachments creates context', function () {
+    $agent = new TestAgent;
+    $response = AgentResponse::text('I see the image');
+
+    $this->agentResolver
+        ->shouldReceive('resolve')
+        ->once()
+        ->andReturn($agent);
+
+    $this->agentExecutor
+        ->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($a, $input, $context, $schema, $retry, $structuredMode) use ($agent) {
+            // Context should be created because there are attachments
+            return $a === $agent
+                && $input === 'What is this?'
+                && $context instanceof ExecutionContext
+                && $context->hasCurrentAttachments();
+        })
+        ->andReturn($response);
+
+    $this->request
+        ->withImage('https://example.com/image.jpg')
+        ->chat('What is this?');
+});

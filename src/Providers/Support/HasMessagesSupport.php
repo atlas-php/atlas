@@ -14,16 +14,16 @@ namespace Atlasphp\Atlas\Providers\Support;
 trait HasMessagesSupport
 {
     /**
-     * Conversation history.
+     * Conversation history with optional attachments.
      *
-     * @var array<int, array{role: string, content: string}>
+     * @var array<int, array{role: string, content: string, attachments?: array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>}>
      */
     private array $messages = [];
 
     /**
      * Set conversation history messages.
      *
-     * @param  array<int, array{role: string, content: string}>  $messages
+     * @param  array<int, array{role: string, content: string, attachments?: array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>}>  $messages
      */
     public function withMessages(array $messages): static
     {
@@ -36,7 +36,7 @@ trait HasMessagesSupport
     /**
      * Get the configured messages.
      *
-     * @return array<int, array{role: string, content: string}>
+     * @return array<int, array{role: string, content: string, attachments?: array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>}>
      */
     protected function getMessages(): array
     {

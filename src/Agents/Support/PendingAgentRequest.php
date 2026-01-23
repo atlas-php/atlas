@@ -7,6 +7,7 @@ namespace Atlasphp\Atlas\Agents\Support;
 use Atlasphp\Atlas\Agents\Contracts\AgentContract;
 use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
 use Atlasphp\Atlas\Agents\Services\AgentResolver;
+use Atlasphp\Atlas\Providers\Support\HasMediaSupport;
 use Atlasphp\Atlas\Providers\Support\HasMessagesSupport;
 use Atlasphp\Atlas\Providers\Support\HasMetadataSupport;
 use Atlasphp\Atlas\Providers\Support\HasProviderSupport;
@@ -25,6 +26,7 @@ use Atlasphp\Atlas\Streaming\StreamResponse;
  */
 final class PendingAgentRequest
 {
+    use HasMediaSupport;
     use HasMessagesSupport;
     use HasMetadataSupport;
     use HasProviderSupport;
@@ -62,13 +64,15 @@ final class PendingAgentRequest
         $schema = $this->getSchema();
         $providerOverride = $this->getProviderOverride();
         $modelOverride = $this->getModelOverride();
+        $currentAttachments = $this->getCurrentAttachments();
 
         // Build context if any configuration is present
         $hasConfig = $messages !== []
             || $variables !== []
             || $metadata !== []
             || $providerOverride !== null
-            || $modelOverride !== null;
+            || $modelOverride !== null
+            || $currentAttachments !== [];
 
         $context = $hasConfig
             ? new ExecutionContext(
@@ -77,6 +81,7 @@ final class PendingAgentRequest
                 metadata: $metadata,
                 providerOverride: $providerOverride,
                 modelOverride: $modelOverride,
+                currentAttachments: $currentAttachments,
             )
             : null;
 

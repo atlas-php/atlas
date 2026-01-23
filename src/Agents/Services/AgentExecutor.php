@@ -317,6 +317,7 @@ class AgentExecutor implements AgentExecutorContract
                 $systemPrompt,
                 $tools,
                 $retry,
+                $context->currentAttachments,
             );
 
         return $this->applyAgentSettings($request, $agent);
@@ -360,12 +361,19 @@ class AgentExecutor implements AgentExecutorContract
     /**
      * Build the messages array for multi-turn conversation.
      *
-     * @return array<int, array{role: string, content: string}>
+     * @return array<int, array{role: string, content: string, attachments?: array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>}>
      */
     protected function buildMessages(ExecutionContext $context, string $input): array
     {
         $messages = $context->messages;
-        $messages[] = ['role' => 'user', 'content' => $input];
+
+        $currentMessage = ['role' => 'user', 'content' => $input];
+
+        if ($context->hasCurrentAttachments()) {
+            $currentMessage['attachments'] = $context->currentAttachments;
+        }
+
+        $messages[] = $currentMessage;
 
         return $messages;
     }

@@ -27,6 +27,10 @@ use Prism\Prism\ValueObjects\Messages\UserMessage;
  */
 class PrismBuilder implements PrismBuilderContract
 {
+    public function __construct(
+        protected MediaConverter $mediaConverter = new MediaConverter,
+    ) {}
+
     /**
      * Build an embeddings request.
      *
@@ -156,6 +160,7 @@ class PrismBuilder implements PrismBuilderContract
      * @param  string  $systemPrompt  The system prompt.
      * @param  array<int, mixed>  $tools  Optional tools.
      * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
+     * @param  array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>  $attachments  Optional attachments for multimodal input.
      */
     public function forPrompt(
         string $provider,
@@ -164,11 +169,16 @@ class PrismBuilder implements PrismBuilderContract
         string $systemPrompt,
         array $tools = [],
         ?array $retry = null,
+        array $attachments = [],
     ): TextPendingRequest {
+        $additionalContent = $attachments !== []
+            ? $this->mediaConverter->convertMany($attachments)
+            : [];
+
         $request = Prism::text()
             ->using($this->mapProvider($provider), $model)
             ->withSystemPrompt($systemPrompt)
-            ->withPrompt($input);
+            ->withPrompt($input, $additionalContent);
 
         if ($tools !== []) {
             $request = $request->withTools($tools);
@@ -182,7 +192,7 @@ class PrismBuilder implements PrismBuilderContract
      *
      * @param  string  $provider  The provider name.
      * @param  string  $model  The model name.
-     * @param  array<int, array{role: string, content: string}>  $messages  The conversation messages.
+     * @param  array<int, array{role: string, content: string, attachments?: array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>}>  $messages  The conversation messages with optional attachments.
      * @param  string  $systemPrompt  The system prompt.
      * @param  array<int, mixed>  $tools  Optional tools.
      * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
@@ -272,7 +282,7 @@ class PrismBuilder implements PrismBuilderContract
     /**
      * Convert message arrays to Prism message objects.
      *
-     * @param  array<int, array{role: string, content: string}>  $messages
+     * @param  array<int, array{role: string, content: string, attachments?: array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>}>  $messages
      * @return array<int, UserMessage|AssistantMessage|SystemMessage>
      */
     protected function convertMessages(array $messages): array
@@ -281,7 +291,7 @@ class PrismBuilder implements PrismBuilderContract
 
         foreach ($messages as $message) {
             $converted[] = match ($message['role']) {
-                'user' => new UserMessage($message['content']),
+                'user' => $this->createUserMessage($message),
                 'assistant' => new AssistantMessage($message['content']),
                 'system' => new SystemMessage($message['content']),
                 default => throw new \InvalidArgumentException(
@@ -291,6 +301,24 @@ class PrismBuilder implements PrismBuilderContract
         }
 
         return $converted;
+    }
+
+    /**
+     * Create a UserMessage with optional attachments.
+     *
+     * @param  array{role: string, content: string, attachments?: array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>}  $message
+     */
+    protected function createUserMessage(array $message): UserMessage
+    {
+        $attachments = $message['attachments'] ?? [];
+
+        if ($attachments === []) {
+            return new UserMessage($message['content']);
+        }
+
+        $additionalContent = $this->mediaConverter->convertMany($attachments);
+
+        return new UserMessage($message['content'], $additionalContent);
     }
 
     /**

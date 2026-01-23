@@ -19,6 +19,7 @@ use Atlasphp\Atlas\Providers\Embedding\PrismEmbeddingProvider;
 use Atlasphp\Atlas\Providers\Services\AtlasManager;
 use Atlasphp\Atlas\Providers\Services\EmbeddingService;
 use Atlasphp\Atlas\Providers\Services\ImageService;
+use Atlasphp\Atlas\Providers\Services\MediaConverter;
 use Atlasphp\Atlas\Providers\Services\PrismBuilder;
 use Atlasphp\Atlas\Providers\Services\ProviderConfigService;
 use Atlasphp\Atlas\Providers\Services\SpeechService;
@@ -89,8 +90,14 @@ class AtlasServiceProvider extends ServiceProvider
             );
         });
 
-        $this->app->singleton(PrismBuilder::class, function (): PrismBuilder {
-            return new PrismBuilder;
+        $this->app->singleton(MediaConverter::class, function (): MediaConverter {
+            return new MediaConverter;
+        });
+
+        $this->app->singleton(PrismBuilder::class, function (Container $app): PrismBuilder {
+            return new PrismBuilder(
+                $app->make(MediaConverter::class),
+            );
         });
 
         $this->app->bind(PrismBuilderContract::class, PrismBuilder::class);
