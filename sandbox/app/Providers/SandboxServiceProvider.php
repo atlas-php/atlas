@@ -24,6 +24,7 @@ use App\Services\Agents\OpenAIVisionAgent;
 use App\Services\Agents\OpenAIWebSearchAgent;
 use App\Services\Agents\StructuredOutputAgent;
 use App\Services\Agents\ToolDemoAgent;
+use App\Services\Agents\XAIAssistantAgent;
 use App\Services\ThreadStorageService;
 use App\Services\Tools\CalculatorTool;
 use App\Services\Tools\DateTimeTool;
@@ -101,6 +102,7 @@ class SandboxServiceProvider extends ServiceProvider
         $registry->register(OpenAIVisionAgent::class);
         $registry->register(AnthropicVisionAgent::class);
         $registry->register(GeminiVisionAgent::class);
+        $registry->register(XAIAssistantAgent::class);
     }
 
     /**
