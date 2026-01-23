@@ -116,3 +116,105 @@ test('it resets recorded requests', function () {
     $this->executor->reset();
     expect($this->executor->recorded())->toBeEmpty();
 });
+
+test('it throws when realExecutor is set but no response configured', function () {
+    $mockRealExecutor = Mockery::mock(\Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract::class);
+    $this->executor->setRealExecutor($mockRealExecutor);
+
+    expect(fn () => $this->executor->execute($this->agent, 'Input'))
+        ->toThrow(RuntimeException::class, 'Cannot fall back to real executor');
+});
+
+test('setRealExecutor returns self for chaining', function () {
+    $mockRealExecutor = Mockery::mock(\Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract::class);
+    $result = $this->executor->setRealExecutor($mockRealExecutor);
+
+    expect($result)->toBe($this->executor);
+});
+
+test('it handles StreamResponse in execute by returning empty AgentResponse', function () {
+    $streamResponse = \Atlasphp\Atlas\Testing\Support\StreamEventFactory::fromText('Streamed');
+    $sequence = (new FakeResponseSequence)->push($streamResponse);
+    $this->executor->addSequence('test-agent', $sequence);
+
+    $result = $this->executor->execute($this->agent, 'Input');
+
+    expect($result)->toBeInstanceOf(AgentResponse::class);
+    expect($result->text)->toBeNull();
+});
+
+test('it throws configured exception in stream', function () {
+    $exception = new RuntimeException('Stream error');
+    $sequence = (new FakeResponseSequence)->push($exception);
+    $this->executor->addSequence('test-agent', $sequence);
+
+    expect(fn () => $this->executor->stream($this->agent, 'Input'))
+        ->toThrow(RuntimeException::class, 'Stream error');
+});
+
+test('it records request before throwing exception in execute', function () {
+    $exception = new RuntimeException('Test error');
+    $sequence = (new FakeResponseSequence)->push($exception);
+    $this->executor->addSequence('test-agent', $sequence);
+
+    try {
+        $this->executor->execute($this->agent, 'Input');
+    } catch (RuntimeException $e) {
+        // Expected
+    }
+
+    expect($this->executor->recorded())->toHaveCount(1);
+});
+
+test('it records request before throwing exception in stream', function () {
+    $exception = new RuntimeException('Test error');
+    $sequence = (new FakeResponseSequence)->push($exception);
+    $this->executor->addSequence('test-agent', $sequence);
+
+    try {
+        $this->executor->stream($this->agent, 'Input');
+    } catch (RuntimeException $e) {
+        // Expected
+    }
+
+    expect($this->executor->recorded())->toHaveCount(1);
+});
+
+test('preventStrayRequests returns self for chaining', function () {
+    $result = $this->executor->preventStrayRequests();
+
+    expect($result)->toBe($this->executor);
+});
+
+test('preventStrayRequests can be disabled', function () {
+    $this->executor->preventStrayRequests(true);
+    $this->executor->preventStrayRequests(false);
+
+    $result = $this->executor->execute($this->agent, 'Input');
+
+    expect($result)->toBeInstanceOf(AgentResponse::class);
+});
+
+test('addSequence returns self for chaining', function () {
+    $sequence = new FakeResponseSequence;
+    $result = $this->executor->addSequence('test-agent', $sequence);
+
+    expect($result)->toBe($this->executor);
+});
+
+test('setDefaultSequence returns self for chaining', function () {
+    $sequence = new FakeResponseSequence;
+    $result = $this->executor->setDefaultSequence($sequence);
+
+    expect($result)->toBe($this->executor);
+});
+
+test('it converts AgentResponse to StreamResponse in stream method', function () {
+    $response = AgentResponse::text('Hello streaming');
+    $sequence = (new FakeResponseSequence)->push($response);
+    $this->executor->addSequence('test-agent', $sequence);
+
+    $result = $this->executor->stream($this->agent, 'Input');
+
+    expect($result)->toBeInstanceOf(StreamResponse::class);
+});
