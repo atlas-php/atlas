@@ -14,6 +14,7 @@ use Atlasphp\Atlas\Providers\Support\HasProviderSupport;
 use Atlasphp\Atlas\Providers\Support\HasRetrySupport;
 use Atlasphp\Atlas\Providers\Support\HasSchemaSupport;
 use Atlasphp\Atlas\Providers\Support\HasStructuredModeSupport;
+use Atlasphp\Atlas\Providers\Support\HasToolChoiceSupport;
 use Atlasphp\Atlas\Providers\Support\HasVariablesSupport;
 use Atlasphp\Atlas\Streaming\StreamResponse;
 
@@ -33,6 +34,7 @@ final class PendingAgentRequest
     use HasRetrySupport;
     use HasSchemaSupport;
     use HasStructuredModeSupport;
+    use HasToolChoiceSupport;
     use HasVariablesSupport;
 
     public function __construct(
@@ -65,6 +67,7 @@ final class PendingAgentRequest
         $providerOverride = $this->getProviderOverride();
         $modelOverride = $this->getModelOverride();
         $currentAttachments = $this->getCurrentAttachments();
+        $toolChoice = $this->getToolChoice();
 
         // Build context if any configuration is present
         $hasConfig = $messages !== []
@@ -72,7 +75,8 @@ final class PendingAgentRequest
             || $metadata !== []
             || $providerOverride !== null
             || $modelOverride !== null
-            || $currentAttachments !== [];
+            || $currentAttachments !== []
+            || $toolChoice !== null;
 
         $context = $hasConfig
             ? new ExecutionContext(
@@ -82,6 +86,7 @@ final class PendingAgentRequest
                 providerOverride: $providerOverride,
                 modelOverride: $modelOverride,
                 currentAttachments: $currentAttachments,
+                toolChoice: $toolChoice,
             )
             : null;
 
