@@ -2122,6 +2122,173 @@ test('it passes through ProviderTool instances unchanged', function () {
     expect($response)->toBeInstanceOf(AgentResponse::class);
 });
 
+// ===========================================
+// PROVIDER OPTIONS TESTS
+// ===========================================
+
+test('it applies provider options from context', function () {
+    $mockResponse = new class
+    {
+        public ?string $text = 'Hello';
+
+        public array $toolCalls = [];
+
+        public object $finishReason;
+
+        public function __construct()
+        {
+            $this->finishReason = new class
+            {
+                public string $value = 'stop';
+            };
+        }
+    };
+
+    $providerOptions = ['cacheType' => 'ephemeral', 'presence_penalty' => 0.5];
+
+    $mockPendingRequest = Mockery::mock();
+    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withProviderOptions')
+        ->once()
+        ->with($providerOptions)
+        ->andReturnSelf();
+    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
+
+    $this->prismBuilder
+        ->shouldReceive('forPrompt')
+        ->once()
+        ->andReturn($mockPendingRequest);
+
+    $executor = new AgentExecutor(
+        $this->prismBuilder,
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->usageExtractor,
+        $this->configService,
+    );
+
+    $context = new ExecutionContext(
+        providerOptions: $providerOptions,
+    );
+
+    $agent = new TestAgent;
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect($response)->toBeInstanceOf(AgentResponse::class);
+});
+
+test('it does not call withProviderOptions when context has no provider options', function () {
+    $mockResponse = new class
+    {
+        public ?string $text = 'Hello';
+
+        public array $toolCalls = [];
+
+        public object $finishReason;
+
+        public function __construct()
+        {
+            $this->finishReason = new class
+            {
+                public string $value = 'stop';
+            };
+        }
+    };
+
+    $mockPendingRequest = Mockery::mock();
+    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
+    $mockPendingRequest->shouldNotReceive('withProviderOptions');
+    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
+
+    $this->prismBuilder
+        ->shouldReceive('forPrompt')
+        ->once()
+        ->andReturn($mockPendingRequest);
+
+    $executor = new AgentExecutor(
+        $this->prismBuilder,
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->usageExtractor,
+        $this->configService,
+    );
+
+    // Context with empty provider options
+    $context = new ExecutionContext;
+
+    $agent = new TestAgent;
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect($response)->toBeInstanceOf(AgentResponse::class);
+});
+
+test('it applies provider options for structured requests', function () {
+    $mockResponse = new class
+    {
+        public array $structured = ['name' => 'John'];
+
+        public array $toolCalls = [];
+
+        public object $finishReason;
+
+        public function __construct()
+        {
+            $this->finishReason = new class
+            {
+                public string $value = 'stop';
+            };
+        }
+    };
+
+    $providerOptions = ['cacheType' => 'ephemeral'];
+
+    $mockPendingRequest = Mockery::mock();
+    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
+    $mockPendingRequest->shouldReceive('withProviderOptions')
+        ->once()
+        ->with($providerOptions)
+        ->andReturnSelf();
+    $mockPendingRequest->shouldReceive('asStructured')->andReturn($mockResponse);
+
+    $this->prismBuilder
+        ->shouldReceive('forStructured')
+        ->once()
+        ->andReturn($mockPendingRequest);
+
+    $executor = new AgentExecutor(
+        $this->prismBuilder,
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->usageExtractor,
+        $this->configService,
+    );
+
+    $schema = Mockery::mock(\Prism\Prism\Contracts\Schema::class);
+    $schema->shouldReceive('toArray')->andReturn(['type' => 'object']);
+
+    $context = new ExecutionContext(
+        providerOptions: $providerOptions,
+    );
+
+    $agent = new TestAgent;
+    $response = $executor->execute($agent, 'Hello', $context, $schema);
+
+    expect($response)->toBeInstanceOf(AgentResponse::class);
+    expect($response->structured)->toBe(['name' => 'John']);
+});
+
 // Pipeline Handler Classes for Tests
 
 class AgentErrorCapturingHandler implements \Atlasphp\Atlas\Foundation\Contracts\PipelineContract

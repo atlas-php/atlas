@@ -368,3 +368,116 @@ test('transcribe merges additional options', function () {
 
     expect($result)->toBe($expected);
 });
+
+test('whenProvider returns new instance with callback', function () {
+    $result = $this->request->whenProvider('openai', fn ($r) => $r);
+
+    expect($result)->not->toBe($this->request);
+    expect($result)->toBeInstanceOf(PendingSpeechRequest::class);
+});
+
+test('whenProvider applies callback on generate when provider matches', function () {
+    config(['atlas.speech.provider' => 'openai']);
+
+    $expected = ['audio' => 'audio_data', 'format' => 'mp3'];
+
+    $this->speechService
+        ->shouldReceive('generate')
+        ->once()
+        ->with('Hello world', Mockery::on(function ($options) {
+            return isset($options['provider_options']) && $options['provider_options']['language'] === 'en';
+        }), null)
+        ->andReturn($expected);
+
+    $result = $this->request
+        ->whenProvider('openai', fn ($r) => $r->withProviderOptions(['language' => 'en']))
+        ->generate('Hello world');
+
+    expect($result)->toBe($expected);
+});
+
+test('whenProvider applies callback on transcribe when provider matches', function () {
+    config(['atlas.speech.provider' => 'openai']);
+
+    $expected = ['text' => 'Hello world', 'language' => 'en', 'duration' => 1.5];
+
+    $this->speechService
+        ->shouldReceive('transcribe')
+        ->once()
+        ->with('/path/to/audio.mp3', Mockery::on(function ($options) {
+            return isset($options['provider_options']) && $options['provider_options']['language'] === 'en';
+        }), null)
+        ->andReturn($expected);
+
+    $result = $this->request
+        ->whenProvider('openai', fn ($r) => $r->withProviderOptions(['language' => 'en']))
+        ->transcribe('/path/to/audio.mp3');
+
+    expect($result)->toBe($expected);
+});
+
+test('whenProvider does not apply callback when provider does not match', function () {
+    config(['atlas.speech.provider' => 'anthropic']);
+
+    $expected = ['audio' => 'audio_data', 'format' => 'mp3'];
+
+    $this->speechService
+        ->shouldReceive('generate')
+        ->once()
+        ->with('Hello world', Mockery::on(function ($options) {
+            return ! isset($options['provider_options']) || ! isset($options['provider_options']['language']);
+        }), null)
+        ->andReturn($expected);
+
+    $result = $this->request
+        ->whenProvider('openai', fn ($r) => $r->withProviderOptions(['language' => 'en']))
+        ->generate('Hello world');
+
+    expect($result)->toBe($expected);
+});
+
+test('whenProvider uses provider override for matching', function () {
+    config(['atlas.speech.provider' => 'anthropic']);
+
+    $expected = ['audio' => 'audio_data', 'format' => 'mp3'];
+
+    $this->speechService
+        ->shouldReceive('generate')
+        ->once()
+        ->with('Hello world', Mockery::on(function ($options) {
+            return $options['provider'] === 'openai'
+                && isset($options['provider_options'])
+                && $options['provider_options']['language'] === 'en';
+        }), null)
+        ->andReturn($expected);
+
+    $result = $this->request
+        ->withProvider('openai')
+        ->whenProvider('openai', fn ($r) => $r->withProviderOptions(['language' => 'en']))
+        ->generate('Hello world');
+
+    expect($result)->toBe($expected);
+});
+
+test('whenProvider chains multiple provider configs', function () {
+    config(['atlas.speech.provider' => 'openai']);
+
+    $expected = ['audio' => 'audio_data', 'format' => 'mp3'];
+
+    $this->speechService
+        ->shouldReceive('generate')
+        ->once()
+        ->with('Hello world', Mockery::on(function ($options) {
+            return isset($options['provider_options'])
+                && $options['provider_options']['language'] === 'en'
+                && ! isset($options['provider_options']['cacheType']);
+        }), null)
+        ->andReturn($expected);
+
+    $result = $this->request
+        ->whenProvider('openai', fn ($r) => $r->withProviderOptions(['language' => 'en']))
+        ->whenProvider('anthropic', fn ($r) => $r->withProviderOptions(['cacheType' => 'ephemeral']))
+        ->generate('Hello world');
+
+    expect($result)->toBe($expected);
+});

@@ -345,3 +345,141 @@ test('withCurrentAttachments preserves other values', function () {
     expect($newContext->modelOverride)->toBe('gpt-4');
     expect($newContext->currentAttachments)->toBe($attachments);
 });
+
+// ===========================================
+// PROVIDER OPTIONS TESTS
+// ===========================================
+
+test('it creates with default empty providerOptions', function () {
+    $context = new ExecutionContext;
+
+    expect($context->providerOptions)->toBe([]);
+});
+
+test('it creates with provided providerOptions', function () {
+    $providerOptions = ['cacheType' => 'ephemeral', 'presence_penalty' => 0.5];
+
+    $context = new ExecutionContext([], [], [], null, null, [], null, $providerOptions);
+
+    expect($context->providerOptions)->toBe($providerOptions);
+});
+
+test('it creates new instance with providerOptions', function () {
+    $context = new ExecutionContext;
+    $providerOptions = ['cacheType' => 'ephemeral'];
+
+    $newContext = $context->withProviderOptions($providerOptions);
+
+    expect($newContext)->not->toBe($context);
+    expect($newContext->providerOptions)->toBe($providerOptions);
+    expect($context->providerOptions)->toBe([]);
+});
+
+test('it reports hasProviderOptions correctly', function () {
+    $empty = new ExecutionContext;
+    $withOptions = new ExecutionContext([], [], [], null, null, [], null, ['cacheType' => 'ephemeral']);
+
+    expect($empty->hasProviderOptions())->toBeFalse();
+    expect($withOptions->hasProviderOptions())->toBeTrue();
+});
+
+test('withProviderOptions preserves other values', function () {
+    $attachments = [
+        ['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image.jpg'],
+    ];
+    $context = new ExecutionContext(
+        [['role' => 'user', 'content' => 'Hello']],
+        ['key' => 'value'],
+        ['meta' => 'data'],
+        'openai',
+        'gpt-4',
+        $attachments,
+        null,
+    );
+
+    $providerOptions = ['cacheType' => 'ephemeral'];
+    $newContext = $context->withProviderOptions($providerOptions);
+
+    expect($newContext->messages)->toBe([['role' => 'user', 'content' => 'Hello']]);
+    expect($newContext->variables)->toBe(['key' => 'value']);
+    expect($newContext->metadata)->toBe(['meta' => 'data']);
+    expect($newContext->providerOverride)->toBe('openai');
+    expect($newContext->modelOverride)->toBe('gpt-4');
+    expect($newContext->currentAttachments)->toBe($attachments);
+    expect($newContext->providerOptions)->toBe($providerOptions);
+});
+
+test('withMessages preserves providerOptions', function () {
+    $providerOptions = ['cacheType' => 'ephemeral'];
+    $context = new ExecutionContext([], [], [], null, null, [], null, $providerOptions);
+
+    $newContext = $context->withMessages([['role' => 'user', 'content' => 'Hello']]);
+
+    expect($newContext->providerOptions)->toBe($providerOptions);
+});
+
+test('withVariables preserves providerOptions', function () {
+    $providerOptions = ['cacheType' => 'ephemeral'];
+    $context = new ExecutionContext([], [], [], null, null, [], null, $providerOptions);
+
+    $newContext = $context->withVariables(['key' => 'value']);
+
+    expect($newContext->providerOptions)->toBe($providerOptions);
+});
+
+test('withMetadata preserves providerOptions', function () {
+    $providerOptions = ['cacheType' => 'ephemeral'];
+    $context = new ExecutionContext([], [], [], null, null, [], null, $providerOptions);
+
+    $newContext = $context->withMetadata(['meta' => 'data']);
+
+    expect($newContext->providerOptions)->toBe($providerOptions);
+});
+
+test('withProviderOverride preserves providerOptions', function () {
+    $providerOptions = ['cacheType' => 'ephemeral'];
+    $context = new ExecutionContext([], [], [], null, null, [], null, $providerOptions);
+
+    $newContext = $context->withProviderOverride('anthropic');
+
+    expect($newContext->providerOptions)->toBe($providerOptions);
+});
+
+test('withModelOverride preserves providerOptions', function () {
+    $providerOptions = ['cacheType' => 'ephemeral'];
+    $context = new ExecutionContext([], [], [], null, null, [], null, $providerOptions);
+
+    $newContext = $context->withModelOverride('gpt-4-turbo');
+
+    expect($newContext->providerOptions)->toBe($providerOptions);
+});
+
+test('withCurrentAttachments preserves providerOptions', function () {
+    $providerOptions = ['cacheType' => 'ephemeral'];
+    $context = new ExecutionContext([], [], [], null, null, [], null, $providerOptions);
+
+    $attachments = [
+        ['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image.jpg'],
+    ];
+    $newContext = $context->withCurrentAttachments($attachments);
+
+    expect($newContext->providerOptions)->toBe($providerOptions);
+});
+
+test('mergeVariables preserves providerOptions', function () {
+    $providerOptions = ['cacheType' => 'ephemeral'];
+    $context = new ExecutionContext([], ['a' => 1], [], null, null, [], null, $providerOptions);
+
+    $newContext = $context->mergeVariables(['b' => 2]);
+
+    expect($newContext->providerOptions)->toBe($providerOptions);
+});
+
+test('mergeMetadata preserves providerOptions', function () {
+    $providerOptions = ['cacheType' => 'ephemeral'];
+    $context = new ExecutionContext([], [], ['a' => 1], null, null, [], null, $providerOptions);
+
+    $newContext = $context->mergeMetadata(['b' => 2]);
+
+    expect($newContext->providerOptions)->toBe($providerOptions);
+});

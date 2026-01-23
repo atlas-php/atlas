@@ -17,6 +17,7 @@ use Prism\Prism\ValueObjects\Media\Audio;
 final class PendingSpeechRequest
 {
     use HasMetadataSupport;
+    use HasProviderCallbacks;
     use HasProviderSupport;
     use HasRetrySupport;
 
@@ -85,7 +86,11 @@ final class PendingSpeechRequest
      */
     public function generate(string $text, array $options = []): array
     {
-        return $this->speechService->generate($text, $this->buildGenerateOptions($options), $this->getRetryArray());
+        // Resolve provider and apply any provider-specific callbacks
+        $provider = $this->getProviderOverride() ?? config('atlas.speech.provider');
+        $self = $this->applyProviderCallbacks($provider);
+
+        return $self->speechService->generate($text, $self->buildGenerateOptions($options), $self->getRetryArray());
     }
 
     /**
@@ -97,7 +102,11 @@ final class PendingSpeechRequest
      */
     public function transcribe(Audio|string $audio, array $options = []): array
     {
-        return $this->speechService->transcribe($audio, $this->buildTranscribeOptions($options), $this->getRetryArray());
+        // Resolve provider and apply any provider-specific callbacks
+        $provider = $this->getProviderOverride() ?? config('atlas.speech.provider');
+        $self = $this->applyProviderCallbacks($provider);
+
+        return $self->speechService->transcribe($audio, $self->buildTranscribeOptions($options), $self->getRetryArray());
     }
 
     /**

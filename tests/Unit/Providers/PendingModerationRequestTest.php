@@ -280,3 +280,96 @@ test('fluent config overrides additional options', function () {
 
     expect($result)->toBe($expected);
 });
+
+test('whenProvider returns new instance with callback', function () {
+    $result = $this->request->whenProvider('openai', fn ($r) => $r);
+
+    expect($result)->not->toBe($this->request);
+    expect($result)->toBeInstanceOf(PendingModerationRequest::class);
+});
+
+test('whenProvider applies callback when provider matches', function () {
+    config(['atlas.moderation.provider' => 'openai']);
+
+    $expected = createMockModerationResponse();
+
+    $this->moderationService
+        ->shouldReceive('moderate')
+        ->once()
+        ->with('Hello world', Mockery::on(function ($options) {
+            return isset($options['provider_options']) && $options['provider_options']['custom'] === true;
+        }), null)
+        ->andReturn($expected);
+
+    $result = $this->request
+        ->whenProvider('openai', fn ($r) => $r->withProviderOptions(['custom' => true]))
+        ->moderate('Hello world');
+
+    expect($result)->toBe($expected);
+});
+
+test('whenProvider does not apply callback when provider does not match', function () {
+    config(['atlas.moderation.provider' => 'anthropic']);
+
+    $expected = createMockModerationResponse();
+
+    $this->moderationService
+        ->shouldReceive('moderate')
+        ->once()
+        ->with('Hello world', Mockery::on(function ($options) {
+            return ! isset($options['provider_options']) || ! isset($options['provider_options']['custom']);
+        }), null)
+        ->andReturn($expected);
+
+    $result = $this->request
+        ->whenProvider('openai', fn ($r) => $r->withProviderOptions(['custom' => true]))
+        ->moderate('Hello world');
+
+    expect($result)->toBe($expected);
+});
+
+test('whenProvider uses provider override for matching', function () {
+    config(['atlas.moderation.provider' => 'anthropic']);
+
+    $expected = createMockModerationResponse();
+
+    $this->moderationService
+        ->shouldReceive('moderate')
+        ->once()
+        ->with('Hello world', Mockery::on(function ($options) {
+            return $options['provider'] === 'openai'
+                && isset($options['provider_options'])
+                && $options['provider_options']['custom'] === true;
+        }), null)
+        ->andReturn($expected);
+
+    $result = $this->request
+        ->withProvider('openai')
+        ->whenProvider('openai', fn ($r) => $r->withProviderOptions(['custom' => true]))
+        ->moderate('Hello world');
+
+    expect($result)->toBe($expected);
+});
+
+test('whenProvider chains multiple provider configs', function () {
+    config(['atlas.moderation.provider' => 'openai']);
+
+    $expected = createMockModerationResponse();
+
+    $this->moderationService
+        ->shouldReceive('moderate')
+        ->once()
+        ->with('Hello world', Mockery::on(function ($options) {
+            return isset($options['provider_options'])
+                && $options['provider_options']['custom'] === true
+                && ! isset($options['provider_options']['cacheType']);
+        }), null)
+        ->andReturn($expected);
+
+    $result = $this->request
+        ->whenProvider('openai', fn ($r) => $r->withProviderOptions(['custom' => true]))
+        ->whenProvider('anthropic', fn ($r) => $r->withProviderOptions(['cacheType' => 'ephemeral']))
+        ->moderate('Hello world');
+
+    expect($result)->toBe($expected);
+});

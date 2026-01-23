@@ -15,6 +15,7 @@ use Atlasphp\Atlas\Providers\Services\ImageService;
 final class PendingImageRequest
 {
     use HasMetadataSupport;
+    use HasProviderCallbacks;
     use HasProviderSupport;
     use HasRetrySupport;
 
@@ -57,7 +58,11 @@ final class PendingImageRequest
      */
     public function generate(string $prompt, array $options = []): array
     {
-        return $this->imageService->generate($prompt, $this->buildOptions($options), $this->getRetryArray());
+        // Resolve provider and apply any provider-specific callbacks
+        $provider = $this->getProviderOverride() ?? config('atlas.image.provider');
+        $self = $this->applyProviderCallbacks($provider);
+
+        return $self->imageService->generate($prompt, $self->buildOptions($options), $self->getRetryArray());
     }
 
     /**

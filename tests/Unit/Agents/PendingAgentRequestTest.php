@@ -644,3 +644,156 @@ test('chat with only attachments creates context', function () {
         ->withImage('https://example.com/image.jpg')
         ->chat('What is this?');
 });
+
+// ===========================================
+// WHENPROVIDER TESTS
+// ===========================================
+
+test('whenProvider returns new instance with callback', function () {
+    $result = $this->request->whenProvider('anthropic', fn ($r) => $r);
+
+    expect($result)->not->toBe($this->request);
+    expect($result)->toBeInstanceOf(PendingAgentRequest::class);
+});
+
+test('whenProvider applies callback when provider matches via agent', function () {
+    // TestAgent returns 'openai' as its provider
+    $agent = new TestAgent;
+    $response = AgentResponse::text('Hello');
+
+    $this->agentResolver
+        ->shouldReceive('resolve')
+        ->once()
+        ->andReturn($agent);
+
+    $this->agentExecutor
+        ->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($a, $input, $context, $schema, $retry, $structuredMode) use ($agent) {
+            return $a === $agent
+                && $input === 'Hello'
+                && $context instanceof ExecutionContext
+                && $context->hasProviderOptions()
+                && $context->providerOptions['presence_penalty'] === 0.5;
+        })
+        ->andReturn($response);
+
+    // TestAgent's provider is 'openai', so the openai callback should apply
+    $this->request
+        ->whenProvider('openai', fn ($r) => $r->withProviderOptions(['presence_penalty' => 0.5]))
+        ->chat('Hello');
+});
+
+test('whenProvider does not apply callback when provider does not match', function () {
+    // TestAgent returns 'openai' as its provider
+    $agent = new TestAgent;
+    $response = AgentResponse::text('Hello');
+
+    $this->agentResolver
+        ->shouldReceive('resolve')
+        ->once()
+        ->andReturn($agent);
+
+    $this->agentExecutor
+        ->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($a, $input, $context, $schema, $retry, $structuredMode) use ($agent) {
+            // TestAgent provider is 'openai', so 'anthropic' callback should NOT apply
+            return $a === $agent
+                && $input === 'Hello'
+                && ($context === null || ! $context->hasProviderOptions());
+        })
+        ->andReturn($response);
+
+    $this->request
+        ->whenProvider('anthropic', fn ($r) => $r->withProviderOptions(['cacheType' => 'ephemeral']))
+        ->chat('Hello');
+});
+
+test('whenProvider uses provider override for matching', function () {
+    // TestAgent has 'openai' but we override to 'anthropic'
+    $agent = new TestAgent;
+    $response = AgentResponse::text('Hello');
+
+    $this->agentResolver
+        ->shouldReceive('resolve')
+        ->once()
+        ->andReturn($agent);
+
+    $this->agentExecutor
+        ->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($a, $input, $context, $schema, $retry, $structuredMode) use ($agent) {
+            return $a === $agent
+                && $input === 'Hello'
+                && $context instanceof ExecutionContext
+                && $context->providerOverride === 'anthropic'
+                && $context->hasProviderOptions()
+                && $context->providerOptions['cacheType'] === 'ephemeral';
+        })
+        ->andReturn($response);
+
+    // withProvider sets anthropic, so anthropic callback should apply
+    $this->request
+        ->withProvider('anthropic')
+        ->whenProvider('anthropic', fn ($r) => $r->withProviderOptions(['cacheType' => 'ephemeral']))
+        ->chat('Hello');
+});
+
+test('whenProvider chains multiple provider configs', function () {
+    // TestAgent returns 'openai' as its provider
+    $agent = new TestAgent;
+    $response = AgentResponse::text('Hello');
+
+    $this->agentResolver
+        ->shouldReceive('resolve')
+        ->once()
+        ->andReturn($agent);
+
+    $this->agentExecutor
+        ->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($a, $input, $context, $schema, $retry, $structuredMode) use ($agent) {
+            // Only openai callback should apply (TestAgent's provider)
+            return $a === $agent
+                && $input === 'Hello'
+                && $context instanceof ExecutionContext
+                && $context->hasProviderOptions()
+                && $context->providerOptions['presence_penalty'] === 0.5
+                && ! isset($context->providerOptions['cacheType']);
+        })
+        ->andReturn($response);
+
+    $this->request
+        ->whenProvider('anthropic', fn ($r) => $r->withProviderOptions(['cacheType' => 'ephemeral']))
+        ->whenProvider('openai', fn ($r) => $r->withProviderOptions(['presence_penalty' => 0.5]))
+        ->chat('Hello');
+});
+
+test('whenProvider with stream applies callback when provider matches', function () {
+    // TestAgent returns 'openai' as its provider
+    $agent = new TestAgent;
+    $streamResponse = Mockery::mock(StreamResponse::class);
+
+    $this->agentResolver
+        ->shouldReceive('resolve')
+        ->once()
+        ->andReturn($agent);
+
+    $this->agentExecutor
+        ->shouldReceive('stream')
+        ->once()
+        ->withArgs(function ($a, $input, $context, $retry) use ($agent) {
+            return $a === $agent
+                && $input === 'Hello'
+                && $context instanceof ExecutionContext
+                && $context->hasProviderOptions()
+                && $context->providerOptions['presence_penalty'] === 0.5;
+        })
+        ->andReturn($streamResponse);
+
+    // TestAgent's provider is 'openai', so openai callback should apply
+    $this->request
+        ->whenProvider('openai', fn ($r) => $r->withProviderOptions(['presence_penalty' => 0.5]))
+        ->chat('Hello', stream: true);
+});
