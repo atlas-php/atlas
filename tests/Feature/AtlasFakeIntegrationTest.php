@@ -38,6 +38,26 @@ test('Atlas::unfake restores original state', function () {
     expect(Atlas::isFaked())->toBeFalse();
 });
 
+test('Atlas::getFake returns null when not faked', function () {
+    expect(Atlas::getFake())->toBeNull();
+});
+
+test('Atlas::getFake returns AtlasFake instance when faked', function () {
+    $fake = Atlas::fake();
+
+    expect(Atlas::getFake())->toBe($fake);
+    expect(Atlas::getFake())->toBeInstanceOf(\Atlasphp\Atlas\Testing\AtlasFake::class);
+});
+
+test('Atlas::getFake returns null after unfake', function () {
+    Atlas::fake();
+    expect(Atlas::getFake())->not->toBeNull();
+
+    Atlas::unfake();
+
+    expect(Atlas::getFake())->toBeNull();
+});
+
 test('Atlas::fake with responses configures default sequence', function () {
     $responses = [
         AgentResponse::text('First'),

@@ -142,6 +142,35 @@ test('it wraps non-Prism exceptions in AgentException', function () {
         ->toThrow(AgentException::class);
 });
 
+test('it re-throws AgentException directly without wrapping', function () {
+    // Use plain constructor to have a simple message we can verify
+    $agentException = new AgentException('Direct agent error');
+
+    $this->prismBuilder
+        ->shouldReceive('forPrompt')
+        ->andThrow($agentException);
+
+    $executor = new AgentExecutor(
+        $this->prismBuilder,
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->usageExtractor,
+        $this->configService,
+    );
+
+    $agent = new TestAgent;
+
+    try {
+        $executor->execute($agent, 'Hello');
+        $this->fail('Expected AgentException');
+    } catch (AgentException $e) {
+        // Verify it's the exact same exception, not wrapped
+        expect($e)->toBe($agentException);
+        expect($e->getMessage())->toBe('Direct agent error');
+    }
+});
+
 test('RateLimitedException preserves retry after from Prism exception', function () {
     $this->prismBuilder
         ->shouldReceive('forPrompt')
@@ -164,5 +193,95 @@ test('RateLimitedException preserves retry after from Prism exception', function
     } catch (RateLimitedException $e) {
         expect($e->retryAfter())->toBe(120);
         expect($e->getPrevious())->toBeInstanceOf(PrismRateLimitedException::class);
+    }
+});
+
+// Streaming exception tests
+
+test('stream re-throws AgentException directly without wrapping', function () {
+    // Use plain constructor to have a simple message we can verify
+    $agentException = new AgentException('Stream agent error');
+
+    $this->prismBuilder
+        ->shouldReceive('forPrompt')
+        ->andThrow($agentException);
+
+    $executor = new AgentExecutor(
+        $this->prismBuilder,
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->usageExtractor,
+        $this->configService,
+    );
+
+    $agent = new TestAgent;
+
+    try {
+        $stream = $executor->stream($agent, 'Hello');
+        // Consume the stream to trigger the exception
+        foreach ($stream as $event) {
+            // ...
+        }
+        $this->fail('Expected AgentException');
+    } catch (AgentException $e) {
+        // Verify it's the exact same exception, not wrapped
+        expect($e)->toBe($agentException);
+        expect($e->getMessage())->toBe('Stream agent error');
+    }
+});
+
+test('stream converts PrismRateLimitedException to RateLimitedException', function () {
+    $this->prismBuilder
+        ->shouldReceive('forPrompt')
+        ->andThrow(new PrismRateLimitedException([], 90));
+
+    $executor = new AgentExecutor(
+        $this->prismBuilder,
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->usageExtractor,
+        $this->configService,
+    );
+
+    $agent = new TestAgent;
+
+    try {
+        $stream = $executor->stream($agent, 'Hello');
+        foreach ($stream as $event) {
+            // ...
+        }
+        $this->fail('Expected RateLimitedException');
+    } catch (RateLimitedException $e) {
+        expect($e->retryAfter())->toBe(90);
+    }
+});
+
+test('stream wraps non-Prism exceptions in AgentException', function () {
+    $this->prismBuilder
+        ->shouldReceive('forPrompt')
+        ->andThrow(new RuntimeException('Stream generic error'));
+
+    $executor = new AgentExecutor(
+        $this->prismBuilder,
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->usageExtractor,
+        $this->configService,
+    );
+
+    $agent = new TestAgent;
+
+    try {
+        $stream = $executor->stream($agent, 'Hello');
+        foreach ($stream as $event) {
+            // ...
+        }
+        $this->fail('Expected AgentException');
+    } catch (AgentException $e) {
+        expect($e->getMessage())->toContain('Stream generic error');
+        expect($e->getPrevious())->toBeInstanceOf(RuntimeException::class);
     }
 });
