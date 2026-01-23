@@ -29,7 +29,7 @@ final class PendingImageRequest
     /**
      * Set the image size.
      */
-    public function size(string $size): static
+    public function withSize(string $size): static
     {
         $clone = clone $this;
         $clone->size = $size;
@@ -40,7 +40,7 @@ final class PendingImageRequest
     /**
      * Set the image quality.
      */
-    public function quality(string $quality): static
+    public function withQuality(string $quality): static
     {
         $clone = clone $this;
         $clone->quality = $quality;

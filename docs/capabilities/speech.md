@@ -21,7 +21,7 @@ file_put_contents('welcome.mp3', base64_decode($result['audio']));
 
 ```php
 $result = Atlas::speech('openai', 'tts-1')
-    ->voice('nova')
+    ->withVoice('nova')
     ->generate('Thank you for calling.');
 ```
 
@@ -31,7 +31,7 @@ $result = Atlas::speech('openai', 'tts-1')
 
 ```php
 $result = Atlas::speech()
-    ->voice('nova')
+    ->withVoice('nova')
     ->format('mp3')
     ->generate('Hello world!');
 ```
@@ -42,8 +42,8 @@ $result = Atlas::speech()
 
 ```php
 $result = Atlas::speech('openai', 'tts-1')
-    ->voice('nova')
-    ->speed(1.25)  // 0.25 to 4.0 for OpenAI
+    ->withVoice('nova')
+    ->withSpeed(1.25)  // 0.25 to 4.0 for OpenAI
     ->generate('This is faster speech.');
 ```
 
@@ -51,7 +51,7 @@ $result = Atlas::speech('openai', 'tts-1')
 
 ```php
 $result = Atlas::speech('openai', 'tts-1-hd')
-    ->voice('alloy')
+    ->withVoice('alloy')
     ->generate('This is high-definition audio quality.');
 ```
 
@@ -60,9 +60,9 @@ $result = Atlas::speech('openai', 'tts-1-hd')
 ```php
 $result = Atlas::speech()
     ->withProvider('openai', 'tts-1')
-    ->voice('nova')
+    ->withVoice('nova')
     ->format('mp3')
-    ->speed(1.0)
+    ->withSpeed(1.0)
     ->generate('Complete configuration example.');
 ```
 
@@ -70,7 +70,7 @@ $result = Atlas::speech()
 
 ```php
 $result = Atlas::speech()
-    ->voice('nova')
+    ->withVoice('nova')
     ->withProviderOptions(['language' => 'en'])
     ->generate('Hello world!');
 ```
@@ -78,7 +78,7 @@ $result = Atlas::speech()
 ## TTS Response Format
 
 ```php
-$result = Atlas::speech()->voice('alloy')->generate('Hello');
+$result = Atlas::speech()->withVoice('alloy')->generate('Hello');
 
 // Result structure
 [
@@ -151,8 +151,8 @@ Configure defaults in `config/atlas.php`:
 | `withProvider(string $provider, ?string $model = null)` | Set provider and optionally model |
 | `withModel(string $model)` | Set TTS model |
 | `transcriptionModel(string $model)` | Set transcription model |
-| `voice(string $voice)` | Set voice for TTS |
-| `speed(float $speed)` | Set speech speed (0.25-4.0) |
+| `withVoice(string $voice)` | Set voice for TTS |
+| `withSpeed(float $speed)` | Set speech speed (0.25-4.0) |
 | `format(string $format)` | Set audio format |
 | `withProviderOptions(array $options)` | Set provider-specific options |
 | `withMetadata(array $metadata)` | Set metadata for pipelines |
@@ -170,7 +170,7 @@ class NotificationService
     public function sendVoiceNotification(User $user, string $message): void
     {
         $audio = Atlas::speech()
-            ->voice('nova')
+            ->withVoice('nova')
             ->format('mp3')
             ->generate($message);
 
@@ -193,8 +193,8 @@ class PodcastGenerator
         $script = $this->prepareScript($article);
 
         $audio = Atlas::speech('openai', 'tts-1-hd')
-            ->voice('onyx')
-            ->speed(0.9)  // Slightly slower for clarity
+            ->withVoice('onyx')
+            ->withSpeed(0.9)  // Slightly slower for clarity
             ->generate($script);
 
         $filename = "podcasts/{$article->slug}.mp3";
@@ -289,7 +289,7 @@ Atlas provides built-in retry functionality:
 // Simple retry: 3 attempts, 1 second delay
 $result = Atlas::speech()
     ->withRetry(3, 1000)
-    ->voice('nova')
+    ->withVoice('nova')
     ->generate($text);
 
 // Exponential backoff
@@ -319,7 +319,7 @@ try {
 **Text-to-Speech:**
 ```php
 Atlas::speech()->generate($text)
-Atlas::speech()->voice('nova')->generate($text)
+Atlas::speech()->withVoice('nova')->generate($text)
 Atlas::speech('openai', 'tts-1-hd')->generate($text)
 ```
 

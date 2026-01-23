@@ -331,6 +331,103 @@
   background-color: var(--atlas-cyan) !important;
 }
 
+/* =========================================
+   Sidebar Navigation - Indented Sub-links with Border Line
+   ========================================= */
+
+/* Container for nested sidebar items - add left border line */
+.VPSidebarItem .items {
+  position: relative;
+  padding-left: 16px;
+  margin-left: 7px;
+  border-left: 1px solid var(--vp-c-divider);
+}
+
+.dark .VPSidebarItem .items {
+  border-left-color: var(--vp-c-divider);
+}
+
+/* Remove default padding from nested links to control spacing */
+.VPSidebarItem .items .VPSidebarItem .item {
+  padding-left: 0;
+  margin: 0;
+}
+
+/* Tighter spacing for nested items */
+.VPSidebarItem .items .VPSidebarItem {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Nested link text styling - compact */
+.VPSidebarItem .items .link {
+  padding: 1px 0 !important;
+  line-height: 1.25;
+  font-size: 0.9em;
+}
+
+/* Override any default item spacing */
+.VPSidebarItem .items .item {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+/* Active item indicator positioning - align with border */
+.VPSidebarItem .items .VPSidebarItem.is-active > .item {
+  position: relative;
+}
+
+/* Active indicator overlays the border line */
+.VPSidebarItem .items .VPSidebarItem.is-active > .item::before {
+  content: '';
+  position: absolute;
+  left: -17px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2px;
+  height: 20px;
+  background-color: var(--atlas-cyan);
+  border-radius: 1px;
+}
+
+/* Hide the default indicator for nested items since we use custom one */
+.VPSidebarItem .items .VPSidebarItem > .item > .indicator {
+  display: none;
+}
+
+/* Section headers (level 0) - group titles */
+.VPSidebarItem.level-0 > .item > .text {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--vp-c-text-1);
+}
+
+/* Hover effect for sidebar links */
+.VPSidebarItem .items .link:hover .text {
+  color: var(--atlas-cyan);
+}
+
+/* Smooth transition for hover states */
+.VPSidebarItem .link .text {
+  transition: color 0.2s ease;
+}
+
+/* Collapsed section caret styling */
+.VPSidebarItem.collapsible > .item .caret {
+  transition: transform 0.25s ease;
+}
+
+/* Adjust spacing between sidebar groups */
+.VPSidebarItem.level-0 {
+  padding-bottom: 8px;
+}
+
+.VPSidebarItem.level-0 + .VPSidebarItem.level-0 {
+  padding-top: 8px;
+  border-top: 1px solid var(--vp-c-divider);
+  margin-top: 8px;
+}
+
 /* Search bar min width */
 .VPNavBarSearch .DocSearch-Button,
 .VPNavBarSearch button,

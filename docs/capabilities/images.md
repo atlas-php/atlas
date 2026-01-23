@@ -30,8 +30,8 @@ $result = Atlas::image()
 ```php
 $result = Atlas::image()
     ->withProvider('openai', 'dall-e-3')
-    ->size('1024x1024')
-    ->quality('hd')
+    ->withSize('1024x1024')
+    ->withQuality('hd')
     ->generate('A photorealistic portrait of a robot');
 ```
 
@@ -39,8 +39,8 @@ $result = Atlas::image()
 
 ```php
 $result = Atlas::image('openai', 'dall-e-3')
-    ->size('1024x1024')
-    ->quality('hd')
+    ->withSize('1024x1024')
+    ->withQuality('hd')
     ->withProviderOptions(['style' => 'vivid'])  // OpenAI: 'vivid' or 'natural'
     ->generate('A vibrant abstract painting');
 ```
@@ -74,9 +74,9 @@ Configure defaults in `config/atlas.php`:
 ### Size
 
 ```php
-->size('1024x1024')  // Square
-->size('1792x1024')  // Landscape
-->size('1024x1792')  // Portrait
+->withSize('1024x1024')  // Square
+->withSize('1792x1024')  // Landscape
+->withSize('1024x1792')  // Portrait
 ```
 
 **DALL-E 3 sizes:** `1024x1024`, `1792x1024`, `1024x1792`
@@ -85,8 +85,8 @@ Configure defaults in `config/atlas.php`:
 ### Quality
 
 ```php
-->quality('standard')  // Default, faster
-->quality('hd')        // Higher detail, slower
+->withQuality('standard')  // Default, faster
+->withQuality('hd')        // Higher detail, slower
 ```
 
 ### Style (OpenAI)
@@ -102,8 +102,8 @@ Configure defaults in `config/atlas.php`:
 |--------|-------------|
 | `withProvider(string $provider, ?string $model = null)` | Set provider and optionally model |
 | `withModel(string $model)` | Set model |
-| `size(string $size)` | Set image dimensions |
-| `quality(string $quality)` | Set quality level |
+| `withSize(string $size)` | Set image dimensions |
+| `withQuality(string $quality)` | Set quality level |
 | `withProviderOptions(array $options)` | Set provider-specific options |
 | `withMetadata(array $metadata)` | Set metadata for pipelines |
 | `withRetry($times, $delay, $when, $throw)` | Configure retry |
@@ -113,7 +113,7 @@ Configure defaults in `config/atlas.php`:
 
 ```php
 $result = Atlas::image()
-    ->size('1024x1024')
+    ->withSize('1024x1024')
     ->generate('A serene lake at dawn');
 
 // Save from URL
@@ -130,8 +130,8 @@ Http::sink(storage_path('images/lake.png'))->get($result['url']);
 
 ```php
 $result = Atlas::image('openai', 'dall-e-3')
-    ->size('1024x1024')
-    ->quality('hd')
+    ->withSize('1024x1024')
+    ->withQuality('hd')
     ->withProviderOptions(['style' => 'natural'])
     ->generate('A minimalist white coffee mug on a wooden desk, professional product photography');
 ```
@@ -140,8 +140,8 @@ $result = Atlas::image('openai', 'dall-e-3')
 
 ```php
 $result = Atlas::image('openai', 'dall-e-3')
-    ->size('1792x1024')
-    ->quality('hd')
+    ->withSize('1792x1024')
+    ->withQuality('hd')
     ->withProviderOptions(['style' => 'vivid'])
     ->generate('Abstract digital art representing innovation and technology, blue and purple gradients');
 ```
@@ -150,7 +150,7 @@ $result = Atlas::image('openai', 'dall-e-3')
 
 ```php
 $result = Atlas::image('openai', 'dall-e-3')
-    ->size('1024x1024')
+    ->withSize('1024x1024')
     ->generate('A friendly cartoon robot waving, simple flat design style');
 ```
 
@@ -168,8 +168,8 @@ class ImageGeneratorController extends Controller
         ]);
 
         $result = Atlas::image('openai', 'dall-e-3')
-            ->size($request->input('size', '1024x1024'))
-            ->quality($request->input('quality', 'standard'))
+            ->withSize($request->input('size', '1024x1024'))
+            ->withQuality($request->input('quality', 'standard'))
             ->generate($request->input('prompt'));
 
         // Save to storage
@@ -198,7 +198,7 @@ $result = Atlas::image()
 // Exponential backoff
 $result = Atlas::image()
     ->withRetry(3, fn($attempt) => (2 ** $attempt) * 100)
-    ->size('1024x1024')
+    ->withSize('1024x1024')
     ->generate('A sunset');
 
 // Only retry on rate limits

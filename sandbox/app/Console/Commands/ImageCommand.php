@@ -50,8 +50,8 @@ class ImageCommand extends Command
             $this->info('Generating image...');
 
             $response = Atlas::image()
-                ->size($size)
-                ->quality($quality)
+                ->withSize($size)
+                ->withQuality($quality)
                 ->withProviderOptions(['style' => $style])
                 ->generate($prompt);
 
