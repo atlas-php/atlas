@@ -251,13 +251,13 @@ class AtlasServiceProvider extends ServiceProvider
 
         // Speech service pipelines
         $registry->define(
-            'speech.before_speak',
-            'Pipeline executed before text-to-speech conversion',
+            'speech.before_generate',
+            'Pipeline executed before generating speech from text',
         );
 
         $registry->define(
-            'speech.after_speak',
-            'Pipeline executed after text-to-speech conversion',
+            'speech.after_generate',
+            'Pipeline executed after generating speech from text',
         );
 
         $registry->define(

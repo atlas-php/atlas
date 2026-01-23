@@ -16,11 +16,13 @@
 
 # Atlas
 
-Atlas is a Laravel package for building AI-powered applications with structure and scale. It provides reusable agents, typed tools, system prompt templating, and execution pipelines—all through a clean, stateless API. Built on [Prism PHP](https://github.com/prism-php/prism), Atlas lets you focus on application logic instead of wiring AI infrastructure.
+Atlas is a Laravel package for building AI-powered applications with structure and scale. It provides reusable agents, typed tools, system prompt templating, and execution pipelines—all through a clean, stateless API. 
 
 ```php
 $response = Atlas::agent('support-agent')->chat('I need help with my order');
 ```
+
+Built on [Prism PHP](https://github.com/prism-php/prism), **Atlas** lets you focus on your application logic instead of wiring AI infrastructure.
 
 ---
 
@@ -28,8 +30,8 @@ $response = Atlas::agent('support-agent')->chat('I need help with my order');
 
 Atlas handles **application-level AI concerns** while Prism handles **LLM communication**.
 
-* Build reusable, composable agents—not one-off prompts
-* Keep AI logic stateless, testable, and framework-native
+* Build reusable, composable agents with acces to tools
+* Use dynamic prompts to customize behavior based on user context
 * Extend behavior (logging, auth, metrics) without touching the core
 
 ### Note from the Author
@@ -41,7 +43,7 @@ Atlas handles **application-level AI concerns** while Prism handles **LLM commun
 
 ## Table of Contents
 
-* [What You Get](#what-you-get)
+* [What You Get](#whats-included)
 * [Installation & Quick Start](#installation--quick-start)
 * [Tools](#tools)
 * [Pipelines](#pipelines)
@@ -55,7 +57,7 @@ Atlas handles **application-level AI concerns** while Prism handles **LLM commun
 
 ---
 
-## What You Get
+## What's included
 
 | Feature             | What it does                                                   | Learn more                                             |
 |---------------------|----------------------------------------------------------------|--------------------------------------------------------|
@@ -200,7 +202,7 @@ $response = Atlas::agent('support')
 Convert text into vector representations for semantic search, similarity matching, and RAG applications.
 
 ```php
-$vector = Atlas::embedding()->generate('Hello world');
+$vector = Atlas::embeddings()->generate('Hello world');
 ```
 
 ---
@@ -220,6 +222,10 @@ $result = Atlas::image('openai', 'dall-e-3')->generate('A sunset over mountains'
 Convert text to speech or transcribe audio to text with a simple, fluent API.
 
 ```php
+// Text-to-speech
+$result = Atlas::speech()->generate('Hello world');
+
+// Speech-to-text
 $result = Atlas::speech()->transcribe('/path/to/audio.mp3');
 ```
 

@@ -20,7 +20,7 @@ class SpeechCommand extends Command
      * @var string
      */
     protected $signature = 'atlas:speech
-                            {--speak= : Text to convert to speech}
+                            {--generate= : Text to convert to speech}
                             {--transcribe= : Audio file path to transcribe}
                             {--voice=nova : Voice selection}
                             {--speed=1.0 : Speech speed (0.25-4.0)}
@@ -38,17 +38,17 @@ class SpeechCommand extends Command
      */
     public function handle(): int
     {
-        $speakText = $this->option('speak');
+        $generateText = $this->option('generate');
         $transcribeFile = $this->option('transcribe');
 
-        if (! $speakText && ! $transcribeFile) {
-            $this->error('Please provide either --speak="text" or --transcribe="file.mp3"');
+        if (! $generateText && ! $transcribeFile) {
+            $this->error('Please provide either --generate="text" or --transcribe="file.mp3"');
 
             return self::FAILURE;
         }
 
-        if ($speakText) {
-            return $this->handleTts($speakText);
+        if ($generateText) {
+            return $this->handleTts($generateText);
         }
 
         return $this->handleStt($transcribeFile);
@@ -71,7 +71,7 @@ class SpeechCommand extends Command
             $response = Atlas::speech()
                 ->voice($voice)
                 ->speed($speed)
-                ->speak($text);
+                ->generate($text);
 
             $this->displayTtsResponse($response, $format);
             $this->displayTtsVerification($response, $format);

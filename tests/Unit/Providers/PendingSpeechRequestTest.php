@@ -85,160 +85,160 @@ test('withRetry returns new instance with retry config', function () {
     expect($result)->toBeInstanceOf(PendingSpeechRequest::class);
 });
 
-test('speak calls service with empty options when no config', function () {
+test('generate calls service with empty options when no config', function () {
     $expected = ['audio' => 'audio_data', 'format' => 'mp3'];
 
     $this->speechService
-        ->shouldReceive('speak')
+        ->shouldReceive('generate')
         ->once()
         ->with('Hello world', [], null)
         ->andReturn($expected);
 
-    $result = $this->request->speak('Hello world');
+    $result = $this->request->generate('Hello world');
 
     expect($result)->toBe($expected);
 });
 
-test('speak passes provider to service options', function () {
+test('generate passes provider to service options', function () {
     $expected = ['audio' => 'audio_data', 'format' => 'mp3'];
 
     $this->speechService
-        ->shouldReceive('speak')
+        ->shouldReceive('generate')
         ->once()
         ->with('Hello world', Mockery::on(function ($options) {
             return $options['provider'] === 'openai';
         }), null)
         ->andReturn($expected);
 
-    $result = $this->request->withProvider('openai')->speak('Hello world');
+    $result = $this->request->withProvider('openai')->generate('Hello world');
 
     expect($result)->toBe($expected);
 });
 
-test('speak passes model to service options', function () {
+test('generate passes model to service options', function () {
     $expected = ['audio' => 'audio_data', 'format' => 'mp3'];
 
     $this->speechService
-        ->shouldReceive('speak')
+        ->shouldReceive('generate')
         ->once()
         ->with('Hello world', Mockery::on(function ($options) {
             return $options['model'] === 'tts-1-hd';
         }), null)
         ->andReturn($expected);
 
-    $result = $this->request->withModel('tts-1-hd')->speak('Hello world');
+    $result = $this->request->withModel('tts-1-hd')->generate('Hello world');
 
     expect($result)->toBe($expected);
 });
 
-test('speak passes provider and model together to service options', function () {
+test('generate passes provider and model together to service options', function () {
     $expected = ['audio' => 'audio_data', 'format' => 'mp3'];
 
     $this->speechService
-        ->shouldReceive('speak')
+        ->shouldReceive('generate')
         ->once()
         ->with('Hello world', Mockery::on(function ($options) {
             return $options['provider'] === 'openai' && $options['model'] === 'tts-1-hd';
         }), null)
         ->andReturn($expected);
 
-    $result = $this->request->withProvider('openai', 'tts-1-hd')->speak('Hello world');
+    $result = $this->request->withProvider('openai', 'tts-1-hd')->generate('Hello world');
 
     expect($result)->toBe($expected);
 });
 
-test('speak passes voice to service options', function () {
+test('generate passes voice to service options', function () {
     $expected = ['audio' => 'audio_data', 'format' => 'mp3'];
 
     $this->speechService
-        ->shouldReceive('speak')
+        ->shouldReceive('generate')
         ->once()
         ->with('Hello world', Mockery::on(function ($options) {
             return $options['voice'] === 'nova';
         }), null)
         ->andReturn($expected);
 
-    $result = $this->request->voice('nova')->speak('Hello world');
+    $result = $this->request->voice('nova')->generate('Hello world');
 
     expect($result)->toBe($expected);
 });
 
-test('speak passes format to service options', function () {
+test('generate passes format to service options', function () {
     $expected = ['audio' => 'audio_data', 'format' => 'wav'];
 
     $this->speechService
-        ->shouldReceive('speak')
+        ->shouldReceive('generate')
         ->once()
         ->with('Hello world', Mockery::on(function ($options) {
             return $options['format'] === 'wav';
         }), null)
         ->andReturn($expected);
 
-    $result = $this->request->format('wav')->speak('Hello world');
+    $result = $this->request->format('wav')->generate('Hello world');
 
     expect($result)->toBe($expected);
 });
 
-test('speak passes speed to service options', function () {
+test('generate passes speed to service options', function () {
     $expected = ['audio' => 'audio_data', 'format' => 'mp3'];
 
     $this->speechService
-        ->shouldReceive('speak')
+        ->shouldReceive('generate')
         ->once()
         ->with('Hello world', Mockery::on(function ($options) {
             return $options['speed'] === 1.5;
         }), null)
         ->andReturn($expected);
 
-    $result = $this->request->speed(1.5)->speak('Hello world');
+    $result = $this->request->speed(1.5)->generate('Hello world');
 
     expect($result)->toBe($expected);
 });
 
-test('speak passes provider options to service options', function () {
+test('generate passes provider options to service options', function () {
     $expected = ['audio' => 'audio_data', 'format' => 'mp3'];
 
     $this->speechService
-        ->shouldReceive('speak')
+        ->shouldReceive('generate')
         ->once()
         ->with('Hello world', Mockery::on(function ($options) {
             return isset($options['provider_options']) && $options['provider_options']['language'] === 'en';
         }), null)
         ->andReturn($expected);
 
-    $result = $this->request->withProviderOptions(['language' => 'en'])->speak('Hello world');
+    $result = $this->request->withProviderOptions(['language' => 'en'])->generate('Hello world');
 
     expect($result)->toBe($expected);
 });
 
-test('speak passes metadata to service options', function () {
+test('generate passes metadata to service options', function () {
     $expected = ['audio' => 'audio_data', 'format' => 'mp3'];
     $metadata = ['user_id' => 123];
 
     $this->speechService
-        ->shouldReceive('speak')
+        ->shouldReceive('generate')
         ->once()
         ->with('Hello world', Mockery::on(function ($options) use ($metadata) {
             return isset($options['metadata']) && $options['metadata'] === $metadata;
         }), null)
         ->andReturn($expected);
 
-    $result = $this->request->withMetadata($metadata)->speak('Hello world');
+    $result = $this->request->withMetadata($metadata)->generate('Hello world');
 
     expect($result)->toBe($expected);
 });
 
-test('speak passes retry config to service', function () {
+test('generate passes retry config to service', function () {
     $expected = ['audio' => 'audio_data', 'format' => 'mp3'];
     $retryConfig = [3, 1000, null, true];
 
     $this->speechService
-        ->shouldReceive('speak')
+        ->shouldReceive('generate')
         ->once()
         ->with('Hello world', [], $retryConfig)
         ->andReturn($expected);
 
-    $result = $this->request->withRetry(3, 1000)->speak('Hello world');
+    $result = $this->request->withRetry(3, 1000)->generate('Hello world');
 
     expect($result)->toBe($expected);
 });
@@ -309,7 +309,7 @@ test('chaining speak preserves all config', function () {
     $metadata = ['user_id' => 123];
 
     $this->speechService
-        ->shouldReceive('speak')
+        ->shouldReceive('generate')
         ->once()
         ->with('Hello world', Mockery::on(function ($options) use ($metadata) {
             return $options['provider'] === 'openai'
@@ -330,24 +330,24 @@ test('chaining speak preserves all config', function () {
         ->withProviderOptions(['language' => 'en'])
         ->withMetadata($metadata)
         ->withRetry(3, 1000)
-        ->speak('Hello world');
+        ->generate('Hello world');
 
     expect($result)->toBe($expected);
 });
 
-test('speak merges additional options', function () {
+test('generate merges additional options', function () {
     $expected = ['audio' => 'audio_data', 'format' => 'mp3'];
     $additionalOptions = ['extra_option' => true];
 
     $this->speechService
-        ->shouldReceive('speak')
+        ->shouldReceive('generate')
         ->once()
         ->with('Hello world', Mockery::on(function ($options) {
             return isset($options['extra_option']) && $options['extra_option'] === true;
         }), null)
         ->andReturn($expected);
 
-    $result = $this->request->speak('Hello world', $additionalOptions);
+    $result = $this->request->generate('Hello world', $additionalOptions);
 
     expect($result)->toBe($expected);
 });

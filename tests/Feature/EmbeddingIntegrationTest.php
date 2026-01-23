@@ -66,7 +66,7 @@ beforeEach(function () {
 });
 
 test('it generates embedding via facade', function () {
-    $embedding = Atlas::embedding()->generate('test text');
+    $embedding = Atlas::embeddings()->generate('test text');
 
     expect($embedding)->toBeArray();
     expect(count($embedding))->toBe(1536);
@@ -74,7 +74,7 @@ test('it generates embedding via facade', function () {
 });
 
 test('it generates batch embeddings via facade', function () {
-    $embeddings = Atlas::embedding()->generate(['text 1', 'text 2', 'text 3']);
+    $embeddings = Atlas::embeddings()->generate(['text 1', 'text 2', 'text 3']);
 
     expect($embeddings)->toBeArray();
     expect(count($embeddings))->toBe(3);
@@ -85,7 +85,7 @@ test('it generates batch embeddings via facade', function () {
 });
 
 test('it returns configured dimensions via facade', function () {
-    $dimensions = Atlas::embedding()->dimensions();
+    $dimensions = Atlas::embeddings()->dimensions();
 
     expect($dimensions)->toBe(1536);
 });
@@ -93,7 +93,7 @@ test('it returns configured dimensions via facade', function () {
 test('it generates embedding via manager', function () {
     $manager = $this->app->make(AtlasManager::class);
 
-    $embedding = $manager->embedding()->generate('test text');
+    $embedding = $manager->embeddings()->generate('test text');
 
     expect($embedding)->toBeArray();
     expect(count($embedding))->toBe(1536);
@@ -102,7 +102,7 @@ test('it generates embedding via manager', function () {
 test('it generates batch embeddings via manager', function () {
     $manager = $this->app->make(AtlasManager::class);
 
-    $embeddings = $manager->embedding()->generate(['text 1', 'text 2']);
+    $embeddings = $manager->embeddings()->generate(['text 1', 'text 2']);
 
     expect($embeddings)->toBeArray();
     expect(count($embeddings))->toBe(2);

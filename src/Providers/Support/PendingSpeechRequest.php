@@ -77,15 +77,15 @@ final class PendingSpeechRequest
     }
 
     /**
-     * Convert text to speech.
+     * Convert text to speech (generate audio from text).
      *
      * @param  string  $text  The text to convert.
      * @param  array<string, mixed>  $options  Additional options.
      * @return array{audio: string, format: string}
      */
-    public function speak(string $text, array $options = []): array
+    public function generate(string $text, array $options = []): array
     {
-        return $this->speechService->speak($text, $this->buildSpeakOptions($options), $this->getRetryArray());
+        return $this->speechService->generate($text, $this->buildGenerateOptions($options), $this->getRetryArray());
     }
 
     /**
@@ -101,12 +101,12 @@ final class PendingSpeechRequest
     }
 
     /**
-     * Build the options array for speak operations.
+     * Build the options array for generate operations.
      *
      * @param  array<string, mixed>  $additionalOptions
      * @return array<string, mixed>
      */
-    private function buildSpeakOptions(array $additionalOptions = []): array
+    private function buildGenerateOptions(array $additionalOptions = []): array
     {
         $options = $additionalOptions;
 

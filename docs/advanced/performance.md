@@ -83,7 +83,7 @@ class CachedEmbeddingService
     {
         $key = 'embedding:' . md5($text);
 
-        return Cache::remember($key, 86400, fn() => Atlas::embedding()->generate($text));
+        return Cache::remember($key, 86400, fn() => Atlas::embeddings()->generate($text));
     }
 }
 ```
@@ -131,11 +131,11 @@ Use batch API for multiple texts:
 
 ```php
 // Good - single batch request
-$embeddings = Atlas::embedding()->generate($texts);
+$embeddings = Atlas::embeddings()->generate($texts);
 
 // Avoid - multiple requests
 foreach ($texts as $text) {
-    $embeddings[] = Atlas::embedding()->generate($text);
+    $embeddings[] = Atlas::embeddings()->generate($text);
 }
 ```
 
@@ -152,7 +152,7 @@ class EmbeddingJob implements ShouldQueue
 
     public function handle(): void
     {
-        $embedding = Atlas::embedding()->generate($this->document->content);
+        $embedding = Atlas::embeddings()->generate($this->document->content);
         $this->document->embedding = $embedding;
         $this->document->save();
     }

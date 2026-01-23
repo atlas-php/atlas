@@ -294,7 +294,7 @@ public function generateBatch(array $texts): array<int, array<int, float>>
 ### Example Usage
 
 ```php
-$embedding = Atlas::embedding()
+$embedding = Atlas::embeddings()
     ->withMetadata(['user_id' => 123])
     ->withRetry(3, 1000)
     ->generate('Hello world');

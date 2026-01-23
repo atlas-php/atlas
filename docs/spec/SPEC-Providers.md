@@ -26,9 +26,9 @@ The main entry point for Atlas capabilities.
 use Atlasphp\Atlas\Providers\Facades\Atlas;
 
 // Generate embeddings
-$embedding = Atlas::embedding()->generate('Hello world');
-$embeddings = Atlas::embedding()->generate(['text 1', 'text 2']);
-$dimensions = Atlas::embedding()->dimensions();
+$embedding = Atlas::embeddings()->generate('Hello world');
+$embeddings = Atlas::embeddings()->generate(['text 1', 'text 2']);
+$dimensions = Atlas::embeddings()->dimensions();
 
 // Access image service
 $result = Atlas::image()
@@ -39,7 +39,7 @@ $result = Atlas::image()
 // Access speech service
 $audio = Atlas::speech()
     ->voice('alloy')
-    ->speak('Hello world');
+    ->generate('Hello world');
 ```
 
 ---
@@ -165,7 +165,7 @@ $result = $service
     ->withProvider('openai', 'tts-1')
     ->voice('alloy')
     ->format('mp3')
-    ->speak('Hello, world!');
+    ->generate('Hello, world!');
 
 // With speed control and provider options
 $result = $service
@@ -173,7 +173,7 @@ $result = $service
     ->voice('nova')
     ->speed(1.25)
     ->withProviderOptions(['language' => 'en'])
-    ->speak('Hello, world!');
+    ->generate('Hello, world!');
 
 // Result structure
 [
@@ -213,7 +213,7 @@ $result = $service
 - `speed(float $speed): self` - Set speech speed (0.25-4.0 for OpenAI)
 - `format(string $format): self` - Set audio format
 - `withProviderOptions(array $options): self` - Set provider-specific options
-- `speak(string $text, array $options = []): array` - Convert text to speech
+- `generate(string $text, array $options = []): array` - Convert text to speech
 - `transcribe(Audio|string $audio, array $options = []): array` - Transcribe audio
 
 **Provider Options (OpenAI TTS):**
@@ -308,7 +308,7 @@ $service = app(ProviderConfigService::class);
 $defaultProvider = $service->getDefaultProvider();
 $embeddingConfig = $service->getEmbeddingConfig();
 $imageConfig = $service->getImageConfig();
-$speechConfig = $service->getSpeechConfig();
+$audioConfig = $service->getAudioConfig();
 $hasProvider = $service->hasProvider('openai');
 $timeout = $service->getTimeout('openai');
 ```
@@ -333,8 +333,8 @@ return [
         'default_provider' => env('ATLAS_IMAGE_PROVIDER', 'openai'),
     ],
 
-    'speech' => [
-        'default_provider' => env('ATLAS_SPEECH_PROVIDER', 'openai'),
+    'audio' => [
+        'default_provider' => env('ATLAS_AUDIO_PROVIDER', 'openai'),
     ],
 ];
 ```
@@ -364,12 +364,12 @@ use Atlasphp\Atlas\Providers\Facades\Atlas;
 
 // Index documents
 $documents = ['Document 1 content', 'Document 2 content'];
-$embeddings = Atlas::embedding()->generate($documents);
+$embeddings = Atlas::embeddings()->generate($documents);
 
 // Store embeddings with documents...
 
 // Search with query embedding
-$queryEmbedding = Atlas::embedding()->generate('search query');
+$queryEmbedding = Atlas::embeddings()->generate('search query');
 // Compare with stored embeddings using cosine similarity...
 ```
 
@@ -392,7 +392,7 @@ $imageUrl = $result['url'];
 $audio = Atlas::speech()
     ->voice('nova')
     ->format('mp3')
-    ->speak($articleContent);
+    ->generate($articleContent);
 
 // Save to file
 file_put_contents('article.mp3', base64_decode($audio['audio']));

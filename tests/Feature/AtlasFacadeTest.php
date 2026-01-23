@@ -21,8 +21,8 @@ test('agent returns pending agent request', function () {
     expect(Atlas::agent('test-agent'))->toBeInstanceOf(PendingAgentRequest::class);
 });
 
-test('embedding returns pending embedding request', function () {
-    expect(Atlas::embedding())->toBeInstanceOf(PendingEmbeddingRequest::class);
+test('embeddings returns pending embedding request', function () {
+    expect(Atlas::embeddings())->toBeInstanceOf(PendingEmbeddingRequest::class);
 });
 
 test('it executes simple chat', function () {

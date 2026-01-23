@@ -62,8 +62,8 @@ test('agent returns PendingAgentRequest with agent instance', function () {
 // EMBEDDING TESTS
 // ===========================================
 
-test('embedding returns PendingEmbeddingRequest', function () {
-    $result = $this->manager->embedding();
+test('embeddings returns PendingEmbeddingRequest', function () {
+    $result = $this->manager->embeddings();
 
     expect($result)->toBeInstanceOf(PendingEmbeddingRequest::class);
 });

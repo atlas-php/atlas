@@ -151,33 +151,33 @@ $response = Atlas::agent('support-agent')
 
 ```php
 // Single text
-Atlas::embedding()->generate(string $text): array<int, float>
+Atlas::embeddings()->generate(string $text): array<int, float>
 
 // Multiple texts (array input)
-Atlas::embedding()->generate(array $texts): array<int, array<int, float>>
+Atlas::embeddings()->generate(array $texts): array<int, array<int, float>>
 
 // Get dimensions
-Atlas::embedding()->dimensions(): int
+Atlas::embeddings()->dimensions(): int
 ```
 
 **Example:**
 
 ```php
 // Single embedding
-$embedding = Atlas::embedding()->generate('Hello, world!');
+$embedding = Atlas::embeddings()->generate('Hello, world!');
 // [0.123, 0.456, ...]
 
 // Batch embeddings (pass array)
-$embeddings = Atlas::embedding()->generate(['Text 1', 'Text 2']);
+$embeddings = Atlas::embeddings()->generate(['Text 1', 'Text 2']);
 // [[0.123, ...], [0.456, ...]]
 
 // With retry and metadata
-$embedding = Atlas::embedding()
+$embedding = Atlas::embeddings()
     ->withRetry(3, 1000)
     ->withMetadata(['user_id' => 123])
     ->generate('Hello, world!');
 
-$dimensions = Atlas::embedding()->dimensions();
+$dimensions = Atlas::embeddings()->dimensions();
 // 1536
 ```
 
@@ -229,34 +229,34 @@ $result = Atlas::image('openai', 'dall-e-3')
 ## Speech API
 
 ```php
-Atlas::speech(?string $provider = null, ?string $model = null): SpeechService
+Atlas::speech(?string $provider = null, ?string $model = null): PendingSpeechRequest
 ```
 
-Returns a fluent `SpeechService` for text-to-speech and transcription:
+Returns a fluent `PendingSpeechRequest` for text-to-speech and transcription:
 
 ```php
 // Text to speech
 $result = Atlas::speech()
     ->voice('nova')
     ->format('mp3')
-    ->speak('Hello, world!');
+    ->generate('Hello, world!');
 // ['audio' => '...', 'format' => 'mp3']
 
 // With speed control
 $result = Atlas::speech()
     ->voice('nova')
     ->speed(1.25)  // 0.25 to 4.0 for OpenAI
-    ->speak('Faster speech.');
+    ->generate('Faster speech.');
 
 // With provider-specific options
 $result = Atlas::speech()
     ->voice('nova')
     ->withProviderOptions(['language' => 'en'])
-    ->speak('Hello!');
+    ->generate('Hello!');
 
 // With specific provider and model
 $result = Atlas::speech('openai', 'tts-1-hd')
-    ->speak('Hello!');
+    ->generate('Hello!');
 
 // Transcription
 $result = Atlas::speech()
@@ -271,7 +271,7 @@ $result = Atlas::speech()
     ->transcribe('/path/to/audio.mp3');
 ```
 
-**SpeechService Methods:**
+**PendingSpeechRequest Methods:**
 - `using(string $provider): self` - Set provider
 - `model(string $model): self` - Set TTS model
 - `transcriptionModel(string $model): self` - Set transcription model
@@ -279,7 +279,7 @@ $result = Atlas::speech()
 - `speed(float $speed): self` - Set speech speed (0.25-4.0 for OpenAI)
 - `format(string $format): self` - Set audio format
 - `withProviderOptions(array $options): self` - Set provider-specific options
-- `speak(string $text, array $options = []): array` - Convert text to speech
+- `generate(string $text, array $options = []): array` - Convert text to speech
 - `transcribe(Audio|string $audio, array $options = []): array` - Transcribe audio
 
 ---
@@ -383,8 +383,8 @@ $person = $response->structured;
 
 ```php
 // Embedding (single or batch)
-$vector = Atlas::embedding()->generate('Search query');
-$vectors = Atlas::embedding()->generate(['query 1', 'query 2']);
+$vector = Atlas::embeddings()->generate('Search query');
+$vectors = Atlas::embeddings()->generate(['query 1', 'query 2']);
 
 // Image generation with provider options
 $image = Atlas::image('openai', 'dall-e-3')
@@ -397,7 +397,7 @@ $image = Atlas::image('openai', 'dall-e-3')
 $audio = Atlas::speech('openai', 'tts-1')
     ->voice('alloy')
     ->speed(1.0)
-    ->speak('Welcome to Atlas!');
+    ->generate('Welcome to Atlas!');
 
 // Transcription with options
 $text = Atlas::speech()

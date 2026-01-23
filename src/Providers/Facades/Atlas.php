@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Facade;
  * Facade for Atlas functionality.
  *
  * @method static PendingAgentRequest agent(string|AgentContract $agent)
- * @method static PendingEmbeddingRequest embedding()
+ * @method static PendingEmbeddingRequest embeddings()
  * @method static PendingImageRequest image(?string $provider = null, ?string $model = null)
  * @method static PendingSpeechRequest speech(?string $provider = null, ?string $model = null)
  *

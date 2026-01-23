@@ -42,7 +42,7 @@ Test that Atlas is working correctly:
 use Atlasphp\Atlas\Providers\Facades\Atlas;
 
 // Test embedding generation
-$embedding = Atlas::embedding()->generate('Hello, world!');
+$embedding = Atlas::embeddings()->generate('Hello, world!');
 dd(count($embedding)); // Should output: 1536
 ```
 

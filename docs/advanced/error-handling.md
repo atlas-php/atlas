@@ -184,10 +184,10 @@ Works with all Atlas operations:
 
 ```php
 Atlas::agent('agent')->withRetry(3, 1000)->chat('Hello');
-Atlas::embedding()->withRetry(3, 1000)->generate('text');
-Atlas::embedding()->withRetry(3, 1000)->generate(['text1', 'text2']);
+Atlas::embeddings()->withRetry(3, 1000)->generate('text');
+Atlas::embeddings()->withRetry(3, 1000)->generate(['text1', 'text2']);
 Atlas::image()->withRetry(3, 1000)->generate('A sunset');
-Atlas::speech()->withRetry(3, 1000)->speak('Hello');
+Atlas::speech()->withRetry(3, 1000)->generate('Hello');
 ```
 
 ### With Circuit Breaker

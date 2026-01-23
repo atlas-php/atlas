@@ -34,13 +34,13 @@ $response = Atlas::agent('support-agent')
     ->chat('Extract the data');
 
 // Embeddings (single text)
-$embedding = Atlas::embedding()->generate('Hello world');
+$embedding = Atlas::embeddings()->generate('Hello world');
 
 // Embeddings (batch)
-$embeddings = Atlas::embedding()->generate(['text 1', 'text 2']);
+$embeddings = Atlas::embeddings()->generate(['text 1', 'text 2']);
 
 // Embedding with configuration
-$embedding = Atlas::embedding()
+$embedding = Atlas::embeddings()
     ->withMetadata(['user_id' => 123])
     ->withRetry(3, 1000)
     ->generate('Hello world');
@@ -50,10 +50,10 @@ $result = Atlas::image()
     ->withMetadata(['user_id' => 123])
     ->generate('A sunset');
 
-// Speech
+// Audio
 $audio = Atlas::speech()
     ->withMetadata(['user_id' => 123])
-    ->speak('Hello');
+    ->generate('Hello');
 ```
 
 ## Agent Methods
@@ -297,12 +297,12 @@ $response = Atlas::agent('support-agent')
 
 ## Embedding Methods
 
-### embedding()
+### embeddings()
 
 Get a fluent builder for embedding operations.
 
 ```php
-Atlas::embedding()
+Atlas::embeddings()
 ```
 
 **Returns:** Fluent builder for embeddings
@@ -311,13 +311,13 @@ Atlas::embedding()
 
 ```php
 // Single text
-$embedding = Atlas::embedding()->generate('Hello world');
+$embedding = Atlas::embeddings()->generate('Hello world');
 
 // Batch (array input)
-$embeddings = Atlas::embedding()->generate(['text 1', 'text 2']);
+$embeddings = Atlas::embeddings()->generate(['text 1', 'text 2']);
 
 // With configuration
-$embedding = Atlas::embedding()
+$embedding = Atlas::embeddings()
     ->withMetadata(['user_id' => 123])
     ->withRetry(3, 1000)
     ->generate('Hello world');
@@ -325,7 +325,7 @@ $embedding = Atlas::embedding()
 
 ## Embedding Builder
 
-Immutable fluent builder for embedding operations returned by `Atlas::embedding()`.
+Immutable fluent builder for embedding operations returned by `Atlas::embeddings()`.
 
 ### withMetadata()
 
@@ -364,11 +364,11 @@ Generate embedding(s) for text input. Accepts either a single string or an array
 
 ```php
 // Single embedding
-$embedding = Atlas::embedding()->generate('Hello world');
+$embedding = Atlas::embeddings()->generate('Hello world');
 // [0.123, 0.456, ...]
 
 // Batch embeddings
-$embeddings = Atlas::embedding()->generate(['Text 1', 'Text 2']);
+$embeddings = Atlas::embeddings()->generate(['Text 1', 'Text 2']);
 // [[0.123, ...], [0.456, ...]]
 ```
 
@@ -385,7 +385,7 @@ Get configured embedding dimensions.
 **Example:**
 
 ```php
-$dimensions = Atlas::embedding()->dimensions();
+$dimensions = Atlas::embeddings()->dimensions();
 // 1536
 ```
 
@@ -455,7 +455,7 @@ Atlas::speech(?string $provider = null, ?string $model = null)
 $result = Atlas::speech()
     ->voice('nova')
     ->withMetadata(['user_id' => 123])
-    ->speak('Hello!');
+    ->generate('Hello!');
 
 // Transcription
 $result = Atlas::speech()
@@ -478,7 +478,7 @@ $result = Atlas::speech()
 | `withProviderOptions(array $options)` | Provider-specific options |
 | `withMetadata(array $metadata)` | Set metadata for pipelines |
 | `withRetry($times, $delay, $when, $throw)` | Configure retry |
-| `speak(string $text, array $options = [])` | Text to speech |
+| `generate(string $text, array $options = [])` | Text to speech |
 | `transcribe(Audio\|string $audio, array $options = [])` | Speech to text |
 
 ## Quick Reference
@@ -491,9 +491,9 @@ $result = Atlas::speech()
 | `Atlas::agent($agent)->withMessages($msgs)->chat($input)` | Chat with history |
 | `Atlas::agent($agent)->withSchema($schema)->chat($input)` | Structured output |
 | `Atlas::agent($agent)->chat($input, stream: true)` | Streaming response |
-| `Atlas::embedding()->generate($text)` | Single embedding |
-| `Atlas::embedding()->generate($texts)` | Batch embeddings (array input) |
-| `Atlas::embedding()->dimensions()` | Get embedding dimensions |
+| `Atlas::embeddings()->generate($text)` | Single embedding |
+| `Atlas::embeddings()->generate($texts)` | Batch embeddings (array input) |
+| `Atlas::embeddings()->dimensions()` | Get embedding dimensions |
 | `Atlas::image()` | Image builder |
 | `Atlas::speech()` | Speech builder |
 

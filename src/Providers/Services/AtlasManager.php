@@ -48,12 +48,12 @@ class AtlasManager
     }
 
     /**
-     * Start building an embedding request with configuration.
+     * Start building an embeddings request with configuration.
      *
      * Returns a fluent builder for configuring metadata and retry
      * before generating embeddings.
      */
-    public function embedding(): PendingEmbeddingRequest
+    public function embeddings(): PendingEmbeddingRequest
     {
         return new PendingEmbeddingRequest($this->embeddingService);
     }

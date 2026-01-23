@@ -155,10 +155,10 @@ Convert text to speech or transcribe audio.
 
 ```bash
 # Text to speech
-php artisan atlas:speech --speak="Hello, this is a test"
+php artisan atlas:speech --generate="Hello, this is a test"
 
 # With voice selection
-php artisan atlas:speech --speak="Hello" --voice=nova --format=mp3
+php artisan atlas:speech --generate="Hello" --voice=nova --format=mp3
 
 # Transcribe audio
 php artisan atlas:speech --transcribe=speech-123.mp3

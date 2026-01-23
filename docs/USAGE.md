@@ -142,7 +142,7 @@ Generate vector embeddings for semantic search, RAG, and similarity matching.
 ### Single Embedding
 
 ```php
-$embedding = Atlas::embedding()->generate('What is the return policy?');
+$embedding = Atlas::embeddings()->generate('What is the return policy?');
 // Returns array of 1536 floats (for text-embedding-3-small)
 
 // Use for similarity search
@@ -161,14 +161,14 @@ $texts = [
     'Do you offer refunds?',
 ];
 
-$embeddings = Atlas::embedding()->generate($texts);
+$embeddings = Atlas::embeddings()->generate($texts);
 // Returns array of 3 embedding vectors
 ```
 
 ### Get Embedding Dimensions
 
 ```php
-$dimensions = Atlas::embedding()->dimensions();
+$dimensions = Atlas::embeddings()->dimensions();
 // 1536 (for text-embedding-3-small)
 ```
 
@@ -230,14 +230,14 @@ $result = Atlas::image()
 
 ---
 
-## Speech
+## Audio
 
 Text-to-speech and speech-to-text capabilities.
 
 ### Text to Speech
 
 ```php
-$result = Atlas::speech()->speak('Hello, welcome to our service!');
+$result = Atlas::speech()->generate('Hello, welcome to our service!');
 
 // Save audio file
 file_put_contents('welcome.mp3', base64_decode($result['audio']));
@@ -249,7 +249,7 @@ file_put_contents('welcome.mp3', base64_decode($result['audio']));
 $result = Atlas::speech('openai', 'tts-1')
     ->voice('nova')
     ->format('mp3')
-    ->speak('Thank you for calling. How can I help you today?');
+    ->generate('Thank you for calling. How can I help you today?');
 ```
 
 ### With Speed Control
@@ -258,7 +258,7 @@ $result = Atlas::speech('openai', 'tts-1')
 $result = Atlas::speech('openai', 'tts-1')
     ->voice('nova')
     ->speed(1.25)  // 0.25 to 4.0 for OpenAI
-    ->speak('This is faster speech.');
+    ->generate('This is faster speech.');
 ```
 
 ### HD Quality Speech
@@ -266,7 +266,7 @@ $result = Atlas::speech('openai', 'tts-1')
 ```php
 $result = Atlas::speech('openai', 'tts-1-hd')
     ->voice('alloy')
-    ->speak('This is high-definition audio quality.');
+    ->generate('This is high-definition audio quality.');
 ```
 
 ### With Provider-Specific Options
@@ -276,7 +276,7 @@ $result = Atlas::speech()
     ->voice('nova')
     ->speed(1.0)
     ->withProviderOptions(['language' => 'en'])
-    ->speak('Hello world!');
+    ->generate('Hello world!');
 ```
 
 ### Speech to Text (Transcription)
@@ -379,9 +379,9 @@ if ($response->hasUsage()) {
 | `Atlas::agent($agent)->withMessages($messages)->chat($input)` | Chat with history |
 | `Atlas::agent($agent)->withVariables($vars)->chat($input)` | Chat with variables |
 | `Atlas::agent($agent)->withSchema($schema)->chat($input)` | Structured output |
-| `Atlas::embedding()->generate($text)` | Single text embedding |
-| `Atlas::embedding()->generate($texts)` | Batch embeddings (array input) |
-| `Atlas::embedding()->dimensions()` | Get vector dimensions |
+| `Atlas::embeddings()->generate($text)` | Single text embedding |
+| `Atlas::embeddings()->generate($texts)` | Batch embeddings (array input) |
+| `Atlas::embeddings()->dimensions()` | Get vector dimensions |
 | `Atlas::image()` | Image generation service |
 | `Atlas::image($provider, $model)` | Image with specific config |
 | `Atlas::speech()` | Speech service |
@@ -394,7 +394,7 @@ if ($response->hasUsage()) {
 | Image | `->size($size)` | Set image dimensions (e.g., '1024x1024') |
 | Image | `->quality($quality)` | Set quality ('standard', 'hd') |
 | Image | `->withProviderOptions($options)` | Set provider-specific options |
-| Speech | `->voice($voice)` | Set TTS voice |
-| Speech | `->speed($speed)` | Set speech speed (0.25-4.0) |
-| Speech | `->format($format)` | Set audio format |
-| Speech | `->withProviderOptions($options)` | Set provider-specific options |
+| Audio | `->voice($voice)` | Set TTS voice |
+| Audio | `->speed($speed)` | Set speech speed (0.25-4.0) |
+| Audio | `->format($format)` | Set audio format |
+| Audio | `->withProviderOptions($options)` | Set provider-specific options |

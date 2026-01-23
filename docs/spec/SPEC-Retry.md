@@ -23,7 +23,7 @@ Atlas::agent('agent')->withRetry([100, 500, 2000])->chat('Hello');
 
 ### `withRetry()` Method
 
-Available on `PendingAgentRequest`, `PendingEmbeddingRequest`, `ImageService`, and `SpeechService`.
+Available on `PendingAgentRequest`, `PendingEmbeddingRequest`, `ImageService`, and `AudioService`.
 
 ```php
 public function withRetry(
@@ -152,8 +152,8 @@ Atlas::agent('agent')->withRetry(3, 1000)->chat('Hello');
 ### Embeddings
 
 ```php
-Atlas::embedding()->withRetry(3, 1000)->generate('text to embed');
-Atlas::embedding()->withRetry(3, 1000)->generateBatch(['text 1', 'text 2']);
+Atlas::embeddings()->withRetry(3, 1000)->generate('text to embed');
+Atlas::embeddings()->withRetry(3, 1000)->generateBatch(['text 1', 'text 2']);
 ```
 
 ### Multi-turn Conversations
@@ -181,7 +181,7 @@ Atlas::image()
 Atlas::speech()
     ->withRetry(3, 1000)
     ->voice('alloy')
-    ->speak('Hello, world!');
+    ->generate('Hello, world!');
 ```
 
 ## RetryConfig Helper

@@ -24,14 +24,14 @@ class SpeechService
     ) {}
 
     /**
-     * Convert text to speech.
+     * Convert text to speech (generate audio from text).
      *
      * @param  string  $text  The text to convert.
      * @param  array<string, mixed>  $options  Options including provider, model, voice, format, speed, metadata, provider_options.
      * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      * @return array{audio: string, format: string}
      */
-    public function speak(string $text, array $options = [], ?array $retry = null): array
+    public function generate(string $text, array $options = [], ?array $retry = null): array
     {
         $speechConfig = $this->configService->getSpeechConfig();
         $provider = $options['provider'] ?? $speechConfig['provider'];
@@ -56,7 +56,7 @@ class SpeechService
 
             /** @var array{text: string, provider: string, model: string, format: string, voice: string|null, options: array<string, mixed>, metadata: array<string, mixed>} $beforeData */
             $beforeData = $this->pipelineRunner->runIfActive(
-                'speech.before_speak',
+                'speech.before_generate',
                 $beforeData,
             );
 
@@ -113,13 +113,13 @@ class SpeechService
 
             /** @var array{result: array{audio: string, format: string}} $afterData */
             $afterData = $this->pipelineRunner->runIfActive(
-                'speech.after_speak',
+                'speech.after_generate',
                 $afterData,
             );
 
             return $afterData['result'];
         } catch (Throwable $e) {
-            $this->handleSpeakError($text, $provider, $model, $voice, $format, $metadata, $e);
+            $this->handleGenerateError($text, $provider, $model, $voice, $format, $metadata, $e);
             throw $e;
         }
     }
@@ -204,7 +204,7 @@ class SpeechService
     }
 
     /**
-     * Handle a speak error by running the error pipeline.
+     * Handle a generate error by running the error pipeline.
      *
      * @param  string  $text  The text that was being converted.
      * @param  string  $provider  The provider that was used.
@@ -214,7 +214,7 @@ class SpeechService
      * @param  array<string, mixed>  $metadata  The metadata that was provided.
      * @param  Throwable  $exception  The exception that occurred.
      */
-    protected function handleSpeakError(
+    protected function handleGenerateError(
         string $text,
         string $provider,
         string $model,
@@ -224,7 +224,7 @@ class SpeechService
         Throwable $exception,
     ): void {
         $errorData = [
-            'operation' => 'speak',
+            'operation' => 'generate',
             'text' => $text,
             'provider' => $provider,
             'model' => $model,
