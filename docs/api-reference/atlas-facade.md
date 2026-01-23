@@ -432,6 +432,33 @@ $result = Atlas::image('openai', 'dall-e-3')
 | `withRetry($times, $delay, $when, $throw)` | Configure retry |
 | `generate(string $prompt, array $options = [])` | Generate image |
 
+### Image Response Structure
+
+`generate()` returns an array with the following properties:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `url` | `string\|null` | URL to the generated image (if available) |
+| `base64` | `string\|null` | Base64-encoded image data (if available) |
+| `revised_prompt` | `string\|null` | The prompt as revised by the model (DALL-E 3) |
+
+**Example:**
+
+```php
+$result = Atlas::image()->generate('A sunset over mountains');
+
+// Access the URL
+$imageUrl = $result['url'];
+
+// Or base64 data for direct embedding
+$base64 = $result['base64'];
+
+// Check if the prompt was revised
+if ($result['revised_prompt']) {
+    Log::info('Prompt revised to: ' . $result['revised_prompt']);
+}
+```
+
 ## Speech Methods
 
 ### speech()
@@ -480,6 +507,58 @@ $result = Atlas::speech()
 | `withRetry($times, $delay, $when, $throw)` | Configure retry |
 | `generate(string $text, array $options = [])` | Text to speech |
 | `transcribe(Audio\|string $audio, array $options = [])` | Speech to text |
+
+### Speech Response Structures
+
+**Text-to-Speech (`generate()`)** returns an array:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `audio` | `string` | Raw audio binary content |
+| `format` | `string` | Audio format (e.g., 'mp3', 'wav') |
+
+**Example:**
+
+```php
+$result = Atlas::speech()
+    ->voice('nova')
+    ->format('mp3')
+    ->generate('Hello, world!');
+
+// Save to file
+file_put_contents('output.mp3', $result['audio']);
+
+// Or stream to response
+return response($result['audio'])
+    ->header('Content-Type', 'audio/mpeg');
+```
+
+**Speech-to-Text (`transcribe()`)** returns an array:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `text` | `string` | Transcribed text content |
+| `language` | `string\|null` | Detected language code (e.g., 'en') |
+| `duration` | `float\|null` | Audio duration in seconds |
+
+**Example:**
+
+```php
+$result = Atlas::speech()->transcribe('/path/to/audio.mp3');
+
+// Get transcription
+$text = $result['text'];
+
+// Check detected language
+if ($result['language'] === 'es') {
+    // Spanish audio detected
+}
+
+// Log duration
+if ($result['duration']) {
+    Log::info("Transcribed {$result['duration']} seconds of audio");
+}
+```
 
 ## Quick Reference
 

@@ -186,6 +186,166 @@ public function handle(array $arguments, ToolContext $context): ToolResult
 
 Metadata is passed through the execution context.
 
+## Security Best Practices
+
+Tools execute real operations on behalf of users. Implement proper security measures.
+
+### Authorization Checks
+
+Always verify the user has permission to perform the action:
+
+```php
+public function handle(array $arguments, ToolContext $context): ToolResult
+{
+    $userId = $context->getMeta('user_id');
+
+    // Verify user is authenticated
+    if (! $userId) {
+        return ToolResult::error('Authentication required');
+    }
+
+    // Verify user can access this resource
+    $order = Order::find($arguments['order_id']);
+
+    if (! $order || $order->user_id !== $userId) {
+        return ToolResult::error('Order not found');
+    }
+
+    return ToolResult::json($order);
+}
+```
+
+### Input Validation
+
+Validate inputs beyond basic parameter types:
+
+```php
+public function handle(array $arguments, ToolContext $context): ToolResult
+{
+    $orderId = $arguments['order_id'];
+
+    // Validate format (prevent injection attacks)
+    if (! preg_match('/^[A-Z]{2}-\d{6}$/', $orderId)) {
+        return ToolResult::error('Invalid order ID format');
+    }
+
+    // Validate business rules
+    if ($arguments['quantity'] > 100) {
+        return ToolResult::error('Quantity exceeds maximum allowed');
+    }
+
+    // Sanitize string inputs
+    $note = strip_tags($arguments['note'] ?? '');
+
+    // Continue processing...
+}
+```
+
+### Protect Sensitive Data
+
+Never expose internal system details or sensitive information:
+
+```php
+public function handle(array $arguments, ToolContext $context): ToolResult
+{
+    $user = User::find($arguments['user_id']);
+
+    // Return only safe, necessary fields
+    return ToolResult::json([
+        'id' => $user->id,
+        'name' => $user->name,
+        'tier' => $user->subscription_tier,
+        // Never expose:
+        // - 'password_hash' => $user->password
+        // - 'api_key' => $user->api_key
+        // - 'internal_notes' => $user->admin_notes
+        // - 'payment_details' => $user->stripe_customer_id
+    ]);
+}
+```
+
+### Rate Limiting
+
+Prevent abuse of expensive operations:
+
+```php
+use Illuminate\Support\Facades\RateLimiter;
+
+public function handle(array $arguments, ToolContext $context): ToolResult
+{
+    $userId = $context->getMeta('user_id');
+    $key = "tool:search_products:{$userId}";
+
+    // Limit to 10 searches per minute
+    if (RateLimiter::tooManyAttempts($key, 10)) {
+        return ToolResult::error('Too many requests. Please wait a moment.');
+    }
+
+    RateLimiter::hit($key, 60);
+
+    // Proceed with search...
+    return ToolResult::json($results);
+}
+```
+
+### Audit Logging
+
+Log sensitive operations for compliance:
+
+```php
+public function handle(array $arguments, ToolContext $context): ToolResult
+{
+    $userId = $context->getMeta('user_id');
+
+    // Perform the action
+    $result = $this->performSensitiveAction($arguments);
+
+    // Log for audit trail
+    Log::info('Sensitive tool executed', [
+        'tool' => $this->name(),
+        'user_id' => $userId,
+        'arguments' => $this->sanitizeForLogging($arguments),
+        'result' => $result->succeeded() ? 'success' : 'failure',
+        'timestamp' => now()->toIso8601String(),
+    ]);
+
+    return $result;
+}
+
+private function sanitizeForLogging(array $arguments): array
+{
+    // Remove sensitive fields before logging
+    unset($arguments['password'], $arguments['credit_card']);
+    return $arguments;
+}
+```
+
+### Multi-Tenant Isolation
+
+Ensure data isolation in multi-tenant applications:
+
+```php
+public function handle(array $arguments, ToolContext $context): ToolResult
+{
+    $tenantId = $context->getMeta('tenant_id');
+
+    if (! $tenantId) {
+        return ToolResult::error('Tenant context required');
+    }
+
+    // Always scope queries to tenant
+    $orders = Order::where('tenant_id', $tenantId)
+        ->where('id', $arguments['order_id'])
+        ->first();
+
+    if (! $orders) {
+        return ToolResult::error('Order not found');
+    }
+
+    return ToolResult::json($orders);
+}
+```
+
 ## Common Issues
 
 ### Tool Not Available

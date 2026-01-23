@@ -24,6 +24,8 @@ $context = new ExecutionContext(
         'session_id' => 'abc123',
         'user_id' => 456,
     ],
+    providerOverride: 'anthropic',  // Optional: override agent's default provider
+    modelOverride: 'claude-3-opus', // Optional: override agent's default model
 );
 ```
 
@@ -34,6 +36,8 @@ $context = new ExecutionContext(
 | `messages` | `array` | Conversation history |
 | `variables` | `array` | System prompt variables |
 | `metadata` | `array` | Execution metadata |
+| `providerOverride` | `?string` | Override the agent's configured provider |
+| `modelOverride` | `?string` | Override the agent's configured model |
 
 ### Accessor Methods
 
@@ -55,16 +59,28 @@ public function getMeta(string $key, mixed $default = null): mixed
 public function hasMessages(): bool
 ```
 
-**hasVariables()** — Check if context has variables:
+**hasVariable()** — Check if a specific variable exists:
 
 ```php
-public function hasVariables(): bool
+public function hasVariable(string $key): bool
 ```
 
-**hasMetadata()** — Check if context has metadata:
+**hasMeta()** — Check if a specific metadata key exists:
 
 ```php
-public function hasMetadata(): bool
+public function hasMeta(string $key): bool
+```
+
+**hasProviderOverride()** — Check if provider override is set:
+
+```php
+public function hasProviderOverride(): bool
+```
+
+**hasModelOverride()** — Check if model override is set:
+
+```php
+public function hasModelOverride(): bool
 ```
 
 ### Immutable Update Methods
@@ -97,6 +113,42 @@ public function mergeMetadata(array $metadata): self
 
 ```php
 public function withMessages(array $messages): self
+```
+
+**withProviderOverride()** — Create new context with provider override:
+
+```php
+public function withProviderOverride(?string $provider): self
+```
+
+**withModelOverride()** — Create new context with model override:
+
+```php
+public function withModelOverride(?string $model): self
+```
+
+### Provider/Model Override Example
+
+Override the agent's default provider and model at runtime:
+
+```php
+// Create context with overrides
+$context = new ExecutionContext(
+    messages: $previousMessages,
+    variables: ['user_name' => 'John'],
+);
+
+// Override provider for a specific request
+$context = $context->withProviderOverride('anthropic');
+$context = $context->withModelOverride('claude-3-opus');
+
+// Check if overrides are set
+if ($context->hasProviderOverride()) {
+    Log::info('Using custom provider', ['provider' => $context->providerOverride]);
+}
+
+// Clear an override by passing null
+$context = $context->withProviderOverride(null);
 ```
 
 ### Example Usage

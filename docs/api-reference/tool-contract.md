@@ -233,6 +233,10 @@ interface ToolRegistryContract
     public function has(string $name): bool;
     public function all(): array;
     public function only(array $names): array;
+    public function names(): array;
+    public function unregister(string $name): bool;
+    public function count(): int;
+    public function clear(): void;
 }
 ```
 
@@ -268,6 +272,7 @@ if ($registry->has('lookup_order')) {
 
 ```php
 $tools = $registry->all();
+// ['lookup_order' => LookupOrderTool, 'search' => SearchTool]
 ```
 
 **only()** — Get specific tools:
@@ -275,6 +280,70 @@ $tools = $registry->all();
 ```php
 $tools = $registry->only(['lookup_order', 'search']);
 ```
+
+**names()** — Get all registered tool names:
+
+```php
+$names = $registry->names();
+// ['lookup_order', 'search', 'send_email']
+```
+
+**unregister()** — Remove a tool from the registry:
+
+```php
+$removed = $registry->unregister('old_tool');
+// Returns true if removed, false if not found
+```
+
+**count()** — Get the number of registered tools:
+
+```php
+$count = $registry->count();
+// 3
+```
+
+**clear()** — Remove all tools from the registry:
+
+```php
+$registry->clear();
+```
+
+### Dynamic Tool Management
+
+The registry methods support dynamic tool management for scenarios like per-tenant tools or runtime configuration:
+
+```php
+use Atlasphp\Atlas\Tools\Contracts\ToolRegistryContract;
+
+class TenantToolManager
+{
+    public function __construct(
+        private ToolRegistryContract $registry,
+    ) {}
+
+    public function configureForTenant(Tenant $tenant): void
+    {
+        // Clear existing tools
+        $this->registry->clear();
+
+        // Register tenant-specific tools
+        foreach ($tenant->enabledTools as $toolClass) {
+            $this->registry->register($toolClass);
+        }
+
+        // Log available tools
+        Log::info('Configured tools for tenant', [
+            'tenant' => $tenant->id,
+            'tool_count' => $this->registry->count(),
+            'tools' => $this->registry->names(),
+        ]);
+    }
+
+    public function disableTool(string $toolName): bool
+    {
+        return $this->registry->unregister($toolName);
+    }
+}
 
 ## ToolDefinition Base Class
 

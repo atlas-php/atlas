@@ -4,6 +4,21 @@ Strategies for handling errors in Atlas-powered applications.
 
 ## Exception Types
 
+Atlas provides a hierarchy of exceptions to handle different error scenarios.
+
+### Exception Hierarchy
+
+```
+Exception
+├── AtlasException (base for all Atlas errors)
+│   └── ProviderException (API provider errors)
+├── AgentException (agent-related errors)
+│   ├── AgentNotFoundException
+│   └── InvalidAgentException
+└── ToolException (tool-related errors)
+    └── ToolNotFoundException
+```
+
 ### AtlasException
 
 Base exception for Atlas errors:
@@ -20,7 +35,7 @@ try {
 
 ### ProviderException
 
-Errors from AI providers:
+Errors from AI providers (rate limits, invalid API keys, model errors, context length exceeded):
 
 ```php
 use Atlasphp\Atlas\Providers\Exceptions\ProviderException;
@@ -33,15 +48,95 @@ try {
 }
 ```
 
-### AgentNotFoundException
+### AgentException
 
-When an agent cannot be resolved:
+Base exception for agent-related errors:
 
 ```php
+use Atlasphp\Atlas\Agents\Exceptions\AgentException;
+
+try {
+    $response = Atlas::agent('agent')->chat('Hello');
+} catch (AgentException $e) {
+    // Handle any agent-related error
+}
+```
+
+### AgentNotFoundException
+
+When an agent cannot be resolved from the registry:
+
+```php
+use Atlasphp\Atlas\Agents\Exceptions\AgentNotFoundException;
+
 try {
     $response = Atlas::agent('nonexistent-agent')->chat('Hello');
-} catch (AtlasException $e) {
+} catch (AgentNotFoundException $e) {
     // "Agent not found: nonexistent-agent"
+}
+```
+
+### InvalidAgentException
+
+When an agent configuration is invalid:
+
+```php
+use Atlasphp\Atlas\Agents\Exceptions\InvalidAgentException;
+
+try {
+    $response = Atlas::agent($invalidAgent)->chat('Hello');
+} catch (InvalidAgentException $e) {
+    // Agent configuration issue
+}
+```
+
+### ToolException
+
+Base exception for tool-related errors:
+
+```php
+use Atlasphp\Atlas\Tools\Exceptions\ToolException;
+
+try {
+    $tool = $registry->get('my_tool');
+} catch (ToolException $e) {
+    // Handle tool-related error
+}
+```
+
+### ToolNotFoundException
+
+When a tool cannot be resolved from the registry:
+
+```php
+use Atlasphp\Atlas\Tools\Exceptions\ToolNotFoundException;
+
+try {
+    $tool = $registry->get('nonexistent_tool');
+} catch (ToolNotFoundException $e) {
+    // "Tool not found: nonexistent_tool"
+}
+```
+
+### Comprehensive Error Handling
+
+Handle specific exceptions first, then fall back to broader types:
+
+```php
+use Atlasphp\Atlas\Agents\Exceptions\AgentNotFoundException;
+use Atlasphp\Atlas\Providers\Exceptions\ProviderException;
+use Atlasphp\Atlas\Foundation\Exceptions\AtlasException;
+
+try {
+    $response = Atlas::agent($agentKey)->chat($input);
+} catch (AgentNotFoundException $e) {
+    return response()->json(['error' => 'Agent not configured'], 404);
+} catch (ProviderException $e) {
+    Log::warning('Provider error', ['error' => $e->getMessage()]);
+    return response()->json(['error' => 'AI service unavailable'], 503);
+} catch (AtlasException $e) {
+    Log::error('Atlas error', ['error' => $e->getMessage()]);
+    return response()->json(['error' => 'Service error'], 500);
 }
 ```
 
@@ -251,6 +346,73 @@ class ChatService
             // Fall back to simpler agent
             return Atlas::agent('fallback-agent')->chat($input);
         }
+    }
+}
+```
+
+### Provider Fallback
+
+Use different providers when the primary fails:
+
+```php
+class ResilientChatService
+{
+    private array $providers = ['openai', 'anthropic', 'gemini'];
+
+    public function respond(string $input): AgentResponse
+    {
+        $lastException = null;
+
+        foreach ($this->providers as $provider) {
+            try {
+                return Atlas::agent('support-agent')
+                    ->withProvider($provider)
+                    ->chat($input);
+            } catch (ProviderException $e) {
+                Log::warning("Provider {$provider} failed", [
+                    'error' => $e->getMessage(),
+                ]);
+                $lastException = $e;
+            }
+        }
+
+        throw $lastException ?? new AtlasException('All providers failed');
+    }
+}
+```
+
+### Fallback with Retry per Provider
+
+Combine retry logic with provider fallback:
+
+```php
+class HighAvailabilityChatService
+{
+    private array $providerConfig = [
+        'openai' => ['model' => 'gpt-4o', 'retries' => 2],
+        'anthropic' => ['model' => 'claude-3-sonnet', 'retries' => 2],
+    ];
+
+    public function respond(string $input): AgentResponse
+    {
+        $lastException = null;
+
+        foreach ($this->providerConfig as $provider => $config) {
+            try {
+                return Atlas::agent('support-agent')
+                    ->withProvider($provider)
+                    ->withModel($config['model'])
+                    ->withRetry($config['retries'], 1000)
+                    ->chat($input);
+            } catch (ProviderException $e) {
+                Log::warning("Provider {$provider} exhausted retries", [
+                    'error' => $e->getMessage(),
+                ]);
+                $lastException = $e;
+            }
+        }
+
+        throw $lastException ?? new AtlasException('All providers failed');
     }
 }
 ```
