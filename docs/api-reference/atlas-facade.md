@@ -22,6 +22,11 @@ $response = Atlas::agent('support-agent')
     ->withMetadata(['session_id' => 'abc'])
     ->chat('Hello');
 
+// Structured output with schema
+$response = Atlas::agent('support-agent')
+    ->withSchema($schema)
+    ->chat('Extract the data');
+
 // Embeddings
 $embedding = Atlas::embed('Hello world');
 
@@ -79,7 +84,7 @@ Immutable fluent builder for agent chat operations.
 Set conversation history.
 
 ```php
-public function withMessages(array $messages): self
+public function withMessages(array $messages): static
 ```
 
 **Parameters:**
@@ -101,7 +106,7 @@ $response = Atlas::agent('support-agent')
 Set variables for system prompt interpolation.
 
 ```php
-public function withVariables(array $variables): self
+public function withVariables(array $variables): static
 ```
 
 **Parameters:**
@@ -120,7 +125,7 @@ $response = Atlas::agent('support-agent')
 Set metadata for pipeline middleware and tools.
 
 ```php
-public function withMetadata(array $metadata): self
+public function withMetadata(array $metadata): static
 ```
 
 **Parameters:**
@@ -134,6 +139,41 @@ $response = Atlas::agent('support-agent')
     ->chat('Hello');
 ```
 
+### withSchema()
+
+Set schema for structured output.
+
+```php
+public function withSchema(Schema $schema): static
+```
+
+**Parameters:**
+- `$schema` — Schema defining the expected response structure
+
+**Example:**
+
+```php
+use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\StringSchema;
+
+$schema = new ObjectSchema(
+    name: 'person',
+    description: 'Person information',
+    properties: [
+        new StringSchema('name', 'Full name'),
+        new StringSchema('email', 'Email address'),
+    ],
+    requiredFields: ['name'],
+);
+
+$response = Atlas::agent('support-agent')
+    ->withSchema($schema)
+    ->chat('Extract person info from: John Smith, john@example.com');
+
+$data = $response->structured;
+// ['name' => 'John Smith', 'email' => 'john@example.com']
+```
+
 ### withRetry()
 
 Configure retry behavior for API requests.
@@ -144,7 +184,7 @@ public function withRetry(
     Closure|int $sleepMilliseconds = 0,
     ?callable $when = null,
     bool $throw = true,
-): self
+): static
 ```
 
 **Parameters:**
@@ -168,14 +208,12 @@ Execute the chat with the configured agent.
 ```php
 public function chat(
     string $input,
-    ?Schema $schema = null,
     bool $stream = false,
 ): AgentResponse|StreamResponse
 ```
 
 **Parameters:**
 - `$input` — User message
-- `$schema` — Optional schema for structured output
 - `$stream` — Whether to stream the response
 
 **Returns:** `AgentResponse` or `StreamResponse`
@@ -191,7 +229,8 @@ $stream = Atlas::agent('support-agent')->chat('Hello', stream: true);
 
 // Structured output
 $response = Atlas::agent('support-agent')
-    ->chat('Extract person info', schema: $schema);
+    ->withSchema($schema)
+    ->chat('Extract person info');
 
 // Full configuration
 $response = Atlas::agent('support-agent')
@@ -282,7 +321,7 @@ Immutable fluent builder for embedding operations with metadata and retry suppor
 Set metadata for pipeline middleware.
 
 ```php
-public function withMetadata(array $metadata): self
+public function withMetadata(array $metadata): static
 ```
 
 ### withRetry()
@@ -295,7 +334,7 @@ public function withRetry(
     Closure|int $sleepMilliseconds = 0,
     ?callable $when = null,
     bool $throw = true,
-): self
+): static
 ```
 
 ### generate()
@@ -318,17 +357,17 @@ public function generateBatch(array $texts): array<int, array<int, float>>
 
 ### image()
 
-Get the image generation service.
+Get a fluent builder for image generation.
 
 ```php
-Atlas::image(?string $provider = null, ?string $model = null): ImageService
+Atlas::image(?string $provider = null, ?string $model = null): PendingImageRequest
 ```
 
 **Parameters:**
 - `$provider` — Optional provider name
 - `$model` — Optional model name
 
-**Returns:** `ImageService`
+**Returns:** `PendingImageRequest`
 
 **Example:**
 
@@ -344,7 +383,7 @@ $result = Atlas::image('openai', 'dall-e-3')
     ->generate('A sunset');
 ```
 
-### ImageService Methods
+### PendingImageRequest Methods
 
 | Method | Description |
 |--------|-------------|
@@ -361,17 +400,17 @@ $result = Atlas::image('openai', 'dall-e-3')
 
 ### speech()
 
-Get the speech service.
+Get a fluent builder for speech operations.
 
 ```php
-Atlas::speech(?string $provider = null, ?string $model = null): SpeechService
+Atlas::speech(?string $provider = null, ?string $model = null): PendingSpeechRequest
 ```
 
 **Parameters:**
 - `$provider` — Optional provider name
 - `$model` — Optional model name
 
-**Returns:** `SpeechService`
+**Returns:** `PendingSpeechRequest`
 
 **Example:**
 
@@ -388,7 +427,7 @@ $result = Atlas::speech()
     ->transcribe('/path/to/audio.mp3');
 ```
 
-### SpeechService Methods
+### PendingSpeechRequest Methods
 
 | Method | Description |
 |--------|-------------|
@@ -411,14 +450,14 @@ $result = Atlas::speech()
 | `Atlas::agent($agent)` | Get chat builder for agent |
 | `Atlas::agent($agent)->chat($input)` | Simple chat |
 | `Atlas::agent($agent)->withMessages($msgs)->chat($input)` | Chat with history |
-| `Atlas::agent($agent)->chat($input, schema: $schema)` | Structured output |
+| `Atlas::agent($agent)->withSchema($schema)->chat($input)` | Structured output |
 | `Atlas::agent($agent)->chat($input, stream: true)` | Streaming response |
 | `Atlas::embedding()` | Get embedding builder |
 | `Atlas::embed($text)` | Simple embedding |
 | `Atlas::embedBatch($texts)` | Batch embeddings |
 | `Atlas::embeddingDimensions()` | Get dimensions |
-| `Atlas::image()` | Image service |
-| `Atlas::speech()` | Speech service |
+| `Atlas::image()` | Image request builder |
+| `Atlas::speech()` | Speech request builder |
 
 ## Next Steps
 

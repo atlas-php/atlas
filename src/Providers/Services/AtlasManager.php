@@ -9,13 +9,16 @@ use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
 use Atlasphp\Atlas\Agents\Services\AgentResolver;
 use Atlasphp\Atlas\Agents\Support\PendingAgentRequest;
 use Atlasphp\Atlas\Providers\Support\PendingEmbeddingRequest;
+use Atlasphp\Atlas\Providers\Support\PendingImageRequest;
+use Atlasphp\Atlas\Providers\Support\PendingSpeechRequest;
 
 /**
  * Main manager for Atlas capabilities.
  *
  * Provides the primary API for chat, embedding, image, and speech operations.
  * Uses an agent-first pattern for chat operations and fluent builders for
- * configurable operations.
+ * configurable operations. All modalities return Pending* wrappers for
+ * consistent fluent API.
  */
 class AtlasManager
 {
@@ -31,7 +34,7 @@ class AtlasManager
      * Start building a chat request for the given agent.
      *
      * Returns a fluent builder for configuring messages, variables, metadata,
-     * retry, and executing the chat operation.
+     * schema, retry, and executing the chat operation.
      *
      * @param  string|AgentContract  $agent  The agent key, class, or instance.
      */
@@ -92,46 +95,50 @@ class AtlasManager
     }
 
     /**
-     * Get the image service for fluent configuration.
+     * Start building an image generation request with configuration.
+     *
+     * Returns a fluent builder for configuring provider, model, size,
+     * quality, metadata, and retry before generating images.
      *
      * @param  string|null  $provider  Optional provider name to use.
      * @param  string|null  $model  Optional model name to use.
-     * @return ImageService The image service instance.
      */
-    public function image(?string $provider = null, ?string $model = null): ImageService
+    public function image(?string $provider = null, ?string $model = null): PendingImageRequest
     {
-        $service = $this->imageService;
+        $request = new PendingImageRequest($this->imageService);
 
         if ($provider !== null) {
-            $service = $service->using($provider);
+            $request = $request->using($provider);
         }
 
         if ($model !== null) {
-            $service = $service->model($model);
+            $request = $request->model($model);
         }
 
-        return $service;
+        return $request;
     }
 
     /**
-     * Get the speech service for fluent configuration.
+     * Start building a speech request with configuration.
+     *
+     * Returns a fluent builder for configuring provider, model, voice,
+     * format, speed, metadata, and retry before speech operations.
      *
      * @param  string|null  $provider  Optional provider name to use.
      * @param  string|null  $model  Optional model name to use.
-     * @return SpeechService The speech service instance.
      */
-    public function speech(?string $provider = null, ?string $model = null): SpeechService
+    public function speech(?string $provider = null, ?string $model = null): PendingSpeechRequest
     {
-        $service = $this->speechService;
+        $request = new PendingSpeechRequest($this->speechService);
 
         if ($provider !== null) {
-            $service = $service->using($provider);
+            $request = $request->using($provider);
         }
 
         if ($model !== null) {
-            $service = $service->model($model);
+            $request = $request->model($model);
         }
 
-        return $service;
+        return $request;
     }
 }

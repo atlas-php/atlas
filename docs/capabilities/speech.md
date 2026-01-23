@@ -145,7 +145,7 @@ Configure defaults in `config/atlas.php`:
 ],
 ```
 
-## SpeechService Methods
+## PendingSpeechRequest Methods
 
 | Method | Description |
 |--------|-------------|
@@ -156,6 +156,8 @@ Configure defaults in `config/atlas.php`:
 | `speed(float $speed)` | Set speech speed (0.25-4.0) |
 | `format(string $format)` | Set audio format |
 | `withProviderOptions(array $options)` | Set provider-specific options |
+| `withMetadata(array $metadata)` | Set metadata for pipelines |
+| `withRetry($times, $delay, $when, $throw)` | Configure retry |
 | `speak(string $text, array $options = [])` | Convert text to speech |
 | `transcribe(Audio\|string $audio, array $options = [])` | Transcribe audio |
 

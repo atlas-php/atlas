@@ -68,6 +68,7 @@ $response = Atlas::agent('support-agent')
 | `withMessages(array $messages)` | Conversation history array |
 | `withVariables(array $variables)` | Variables for system prompt interpolation |
 | `withMetadata(array $metadata)` | Metadata for pipeline middleware and tools |
+| `withSchema(Schema $schema)` | Schema for structured output |
 | `withRetry($times, $delay)` | Retry configuration for resilience |
 
 ### Chat Method Parameters
@@ -75,12 +76,11 @@ $response = Atlas::agent('support-agent')
 | Parameter | Description |
 |-----------|-------------|
 | `$input` | User message (required) |
-| `schema: $schema` | Schema for structured output |
 | `stream: true` | Enable streaming response |
 
 ## Structured Output
 
-Get schema-based responses:
+Get schema-based responses using the `withSchema()` fluent method:
 
 ```php
 use Prism\Prism\Schema\ObjectSchema;
@@ -97,7 +97,9 @@ $schema = new ObjectSchema(
     requiredFields: ['sentiment', 'confidence'],
 );
 
-$response = Atlas::agent('analyzer')->chat('I love this product!', schema: $schema);
+$response = Atlas::agent('analyzer')
+    ->withSchema($schema)
+    ->chat('I love this product!');
 
 echo $response->structured['sentiment'];    // "positive"
 echo $response->structured['confidence'];   // 0.95
@@ -228,7 +230,7 @@ $response = Atlas::agent('agent')
 | `Atlas::agent($agent)->chat($input)` | Simple chat with agent |
 | `->withMessages($msgs)->chat($input)` | Chat with history |
 | `->withVariables($vars)->chat($input)` | Chat with variables |
-| `->chat($input, schema: $schema)` | Structured output |
+| `->withSchema($schema)->chat($input)` | Structured output |
 | `->withRetry(...)->chat(...)` | Chat with retry |
 
 ## Next Steps

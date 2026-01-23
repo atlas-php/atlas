@@ -92,7 +92,7 @@ Configure defaults in `config/atlas.php`:
 ->withProviderOptions(['style' => 'natural']) // Subtle, realistic
 ```
 
-## ImageService Methods
+## PendingImageRequest Methods
 
 | Method | Description |
 |--------|-------------|
@@ -101,6 +101,8 @@ Configure defaults in `config/atlas.php`:
 | `size(string $size)` | Set image dimensions |
 | `quality(string $quality)` | Set quality level |
 | `withProviderOptions(array $options)` | Set provider-specific options |
+| `withMetadata(array $metadata)` | Set metadata for pipelines |
+| `withRetry($times, $delay, $when, $throw)` | Configure retry |
 | `generate(string $prompt, array $options = [])` | Generate image |
 
 ## Saving Images

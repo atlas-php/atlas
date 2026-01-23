@@ -106,14 +106,14 @@ test('it generates batch embeddings via manager', function () {
     expect(count($embeddings))->toBe(2);
 });
 
-test('facade provides access to image service', function () {
-    $imageService = Atlas::image();
+test('facade provides access to image request', function () {
+    $imageRequest = Atlas::image();
 
-    expect($imageService)->toBeInstanceOf(\Atlasphp\Atlas\Providers\Services\ImageService::class);
+    expect($imageRequest)->toBeInstanceOf(\Atlasphp\Atlas\Providers\Support\PendingImageRequest::class);
 });
 
-test('facade provides access to speech service', function () {
-    $speechService = Atlas::speech();
+test('facade provides access to speech request', function () {
+    $speechRequest = Atlas::speech();
 
-    expect($speechService)->toBeInstanceOf(\Atlasphp\Atlas\Providers\Services\SpeechService::class);
+    expect($speechRequest)->toBeInstanceOf(\Atlasphp\Atlas\Providers\Support\PendingSpeechRequest::class);
 });

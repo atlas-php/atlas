@@ -14,31 +14,12 @@ use Atlasphp\Atlas\Providers\Services\EmbeddingService;
  */
 final class PendingEmbeddingRequest
 {
+    use HasMetadataSupport;
     use HasRetrySupport;
-
-    /**
-     * Additional metadata for pipeline middleware.
-     *
-     * @var array<string, mixed>
-     */
-    private array $metadata = [];
 
     public function __construct(
         private readonly EmbeddingService $embeddingService,
     ) {}
-
-    /**
-     * Set metadata for pipeline middleware.
-     *
-     * @param  array<string, mixed>  $metadata
-     */
-    public function withMetadata(array $metadata): self
-    {
-        $clone = clone $this;
-        $clone->metadata = $metadata;
-
-        return $clone;
-    }
 
     /**
      * Generate an embedding for a single text input.
@@ -48,7 +29,8 @@ final class PendingEmbeddingRequest
      */
     public function generate(string $text): array
     {
-        $options = $this->metadata !== [] ? ['metadata' => $this->metadata] : [];
+        $metadata = $this->getMetadata();
+        $options = $metadata !== [] ? ['metadata' => $metadata] : [];
 
         return $this->embeddingService->generate($text, $options, $this->getRetryArray());
     }
@@ -61,7 +43,8 @@ final class PendingEmbeddingRequest
      */
     public function generateBatch(array $texts): array
     {
-        $options = $this->metadata !== [] ? ['metadata' => $this->metadata] : [];
+        $metadata = $this->getMetadata();
+        $options = $metadata !== [] ? ['metadata' => $metadata] : [];
 
         return $this->embeddingService->generateBatch($texts, $options, $this->getRetryArray());
     }

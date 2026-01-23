@@ -8,9 +8,9 @@ use Atlasphp\Atlas\Agents\Support\PendingAgentRequest;
 use Atlasphp\Atlas\Providers\Contracts\PrismBuilderContract;
 use Atlasphp\Atlas\Providers\Facades\Atlas;
 use Atlasphp\Atlas\Providers\Services\AtlasManager;
-use Atlasphp\Atlas\Providers\Services\ImageService;
-use Atlasphp\Atlas\Providers\Services\SpeechService;
 use Atlasphp\Atlas\Providers\Support\PendingEmbeddingRequest;
+use Atlasphp\Atlas\Providers\Support\PendingImageRequest;
+use Atlasphp\Atlas\Providers\Support\PendingSpeechRequest;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
 
 test('facade resolves atlas manager', function () {
@@ -228,32 +228,34 @@ test('it executes structured output', function () {
     $registry = app(AgentRegistryContract::class);
     $registry->register(TestAgent::class);
 
-    $response = Atlas::agent('test-agent')->chat('Extract person info', schema: $mockSchema);
+    $response = Atlas::agent('test-agent')
+        ->withSchema($mockSchema)
+        ->chat('Extract person info');
 
     expect($response)->toBeInstanceOf(AgentResponse::class);
     expect($response->structured)->toBe(['name' => 'John', 'age' => 30]);
 });
 
-test('it returns image service', function () {
-    $imageService = Atlas::image();
+test('it returns pending image request', function () {
+    $imageRequest = Atlas::image();
 
-    expect($imageService)->toBeInstanceOf(ImageService::class);
+    expect($imageRequest)->toBeInstanceOf(PendingImageRequest::class);
 });
 
-test('it returns image service with provider and model', function () {
-    $imageService = Atlas::image('openai', 'dall-e-3');
+test('it returns pending image request with provider and model', function () {
+    $imageRequest = Atlas::image('openai', 'dall-e-3');
 
-    expect($imageService)->toBeInstanceOf(ImageService::class);
+    expect($imageRequest)->toBeInstanceOf(PendingImageRequest::class);
 });
 
-test('it returns speech service', function () {
-    $speechService = Atlas::speech();
+test('it returns pending speech request', function () {
+    $speechRequest = Atlas::speech();
 
-    expect($speechService)->toBeInstanceOf(SpeechService::class);
+    expect($speechRequest)->toBeInstanceOf(PendingSpeechRequest::class);
 });
 
-test('it returns speech service with provider and model', function () {
-    $speechService = Atlas::speech('openai', 'tts-1-hd');
+test('it returns pending speech request with provider and model', function () {
+    $speechRequest = Atlas::speech('openai', 'tts-1-hd');
 
-    expect($speechService)->toBeInstanceOf(SpeechService::class);
+    expect($speechRequest)->toBeInstanceOf(PendingSpeechRequest::class);
 });

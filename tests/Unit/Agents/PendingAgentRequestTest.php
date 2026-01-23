@@ -9,6 +9,7 @@ use Atlasphp\Atlas\Agents\Support\ExecutionContext;
 use Atlasphp\Atlas\Agents\Support\PendingAgentRequest;
 use Atlasphp\Atlas\Streaming\StreamResponse;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
+use Prism\Prism\Contracts\Schema;
 
 beforeEach(function () {
     $this->agentResolver = Mockery::mock(AgentResolver::class);
@@ -55,6 +56,15 @@ test('withMetadata returns new instance with metadata', function () {
 
 test('withRetry returns new instance with retry config', function () {
     $result = $this->request->withRetry(3, 1000);
+
+    expect($result)->not->toBe($this->request);
+    expect($result)->toBeInstanceOf(PendingAgentRequest::class);
+});
+
+test('withSchema returns new instance with schema', function () {
+    $schema = Mockery::mock(Schema::class);
+
+    $result = $this->request->withSchema($schema);
 
     expect($result)->not->toBe($this->request);
     expect($result)->toBeInstanceOf(PendingAgentRequest::class);
@@ -205,7 +215,7 @@ test('chat with stream returns StreamResponse', function () {
 
 test('chat with schema returns structured response', function () {
     $agent = new TestAgent;
-    $schema = Mockery::mock(\Prism\Prism\Contracts\Schema::class);
+    $schema = Mockery::mock(Schema::class);
     $response = AgentResponse::structured(['name' => 'John']);
 
     $this->agentResolver
@@ -219,21 +229,21 @@ test('chat with schema returns structured response', function () {
         ->with($agent, 'Hello', null, $schema, null)
         ->andReturn($response);
 
-    $result = $this->request->chat('Hello', schema: $schema);
+    $result = $this->request->withSchema($schema)->chat('Hello');
 
     expect($result)->toBe($response);
 });
 
 test('chat throws exception when streaming with schema', function () {
     $agent = new TestAgent;
-    $schema = Mockery::mock(\Prism\Prism\Contracts\Schema::class);
+    $schema = Mockery::mock(Schema::class);
 
     $this->agentResolver
         ->shouldReceive('resolve')
         ->once()
         ->andReturn($agent);
 
-    expect(fn () => $this->request->chat('Hello', schema: $schema, stream: true))
+    expect(fn () => $this->request->withSchema($schema)->chat('Hello', stream: true))
         ->toThrow(
             \InvalidArgumentException::class,
             'Streaming does not support structured output (schema). Use stream: false for structured responses.'
@@ -271,6 +281,44 @@ test('chaining preserves all config', function () {
         ->withMessages($messages)
         ->withVariables($variables)
         ->withMetadata($metadata)
+        ->withRetry(3, 1000)
+        ->chat('Hello');
+});
+
+test('chaining with schema preserves all config', function () {
+    $agent = new TestAgent;
+    $messages = [['role' => 'user', 'content' => 'Previous']];
+    $variables = ['user_name' => 'John'];
+    $metadata = ['session_id' => 'abc123'];
+    $schema = Mockery::mock(Schema::class);
+    $response = AgentResponse::structured(['name' => 'John']);
+
+    $this->agentResolver
+        ->shouldReceive('resolve')
+        ->once()
+        ->andReturn($agent);
+
+    $this->agentExecutor
+        ->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($a, $input, $context, $actualSchema, $retry) use ($agent, $messages, $variables, $metadata, $schema) {
+            return $a === $agent
+                && $input === 'Hello'
+                && $context instanceof ExecutionContext
+                && $context->messages === $messages
+                && $context->variables === $variables
+                && $context->metadata === $metadata
+                && $actualSchema === $schema
+                && $retry !== null
+                && $retry[0] === 3;
+        })
+        ->andReturn($response);
+
+    $this->request
+        ->withMessages($messages)
+        ->withVariables($variables)
+        ->withMetadata($metadata)
+        ->withSchema($schema)
         ->withRetry(3, 1000)
         ->chat('Hello');
 });

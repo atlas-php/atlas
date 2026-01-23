@@ -7,9 +7,9 @@ namespace Atlasphp\Atlas\Providers\Facades;
 use Atlasphp\Atlas\Agents\Contracts\AgentContract;
 use Atlasphp\Atlas\Agents\Support\PendingAgentRequest;
 use Atlasphp\Atlas\Providers\Services\AtlasManager;
-use Atlasphp\Atlas\Providers\Services\ImageService;
-use Atlasphp\Atlas\Providers\Services\SpeechService;
 use Atlasphp\Atlas\Providers\Support\PendingEmbeddingRequest;
+use Atlasphp\Atlas\Providers\Support\PendingImageRequest;
+use Atlasphp\Atlas\Providers\Support\PendingSpeechRequest;
 use Illuminate\Support\Facades\Facade;
 
 /**
@@ -20,8 +20,8 @@ use Illuminate\Support\Facades\Facade;
  * @method static array<int, float> embed(string $text)
  * @method static array<int, array<int, float>> embedBatch(array<int, string> $texts)
  * @method static int embeddingDimensions()
- * @method static ImageService image(?string $provider = null, ?string $model = null)
- * @method static SpeechService speech(?string $provider = null, ?string $model = null)
+ * @method static PendingImageRequest image(?string $provider = null, ?string $model = null)
+ * @method static PendingSpeechRequest speech(?string $provider = null, ?string $model = null)
  *
  * @see \Atlasphp\Atlas\Providers\Services\AtlasManager
  */
