@@ -7,6 +7,7 @@ namespace App\Providers;
 use App\Console\Commands\ChatCommand;
 use App\Console\Commands\EmbedCommand;
 use App\Console\Commands\ImageCommand;
+use App\Console\Commands\LocalChatCommand;
 use App\Console\Commands\SpeechCommand;
 use App\Console\Commands\StructuredCommand;
 use App\Console\Commands\ToolsCommand;
@@ -18,6 +19,7 @@ use App\Services\Agents\GeminiAssistantAgent;
 use App\Services\Agents\GeminiToolDemoAgent;
 use App\Services\Agents\GeminiVisionAgent;
 use App\Services\Agents\GeneralAssistantAgent;
+use App\Services\Agents\LocalLMAgent;
 use App\Services\Agents\OpenAIVisionAgent;
 use App\Services\Agents\OpenAIWebSearchAgent;
 use App\Services\Agents\StructuredOutputAgent;
@@ -70,6 +72,7 @@ class SandboxServiceProvider extends ServiceProvider
                 ChatCommand::class,
                 EmbedCommand::class,
                 ImageCommand::class,
+                LocalChatCommand::class,
                 SpeechCommand::class,
                 StructuredCommand::class,
                 ToolsCommand::class,
@@ -87,6 +90,7 @@ class SandboxServiceProvider extends ServiceProvider
         $registry = $this->app->make(AgentRegistryContract::class);
 
         $registry->register(GeneralAssistantAgent::class);
+        $registry->register(LocalLMAgent::class);
         $registry->register(ToolDemoAgent::class);
         $registry->register(StructuredOutputAgent::class);
         $registry->register(AnthropicAssistantAgent::class);

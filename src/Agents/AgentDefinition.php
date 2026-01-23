@@ -80,6 +80,37 @@ abstract class AgentDefinition implements AgentContract
     }
 
     /**
+     * Get the AI provider name (e.g., 'openai', 'anthropic').
+     *
+     * Defaults to null, which uses the default provider from config.
+     */
+    public function provider(): ?string
+    {
+        return null;
+    }
+
+    /**
+     * Get the model name to use.
+     *
+     * Defaults to null, which uses the default model from config.
+     */
+    public function model(): ?string
+    {
+        return null;
+    }
+
+    /**
+     * Get the system prompt template.
+     *
+     * Defaults to null, which skips the system prompt entirely.
+     * Override to provide a custom system prompt with optional {variable} placeholders.
+     */
+    public function systemPrompt(): ?string
+    {
+        return null;
+    }
+
+    /**
      * Get the optional agent description.
      */
     public function description(): ?string

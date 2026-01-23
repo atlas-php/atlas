@@ -379,6 +379,7 @@ if ($response->hasUsage()) {
 | `Atlas::agent($agent)->withMessages($messages)->chat($input)` | Chat with history |
 | `Atlas::agent($agent)->withVariables($vars)->chat($input)` | Chat with variables |
 | `Atlas::agent($agent)->withSchema($schema)->chat($input)` | Structured output |
+| `Atlas::agent($agent)->withToolChoice($choice)->chat($input)` | Control tool usage |
 | `Atlas::embeddings()->generate($text)` | Single text embedding |
 | `Atlas::embeddings()->generate($texts)` | Batch embeddings (array input) |
 | `Atlas::embeddings()->dimensions()` | Get vector dimensions |
@@ -386,6 +387,8 @@ if ($response->hasUsage()) {
 | `Atlas::image($provider, $model)` | Image with specific config |
 | `Atlas::speech()` | Speech service |
 | `Atlas::speech($provider, $model)` | Speech with specific config |
+| `Atlas::fake()` | Enable test mode (no API calls) |
+| `Atlas::unfake()` | Restore normal operation |
 
 ### Service Method Chaining
 

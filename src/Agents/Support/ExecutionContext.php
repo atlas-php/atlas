@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Agents\Support;
 
+use Atlasphp\Atlas\Tools\Enums\ToolChoice;
+
 /**
  * Stateless execution context for agent invocation.
  *
@@ -20,6 +22,7 @@ final readonly class ExecutionContext
      * @param  string|null  $providerOverride  Override the agent's configured provider.
      * @param  string|null  $modelOverride  Override the agent's configured model.
      * @param  array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>  $currentAttachments  Attachments for the current input message.
+     * @param  ToolChoice|string|null  $toolChoice  Tool choice mode or specific tool name.
      */
     public function __construct(
         public array $messages = [],
@@ -28,6 +31,7 @@ final readonly class ExecutionContext
         public ?string $providerOverride = null,
         public ?string $modelOverride = null,
         public array $currentAttachments = [],
+        public ToolChoice|string|null $toolChoice = null,
     ) {}
 
     /**
@@ -37,7 +41,7 @@ final readonly class ExecutionContext
      */
     public function withMessages(array $messages): self
     {
-        return new self($messages, $this->variables, $this->metadata, $this->providerOverride, $this->modelOverride, $this->currentAttachments);
+        return new self($messages, $this->variables, $this->metadata, $this->providerOverride, $this->modelOverride, $this->currentAttachments, $this->toolChoice);
     }
 
     /**
@@ -47,7 +51,7 @@ final readonly class ExecutionContext
      */
     public function withVariables(array $variables): self
     {
-        return new self($this->messages, $variables, $this->metadata, $this->providerOverride, $this->modelOverride, $this->currentAttachments);
+        return new self($this->messages, $variables, $this->metadata, $this->providerOverride, $this->modelOverride, $this->currentAttachments, $this->toolChoice);
     }
 
     /**
@@ -57,7 +61,7 @@ final readonly class ExecutionContext
      */
     public function withMetadata(array $metadata): self
     {
-        return new self($this->messages, $this->variables, $metadata, $this->providerOverride, $this->modelOverride, $this->currentAttachments);
+        return new self($this->messages, $this->variables, $metadata, $this->providerOverride, $this->modelOverride, $this->currentAttachments, $this->toolChoice);
     }
 
     /**
@@ -67,7 +71,7 @@ final readonly class ExecutionContext
      */
     public function withProviderOverride(?string $provider): self
     {
-        return new self($this->messages, $this->variables, $this->metadata, $provider, $this->modelOverride, $this->currentAttachments);
+        return new self($this->messages, $this->variables, $this->metadata, $provider, $this->modelOverride, $this->currentAttachments, $this->toolChoice);
     }
 
     /**
@@ -77,7 +81,7 @@ final readonly class ExecutionContext
      */
     public function withModelOverride(?string $model): self
     {
-        return new self($this->messages, $this->variables, $this->metadata, $this->providerOverride, $model, $this->currentAttachments);
+        return new self($this->messages, $this->variables, $this->metadata, $this->providerOverride, $model, $this->currentAttachments, $this->toolChoice);
     }
 
     /**
@@ -94,6 +98,7 @@ final readonly class ExecutionContext
             $this->providerOverride,
             $this->modelOverride,
             $this->currentAttachments,
+            $this->toolChoice,
         );
     }
 
@@ -111,6 +116,7 @@ final readonly class ExecutionContext
             $this->providerOverride,
             $this->modelOverride,
             $this->currentAttachments,
+            $this->toolChoice,
         );
     }
 
@@ -128,6 +134,25 @@ final readonly class ExecutionContext
             $this->providerOverride,
             $this->modelOverride,
             $attachments,
+            $this->toolChoice,
+        );
+    }
+
+    /**
+     * Create a new context with the given tool choice.
+     *
+     * @param  ToolChoice|string|null  $toolChoice  The tool choice mode or specific tool name.
+     */
+    public function withToolChoice(ToolChoice|string|null $toolChoice): self
+    {
+        return new self(
+            $this->messages,
+            $this->variables,
+            $this->metadata,
+            $this->providerOverride,
+            $this->modelOverride,
+            $this->currentAttachments,
+            $toolChoice,
         );
     }
 
@@ -199,5 +224,13 @@ final readonly class ExecutionContext
     public function hasModelOverride(): bool
     {
         return $this->modelOverride !== null;
+    }
+
+    /**
+     * Check if tool choice is set.
+     */
+    public function hasToolChoice(): bool
+    {
+        return $this->toolChoice !== null;
     }
 }

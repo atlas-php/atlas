@@ -256,6 +256,67 @@ $response = Atlas::agent('support-agent')
     ->chat('Hello');
 ```
 
+### withToolChoice()
+
+Control tool usage behavior.
+
+```php
+->withToolChoice(ToolChoice|string $choice)
+```
+
+**Parameters:**
+- `$choice` — `ToolChoice::Auto`, `ToolChoice::Any`, `ToolChoice::None`, or tool name string
+
+**Examples:**
+
+```php
+use Atlasphp\Atlas\Tools\Enums\ToolChoice;
+
+// Model decides when to use tools (default)
+$response = Atlas::agent('support-agent')
+    ->withToolChoice(ToolChoice::Auto)
+    ->chat('Hello');
+
+// Must use a tool
+$response = Atlas::agent('support-agent')
+    ->withToolChoice(ToolChoice::Any)
+    ->chat('Calculate something');
+
+// Cannot use tools
+$response = Atlas::agent('support-agent')
+    ->withToolChoice(ToolChoice::None)
+    ->chat('Just respond in text');
+
+// Force a specific tool
+$response = Atlas::agent('support-agent')
+    ->withToolChoice('calculator')
+    ->chat('What is 5 + 5?');
+```
+
+### requireTool()
+
+Shorthand for `withToolChoice(ToolChoice::Any)`.
+
+```php
+->requireTool()
+```
+
+### disableTools()
+
+Shorthand for `withToolChoice(ToolChoice::None)`.
+
+```php
+->disableTools()
+```
+
+### forceTool()
+
+Shorthand for `withToolChoice($toolName)`.
+
+```php
+->forceTool(string $toolName)
+```
+
 ### chat()
 
 Execute the chat with the configured agent.
@@ -560,6 +621,93 @@ if ($result['duration']) {
 }
 ```
 
+## Testing Methods
+
+### fake()
+
+Enable fake mode for testing without API calls.
+
+```php
+Atlas::fake(array $responses = [])
+```
+
+**Parameters:**
+- `$responses` — Optional array of default responses
+
+**Returns:** `AtlasFake` instance for further configuration
+
+**Examples:**
+
+```php
+use Atlasphp\Atlas\Agents\Support\AgentResponse;
+
+// Basic fake with default response
+Atlas::fake([
+    AgentResponse::text('Mocked response'),
+]);
+
+// Agent-specific fakes
+Atlas::fake()
+    ->forAgent('billing', AgentResponse::text('Your balance is $100'))
+    ->forAgent('support', AgentResponse::text('How can I help?'));
+
+// Sequential responses
+Atlas::fake()
+    ->forAgent('assistant')
+    ->sequence([
+        AgentResponse::text('First'),
+        AgentResponse::text('Second'),
+    ]);
+```
+
+### unfake()
+
+Restore Atlas to normal operation after testing.
+
+```php
+Atlas::unfake()
+```
+
+### isFaked()
+
+Check if Atlas is currently in fake mode.
+
+```php
+Atlas::isFaked(): bool
+```
+
+### Assertion Methods
+
+```php
+// Assert an agent was called
+Atlas::assertCalled(string $agent, ?callable $callback = null)
+
+// Assert an agent was called N times
+Atlas::assertCalledTimes(string $agent, int $times)
+
+// Assert an agent was NOT called
+Atlas::assertNotCalled(string $agent)
+
+// Assert nothing was called
+Atlas::assertNothingCalled()
+
+// Assert with context matching
+Atlas::assertSentWithContext(string $agent, callable $callback)
+
+// Assert schema was used
+Atlas::assertSentWithSchema(string $agent, callable $callback)
+```
+
+### Recording Methods
+
+```php
+// Get all recorded requests
+Atlas::recorded(): array
+
+// Get requests for specific agent
+Atlas::recordedFor(string $agent): array
+```
+
 ## Quick Reference
 
 | Method | Description |
@@ -569,12 +717,15 @@ if ($result['duration']) {
 | `Atlas::agent($agent)->withProvider($p)->chat($input)` | Chat with provider override |
 | `Atlas::agent($agent)->withMessages($msgs)->chat($input)` | Chat with history |
 | `Atlas::agent($agent)->withSchema($schema)->chat($input)` | Structured output |
+| `Atlas::agent($agent)->withToolChoice($choice)->chat($input)` | Control tool usage |
 | `Atlas::agent($agent)->chat($input, stream: true)` | Streaming response |
 | `Atlas::embeddings()->generate($text)` | Single embedding |
 | `Atlas::embeddings()->generate($texts)` | Batch embeddings (array input) |
 | `Atlas::embeddings()->dimensions()` | Get embedding dimensions |
 | `Atlas::image()` | Image builder |
 | `Atlas::speech()` | Speech builder |
+| `Atlas::fake()` | Enable testing mode |
+| `Atlas::unfake()` | Restore normal operation |
 
 ## Next Steps
 

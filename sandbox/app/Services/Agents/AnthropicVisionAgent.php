@@ -24,7 +24,7 @@ class AnthropicVisionAgent extends AgentDefinition
     /**
      * Get the AI provider for this agent.
      */
-    public function provider(): string
+    public function provider(): ?string
     {
         return 'anthropic';
     }
@@ -32,7 +32,7 @@ class AnthropicVisionAgent extends AgentDefinition
     /**
      * Get the model to use for this agent.
      */
-    public function model(): string
+    public function model(): ?string
     {
         return 'claude-sonnet-4-20250514';
     }
@@ -40,7 +40,7 @@ class AnthropicVisionAgent extends AgentDefinition
     /**
      * Get the system prompt for this agent.
      */
-    public function systemPrompt(): string
+    public function systemPrompt(): ?string
     {
         return 'You are a vision assistant that analyzes images and documents. '
             .'Describe what you see in detail, including colors, objects, text, and any other relevant features. '

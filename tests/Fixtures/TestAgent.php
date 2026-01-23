@@ -21,17 +21,17 @@ class TestAgent extends AgentDefinition
         return 'Test Agent';
     }
 
-    public function provider(): string
+    public function provider(): ?string
     {
         return 'openai';
     }
 
-    public function model(): string
+    public function model(): ?string
     {
         return 'gpt-4';
     }
 
-    public function systemPrompt(): string
+    public function systemPrompt(): ?string
     {
         return 'You are {agent_name}. Help {user_name} with their request.';
     }

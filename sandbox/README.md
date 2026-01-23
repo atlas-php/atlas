@@ -240,6 +240,59 @@ Finish: stop
 - Conversation history with attachments
 - Context construction verification
 
+### `atlas:local-chat` - Chat with Local LLMs
+
+Interactive chat with local LLM servers (LM Studio, Ollama, etc.) that provide an OpenAI-compatible API.
+
+```bash
+# Use default settings from .env (OLLAMA_URL, OLLAMA_MODEL)
+php artisan atlas:local-chat
+
+# Specify custom URL and model
+php artisan atlas:local-chat --url=http://localhost:1234/v1 --model=llama3
+
+# With custom system prompt
+php artisan atlas:local-chat --system="You are a coding assistant."
+```
+
+**Configuration:**
+```env
+# Add to .env
+OLLAMA_URL=http://localhost:1234/v1
+OLLAMA_MODEL=your-model-name
+```
+
+**In-chat Commands:**
+- `exit` / `quit` - Exit the chat
+- `clear` - Clear conversation history
+- `history` - Show conversation history
+
+**Output Example:**
+```
+=== Atlas Local LLM Chat ===
+URL: http://localhost:1234/v1
+Model: llama3
+Commands: exit, clear, history
+
+Connecting to http://localhost:1234/v1...
+Connected successfully!
+
+You> Hello!
+
+Assistant> Hello! How can I help you today?
+
+--- Response Details ---
+Tokens: 15 prompt / 8 completion / 23 total
+Finish: stop
+------------------------
+```
+
+**Supported Local LLM Servers:**
+- [LM Studio](https://lmstudio.ai/) - GUI for running local models
+- [Ollama](https://ollama.ai/) - Run models locally
+- [LocalAI](https://localai.io/) - Self-hosted OpenAI alternative
+- Any server with OpenAI-compatible API at `/v1/chat/completions`
+
 ### `atlas:tools` - Test Tool Execution
 
 Test agent tool calling capabilities.
@@ -342,6 +395,7 @@ Prompt: "Extract person info: John Smith is a 35-year-old software engineer at j
 | Agent Key | Provider | Model | Description |
 |-----------|----------|-------|-------------|
 | `general-assistant` | openai | gpt-4o | General-purpose chat |
+| `local-l-m` | openai | (from OLLAMA_MODEL env) | Local LLM via OpenAI-compatible API |
 | `tool-demo` | openai | gpt-4o | Agent with tools |
 | `structured-output` | openai | gpt-4o | Structured data extraction |
 | `openai-vision` | openai | gpt-4o | Vision/multimodal image analysis |
@@ -411,14 +465,17 @@ sandbox/
 │   │       ├── ChatCommand.php
 │   │       ├── EmbedCommand.php
 │   │       ├── ImageCommand.php
+│   │       ├── LocalChatCommand.php
 │   │       ├── SpeechCommand.php
 │   │       ├── StructuredCommand.php
-│   │       └── ToolsCommand.php
+│   │       ├── ToolsCommand.php
+│   │       └── VisionCommand.php
 │   ├── Providers/
 │   │   └── SandboxServiceProvider.php
 │   └── Services/
 │       ├── Agents/
 │       │   ├── GeneralAssistantAgent.php
+│       │   ├── LocalLMAgent.php
 │       │   ├── ToolDemoAgent.php
 │       │   └── StructuredOutputAgent.php
 │       ├── Tools/

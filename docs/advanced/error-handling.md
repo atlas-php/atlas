@@ -12,6 +12,10 @@ Atlas provides a hierarchy of exceptions to handle different error scenarios.
 Exception
 ├── AtlasException (base for all Atlas errors)
 │   └── ProviderException (API provider errors)
+│       ├── RateLimitedException (429 rate limits)
+│       ├── ProviderOverloadedException (529 overloaded)
+│       ├── RequestTooLargeException (413 context too large)
+│       └── StructuredDecodingException (JSON parsing failed)
 ├── AgentException (agent-related errors)
 │   ├── AgentNotFoundException
 │   └── InvalidAgentException
@@ -35,7 +39,7 @@ try {
 
 ### ProviderException
 
-Errors from AI providers (rate limits, invalid API keys, model errors, context length exceeded):
+Base exception for AI provider errors. For most use cases, catch the specific subclasses below:
 
 ```php
 use Atlasphp\Atlas\Providers\Exceptions\ProviderException;
@@ -43,10 +47,92 @@ use Atlasphp\Atlas\Providers\Exceptions\ProviderException;
 try {
     $response = Atlas::agent('agent')->chat('Hello');
 } catch (ProviderException $e) {
-    // Handle provider-specific errors
-    // Rate limits, invalid API keys, model errors, etc.
+    // Handle any provider-specific error
 }
 ```
+
+### RateLimitedException
+
+Thrown when the provider returns a 429 rate limit error:
+
+```php
+use Atlasphp\Atlas\Providers\Exceptions\RateLimitedException;
+
+try {
+    $response = Atlas::agent('agent')->chat('Hello');
+} catch (RateLimitedException $e) {
+    $retryAfter = $e->retryAfter();  // Seconds to wait (from Retry-After header)
+    $rateLimits = $e->rateLimits();  // Rate limit details from provider
+
+    if ($retryAfter) {
+        sleep($retryAfter);
+        // Retry the request...
+    }
+}
+```
+
+### ProviderOverloadedException
+
+Thrown when the provider is temporarily overloaded (529 status):
+
+```php
+use Atlasphp\Atlas\Providers\Exceptions\ProviderOverloadedException;
+
+try {
+    $response = Atlas::agent('agent')->chat('Hello');
+} catch (ProviderOverloadedException $e) {
+    $provider = $e->provider();  // 'openai', 'anthropic', etc.
+
+    // Switch to backup provider or queue for later
+    Log::warning("Provider {$provider} overloaded, using fallback");
+    $response = Atlas::agent('agent')
+        ->withProvider('anthropic')
+        ->chat('Hello');
+}
+```
+
+### RequestTooLargeException
+
+Thrown when the request exceeds the provider's context limit (413 status):
+
+```php
+use Atlasphp\Atlas\Providers\Exceptions\RequestTooLargeException;
+
+try {
+    $response = Atlas::agent('agent')
+        ->withMessages($longConversation)
+        ->chat('Continue');
+} catch (RequestTooLargeException $e) {
+    $provider = $e->provider();
+
+    // Trim conversation history and retry
+    $trimmedMessages = array_slice($longConversation, -10);
+    $response = Atlas::agent('agent')
+        ->withMessages($trimmedMessages)
+        ->chat('Continue');
+}
+```
+
+### StructuredDecodingException
+
+Thrown when structured output fails to parse as valid JSON:
+
+```php
+use Atlasphp\Atlas\Providers\Exceptions\StructuredDecodingException;
+
+try {
+    $response = Atlas::agent('agent')
+        ->withSchema($schema)
+        ->chat('Extract data from: ...');
+} catch (StructuredDecodingException $e) {
+    $rawResponse = $e->responseText();  // The raw response that failed to parse
+
+    Log::warning('Structured decoding failed', [
+        'raw_response' => $rawResponse,
+    ]);
+
+    // Retry or handle gracefully
+}
 
 ### AgentException
 
@@ -124,6 +210,9 @@ Handle specific exceptions first, then fall back to broader types:
 
 ```php
 use Atlasphp\Atlas\Agents\Exceptions\AgentNotFoundException;
+use Atlasphp\Atlas\Providers\Exceptions\RateLimitedException;
+use Atlasphp\Atlas\Providers\Exceptions\ProviderOverloadedException;
+use Atlasphp\Atlas\Providers\Exceptions\RequestTooLargeException;
 use Atlasphp\Atlas\Providers\Exceptions\ProviderException;
 use Atlasphp\Atlas\Foundation\Exceptions\AtlasException;
 
@@ -131,6 +220,17 @@ try {
     $response = Atlas::agent($agentKey)->chat($input);
 } catch (AgentNotFoundException $e) {
     return response()->json(['error' => 'Agent not configured'], 404);
+} catch (RateLimitedException $e) {
+    $retryAfter = $e->retryAfter() ?? 60;
+    return response()->json([
+        'error' => 'Rate limited',
+        'retry_after' => $retryAfter,
+    ], 429);
+} catch (ProviderOverloadedException $e) {
+    Log::warning("Provider {$e->provider()} overloaded");
+    return response()->json(['error' => 'Service busy, try again'], 503);
+} catch (RequestTooLargeException $e) {
+    return response()->json(['error' => 'Message too long'], 413);
 } catch (ProviderException $e) {
     Log::warning('Provider error', ['error' => $e->getMessage()]);
     return response()->json(['error' => 'AI service unavailable'], 503);
@@ -145,42 +245,49 @@ try {
 ### Rate Limiting
 
 ```php
+use Atlasphp\Atlas\Providers\Exceptions\RateLimitedException;
+
 try {
     $response = Atlas::agent('agent')->chat($input);
-} catch (ProviderException $e) {
-    if (str_contains($e->getMessage(), 'rate limit')) {
-        // Implement retry with backoff
-        return $this->retryWithBackoff($input);
-    }
-    throw $e;
+} catch (RateLimitedException $e) {
+    $retryAfter = $e->retryAfter() ?? 60;
+    sleep($retryAfter);
+    return Atlas::agent('agent')->chat($input);  // Retry
 }
 ```
 
-### API Key Issues
+### Provider Overloaded
 
 ```php
+use Atlasphp\Atlas\Providers\Exceptions\ProviderOverloadedException;
+
 try {
     $response = Atlas::agent('agent')->chat($input);
-} catch (ProviderException $e) {
-    if (str_contains($e->getMessage(), 'authentication')) {
-        Log::critical('API key invalid or expired');
-        throw new ServiceUnavailableException('AI service unavailable');
-    }
-    throw $e;
+} catch (ProviderOverloadedException $e) {
+    Log::warning("Provider {$e->provider()} overloaded");
+
+    // Use fallback provider
+    return Atlas::agent('agent')
+        ->withProvider('anthropic')
+        ->chat($input);
 }
 ```
 
-### Model Errors
+### Context Too Large
 
 ```php
+use Atlasphp\Atlas\Providers\Exceptions\RequestTooLargeException;
+
 try {
-    $response = Atlas::agent('agent')->chat($input);
-} catch (ProviderException $e) {
-    if (str_contains($e->getMessage(), 'context length')) {
-        // Message too long, try trimming
-        return $this->retryWithTrimmedContext($input);
-    }
-    throw $e;
+    $response = Atlas::agent('agent')
+        ->withMessages($messages)
+        ->chat($input);
+} catch (RequestTooLargeException $e) {
+    // Trim older messages and retry
+    $trimmedMessages = array_slice($messages, -10);
+    return Atlas::agent('agent')
+        ->withMessages($trimmedMessages)
+        ->chat($input);
 }
 ```
 

@@ -8,17 +8,17 @@ use Atlasphp\Atlas\Agents\Enums\AgentType;
 test('it generates key from class name', function () {
     $agent = new class extends AgentDefinition
     {
-        public function provider(): string
+        public function provider(): ?string
         {
             return 'openai';
         }
 
-        public function model(): string
+        public function model(): ?string
         {
             return 'gpt-4';
         }
 
-        public function systemPrompt(): string
+        public function systemPrompt(): ?string
         {
             return 'You are helpful.';
         }
@@ -31,17 +31,17 @@ test('it generates key from class name', function () {
 test('it generates name from class name', function () {
     $agent = new class extends AgentDefinition
     {
-        public function provider(): string
+        public function provider(): ?string
         {
             return 'openai';
         }
 
-        public function model(): string
+        public function model(): ?string
         {
             return 'gpt-4';
         }
 
-        public function systemPrompt(): string
+        public function systemPrompt(): ?string
         {
             return 'You are helpful.';
         }
@@ -53,17 +53,17 @@ test('it generates name from class name', function () {
 test('it returns null description by default', function () {
     $agent = new class extends AgentDefinition
     {
-        public function provider(): string
+        public function provider(): ?string
         {
             return 'openai';
         }
 
-        public function model(): string
+        public function model(): ?string
         {
             return 'gpt-4';
         }
 
-        public function systemPrompt(): string
+        public function systemPrompt(): ?string
         {
             return 'Test';
         }
@@ -75,17 +75,17 @@ test('it returns null description by default', function () {
 test('it returns empty tools by default', function () {
     $agent = new class extends AgentDefinition
     {
-        public function provider(): string
+        public function provider(): ?string
         {
             return 'openai';
         }
 
-        public function model(): string
+        public function model(): ?string
         {
             return 'gpt-4';
         }
 
-        public function systemPrompt(): string
+        public function systemPrompt(): ?string
         {
             return 'Test';
         }
@@ -97,17 +97,17 @@ test('it returns empty tools by default', function () {
 test('it returns empty provider tools by default', function () {
     $agent = new class extends AgentDefinition
     {
-        public function provider(): string
+        public function provider(): ?string
         {
             return 'openai';
         }
 
-        public function model(): string
+        public function model(): ?string
         {
             return 'gpt-4';
         }
 
-        public function systemPrompt(): string
+        public function systemPrompt(): ?string
         {
             return 'Test';
         }
@@ -119,17 +119,17 @@ test('it returns empty provider tools by default', function () {
 test('it returns null temperature by default', function () {
     $agent = new class extends AgentDefinition
     {
-        public function provider(): string
+        public function provider(): ?string
         {
             return 'openai';
         }
 
-        public function model(): string
+        public function model(): ?string
         {
             return 'gpt-4';
         }
 
-        public function systemPrompt(): string
+        public function systemPrompt(): ?string
         {
             return 'Test';
         }
@@ -141,17 +141,17 @@ test('it returns null temperature by default', function () {
 test('it returns null maxTokens by default', function () {
     $agent = new class extends AgentDefinition
     {
-        public function provider(): string
+        public function provider(): ?string
         {
             return 'openai';
         }
 
-        public function model(): string
+        public function model(): ?string
         {
             return 'gpt-4';
         }
 
-        public function systemPrompt(): string
+        public function systemPrompt(): ?string
         {
             return 'Test';
         }
@@ -163,17 +163,17 @@ test('it returns null maxTokens by default', function () {
 test('it returns null maxSteps by default', function () {
     $agent = new class extends AgentDefinition
     {
-        public function provider(): string
+        public function provider(): ?string
         {
             return 'openai';
         }
 
-        public function model(): string
+        public function model(): ?string
         {
             return 'gpt-4';
         }
 
-        public function systemPrompt(): string
+        public function systemPrompt(): ?string
         {
             return 'Test';
         }
@@ -185,17 +185,17 @@ test('it returns null maxSteps by default', function () {
 test('it returns empty settings by default', function () {
     $agent = new class extends AgentDefinition
     {
-        public function provider(): string
+        public function provider(): ?string
         {
             return 'openai';
         }
 
-        public function model(): string
+        public function model(): ?string
         {
             return 'gpt-4';
         }
 
-        public function systemPrompt(): string
+        public function systemPrompt(): ?string
         {
             return 'Test';
         }
@@ -207,17 +207,17 @@ test('it returns empty settings by default', function () {
 test('it returns Api type by default', function () {
     $agent = new class extends AgentDefinition
     {
-        public function provider(): string
+        public function provider(): ?string
         {
             return 'openai';
         }
 
-        public function model(): string
+        public function model(): ?string
         {
             return 'gpt-4';
         }
 
-        public function systemPrompt(): string
+        public function systemPrompt(): ?string
         {
             return 'Test';
         }
@@ -231,17 +231,17 @@ test('it caches the key after first call', function () {
     {
         public int $keyCallCount = 0;
 
-        public function provider(): string
+        public function provider(): ?string
         {
             return 'openai';
         }
 
-        public function model(): string
+        public function model(): ?string
         {
             return 'gpt-4';
         }
 
-        public function systemPrompt(): string
+        public function systemPrompt(): ?string
         {
             return 'Test';
         }
@@ -270,17 +270,17 @@ test('it caches the name after first call', function () {
     {
         public int $nameCallCount = 0;
 
-        public function provider(): string
+        public function provider(): ?string
         {
             return 'openai';
         }
 
-        public function model(): string
+        public function model(): ?string
         {
             return 'gpt-4';
         }
 
-        public function systemPrompt(): string
+        public function systemPrompt(): ?string
         {
             return 'Test';
         }
@@ -307,17 +307,17 @@ test('it caches the name after first call', function () {
 test('key returns cached value on subsequent calls', function () {
     $agent = new class extends AgentDefinition
     {
-        public function provider(): string
+        public function provider(): ?string
         {
             return 'openai';
         }
 
-        public function model(): string
+        public function model(): ?string
         {
             return 'gpt-4';
         }
 
-        public function systemPrompt(): string
+        public function systemPrompt(): ?string
         {
             return 'Test';
         }
@@ -343,17 +343,17 @@ test('key returns cached value on subsequent calls', function () {
 test('name returns cached value on subsequent calls', function () {
     $agent = new class extends AgentDefinition
     {
-        public function provider(): string
+        public function provider(): ?string
         {
             return 'openai';
         }
 
-        public function model(): string
+        public function model(): ?string
         {
             return 'gpt-4';
         }
 
-        public function systemPrompt(): string
+        public function systemPrompt(): ?string
         {
             return 'Test';
         }
@@ -374,4 +374,127 @@ test('name returns cached value on subsequent calls', function () {
     // Subsequent calls return cached value
     expect($agent->name())->toBe($name);
     expect($cachedNameProperty->getValue($agent))->toBe($name);
+});
+
+// ============================================================================
+// Null Default Tests for provider(), model(), systemPrompt()
+// ============================================================================
+
+test('it returns null provider by default', function () {
+    // Create a minimal agent that only overrides key() - using all defaults
+    $agent = new class extends AgentDefinition
+    {
+        public function key(): string
+        {
+            return 'minimal-agent';
+        }
+    };
+
+    expect($agent->provider())->toBeNull();
+});
+
+test('it returns null model by default', function () {
+    $agent = new class extends AgentDefinition
+    {
+        public function key(): string
+        {
+            return 'minimal-agent';
+        }
+    };
+
+    expect($agent->model())->toBeNull();
+});
+
+test('it returns null systemPrompt by default', function () {
+    $agent = new class extends AgentDefinition
+    {
+        public function key(): string
+        {
+            return 'minimal-agent';
+        }
+    };
+
+    expect($agent->systemPrompt())->toBeNull();
+});
+
+test('minimal agent uses all defaults', function () {
+    $agent = new class extends AgentDefinition
+    {
+        public function key(): string
+        {
+            return 'minimal-agent';
+        }
+    };
+
+    // All nullable methods should return null by default
+    expect($agent->provider())->toBeNull();
+    expect($agent->model())->toBeNull();
+    expect($agent->systemPrompt())->toBeNull();
+    expect($agent->description())->toBeNull();
+    expect($agent->temperature())->toBeNull();
+    expect($agent->maxTokens())->toBeNull();
+    expect($agent->maxSteps())->toBeNull();
+
+    // Arrays should be empty by default
+    expect($agent->tools())->toBe([]);
+    expect($agent->providerTools())->toBe([]);
+    expect($agent->settings())->toBe([]);
+
+    // Type should be Api by default
+    expect($agent->type())->toBe(AgentType::Api);
+});
+
+test('agent can override provider to return specific value', function () {
+    $agent = new class extends AgentDefinition
+    {
+        public function key(): string
+        {
+            return 'custom-agent';
+        }
+
+        public function provider(): ?string
+        {
+            return 'anthropic';
+        }
+    };
+
+    expect($agent->provider())->toBe('anthropic');
+    expect($agent->model())->toBeNull(); // Still uses default
+});
+
+test('agent can override model to return specific value', function () {
+    $agent = new class extends AgentDefinition
+    {
+        public function key(): string
+        {
+            return 'custom-agent';
+        }
+
+        public function model(): ?string
+        {
+            return 'claude-3-sonnet';
+        }
+    };
+
+    expect($agent->model())->toBe('claude-3-sonnet');
+    expect($agent->provider())->toBeNull(); // Still uses default
+});
+
+test('agent can override systemPrompt to return specific value', function () {
+    $agent = new class extends AgentDefinition
+    {
+        public function key(): string
+        {
+            return 'custom-agent';
+        }
+
+        public function systemPrompt(): ?string
+        {
+            return 'You are a helpful assistant.';
+        }
+    };
+
+    expect($agent->systemPrompt())->toBe('You are a helpful assistant.');
+    expect($agent->provider())->toBeNull(); // Still uses default
+    expect($agent->model())->toBeNull(); // Still uses default
 });

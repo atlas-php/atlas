@@ -16,7 +16,7 @@ class AnthropicAssistantAgent extends AgentDefinition
     /**
      * Get the AI provider for this agent.
      */
-    public function provider(): string
+    public function provider(): ?string
     {
         return 'anthropic';
     }
@@ -24,7 +24,7 @@ class AnthropicAssistantAgent extends AgentDefinition
     /**
      * Get the model to use for this agent.
      */
-    public function model(): string
+    public function model(): ?string
     {
         return 'claude-sonnet-4-20250514';
     }
@@ -32,7 +32,7 @@ class AnthropicAssistantAgent extends AgentDefinition
     /**
      * Get the system prompt for this agent.
      */
-    public function systemPrompt(): string
+    public function systemPrompt(): ?string
     {
         return 'You are a helpful assistant powered by Anthropic Claude. '
             .'Be concise and helpful in your responses.';

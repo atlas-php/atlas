@@ -157,7 +157,7 @@ class PrismBuilder implements PrismBuilderContract
      * @param  string  $provider  The provider name.
      * @param  string  $model  The model name.
      * @param  string  $input  The user input.
-     * @param  string  $systemPrompt  The system prompt.
+     * @param  string|null  $systemPrompt  The system prompt (null to skip).
      * @param  array<int, mixed>  $tools  Optional tools.
      * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      * @param  array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>  $attachments  Optional attachments for multimodal input.
@@ -166,7 +166,7 @@ class PrismBuilder implements PrismBuilderContract
         string $provider,
         string $model,
         string $input,
-        string $systemPrompt,
+        ?string $systemPrompt,
         array $tools = [],
         ?array $retry = null,
         array $attachments = [],
@@ -177,8 +177,12 @@ class PrismBuilder implements PrismBuilderContract
 
         $request = Prism::text()
             ->using($this->mapProvider($provider), $model)
-            ->withSystemPrompt($systemPrompt)
             ->withPrompt($input, $additionalContent);
+
+        // Only add system prompt if provided
+        if ($systemPrompt !== null && $systemPrompt !== '') {
+            $request = $request->withSystemPrompt($systemPrompt);
+        }
 
         if ($tools !== []) {
             $request = $request->withTools($tools);
@@ -193,7 +197,7 @@ class PrismBuilder implements PrismBuilderContract
      * @param  string  $provider  The provider name.
      * @param  string  $model  The model name.
      * @param  array<int, array{role: string, content: string, attachments?: array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>}>  $messages  The conversation messages with optional attachments.
-     * @param  string  $systemPrompt  The system prompt.
+     * @param  string|null  $systemPrompt  The system prompt (null to skip).
      * @param  array<int, mixed>  $tools  Optional tools.
      * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      */
@@ -201,14 +205,18 @@ class PrismBuilder implements PrismBuilderContract
         string $provider,
         string $model,
         array $messages,
-        string $systemPrompt,
+        ?string $systemPrompt,
         array $tools = [],
         ?array $retry = null,
     ): TextPendingRequest {
         $request = Prism::text()
             ->using($this->mapProvider($provider), $model)
-            ->withSystemPrompt($systemPrompt)
             ->withMessages($this->convertMessages($messages));
+
+        // Only add system prompt if provided
+        if ($systemPrompt !== null && $systemPrompt !== '') {
+            $request = $request->withSystemPrompt($systemPrompt);
+        }
 
         if ($tools !== []) {
             $request = $request->withTools($tools);
@@ -224,7 +232,7 @@ class PrismBuilder implements PrismBuilderContract
      * @param  string  $model  The model name.
      * @param  Schema  $schema  The output schema.
      * @param  string  $input  The user input.
-     * @param  string  $systemPrompt  The system prompt.
+     * @param  string|null  $systemPrompt  The system prompt (null to skip).
      * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      * @param  StructuredMode|null  $structuredMode  Optional mode (Auto, Structured, Json).
      */
@@ -233,15 +241,19 @@ class PrismBuilder implements PrismBuilderContract
         string $model,
         Schema $schema,
         string $input,
-        string $systemPrompt,
+        ?string $systemPrompt,
         ?array $retry = null,
         ?StructuredMode $structuredMode = null,
     ): StructuredPendingRequest {
         $request = Prism::structured()
             ->using($this->mapProvider($provider), $model)
-            ->withSystemPrompt($systemPrompt)
             ->withPrompt($input)
             ->withSchema($schema);
+
+        // Only add system prompt if provided
+        if ($systemPrompt !== null && $systemPrompt !== '') {
+            $request = $request->withSystemPrompt($systemPrompt);
+        }
 
         if ($structuredMode !== null) {
             $request = $request->usingStructuredMode($structuredMode);

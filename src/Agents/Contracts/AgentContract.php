@@ -31,20 +31,25 @@ interface AgentContract
 
     /**
      * Get the AI provider name (e.g., 'openai', 'anthropic').
+     *
+     * Returns null to use the default provider from config.
      */
-    public function provider(): string;
+    public function provider(): ?string;
 
     /**
      * Get the model name to use.
+     *
+     * Returns null to use the default model from config.
      */
-    public function model(): string;
+    public function model(): ?string;
 
     /**
      * Get the system prompt template.
      *
      * May contain {variable} placeholders for interpolation.
+     * Returns null to skip the system prompt entirely (uses provider default).
      */
-    public function systemPrompt(): string;
+    public function systemPrompt(): ?string;
 
     /**
      * Get the optional agent description.

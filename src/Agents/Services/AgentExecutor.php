@@ -13,24 +13,41 @@ use Atlasphp\Atlas\Foundation\Services\PipelineRunner;
 use Atlasphp\Atlas\Providers\Contracts\PrismBuilderContract;
 use Atlasphp\Atlas\Providers\Services\ProviderConfigService;
 use Atlasphp\Atlas\Providers\Services\UsageExtractorRegistry;
+use Atlasphp\Atlas\Providers\Support\ConvertsProviderExceptions;
+use Atlasphp\Atlas\Streaming\Events\ArtifactEvent;
+use Atlasphp\Atlas\Streaming\Events\CitationEvent;
 use Atlasphp\Atlas\Streaming\Events\ErrorEvent;
+use Atlasphp\Atlas\Streaming\Events\StepFinishEvent;
+use Atlasphp\Atlas\Streaming\Events\StepStartEvent;
 use Atlasphp\Atlas\Streaming\Events\StreamEndEvent;
 use Atlasphp\Atlas\Streaming\Events\StreamStartEvent;
 use Atlasphp\Atlas\Streaming\Events\TextDeltaEvent;
+use Atlasphp\Atlas\Streaming\Events\ThinkingCompleteEvent;
+use Atlasphp\Atlas\Streaming\Events\ThinkingDeltaEvent;
+use Atlasphp\Atlas\Streaming\Events\ThinkingStartEvent;
 use Atlasphp\Atlas\Streaming\Events\ToolCallEndEvent;
 use Atlasphp\Atlas\Streaming\Events\ToolCallStartEvent;
 use Atlasphp\Atlas\Streaming\StreamEvent;
 use Atlasphp\Atlas\Streaming\StreamResponse;
+use Atlasphp\Atlas\Tools\Enums\ToolChoice as AtlasToolChoice;
 use Atlasphp\Atlas\Tools\Services\ToolBuilder;
 use Atlasphp\Atlas\Tools\Support\ToolContext;
 use Generator;
 use Prism\Prism\Contracts\Schema;
 use Prism\Prism\Enums\StructuredMode;
+use Prism\Prism\Enums\ToolChoice as PrismToolChoice;
+use Prism\Prism\Streaming\Events\ArtifactEvent as PrismArtifactEvent;
+use Prism\Prism\Streaming\Events\CitationEvent as PrismCitationEvent;
 use Prism\Prism\Streaming\Events\ErrorEvent as PrismErrorEvent;
+use Prism\Prism\Streaming\Events\StepFinishEvent as PrismStepFinishEvent;
+use Prism\Prism\Streaming\Events\StepStartEvent as PrismStepStartEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent as PrismStreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent as PrismStreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent as PrismStreamStartEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent as PrismTextDeltaEvent;
+use Prism\Prism\Streaming\Events\ThinkingCompleteEvent as PrismThinkingCompleteEvent;
+use Prism\Prism\Streaming\Events\ThinkingEvent as PrismThinkingEvent;
+use Prism\Prism\Streaming\Events\ThinkingStartEvent as PrismThinkingStartEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent as PrismToolCallEvent;
 use Prism\Prism\Streaming\Events\ToolResultEvent as PrismToolResultEvent;
 use Prism\Prism\ValueObjects\ProviderTool;
@@ -45,6 +62,8 @@ use Throwable;
  */
 class AgentExecutor implements AgentExecutorContract
 {
+    use ConvertsProviderExceptions;
+
     public function __construct(
         protected PrismBuilderContract $prismBuilder,
         protected ToolBuilder $toolBuilder,
@@ -108,7 +127,13 @@ class AgentExecutor implements AgentExecutorContract
             $this->handleError($agent, $input, $context, $systemPrompt, $e);
             throw $e;
         } catch (Throwable $e) {
-            $this->handleError($agent, $input, $context, $systemPrompt, $e);
+            $converted = $this->convertPrismException($e);
+            $this->handleError($agent, $input, $context, $systemPrompt, $converted);
+
+            if ($converted !== $e) {
+                throw $converted;
+            }
+
             throw AgentException::executionFailed($agent->key(), $e->getMessage(), $e);
         }
     }
@@ -143,7 +168,7 @@ class AgentExecutor implements AgentExecutorContract
      * Shared between execute() and stream() to avoid duplication.
      *
      * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
-     * @return array{agent: AgentContract, input: string, context: ExecutionContext, schema: Schema|null, systemPrompt: string, request: mixed}
+     * @return array{agent: AgentContract, input: string, context: ExecutionContext, schema: Schema|null, systemPrompt: string|null, request: mixed}
      */
     protected function prepareExecution(
         AgentContract $agent,
@@ -244,9 +269,14 @@ class AgentExecutor implements AgentExecutorContract
 
             throw $e;
         } catch (Throwable $e) {
-            $this->handleError($agent, $input, $context, $systemPrompt, $e);
+            $converted = $this->convertPrismException($e);
+            $this->handleError($agent, $input, $context, $systemPrompt, $converted);
 
-            yield $this->createErrorEvent($e);
+            yield $this->createErrorEvent($converted);
+
+            if ($converted !== $e) {
+                throw $converted;
+            }
 
             throw AgentException::executionFailed($agent->key(), $e->getMessage(), $e);
         }
@@ -291,15 +321,15 @@ class AgentExecutor implements AgentExecutorContract
         AgentContract $agent,
         string $input,
         ExecutionContext $context,
-        string $systemPrompt,
+        ?string $systemPrompt,
         ?array $retry = null,
     ): mixed {
         $toolContext = new ToolContext($context->metadata);
         $tools = $this->toolBuilder->buildForAgent($agent, $toolContext);
 
-        // Use context overrides if present, otherwise fall back to agent config
-        $provider = $context->providerOverride ?? $agent->provider();
-        $model = $context->modelOverride ?? $agent->model();
+        // Use context overrides if present, otherwise fall back to agent config, then to config defaults
+        $provider = $context->providerOverride ?? $agent->provider() ?? config('atlas.chat.provider');
+        $model = $context->modelOverride ?? $agent->model() ?? config('atlas.chat.model');
 
         $request = $context->hasMessages()
             ? $this->prismBuilder->forMessages(
@@ -320,7 +350,9 @@ class AgentExecutor implements AgentExecutorContract
                 $context->currentAttachments,
             );
 
-        return $this->applyAgentSettings($request, $agent);
+        $request = $this->applyAgentSettings($request, $agent);
+
+        return $this->applyToolChoice($request, $context);
     }
 
     /**
@@ -333,14 +365,14 @@ class AgentExecutor implements AgentExecutorContract
         AgentContract $agent,
         string $input,
         ExecutionContext $context,
-        string $systemPrompt,
+        ?string $systemPrompt,
         Schema $schema,
         ?array $retry = null,
         ?StructuredMode $structuredMode = null,
     ): AgentResponse {
-        // Use context overrides if present, otherwise fall back to agent config
-        $provider = $context->providerOverride ?? $agent->provider();
-        $model = $context->modelOverride ?? $agent->model();
+        // Use context overrides if present, otherwise fall back to agent config, then to config defaults
+        $provider = $context->providerOverride ?? $agent->provider() ?? config('atlas.chat.provider');
+        $model = $context->modelOverride ?? $agent->model() ?? config('atlas.chat.model');
 
         $request = $this->prismBuilder->forStructured(
             $provider,
@@ -424,6 +456,36 @@ class AgentExecutor implements AgentExecutorContract
     }
 
     /**
+     * Apply tool choice from the execution context.
+     *
+     * @param  mixed  $request  The Prism pending request.
+     * @param  ExecutionContext  $context  The execution context.
+     * @return mixed The modified request.
+     */
+    protected function applyToolChoice(mixed $request, ExecutionContext $context): mixed
+    {
+        if (! $context->hasToolChoice()) {
+            return $request;
+        }
+
+        $toolChoice = $context->toolChoice;
+
+        // Map Atlas ToolChoice enum to Prism ToolChoice enum
+        if ($toolChoice instanceof AtlasToolChoice) {
+            $prismChoice = match ($toolChoice) {
+                AtlasToolChoice::Auto => PrismToolChoice::Auto,
+                AtlasToolChoice::Any => PrismToolChoice::Any,
+                AtlasToolChoice::None => PrismToolChoice::None,
+            };
+
+            return $request->withToolChoice($prismChoice);
+        }
+
+        // String tool name - force specific tool
+        return $request->withToolChoice($toolChoice);
+    }
+
+    /**
      * Convert agent provider tool definitions to Prism ProviderTool objects.
      *
      * @param  array<int, string|array<string, mixed>|ProviderTool>  $tools
@@ -473,7 +535,8 @@ class AgentExecutor implements AgentExecutorContract
      */
     protected function buildResponse(AgentContract $agent, mixed $prismResponse): AgentResponse
     {
-        $usage = $this->usageExtractor->extract($agent->provider(), $prismResponse);
+        $provider = $agent->provider() ?? config('atlas.chat.provider');
+        $usage = $this->usageExtractor->extract($provider, $prismResponse);
         $toolCalls = $this->extractToolCalls($prismResponse);
 
         return new AgentResponse(
@@ -528,7 +591,8 @@ class AgentExecutor implements AgentExecutorContract
      */
     protected function buildStructuredResponse(AgentContract $agent, mixed $prismResponse): AgentResponse
     {
-        $usage = $this->usageExtractor->extract($agent->provider(), $prismResponse);
+        $provider = $agent->provider() ?? config('atlas.chat.provider');
+        $usage = $this->usageExtractor->extract($provider, $prismResponse);
 
         return new AgentResponse(
             structured: $prismResponse->structured ?? null,
@@ -582,8 +646,71 @@ class AgentExecutor implements AgentExecutorContract
                 message: $event->message,
                 recoverable: $event->recoverable,
             ),
+            $event instanceof PrismThinkingStartEvent => new ThinkingStartEvent(
+                id: $event->id,
+                timestamp: $event->timestamp,
+                reasoningId: $event->reasoningId,
+            ),
+            $event instanceof PrismThinkingEvent => new ThinkingDeltaEvent(
+                id: $event->id,
+                timestamp: $event->timestamp,
+                delta: $event->delta,
+                reasoningId: $event->reasoningId,
+                summary: $event->summary,
+            ),
+            $event instanceof PrismThinkingCompleteEvent => new ThinkingCompleteEvent(
+                id: $event->id,
+                timestamp: $event->timestamp,
+                reasoningId: $event->reasoningId,
+                summary: $event->summary,
+            ),
+            $event instanceof PrismCitationEvent => new CitationEvent(
+                id: $event->id,
+                timestamp: $event->timestamp,
+                citation: $this->extractCitation($event),
+                messageId: $event->messageId,
+                blockIndex: $event->blockIndex,
+                metadata: $event->metadata,
+            ),
+            $event instanceof PrismArtifactEvent => new ArtifactEvent(
+                id: $event->id,
+                timestamp: $event->timestamp,
+                artifact: $event->artifact->toArray(),
+                toolCallId: $event->toolCallId,
+                toolName: $event->toolName,
+                messageId: $event->messageId,
+            ),
+            $event instanceof PrismStepStartEvent => new StepStartEvent(
+                id: $event->id,
+                timestamp: $event->timestamp,
+            ),
+            $event instanceof PrismStepFinishEvent => new StepFinishEvent(
+                id: $event->id,
+                timestamp: $event->timestamp,
+            ),
             default => null,
         };
+    }
+
+    /**
+     * Extract citation data from a Prism citation event.
+     *
+     * @return array<string, mixed>
+     */
+    protected function extractCitation(PrismCitationEvent $event): array
+    {
+        $citation = $event->citation;
+
+        return [
+            'source_type' => $citation->sourceType->value,
+            'source' => $citation->source,
+            'source_text' => $citation->sourceText,
+            'source_title' => $citation->sourceTitle,
+            'source_position_type' => $citation->sourcePositionType?->value,
+            'source_start_index' => $citation->sourceStartIndex,
+            'source_end_index' => $citation->sourceEndIndex,
+            'additional_content' => $citation->additionalContent,
+        ];
     }
 
     /**

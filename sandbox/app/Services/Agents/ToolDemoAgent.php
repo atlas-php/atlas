@@ -19,7 +19,7 @@ class ToolDemoAgent extends AgentDefinition
     /**
      * Get the AI provider for this agent.
      */
-    public function provider(): string
+    public function provider(): ?string
     {
         return 'openai';
     }
@@ -27,7 +27,7 @@ class ToolDemoAgent extends AgentDefinition
     /**
      * Get the model to use for this agent.
      */
-    public function model(): string
+    public function model(): ?string
     {
         return 'gpt-4o';
     }
@@ -35,7 +35,7 @@ class ToolDemoAgent extends AgentDefinition
     /**
      * Get the system prompt for this agent.
      */
-    public function systemPrompt(): string
+    public function systemPrompt(): ?string
     {
         return 'You are a helpful assistant with access to tools. '
             .'Use the available tools when appropriate to answer questions. '
