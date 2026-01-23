@@ -1,0 +1,57 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services\Agents;
+
+use Atlasphp\Atlas\Agents\AgentDefinition;
+
+/**
+ * Gemini vision agent for testing multimodal attachments.
+ *
+ * Uses Gemini 2.0 Flash which has vision capabilities for analyzing images.
+ */
+class GeminiVisionAgent extends AgentDefinition
+{
+    /**
+     * Get the unique key for this agent.
+     */
+    public function key(): string
+    {
+        return 'gemini-vision';
+    }
+
+    /**
+     * Get the AI provider for this agent.
+     */
+    public function provider(): string
+    {
+        return 'gemini';
+    }
+
+    /**
+     * Get the model to use for this agent.
+     */
+    public function model(): string
+    {
+        return 'gemini-2.0-flash';
+    }
+
+    /**
+     * Get the system prompt for this agent.
+     */
+    public function systemPrompt(): string
+    {
+        return 'You are a vision assistant that analyzes images and documents. '
+            .'Describe what you see in detail, including colors, objects, text, and any other relevant features. '
+            .'Be precise and thorough in your analysis.';
+    }
+
+    /**
+     * Get a description of this agent.
+     */
+    public function description(): ?string
+    {
+        return 'Vision agent using Google Gemini for image and document analysis.';
+    }
+}

@@ -165,7 +165,7 @@ test('it builds text request for single prompt', function () {
     $mockRequest = Mockery::mock(\Prism\Prism\Text\PendingRequest::class);
     $mockRequest->shouldReceive('using')->andReturnSelf();
     $mockRequest->shouldReceive('withSystemPrompt')->with('You are a helpful assistant.')->andReturnSelf();
-    $mockRequest->shouldReceive('withPrompt')->with('Hello')->andReturnSelf();
+    $mockRequest->shouldReceive('withPrompt')->with('Hello', [])->andReturnSelf();
 
     Prism::shouldReceive('text')->andReturn($mockRequest);
 
@@ -180,7 +180,7 @@ test('it builds text request for prompt with tools', function () {
     $mockRequest = Mockery::mock(\Prism\Prism\Text\PendingRequest::class);
     $mockRequest->shouldReceive('using')->andReturnSelf();
     $mockRequest->shouldReceive('withSystemPrompt')->with('You are a helpful assistant.')->andReturnSelf();
-    $mockRequest->shouldReceive('withPrompt')->with('Hello')->andReturnSelf();
+    $mockRequest->shouldReceive('withPrompt')->with('Hello', [])->andReturnSelf();
     $mockRequest->shouldReceive('withTools')->with($tools)->once()->andReturnSelf();
 
     Prism::shouldReceive('text')->andReturn($mockRequest);
@@ -504,7 +504,7 @@ test('forPrompt passes retry to withClientRetry', function () {
     $mockRequest = Mockery::mock(\Prism\Prism\Text\PendingRequest::class);
     $mockRequest->shouldReceive('using')->andReturnSelf();
     $mockRequest->shouldReceive('withSystemPrompt')->andReturnSelf();
-    $mockRequest->shouldReceive('withPrompt')->with('Hello')->andReturnSelf();
+    $mockRequest->shouldReceive('withPrompt')->with('Hello', [])->andReturnSelf();
     $mockRequest->shouldReceive('withClientRetry')
         ->once()
         ->with(3, 1000, null, true)
@@ -692,4 +692,112 @@ test('forStructured applies structured mode with retry', function () {
     );
 
     expect($request)->toBeInstanceOf(\Prism\Prism\Structured\PendingRequest::class);
+});
+
+// ===========================================
+// MULTIMODAL TESTS
+// ===========================================
+
+test('forPrompt passes attachments to withPrompt as additionalContent', function () {
+    $attachments = [
+        [
+            'type' => 'image',
+            'source' => 'url',
+            'data' => 'https://example.com/image.jpg',
+        ],
+    ];
+
+    $mockRequest = Mockery::mock(\Prism\Prism\Text\PendingRequest::class);
+    $mockRequest->shouldReceive('using')->andReturnSelf();
+    $mockRequest->shouldReceive('withSystemPrompt')->andReturnSelf();
+    $mockRequest->shouldReceive('withPrompt')
+        ->with('Describe this image', Mockery::on(function ($additionalContent) {
+            return count($additionalContent) === 1
+                && $additionalContent[0] instanceof \Prism\Prism\ValueObjects\Media\Image;
+        }))
+        ->andReturnSelf();
+
+    Prism::shouldReceive('text')->andReturn($mockRequest);
+
+    $request = $this->builder->forPrompt(
+        'openai',
+        'gpt-4o',
+        'Describe this image',
+        'You are a vision assistant.',
+        [],
+        null,
+        $attachments
+    );
+
+    expect($request)->toBeInstanceOf(\Prism\Prism\Text\PendingRequest::class);
+});
+
+test('forMessages handles messages with attachments', function () {
+    $messages = [
+        [
+            'role' => 'user',
+            'content' => 'Look at this image',
+            'attachments' => [
+                [
+                    'type' => 'image',
+                    'source' => 'url',
+                    'data' => 'https://example.com/image.jpg',
+                ],
+            ],
+        ],
+    ];
+
+    $convertedMessages = null;
+    $mockRequest = Mockery::mock(\Prism\Prism\Text\PendingRequest::class);
+    $mockRequest->shouldReceive('using')->andReturnSelf();
+    $mockRequest->shouldReceive('withSystemPrompt')->andReturnSelf();
+    $mockRequest->shouldReceive('withMessages')->with(Mockery::on(function ($converted) use (&$convertedMessages) {
+        $convertedMessages = $converted;
+
+        return true;
+    }))->andReturnSelf();
+
+    Prism::shouldReceive('text')->andReturn($mockRequest);
+
+    $this->builder->forMessages('openai', 'gpt-4o', $messages, 'System prompt');
+
+    expect($convertedMessages)->toHaveCount(1);
+    expect($convertedMessages[0])->toBeInstanceOf(\Prism\Prism\ValueObjects\Messages\UserMessage::class);
+});
+
+test('forMessages handles mixed messages with and without attachments', function () {
+    $messages = [
+        ['role' => 'user', 'content' => 'Hello'],
+        ['role' => 'assistant', 'content' => 'Hi!'],
+        [
+            'role' => 'user',
+            'content' => 'Look at this',
+            'attachments' => [
+                [
+                    'type' => 'image',
+                    'source' => 'url',
+                    'data' => 'https://example.com/image.jpg',
+                ],
+            ],
+        ],
+    ];
+
+    $convertedMessages = null;
+    $mockRequest = Mockery::mock(\Prism\Prism\Text\PendingRequest::class);
+    $mockRequest->shouldReceive('using')->andReturnSelf();
+    $mockRequest->shouldReceive('withSystemPrompt')->andReturnSelf();
+    $mockRequest->shouldReceive('withMessages')->with(Mockery::on(function ($converted) use (&$convertedMessages) {
+        $convertedMessages = $converted;
+
+        return true;
+    }))->andReturnSelf();
+
+    Prism::shouldReceive('text')->andReturn($mockRequest);
+
+    $this->builder->forMessages('openai', 'gpt-4o', $messages, 'System prompt');
+
+    expect($convertedMessages)->toHaveCount(3);
+    expect($convertedMessages[0])->toBeInstanceOf(\Prism\Prism\ValueObjects\Messages\UserMessage::class);
+    expect($convertedMessages[1])->toBeInstanceOf(\Prism\Prism\ValueObjects\Messages\AssistantMessage::class);
+    expect($convertedMessages[2])->toBeInstanceOf(\Prism\Prism\ValueObjects\Messages\UserMessage::class);
 });

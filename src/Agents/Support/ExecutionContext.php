@@ -14,11 +14,12 @@ namespace Atlasphp\Atlas\Agents\Support;
 final readonly class ExecutionContext
 {
     /**
-     * @param  array<int, array{role: string, content: string}>  $messages  Conversation history.
+     * @param  array<int, array{role: string, content: string, attachments?: array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>}>  $messages  Conversation history with optional attachments.
      * @param  array<string, mixed>  $variables  Variables for system prompt interpolation.
      * @param  array<string, mixed>  $metadata  Additional metadata for pipeline middleware.
      * @param  string|null  $providerOverride  Override the agent's configured provider.
      * @param  string|null  $modelOverride  Override the agent's configured model.
+     * @param  array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>  $currentAttachments  Attachments for the current input message.
      */
     public function __construct(
         public array $messages = [],
@@ -26,16 +27,17 @@ final readonly class ExecutionContext
         public array $metadata = [],
         public ?string $providerOverride = null,
         public ?string $modelOverride = null,
+        public array $currentAttachments = [],
     ) {}
 
     /**
      * Create a new context with the given messages.
      *
-     * @param  array<int, array{role: string, content: string}>  $messages
+     * @param  array<int, array{role: string, content: string, attachments?: array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>}>  $messages
      */
     public function withMessages(array $messages): self
     {
-        return new self($messages, $this->variables, $this->metadata, $this->providerOverride, $this->modelOverride);
+        return new self($messages, $this->variables, $this->metadata, $this->providerOverride, $this->modelOverride, $this->currentAttachments);
     }
 
     /**
@@ -45,7 +47,7 @@ final readonly class ExecutionContext
      */
     public function withVariables(array $variables): self
     {
-        return new self($this->messages, $variables, $this->metadata, $this->providerOverride, $this->modelOverride);
+        return new self($this->messages, $variables, $this->metadata, $this->providerOverride, $this->modelOverride, $this->currentAttachments);
     }
 
     /**
@@ -55,7 +57,7 @@ final readonly class ExecutionContext
      */
     public function withMetadata(array $metadata): self
     {
-        return new self($this->messages, $this->variables, $metadata, $this->providerOverride, $this->modelOverride);
+        return new self($this->messages, $this->variables, $metadata, $this->providerOverride, $this->modelOverride, $this->currentAttachments);
     }
 
     /**
@@ -65,7 +67,7 @@ final readonly class ExecutionContext
      */
     public function withProviderOverride(?string $provider): self
     {
-        return new self($this->messages, $this->variables, $this->metadata, $provider, $this->modelOverride);
+        return new self($this->messages, $this->variables, $this->metadata, $provider, $this->modelOverride, $this->currentAttachments);
     }
 
     /**
@@ -75,7 +77,7 @@ final readonly class ExecutionContext
      */
     public function withModelOverride(?string $model): self
     {
-        return new self($this->messages, $this->variables, $this->metadata, $this->providerOverride, $model);
+        return new self($this->messages, $this->variables, $this->metadata, $this->providerOverride, $model, $this->currentAttachments);
     }
 
     /**
@@ -91,6 +93,7 @@ final readonly class ExecutionContext
             $this->metadata,
             $this->providerOverride,
             $this->modelOverride,
+            $this->currentAttachments,
         );
     }
 
@@ -107,6 +110,24 @@ final readonly class ExecutionContext
             array_merge($this->metadata, $metadata),
             $this->providerOverride,
             $this->modelOverride,
+            $this->currentAttachments,
+        );
+    }
+
+    /**
+     * Create a new context with the given current attachments.
+     *
+     * @param  array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>  $attachments
+     */
+    public function withCurrentAttachments(array $attachments): self
+    {
+        return new self(
+            $this->messages,
+            $this->variables,
+            $this->metadata,
+            $this->providerOverride,
+            $this->modelOverride,
+            $attachments,
         );
     }
 
@@ -138,6 +159,14 @@ final readonly class ExecutionContext
     public function hasMessages(): bool
     {
         return $this->messages !== [];
+    }
+
+    /**
+     * Check if current attachments are present.
+     */
+    public function hasCurrentAttachments(): bool
+    {
+        return $this->currentAttachments !== [];
     }
 
     /**

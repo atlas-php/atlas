@@ -69,6 +69,7 @@ interface PrismBuilderContract
      * @param  string  $systemPrompt  The system prompt.
      * @param  array<int, mixed>  $tools  Optional tools.
      * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
+     * @param  array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>  $attachments  Optional attachments for multimodal input.
      */
     public function forPrompt(
         string $provider,
@@ -77,6 +78,7 @@ interface PrismBuilderContract
         string $systemPrompt,
         array $tools = [],
         ?array $retry = null,
+        array $attachments = [],
     ): mixed;
 
     /**
@@ -84,7 +86,7 @@ interface PrismBuilderContract
      *
      * @param  string  $provider  The provider name.
      * @param  string  $model  The model name.
-     * @param  array<int, array{role: string, content: string}>  $messages  The conversation messages.
+     * @param  array<int, array{role: string, content: string, attachments?: array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>}>  $messages  The conversation messages with optional attachments.
      * @param  string  $systemPrompt  The system prompt.
      * @param  array<int, mixed>  $tools  Optional tools.
      * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.

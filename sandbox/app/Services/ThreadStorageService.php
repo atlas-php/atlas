@@ -31,7 +31,7 @@ class ThreadStorageService
      * Create a new thread.
      *
      * @param  string  $agent  The agent key for this thread.
-     * @return array{uuid: string, agent: string, created_at: string, updated_at: string, messages: array<int, array{role: string, content: string}>, metadata: array{total_tokens: int, message_count: int}}
+     * @return array{uuid: string, agent: string, created_at: string, updated_at: string, messages: array<int, array{role: string, content: string, attachments?: array}>, metadata: array{total_tokens: int, message_count: int}}
      */
     public function create(string $agent): array
     {
@@ -162,17 +162,24 @@ class ThreadStorageService
     /**
      * Add a message to a thread.
      *
-     * @param  array{uuid: string, agent: string, created_at: string, updated_at: string, messages: array<int, array{role: string, content: string}>, metadata: array{total_tokens: int, message_count: int}}  $thread
+     * @param  array{uuid: string, agent: string, created_at: string, updated_at: string, messages: array<int, array{role: string, content: string, attachments?: array}>, metadata: array{total_tokens: int, message_count: int}}  $thread
      * @param  string  $role  The message role (user or assistant).
      * @param  string  $content  The message content.
-     * @return array{uuid: string, agent: string, created_at: string, updated_at: string, messages: array<int, array{role: string, content: string}>, metadata: array{total_tokens: int, message_count: int}}
+     * @param  array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>  $attachments  Optional attachments.
+     * @return array{uuid: string, agent: string, created_at: string, updated_at: string, messages: array<int, array{role: string, content: string, attachments?: array}>, metadata: array{total_tokens: int, message_count: int}}
      */
-    public function addMessage(array $thread, string $role, string $content): array
+    public function addMessage(array $thread, string $role, string $content, array $attachments = []): array
     {
-        $thread['messages'][] = [
+        $message = [
             'role' => $role,
             'content' => $content,
         ];
+
+        if ($attachments !== []) {
+            $message['attachments'] = $attachments;
+        }
+
+        $thread['messages'][] = $message;
 
         return $thread;
     }

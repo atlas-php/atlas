@@ -203,3 +203,145 @@ test('withModelOverride can clear override with null', function () {
     expect($newContext->modelOverride)->toBeNull();
     expect($newContext->hasModelOverride())->toBeFalse();
 });
+
+// ===========================================
+// CURRENT ATTACHMENTS TESTS
+// ===========================================
+
+test('it creates with default empty currentAttachments', function () {
+    $context = new ExecutionContext;
+
+    expect($context->currentAttachments)->toBe([]);
+});
+
+test('it creates with provided currentAttachments', function () {
+    $attachments = [
+        ['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image.jpg'],
+    ];
+
+    $context = new ExecutionContext([], [], [], null, null, $attachments);
+
+    expect($context->currentAttachments)->toBe($attachments);
+});
+
+test('it creates new instance with currentAttachments', function () {
+    $context = new ExecutionContext;
+    $attachments = [
+        ['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image.jpg'],
+    ];
+
+    $newContext = $context->withCurrentAttachments($attachments);
+
+    expect($newContext)->not->toBe($context);
+    expect($newContext->currentAttachments)->toBe($attachments);
+    expect($context->currentAttachments)->toBe([]);
+});
+
+test('it reports hasCurrentAttachments correctly', function () {
+    $empty = new ExecutionContext;
+    $withAttachments = new ExecutionContext([], [], [], null, null, [
+        ['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image.jpg'],
+    ]);
+
+    expect($empty->hasCurrentAttachments())->toBeFalse();
+    expect($withAttachments->hasCurrentAttachments())->toBeTrue();
+});
+
+test('withMessages preserves currentAttachments', function () {
+    $attachments = [
+        ['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image.jpg'],
+    ];
+    $context = new ExecutionContext([], [], [], null, null, $attachments);
+
+    $newContext = $context->withMessages([['role' => 'user', 'content' => 'Hello']]);
+
+    expect($newContext->currentAttachments)->toBe($attachments);
+});
+
+test('withVariables preserves currentAttachments', function () {
+    $attachments = [
+        ['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image.jpg'],
+    ];
+    $context = new ExecutionContext([], [], [], null, null, $attachments);
+
+    $newContext = $context->withVariables(['key' => 'value']);
+
+    expect($newContext->currentAttachments)->toBe($attachments);
+});
+
+test('withMetadata preserves currentAttachments', function () {
+    $attachments = [
+        ['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image.jpg'],
+    ];
+    $context = new ExecutionContext([], [], [], null, null, $attachments);
+
+    $newContext = $context->withMetadata(['meta' => 'data']);
+
+    expect($newContext->currentAttachments)->toBe($attachments);
+});
+
+test('withProviderOverride preserves currentAttachments', function () {
+    $attachments = [
+        ['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image.jpg'],
+    ];
+    $context = new ExecutionContext([], [], [], null, null, $attachments);
+
+    $newContext = $context->withProviderOverride('anthropic');
+
+    expect($newContext->currentAttachments)->toBe($attachments);
+});
+
+test('withModelOverride preserves currentAttachments', function () {
+    $attachments = [
+        ['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image.jpg'],
+    ];
+    $context = new ExecutionContext([], [], [], null, null, $attachments);
+
+    $newContext = $context->withModelOverride('gpt-4-turbo');
+
+    expect($newContext->currentAttachments)->toBe($attachments);
+});
+
+test('mergeVariables preserves currentAttachments', function () {
+    $attachments = [
+        ['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image.jpg'],
+    ];
+    $context = new ExecutionContext([], ['a' => 1], [], null, null, $attachments);
+
+    $newContext = $context->mergeVariables(['b' => 2]);
+
+    expect($newContext->currentAttachments)->toBe($attachments);
+});
+
+test('mergeMetadata preserves currentAttachments', function () {
+    $attachments = [
+        ['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image.jpg'],
+    ];
+    $context = new ExecutionContext([], [], ['a' => 1], null, null, $attachments);
+
+    $newContext = $context->mergeMetadata(['b' => 2]);
+
+    expect($newContext->currentAttachments)->toBe($attachments);
+});
+
+test('withCurrentAttachments preserves other values', function () {
+    $context = new ExecutionContext(
+        [['role' => 'user', 'content' => 'Hello']],
+        ['key' => 'value'],
+        ['meta' => 'data'],
+        'openai',
+        'gpt-4',
+    );
+
+    $attachments = [
+        ['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image.jpg'],
+    ];
+    $newContext = $context->withCurrentAttachments($attachments);
+
+    expect($newContext->messages)->toBe([['role' => 'user', 'content' => 'Hello']]);
+    expect($newContext->variables)->toBe(['key' => 'value']);
+    expect($newContext->metadata)->toBe(['meta' => 'data']);
+    expect($newContext->providerOverride)->toBe('openai');
+    expect($newContext->modelOverride)->toBe('gpt-4');
+    expect($newContext->currentAttachments)->toBe($attachments);
+});
