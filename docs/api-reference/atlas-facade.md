@@ -10,6 +10,12 @@ use Atlasphp\Atlas\Providers\Facades\Atlas;
 // Chat with an agent (agent-first pattern)
 $response = Atlas::agent('support-agent')->chat('Hello');
 
+// Override provider/model at runtime
+$response = Atlas::agent('support-agent')
+    ->withProvider('anthropic')
+    ->withModel('claude-3-opus')
+    ->chat('Hello');
+
 // Chat with conversation history
 $response = Atlas::agent('support-agent')
     ->withMessages($messages)
@@ -54,13 +60,13 @@ $audio = Atlas::speech()
 Start building a chat request for an agent.
 
 ```php
-Atlas::agent(string|AgentContract $agent): PendingAgentRequest
+Atlas::agent(string|AgentContract $agent)
 ```
 
 **Parameters:**
 - `$agent` — Agent key, class name, or instance
 
-**Returns:** `PendingAgentRequest` — Fluent builder for chat operations
+**Returns:** Fluent builder for chat operations
 
 **Examples:**
 
@@ -75,16 +81,62 @@ $response = Atlas::agent(SupportAgent::class)->chat('Hello');
 $response = Atlas::agent(new SupportAgent())->chat('Hello');
 ```
 
-## PendingAgentRequest
+## Agent Chat Builder
 
-Immutable fluent builder for agent chat operations.
+Immutable fluent builder for agent chat operations returned by `Atlas::agent()`.
+
+### withProvider()
+
+Override the agent's configured provider at runtime.
+
+```php
+->withProvider(string $provider)
+```
+
+**Parameters:**
+- `$provider` — The provider name (e.g., 'openai', 'anthropic')
+
+**Example:**
+
+```php
+// Use Anthropic instead of the agent's default provider
+$response = Atlas::agent('support-agent')
+    ->withProvider('anthropic')
+    ->chat('Hello');
+```
+
+### withModel()
+
+Override the agent's configured model at runtime.
+
+```php
+->withModel(string $model)
+```
+
+**Parameters:**
+- `$model` — The model name (e.g., 'gpt-4', 'claude-3-opus')
+
+**Example:**
+
+```php
+// Use a specific model
+$response = Atlas::agent('support-agent')
+    ->withModel('gpt-4-turbo')
+    ->chat('Hello');
+
+// Override both provider and model
+$response = Atlas::agent('support-agent')
+    ->withProvider('anthropic')
+    ->withModel('claude-3-opus')
+    ->chat('Hello');
+```
 
 ### withMessages()
 
 Set conversation history.
 
 ```php
-public function withMessages(array $messages): static
+->withMessages(array $messages)
 ```
 
 **Parameters:**
@@ -106,7 +158,7 @@ $response = Atlas::agent('support-agent')
 Set variables for system prompt interpolation.
 
 ```php
-public function withVariables(array $variables): static
+->withVariables(array $variables)
 ```
 
 **Parameters:**
@@ -125,7 +177,7 @@ $response = Atlas::agent('support-agent')
 Set metadata for pipeline middleware and tools.
 
 ```php
-public function withMetadata(array $metadata): static
+->withMetadata(array $metadata)
 ```
 
 **Parameters:**
@@ -144,7 +196,7 @@ $response = Atlas::agent('support-agent')
 Set schema for structured output.
 
 ```php
-public function withSchema(Schema $schema): static
+->withSchema(Schema $schema)
 ```
 
 **Parameters:**
@@ -179,12 +231,12 @@ $data = $response->structured;
 Configure retry behavior for API requests.
 
 ```php
-public function withRetry(
+->withRetry(
     array|int $times,
     Closure|int $sleepMilliseconds = 0,
     ?callable $when = null,
     bool $throw = true,
-): static
+)
 ```
 
 **Parameters:**
@@ -206,10 +258,7 @@ $response = Atlas::agent('support-agent')
 Execute the chat with the configured agent.
 
 ```php
-public function chat(
-    string $input,
-    bool $stream = false,
-): AgentResponse|StreamResponse
+->chat(string $input, bool $stream = false): AgentResponse|StreamResponse
 ```
 
 **Parameters:**
@@ -234,6 +283,8 @@ $response = Atlas::agent('support-agent')
 
 // Full configuration
 $response = Atlas::agent('support-agent')
+    ->withProvider('anthropic')
+    ->withModel('claude-3-opus')
     ->withMessages($history)
     ->withVariables(['user_name' => 'John'])
     ->withMetadata(['session_id' => 'abc'])
@@ -248,10 +299,10 @@ $response = Atlas::agent('support-agent')
 Get a fluent builder for embedding operations.
 
 ```php
-Atlas::embedding(): PendingEmbeddingRequest
+Atlas::embedding()
 ```
 
-**Returns:** `PendingEmbeddingRequest`
+**Returns:** Fluent builder for embeddings
 
 **Example:**
 
@@ -312,16 +363,16 @@ Atlas::embeddingDimensions(): int
 
 **Returns:** Number of dimensions (e.g., 1536)
 
-## PendingEmbeddingRequest
+## Embedding Builder
 
-Immutable fluent builder for embedding operations with metadata and retry support.
+Immutable fluent builder for embedding operations returned by `Atlas::embedding()`.
 
 ### withMetadata()
 
 Set metadata for pipeline middleware.
 
 ```php
-public function withMetadata(array $metadata): static
+->withMetadata(array $metadata)
 ```
 
 ### withRetry()
@@ -329,12 +380,12 @@ public function withMetadata(array $metadata): static
 Configure retry behavior.
 
 ```php
-public function withRetry(
+->withRetry(
     array|int $times,
     Closure|int $sleepMilliseconds = 0,
     ?callable $when = null,
     bool $throw = true,
-): static
+)
 ```
 
 ### generate()
@@ -342,7 +393,7 @@ public function withRetry(
 Generate embedding for a single text.
 
 ```php
-public function generate(string $text): array<int, float>
+->generate(string $text): array<int, float>
 ```
 
 ### generateBatch()
@@ -350,7 +401,7 @@ public function generate(string $text): array<int, float>
 Generate embeddings for multiple texts.
 
 ```php
-public function generateBatch(array $texts): array<int, array<int, float>>
+->generateBatch(array $texts): array<int, array<int, float>>
 ```
 
 ## Image Methods
@@ -360,14 +411,14 @@ public function generateBatch(array $texts): array<int, array<int, float>>
 Get a fluent builder for image generation.
 
 ```php
-Atlas::image(?string $provider = null, ?string $model = null): PendingImageRequest
+Atlas::image(?string $provider = null, ?string $model = null)
 ```
 
 **Parameters:**
 - `$provider` — Optional provider name
 - `$model` — Optional model name
 
-**Returns:** `PendingImageRequest`
+**Returns:** Fluent builder for images
 
 **Example:**
 
@@ -383,12 +434,14 @@ $result = Atlas::image('openai', 'dall-e-3')
     ->generate('A sunset');
 ```
 
-### PendingImageRequest Methods
+### Image Builder Methods
 
 | Method | Description |
 |--------|-------------|
-| `using(string $provider)` | Set provider |
-| `model(string $model)` | Set model |
+| `withProvider(string $provider)` | Override provider |
+| `withModel(string $model)` | Override model |
+| `using(string $provider)` | Alias for withProvider |
+| `model(string $model)` | Alias for withModel |
 | `size(string $size)` | Set image size |
 | `quality(string $quality)` | Set quality |
 | `withProviderOptions(array $options)` | Provider-specific options |
@@ -403,14 +456,14 @@ $result = Atlas::image('openai', 'dall-e-3')
 Get a fluent builder for speech operations.
 
 ```php
-Atlas::speech(?string $provider = null, ?string $model = null): PendingSpeechRequest
+Atlas::speech(?string $provider = null, ?string $model = null)
 ```
 
 **Parameters:**
 - `$provider` — Optional provider name
 - `$model` — Optional model name
 
-**Returns:** `PendingSpeechRequest`
+**Returns:** Fluent builder for speech
 
 **Example:**
 
@@ -427,12 +480,14 @@ $result = Atlas::speech()
     ->transcribe('/path/to/audio.mp3');
 ```
 
-### PendingSpeechRequest Methods
+### Speech Builder Methods
 
 | Method | Description |
 |--------|-------------|
-| `using(string $provider)` | Set provider |
-| `model(string $model)` | Set TTS model |
+| `withProvider(string $provider)` | Override provider |
+| `withModel(string $model)` | Override model |
+| `using(string $provider)` | Alias for withProvider |
+| `model(string $model)` | Alias for withModel |
 | `transcriptionModel(string $model)` | Set STT model |
 | `voice(string $voice)` | Set voice |
 | `speed(float $speed)` | Set speech speed |
@@ -449,6 +504,7 @@ $result = Atlas::speech()
 |--------|-------------|
 | `Atlas::agent($agent)` | Get chat builder for agent |
 | `Atlas::agent($agent)->chat($input)` | Simple chat |
+| `Atlas::agent($agent)->withProvider($p)->chat($input)` | Chat with provider override |
 | `Atlas::agent($agent)->withMessages($msgs)->chat($input)` | Chat with history |
 | `Atlas::agent($agent)->withSchema($schema)->chat($input)` | Structured output |
 | `Atlas::agent($agent)->chat($input, stream: true)` | Streaming response |
@@ -456,8 +512,8 @@ $result = Atlas::speech()
 | `Atlas::embed($text)` | Simple embedding |
 | `Atlas::embedBatch($texts)` | Batch embeddings |
 | `Atlas::embeddingDimensions()` | Get dimensions |
-| `Atlas::image()` | Image request builder |
-| `Atlas::speech()` | Speech request builder |
+| `Atlas::image()` | Image builder |
+| `Atlas::speech()` | Speech builder |
 
 ## Next Steps
 

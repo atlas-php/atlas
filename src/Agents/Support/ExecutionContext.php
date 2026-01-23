@@ -7,8 +7,8 @@ namespace Atlasphp\Atlas\Agents\Support;
 /**
  * Stateless execution context for agent invocation.
  *
- * Carries conversation history, variable bindings, and metadata
- * without any database or session dependencies. Consumer manages
+ * Carries conversation history, variable bindings, metadata, and provider
+ * overrides without any database or session dependencies. Consumer manages
  * all persistence.
  */
 final readonly class ExecutionContext
@@ -17,11 +17,15 @@ final readonly class ExecutionContext
      * @param  array<int, array{role: string, content: string}>  $messages  Conversation history.
      * @param  array<string, mixed>  $variables  Variables for system prompt interpolation.
      * @param  array<string, mixed>  $metadata  Additional metadata for pipeline middleware.
+     * @param  string|null  $providerOverride  Override the agent's configured provider.
+     * @param  string|null  $modelOverride  Override the agent's configured model.
      */
     public function __construct(
         public array $messages = [],
         public array $variables = [],
         public array $metadata = [],
+        public ?string $providerOverride = null,
+        public ?string $modelOverride = null,
     ) {}
 
     /**
@@ -31,7 +35,7 @@ final readonly class ExecutionContext
      */
     public function withMessages(array $messages): self
     {
-        return new self($messages, $this->variables, $this->metadata);
+        return new self($messages, $this->variables, $this->metadata, $this->providerOverride, $this->modelOverride);
     }
 
     /**
@@ -41,7 +45,7 @@ final readonly class ExecutionContext
      */
     public function withVariables(array $variables): self
     {
-        return new self($this->messages, $variables, $this->metadata);
+        return new self($this->messages, $variables, $this->metadata, $this->providerOverride, $this->modelOverride);
     }
 
     /**
@@ -51,7 +55,27 @@ final readonly class ExecutionContext
      */
     public function withMetadata(array $metadata): self
     {
-        return new self($this->messages, $this->variables, $metadata);
+        return new self($this->messages, $this->variables, $metadata, $this->providerOverride, $this->modelOverride);
+    }
+
+    /**
+     * Create a new context with the given provider override.
+     *
+     * @param  string|null  $provider  The provider name to override with.
+     */
+    public function withProviderOverride(?string $provider): self
+    {
+        return new self($this->messages, $this->variables, $this->metadata, $provider, $this->modelOverride);
+    }
+
+    /**
+     * Create a new context with the given model override.
+     *
+     * @param  string|null  $model  The model name to override with.
+     */
+    public function withModelOverride(?string $model): self
+    {
+        return new self($this->messages, $this->variables, $this->metadata, $this->providerOverride, $model);
     }
 
     /**
@@ -65,6 +89,8 @@ final readonly class ExecutionContext
             $this->messages,
             array_merge($this->variables, $variables),
             $this->metadata,
+            $this->providerOverride,
+            $this->modelOverride,
         );
     }
 
@@ -79,6 +105,8 @@ final readonly class ExecutionContext
             $this->messages,
             $this->variables,
             array_merge($this->metadata, $metadata),
+            $this->providerOverride,
+            $this->modelOverride,
         );
     }
 
@@ -126,5 +154,21 @@ final readonly class ExecutionContext
     public function hasMeta(string $key): bool
     {
         return array_key_exists($key, $this->metadata);
+    }
+
+    /**
+     * Check if provider override is set.
+     */
+    public function hasProviderOverride(): bool
+    {
+        return $this->providerOverride !== null;
+    }
+
+    /**
+     * Check if model override is set.
+     */
+    public function hasModelOverride(): bool
+    {
+        return $this->modelOverride !== null;
     }
 }

@@ -294,18 +294,22 @@ class AgentExecutor implements AgentExecutorContract
         $toolContext = new ToolContext($context->metadata);
         $tools = $this->toolBuilder->buildForAgent($agent, $toolContext);
 
+        // Use context overrides if present, otherwise fall back to agent config
+        $provider = $context->providerOverride ?? $agent->provider();
+        $model = $context->modelOverride ?? $agent->model();
+
         $request = $context->hasMessages()
             ? $this->prismBuilder->forMessages(
-                $agent->provider(),
-                $agent->model(),
+                $provider,
+                $model,
                 $this->buildMessages($context, $input),
                 $systemPrompt,
                 $tools,
                 $retry,
             )
             : $this->prismBuilder->forPrompt(
-                $agent->provider(),
-                $agent->model(),
+                $provider,
+                $model,
                 $input,
                 $systemPrompt,
                 $tools,
@@ -328,9 +332,13 @@ class AgentExecutor implements AgentExecutorContract
         Schema $schema,
         ?array $retry = null,
     ): AgentResponse {
+        // Use context overrides if present, otherwise fall back to agent config
+        $provider = $context->providerOverride ?? $agent->provider();
+        $model = $context->modelOverride ?? $agent->model();
+
         $request = $this->prismBuilder->forStructured(
-            $agent->provider(),
-            $agent->model(),
+            $provider,
+            $model,
             $schema,
             $context->hasMessages() ? $this->combineMessagesWithInput($context, $input) : $input,
             $systemPrompt,

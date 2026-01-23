@@ -376,3 +376,96 @@ test('chat accepts agent class string', function () {
 
     expect($result)->toBe($response);
 });
+
+test('withProvider returns new instance with provider', function () {
+    $result = $this->request->withProvider('anthropic');
+
+    expect($result)->not->toBe($this->request);
+    expect($result)->toBeInstanceOf(PendingAgentRequest::class);
+});
+
+test('withModel returns new instance with model', function () {
+    $result = $this->request->withModel('gpt-4');
+
+    expect($result)->not->toBe($this->request);
+    expect($result)->toBeInstanceOf(PendingAgentRequest::class);
+});
+
+test('chat passes provider override to context', function () {
+    $agent = new TestAgent;
+    $response = AgentResponse::text('Hello');
+
+    $this->agentResolver
+        ->shouldReceive('resolve')
+        ->once()
+        ->andReturn($agent);
+
+    $this->agentExecutor
+        ->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($a, $input, $context, $schema, $retry) use ($agent) {
+            return $a === $agent
+                && $input === 'Hello'
+                && $context instanceof ExecutionContext
+                && $context->providerOverride === 'anthropic'
+                && $schema === null
+                && $retry === null;
+        })
+        ->andReturn($response);
+
+    $this->request->withProvider('anthropic')->chat('Hello');
+});
+
+test('chat passes model override to context', function () {
+    $agent = new TestAgent;
+    $response = AgentResponse::text('Hello');
+
+    $this->agentResolver
+        ->shouldReceive('resolve')
+        ->once()
+        ->andReturn($agent);
+
+    $this->agentExecutor
+        ->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($a, $input, $context, $schema, $retry) use ($agent) {
+            return $a === $agent
+                && $input === 'Hello'
+                && $context instanceof ExecutionContext
+                && $context->modelOverride === 'claude-3-opus'
+                && $schema === null
+                && $retry === null;
+        })
+        ->andReturn($response);
+
+    $this->request->withModel('claude-3-opus')->chat('Hello');
+});
+
+test('chat passes both provider and model overrides to context', function () {
+    $agent = new TestAgent;
+    $response = AgentResponse::text('Hello');
+
+    $this->agentResolver
+        ->shouldReceive('resolve')
+        ->once()
+        ->andReturn($agent);
+
+    $this->agentExecutor
+        ->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($a, $input, $context, $schema, $retry) use ($agent) {
+            return $a === $agent
+                && $input === 'Hello'
+                && $context instanceof ExecutionContext
+                && $context->providerOverride === 'anthropic'
+                && $context->modelOverride === 'claude-3-opus'
+                && $schema === null
+                && $retry === null;
+        })
+        ->andReturn($response);
+
+    $this->request
+        ->withProvider('anthropic')
+        ->withModel('claude-3-opus')
+        ->chat('Hello');
+});

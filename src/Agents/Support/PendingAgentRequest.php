@@ -9,6 +9,7 @@ use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
 use Atlasphp\Atlas\Agents\Services\AgentResolver;
 use Atlasphp\Atlas\Providers\Support\HasMessagesSupport;
 use Atlasphp\Atlas\Providers\Support\HasMetadataSupport;
+use Atlasphp\Atlas\Providers\Support\HasProviderSupport;
 use Atlasphp\Atlas\Providers\Support\HasRetrySupport;
 use Atlasphp\Atlas\Providers\Support\HasSchemaSupport;
 use Atlasphp\Atlas\Providers\Support\HasVariablesSupport;
@@ -18,13 +19,14 @@ use Atlasphp\Atlas\Streaming\StreamResponse;
  * Fluent builder for agent chat operations.
  *
  * Provides a fluent API for configuring and executing chat operations
- * with messages, variables, metadata, schema, and retry support. Uses
- * immutable cloning for method chaining.
+ * with messages, variables, metadata, schema, provider/model overrides,
+ * and retry support. Uses immutable cloning for method chaining.
  */
 final class PendingAgentRequest
 {
     use HasMessagesSupport;
     use HasMetadataSupport;
+    use HasProviderSupport;
     use HasRetrySupport;
     use HasSchemaSupport;
     use HasVariablesSupport;
@@ -56,12 +58,23 @@ final class PendingAgentRequest
         $variables = $this->getVariables();
         $metadata = $this->getMetadata();
         $schema = $this->getSchema();
+        $providerOverride = $this->getProviderOverride();
+        $modelOverride = $this->getModelOverride();
 
-        $context = ($messages !== [] || $variables !== [] || $metadata !== [])
+        // Build context if any configuration is present
+        $hasConfig = $messages !== []
+            || $variables !== []
+            || $metadata !== []
+            || $providerOverride !== null
+            || $modelOverride !== null;
+
+        $context = $hasConfig
             ? new ExecutionContext(
                 messages: $messages,
                 variables: $variables,
                 metadata: $metadata,
+                providerOverride: $providerOverride,
+                modelOverride: $modelOverride,
             )
             : null;
 

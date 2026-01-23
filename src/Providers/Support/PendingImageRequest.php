@@ -15,11 +15,8 @@ use Atlasphp\Atlas\Providers\Services\ImageService;
 final class PendingImageRequest
 {
     use HasMetadataSupport;
+    use HasProviderSupport;
     use HasRetrySupport;
-
-    private ?string $provider = null;
-
-    private ?string $model = null;
 
     private ?string $size = null;
 
@@ -38,24 +35,22 @@ final class PendingImageRequest
 
     /**
      * Set the provider for image generation.
+     *
+     * Alias for withProvider() for convenience.
      */
     public function using(string $provider): static
     {
-        $clone = clone $this;
-        $clone->provider = $provider;
-
-        return $clone;
+        return $this->withProvider($provider);
     }
 
     /**
      * Set the model for image generation.
+     *
+     * Alias for withModel() for convenience.
      */
     public function model(string $model): static
     {
-        $clone = clone $this;
-        $clone->model = $model;
-
-        return $clone;
+        return $this->withModel($model);
     }
 
     /**
@@ -117,12 +112,14 @@ final class PendingImageRequest
     {
         $service = $this->imageService;
 
-        if ($this->provider !== null) {
-            $service = $service->using($this->provider);
+        $provider = $this->getProviderOverride();
+        if ($provider !== null) {
+            $service = $service->using($provider);
         }
 
-        if ($this->model !== null) {
-            $service = $service->model($this->model);
+        $model = $this->getModelOverride();
+        if ($model !== null) {
+            $service = $service->model($model);
         }
 
         if ($this->size !== null) {

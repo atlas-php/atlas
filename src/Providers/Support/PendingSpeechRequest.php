@@ -17,11 +17,8 @@ use Prism\Prism\ValueObjects\Media\Audio;
 final class PendingSpeechRequest
 {
     use HasMetadataSupport;
+    use HasProviderSupport;
     use HasRetrySupport;
-
-    private ?string $provider = null;
-
-    private ?string $model = null;
 
     private ?string $transcriptionModel = null;
 
@@ -44,24 +41,22 @@ final class PendingSpeechRequest
 
     /**
      * Set the provider for speech operations.
+     *
+     * Alias for withProvider() for convenience.
      */
     public function using(string $provider): static
     {
-        $clone = clone $this;
-        $clone->provider = $provider;
-
-        return $clone;
+        return $this->withProvider($provider);
     }
 
     /**
      * Set the model for text-to-speech operations.
+     *
+     * Alias for withModel() for convenience.
      */
     public function model(string $model): static
     {
-        $clone = clone $this;
-        $clone->model = $model;
-
-        return $clone;
+        return $this->withModel($model);
     }
 
     /**
@@ -159,12 +154,14 @@ final class PendingSpeechRequest
     {
         $service = $this->speechService;
 
-        if ($this->provider !== null) {
-            $service = $service->using($this->provider);
+        $provider = $this->getProviderOverride();
+        if ($provider !== null) {
+            $service = $service->using($provider);
         }
 
-        if ($this->model !== null) {
-            $service = $service->model($this->model);
+        $model = $this->getModelOverride();
+        if ($model !== null) {
+            $service = $service->model($model);
         }
 
         if ($this->transcriptionModel !== null) {
