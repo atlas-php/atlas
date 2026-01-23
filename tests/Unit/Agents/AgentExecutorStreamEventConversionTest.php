@@ -216,7 +216,7 @@ test('it converts CitationEvent', function () {
         source: 1,
         sourceText: 'Some text',
         sourceTitle: 'Document Title',
-        sourcePositionType: CitationSourcePositionType::PageRange,
+        sourcePositionType: CitationSourcePositionType::Page,
         sourceStartIndex: 0,
         sourceEndIndex: 100,
         additionalContent: [],
