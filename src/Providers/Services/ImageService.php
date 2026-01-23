@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Providers\Services;
 
 use Atlasphp\Atlas\Foundation\Services\PipelineRunner;
 use Atlasphp\Atlas\Providers\Contracts\PrismBuilderContract;
+use Atlasphp\Atlas\Providers\Support\ConvertsProviderExceptions;
 use Throwable;
 
 /**
@@ -15,6 +16,8 @@ use Throwable;
  */
 class ImageService
 {
+    use ConvertsProviderExceptions;
+
     public function __construct(
         private readonly PrismBuilderContract $prismBuilder,
         private readonly ProviderConfigService $configService,
@@ -105,8 +108,9 @@ class ImageService
 
             return $afterData['result'];
         } catch (Throwable $e) {
-            $this->handleError($prompt, $provider, $model, $size, $quality, $metadata, $e);
-            throw $e;
+            $converted = $this->convertPrismException($e);
+            $this->handleError($prompt, $provider, $model, $size, $quality, $metadata, $converted);
+            throw $converted;
         }
     }
 

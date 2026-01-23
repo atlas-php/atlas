@@ -7,6 +7,7 @@ namespace Atlasphp\Atlas\Providers\Services;
 use Atlasphp\Atlas\Foundation\Services\PipelineRunner;
 use Atlasphp\Atlas\Providers\Contracts\EmbeddingProviderContract;
 use Atlasphp\Atlas\Providers\Contracts\PrismBuilderContract;
+use Atlasphp\Atlas\Providers\Support\ConvertsProviderExceptions;
 use Throwable;
 
 /**
@@ -17,6 +18,8 @@ use Throwable;
  */
 class EmbeddingService
 {
+    use ConvertsProviderExceptions;
+
     public function __construct(
         private readonly EmbeddingProviderContract $provider,
         private readonly PipelineRunner $pipelineRunner,
@@ -93,8 +96,9 @@ class EmbeddingService
 
             return $afterData['result'];
         } catch (Throwable $e) {
-            $this->handleError('generate', $text, null, $provider, $model, $metadata, $e);
-            throw $e;
+            $converted = $this->convertPrismException($e);
+            $this->handleError('generate', $text, null, $provider, $model, $metadata, $converted);
+            throw $converted;
         }
     }
 
@@ -177,8 +181,9 @@ class EmbeddingService
 
             return $afterData['result'];
         } catch (Throwable $e) {
-            $this->handleError('generate_batch', null, $texts, $provider, $model, $metadata, $e);
-            throw $e;
+            $converted = $this->convertPrismException($e);
+            $this->handleError('generate_batch', null, $texts, $provider, $model, $metadata, $converted);
+            throw $converted;
         }
     }
 

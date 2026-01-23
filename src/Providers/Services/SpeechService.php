@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Providers\Services;
 
 use Atlasphp\Atlas\Foundation\Services\PipelineRunner;
 use Atlasphp\Atlas\Providers\Contracts\PrismBuilderContract;
+use Atlasphp\Atlas\Providers\Support\ConvertsProviderExceptions;
 use Prism\Prism\ValueObjects\Media\Audio;
 use RuntimeException;
 use Throwable;
@@ -17,6 +18,8 @@ use Throwable;
  */
 class SpeechService
 {
+    use ConvertsProviderExceptions;
+
     public function __construct(
         private readonly PrismBuilderContract $prismBuilder,
         private readonly ProviderConfigService $configService,
@@ -119,8 +122,9 @@ class SpeechService
 
             return $afterData['result'];
         } catch (Throwable $e) {
-            $this->handleGenerateError($text, $provider, $model, $voice, $format, $metadata, $e);
-            throw $e;
+            $converted = $this->convertPrismException($e);
+            $this->handleGenerateError($text, $provider, $model, $voice, $format, $metadata, $converted);
+            throw $converted;
         }
     }
 
@@ -198,8 +202,9 @@ class SpeechService
 
             return $afterData['result'];
         } catch (Throwable $e) {
-            $this->handleTranscribeError($audio, $provider, $model, $options, $metadata, $e);
-            throw $e;
+            $converted = $this->convertPrismException($e);
+            $this->handleTranscribeError($audio, $provider, $model, $options, $metadata, $converted);
+            throw $converted;
         }
     }
 
