@@ -10,6 +10,7 @@ use Atlasphp\Atlas\Agents\Support\PendingAgentRequest;
 use Atlasphp\Atlas\Providers\Services\AtlasManager;
 use Atlasphp\Atlas\Providers\Support\PendingEmbeddingRequest;
 use Atlasphp\Atlas\Providers\Support\PendingImageRequest;
+use Atlasphp\Atlas\Providers\Support\PendingModerationRequest;
 use Atlasphp\Atlas\Providers\Support\PendingSpeechRequest;
 use Atlasphp\Atlas\Streaming\StreamResponse;
 use Atlasphp\Atlas\Testing\AtlasFake;
@@ -22,6 +23,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static PendingEmbeddingRequest embeddings()
  * @method static PendingImageRequest image(?string $provider = null, ?string $model = null)
  * @method static PendingSpeechRequest speech(?string $provider = null, ?string $model = null)
+ * @method static PendingModerationRequest moderation(?string $provider = null, ?string $model = null)
  *
  * @see \Atlasphp\Atlas\Providers\Services\AtlasManager
  */

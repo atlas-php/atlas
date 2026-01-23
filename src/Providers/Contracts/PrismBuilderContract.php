@@ -120,4 +120,21 @@ interface PrismBuilderContract
         ?array $retry = null,
         ?StructuredMode $structuredMode = null,
     ): mixed;
+
+    /**
+     * Build a moderation request.
+     *
+     * @param  string  $provider  The provider name.
+     * @param  string  $model  The model name.
+     * @param  string|array<string>  $input  Single text or array of texts to moderate.
+     * @param  array<string, mixed>  $options  Additional options.
+     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
+     */
+    public function forModeration(
+        string $provider,
+        string $model,
+        string|array $input,
+        array $options = [],
+        ?array $retry = null,
+    ): mixed;
 }

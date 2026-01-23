@@ -100,6 +100,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Moderation Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configure the default settings for content moderation.
+    | Currently only OpenAI supports moderation. Other providers will throw
+    | an unsupported exception.
+    |
+    */
+
+    'moderation' => [
+        'provider' => env('ATLAS_MODERATION_PROVIDER', 'openai'),
+        'model' => env('ATLAS_MODERATION_MODEL', 'omni-moderation-latest'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Retry Configuration
     |--------------------------------------------------------------------------
     |

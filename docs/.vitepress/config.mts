@@ -49,6 +49,7 @@ export default defineConfig({
           { text: 'Embeddings', link: '/capabilities/embeddings' },
           { text: 'Image Generation', link: '/capabilities/images' },
           { text: 'Speech', link: '/capabilities/speech' },
+          { text: 'Moderation', link: '/capabilities/moderation' },
         ]
       },
       {

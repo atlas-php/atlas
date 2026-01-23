@@ -127,6 +127,19 @@ class ProviderConfigService
     }
 
     /**
+     * Get moderation configuration.
+     *
+     * @return array{provider: string, model: string}
+     */
+    public function getModerationConfig(): array
+    {
+        return [
+            'provider' => (string) $this->config->get('atlas.moderation.provider', 'openai'),
+            'model' => (string) $this->config->get('atlas.moderation.model', 'omni-moderation-latest'),
+        ];
+    }
+
+    /**
      * Get retry configuration as an array suitable for PrismBuilder.
      *
      * Returns null if retry is disabled, otherwise returns [times, sleepMs, when, throw].

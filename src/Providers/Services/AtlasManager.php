@@ -10,6 +10,7 @@ use Atlasphp\Atlas\Agents\Services\AgentResolver;
 use Atlasphp\Atlas\Agents\Support\PendingAgentRequest;
 use Atlasphp\Atlas\Providers\Support\PendingEmbeddingRequest;
 use Atlasphp\Atlas\Providers\Support\PendingImageRequest;
+use Atlasphp\Atlas\Providers\Support\PendingModerationRequest;
 use Atlasphp\Atlas\Providers\Support\PendingSpeechRequest;
 
 /**
@@ -28,6 +29,7 @@ class AtlasManager
         protected EmbeddingService $embeddingService,
         protected ImageService $imageService,
         protected SpeechService $speechService,
+        protected ModerationService $moderationService,
     ) {}
 
     /**
@@ -92,6 +94,28 @@ class AtlasManager
     public function speech(?string $provider = null, ?string $model = null): PendingSpeechRequest
     {
         $request = new PendingSpeechRequest($this->speechService);
+
+        if ($provider !== null) {
+            $request = $request->withProvider($provider, $model);
+        } elseif ($model !== null) {
+            $request = $request->withModel($model);
+        }
+
+        return $request;
+    }
+
+    /**
+     * Start building a moderation request with configuration.
+     *
+     * Returns a fluent builder for configuring provider, model,
+     * metadata, and retry before moderation operations.
+     *
+     * @param  string|null  $provider  Optional provider name to use.
+     * @param  string|null  $model  Optional model name to use.
+     */
+    public function moderation(?string $provider = null, ?string $model = null): PendingModerationRequest
+    {
+        $request = new PendingModerationRequest($this->moderationService);
 
         if ($provider !== null) {
             $request = $request->withProvider($provider, $model);

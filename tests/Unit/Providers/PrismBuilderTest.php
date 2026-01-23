@@ -7,6 +7,7 @@ use Prism\Prism\Audio\PendingRequest as AudioPendingRequest;
 use Prism\Prism\Embeddings\PendingRequest as EmbeddingsPendingRequest;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Images\PendingRequest as ImagePendingRequest;
+use Prism\Prism\Moderation\PendingRequest as ModerationPendingRequest;
 use Prism\Prism\ValueObjects\Media\Audio;
 
 beforeEach(function () {
@@ -800,4 +801,91 @@ test('forMessages handles mixed messages with and without attachments', function
     expect($convertedMessages[0])->toBeInstanceOf(\Prism\Prism\ValueObjects\Messages\UserMessage::class);
     expect($convertedMessages[1])->toBeInstanceOf(\Prism\Prism\ValueObjects\Messages\AssistantMessage::class);
     expect($convertedMessages[2])->toBeInstanceOf(\Prism\Prism\ValueObjects\Messages\UserMessage::class);
+});
+
+// ===========================================
+// MODERATION TESTS
+// ===========================================
+
+test('it builds moderation request for single input', function () {
+    $mockRequest = Mockery::mock(ModerationPendingRequest::class);
+    $mockRequest->shouldReceive('using')->andReturnSelf();
+    $mockRequest->shouldReceive('withInput')->with('Hello world')->once()->andReturnSelf();
+
+    Prism::shouldReceive('moderation')->andReturn($mockRequest);
+
+    $request = $this->builder->forModeration('openai', 'omni-moderation-latest', 'Hello world');
+
+    expect($request)->toBeInstanceOf(ModerationPendingRequest::class);
+});
+
+test('it builds moderation request for array input', function () {
+    $mockRequest = Mockery::mock(ModerationPendingRequest::class);
+    $mockRequest->shouldReceive('using')->andReturnSelf();
+    $mockRequest->shouldReceive('withInput')->with('Text 1')->once()->andReturnSelf();
+    $mockRequest->shouldReceive('withInput')->with('Text 2')->once()->andReturnSelf();
+    $mockRequest->shouldReceive('withInput')->with('Text 3')->once()->andReturnSelf();
+
+    Prism::shouldReceive('moderation')->andReturn($mockRequest);
+
+    $request = $this->builder->forModeration('openai', 'omni-moderation-latest', ['Text 1', 'Text 2', 'Text 3']);
+
+    expect($request)->toBeInstanceOf(ModerationPendingRequest::class);
+});
+
+test('it builds moderation request with provider options', function () {
+    $options = ['custom_option' => 'value'];
+
+    $mockRequest = Mockery::mock(ModerationPendingRequest::class);
+    $mockRequest->shouldReceive('using')->andReturnSelf();
+    $mockRequest->shouldReceive('withInput')->with('Hello world')->andReturnSelf();
+    $mockRequest->shouldReceive('withProviderOptions')->with($options)->once()->andReturnSelf();
+
+    Prism::shouldReceive('moderation')->andReturn($mockRequest);
+
+    $request = $this->builder->forModeration('openai', 'omni-moderation-latest', 'Hello world', $options);
+
+    expect($request)->toBeInstanceOf(ModerationPendingRequest::class);
+});
+
+test('it builds moderation request without provider options when empty', function () {
+    $mockRequest = Mockery::mock(ModerationPendingRequest::class);
+    $mockRequest->shouldReceive('using')->andReturnSelf();
+    $mockRequest->shouldReceive('withInput')->with('Hello world')->andReturnSelf();
+    $mockRequest->shouldNotReceive('withProviderOptions');
+
+    Prism::shouldReceive('moderation')->andReturn($mockRequest);
+
+    $request = $this->builder->forModeration('openai', 'omni-moderation-latest', 'Hello world', []);
+
+    expect($request)->toBeInstanceOf(ModerationPendingRequest::class);
+});
+
+test('forModeration passes retry to withClientRetry', function () {
+    $mockRequest = Mockery::mock(ModerationPendingRequest::class);
+    $mockRequest->shouldReceive('using')->andReturnSelf();
+    $mockRequest->shouldReceive('withInput')->with('Hello world')->andReturnSelf();
+    $mockRequest->shouldReceive('withClientRetry')
+        ->once()
+        ->with(3, 1000, null, true)
+        ->andReturnSelf();
+
+    Prism::shouldReceive('moderation')->andReturn($mockRequest);
+
+    $request = $this->builder->forModeration('openai', 'omni-moderation-latest', 'Hello world', [], [3, 1000, null, true]);
+
+    expect($request)->toBeInstanceOf(ModerationPendingRequest::class);
+});
+
+test('forModeration does not apply retry when null', function () {
+    $mockRequest = Mockery::mock(ModerationPendingRequest::class);
+    $mockRequest->shouldReceive('using')->andReturnSelf();
+    $mockRequest->shouldReceive('withInput')->with('Hello world')->andReturnSelf();
+    $mockRequest->shouldNotReceive('withClientRetry');
+
+    Prism::shouldReceive('moderation')->andReturn($mockRequest);
+
+    $request = $this->builder->forModeration('openai', 'omni-moderation-latest', 'Hello world', [], null);
+
+    expect($request)->toBeInstanceOf(ModerationPendingRequest::class);
 });

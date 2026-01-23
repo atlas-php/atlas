@@ -251,3 +251,34 @@ test('getRetryConfig uses default values when partially configured', function ()
     expect($retry[2])->toBeNull();   // when
     expect($retry[3])->toBeTrue();   // throw
 });
+
+// ===========================================
+// MODERATION CONFIG TESTS
+// ===========================================
+
+test('it returns moderation config', function () {
+    $config = new Repository([
+        'atlas' => [
+            'moderation' => [
+                'provider' => 'openai',
+                'model' => 'omni-moderation-latest',
+            ],
+        ],
+    ]);
+    $service = new ProviderConfigService($config);
+
+    expect($service->getModerationConfig())->toBe([
+        'provider' => 'openai',
+        'model' => 'omni-moderation-latest',
+    ]);
+});
+
+test('getModerationConfig returns defaults when not configured', function () {
+    $config = new Repository([]);
+    $service = new ProviderConfigService($config);
+
+    expect($service->getModerationConfig())->toBe([
+        'provider' => 'openai',
+        'model' => 'omni-moderation-latest',
+    ]);
+});
