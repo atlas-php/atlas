@@ -296,3 +296,156 @@ test('it does not support schema with streaming', function () {
 
     expect($result)->toBe($streamResponse);
 });
+
+// ===========================================
+// RETRY TESTS
+// ===========================================
+
+test('it adds retry immutably', function () {
+    $messages = [['role' => 'user', 'content' => 'Hello']];
+
+    $builder = new MessageContextBuilder($this->manager, $messages);
+    $newBuilder = $builder->withRetry(3, 1000);
+
+    // New builder should be a different instance
+    expect($newBuilder)->not->toBe($builder);
+    expect($newBuilder)->toBeInstanceOf(MessageContextBuilder::class);
+
+    // Messages should be preserved
+    expect($newBuilder->getMessages())->toBe($messages);
+});
+
+test('it chains retry with other operations', function () {
+    $messages = [['role' => 'user', 'content' => 'Hello']];
+    $variables = ['user_name' => 'John'];
+    $metadata = ['session_id' => 'abc123'];
+
+    $builder = new MessageContextBuilder($this->manager, $messages);
+    $newBuilder = $builder
+        ->withVariables($variables)
+        ->withRetry(3, 1000)
+        ->withMetadata($metadata);
+
+    expect($newBuilder->getMessages())->toBe($messages);
+    expect($newBuilder->getVariables())->toBe($variables);
+    expect($newBuilder->getMetadata())->toBe($metadata);
+});
+
+test('it passes retry to execute when chatting', function () {
+    $agent = new TestAgent;
+    $messages = [['role' => 'user', 'content' => 'Hello']];
+    $response = AgentResponse::text('Hello');
+    $retryConfig = [3, 1000, null, true];
+
+    $this->agentResolver
+        ->shouldReceive('resolve')
+        ->once()
+        ->with('test-agent')
+        ->andReturn($agent);
+
+    $this->agentExecutor
+        ->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($a, $input, $context, $schema, $retry) use ($agent, $retryConfig) {
+            return $a === $agent
+                && $input === 'Continue'
+                && $context instanceof ExecutionContext
+                && $schema === null
+                && $retry === $retryConfig;
+        })
+        ->andReturn($response);
+
+    $builder = new MessageContextBuilder($this->manager, $messages);
+    $result = $builder
+        ->withRetry(3, 1000, null, true)
+        ->chat('test-agent', 'Continue');
+
+    expect($result)->toBe($response);
+});
+
+test('it passes retry to stream when streaming', function () {
+    $agent = new TestAgent;
+    $messages = [['role' => 'user', 'content' => 'Hello']];
+    $streamResponse = Mockery::mock(\Atlasphp\Atlas\Streaming\StreamResponse::class);
+    $retryConfig = [3, 1000, null, true];
+
+    $this->agentResolver
+        ->shouldReceive('resolve')
+        ->once()
+        ->with('test-agent')
+        ->andReturn($agent);
+
+    $this->agentExecutor
+        ->shouldReceive('stream')
+        ->once()
+        ->withArgs(function ($a, $input, $context, $retry) use ($agent, $retryConfig) {
+            return $a === $agent
+                && $input === 'Continue'
+                && $context instanceof ExecutionContext
+                && $retry === $retryConfig;
+        })
+        ->andReturn($streamResponse);
+
+    $builder = new MessageContextBuilder($this->manager, $messages);
+    $result = $builder
+        ->withRetry(3, 1000, null, true)
+        ->chat('test-agent', 'Continue', stream: true);
+
+    expect($result)->toBe($streamResponse);
+});
+
+test('it accepts retry with array of delays', function () {
+    $agent = new TestAgent;
+    $messages = [['role' => 'user', 'content' => 'Hello']];
+    $response = AgentResponse::text('Hello');
+    $delays = [100, 200, 300];
+
+    $this->agentResolver
+        ->shouldReceive('resolve')
+        ->once()
+        ->with('test-agent')
+        ->andReturn($agent);
+
+    $this->agentExecutor
+        ->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($a, $input, $context, $schema, $retry) use ($delays) {
+            return $retry[0] === $delays;
+        })
+        ->andReturn($response);
+
+    $builder = new MessageContextBuilder($this->manager, $messages);
+    $result = $builder
+        ->withRetry($delays)
+        ->chat('test-agent', 'Continue');
+
+    expect($result)->toBe($response);
+});
+
+test('it accepts retry with closure for sleep', function () {
+    $agent = new TestAgent;
+    $messages = [['role' => 'user', 'content' => 'Hello']];
+    $response = AgentResponse::text('Hello');
+    $sleepFn = fn ($attempt) => $attempt * 100;
+
+    $this->agentResolver
+        ->shouldReceive('resolve')
+        ->once()
+        ->with('test-agent')
+        ->andReturn($agent);
+
+    $this->agentExecutor
+        ->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($a, $input, $context, $schema, $retry) use ($sleepFn) {
+            return $retry[0] === 3 && $retry[1] === $sleepFn;
+        })
+        ->andReturn($response);
+
+    $builder = new MessageContextBuilder($this->manager, $messages);
+    $result = $builder
+        ->withRetry(3, $sleepFn)
+        ->chat('test-agent', 'Continue');
+
+    expect($result)->toBe($response);
+});

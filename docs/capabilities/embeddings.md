@@ -250,6 +250,26 @@ CREATE TABLE documents (
 );
 ```
 
+## Retry & Resilience
+
+Enable automatic retries for embedding requests:
+
+```php
+// Simple retry: 3 attempts, 1 second delay
+$embedding = Atlas::withRetry(3, 1000)->embed('Hello world');
+
+// Batch with retry
+$embeddings = Atlas::withRetry(3, 1000)->embedBatch($texts);
+
+// Exponential backoff
+$embedding = Atlas::withRetry(3, fn($attempt) => (2 ** $attempt) * 100)
+    ->embed('Hello world');
+
+// Only retry on rate limits
+$embedding = Atlas::withRetry(3, 1000, fn($e) => $e->getCode() === 429)
+    ->embed('Hello world');
+```
+
 ## API Summary
 
 | Method | Description |
@@ -259,6 +279,7 @@ CREATE TABLE documents (
 | `Atlas::embedBatch($texts)` | Batch embeddings |
 | `Atlas::embedBatch($texts, $options)` | Batch embeddings with options |
 | `Atlas::embeddingDimensions()` | Get configured vector dimensions |
+| `Atlas::withRetry(...)->embed($text)` | Embedding with retry |
 
 ## Next Steps
 

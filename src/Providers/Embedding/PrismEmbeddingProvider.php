@@ -27,15 +27,17 @@ class PrismEmbeddingProvider implements EmbeddingProviderContract
      *
      * @param  string  $text  The text to embed.
      * @param  array<string, mixed>  $options  Additional options (dimensions, encoding_format, etc.).
+     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      * @return array<int, float> The embedding vector.
      */
-    public function generate(string $text, array $options = []): array
+    public function generate(string $text, array $options = [], ?array $retry = null): array
     {
         $request = $this->prismBuilder->forEmbeddings(
             $this->provider,
             $this->model,
             $text,
             $options,
+            $retry,
         );
 
         $response = $request->asEmbeddings();
@@ -52,9 +54,10 @@ class PrismEmbeddingProvider implements EmbeddingProviderContract
      *
      * @param  array<int, string>  $texts  The texts to embed.
      * @param  array<string, mixed>  $options  Additional options (dimensions, encoding_format, etc.).
+     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      * @return array<int, array<int, float>> Array of embedding vectors.
      */
-    public function generateBatch(array $texts, array $options = []): array
+    public function generateBatch(array $texts, array $options = [], ?array $retry = null): array
     {
         if ($texts === []) {
             return [];
@@ -69,6 +72,7 @@ class PrismEmbeddingProvider implements EmbeddingProviderContract
                 $this->model,
                 $batch,
                 $options,
+                $retry,
             );
 
             $response = $request->asEmbeddings();

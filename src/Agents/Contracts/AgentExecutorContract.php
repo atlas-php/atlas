@@ -25,12 +25,14 @@ interface AgentExecutorContract
      * @param  string  $input  The user input message.
      * @param  ExecutionContext|null  $context  Optional execution context with messages and variables.
      * @param  Schema|null  $schema  Optional schema for structured output.
+     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      */
     public function execute(
         AgentContract $agent,
         string $input,
         ?ExecutionContext $context = null,
         ?Schema $schema = null,
+        ?array $retry = null,
     ): AgentResponse;
 
     /**
@@ -39,10 +41,12 @@ interface AgentExecutorContract
      * @param  AgentContract  $agent  The agent to execute.
      * @param  string  $input  The user input message.
      * @param  ExecutionContext|null  $context  Optional execution context with messages and variables.
+     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      */
     public function stream(
         AgentContract $agent,
         string $input,
         ?ExecutionContext $context = null,
+        ?array $retry = null,
     ): StreamResponse;
 }

@@ -78,7 +78,7 @@ test('it merges provider options', function () {
         ->with('openai', 'dall-e-3', 'A sunset', Mockery::on(function ($options) {
             return isset($options['style']) && $options['style'] === 'vivid'
                 && isset($options['response_format']) && $options['response_format'] === 'url';
-        }))
+        }), null)
         ->once()
         ->andReturn($mockRequest);
 
@@ -106,7 +106,7 @@ test('it generates image with defaults', function () {
 
     $this->prismBuilder
         ->shouldReceive('forImage')
-        ->with('openai', 'dall-e-3', 'A sunset', Mockery::type('array'))
+        ->with('openai', 'dall-e-3', 'A sunset', Mockery::type('array'), null)
         ->once()
         ->andReturn($mockRequest);
 
@@ -137,7 +137,7 @@ test('it chains fluent methods', function () {
 
     $this->prismBuilder
         ->shouldReceive('forImage')
-        ->with('anthropic', 'custom-model', 'A sunset', Mockery::type('array'))
+        ->with('anthropic', 'custom-model', 'A sunset', Mockery::type('array'), null)
         ->once()
         ->andReturn($mockRequest);
 
@@ -243,7 +243,7 @@ test('it allows before_generate pipeline to modify prompt', function () {
 
     $this->prismBuilder
         ->shouldReceive('forImage')
-        ->with('openai', 'dall-e-3', 'MODIFIED: A sunset', Mockery::type('array'))
+        ->with('openai', 'dall-e-3', 'MODIFIED: A sunset', Mockery::type('array'), null)
         ->once()
         ->andReturn($mockRequest);
 
@@ -337,6 +337,147 @@ test('it includes size and quality in before_generate pipeline data', function (
 
     expect(ImageBeforeGenerateHandler::$data['size'])->toBe('1024x1024');
     expect(ImageBeforeGenerateHandler::$data['quality'])->toBe('hd');
+});
+
+// ===========================================
+// RETRY TESTS
+// ===========================================
+
+test('it returns a new instance when setting retry', function () {
+    $newService = $this->service->withRetry(3, 1000);
+
+    expect($newService)->toBeInstanceOf(ImageService::class);
+    expect($newService)->not->toBe($this->service);
+});
+
+test('it passes retry to PrismBuilder when generating', function () {
+    $mockRequest = Mockery::mock();
+
+    $mockImage = new stdClass;
+    $mockImage->url = 'https://example.com/image.png';
+    $mockImage->base64 = null;
+    $mockImage->revisedPrompt = null;
+
+    $mockResponse = new stdClass;
+    $mockResponse->images = [$mockImage];
+
+    $retryConfig = [3, 1000, null, true];
+
+    $this->prismBuilder
+        ->shouldReceive('forImage')
+        ->with('openai', 'dall-e-3', 'A sunset', Mockery::type('array'), $retryConfig)
+        ->once()
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('generate')
+        ->once()
+        ->andReturn($mockResponse);
+
+    $this->service
+        ->withRetry(3, 1000, null, true)
+        ->generate('A sunset');
+});
+
+test('it uses config retry when withRetry is not called', function () {
+    // Create service with config that has retry enabled
+    $configService = new ProviderConfigService(new Repository([
+        'atlas' => [
+            'image' => [
+                'provider' => 'openai',
+                'model' => 'dall-e-3',
+            ],
+            'retry' => [
+                'enabled' => true,
+                'times' => 2,
+                'delay_ms' => 500,
+            ],
+        ],
+    ]));
+
+    $service = new ImageService($this->prismBuilder, $configService, $this->pipelineRunner);
+
+    $mockRequest = Mockery::mock();
+    $mockImage = new stdClass;
+    $mockImage->url = 'https://example.com/image.png';
+    $mockImage->base64 = null;
+    $mockImage->revisedPrompt = null;
+
+    $mockResponse = new stdClass;
+    $mockResponse->images = [$mockImage];
+
+    $this->prismBuilder
+        ->shouldReceive('forImage')
+        ->with('openai', 'dall-e-3', 'A sunset', Mockery::type('array'), Mockery::on(function ($retry) {
+            return is_array($retry) && $retry[0] === 2 && $retry[1] === 500;
+        }))
+        ->once()
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('generate')
+        ->once()
+        ->andReturn($mockResponse);
+
+    $service->generate('A sunset');
+});
+
+test('it passes retry with closure to PrismBuilder', function () {
+    $sleepFn = fn ($attempt) => $attempt * 100;
+
+    $mockRequest = Mockery::mock();
+    $mockImage = new stdClass;
+    $mockImage->url = 'https://example.com/image.png';
+    $mockImage->base64 = null;
+    $mockImage->revisedPrompt = null;
+
+    $mockResponse = new stdClass;
+    $mockResponse->images = [$mockImage];
+
+    $this->prismBuilder
+        ->shouldReceive('forImage')
+        ->with('openai', 'dall-e-3', 'A sunset', Mockery::type('array'), Mockery::on(function ($retry) use ($sleepFn) {
+            return is_array($retry) && $retry[0] === 3 && $retry[1] === $sleepFn;
+        }))
+        ->once()
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('generate')
+        ->once()
+        ->andReturn($mockResponse);
+
+    $this->service
+        ->withRetry(3, $sleepFn)
+        ->generate('A sunset');
+});
+
+test('it passes retry with array of delays to PrismBuilder', function () {
+    $mockRequest = Mockery::mock();
+    $mockImage = new stdClass;
+    $mockImage->url = 'https://example.com/image.png';
+    $mockImage->base64 = null;
+    $mockImage->revisedPrompt = null;
+
+    $mockResponse = new stdClass;
+    $mockResponse->images = [$mockImage];
+
+    $this->prismBuilder
+        ->shouldReceive('forImage')
+        ->with('openai', 'dall-e-3', 'A sunset', Mockery::type('array'), Mockery::on(function ($retry) {
+            return is_array($retry) && $retry[0] === [100, 200, 300];
+        }))
+        ->once()
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('generate')
+        ->once()
+        ->andReturn($mockResponse);
+
+    $this->service
+        ->withRetry([100, 200, 300])
+        ->generate('A sunset');
 });
 
 // Pipeline Handler Classes for Tests

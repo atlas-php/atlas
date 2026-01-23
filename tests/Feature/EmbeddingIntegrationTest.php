@@ -10,6 +10,7 @@ use Atlasphp\Atlas\Providers\Facades\Atlas;
 use Atlasphp\Atlas\Providers\Services\AtlasManager;
 use Atlasphp\Atlas\Providers\Services\EmbeddingService;
 use Atlasphp\Atlas\Providers\Services\ImageService;
+use Atlasphp\Atlas\Providers\Services\ProviderConfigService;
 use Atlasphp\Atlas\Providers\Services\SpeechService;
 
 beforeEach(function () {
@@ -46,6 +47,7 @@ beforeEach(function () {
         return new EmbeddingService(
             $mockProvider,
             $app->make(PipelineRunner::class),
+            $app->make(ProviderConfigService::class),
         );
     });
 

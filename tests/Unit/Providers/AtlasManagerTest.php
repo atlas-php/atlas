@@ -46,7 +46,7 @@ test('it executes chat with agent key', function () {
     $this->agentExecutor
         ->shouldReceive('execute')
         ->once()
-        ->with($agent, 'Hello', null, null)
+        ->with($agent, 'Hello', null, null, null)
         ->andReturn($response);
 
     $result = $this->manager->chat('test-agent', 'Hello');
@@ -67,7 +67,7 @@ test('it executes chat with agent class', function () {
     $this->agentExecutor
         ->shouldReceive('execute')
         ->once()
-        ->with($agent, 'Hello', null, null)
+        ->with($agent, 'Hello', null, null, null)
         ->andReturn($response);
 
     $result = $this->manager->chat(TestAgent::class, 'Hello');
@@ -88,7 +88,7 @@ test('it executes chat with agent instance', function () {
     $this->agentExecutor
         ->shouldReceive('execute')
         ->once()
-        ->with($agent, 'Hello', null, null)
+        ->with($agent, 'Hello', null, null, null)
         ->andReturn($response);
 
     $result = $this->manager->chat($agent, 'Hello');
@@ -138,7 +138,7 @@ test('it executes chat with schema', function () {
     $this->agentExecutor
         ->shouldReceive('execute')
         ->once()
-        ->with($agent, 'Hello', null, $schema)
+        ->with($agent, 'Hello', null, $schema, null)
         ->andReturn($response);
 
     $result = $this->manager->chat('test-agent', 'Hello', null, $schema);
@@ -161,7 +161,7 @@ test('it generates embedding', function () {
     $this->embeddingService
         ->shouldReceive('generate')
         ->once()
-        ->with('Hello')
+        ->with('Hello', [], null)
         ->andReturn($embedding);
 
     $result = $this->manager->embed('Hello');
@@ -175,7 +175,7 @@ test('it generates batch embeddings', function () {
     $this->embeddingService
         ->shouldReceive('generateBatch')
         ->once()
-        ->with(['Hello', 'World'])
+        ->with(['Hello', 'World'], [], null)
         ->andReturn($embeddings);
 
     $result = $this->manager->embedBatch(['Hello', 'World']);
@@ -294,7 +294,7 @@ test('it executes with context', function () {
     $this->agentExecutor
         ->shouldReceive('execute')
         ->once()
-        ->with($agent, 'Continue', $context, null)
+        ->with($agent, 'Continue', $context, null, null)
         ->andReturn($response);
 
     $result = $this->manager->executeWithContext('test-agent', 'Continue', $context);
@@ -319,7 +319,7 @@ test('it executes chat with stream true calls executor stream', function () {
     $this->agentExecutor
         ->shouldReceive('stream')
         ->once()
-        ->with($agent, 'Hello', null)
+        ->with($agent, 'Hello', null, null)
         ->andReturn($streamResponse);
 
     $result = $this->manager->chat('test-agent', 'Hello', stream: true);
@@ -372,7 +372,7 @@ test('it streams with context', function () {
     $this->agentExecutor
         ->shouldReceive('stream')
         ->once()
-        ->with($agent, 'Continue', $context)
+        ->with($agent, 'Continue', $context, null)
         ->andReturn($streamResponse);
 
     $result = $this->manager->streamWithContext('test-agent', 'Continue', $context);
@@ -393,7 +393,7 @@ test('it executes chat without stream returns agent response', function () {
     $this->agentExecutor
         ->shouldReceive('execute')
         ->once()
-        ->with($agent, 'Hello', null, null)
+        ->with($agent, 'Hello', null, null, null)
         ->andReturn($response);
 
     $result = $this->manager->chat('test-agent', 'Hello', stream: false);
@@ -417,4 +417,28 @@ test('it throws exception when streaming with schema', function () {
             \InvalidArgumentException::class,
             'Streaming does not support structured output (schema). Use stream: false for structured responses.'
         );
+});
+
+// ===========================================
+// RETRY TESTS
+// ===========================================
+
+test('it returns pending atlas request when calling withRetry', function () {
+    $result = $this->manager->withRetry(3, 1000);
+
+    expect($result)->toBeInstanceOf(\Atlasphp\Atlas\Providers\Support\PendingAtlasRequest::class);
+});
+
+test('it returns pending atlas request with array of delays', function () {
+    $result = $this->manager->withRetry([100, 200, 300]);
+
+    expect($result)->toBeInstanceOf(\Atlasphp\Atlas\Providers\Support\PendingAtlasRequest::class);
+});
+
+test('it returns pending atlas request with all retry parameters', function () {
+    $whenCallback = fn ($e) => $e->getCode() === 429;
+
+    $result = $this->manager->withRetry(3, 1000, $whenCallback, false);
+
+    expect($result)->toBeInstanceOf(\Atlasphp\Atlas\Providers\Support\PendingAtlasRequest::class);
 });

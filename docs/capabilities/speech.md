@@ -282,14 +282,36 @@ For long content, consider:
 - Using lower quality for drafts
 - Caching generated audio
 
-### 3. Handle Errors
+### 3. Handle Errors with Retry
+
+Atlas provides built-in retry functionality:
+
+```php
+// Simple retry: 3 attempts, 1 second delay
+$result = Atlas::withRetry(3, 1000)
+    ->speech()
+    ->voice('nova')
+    ->speak($text);
+
+// Exponential backoff
+$result = Atlas::withRetry(3, fn($attempt) => (2 ** $attempt) * 100)
+    ->speech()
+    ->speak($text);
+
+// Only retry on rate limits
+$result = Atlas::withRetry(3, 1000, fn($e) => $e->getCode() === 429)
+    ->speech()
+    ->transcribe($audioPath);
+```
+
+Or handle manually:
 
 ```php
 try {
     $result = Atlas::speech()->speak($text);
 } catch (ProviderException $e) {
     Log::error('Speech generation failed', ['error' => $e->getMessage()]);
-    // Fallback or retry logic
+    // Fallback logic
 }
 ```
 

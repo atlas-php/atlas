@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Providers\Services;
 
 use Atlasphp\Atlas\Foundation\Services\PipelineRunner;
 use Atlasphp\Atlas\Providers\Contracts\PrismBuilderContract;
+use Atlasphp\Atlas\Providers\Support\HasRetrySupport;
 use Prism\Prism\ValueObjects\Media\Audio;
 use Throwable;
 
@@ -17,6 +18,8 @@ use Throwable;
  */
 class SpeechService
 {
+    use HasRetrySupport;
+
     private ?string $provider = null;
 
     private ?string $model = null;
@@ -169,7 +172,10 @@ class SpeechService
             // Merge with provider-specific options (provider options take precedence)
             $requestOptions = array_merge($requestOptions, $this->providerOptions);
 
-            $request = $this->prismBuilder->forSpeech($provider, $model, $text, $requestOptions);
+            // Use explicit retry config or fall back to config-based retry
+            $retry = $this->getRetryArray() ?? $this->configService->getRetryConfig();
+
+            $request = $this->prismBuilder->forSpeech($provider, $model, $text, $requestOptions, $retry);
             $response = $request->asAudio();
 
             // Extract audio content from GeneratedAudio object
@@ -259,7 +265,10 @@ class SpeechService
                 ? $audio
                 : Audio::fromLocalPath($audio);
 
-            $request = $this->prismBuilder->forTranscription($provider, $model, $audioObject, $options);
+            // Use explicit retry config or fall back to config-based retry
+            $retry = $this->getRetryArray() ?? $this->configService->getRetryConfig();
+
+            $request = $this->prismBuilder->forTranscription($provider, $model, $audioObject, $options, $retry);
             $response = $request->asText();
 
             $result = [

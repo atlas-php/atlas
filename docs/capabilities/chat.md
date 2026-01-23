@@ -190,6 +190,29 @@ class ChatController extends Controller
 }
 ```
 
+## Retry & Resilience
+
+Enable automatic retries for chat requests:
+
+```php
+// Simple retry: 3 attempts, 1 second delay
+$response = Atlas::withRetry(3, 1000)->chat('agent', 'Hello');
+
+// Exponential backoff
+$response = Atlas::withRetry(3, fn($attempt) => (2 ** $attempt) * 100)
+    ->chat('agent', 'Hello');
+
+// With multi-turn context
+$response = Atlas::withRetry(3, 1000)
+    ->forMessages($messages)
+    ->withVariables(['user_name' => 'Alice'])
+    ->chat('agent', 'Continue');
+
+// Only retry on rate limits
+$response = Atlas::withRetry(3, 1000, fn($e) => $e->getCode() === 429)
+    ->chat('agent', 'Hello');
+```
+
 ## API Summary
 
 | Method | Description |
@@ -198,6 +221,7 @@ class ChatController extends Controller
 | `Atlas::chat($agent, $input, $messages)` | Chat with history |
 | `Atlas::chat($agent, $input, null, $schema)` | Structured output |
 | `Atlas::forMessages($messages)` | Multi-turn context builder |
+| `Atlas::withRetry(...)->chat(...)` | Chat with retry |
 
 ## Next Steps
 

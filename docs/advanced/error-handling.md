@@ -150,27 +150,44 @@ $registry->register('agent.before_execute', ErrorHandlingMiddleware::class, prio
 
 ## Retry Strategies
 
-### Simple Retry
+### Built-in Retry
+
+Atlas provides automatic retry functionality via `withRetry()`:
 
 ```php
-class RetryService
-{
-    public function chat(string $agent, string $input, int $maxRetries = 3): AgentResponse
-    {
-        $lastException = null;
+// Simple: 3 attempts, 1 second delay
+Atlas::withRetry(3, 1000)->chat('agent', 'Hello');
 
-        for ($i = 0; $i < $maxRetries; $i++) {
-            try {
-                return Atlas::chat($agent, $input);
-            } catch (ProviderException $e) {
-                $lastException = $e;
-                sleep(pow(2, $i)); // Exponential backoff
-            }
-        }
+// Exponential backoff
+Atlas::withRetry(3, fn($attempt) => (2 ** $attempt) * 100)->chat('agent', 'Hello');
 
-        throw $lastException;
-    }
-}
+// Custom delays array
+Atlas::withRetry([100, 500, 2000])->chat('agent', 'Hello');
+
+// Only retry on rate limit errors
+Atlas::withRetry(3, 1000, fn($e) => $e->getCode() === 429)->chat('agent', 'Hello');
+
+// Suppress exceptions (return last response)
+$response = Atlas::withRetry(3, 1000, throw: false)->chat('agent', 'Hello');
+```
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `$times` | `int\|array` | Number of retries OR array of delays `[100, 200, 300]` |
+| `$sleepMilliseconds` | `int\|Closure` | Fixed ms OR `fn(int $attempt): int` |
+| `$when` | `?callable` | `fn(Throwable $e): bool` to control when to retry |
+| `$throw` | `bool` | Throw after all retries fail (default: `true`) |
+
+Works with all Atlas operations:
+
+```php
+Atlas::withRetry(3, 1000)->chat('agent', 'Hello');
+Atlas::withRetry(3, 1000)->embed('text');
+Atlas::withRetry(3, 1000)->embedBatch(['text1', 'text2']);
+Atlas::withRetry(3, 1000)->image()->generate('A sunset');
+Atlas::withRetry(3, 1000)->speech()->speak('Hello');
 ```
 
 ### With Circuit Breaker

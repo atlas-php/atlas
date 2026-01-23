@@ -9,6 +9,7 @@ use Atlasphp\Atlas\Agents\Support\ExecutionContext;
 use Atlasphp\Atlas\Foundation\Services\PipelineRegistry;
 use Atlasphp\Atlas\Foundation\Services\PipelineRunner;
 use Atlasphp\Atlas\Providers\Contracts\PrismBuilderContract;
+use Atlasphp\Atlas\Providers\Services\ProviderConfigService;
 use Atlasphp\Atlas\Providers\Services\UsageExtractorRegistry;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
 use Atlasphp\Atlas\Tools\Services\ToolBuilder;
@@ -30,6 +31,10 @@ beforeEach(function () {
     $toolExecutor = new ToolExecutor($this->runner);
     $this->toolBuilder = new ToolBuilder($toolRegistry, $toolExecutor, $this->container);
     $this->usageExtractor = new UsageExtractorRegistry;
+
+    // Create mock for ProviderConfigService
+    $this->configService = Mockery::mock(ProviderConfigService::class);
+    $this->configService->shouldReceive('getRetryConfig')->andReturn(null);
 });
 
 afterEach(function () {
@@ -43,6 +48,7 @@ test('it creates executor with dependencies', function () {
         $this->systemPromptBuilder,
         $this->runner,
         $this->usageExtractor,
+        $this->configService,
     );
 
     expect($executor)->toBeInstanceOf(AgentExecutor::class);
@@ -86,6 +92,7 @@ test('it creates default context when none provided', function () {
         $this->systemPromptBuilder,
         $this->runner,
         $this->usageExtractor,
+        $this->configService,
     );
 
     $agent = new TestAgent;
@@ -130,6 +137,7 @@ test('it uses provided context', function () {
         $this->systemPromptBuilder,
         $this->runner,
         $this->usageExtractor,
+        $this->configService,
     );
 
     $context = new ExecutionContext(
@@ -178,6 +186,7 @@ test('it uses forMessages when context has messages', function () {
         $this->systemPromptBuilder,
         $this->runner,
         $this->usageExtractor,
+        $this->configService,
     );
 
     $context = new ExecutionContext(
@@ -226,6 +235,7 @@ test('it extracts text from response', function () {
         $this->systemPromptBuilder,
         $this->runner,
         $this->usageExtractor,
+        $this->configService,
     );
 
     $agent = new TestAgent;
@@ -270,6 +280,7 @@ test('it applies agent settings to request', function () {
         $this->systemPromptBuilder,
         $this->runner,
         $this->usageExtractor,
+        $this->configService,
     );
 
     $agent = new TestAgent;
@@ -314,6 +325,7 @@ test('it builds structured response when schema provided', function () {
         $this->systemPromptBuilder,
         $this->runner,
         $this->usageExtractor,
+        $this->configService,
     );
 
     $agent = new TestAgent;
@@ -386,6 +398,7 @@ test('it converts provider tools strings to ProviderTool objects', function () {
         $this->systemPromptBuilder,
         $this->runner,
         $this->usageExtractor,
+        $this->configService,
     );
 
     $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithProviderTools;
@@ -464,6 +477,7 @@ test('it extracts tool calls from response steps', function () {
         $this->systemPromptBuilder,
         $this->runner,
         $this->usageExtractor,
+        $this->configService,
     );
 
     $agent = new TestAgent;
@@ -538,6 +552,7 @@ test('it extracts tool calls without results from steps', function () {
         $this->systemPromptBuilder,
         $this->runner,
         $this->usageExtractor,
+        $this->configService,
     );
 
     $agent = new TestAgent;
@@ -597,6 +612,7 @@ test('it falls back to direct toolCalls when no steps present', function () {
         $this->systemPromptBuilder,
         $this->runner,
         $this->usageExtractor,
+        $this->configService,
     );
 
     $agent = new TestAgent;
@@ -629,6 +645,8 @@ test('it runs agent.on_error pipeline when execution fails', function () {
     $toolExecutor = new ToolExecutor($runner);
     $toolBuilder = new ToolBuilder($toolRegistry, $toolExecutor, $container);
     $usageExtractor = new UsageExtractorRegistry;
+    $configService = Mockery::mock(ProviderConfigService::class);
+    $configService->shouldReceive('getRetryConfig')->andReturn(null);
 
     $executor = new AgentExecutor(
         $prismBuilder,
@@ -636,6 +654,7 @@ test('it runs agent.on_error pipeline when execution fails', function () {
         $systemPromptBuilder,
         $runner,
         $usageExtractor,
+        $configService,
     );
 
     $agent = new TestAgent;
@@ -697,6 +716,8 @@ test('it includes system_prompt in after_execute pipeline data', function () {
     $toolExecutor = new ToolExecutor($runner);
     $toolBuilder = new ToolBuilder($toolRegistry, $toolExecutor, $container);
     $usageExtractor = new UsageExtractorRegistry;
+    $configService = Mockery::mock(ProviderConfigService::class);
+    $configService->shouldReceive('getRetryConfig')->andReturn(null);
 
     $executor = new AgentExecutor(
         $prismBuilder,
@@ -704,6 +725,7 @@ test('it includes system_prompt in after_execute pipeline data', function () {
         $systemPromptBuilder,
         $runner,
         $usageExtractor,
+        $configService,
     );
 
     $agent = new TestAgent;
@@ -784,6 +806,7 @@ test('it extracts tool call id from response steps', function () {
         $this->systemPromptBuilder,
         $this->runner,
         $this->usageExtractor,
+        $this->configService,
     );
 
     $agent = new TestAgent;
@@ -856,6 +879,7 @@ test('it extracts null id when tool call has no id', function () {
         $this->systemPromptBuilder,
         $this->runner,
         $this->usageExtractor,
+        $this->configService,
     );
 
     $agent = new TestAgent;
@@ -880,6 +904,7 @@ test('it preserves original exception in AgentException', function () {
         $this->systemPromptBuilder,
         $this->runner,
         $this->usageExtractor,
+        $this->configService,
     );
 
     $agent = new TestAgent;
@@ -919,6 +944,8 @@ test('it rethrows AgentException without wrapping', function () {
     $toolExecutor = new ToolExecutor($runner);
     $toolBuilder = new ToolBuilder($toolRegistry, $toolExecutor, $container);
     $usageExtractor = new UsageExtractorRegistry;
+    $configService = Mockery::mock(ProviderConfigService::class);
+    $configService->shouldReceive('getRetryConfig')->andReturn(null);
 
     $executor = new AgentExecutor(
         $prismBuilder,
@@ -926,6 +953,7 @@ test('it rethrows AgentException without wrapping', function () {
         $systemPromptBuilder,
         $runner,
         $usageExtractor,
+        $configService,
     );
 
     $agent = new TestAgent;
@@ -989,6 +1017,7 @@ test('it combines messages with input for structured requests', function () {
         $this->systemPromptBuilder,
         $this->runner,
         $this->usageExtractor,
+        $this->configService,
     );
 
     $context = new ExecutionContext(
@@ -1051,6 +1080,7 @@ test('stream returns StreamResponse', function () {
         $this->systemPromptBuilder,
         $this->runner,
         $this->usageExtractor,
+        $this->configService,
     );
 
     $agent = new TestAgent;
@@ -1108,6 +1138,7 @@ test('stream generates text delta events', function () {
         $this->systemPromptBuilder,
         $this->runner,
         $this->usageExtractor,
+        $this->configService,
     );
 
     $agent = new TestAgent;
@@ -1174,6 +1205,8 @@ test('stream runs stream.on_event pipeline for each event', function () {
     $toolExecutor = new ToolExecutor($runner);
     $toolBuilder = new ToolBuilder($toolRegistry, $toolExecutor, $container);
     $usageExtractor = new UsageExtractorRegistry;
+    $configService = Mockery::mock(ProviderConfigService::class);
+    $configService->shouldReceive('getRetryConfig')->andReturn(null);
 
     $executor = new AgentExecutor(
         $prismBuilder,
@@ -1181,6 +1214,7 @@ test('stream runs stream.on_event pipeline for each event', function () {
         $systemPromptBuilder,
         $runner,
         $usageExtractor,
+        $configService,
     );
 
     $agent = new TestAgent;
@@ -1234,6 +1268,8 @@ test('stream runs stream.after_complete pipeline when stream ends', function () 
     $toolExecutor = new ToolExecutor($runner);
     $toolBuilder = new ToolBuilder($toolRegistry, $toolExecutor, $container);
     $usageExtractor = new UsageExtractorRegistry;
+    $configService = Mockery::mock(ProviderConfigService::class);
+    $configService->shouldReceive('getRetryConfig')->andReturn(null);
 
     $executor = new AgentExecutor(
         $prismBuilder,
@@ -1241,6 +1277,7 @@ test('stream runs stream.after_complete pipeline when stream ends', function () 
         $systemPromptBuilder,
         $runner,
         $usageExtractor,
+        $configService,
     );
 
     $agent = new TestAgent;
@@ -1273,6 +1310,8 @@ test('stream runs agent.on_error pipeline when execution fails', function () {
     $toolExecutor = new ToolExecutor($runner);
     $toolBuilder = new ToolBuilder($toolRegistry, $toolExecutor, $container);
     $usageExtractor = new UsageExtractorRegistry;
+    $configService = Mockery::mock(ProviderConfigService::class);
+    $configService->shouldReceive('getRetryConfig')->andReturn(null);
 
     $executor = new AgentExecutor(
         $prismBuilder,
@@ -1280,6 +1319,7 @@ test('stream runs agent.on_error pipeline when execution fails', function () {
         $systemPromptBuilder,
         $runner,
         $usageExtractor,
+        $configService,
     );
 
     $agent = new TestAgent;
@@ -1316,6 +1356,7 @@ test('stream yields error event when execution fails', function () {
         $this->systemPromptBuilder,
         $this->runner,
         $this->usageExtractor,
+        $this->configService,
     );
 
     $agent = new TestAgent;
@@ -1371,6 +1412,7 @@ test('stream uses forMessages when context has messages', function () {
         $this->systemPromptBuilder,
         $this->runner,
         $this->usageExtractor,
+        $this->configService,
     );
 
     $context = new ExecutionContext(
@@ -1453,6 +1495,7 @@ test('stream converts tool call events', function () {
         $this->systemPromptBuilder,
         $this->runner,
         $this->usageExtractor,
+        $this->configService,
     );
 
     $agent = new TestAgent;
@@ -1515,6 +1558,7 @@ test('stream converts stream start event', function () {
         $this->systemPromptBuilder,
         $this->runner,
         $this->usageExtractor,
+        $this->configService,
     );
 
     $agent = new TestAgent;
@@ -1561,6 +1605,7 @@ test('stream extracts usage from stream end event', function () {
         $this->systemPromptBuilder,
         $this->runner,
         $this->usageExtractor,
+        $this->configService,
     );
 
     $agent = new TestAgent;
@@ -1609,6 +1654,7 @@ test('stream returns empty usage when stream end event has null usage', function
         $this->systemPromptBuilder,
         $this->runner,
         $this->usageExtractor,
+        $this->configService,
     );
 
     $agent = new TestAgent;
@@ -1667,6 +1713,7 @@ test('stream converts Prism error event to Atlas error event', function () {
         $this->systemPromptBuilder,
         $this->runner,
         $this->usageExtractor,
+        $this->configService,
     );
 
     $agent = new TestAgent;
@@ -1718,6 +1765,7 @@ test('it throws InvalidArgumentException for provider tool array without type ke
         $this->systemPromptBuilder,
         $this->runner,
         $this->usageExtractor,
+        $this->configService,
     );
 
     $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithInvalidProviderTools;
@@ -1803,6 +1851,7 @@ test('it passes through ProviderTool instances unchanged', function () {
         $this->systemPromptBuilder,
         $this->runner,
         $this->usageExtractor,
+        $this->configService,
     );
 
     $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithProviderToolInstances;

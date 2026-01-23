@@ -112,6 +112,7 @@ class AtlasServiceProvider extends ServiceProvider
             return new EmbeddingService(
                 $app->make(EmbeddingProviderContract::class),
                 $app->make(PipelineRunner::class),
+                $app->make(ProviderConfigService::class),
             );
         });
 
@@ -314,6 +315,7 @@ class AtlasServiceProvider extends ServiceProvider
                 $app->make(SystemPromptBuilder::class),
                 $app->make(PipelineRunner::class),
                 $app->make(UsageExtractorRegistry::class),
+                $app->make(ProviderConfigService::class),
             );
         });
 

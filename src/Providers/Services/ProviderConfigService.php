@@ -125,4 +125,30 @@ class ProviderConfigService
             'transcription_model' => (string) $this->config->get('atlas.speech.transcription_model', 'whisper-1'),
         ];
     }
+
+    /**
+     * Get retry configuration as an array suitable for PrismBuilder.
+     *
+     * Returns null if retry is disabled, otherwise returns [times, sleepMs, when, throw].
+     *
+     * @return array{0: int, 1: \Closure|int, 2: null, 3: bool}|null
+     */
+    public function getRetryConfig(): ?array
+    {
+        $enabled = (bool) $this->config->get('atlas.retry.enabled', false);
+
+        if (! $enabled) {
+            return null;
+        }
+
+        $times = (int) $this->config->get('atlas.retry.times', 3);
+        $strategy = (string) $this->config->get('atlas.retry.strategy', 'fixed');
+        $delayMs = (int) $this->config->get('atlas.retry.delay_ms', 1000);
+
+        $sleep = $strategy === 'exponential'
+            ? fn (int $attempt): int => (int) ($delayMs * (2 ** ($attempt - 1)))
+            : $delayMs;
+
+        return [$times, $sleep, null, true];
+    }
 }

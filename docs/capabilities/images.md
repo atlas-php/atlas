@@ -179,6 +179,28 @@ class ImageGeneratorController extends Controller
 }
 ```
 
+## Retry & Resilience
+
+Enable automatic retries for image generation:
+
+```php
+// Simple retry: 3 attempts, 1 second delay
+$result = Atlas::withRetry(3, 1000)
+    ->image()
+    ->generate('A sunset over mountains');
+
+// Exponential backoff
+$result = Atlas::withRetry(3, fn($attempt) => (2 ** $attempt) * 100)
+    ->image()
+    ->size('1024x1024')
+    ->generate('A sunset');
+
+// Only retry on rate limits
+$result = Atlas::withRetry(3, 1000, fn($e) => $e->getCode() === 429)
+    ->image('openai', 'dall-e-3')
+    ->generate('A landscape');
+```
+
 ## Error Handling
 
 ```php

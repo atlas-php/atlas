@@ -22,8 +22,9 @@ interface PrismBuilderContract
      * @param  string  $model  The model name.
      * @param  string|array<string>  $input  Single text or array of texts.
      * @param  array<string, mixed>  $options  Additional options (dimensions, encoding_format, etc.).
+     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      */
-    public function forEmbeddings(string $provider, string $model, string|array $input, array $options = []): mixed;
+    public function forEmbeddings(string $provider, string $model, string|array $input, array $options = [], ?array $retry = null): mixed;
 
     /**
      * Build an image generation request.
@@ -32,8 +33,9 @@ interface PrismBuilderContract
      * @param  string  $model  The model name.
      * @param  string  $prompt  The image prompt.
      * @param  array<string, mixed>  $options  Additional options.
+     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      */
-    public function forImage(string $provider, string $model, string $prompt, array $options = []): mixed;
+    public function forImage(string $provider, string $model, string $prompt, array $options = [], ?array $retry = null): mixed;
 
     /**
      * Build a text-to-speech request.
@@ -42,8 +44,9 @@ interface PrismBuilderContract
      * @param  string  $model  The model name.
      * @param  string  $text  The text to convert.
      * @param  array<string, mixed>  $options  Additional options.
+     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      */
-    public function forSpeech(string $provider, string $model, string $text, array $options = []): mixed;
+    public function forSpeech(string $provider, string $model, string $text, array $options = [], ?array $retry = null): mixed;
 
     /**
      * Build a speech-to-text (transcription) request.
@@ -52,8 +55,9 @@ interface PrismBuilderContract
      * @param  string  $model  The model name.
      * @param  Audio  $audio  The audio to transcribe.
      * @param  array<string, mixed>  $options  Additional options.
+     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      */
-    public function forTranscription(string $provider, string $model, Audio $audio, array $options = []): mixed;
+    public function forTranscription(string $provider, string $model, Audio $audio, array $options = [], ?array $retry = null): mixed;
 
     /**
      * Build a text request for a single prompt.
@@ -63,6 +67,7 @@ interface PrismBuilderContract
      * @param  string  $input  The user input.
      * @param  string  $systemPrompt  The system prompt.
      * @param  array<int, mixed>  $tools  Optional tools.
+     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      */
     public function forPrompt(
         string $provider,
@@ -70,6 +75,7 @@ interface PrismBuilderContract
         string $input,
         string $systemPrompt,
         array $tools = [],
+        ?array $retry = null,
     ): mixed;
 
     /**
@@ -80,6 +86,7 @@ interface PrismBuilderContract
      * @param  array<int, array{role: string, content: string}>  $messages  The conversation messages.
      * @param  string  $systemPrompt  The system prompt.
      * @param  array<int, mixed>  $tools  Optional tools.
+     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      */
     public function forMessages(
         string $provider,
@@ -87,6 +94,7 @@ interface PrismBuilderContract
         array $messages,
         string $systemPrompt,
         array $tools = [],
+        ?array $retry = null,
     ): mixed;
 
     /**
@@ -97,6 +105,7 @@ interface PrismBuilderContract
      * @param  Schema  $schema  The output schema.
      * @param  string  $input  The user input.
      * @param  string  $systemPrompt  The system prompt.
+     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      */
     public function forStructured(
         string $provider,
@@ -104,5 +113,6 @@ interface PrismBuilderContract
         Schema $schema,
         string $input,
         string $systemPrompt,
+        ?array $retry = null,
     ): mixed;
 }

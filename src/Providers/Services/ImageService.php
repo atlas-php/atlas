@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Providers\Services;
 
 use Atlasphp\Atlas\Foundation\Services\PipelineRunner;
 use Atlasphp\Atlas\Providers\Contracts\PrismBuilderContract;
+use Atlasphp\Atlas\Providers\Support\HasRetrySupport;
 use Throwable;
 
 /**
@@ -16,6 +17,8 @@ use Throwable;
  */
 class ImageService
 {
+    use HasRetrySupport;
+
     private ?string $provider = null;
 
     private ?string $model = null;
@@ -140,7 +143,10 @@ class ImageService
             // Merge with provider-specific options (provider options take precedence)
             $requestOptions = array_merge($requestOptions, $this->providerOptions);
 
-            $request = $this->prismBuilder->forImage($provider, $model, $prompt, $requestOptions);
+            // Use explicit retry config or fall back to config-based retry
+            $retry = $this->getRetryArray() ?? $this->configService->getRetryConfig();
+
+            $request = $this->prismBuilder->forImage($provider, $model, $prompt, $requestOptions, $retry);
             $response = $request->generate();
 
             // Prism returns images in an array - safely access the property

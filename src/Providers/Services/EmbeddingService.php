@@ -19,6 +19,7 @@ class EmbeddingService
     public function __construct(
         private readonly EmbeddingProviderContract $provider,
         private readonly PipelineRunner $pipelineRunner,
+        private readonly ProviderConfigService $configService,
     ) {}
 
     /**
@@ -26,9 +27,10 @@ class EmbeddingService
      *
      * @param  string  $text  The text to embed.
      * @param  array<string, mixed>  $options  Additional options (dimensions, encoding_format, etc.).
+     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      * @return array<int, float>
      */
-    public function generate(string $text, array $options = []): array
+    public function generate(string $text, array $options = [], ?array $retry = null): array
     {
         $provider = $this->provider->provider();
         $model = $this->provider->model();
@@ -51,8 +53,11 @@ class EmbeddingService
             $text = $beforeData['text'];
             $options = $beforeData['options'];
 
+            // Use explicit retry config or fall back to config-based retry
+            $retry = $retry ?? $this->configService->getRetryConfig();
+
             // Generate embedding
-            $result = $this->provider->generate($text, $options);
+            $result = $this->provider->generate($text, $options, $retry);
 
             // Run after_generate pipeline
             $afterData = [
@@ -81,9 +86,10 @@ class EmbeddingService
      *
      * @param  array<string>  $texts  The texts to embed.
      * @param  array<string, mixed>  $options  Additional options (dimensions, encoding_format, etc.).
+     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      * @return array<int, array<int, float>>
      */
-    public function generateBatch(array $texts, array $options = []): array
+    public function generateBatch(array $texts, array $options = [], ?array $retry = null): array
     {
         $provider = $this->provider->provider();
         $model = $this->provider->model();
@@ -106,8 +112,11 @@ class EmbeddingService
             $texts = $beforeData['texts'];
             $options = $beforeData['options'];
 
+            // Use explicit retry config or fall back to config-based retry
+            $retry = $retry ?? $this->configService->getRetryConfig();
+
             // Generate embeddings
-            $result = $this->provider->generateBatch($texts, $options);
+            $result = $this->provider->generateBatch($texts, $options, $retry);
 
             // Run after_generate_batch pipeline
             $afterData = [

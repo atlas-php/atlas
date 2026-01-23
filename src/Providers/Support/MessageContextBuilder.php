@@ -9,6 +9,7 @@ use Atlasphp\Atlas\Agents\Support\AgentResponse;
 use Atlasphp\Atlas\Agents\Support\ExecutionContext;
 use Atlasphp\Atlas\Providers\Services\AtlasManager;
 use Atlasphp\Atlas\Streaming\StreamResponse;
+use Closure;
 use Prism\Prism\Contracts\Schema;
 
 /**
@@ -25,12 +26,14 @@ final readonly class MessageContextBuilder
      * @param  array<int, array{role: string, content: string}>  $messages  Conversation history.
      * @param  array<string, mixed>  $variables  Variables for system prompt interpolation.
      * @param  array<string, mixed>  $metadata  Additional metadata for pipeline middleware.
+     * @param  array{0: array<int, int>|int, 1: Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      */
     public function __construct(
         private AtlasManager $manager,
         private array $messages = [],
         private array $variables = [],
         private array $metadata = [],
+        private ?array $retry = null,
     ) {}
 
     /**
@@ -47,6 +50,7 @@ final readonly class MessageContextBuilder
             $this->messages,
             $variables,
             $this->metadata,
+            $this->retry,
         );
     }
 
@@ -64,6 +68,30 @@ final readonly class MessageContextBuilder
             $this->messages,
             $this->variables,
             $metadata,
+            $this->retry,
+        );
+    }
+
+    /**
+     * Configure retry behavior for API requests.
+     *
+     * @param  array<int, int>|int  $times  Number of attempts OR array of delays [100, 200, 300].
+     * @param  Closure|int  $sleepMilliseconds  Fixed ms OR fn(int $attempt, Throwable $e): int for dynamic.
+     * @param  callable|null  $when  fn(Throwable $e, PendingRequest $req): bool to control retry conditions.
+     * @param  bool  $throw  Whether to throw after all retries fail.
+     */
+    public function withRetry(
+        array|int $times,
+        Closure|int $sleepMilliseconds = 0,
+        ?callable $when = null,
+        bool $throw = true,
+    ): self {
+        return new self(
+            $this->manager,
+            $this->messages,
+            $this->variables,
+            $this->metadata,
+            [$times, $sleepMilliseconds, $when, $throw],
         );
     }
 
@@ -91,10 +119,10 @@ final readonly class MessageContextBuilder
         );
 
         if ($stream) {
-            return $this->manager->streamWithContext($agent, $input, $context);
+            return $this->manager->streamWithContext($agent, $input, $context, $this->retry);
         }
 
-        return $this->manager->executeWithContext($agent, $input, $context, $schema);
+        return $this->manager->executeWithContext($agent, $input, $context, $schema, $this->retry);
     }
 
     /**

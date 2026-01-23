@@ -94,4 +94,27 @@ return [
         'transcription_model' => env('ATLAS_TRANSCRIPTION_MODEL', 'whisper-1'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Retry Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configure automatic retry behavior for API requests. When enabled,
+    | Atlas will automatically retry failed requests using the specified
+    | strategy. This applies to all operations (chat, embeddings, images,
+    | speech) unless overridden with withRetry().
+    |
+    | Supported strategies: 'fixed', 'exponential'
+    | - fixed: Wait the same delay between each retry
+    | - exponential: Double the delay after each retry (base_delay * 2^attempt)
+    |
+    */
+
+    'retry' => [
+        'enabled' => env('ATLAS_RETRY_ENABLED', false),
+        'times' => (int) env('ATLAS_RETRY_TIMES', 3),
+        'strategy' => env('ATLAS_RETRY_STRATEGY', 'fixed'),  // 'fixed' or 'exponential'
+        'delay_ms' => (int) env('ATLAS_RETRY_DELAY_MS', 1000),
+    ],
+
 ];

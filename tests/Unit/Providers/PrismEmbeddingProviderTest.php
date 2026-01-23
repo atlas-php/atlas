@@ -35,7 +35,7 @@ test('it generates embedding for single text', function () {
 
     $this->prismBuilder
         ->shouldReceive('forEmbeddings')
-        ->with('openai', 'text-embedding-3-small', 'Hello world', [])
+        ->with('openai', 'text-embedding-3-small', 'Hello world', [], null)
         ->once()
         ->andReturn($request);
 
@@ -62,7 +62,7 @@ test('it generates embedding with options', function () {
 
     $this->prismBuilder
         ->shouldReceive('forEmbeddings')
-        ->with('openai', 'text-embedding-3-small', 'Hello world', $options)
+        ->with('openai', 'text-embedding-3-small', 'Hello world', $options, null)
         ->once()
         ->andReturn($request);
 
@@ -86,7 +86,7 @@ test('it returns empty array when no embeddings in response', function () {
 
     $this->prismBuilder
         ->shouldReceive('forEmbeddings')
-        ->with('openai', 'text-embedding-3-small', 'Hello world', [])
+        ->with('openai', 'text-embedding-3-small', 'Hello world', [], null)
         ->once()
         ->andReturn($request);
 
@@ -115,7 +115,7 @@ test('it generates batch embeddings for multiple texts', function () {
 
     $this->prismBuilder
         ->shouldReceive('forEmbeddings')
-        ->with('openai', 'text-embedding-3-small', ['text 1', 'text 2'], [])
+        ->with('openai', 'text-embedding-3-small', ['text 1', 'text 2'], [], null)
         ->once()
         ->andReturn($request);
 
@@ -155,7 +155,7 @@ test('it generates batch embeddings with options', function () {
 
     $this->prismBuilder
         ->shouldReceive('forEmbeddings')
-        ->with('openai', 'text-embedding-3-small', ['text 1', 'text 2'], $options)
+        ->with('openai', 'text-embedding-3-small', ['text 1', 'text 2'], $options, null)
         ->once()
         ->andReturn($request);
 
@@ -193,13 +193,13 @@ test('it batches large inputs according to batch size', function () {
 
     $this->prismBuilder
         ->shouldReceive('forEmbeddings')
-        ->with('openai', 'text-embedding-3-small', ['text 1', 'text 2'], [])
+        ->with('openai', 'text-embedding-3-small', ['text 1', 'text 2'], [], null)
         ->once()
         ->andReturn($request1);
 
     $this->prismBuilder
         ->shouldReceive('forEmbeddings')
-        ->with('openai', 'text-embedding-3-small', ['text 3'], [])
+        ->with('openai', 'text-embedding-3-small', ['text 3'], [], null)
         ->once()
         ->andReturn($request2);
 
@@ -255,7 +255,7 @@ test('it works with different providers', function () {
 
     $this->prismBuilder
         ->shouldReceive('forEmbeddings')
-        ->with('anthropic', 'voyage-3', 'Hello world', [])
+        ->with('anthropic', 'voyage-3', 'Hello world', [], null)
         ->once()
         ->andReturn($request);
 

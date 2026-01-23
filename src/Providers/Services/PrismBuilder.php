@@ -33,12 +33,14 @@ class PrismBuilder implements PrismBuilderContract
      * @param  string  $model  The model name.
      * @param  string|array<string>  $input  Single text or array of texts.
      * @param  array<string, mixed>  $options  Additional options (dimensions, encoding_format, etc.).
+     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      */
     public function forEmbeddings(
         string $provider,
         string $model,
         string|array $input,
         array $options = [],
+        ?array $retry = null,
     ): EmbeddingsPendingRequest {
         $request = Prism::embeddings()
             ->using($this->mapProvider($provider), $model);
@@ -53,7 +55,7 @@ class PrismBuilder implements PrismBuilderContract
             $request = $request->withProviderOptions($options);
         }
 
-        return $request;
+        return $this->applyRetry($request, $retry);
     }
 
     /**
@@ -63,12 +65,14 @@ class PrismBuilder implements PrismBuilderContract
      * @param  string  $model  The model name.
      * @param  string  $prompt  The image prompt.
      * @param  array<string, mixed>  $options  Additional options (size, quality, style, etc.).
+     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      */
     public function forImage(
         string $provider,
         string $model,
         string $prompt,
         array $options = [],
+        ?array $retry = null,
     ): ImagePendingRequest {
         $request = Prism::image()
             ->using($this->mapProvider($provider), $model)
@@ -78,7 +82,7 @@ class PrismBuilder implements PrismBuilderContract
             $request = $request->withProviderOptions($options);
         }
 
-        return $request;
+        return $this->applyRetry($request, $retry);
     }
 
     /**
@@ -88,12 +92,14 @@ class PrismBuilder implements PrismBuilderContract
      * @param  string  $model  The model name.
      * @param  string  $text  The text to convert.
      * @param  array<string, mixed>  $options  Additional options (voice, speed, language, etc.).
+     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      */
     public function forSpeech(
         string $provider,
         string $model,
         string $text,
         array $options = [],
+        ?array $retry = null,
     ): AudioPendingRequest {
         $request = Prism::audio()
             ->using($this->mapProvider($provider), $model)
@@ -110,7 +116,7 @@ class PrismBuilder implements PrismBuilderContract
             $request = $request->withProviderOptions($options);
         }
 
-        return $request;
+        return $this->applyRetry($request, $retry);
     }
 
     /**
@@ -120,12 +126,14 @@ class PrismBuilder implements PrismBuilderContract
      * @param  string  $model  The model name.
      * @param  Audio  $audio  The audio to transcribe.
      * @param  array<string, mixed>  $options  Additional options (language, prompt, etc.).
+     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      */
     public function forTranscription(
         string $provider,
         string $model,
         Audio $audio,
         array $options = [],
+        ?array $retry = null,
     ): AudioPendingRequest {
         $request = Prism::audio()
             ->using($this->mapProvider($provider), $model)
@@ -135,7 +143,7 @@ class PrismBuilder implements PrismBuilderContract
             $request = $request->withProviderOptions($options);
         }
 
-        return $request;
+        return $this->applyRetry($request, $retry);
     }
 
     /**
@@ -146,6 +154,7 @@ class PrismBuilder implements PrismBuilderContract
      * @param  string  $input  The user input.
      * @param  string  $systemPrompt  The system prompt.
      * @param  array<int, mixed>  $tools  Optional tools.
+     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      */
     public function forPrompt(
         string $provider,
@@ -153,6 +162,7 @@ class PrismBuilder implements PrismBuilderContract
         string $input,
         string $systemPrompt,
         array $tools = [],
+        ?array $retry = null,
     ): TextPendingRequest {
         $request = Prism::text()
             ->using($this->mapProvider($provider), $model)
@@ -163,7 +173,7 @@ class PrismBuilder implements PrismBuilderContract
             $request = $request->withTools($tools);
         }
 
-        return $request;
+        return $this->applyRetry($request, $retry);
     }
 
     /**
@@ -174,6 +184,7 @@ class PrismBuilder implements PrismBuilderContract
      * @param  array<int, array{role: string, content: string}>  $messages  The conversation messages.
      * @param  string  $systemPrompt  The system prompt.
      * @param  array<int, mixed>  $tools  Optional tools.
+     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      */
     public function forMessages(
         string $provider,
@@ -181,6 +192,7 @@ class PrismBuilder implements PrismBuilderContract
         array $messages,
         string $systemPrompt,
         array $tools = [],
+        ?array $retry = null,
     ): TextPendingRequest {
         $request = Prism::text()
             ->using($this->mapProvider($provider), $model)
@@ -191,7 +203,7 @@ class PrismBuilder implements PrismBuilderContract
             $request = $request->withTools($tools);
         }
 
-        return $request;
+        return $this->applyRetry($request, $retry);
     }
 
     /**
@@ -202,6 +214,7 @@ class PrismBuilder implements PrismBuilderContract
      * @param  Schema  $schema  The output schema.
      * @param  string  $input  The user input.
      * @param  string  $systemPrompt  The system prompt.
+     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
      */
     public function forStructured(
         string $provider,
@@ -209,12 +222,44 @@ class PrismBuilder implements PrismBuilderContract
         Schema $schema,
         string $input,
         string $systemPrompt,
+        ?array $retry = null,
     ): StructuredPendingRequest {
-        return Prism::structured()
+        $request = Prism::structured()
             ->using($this->mapProvider($provider), $model)
             ->withSystemPrompt($systemPrompt)
             ->withPrompt($input)
             ->withSchema($schema);
+
+        return $this->applyRetry($request, $retry);
+    }
+
+    /**
+     * Apply retry configuration to a Prism pending request.
+     *
+     * @template T
+     *
+     * @param  T  $request  The Prism pending request.
+     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Retry configuration.
+     * @return T The request with retry applied.
+     */
+    protected function applyRetry(mixed $request, ?array $retry): mixed
+    {
+        if ($retry === null) {
+            return $request;
+        }
+
+        [$times, $sleepMilliseconds, $when, $throw] = $retry;
+
+        // Skip if no retries configured
+        if (is_int($times) && $times === 0) {
+            return $request;
+        }
+
+        if (is_array($times) && $times === []) {
+            return $request;
+        }
+
+        return $request->withClientRetry($times, $sleepMilliseconds, $when, $throw);
     }
 
     /**

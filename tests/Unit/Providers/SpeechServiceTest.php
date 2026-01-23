@@ -90,7 +90,7 @@ test('it speaks with custom speed', function () {
         ->shouldReceive('forSpeech')
         ->with('openai', 'tts-1', 'Hello', Mockery::on(function ($options) {
             return isset($options['speed']) && $options['speed'] === 1.5;
-        }))
+        }), null)
         ->once()
         ->andReturn($mockRequest);
 
@@ -120,7 +120,7 @@ test('it merges provider options', function () {
         ->with('openai', 'tts-1', 'Hello', Mockery::on(function ($options) {
             return isset($options['language']) && $options['language'] === 'en'
                 && isset($options['timbre']) && $options['timbre'] === 'warm';
-        }))
+        }), null)
         ->once()
         ->andReturn($mockRequest);
 
@@ -146,7 +146,7 @@ test('it speaks text with defaults', function () {
 
     $this->prismBuilder
         ->shouldReceive('forSpeech')
-        ->with('openai', 'tts-1', 'Hello world', Mockery::type('array'))
+        ->with('openai', 'tts-1', 'Hello world', Mockery::type('array'), null)
         ->once()
         ->andReturn($mockRequest);
 
@@ -176,7 +176,7 @@ test('it speaks with custom voice', function () {
         ->shouldReceive('forSpeech')
         ->with('openai', 'tts-1', 'Hello', Mockery::on(function ($options) {
             return isset($options['voice']) && $options['voice'] === 'nova';
-        }))
+        }), null)
         ->once()
         ->andReturn($mockRequest);
 
@@ -203,7 +203,7 @@ test('it chains fluent methods for speak', function () {
 
     $this->prismBuilder
         ->shouldReceive('forSpeech')
-        ->with('anthropic', 'custom-tts', 'Hello', Mockery::type('array'))
+        ->with('anthropic', 'custom-tts', 'Hello', Mockery::type('array'), null)
         ->once()
         ->andReturn($mockRequest);
 
@@ -300,7 +300,7 @@ test('it allows before_speak pipeline to modify text', function () {
 
     $this->prismBuilder
         ->shouldReceive('forSpeech')
-        ->with('openai', 'tts-1', 'MODIFIED: Hello', Mockery::type('array'))
+        ->with('openai', 'tts-1', 'MODIFIED: Hello', Mockery::type('array'), null)
         ->once()
         ->andReturn($mockRequest);
 
@@ -516,6 +516,166 @@ test('it includes voice in before_speak pipeline data', function () {
     expect(SpeechBeforeSpeakHandler::$data['voice'])->toBe('nova');
 });
 
+// ===========================================
+// RETRY TESTS
+// ===========================================
+
+test('it returns a new instance when setting retry', function () {
+    $newService = $this->service->withRetry(3, 1000);
+
+    expect($newService)->toBeInstanceOf(SpeechService::class);
+    expect($newService)->not->toBe($this->service);
+});
+
+test('it passes retry to PrismBuilder for speak', function () {
+    $mockRequest = Mockery::mock();
+    $mockAudio = new stdClass;
+    $mockAudio->base64 = base64_encode('audio-data');
+
+    $mockResponse = new stdClass;
+    $mockResponse->audio = $mockAudio;
+
+    $retryConfig = [3, 1000, null, true];
+
+    $this->prismBuilder
+        ->shouldReceive('forSpeech')
+        ->with('openai', 'tts-1', 'Hello', Mockery::type('array'), $retryConfig)
+        ->once()
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('asAudio')
+        ->once()
+        ->andReturn($mockResponse);
+
+    $this->service
+        ->withRetry(3, 1000, null, true)
+        ->speak('Hello');
+});
+
+test('it passes retry to PrismBuilder for transcribe', function () {
+    $mockRequest = Mockery::mock();
+    $mockResponse = new stdClass;
+    $mockResponse->text = 'Transcribed text';
+    $mockResponse->language = 'en';
+    $mockResponse->duration = 5.5;
+
+    $retryConfig = [3, 1000, null, true];
+
+    $mockAudio = Mockery::mock(\Prism\Prism\ValueObjects\Media\Audio::class);
+
+    $this->prismBuilder
+        ->shouldReceive('forTranscription')
+        ->with('openai', 'whisper-1', $mockAudio, [], $retryConfig)
+        ->once()
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('asText')
+        ->once()
+        ->andReturn($mockResponse);
+
+    $this->service
+        ->withRetry(3, 1000, null, true)
+        ->transcribe($mockAudio);
+});
+
+test('it uses config retry when withRetry is not called', function () {
+    // Create service with config that has retry enabled
+    $configService = new ProviderConfigService(new Repository([
+        'atlas' => [
+            'speech' => [
+                'provider' => 'openai',
+                'model' => 'tts-1',
+                'transcription_model' => 'whisper-1',
+            ],
+            'retry' => [
+                'enabled' => true,
+                'times' => 2,
+                'delay_ms' => 500,
+            ],
+        ],
+    ]));
+
+    $service = new SpeechService($this->prismBuilder, $configService, $this->pipelineRunner);
+
+    $mockRequest = Mockery::mock();
+    $mockAudio = new stdClass;
+    $mockAudio->base64 = base64_encode('audio-data');
+
+    $mockResponse = new stdClass;
+    $mockResponse->audio = $mockAudio;
+
+    $this->prismBuilder
+        ->shouldReceive('forSpeech')
+        ->with('openai', 'tts-1', 'Hello', Mockery::type('array'), Mockery::on(function ($retry) {
+            return is_array($retry) && $retry[0] === 2 && $retry[1] === 500;
+        }))
+        ->once()
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('asAudio')
+        ->once()
+        ->andReturn($mockResponse);
+
+    $service->speak('Hello');
+});
+
+test('it passes retry with closure to PrismBuilder for speak', function () {
+    $sleepFn = fn ($attempt) => $attempt * 100;
+
+    $mockRequest = Mockery::mock();
+    $mockAudio = new stdClass;
+    $mockAudio->base64 = base64_encode('audio-data');
+
+    $mockResponse = new stdClass;
+    $mockResponse->audio = $mockAudio;
+
+    $this->prismBuilder
+        ->shouldReceive('forSpeech')
+        ->with('openai', 'tts-1', 'Hello', Mockery::type('array'), Mockery::on(function ($retry) use ($sleepFn) {
+            return is_array($retry) && $retry[0] === 3 && $retry[1] === $sleepFn;
+        }))
+        ->once()
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('asAudio')
+        ->once()
+        ->andReturn($mockResponse);
+
+    $this->service
+        ->withRetry(3, $sleepFn)
+        ->speak('Hello');
+});
+
+test('it passes retry with array of delays to PrismBuilder for speak', function () {
+    $mockRequest = Mockery::mock();
+    $mockAudio = new stdClass;
+    $mockAudio->base64 = base64_encode('audio-data');
+
+    $mockResponse = new stdClass;
+    $mockResponse->audio = $mockAudio;
+
+    $this->prismBuilder
+        ->shouldReceive('forSpeech')
+        ->with('openai', 'tts-1', 'Hello', Mockery::type('array'), Mockery::on(function ($retry) {
+            return is_array($retry) && $retry[0] === [100, 200, 300];
+        }))
+        ->once()
+        ->andReturn($mockRequest);
+
+    $mockRequest
+        ->shouldReceive('asAudio')
+        ->once()
+        ->andReturn($mockResponse);
+
+    $this->service
+        ->withRetry([100, 200, 300])
+        ->speak('Hello');
+});
+
 test('it throws RuntimeException when base64 decoding fails', function () {
     $mockRequest = Mockery::mock();
 
@@ -555,7 +715,7 @@ test('it extracts audio content via content method when base64 not available', f
 
     $this->prismBuilder
         ->shouldReceive('forSpeech')
-        ->with('openai', 'tts-1', 'Hello', Mockery::type('array'))
+        ->with('openai', 'tts-1', 'Hello', Mockery::type('array'), null)
         ->once()
         ->andReturn($mockRequest);
 
@@ -583,7 +743,7 @@ test('it transcribes audio from file path string', function () {
 
     $this->prismBuilder
         ->shouldReceive('forTranscription')
-        ->with('openai', 'whisper-1', Mockery::type(\Prism\Prism\ValueObjects\Media\Audio::class), [])
+        ->with('openai', 'whisper-1', Mockery::type(\Prism\Prism\ValueObjects\Media\Audio::class), [], null)
         ->once()
         ->andReturn($mockRequest);
 
