@@ -283,6 +283,8 @@ return $stream->toResponse(
 
 Atlas provides typed events for all stream activities:
 
+### Core Events
+
 | Event | Type String | Description |
 |-------|-------------|-------------|
 | `StreamStartEvent` | `stream.start` | Stream initialization with provider and model info |
@@ -291,6 +293,23 @@ Atlas provides typed events for all stream activities:
 | `ToolCallEndEvent` | `tool.call.end` | Tool execution completes with result |
 | `StreamEndEvent` | `stream.end` | Stream completes with usage statistics |
 | `ErrorEvent` | `error` | Error occurred during streaming |
+
+### Thinking Events (Extended Thinking / Reasoning)
+
+| Event | Type String | Description |
+|-------|-------------|-------------|
+| `ThinkingStartEvent` | `thinking.start` | Model begins extended thinking/reasoning |
+| `ThinkingDeltaEvent` | `thinking.delta` | Thinking content chunk received |
+| `ThinkingCompleteEvent` | `thinking.complete` | Thinking phase completes |
+
+### Advanced Events
+
+| Event | Type String | Description |
+|-------|-------------|-------------|
+| `CitationEvent` | `citation` | Citation reference from grounded responses |
+| `ArtifactEvent` | `artifact` | Artifact generated (code, files, etc.) |
+| `StepStartEvent` | `step.start` | Multi-step execution begins a new step |
+| `StepFinishEvent` | `step.finish` | Multi-step execution completes a step |
 
 ### Handling All Event Types
 
@@ -302,6 +321,13 @@ use Atlasphp\Atlas\Streaming\Events\{
     ToolCallEndEvent,
     StreamEndEvent,
     ErrorEvent,
+    ThinkingStartEvent,
+    ThinkingDeltaEvent,
+    ThinkingCompleteEvent,
+    CitationEvent,
+    ArtifactEvent,
+    StepStartEvent,
+    StepFinishEvent,
 };
 
 foreach ($stream as $event) {
@@ -310,10 +336,75 @@ foreach ($stream as $event) {
         $event instanceof TextDeltaEvent => $this->onTextDelta($event),
         $event instanceof ToolCallStartEvent => $this->onToolStart($event),
         $event instanceof ToolCallEndEvent => $this->onToolEnd($event),
+        $event instanceof ThinkingStartEvent => $this->onThinkingStart($event),
+        $event instanceof ThinkingDeltaEvent => $this->onThinkingDelta($event),
+        $event instanceof ThinkingCompleteEvent => $this->onThinkingComplete($event),
+        $event instanceof CitationEvent => $this->onCitation($event),
+        $event instanceof ArtifactEvent => $this->onArtifact($event),
+        $event instanceof StepStartEvent => $this->onStepStart($event),
+        $event instanceof StepFinishEvent => $this->onStepFinish($event),
         $event instanceof StreamEndEvent => $this->onStreamEnd($event),
         $event instanceof ErrorEvent => $this->onError($event),
         default => null,
     };
+}
+```
+
+### Handling Extended Thinking
+
+When using models with extended thinking (reasoning), capture the thinking process:
+
+```php
+use Atlasphp\Atlas\Streaming\Events\{
+    ThinkingStartEvent,
+    ThinkingDeltaEvent,
+    ThinkingCompleteEvent,
+    TextDeltaEvent,
+};
+
+$thinkingContent = '';
+$responseContent = '';
+
+foreach ($stream as $event) {
+    match (true) {
+        $event instanceof ThinkingStartEvent => null,  // Thinking begins
+        $event instanceof ThinkingDeltaEvent => $thinkingContent .= $event->delta,
+        $event instanceof ThinkingCompleteEvent => Log::info('Thinking complete', [
+            'reasoning_id' => $event->reasoningId,
+            'summary' => $event->summary,
+        ]),
+        $event instanceof TextDeltaEvent => $responseContent .= $event->text,
+        default => null,
+    };
+}
+
+// $thinkingContent contains the model's reasoning process
+// $responseContent contains the final response
+```
+
+### Handling Citations
+
+For grounded responses with source citations:
+
+```php
+use Atlasphp\Atlas\Streaming\Events\CitationEvent;
+
+$citations = [];
+
+foreach ($stream as $event) {
+    if ($event instanceof CitationEvent) {
+        $citations[] = [
+            'source_type' => $event->citation['source_type'],
+            'source' => $event->citation['source'],
+            'text' => $event->citation['source_text'],
+            'title' => $event->citation['source_title'],
+        ];
+    }
+}
+
+// Display citations with response
+foreach ($citations as $citation) {
+    echo "[{$citation['title']}]: {$citation['text']}\n";
 }
 ```
 
@@ -472,6 +563,83 @@ $event->errorType;   // Type of error (string)
 $event->message;     // Error message (string)
 $event->recoverable; // Whether the stream can continue (bool)
 $event->type();      // Returns 'error'
+$event->toArray();   // Convert to array
+```
+
+### ThinkingStartEvent
+
+```php
+$event->id;          // Unique event ID (string)
+$event->timestamp;   // Unix timestamp (int)
+$event->reasoningId; // Identifier for this thinking session (string)
+$event->type();      // Returns 'thinking.start'
+$event->toArray();   // Convert to array
+```
+
+### ThinkingDeltaEvent
+
+```php
+$event->id;          // Unique event ID (string)
+$event->timestamp;   // Unix timestamp (int)
+$event->delta;       // Thinking content chunk (string)
+$event->reasoningId; // Identifier for this thinking session (string)
+$event->summary;     // Summary metadata (array)
+$event->type();      // Returns 'thinking.delta'
+$event->toArray();   // Convert to array
+```
+
+### ThinkingCompleteEvent
+
+```php
+$event->id;          // Unique event ID (string)
+$event->timestamp;   // Unix timestamp (int)
+$event->reasoningId; // Identifier for this thinking session (string)
+$event->summary;     // Summary of thinking (array)
+$event->type();      // Returns 'thinking.complete'
+$event->toArray();   // Convert to array
+```
+
+### CitationEvent
+
+```php
+$event->id;          // Unique event ID (string)
+$event->timestamp;   // Unix timestamp (int)
+$event->citation;    // Citation details as array (array)
+$event->messageId;   // Associated message ID (string)
+$event->blockIndex;  // Block index in response (int)
+$event->metadata;    // Additional metadata (array)
+$event->type();      // Returns 'citation'
+$event->toArray();   // Convert to array
+```
+
+### ArtifactEvent
+
+```php
+$event->id;          // Unique event ID (string)
+$event->timestamp;   // Unix timestamp (int)
+$event->artifact;    // Artifact details as array (array)
+$event->toolCallId;  // Associated tool call ID (string)
+$event->toolName;    // Tool that generated the artifact (string)
+$event->messageId;   // Associated message ID (string)
+$event->type();      // Returns 'artifact'
+$event->toArray();   // Convert to array
+```
+
+### StepStartEvent
+
+```php
+$event->id;          // Unique event ID (string)
+$event->timestamp;   // Unix timestamp (int)
+$event->type();      // Returns 'step.start'
+$event->toArray();   // Convert to array
+```
+
+### StepFinishEvent
+
+```php
+$event->id;          // Unique event ID (string)
+$event->timestamp;   // Unix timestamp (int)
+$event->type();      // Returns 'step.finish'
 $event->toArray();   // Convert to array
 ```
 

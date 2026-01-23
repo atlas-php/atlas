@@ -178,57 +178,204 @@ class AtlasIntegrationTest extends TestCase
 
 ## Faking Atlas
 
-Create a fake for testing:
+Atlas provides a built-in `Atlas::fake()` method for testing, following Laravel's `Http::fake()` pattern:
+
+### Basic Usage
 
 ```php
-class FakeAtlasManager
+use Atlasphp\Atlas\Providers\Facades\Atlas;
+use Atlasphp\Atlas\Agents\Support\AgentResponse;
+
+public function test_chat_returns_expected_response(): void
 {
-    private array $responses = [];
-    private array $calls = [];
+    // Enable fake mode with a default response
+    Atlas::fake([
+        AgentResponse::text('Hello! How can I help?'),
+    ]);
 
-    public function fake(string $agent, string|AgentResponse $response): self
-    {
-        $this->responses[$agent] = is_string($response)
-            ? AgentResponse::text($response)
-            : $response;
-        return $this;
-    }
+    // Call your code that uses Atlas
+    $response = Atlas::agent('support-agent')->chat('Hello');
 
-    public function chat(string $agent, string $input, ...$args): AgentResponse
-    {
-        $this->calls[] = compact('agent', 'input', 'args');
+    // Assert the response
+    $this->assertEquals('Hello! How can I help?', $response->text);
 
-        return $this->responses[$agent]
-            ?? AgentResponse::text("Fake response for {$agent}");
-    }
-
-    public function assertCalled(string $agent, ?string $input = null): void
-    {
-        $found = collect($this->calls)
-            ->filter(fn($call) => $call['agent'] === $agent)
-            ->when($input, fn($calls) =>
-                $calls->filter(fn($call) => str_contains($call['input'], $input))
-            );
-
-        PHPUnit::assertTrue($found->isNotEmpty(), "Agent {$agent} was not called");
-    }
+    // Assert the agent was called
+    Atlas::assertCalled('support-agent');
 }
 ```
 
-Usage:
+### Agent-Specific Responses
+
+Configure different responses for different agents:
 
 ```php
-public function test_service_calls_correct_agent(): void
+Atlas::fake()
+    ->forAgent('billing-agent', AgentResponse::text('Your balance is $100'))
+    ->forAgent('support-agent', AgentResponse::text('How can I help?'));
+
+$billing = Atlas::agent('billing-agent')->chat('Balance?');
+$support = Atlas::agent('support-agent')->chat('Help');
+
+Atlas::assertCalled('billing-agent');
+Atlas::assertCalled('support-agent');
+```
+
+### Sequential Responses
+
+Return different responses for consecutive calls:
+
+```php
+Atlas::fake()
+    ->forAgent('assistant')
+    ->sequence([
+        AgentResponse::text('First response'),
+        AgentResponse::text('Second response'),
+        AgentResponse::text('Third response'),
+    ]);
+
+// Each call returns the next response in sequence
+$first = Atlas::agent('assistant')->chat('1');   // "First response"
+$second = Atlas::agent('assistant')->chat('2');  // "Second response"
+$third = Atlas::agent('assistant')->chat('3');   // "Third response"
+```
+
+### Conditional Responses
+
+Return responses based on input content:
+
+```php
+Atlas::fake()
+    ->forAgent('assistant')
+    ->when(
+        fn($agent, $input) => str_contains($input, 'order'),
+        AgentResponse::text('I can help with your order')
+    )
+    ->when(
+        fn($agent, $input) => str_contains($input, 'refund'),
+        AgentResponse::text('I can process your refund')
+    );
+```
+
+### Testing Exceptions
+
+Test error handling by throwing exceptions:
+
+```php
+use Atlasphp\Atlas\Providers\Exceptions\RateLimitedException;
+
+Atlas::fake()
+    ->forAgent('assistant')
+    ->throw(new RateLimitedException([], 60));
+
+$this->expectException(RateLimitedException::class);
+Atlas::agent('assistant')->chat('Hello');
+```
+
+### Streaming Fakes
+
+Create fake streaming responses:
+
+```php
+use Atlasphp\Atlas\Testing\Support\StreamEventFactory;
+
+Atlas::fake([
+    StreamEventFactory::fromText('Hello, this is streamed!'),
+]);
+
+$stream = Atlas::agent('assistant')->chat('Hello', stream: true);
+
+foreach ($stream as $event) {
+    // Process events...
+}
+```
+
+### Assertion Methods
+
+```php
+// Assert an agent was called
+Atlas::assertCalled('support-agent');
+
+// Assert an agent was called a specific number of times
+Atlas::assertCalledTimes('support-agent', 3);
+
+// Assert an agent was NOT called
+Atlas::assertNotCalled('billing-agent');
+
+// Assert nothing was called
+Atlas::assertNothingCalled();
+
+// Assert with input matching
+Atlas::assertCalled('support-agent', fn($recorded) =>
+    str_contains($recorded->input, 'order')
+);
+
+// Assert with context matching
+Atlas::assertSentWithContext('support-agent', fn($context) =>
+    $context->metadata['user_id'] === 123
+);
+
+// Assert schema was used
+Atlas::assertSentWithSchema('analyzer', fn($schema) =>
+    $schema->name === 'sentiment'
+);
+```
+
+### Accessing Recorded Requests
+
+```php
+Atlas::fake([AgentResponse::text('Response')]);
+
+Atlas::agent('assistant')->chat('Hello');
+Atlas::agent('assistant')->chat('How are you?');
+
+// Get all recorded requests
+$recorded = Atlas::recorded();
+
+// Get requests for a specific agent
+$assistantRequests = Atlas::recordedFor('assistant');
+
+foreach ($assistantRequests as $request) {
+    echo $request->agent;    // Agent key
+    echo $request->input;    // User input
+    $request->context;       // ExecutionContext
+    $request->response;      // AgentResponse
+    $request->timestamp;     // When it was called
+}
+```
+
+### Preventing Stray Requests
+
+Fail tests if an unexpected agent is called:
+
+```php
+Atlas::fake()
+    ->forAgent('support-agent', AgentResponse::text('OK'))
+    ->preventStrayRequests();
+
+// This will pass
+Atlas::agent('support-agent')->chat('Hello');
+
+// This will throw an exception - no fake configured for 'other-agent'
+Atlas::agent('other-agent')->chat('Hello');  // Throws!
+```
+
+### Cleanup
+
+Always restore Atlas after tests:
+
+```php
+protected function tearDown(): void
 {
-    $fake = new FakeAtlasManager();
-    $fake->fake('support-agent', 'I can help with that!');
+    Atlas::unfake();
+    parent::tearDown();
+}
 
-    $this->app->instance(AtlasManager::class, $fake);
+// Or use the trait
+use Atlasphp\Atlas\Testing\Concerns\InteractsWithAtlasFake;
 
-    $service = app(CustomerService::class);
-    $service->handleQuery('Help with my order');
-
-    $fake->assertCalled('support-agent', 'order');
+class MyTest extends TestCase
+{
+    use InteractsWithAtlasFake;  // Automatically unfakes after each test
 }
 ```
 

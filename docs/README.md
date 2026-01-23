@@ -14,6 +14,9 @@
 | [Creating Tools](./guides/creating-tools.md) | Define tools for agents |
 | [Multi-Turn Conversations](./guides/multi-turn-conversations.md) | Handle conversation context |
 | [Extending Atlas](./guides/extending-atlas.md) | Pipeline middleware and extensions |
+| [Testing](./guides/testing.md) | Unit and integration testing with Atlas::fake() |
+| [Error Handling](./advanced/error-handling.md) | Exception types and retry strategies |
+| [Streaming](./capabilities/streaming.md) | Real-time streaming with events |
 
 ---
 

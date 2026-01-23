@@ -72,6 +72,7 @@ $response = Atlas::agent('support-agent')
 | `withVariables(array $variables)` | Variables for system prompt interpolation |
 | `withMetadata(array $metadata)` | Metadata for pipeline middleware and tools |
 | `withSchema(Schema $schema)` | Schema for structured output |
+| `withToolChoice(ToolChoice\|string $choice)` | Control tool usage behavior |
 | `withRetry($times, $delay)` | Retry configuration for resilience |
 | `withImage($data, $source, $mimeType, $disk)` | Attach image(s) for vision analysis |
 | `withDocument($data, $source, $mimeType, $title, $disk)` | Attach document(s) |
@@ -79,6 +80,62 @@ $response = Atlas::agent('support-agent')
 | `withVideo($data, $source, $mimeType, $disk)` | Attach video file(s) |
 
 See [Multimodal](/capabilities/multimodal) for detailed attachment usage.
+
+## Tool Choice Control
+
+Control when and how the agent uses tools with `withToolChoice()`:
+
+```php
+use Atlasphp\Atlas\Tools\Enums\ToolChoice;
+
+// Default - model decides when to use tools
+$response = Atlas::agent('agent')
+    ->withToolChoice(ToolChoice::Auto)
+    ->chat('Help me with my order');
+
+// Must use a tool - forces tool invocation
+$response = Atlas::agent('agent')
+    ->withToolChoice(ToolChoice::Any)
+    ->chat('Calculate 42 * 17');
+
+// Cannot use tools - text-only response
+$response = Atlas::agent('agent')
+    ->withToolChoice(ToolChoice::None)
+    ->chat('Explain how calculators work');
+
+// Force a specific tool by name
+$response = Atlas::agent('agent')
+    ->withToolChoice('calculator')
+    ->chat('What is 100 divided by 4?');
+```
+
+### Convenience Methods
+
+```php
+// Shorthand for ToolChoice::Any
+$response = Atlas::agent('agent')
+    ->requireTool()
+    ->chat('...');
+
+// Shorthand for ToolChoice::None
+$response = Atlas::agent('agent')
+    ->disableTools()
+    ->chat('...');
+
+// Shorthand for forcing a specific tool
+$response = Atlas::agent('agent')
+    ->forceTool('weather')
+    ->chat('What\'s the weather in Paris?');
+```
+
+### Tool Choice Options
+
+| Option | Description |
+|--------|-------------|
+| `ToolChoice::Auto` | Model decides whether to use tools (default) |
+| `ToolChoice::Any` | Model must use at least one tool |
+| `ToolChoice::None` | Model cannot use any tools |
+| `'tool_name'` | Model must use the specified tool |
 
 ### Chat Method Parameters
 
@@ -240,6 +297,7 @@ $response = Atlas::agent('agent')
 | `->withMessages($msgs)->chat($input)` | Chat with history |
 | `->withVariables($vars)->chat($input)` | Chat with variables |
 | `->withSchema($schema)->chat($input)` | Structured output |
+| `->withToolChoice($choice)->chat($input)` | Control tool usage |
 | `->withRetry(...)->chat(...)` | Chat with retry |
 
 ## Next Steps
