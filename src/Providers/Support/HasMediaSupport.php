@@ -29,13 +29,15 @@ trait HasMediaSupport
      * @param  string|array<int, string>  $data  Single URL/path/data or array of them.
      * @param  MediaSource  $source  The source type (default: URL).
      * @param  string|null  $mimeType  Optional MIME type.
+     * @param  string|null  $disk  Optional storage disk (for StoragePath source).
      */
     public function withImage(
         string|array $data,
         MediaSource $source = MediaSource::Url,
         ?string $mimeType = null,
+        ?string $disk = null,
     ): static {
-        return $this->addAttachments(MediaType::Image, $data, $source, $mimeType);
+        return $this->addAttachments(MediaType::Image, $data, $source, $mimeType, null, $disk);
     }
 
     /**
@@ -63,13 +65,15 @@ trait HasMediaSupport
      * @param  string|array<int, string>  $data  Single URL/path/data or array of them.
      * @param  MediaSource  $source  The source type (default: URL).
      * @param  string|null  $mimeType  Optional MIME type.
+     * @param  string|null  $disk  Optional storage disk (for StoragePath source).
      */
     public function withAudio(
         string|array $data,
         MediaSource $source = MediaSource::Url,
         ?string $mimeType = null,
+        ?string $disk = null,
     ): static {
-        return $this->addAttachments(MediaType::Audio, $data, $source, $mimeType);
+        return $this->addAttachments(MediaType::Audio, $data, $source, $mimeType, null, $disk);
     }
 
     /**
@@ -78,13 +82,15 @@ trait HasMediaSupport
      * @param  string|array<int, string>  $data  Single URL/path/data or array of them.
      * @param  MediaSource  $source  The source type (default: URL).
      * @param  string|null  $mimeType  Optional MIME type.
+     * @param  string|null  $disk  Optional storage disk (for StoragePath source).
      */
     public function withVideo(
         string|array $data,
         MediaSource $source = MediaSource::Url,
         ?string $mimeType = null,
+        ?string $disk = null,
     ): static {
-        return $this->addAttachments(MediaType::Video, $data, $source, $mimeType);
+        return $this->addAttachments(MediaType::Video, $data, $source, $mimeType, null, $disk);
     }
 
     /**

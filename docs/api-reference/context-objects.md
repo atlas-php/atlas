@@ -26,6 +26,13 @@ $context = new ExecutionContext(
     ],
     providerOverride: 'anthropic',  // Optional: override agent's default provider
     modelOverride: 'claude-3-opus', // Optional: override agent's default model
+    currentAttachments: [           // Optional: current input attachments
+        [
+            'type' => 'image',
+            'source' => 'url',
+            'data' => 'https://example.com/image.jpg',
+        ],
+    ],
 );
 ```
 
@@ -33,11 +40,12 @@ $context = new ExecutionContext(
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `messages` | `array` | Conversation history |
+| `messages` | `array` | Conversation history (may include attachments per message) |
 | `variables` | `array` | System prompt variables |
 | `metadata` | `array` | Execution metadata |
 | `providerOverride` | `?string` | Override the agent's configured provider |
 | `modelOverride` | `?string` | Override the agent's configured model |
+| `currentAttachments` | `array` | Attachments for the current input message |
 
 ### Accessor Methods
 
@@ -83,6 +91,12 @@ public function hasProviderOverride(): bool
 public function hasModelOverride(): bool
 ```
 
+**hasCurrentAttachments()** — Check if current input has attachments:
+
+```php
+public function hasCurrentAttachments(): bool
+```
+
 ### Immutable Update Methods
 
 **withVariables()** — Create new context with replaced variables:
@@ -126,6 +140,41 @@ public function withProviderOverride(?string $provider): self
 ```php
 public function withModelOverride(?string $model): self
 ```
+
+**withCurrentAttachments()** — Create new context with current attachments:
+
+```php
+public function withCurrentAttachments(array $attachments): self
+```
+
+### Attachments in Context
+
+Access media attachments for auditing, validation, or logging in pipeline middleware:
+
+```php
+// In pipeline middleware
+$context = $data['context'];
+
+// Check current input attachments
+if ($context->hasCurrentAttachments()) {
+    foreach ($context->currentAttachments as $attachment) {
+        // Log: type=image, source=url, data=https://...
+        Log::info('Attachment sent', [
+            'type' => $attachment['type'],
+            'source' => $attachment['source'],
+        ]);
+    }
+}
+
+// Check attachments in message history
+foreach ($context->messages as $message) {
+    foreach ($message['attachments'] ?? [] as $attachment) {
+        // Process historical attachments
+    }
+}
+```
+
+See [Multimodal](/capabilities/multimodal) for complete attachment documentation.
 
 ### Provider/Model Override Example
 
@@ -282,6 +331,53 @@ public function withRetry(
 ): self
 ```
 
+**withImage()** — Attach image(s) to the request:
+
+```php
+public function withImage(
+    string|array $data,
+    MediaSource $source = MediaSource::Url,
+    ?string $mimeType = null,
+    ?string $disk = null,
+): self
+```
+
+**withDocument()** — Attach document(s) to the request:
+
+```php
+public function withDocument(
+    string|array $data,
+    MediaSource $source = MediaSource::Url,
+    ?string $mimeType = null,
+    ?string $title = null,
+    ?string $disk = null,
+): self
+```
+
+**withAudio()** — Attach audio file(s) to the request:
+
+```php
+public function withAudio(
+    string|array $data,
+    MediaSource $source = MediaSource::Url,
+    ?string $mimeType = null,
+    ?string $disk = null,
+): self
+```
+
+**withVideo()** — Attach video file(s) to the request:
+
+```php
+public function withVideo(
+    string|array $data,
+    MediaSource $source = MediaSource::Url,
+    ?string $mimeType = null,
+    ?string $disk = null,
+): self
+```
+
+See [Multimodal](/capabilities/multimodal) for detailed attachment usage.
+
 **chat()** — Execute chat with configured context:
 
 ```php
@@ -380,17 +476,23 @@ This ensures:
 Context flows through the execution pipeline:
 
 ```
-User Request
+User Request + Attachments
     ↓
-PendingAgentRequest/AtlasManager (builds ExecutionContext)
+PendingAgentRequest (builds ExecutionContext with currentAttachments)
     ↓
-ExecutionContext (passed to agent executor)
+ExecutionContext
+  ├── messages (with historical attachments)
+  ├── variables
+  ├── metadata
+  └── currentAttachments
     ↓
-SystemPromptBuilder (uses variables)
+Pipeline Middleware (can audit/log attachments)
     ↓
-ToolBuilder (creates ToolContext from metadata)
+AgentExecutor (merges currentAttachments into messages)
     ↓
-ToolContext (passed to tool handlers)
+PrismBuilder (converts attachments to Prism Media objects)
+    ↓
+Provider API (receives text + media)
     ↓
 AgentResponse (returned to user)
 ```
@@ -420,6 +522,7 @@ public function handle(array $args, ToolContext $context): ToolResult
 
 ## Next Steps
 
+- [Multimodal](/capabilities/multimodal) — Add images, documents, audio to requests
 - [Response Objects](/api-reference/response-objects) — AgentResponse, ToolResult
 - [Pipelines](/core-concepts/pipelines) — Context in pipeline middleware
 - [Tools](/core-concepts/tools) — Using context in tools

@@ -10,11 +10,15 @@ use App\Console\Commands\ImageCommand;
 use App\Console\Commands\SpeechCommand;
 use App\Console\Commands\StructuredCommand;
 use App\Console\Commands\ToolsCommand;
+use App\Console\Commands\VisionCommand;
 use App\Services\Agents\AnthropicAssistantAgent;
 use App\Services\Agents\AnthropicToolDemoAgent;
+use App\Services\Agents\AnthropicVisionAgent;
 use App\Services\Agents\GeminiAssistantAgent;
 use App\Services\Agents\GeminiToolDemoAgent;
+use App\Services\Agents\GeminiVisionAgent;
 use App\Services\Agents\GeneralAssistantAgent;
+use App\Services\Agents\OpenAIVisionAgent;
 use App\Services\Agents\OpenAIWebSearchAgent;
 use App\Services\Agents\StructuredOutputAgent;
 use App\Services\Agents\ToolDemoAgent;
@@ -69,6 +73,7 @@ class SandboxServiceProvider extends ServiceProvider
                 SpeechCommand::class,
                 StructuredCommand::class,
                 ToolsCommand::class,
+                VisionCommand::class,
             ]);
         }
     }
@@ -89,6 +94,9 @@ class SandboxServiceProvider extends ServiceProvider
         $registry->register(GeminiAssistantAgent::class);
         $registry->register(GeminiToolDemoAgent::class);
         $registry->register(OpenAIWebSearchAgent::class);
+        $registry->register(OpenAIVisionAgent::class);
+        $registry->register(AnthropicVisionAgent::class);
+        $registry->register(GeminiVisionAgent::class);
     }
 
     /**

@@ -150,9 +150,15 @@ Each pipeline receives specific data:
 [
     'agent' => AgentContract,
     'input' => string,
-    'context' => ?ExecutionContext,
+    'context' => ?ExecutionContext,  // Contains messages, variables, metadata, currentAttachments
 ]
 ```
+
+The `ExecutionContext` provides access to:
+- `messages` — Conversation history (may include attachments per message)
+- `variables` — System prompt variables
+- `metadata` — Execution metadata (user_id, session_id, etc.)
+- `currentAttachments` — Attachments for current input (images, documents, audio, video)
 
 ### agent.system_prompt.before_build
 
@@ -354,6 +360,47 @@ class RequireAuthentication
 
 $registry->register('agent.before_execute', RequireAuthentication::class, priority: 1000);
 ```
+
+### Attachment Auditing
+
+Log multimodal attachments (images, documents, audio, video) for compliance and monitoring:
+
+```php
+class AuditAttachments
+{
+    public function __invoke(array $data, Closure $next): mixed
+    {
+        $context = $data['context'];
+
+        // Log current input attachments
+        if ($context?->hasCurrentAttachments()) {
+            foreach ($context->currentAttachments as $attachment) {
+                AuditLog::create([
+                    'type' => 'attachment_sent',
+                    'media_type' => $attachment['type'],     // image, document, audio, video
+                    'source' => $attachment['source'],       // url, base64, local_path, storage_path
+                    'user_id' => $context->getMeta('user_id'),
+                    'agent' => $data['agent']->key(),
+                    'timestamp' => now(),
+                ]);
+            }
+        }
+
+        // Log attachments in conversation history
+        foreach ($context?->messages ?? [] as $message) {
+            foreach ($message['attachments'] ?? [] as $attachment) {
+                // Process historical attachments if needed
+            }
+        }
+
+        return $next($data);
+    }
+}
+
+$registry->register('agent.before_execute', AuditAttachments::class, priority: 500);
+```
+
+See [Multimodal](/capabilities/multimodal) for complete attachment documentation.
 
 ## Disabling Pipelines
 

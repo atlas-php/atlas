@@ -73,6 +73,12 @@ $response = Atlas::agent('support-agent')
 | `withMetadata(array $metadata)` | Metadata for pipeline middleware and tools |
 | `withSchema(Schema $schema)` | Schema for structured output |
 | `withRetry($times, $delay)` | Retry configuration for resilience |
+| `withImage($data, $source, $mimeType, $disk)` | Attach image(s) for vision analysis |
+| `withDocument($data, $source, $mimeType, $title, $disk)` | Attach document(s) |
+| `withAudio($data, $source, $mimeType, $disk)` | Attach audio file(s) |
+| `withVideo($data, $source, $mimeType, $disk)` | Attach video file(s) |
+
+See [Multimodal](/capabilities/multimodal) for detailed attachment usage.
 
 ### Chat Method Parameters
 
@@ -238,6 +244,7 @@ $response = Atlas::agent('agent')
 
 ## Next Steps
 
+- [Multimodal](/capabilities/multimodal) — Add images, documents, audio to conversations
 - [Conversations](/core-concepts/conversations) — Conversation management
 - [Structured Output](/core-concepts/structured-output) — Schema-based responses
 - [Multi-Turn Conversations](/guides/multi-turn-conversations) — Complete guide

@@ -1,0 +1,18 @@
+Atlas PHP Library - Test Document
+
+This is a test document for verifying document attachment support in the Atlas multimodal system.
+
+Key Features:
+1. Stateless design - No persistent state between requests
+2. Multiple AI providers - OpenAI, Anthropic, Gemini
+3. Tool support - Define and execute custom tools
+4. Structured output - Extract data using JSON schemas
+5. Multimodal support - Images, documents, audio, video
+
+Test Data:
+- Project Name: Atlas
+- Version: 1.0.0
+- Author: Atlas Team
+- License: MIT
+
+This document should be readable by vision-capable models that support document analysis.

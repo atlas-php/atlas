@@ -39,10 +39,10 @@ class MediaConverter
         $disk = $attachment['disk'] ?? null;
 
         return match ($type) {
-            MediaType::Image => $this->createImage($source, $data, $mimeType),
+            MediaType::Image => $this->createImage($source, $data, $mimeType, $disk),
             MediaType::Document => $this->createDocument($source, $data, $mimeType, $title, $disk),
-            MediaType::Audio => $this->createAudio($source, $data, $mimeType),
-            MediaType::Video => $this->createVideo($source, $data, $mimeType),
+            MediaType::Audio => $this->createAudio($source, $data, $mimeType, $disk),
+            MediaType::Video => $this->createVideo($source, $data, $mimeType, $disk),
         };
     }
 
@@ -88,13 +88,13 @@ class MediaConverter
     /**
      * Create an Image from the given source and data.
      */
-    protected function createImage(MediaSource $source, string $data, ?string $mimeType): Image
+    protected function createImage(MediaSource $source, string $data, ?string $mimeType, ?string $disk): Image
     {
         return match ($source) {
             MediaSource::Url => Image::fromUrl($data, $mimeType),
             MediaSource::Base64 => Image::fromBase64($data, $mimeType),
             MediaSource::LocalPath => Image::fromLocalPath($data, $mimeType),
-            MediaSource::StoragePath => Image::fromStoragePath($data),
+            MediaSource::StoragePath => Image::fromStoragePath($data, $disk),
             MediaSource::FileId => Image::fromFileId($data),
         };
     }
@@ -121,13 +121,13 @@ class MediaConverter
     /**
      * Create an Audio from the given source and data.
      */
-    protected function createAudio(MediaSource $source, string $data, ?string $mimeType): Audio
+    protected function createAudio(MediaSource $source, string $data, ?string $mimeType, ?string $disk): Audio
     {
         return match ($source) {
             MediaSource::Url => Audio::fromUrl($data, $mimeType),
             MediaSource::Base64 => Audio::fromBase64($data, $mimeType),
             MediaSource::LocalPath => Audio::fromLocalPath($data, $mimeType),
-            MediaSource::StoragePath => Audio::fromStoragePath($data),
+            MediaSource::StoragePath => Audio::fromStoragePath($data, $disk),
             MediaSource::FileId => Audio::fromFileId($data),
         };
     }
@@ -135,13 +135,13 @@ class MediaConverter
     /**
      * Create a Video from the given source and data.
      */
-    protected function createVideo(MediaSource $source, string $data, ?string $mimeType): Video
+    protected function createVideo(MediaSource $source, string $data, ?string $mimeType, ?string $disk): Video
     {
         return match ($source) {
             MediaSource::Url => Video::fromUrl($data, $mimeType),
             MediaSource::Base64 => Video::fromBase64($data, $mimeType),
             MediaSource::LocalPath => Video::fromLocalPath($data, $mimeType),
-            MediaSource::StoragePath => Video::fromStoragePath($data),
+            MediaSource::StoragePath => Video::fromStoragePath($data, $disk),
             MediaSource::FileId => Video::fromFileId($data),
         };
     }

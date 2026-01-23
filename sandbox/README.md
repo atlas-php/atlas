@@ -187,6 +187,59 @@ Saved to: storage/outputs/speech-1705849200.mp3
 [PASS] Audio file is playable
 ```
 
+### `atlas:vision` - Test Multimodal Attachments
+
+Test image, document, audio, and video attachments with vision-capable models.
+
+```bash
+# Single image test with OpenAI
+php artisan atlas:vision --provider=openai
+
+# Single image test with Anthropic
+php artisan atlas:vision --provider=anthropic
+
+# Single image test with Gemini
+php artisan atlas:vision --provider=gemini
+
+# Multi-turn conversation with attachments
+php artisan atlas:vision --provider=openai --thread
+
+# Test all providers
+php artisan atlas:vision --all-providers
+
+# Run comprehensive test suite
+php artisan atlas:vision --comprehensive
+
+# Use base64 encoding instead of file path
+php artisan atlas:vision --provider=openai --base64
+
+# Generate test assets (images)
+php artisan atlas:vision --generate-assets
+```
+
+**Output Example:**
+```
+Testing: openai-vision (openai/gpt-4o)
+
+Image: /storage/outputs/test-apple.png
+
+Prompt: Describe this image in detail...
+
+=== Response ===
+The image shows a vibrant red apple with a smooth, glossy surface...
+
+--- Details ---
+Tokens: 832 prompt / 114 completion / 946 total
+Finish: stop
+```
+
+**Comprehensive Test Suite:**
+- Single image analysis with each provider
+- Multiple images in one request
+- Base64 encoded images
+- Conversation history with attachments
+- Context construction verification
+
 ### `atlas:tools` - Test Tool Execution
 
 Test agent tool calling capabilities.
@@ -291,6 +344,9 @@ Prompt: "Extract person info: John Smith is a 35-year-old software engineer at j
 | `general-assistant` | openai | gpt-4o | General-purpose chat |
 | `tool-demo` | openai | gpt-4o | Agent with tools |
 | `structured-output` | openai | gpt-4o | Structured data extraction |
+| `openai-vision` | openai | gpt-4o | Vision/multimodal image analysis |
+| `anthropic-vision` | anthropic | claude-sonnet-4 | Vision/multimodal image analysis |
+| `gemini-vision` | gemini | gemini-2.0-flash | Vision/multimodal image analysis |
 
 ## Available Tools
 

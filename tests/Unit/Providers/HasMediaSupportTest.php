@@ -212,3 +212,87 @@ test('disk is only added when provided', function () {
 
     expect($attachments[0])->not->toHaveKey('disk');
 });
+
+test('withImage adds storage path image with disk', function () {
+    $instance = new TestMediaClass;
+    $clone = $instance->withImage(
+        'images/photo.png',
+        MediaSource::StoragePath,
+        'image/png',
+        's3'
+    );
+
+    $attachments = $clone->exposeGetCurrentAttachments();
+
+    expect($attachments)->toHaveCount(1);
+    expect($attachments[0]['type'])->toBe('image');
+    expect($attachments[0]['source'])->toBe('storage_path');
+    expect($attachments[0]['data'])->toBe('images/photo.png');
+    expect($attachments[0]['mime_type'])->toBe('image/png');
+    expect($attachments[0]['disk'])->toBe('s3');
+});
+
+test('withAudio adds storage path audio with disk', function () {
+    $instance = new TestMediaClass;
+    $clone = $instance->withAudio(
+        'audio/speech.mp3',
+        MediaSource::StoragePath,
+        'audio/mpeg',
+        's3'
+    );
+
+    $attachments = $clone->exposeGetCurrentAttachments();
+
+    expect($attachments)->toHaveCount(1);
+    expect($attachments[0]['type'])->toBe('audio');
+    expect($attachments[0]['source'])->toBe('storage_path');
+    expect($attachments[0]['data'])->toBe('audio/speech.mp3');
+    expect($attachments[0]['mime_type'])->toBe('audio/mpeg');
+    expect($attachments[0]['disk'])->toBe('s3');
+});
+
+test('withVideo adds storage path video with disk', function () {
+    $instance = new TestMediaClass;
+    $clone = $instance->withVideo(
+        'videos/clip.mp4',
+        MediaSource::StoragePath,
+        'video/mp4',
+        's3'
+    );
+
+    $attachments = $clone->exposeGetCurrentAttachments();
+
+    expect($attachments)->toHaveCount(1);
+    expect($attachments[0]['type'])->toBe('video');
+    expect($attachments[0]['source'])->toBe('storage_path');
+    expect($attachments[0]['data'])->toBe('videos/clip.mp4');
+    expect($attachments[0]['mime_type'])->toBe('video/mp4');
+    expect($attachments[0]['disk'])->toBe('s3');
+});
+
+test('disk is not added to image when not provided', function () {
+    $instance = new TestMediaClass;
+    $clone = $instance->withImage('images/photo.png', MediaSource::StoragePath);
+
+    $attachments = $clone->exposeGetCurrentAttachments();
+
+    expect($attachments[0])->not->toHaveKey('disk');
+});
+
+test('disk is not added to audio when not provided', function () {
+    $instance = new TestMediaClass;
+    $clone = $instance->withAudio('audio/speech.mp3', MediaSource::StoragePath);
+
+    $attachments = $clone->exposeGetCurrentAttachments();
+
+    expect($attachments[0])->not->toHaveKey('disk');
+});
+
+test('disk is not added to video when not provided', function () {
+    $instance = new TestMediaClass;
+    $clone = $instance->withVideo('videos/clip.mp4', MediaSource::StoragePath);
+
+    $attachments = $clone->exposeGetCurrentAttachments();
+
+    expect($attachments[0])->not->toHaveKey('disk');
+});
