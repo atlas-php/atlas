@@ -162,8 +162,9 @@ class SpeechCommand extends Command
     {
         $this->line('--- Response ---');
 
-        $audioData = $response->audio;
-        $size = strlen($audioData);
+        // Get raw audio bytes from GeneratedAudio object
+        $audioData = $response->audio->rawContent();
+        $size = $audioData !== null ? strlen($audioData) : 0;
 
         if ($size > 0) {
             $sizeKb = round($size / 1024, 1);
@@ -194,8 +195,9 @@ class SpeechCommand extends Command
     {
         $this->line('--- Verification ---');
 
-        $audioData = $response->audio;
-        $size = strlen($audioData);
+        // Get raw audio bytes from GeneratedAudio object
+        $audioData = $response->audio->rawContent();
+        $size = $audioData !== null ? strlen($audioData) : 0;
 
         if ($size > 0) {
             $this->info('[PASS] Audio data returned');
