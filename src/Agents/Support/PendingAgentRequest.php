@@ -9,6 +9,7 @@ use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
 use Atlasphp\Atlas\Agents\Services\AgentResolver;
 use Generator;
 use Prism\Prism\Streaming\Events\StreamEvent;
+use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Text\Response as PrismResponse;
 
 /**
@@ -131,9 +132,14 @@ final class PendingAgentRequest
      * - $response->finishReason - Typed FinishReason enum
      * - $response->meta - Request metadata, rate limits
      *
+     * If withSchema() was called, returns StructuredResponse instead:
+     * - $response->structured - The structured data extracted
+     * - $response->text - The raw text (if available)
+     * - $response->usage - Full usage stats
+     *
      * @param  string  $input  The user input message.
      */
-    public function chat(string $input): PrismResponse
+    public function chat(string $input): PrismResponse|StructuredResponse
     {
         $resolvedAgent = $this->agentResolver->resolve($this->agent);
         $context = $this->buildContext();

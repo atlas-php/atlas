@@ -17,6 +17,8 @@ use Atlasphp\Atlas\Tools\Services\ToolRegistry;
 use Illuminate\Container\Container;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Facades\Prism;
+use Prism\Prism\Structured\Response as StructuredResponse;
+use Prism\Prism\Testing\StructuredResponseFake;
 use Prism\Prism\Testing\TextResponseFake;
 use Prism\Prism\Text\Response as PrismResponse;
 use Prism\Prism\ValueObjects\Meta;
@@ -562,6 +564,108 @@ test('it returns meta from response', function () {
 
     expect($response->meta->id)->toBe('req-123');
     expect($response->meta->model)->toBe('gpt-4-turbo');
+});
+
+test('it returns StructuredResponse when withSchema is in prismCalls', function () {
+    Prism::fake([
+        StructuredResponseFake::make()
+            ->withStructured(['name' => 'John', 'age' => 30])
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create a mock schema
+    $mockSchema = Mockery::mock(\Prism\Prism\Contracts\Schema::class);
+
+    $context = new ExecutionContext(
+        prismCalls: [
+            ['method' => 'withSchema', 'args' => [$mockSchema]],
+        ],
+    );
+
+    $agent = new TestAgent;
+    $response = $executor->execute($agent, 'Extract person info', $context);
+
+    expect($response)->toBeInstanceOf(StructuredResponse::class);
+    expect($response->structured)->toBe(['name' => 'John', 'age' => 30]);
+});
+
+test('it replays prism calls without schema for structured output', function () {
+    Prism::fake([
+        StructuredResponseFake::make()
+            ->withStructured(['name' => 'John'])
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $mockSchema = Mockery::mock(\Prism\Prism\Contracts\Schema::class);
+
+    // usingTemperature is available on both Text and Structured requests
+    $context = new ExecutionContext(
+        prismCalls: [
+            ['method' => 'withSchema', 'args' => [$mockSchema]],
+            ['method' => 'usingTemperature', 'args' => [0.5]],
+        ],
+    );
+
+    $agent = new TestAgent;
+    $response = $executor->execute($agent, 'Extract person info', $context);
+
+    expect($response)->toBeInstanceOf(StructuredResponse::class);
+});
+
+test('it runs after_execute pipeline with StructuredResponse', function () {
+    $container = new Container;
+    $registry = new PipelineRegistry;
+    $runner = new PipelineRunner($registry, $container);
+
+    $registry->define('agent.after_execute', 'After execute pipeline');
+    AfterExecuteCapturingHandler::reset();
+    $registry->register('agent.after_execute', AfterExecuteCapturingHandler::class);
+
+    Prism::fake([
+        StructuredResponseFake::make()
+            ->withStructured(['name' => 'John'])
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $systemPromptBuilder = new SystemPromptBuilder($runner);
+    $toolRegistry = new ToolRegistry($container);
+    $toolExecutor = new ToolExecutor($runner);
+    $toolBuilder = new ToolBuilder($toolRegistry, $toolExecutor, $container);
+
+    $executor = new AgentExecutor(
+        $toolBuilder,
+        $systemPromptBuilder,
+        $runner,
+        new MediaConverter,
+    );
+
+    $mockSchema = Mockery::mock(\Prism\Prism\Contracts\Schema::class);
+
+    $context = new ExecutionContext(
+        prismCalls: [
+            ['method' => 'withSchema', 'args' => [$mockSchema]],
+        ],
+    );
+
+    $agent = new TestAgent;
+    $executor->execute($agent, 'Hello', $context);
+
+    expect(AfterExecuteCapturingHandler::$called)->toBeTrue();
+    expect(AfterExecuteCapturingHandler::$data['response'])->toBeInstanceOf(StructuredResponse::class);
 });
 
 // Pipeline Handler Classes for Tests

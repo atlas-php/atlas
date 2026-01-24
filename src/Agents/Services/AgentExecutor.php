@@ -14,6 +14,8 @@ use Atlasphp\Atlas\Tools\Support\ToolContext;
 use Generator;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Streaming\Events\StreamEvent;
+use Prism\Prism\Structured\PendingRequest as StructuredPendingRequest;
+use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Text\PendingRequest as TextPendingRequest;
 use Prism\Prism\Text\Response as PrismResponse;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
@@ -50,12 +52,14 @@ class AgentExecutor implements AgentExecutorContract
      * - $response->toolCalls - Tool calls as ToolCall objects
      * - $response->finishReason - Typed FinishReason enum
      * - $response->meta - Request metadata, rate limits
+     *
+     * If withSchema() was called, returns StructuredResponse instead.
      */
     public function execute(
         AgentContract $agent,
         string $input,
         ExecutionContext $context,
-    ): PrismResponse {
+    ): PrismResponse|StructuredResponse {
         $systemPrompt = null;
 
         try {
@@ -76,9 +80,13 @@ class AgentExecutor implements AgentExecutorContract
             // Build system prompt
             $systemPrompt = $this->systemPromptBuilder->build($agent, $context);
 
-            // Build and execute request
+            // Build request (text or structured based on schema presence)
             $request = $this->buildRequest($agent, $input, $context, $systemPrompt);
-            $prismResponse = $request->asText();
+
+            // Execute appropriate terminal method
+            $prismResponse = $request instanceof StructuredPendingRequest
+                ? $request->asStructured()
+                : $request->asText();
 
             // Run after_execute pipeline with Prism response directly
             $afterData = $this->pipelineRunner->runIfActive('agent.after_execute', [
@@ -89,7 +97,7 @@ class AgentExecutor implements AgentExecutorContract
                 'system_prompt' => $systemPrompt,
             ]);
 
-            /** @var PrismResponse */
+            /** @var PrismResponse|StructuredResponse */
             return $afterData['response'];
         } catch (AgentException $e) {
             $this->handleError($agent, $input, $context, $systemPrompt, $e);
@@ -155,16 +163,15 @@ class AgentExecutor implements AgentExecutorContract
     /**
      * Build a Prism request for the agent.
      *
-     * Single unified path for all request types. Prism-specific configuration
-     * (schema, toolChoice, retry, etc.) is replayed from context->prismCalls.
+     * Returns TextPendingRequest for normal text output, or StructuredPendingRequest
+     * when a schema is defined (either on agent or via withSchema()).
      */
     protected function buildRequest(
         AgentContract $agent,
         string $input,
         ExecutionContext $context,
         ?string $systemPrompt,
-    ): TextPendingRequest {
-        // Use context overrides if present, otherwise fall back to agent config
+    ): TextPendingRequest|StructuredPendingRequest {
         $provider = $context->providerOverride ?? $agent->provider();
         $model = $context->modelOverride ?? $agent->model();
 
@@ -176,33 +183,68 @@ class AgentExecutor implements AgentExecutorContract
             throw new \InvalidArgumentException('Model must be specified via agent definition or context override.');
         }
 
-        // Build tools from agent definition
-        $toolContext = new ToolContext($context->metadata);
-        $tools = $this->toolBuilder->buildForAgent($agent, $toolContext);
+        // On-demand schema takes priority, then agent schema
+        $schema = $context->hasSchemaCall()
+            ? $context->getSchemaFromCalls()
+            : $agent->schema();
 
-        // Create base Prism request
-        $request = Prism::text()->using($provider, $model);
+        $isStructured = $schema !== null;
 
-        // Add system prompt if present
+        // Create base request (text or structured)
+        $request = $isStructured
+            ? Prism::structured()->using($provider, $model)->withSchema($schema)
+            : Prism::text()->using($provider, $model);
+
+        // Common: system prompt
         if ($systemPrompt !== null && $systemPrompt !== '') {
             $request = $request->withSystemPrompt($systemPrompt);
         }
 
-        // Add tools if present
-        if ($tools !== []) {
-            $request = $request->withTools($tools);
+        // Common: temperature and maxTokens (available on both request types)
+        if ($agent->temperature() !== null) {
+            $request = $request->usingTemperature($agent->temperature());
+        }
+        if ($agent->maxTokens() !== null) {
+            $request = $request->withMaxTokens($agent->maxTokens());
         }
 
-        // Add messages or prompt
-        $request = $context->hasMessages()
-            ? $request->withMessages($this->buildMessages($context, $input))
-            : $request->withPrompt($input, $this->buildAttachments($context));
+        // Common: client options and provider options
+        if ($agent->clientOptions() !== []) {
+            $request = $request->withClientOptions($agent->clientOptions());
+        }
+        if ($agent->providerOptions() !== []) {
+            $request = $request->withProviderOptions($agent->providerOptions());
+        }
 
-        // Apply agent settings (temperature, maxTokens, maxSteps, providerTools)
-        $request = $this->applyAgentSettings($request, $agent);
+        // Text-specific: tools, messages, maxSteps, providerTools
+        if (! $isStructured) {
+            $toolContext = new ToolContext($context->metadata);
+            $tools = $this->toolBuilder->buildForAgent($agent, $toolContext);
 
-        // Replay captured Prism method calls from context
-        foreach ($context->prismCalls as $call) {
+            if ($tools !== []) {
+                $request = $request->withTools($tools);
+            }
+
+            $request = $context->hasMessages()
+                ? $request->withMessages($this->buildMessages($context, $input))
+                : $request->withPrompt($input, $this->buildAttachments($context));
+
+            if ($agent->maxSteps() !== null) {
+                $request = $request->withMaxSteps($agent->maxSteps());
+            }
+
+            $providerTools = $this->buildProviderTools($agent->providerTools());
+            if ($providerTools !== []) {
+                $request = $request->withProviderTools($providerTools);
+            }
+        } else {
+            // Structured: simple prompt only (no tools, no multi-turn messages)
+            $request = $request->withPrompt($input);
+        }
+
+        // Replay captured Prism calls (excluding schema for structured)
+        $prismCalls = $isStructured ? $context->getPrismCallsWithoutSchema() : $context->prismCalls;
+        foreach ($prismCalls as $call) {
             $request = $request->{$call['method']}(...$call['args']);
         }
 
@@ -288,31 +330,6 @@ class AgentExecutor implements AgentExecutorContract
         $additionalContent = $this->mediaConverter->convertMany($attachments);
 
         return new UserMessage($message['content'], $additionalContent);
-    }
-
-    /**
-     * Apply agent settings to the Prism request.
-     */
-    protected function applyAgentSettings(TextPendingRequest $request, AgentContract $agent): TextPendingRequest
-    {
-        if ($agent->temperature() !== null) {
-            $request = $request->usingTemperature($agent->temperature());
-        }
-
-        if ($agent->maxTokens() !== null) {
-            $request = $request->withMaxTokens($agent->maxTokens());
-        }
-
-        if ($agent->maxSteps() !== null) {
-            $request = $request->withMaxSteps($agent->maxSteps());
-        }
-
-        $providerTools = $this->buildProviderTools($agent->providerTools());
-        if ($providerTools !== []) {
-            $request = $request->withProviderTools($providerTools);
-        }
-
-        return $request;
     }
 
     /**

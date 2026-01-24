@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use Atlasphp\Atlas\Atlas;
+use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Schema\Schema;
 use Atlasphp\Atlas\Schema\SchemaBuilder;
 use Illuminate\Console\Command;
+use Prism\Prism\Structured\Response as StructuredResponse;
 
 /**
  * Command for testing structured output extraction.
@@ -76,21 +77,20 @@ class StructuredCommand extends Command
         $this->displaySchemaDefinition($schema);
 
         try {
-            $this->info('Extracting structured data...');
+            $this->info('Extracting structured data via agent...');
             $this->line('');
 
-            $request = Atlas::structured()
-                ->using('openai', 'gpt-4o')
-                ->withSystemPrompt('Extract structured data from the input. Be precise and follow the schema exactly.')
-                ->withSchema($schema)
-                ->withPrompt($prompt);
+            // Use agent-based structured output
+            $request = Atlas::agent('structured-output')
+                ->withSchema($schema);
 
             // Use JSON mode for schemas with optional fields
             if ($useJsonMode) {
                 $request = $request->usingJsonMode();
             }
 
-            $response = $request->asStructured();
+            /** @var StructuredResponse $response */
+            $response = $request->chat($prompt);
 
             $this->displayResponse($response);
             $this->displayVerification($response, $requiredFields);

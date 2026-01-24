@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Agents\Contracts;
 
 use Atlasphp\Atlas\Agents\Enums\AgentType;
+use Prism\Prism\Contracts\Schema;
 
 /**
  * Contract for agent definitions.
@@ -95,9 +96,31 @@ interface AgentContract
     public function maxSteps(): ?int;
 
     /**
-     * Get additional provider-specific settings.
+     * Get HTTP client options (timeout, retries, etc.).
+     *
+     * These are passed to Prism's withClientOptions().
      *
      * @return array<string, mixed>
      */
-    public function settings(): array;
+    public function clientOptions(): array;
+
+    /**
+     * Get provider-specific options.
+     *
+     * These are passed to Prism's withProviderOptions().
+     *
+     * @return array<string, mixed>
+     */
+    public function providerOptions(): array;
+
+    /**
+     * Get the schema for structured output.
+     *
+     * When defined, the agent will use Prism's structured output module
+     * and return a StructuredResponse instead of a text Response.
+     *
+     * Returns null to use text output (default behavior).
+     * Can be overridden at call time via withSchema().
+     */
+    public function schema(): ?Schema;
 }

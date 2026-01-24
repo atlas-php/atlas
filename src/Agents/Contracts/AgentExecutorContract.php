@@ -7,6 +7,7 @@ namespace Atlasphp\Atlas\Agents\Contracts;
 use Atlasphp\Atlas\Agents\Support\ExecutionContext;
 use Generator;
 use Prism\Prism\Streaming\Events\StreamEvent;
+use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Text\Response as PrismResponse;
 
 /**
@@ -23,6 +24,11 @@ use Prism\Prism\Text\Response as PrismResponse;
  * - response->finishReason - Typed FinishReason enum
  * - response->meta - Request metadata, rate limits
  *
+ * When withSchema() is used, returns StructuredResponse instead with:
+ * - response->structured - The structured data extracted
+ * - response->text - The raw text (if available)
+ * - response->usage - Full usage stats
+ *
  * All Prism-specific configuration (schema, retry, structuredMode, toolChoice, etc.)
  * is captured in the ExecutionContext's prismCalls and replayed on the request.
  */
@@ -32,6 +38,7 @@ interface AgentExecutorContract
      * Execute an agent with the given input.
      *
      * Returns Prism's Response directly for full API access.
+     * If withSchema() was called, returns StructuredResponse instead.
      *
      * @param  AgentContract  $agent  The agent to execute.
      * @param  string  $input  The user input message.
@@ -41,7 +48,7 @@ interface AgentExecutorContract
         AgentContract $agent,
         string $input,
         ExecutionContext $context,
-    ): PrismResponse;
+    ): PrismResponse|StructuredResponse;
 
     /**
      * Stream a response from an agent.

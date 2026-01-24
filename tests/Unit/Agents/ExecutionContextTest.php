@@ -188,3 +188,69 @@ test('hasCurrentAttachments returns true when prismMedia is present', function (
     // hasCurrentAttachments should return true when either array attachments or prismMedia is present
     expect($context->hasCurrentAttachments())->toBeTrue();
 });
+
+test('it reports hasSchemaCall correctly', function () {
+    $empty = new ExecutionContext;
+    $withSchema = new ExecutionContext(prismCalls: [
+        ['method' => 'withSchema', 'args' => ['mock-schema']],
+    ]);
+    $withOtherCalls = new ExecutionContext(prismCalls: [
+        ['method' => 'withMaxSteps', 'args' => [10]],
+    ]);
+
+    expect($empty->hasSchemaCall())->toBeFalse();
+    expect($withSchema->hasSchemaCall())->toBeTrue();
+    expect($withOtherCalls->hasSchemaCall())->toBeFalse();
+});
+
+test('it gets schema from prism calls', function () {
+    $mockSchema = new \stdClass;
+    $mockSchema->name = 'test-schema';
+
+    $contextWithSchema = new ExecutionContext(prismCalls: [
+        ['method' => 'withMaxSteps', 'args' => [10]],
+        ['method' => 'withSchema', 'args' => [$mockSchema]],
+    ]);
+
+    $contextWithoutSchema = new ExecutionContext(prismCalls: [
+        ['method' => 'withMaxSteps', 'args' => [10]],
+    ]);
+
+    expect($contextWithSchema->getSchemaFromCalls())->toBe($mockSchema);
+    expect($contextWithoutSchema->getSchemaFromCalls())->toBeNull();
+});
+
+test('it gets prism calls without schema', function () {
+    $mockSchema = new \stdClass;
+
+    $context = new ExecutionContext(prismCalls: [
+        ['method' => 'withMaxSteps', 'args' => [10]],
+        ['method' => 'withSchema', 'args' => [$mockSchema]],
+        ['method' => 'usingTemperature', 'args' => [0.7]],
+    ]);
+
+    $callsWithoutSchema = $context->getPrismCallsWithoutSchema();
+
+    expect($callsWithoutSchema)->toHaveCount(2);
+    expect($callsWithoutSchema[0]['method'])->toBe('withMaxSteps');
+    expect($callsWithoutSchema[1]['method'])->toBe('usingTemperature');
+});
+
+test('getPrismCallsWithoutSchema returns empty array when no calls', function () {
+    $context = new ExecutionContext;
+
+    expect($context->getPrismCallsWithoutSchema())->toBe([]);
+});
+
+test('getPrismCallsWithoutSchema returns all calls when no schema', function () {
+    $context = new ExecutionContext(prismCalls: [
+        ['method' => 'withMaxSteps', 'args' => [10]],
+        ['method' => 'usingTemperature', 'args' => [0.7]],
+    ]);
+
+    $calls = $context->getPrismCallsWithoutSchema();
+
+    expect($calls)->toHaveCount(2);
+    expect($calls[0]['method'])->toBe('withMaxSteps');
+    expect($calls[1]['method'])->toBe('usingTemperature');
+});

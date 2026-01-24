@@ -129,4 +129,50 @@ final readonly class ExecutionContext
     {
         return $this->prismCalls !== [];
     }
+
+    /**
+     * Check if a schema call is present in prism calls.
+     *
+     * When true, the executor should use Prism's Structured module
+     * instead of the Text module for execution.
+     */
+    public function hasSchemaCall(): bool
+    {
+        foreach ($this->prismCalls as $call) {
+            if ($call['method'] === 'withSchema') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Get the schema from prism calls if present.
+     *
+     * @return \Prism\Prism\Contracts\Schema|null
+     */
+    public function getSchemaFromCalls(): mixed
+    {
+        foreach ($this->prismCalls as $call) {
+            if ($call['method'] === 'withSchema') {
+                return $call['args'][0] ?? null;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Get prism calls without the schema call (for replay after schema is set).
+     *
+     * @return array<int, array{method: string, args: array<int, mixed>}>
+     */
+    public function getPrismCallsWithoutSchema(): array
+    {
+        return array_values(array_filter(
+            $this->prismCalls,
+            fn (array $call): bool => $call['method'] !== 'withSchema'
+        ));
+    }
 }
