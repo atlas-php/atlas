@@ -45,15 +45,11 @@ class DateTimeTool extends ToolDefinition
             ToolParameter::string(
                 'timezone',
                 'The timezone (e.g., UTC, America/New_York, Europe/London). Defaults to UTC.',
-                required: false,
-                default: 'UTC',
             ),
             ToolParameter::enum(
                 'format',
-                'The output format',
+                'The output format (default: full)',
                 ['full', 'date', 'time', 'iso8601'],
-                required: false,
-                default: 'full',
             ),
         ];
     }

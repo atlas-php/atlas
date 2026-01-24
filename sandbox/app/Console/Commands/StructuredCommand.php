@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Schema\Schema;
 use Atlasphp\Atlas\Schema\SchemaBuilder;
 use Illuminate\Console\Command;
@@ -25,7 +25,8 @@ class StructuredCommand extends Command
     protected $signature = 'atlas:structured
                             {--schema=person : Predefined schema (person|product|review|order|sentiment|contact)}
                             {--prompt= : Custom prompt for extraction}
-                            {--list : List all available schemas}';
+                            {--list : List all available schemas}
+                            {--agent-schema : Use the agent\'s built-in schema instead of on-demand withSchema()}';
 
     /**
      * The console command description.
@@ -73,24 +74,37 @@ class StructuredCommand extends Command
         // Use provided prompt or default
         $prompt = $prompt ?: $defaultPrompt;
 
-        $this->displayHeader($schemaKey, $prompt, $useJsonMode);
+        $useAgentSchema = $this->option('agent-schema');
+        $this->displayHeader($schemaKey, $prompt, $useJsonMode, $useAgentSchema);
         $this->displaySchemaDefinition($schema);
 
         try {
-            $this->info('Extracting structured data via agent...');
-            $this->line('');
+            $useAgentSchema = $this->option('agent-schema');
 
-            // Use agent-based structured output
-            $request = Atlas::agent('structured-output')
-                ->withSchema($schema);
+            if ($useAgentSchema) {
+                $this->info('Using agent\'s built-in schema (no withSchema() call)...');
+                $this->line('');
 
-            // Use JSON mode for schemas with optional fields
-            if ($useJsonMode) {
-                $request = $request->usingJsonMode();
+                // Demonstrate agent-level schema - just call chat() directly
+                // The agent's schema() method provides the schema
+                /** @var StructuredResponse $response */
+                $response = Atlas::agent('structured-output')->chat($prompt);
+            } else {
+                $this->info('Using on-demand schema via withSchema()...');
+                $this->line('');
+
+                // Use on-demand schema via withSchema()
+                $request = Atlas::agent('structured-output')
+                    ->withSchema($schema);
+
+                // Use JSON mode for schemas with optional fields
+                if ($useJsonMode) {
+                    $request = $request->usingJsonMode();
+                }
+
+                /** @var StructuredResponse $response */
+                $response = $request->chat($prompt);
             }
-
-            /** @var StructuredResponse $response */
-            $response = $request->chat($prompt);
 
             $this->displayResponse($response);
             $this->displayVerification($response, $requiredFields);
@@ -223,12 +237,18 @@ class StructuredCommand extends Command
     /**
      * Display the command header.
      */
-    protected function displayHeader(string $schemaKey, string $prompt, bool $useJsonMode = false): void
+    protected function displayHeader(string $schemaKey, string $prompt, bool $useJsonMode = false, bool $useAgentSchema = false): void
     {
         $this->line('');
         $this->line('=== Atlas Structured Output Test ===');
         $this->line('Provider: openai / gpt-4o');
         $this->line("Schema: {$schemaKey}");
+
+        if ($useAgentSchema) {
+            $this->line('Method: Agent-level schema via schema()');
+        } else {
+            $this->line('Method: On-demand schema via withSchema()');
+        }
 
         if ($useJsonMode) {
             $this->line('Mode: JSON (allows optional fields)');

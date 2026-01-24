@@ -74,7 +74,7 @@ class StreamCommand extends Command
                 $eventCount++;
 
                 if ($event instanceof TextDeltaEvent) {
-                    $this->output->write($event->text);
+                    $this->output->write($event->delta);
                 } elseif ($event instanceof StreamEndEvent) {
                     $finishReason = $event->finishReason->value ?? 'unknown';
                     if ($showEvents) {

@@ -43,14 +43,11 @@ class WeatherTool extends ToolDefinition
             ToolParameter::string(
                 'location',
                 'The city name or location to get weather for',
-                required: true,
             ),
             ToolParameter::enum(
                 'units',
-                'Temperature units',
+                'Temperature units (default: celsius)',
                 ['celsius', 'fahrenheit'],
-                required: false,
-                default: 'celsius',
             ),
         ];
     }
