@@ -21,7 +21,7 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Agents Configuration
+    | Agents Configuration (auto-discovery) *optional
     |--------------------------------------------------------------------------
     |
     | Configure where Atlas should look for agent definitions.
@@ -31,11 +31,12 @@ return [
 
     'agents' => [
         'path' => app_path('Agents'),
+        'namespace' => 'App\\Agents',
     ],
 
     /*
     |--------------------------------------------------------------------------
-    | Tools Configuration
+    | Tools Configuration (auto-discovery) *optional
     |--------------------------------------------------------------------------
     |
     | Configure where Atlas should look for tool definitions.
@@ -45,6 +46,7 @@ return [
 
     'tools' => [
         'path' => app_path('Tools'),
+        'namespace' => 'App\\Tools',
     ],
 
 ];

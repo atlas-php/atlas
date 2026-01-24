@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas;
 
+use Atlasphp\Atlas\Agents\Contracts\AgentContract;
 use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
 use Atlasphp\Atlas\Agents\Contracts\AgentRegistryContract;
 use Atlasphp\Atlas\Agents\Services\AgentExecutor;
@@ -14,6 +15,8 @@ use Atlasphp\Atlas\Agents\Services\MediaConverter;
 use Atlasphp\Atlas\Agents\Services\SystemPromptBuilder;
 use Atlasphp\Atlas\Pipelines\PipelineRegistry;
 use Atlasphp\Atlas\Pipelines\PipelineRunner;
+use Atlasphp\Atlas\Support\ClassDiscovery;
+use Atlasphp\Atlas\Tools\Contracts\ToolContract;
 use Atlasphp\Atlas\Tools\Contracts\ToolRegistryContract;
 use Atlasphp\Atlas\Tools\Services\ToolBuilder;
 use Atlasphp\Atlas\Tools\Services\ToolExecutor;
@@ -40,6 +43,7 @@ class AtlasServiceProvider extends ServiceProvider
         $this->registerAgentServices();
         $this->registerToolServices();
         $this->registerAtlasManager();
+        $this->registerDiscoveryService();
     }
 
     /**
@@ -49,6 +53,9 @@ class AtlasServiceProvider extends ServiceProvider
     {
         $this->publishConfig();
         $this->defineCorePipelines();
+        $this->configurePipelinesState();
+        $this->discoverAgents();
+        $this->discoverTools();
     }
 
     /**
@@ -147,6 +154,16 @@ class AtlasServiceProvider extends ServiceProvider
     }
 
     /**
+     * Register the discovery service.
+     */
+    protected function registerDiscoveryService(): void
+    {
+        $this->app->singleton(ClassDiscovery::class, function (): ClassDiscovery {
+            return new ClassDiscovery;
+        });
+    }
+
+    /**
      * Publish configuration files.
      */
     protected function publishConfig(): void
@@ -178,6 +195,65 @@ class AtlasServiceProvider extends ServiceProvider
         // Prism pipelines (from PrismProxy configuration)
         foreach (PrismProxy::getPipelineEvents() as $event) {
             $registry->define($event);
+        }
+    }
+
+    /**
+     * Configure pipelines enabled state based on config.
+     */
+    protected function configurePipelinesState(): void
+    {
+        if (config('atlas.pipelines.enabled', true) === false) {
+            $registry = $this->app->make(PipelineRegistry::class);
+
+            // Disable all defined pipelines
+            foreach ($registry->definitions() as $name => $definition) {
+                $registry->setActive($name, false);
+            }
+        }
+    }
+
+    /**
+     * Discover and register agents from configured path.
+     */
+    protected function discoverAgents(): void
+    {
+        $path = config('atlas.agents.path');
+        $namespace = config('atlas.agents.namespace');
+
+        if ($path === null || $path === '' || $namespace === null) {
+            return;
+        }
+
+        $discovery = $this->app->make(ClassDiscovery::class);
+        $registry = $this->app->make(AgentRegistryContract::class);
+
+        $agents = $discovery->discover($path, $namespace, AgentContract::class);
+
+        foreach ($agents as $agentClass) {
+            $registry->register($agentClass);
+        }
+    }
+
+    /**
+     * Discover and register tools from configured path.
+     */
+    protected function discoverTools(): void
+    {
+        $path = config('atlas.tools.path');
+        $namespace = config('atlas.tools.namespace');
+
+        if ($path === null || $path === '' || $namespace === null) {
+            return;
+        }
+
+        $discovery = $this->app->make(ClassDiscovery::class);
+        $registry = $this->app->make(ToolRegistryContract::class);
+
+        $tools = $discovery->discover($path, $namespace, ToolContract::class);
+
+        foreach ($tools as $toolClass) {
+            $registry->register($toolClass);
         }
     }
 }
