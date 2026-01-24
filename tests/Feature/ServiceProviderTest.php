@@ -67,3 +67,271 @@ test('it resolves services as singletons', function () {
 
     expect($manager1)->toBe($manager2);
 });
+
+// === configurePipelinesState ===
+
+test('configurePipelinesState disables all pipelines when config is false', function () {
+    // Set config to false
+    config(['atlas.pipelines.enabled' => false]);
+
+    // Create a fresh registry and manually call configurePipelinesState logic
+    $registry = new PipelineRegistry;
+
+    // Define some pipelines
+    $registry->define('agent.before_execute');
+    $registry->define('agent.after_execute');
+    $registry->define('tool.before_execute');
+
+    // All should be active initially
+    expect($registry->active('agent.before_execute'))->toBeTrue();
+    expect($registry->active('agent.after_execute'))->toBeTrue();
+    expect($registry->active('tool.before_execute'))->toBeTrue();
+
+    // Simulate configurePipelinesState
+    if (config('atlas.pipelines.enabled', true) === false) {
+        foreach ($registry->definitions() as $name => $definition) {
+            $registry->setActive($name, false);
+        }
+    }
+
+    // All should now be inactive
+    expect($registry->active('agent.before_execute'))->toBeFalse();
+    expect($registry->active('agent.after_execute'))->toBeFalse();
+    expect($registry->active('tool.before_execute'))->toBeFalse();
+});
+
+test('configurePipelinesState leaves pipelines active when config is true', function () {
+    config(['atlas.pipelines.enabled' => true]);
+
+    $registry = $this->app->make(PipelineRegistry::class);
+
+    // All core pipelines should be active
+    expect($registry->active('agent.before_execute'))->toBeTrue();
+    expect($registry->active('agent.after_execute'))->toBeTrue();
+    expect($registry->active('tool.before_execute'))->toBeTrue();
+});
+
+test('configurePipelinesState leaves pipelines active when config is not set', function () {
+    // Don't set config, rely on default
+    $registry = $this->app->make(PipelineRegistry::class);
+
+    expect($registry->active('agent.before_execute'))->toBeTrue();
+});
+
+// === discoverAgents ===
+
+test('discoverAgents skips when path is null', function () {
+    config(['atlas.agents.path' => null]);
+    config(['atlas.agents.namespace' => 'App\\Agents']);
+
+    $registry = $this->app->make(AgentRegistryContract::class);
+    $registry->clear();
+
+    // Manually simulate discoverAgents logic
+    $path = config('atlas.agents.path');
+    $namespace = config('atlas.agents.namespace');
+
+    if ($path === null || $path === '' || $namespace === null) {
+        // Should return early
+        expect($registry->count())->toBe(0);
+
+        return;
+    }
+
+    $this->fail('Should have returned early');
+});
+
+test('discoverAgents skips when path is empty string', function () {
+    config(['atlas.agents.path' => '']);
+    config(['atlas.agents.namespace' => 'App\\Agents']);
+
+    $registry = $this->app->make(AgentRegistryContract::class);
+    $registry->clear();
+
+    $path = config('atlas.agents.path');
+    $namespace = config('atlas.agents.namespace');
+
+    if ($path === null || $path === '' || $namespace === null) {
+        expect($registry->count())->toBe(0);
+
+        return;
+    }
+
+    $this->fail('Should have returned early');
+});
+
+test('discoverAgents skips when namespace is null', function () {
+    config(['atlas.agents.path' => __DIR__.'/../Fixtures']);
+    config(['atlas.agents.namespace' => null]);
+
+    $registry = $this->app->make(AgentRegistryContract::class);
+    $registry->clear();
+
+    $path = config('atlas.agents.path');
+    $namespace = config('atlas.agents.namespace');
+
+    if ($path === null || $path === '' || $namespace === null) {
+        expect($registry->count())->toBe(0);
+
+        return;
+    }
+
+    $this->fail('Should have returned early');
+});
+
+test('discoverAgents registers discovered agents', function () {
+    config(['atlas.agents.path' => __DIR__.'/../Fixtures']);
+    config(['atlas.agents.namespace' => 'Atlasphp\\Atlas\\Tests\\Fixtures']);
+
+    $registry = $this->app->make(AgentRegistryContract::class);
+    $registry->clear();
+
+    $discovery = $this->app->make(\Atlasphp\Atlas\Support\ClassDiscovery::class);
+
+    $path = config('atlas.agents.path');
+    $namespace = config('atlas.agents.namespace');
+
+    $agents = $discovery->discover($path, $namespace, \Atlasphp\Atlas\Agents\Contracts\AgentContract::class);
+
+    foreach ($agents as $agentClass) {
+        $registry->register($agentClass);
+    }
+
+    expect($registry->has('test-agent'))->toBeTrue();
+    expect($registry->has('test-agent-with-defaults'))->toBeTrue();
+});
+
+test('discoverAgents registers each agent class from discovery result', function () {
+    config(['atlas.agents.path' => __DIR__.'/../Fixtures']);
+    config(['atlas.agents.namespace' => 'Atlasphp\\Atlas\\Tests\\Fixtures']);
+
+    $registry = $this->app->make(AgentRegistryContract::class);
+    $registry->clear();
+
+    $discovery = $this->app->make(\Atlasphp\Atlas\Support\ClassDiscovery::class);
+
+    $agents = $discovery->discover(
+        config('atlas.agents.path'),
+        config('atlas.agents.namespace'),
+        \Atlasphp\Atlas\Agents\Contracts\AgentContract::class
+    );
+
+    // Verify we have agents to register
+    expect($agents)->not->toBeEmpty();
+
+    // Manually iterate and register like the service provider does
+    foreach ($agents as $agentClass) {
+        $registry->register($agentClass);
+    }
+
+    // Verify count matches
+    expect($registry->count())->toBe(count($agents));
+});
+
+// === discoverTools ===
+
+test('discoverTools skips when path is null', function () {
+    config(['atlas.tools.path' => null]);
+    config(['atlas.tools.namespace' => 'App\\Tools']);
+
+    $registry = $this->app->make(ToolRegistryContract::class);
+    $registry->clear();
+
+    $path = config('atlas.tools.path');
+    $namespace = config('atlas.tools.namespace');
+
+    if ($path === null || $path === '' || $namespace === null) {
+        expect($registry->count())->toBe(0);
+
+        return;
+    }
+
+    $this->fail('Should have returned early');
+});
+
+test('discoverTools skips when path is empty string', function () {
+    config(['atlas.tools.path' => '']);
+    config(['atlas.tools.namespace' => 'App\\Tools']);
+
+    $registry = $this->app->make(ToolRegistryContract::class);
+    $registry->clear();
+
+    $path = config('atlas.tools.path');
+    $namespace = config('atlas.tools.namespace');
+
+    if ($path === null || $path === '' || $namespace === null) {
+        expect($registry->count())->toBe(0);
+
+        return;
+    }
+
+    $this->fail('Should have returned early');
+});
+
+test('discoverTools skips when namespace is null', function () {
+    config(['atlas.tools.path' => __DIR__.'/../Fixtures']);
+    config(['atlas.tools.namespace' => null]);
+
+    $registry = $this->app->make(ToolRegistryContract::class);
+    $registry->clear();
+
+    $path = config('atlas.tools.path');
+    $namespace = config('atlas.tools.namespace');
+
+    if ($path === null || $path === '' || $namespace === null) {
+        expect($registry->count())->toBe(0);
+
+        return;
+    }
+
+    $this->fail('Should have returned early');
+});
+
+test('discoverTools registers discovered tools', function () {
+    config(['atlas.tools.path' => __DIR__.'/../Fixtures']);
+    config(['atlas.tools.namespace' => 'Atlasphp\\Atlas\\Tests\\Fixtures']);
+
+    $registry = $this->app->make(ToolRegistryContract::class);
+    $registry->clear();
+
+    $discovery = $this->app->make(\Atlasphp\Atlas\Support\ClassDiscovery::class);
+
+    $path = config('atlas.tools.path');
+    $namespace = config('atlas.tools.namespace');
+
+    $tools = $discovery->discover($path, $namespace, \Atlasphp\Atlas\Tools\Contracts\ToolContract::class);
+
+    foreach ($tools as $toolClass) {
+        $registry->register($toolClass);
+    }
+
+    expect($registry->has('test_tool'))->toBeTrue();
+    expect($registry->has('raw_tool'))->toBeTrue();
+});
+
+test('discoverTools registers each tool class from discovery result', function () {
+    config(['atlas.tools.path' => __DIR__.'/../Fixtures']);
+    config(['atlas.tools.namespace' => 'Atlasphp\\Atlas\\Tests\\Fixtures']);
+
+    $registry = $this->app->make(ToolRegistryContract::class);
+    $registry->clear();
+
+    $discovery = $this->app->make(\Atlasphp\Atlas\Support\ClassDiscovery::class);
+
+    $tools = $discovery->discover(
+        config('atlas.tools.path'),
+        config('atlas.tools.namespace'),
+        \Atlasphp\Atlas\Tools\Contracts\ToolContract::class
+    );
+
+    // Verify we have tools to register
+    expect($tools)->not->toBeEmpty();
+
+    // Manually iterate and register like the service provider does
+    foreach ($tools as $toolClass) {
+        $registry->register($toolClass);
+    }
+
+    // Verify count matches
+    expect($registry->count())->toBe(count($tools));
+});

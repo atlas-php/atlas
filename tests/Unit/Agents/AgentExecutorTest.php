@@ -275,6 +275,150 @@ test('it throws when provider is null', function () {
     $executor->execute($agent, 'Hello', $context);
 })->throws(AgentException::class, 'Provider must be specified');
 
+test('it throws when model is null but provider is set', function () {
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create an agent with provider but null model
+    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    {
+        public function key(): string
+        {
+            return 'agent-with-no-model';
+        }
+
+        public function provider(): ?string
+        {
+            return 'openai';
+        }
+
+        public function model(): ?string
+        {
+            return null; // No model
+        }
+    };
+
+    $context = new ExecutionContext;
+
+    $executor->execute($agent, 'Hello', $context);
+})->throws(AgentException::class, 'Model must be specified');
+
+test('it throws for unknown message role', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $context = new ExecutionContext(
+        messages: [
+            ['role' => 'invalid_role', 'content' => 'Message with invalid role'],
+        ],
+    );
+
+    $agent = new TestAgent;
+    $executor->execute($agent, 'Hello', $context);
+})->throws(AgentException::class, 'Unknown message role: invalid_role');
+
+test('it builds messages with system role', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $context = new ExecutionContext(
+        messages: [
+            ['role' => 'system', 'content' => 'You are a helpful assistant.'],
+            ['role' => 'user', 'content' => 'Previous question'],
+            ['role' => 'assistant', 'content' => 'Previous answer'],
+        ],
+    );
+
+    $agent = new TestAgent;
+    $response = $executor->execute($agent, 'Follow up', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response->text)->toBe('Response');
+});
+
+test('it handles prismMedia attachments directly', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('I see the image')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create a Prism media object using the correct namespace
+    $image = \Prism\Prism\ValueObjects\Media\Image::fromUrl('https://example.com/image.jpg');
+
+    $context = new ExecutionContext(
+        prismMedia: [$image],
+    );
+
+    $agent = new TestAgent;
+    $response = $executor->execute($agent, 'What do you see?', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response->text)->toBe('I see the image');
+});
+
+test('it combines prismMedia with currentAttachments', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('I see both images')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create a Prism media object using the correct namespace
+    $image = \Prism\Prism\ValueObjects\Media\Image::fromUrl('https://example.com/image1.jpg');
+
+    $context = new ExecutionContext(
+        prismMedia: [$image],
+        currentAttachments: [
+            ['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image2.jpg'],
+        ],
+    );
+
+    $agent = new TestAgent;
+    $response = $executor->execute($agent, 'What do you see?', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response->text)->toBe('I see both images');
+});
+
 test('stream returns Generator', function () {
     Prism::fake([
         TextResponseFake::make()

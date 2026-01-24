@@ -435,3 +435,73 @@ test('moderation module terminal method works', function () {
 
     expect($result->flagged)->toBeFalse();
 });
+
+test('proxyToRequest returns self when method returns non-object', function () {
+    // This tests the edge case where a fluent method returns a non-object value
+    // The proxy should return self to maintain the chain
+    $pendingRequest = new class
+    {
+        public function someFluentMethod(): bool
+        {
+            return true; // Returns non-object
+        }
+    };
+
+    $proxy = new PrismProxy($this->runner, $pendingRequest, 'text');
+    $result = $proxy->someFluentMethod();
+
+    // Should return the same proxy instance to maintain fluent chain
+    expect($result)->toBeInstanceOf(PrismProxy::class);
+    expect($result)->toBe($proxy);
+});
+
+test('proxyToRequest handles null return value', function () {
+    $pendingRequest = new class
+    {
+        public function methodReturningNull(): ?object
+        {
+            return null;
+        }
+    };
+
+    $proxy = new PrismProxy($this->runner, $pendingRequest, 'text');
+    $result = $proxy->methodReturningNull();
+
+    // Should return self when method returns null
+    expect($result)->toBeInstanceOf(PrismProxy::class);
+    expect($result)->toBe($proxy);
+});
+
+test('proxyToRequest handles string return value', function () {
+    $pendingRequest = new class
+    {
+        public function getConfigValue(): string
+        {
+            return 'some-config-value';
+        }
+    };
+
+    $proxy = new PrismProxy($this->runner, $pendingRequest, 'text');
+    $result = $proxy->getConfigValue();
+
+    // Should return self when method returns non-object
+    expect($result)->toBeInstanceOf(PrismProxy::class);
+    expect($result)->toBe($proxy);
+});
+
+test('proxyToRequest handles integer return value', function () {
+    $pendingRequest = new class
+    {
+        public function getCount(): int
+        {
+            return 42;
+        }
+    };
+
+    $proxy = new PrismProxy($this->runner, $pendingRequest, 'text');
+    $result = $proxy->getCount();
+
+    // Should return self when method returns non-object
+    expect($result)->toBeInstanceOf(PrismProxy::class);
+    expect($result)->toBe($proxy);
+});
