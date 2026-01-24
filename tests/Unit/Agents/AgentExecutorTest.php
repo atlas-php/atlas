@@ -626,6 +626,341 @@ test('it replays prism calls without schema for structured output', function () 
     expect($response)->toBeInstanceOf(StructuredResponse::class);
 });
 
+test('it applies agent clientOptions to request', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response with client options')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithOptions;
+    $context = new ExecutionContext;
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    // Verify the request was executed (clientOptions are internal to Prism)
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response->text)->toBe('Response with client options');
+
+    // Verify agent has clientOptions defined
+    expect($agent->clientOptions())->toBe([
+        'timeout' => 60,
+        'connect_timeout' => 10,
+    ]);
+});
+
+test('it applies agent providerOptions to request', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response with provider options')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithOptions;
+    $context = new ExecutionContext;
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    // Verify the request was executed (providerOptions are internal to Prism)
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response->text)->toBe('Response with provider options');
+
+    // Verify agent has providerOptions defined
+    expect($agent->providerOptions())->toBe([
+        'presence_penalty' => 0.5,
+        'frequency_penalty' => 0.3,
+    ]);
+});
+
+test('it applies agent providerTools to request', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response with provider tools')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithOptions;
+    $context = new ExecutionContext;
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    // Verify the request was executed
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response->text)->toBe('Response with provider tools');
+
+    // Verify agent has providerTools defined
+    expect($agent->providerTools())->toBe([
+        'web_search',
+        ['type' => 'code_execution', 'name' => 'execute_code'],
+    ]);
+});
+
+test('it does not apply empty clientOptions', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // TestAgent has empty clientOptions (uses default)
+    $agent = new TestAgent;
+    expect($agent->clientOptions())->toBe([]);
+
+    $context = new ExecutionContext;
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+});
+
+test('it does not apply empty providerOptions', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // TestAgent has empty providerOptions (uses default)
+    $agent = new TestAgent;
+    expect($agent->providerOptions())->toBe([]);
+
+    $context = new ExecutionContext;
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+});
+
+test('it does not apply empty providerTools', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // TestAgent has empty providerTools (uses default)
+    $agent = new TestAgent;
+    expect($agent->providerTools())->toBe([]);
+
+    $context = new ExecutionContext;
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+});
+
+test('it builds provider tools from string format', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create agent with string provider tools
+    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    {
+        public function key(): string
+        {
+            return 'agent-with-string-tools';
+        }
+
+        public function provider(): ?string
+        {
+            return 'openai';
+        }
+
+        public function model(): ?string
+        {
+            return 'gpt-4';
+        }
+
+        public function providerTools(): array
+        {
+            return ['web_search', 'code_execution'];
+        }
+    };
+
+    $context = new ExecutionContext;
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+});
+
+test('it builds provider tools from array format', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create agent with array provider tools
+    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    {
+        public function key(): string
+        {
+            return 'agent-with-array-tools';
+        }
+
+        public function provider(): ?string
+        {
+            return 'openai';
+        }
+
+        public function model(): ?string
+        {
+            return 'gpt-4';
+        }
+
+        public function providerTools(): array
+        {
+            return [
+                ['type' => 'web_search'],
+                ['type' => 'code_execution', 'name' => 'my_code_executor', 'extra' => 'option'],
+            ];
+        }
+    };
+
+    $context = new ExecutionContext;
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+});
+
+test('it builds provider tools from ProviderTool objects', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create agent with ProviderTool objects
+    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    {
+        public function key(): string
+        {
+            return 'agent-with-provider-tool-objects';
+        }
+
+        public function provider(): ?string
+        {
+            return 'openai';
+        }
+
+        public function model(): ?string
+        {
+            return 'gpt-4';
+        }
+
+        public function providerTools(): array
+        {
+            return [
+                new \Prism\Prism\ValueObjects\ProviderTool(type: 'web_search'),
+                new \Prism\Prism\ValueObjects\ProviderTool(type: 'code_execution', name: 'executor'),
+            ];
+        }
+    };
+
+    $context = new ExecutionContext;
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+});
+
+test('it throws for invalid provider tool format', function () {
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create agent with invalid provider tool (array without 'type')
+    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    {
+        public function key(): string
+        {
+            return 'agent-with-invalid-tools';
+        }
+
+        public function provider(): ?string
+        {
+            return 'openai';
+        }
+
+        public function model(): ?string
+        {
+            return 'gpt-4';
+        }
+
+        public function providerTools(): array
+        {
+            return [
+                ['name' => 'missing_type'], // Missing 'type' key
+            ];
+        }
+    };
+
+    $context = new ExecutionContext;
+    $executor->execute($agent, 'Hello', $context);
+})->throws(AgentException::class, 'Invalid provider tool format at index 0');
+
 test('it runs after_execute pipeline with StructuredResponse', function () {
     $container = new Container;
     $registry = new PipelineRegistry;
