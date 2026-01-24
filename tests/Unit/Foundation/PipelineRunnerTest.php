@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Foundation\Contracts\PipelineContract;
-use Atlasphp\Atlas\Foundation\Services\PipelineRegistry;
-use Atlasphp\Atlas\Foundation\Services\PipelineRunner;
+use Atlasphp\Atlas\Contracts\PipelineContract;
+use Atlasphp\Atlas\Pipelines\PipelineRegistry;
+use Atlasphp\Atlas\Pipelines\PipelineRunner;
 use Illuminate\Container\Container;
 
 beforeEach(function () {

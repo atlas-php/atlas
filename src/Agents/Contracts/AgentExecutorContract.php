@@ -6,16 +6,17 @@ namespace Atlasphp\Atlas\Agents\Contracts;
 
 use Atlasphp\Atlas\Agents\Support\AgentResponse;
 use Atlasphp\Atlas\Agents\Support\ExecutionContext;
-use Atlasphp\Atlas\Streaming\StreamResponse;
-use Prism\Prism\Contracts\Schema;
-use Prism\Prism\Enums\StructuredMode;
+use Generator;
+use Prism\Prism\Streaming\Events\StreamEvent;
 
 /**
  * Contract for agent execution implementations.
  *
- * Defines the interface for executing agents with conversation context
- * and optional structured output schemas. Supports both blocking and
- * streaming execution modes.
+ * Defines the interface for executing agents with conversation context.
+ * Supports both blocking and streaming execution modes.
+ *
+ * All Prism-specific configuration (schema, retry, structuredMode, toolChoice, etc.)
+ * is captured in the ExecutionContext's prismCalls and replayed on the request.
  */
 interface AgentExecutorContract
 {
@@ -24,32 +25,28 @@ interface AgentExecutorContract
      *
      * @param  AgentContract  $agent  The agent to execute.
      * @param  string  $input  The user input message.
-     * @param  ExecutionContext|null  $context  Optional execution context with messages and variables.
-     * @param  Schema|null  $schema  Optional schema for structured output.
-     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
-     * @param  StructuredMode|null  $structuredMode  Optional mode for structured output (Auto, Structured, Json).
+     * @param  ExecutionContext  $context  Execution context with messages, variables, and Prism calls.
      */
     public function execute(
         AgentContract $agent,
         string $input,
-        ?ExecutionContext $context = null,
-        ?Schema $schema = null,
-        ?array $retry = null,
-        ?StructuredMode $structuredMode = null,
+        ExecutionContext $context,
     ): AgentResponse;
 
     /**
      * Stream a response from an agent.
      *
+     * Returns a Generator yielding Prism StreamEvents directly.
+     * Consumers work with Prism's streaming API directly.
+     *
      * @param  AgentContract  $agent  The agent to execute.
      * @param  string  $input  The user input message.
-     * @param  ExecutionContext|null  $context  Optional execution context with messages and variables.
-     * @param  array{0: array<int, int>|int, 1: \Closure|int, 2: callable|null, 3: bool}|null  $retry  Optional retry configuration.
+     * @param  ExecutionContext  $context  Execution context with messages, variables, and Prism calls.
+     * @return Generator<int, StreamEvent>
      */
     public function stream(
         AgentContract $agent,
         string $input,
-        ?ExecutionContext $context = null,
-        ?array $retry = null,
-    ): StreamResponse;
+        ExecutionContext $context,
+    ): Generator;
 }

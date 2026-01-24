@@ -6,7 +6,7 @@ namespace Atlasphp\Atlas\Agents\Services;
 
 use Atlasphp\Atlas\Agents\Contracts\AgentContract;
 use Atlasphp\Atlas\Agents\Support\ExecutionContext;
-use Atlasphp\Atlas\Foundation\Services\PipelineRunner;
+use Atlasphp\Atlas\Pipelines\PipelineRunner;
 
 /**
  * Builds system prompts with variable interpolation.

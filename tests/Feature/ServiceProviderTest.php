@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Foundation\Services\PipelineRegistry;
-use Atlasphp\Atlas\Foundation\Services\PipelineRunner;
+use Atlasphp\Atlas\Pipelines\PipelineRegistry;
+use Atlasphp\Atlas\Pipelines\PipelineRunner;
 use Atlasphp\Atlas\Providers\Contracts\EmbeddingProviderContract;
 use Atlasphp\Atlas\Providers\Embedding\PrismEmbeddingProvider;
 use Atlasphp\Atlas\Providers\Services\AtlasManager;

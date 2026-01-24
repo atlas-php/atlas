@@ -525,10 +525,7 @@ Register in `App\Providers\SandboxServiceProvider::registerAgents()`.
 
 namespace App\Services\Tools;
 
-use Atlasphp\Atlas\Tools\ToolDefinition;
-use Atlasphp\Atlas\Tools\Support\ToolContext;
-use Atlasphp\Atlas\Tools\Support\ToolParameter;
-use Atlasphp\Atlas\Tools\Support\ToolResult;
+use Atlasphp\Atlas\Contracts\Tools\Support\ToolContext;use Atlasphp\Atlas\Contracts\Tools\Support\ToolParameter;use Atlasphp\Atlas\Contracts\Tools\Support\ToolResult;use Atlasphp\Atlas\Contracts\Tools\ToolDefinition;
 
 class MyCustomTool extends ToolDefinition
 {

@@ -3,9 +3,9 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Agents\Services\AgentExtensionRegistry;
-use Atlasphp\Atlas\Foundation\Services\PipelineRegistry;
-use Atlasphp\Atlas\Foundation\Services\PipelineRunner;
-use Atlasphp\Atlas\Tools\Services\ToolExtensionRegistry;
+use Atlasphp\Atlas\Contracts\Tools\Services\ToolExtensionRegistry;
+use Atlasphp\Atlas\Pipelines\PipelineRegistry;
+use Atlasphp\Atlas\Pipelines\PipelineRunner;
 
 test('it registers AgentExtensionRegistry as singleton', function () {
     $instance1 = app(AgentExtensionRegistry::class);

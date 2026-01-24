@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Contracts\Tools\Contracts\ToolContract;
+use Atlasphp\Atlas\Contracts\Tools\Contracts\ToolRegistryContract;
+use Atlasphp\Atlas\Contracts\Tools\Services\ToolBuilder;
+use Atlasphp\Atlas\Contracts\Tools\Services\ToolExecutor;
+use Atlasphp\Atlas\Contracts\Tools\Services\ToolExtensionRegistry;
+use Atlasphp\Atlas\Contracts\Tools\Services\ToolRegistry;
+use Atlasphp\Atlas\Contracts\Tools\Support\ToolContext;
+use Atlasphp\Atlas\Contracts\Tools\Support\ToolResult;
 use Atlasphp\Atlas\Tests\Fixtures\TestTool;
-use Atlasphp\Atlas\Tools\Contracts\ToolContract;
-use Atlasphp\Atlas\Tools\Contracts\ToolRegistryContract;
-use Atlasphp\Atlas\Tools\Services\ToolBuilder;
-use Atlasphp\Atlas\Tools\Services\ToolExecutor;
-use Atlasphp\Atlas\Tools\Services\ToolExtensionRegistry;
-use Atlasphp\Atlas\Tools\Services\ToolRegistry;
-use Atlasphp\Atlas\Tools\Support\ToolContext;
-use Atlasphp\Atlas\Tools\Support\ToolResult;
 use Prism\Prism\Tool as PrismTool;
 
 test('it registers tool services in container', function () {
@@ -54,7 +54,7 @@ test('tool executor runs tool successfully', function () {
 test('tool executor passes context metadata', function () {
     $executor = app(ToolExecutor::class);
 
-    $tool = new class extends \Atlasphp\Atlas\Tools\ToolDefinition
+    $tool = new class extends \Atlasphp\Atlas\Contracts\Tools\ToolDefinition
     {
         public function name(): string
         {
@@ -102,7 +102,7 @@ test('tool builder handles tool with multiple parameters', function () {
 test('tool handles errors gracefully', function () {
     $executor = app(ToolExecutor::class);
 
-    $tool = new class extends \Atlasphp\Atlas\Tools\ToolDefinition
+    $tool = new class extends \Atlasphp\Atlas\Contracts\Tools\ToolDefinition
     {
         public function name(): string
         {

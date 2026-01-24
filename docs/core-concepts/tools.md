@@ -11,8 +11,7 @@ A tool defines:
 - **Handler** — The function that executes when called
 
 ```php
-use Atlasphp\Atlas\Tools\ToolDefinition;
-use Atlasphp\Atlas\Tools\Support\{ToolContext, ToolParameter, ToolResult};
+use Atlasphp\Atlas\Contracts\Tools\Support\{ToolContext};use Atlasphp\Atlas\Contracts\Tools\Support\ToolParameter;use Atlasphp\Atlas\Contracts\Tools\Support\ToolResult;use Atlasphp\Atlas\Contracts\Tools\ToolDefinition;
 
 class LookupOrderTool extends ToolDefinition
 {
@@ -61,7 +60,7 @@ Like agents, tools are stateless. They receive all context through:
 Register tools for use across agents:
 
 ```php
-use Atlasphp\Atlas\Tools\Contracts\ToolRegistryContract;
+use Atlasphp\Atlas\Contracts\Tools\Contracts\ToolRegistryContract;
 
 $registry = app(ToolRegistryContract::class);
 

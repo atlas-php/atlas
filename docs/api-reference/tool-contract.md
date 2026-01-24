@@ -313,7 +313,7 @@ $registry->clear();
 The registry methods support dynamic tool management for scenarios like per-tenant tools or runtime configuration:
 
 ```php
-use Atlasphp\Atlas\Tools\Contracts\ToolRegistryContract;
+use Atlasphp\Atlas\Contracts\Tools\Contracts\ToolRegistryContract;
 
 class TenantToolManager
 {
@@ -385,11 +385,7 @@ class MyTool extends ToolDefinition
 
 namespace App\Tools;
 
-use Atlasphp\Atlas\Tools\ToolDefinition;
-use Atlasphp\Atlas\Tools\Support\ToolContext;
-use Atlasphp\Atlas\Tools\Support\ToolParameter;
-use Atlasphp\Atlas\Tools\Support\ToolResult;
-use App\Models\Order;
+use App\Models\Order;use Atlasphp\Atlas\Contracts\Tools\Support\ToolContext;use Atlasphp\Atlas\Contracts\Tools\Support\ToolParameter;use Atlasphp\Atlas\Contracts\Tools\Support\ToolResult;use Atlasphp\Atlas\Contracts\Tools\ToolDefinition;
 
 class LookupOrderTool extends ToolDefinition
 {

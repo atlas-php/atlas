@@ -20,10 +20,7 @@ Create a class extending `ToolDefinition`:
 
 namespace App\Tools;
 
-use Atlasphp\Atlas\Tools\ToolDefinition;
-use Atlasphp\Atlas\Tools\Support\ToolContext;
-use Atlasphp\Atlas\Tools\Support\ToolParameter;
-use Atlasphp\Atlas\Tools\Support\ToolResult;
+use Atlasphp\Atlas\Contracts\Tools\Support\ToolContext;use Atlasphp\Atlas\Contracts\Tools\Support\ToolParameter;use Atlasphp\Atlas\Contracts\Tools\Support\ToolResult;use Atlasphp\Atlas\Contracts\Tools\ToolDefinition;
 
 class LookupOrderTool extends ToolDefinition
 {
@@ -70,8 +67,7 @@ class LookupOrderTool extends ToolDefinition
 In a service provider:
 
 ```php
-use Atlasphp\Atlas\Tools\Contracts\ToolRegistryContract;
-use App\Tools\LookupOrderTool;
+use App\Tools\LookupOrderTool;use Atlasphp\Atlas\Contracts\Tools\Contracts\ToolRegistryContract;
 
 public function boot(): void
 {

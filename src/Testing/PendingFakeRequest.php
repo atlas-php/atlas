@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Testing;
 
 use Atlasphp\Atlas\Agents\Support\AgentResponse;
-use Atlasphp\Atlas\Streaming\StreamResponse;
 use Atlasphp\Atlas\Testing\Support\FakeResponseSequence;
 use Throwable;
 
@@ -29,7 +28,7 @@ final class PendingFakeRequest
     /**
      * Return a specific response.
      */
-    public function return(AgentResponse|StreamResponse $response): AtlasFake
+    public function return(AgentResponse $response): AtlasFake
     {
         $this->sequence->push($response);
 
@@ -39,7 +38,7 @@ final class PendingFakeRequest
     /**
      * Return a sequence of responses.
      *
-     * @param  array<int, AgentResponse|StreamResponse>  $responses
+     * @param  array<int, AgentResponse>  $responses
      */
     public function returnSequence(array $responses): AtlasFake
     {
@@ -63,7 +62,7 @@ final class PendingFakeRequest
     /**
      * Set the response to return when the sequence is exhausted.
      */
-    public function whenEmpty(AgentResponse|StreamResponse|Throwable $response): self
+    public function whenEmpty(AgentResponse|Throwable $response): self
     {
         $this->sequence->whenEmpty($response);
 

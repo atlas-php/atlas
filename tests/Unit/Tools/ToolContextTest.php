@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Tools\Support\ToolContext;
+use Atlasphp\Atlas\Contracts\Tools\Support\ToolContext;
 
 test('it creates with default empty metadata', function () {
     $context = new ToolContext;

@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Tools\Contracts;
 
 use Atlasphp\Atlas\Tools\Support\ToolContext;
 use Atlasphp\Atlas\Tools\Support\ToolResult;
+use Prism\Prism\Contracts\Schema;
 
 /**
  * Contract for tool definitions.
@@ -32,7 +33,7 @@ interface ToolContract
     /**
      * Get the parameters this tool accepts.
      *
-     * @return array<int, \Atlasphp\Atlas\Tools\Support\ToolParameter>
+     * @return array<int, Schema>
      */
     public function parameters(): array;
 

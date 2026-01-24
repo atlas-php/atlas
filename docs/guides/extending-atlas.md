@@ -190,7 +190,7 @@ $extensions->register('custom_decorator', function (AgentContract $agent) {
 Register tool transformers:
 
 ```php
-use Atlasphp\Atlas\Tools\Services\ToolExtensionRegistry;
+use Atlasphp\Atlas\Contracts\Tools\Services\ToolExtensionRegistry;
 
 $extensions = app(ToolExtensionRegistry::class);
 

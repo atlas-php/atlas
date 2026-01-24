@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Agents\Support;
 
-use Atlasphp\Atlas\Tools\Enums\ToolChoice;
-
 /**
  * Stateless execution context for agent invocation.
  *
- * Carries conversation history, variable bindings, metadata, and provider
- * overrides without any database or session dependencies. Consumer manages
- * all persistence.
+ * Carries conversation history, variable bindings, metadata, provider
+ * overrides, and captured Prism method calls without any database or
+ * session dependencies. Consumer manages all persistence.
+ *
+ * This is a read-only value object built by PendingAgentRequest.
  */
 final readonly class ExecutionContext
 {
@@ -22,8 +22,7 @@ final readonly class ExecutionContext
      * @param  string|null  $providerOverride  Override the agent's configured provider.
      * @param  string|null  $modelOverride  Override the agent's configured model.
      * @param  array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>  $currentAttachments  Attachments for the current input message.
-     * @param  ToolChoice|string|null  $toolChoice  Tool choice mode or specific tool name.
-     * @param  array<string, mixed>  $providerOptions  Provider-specific options to pass to Prism.
+     * @param  array<int, array{method: string, args: array<int, mixed>}>  $prismCalls  Captured Prism method calls to replay on the request.
      */
     public function __construct(
         public array $messages = [],
@@ -32,162 +31,8 @@ final readonly class ExecutionContext
         public ?string $providerOverride = null,
         public ?string $modelOverride = null,
         public array $currentAttachments = [],
-        public ToolChoice|string|null $toolChoice = null,
-        public array $providerOptions = [],
+        public array $prismCalls = [],
     ) {}
-
-    /**
-     * Create a new context with the given messages.
-     *
-     * @param  array<int, array{role: string, content: string, attachments?: array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>}>  $messages
-     */
-    public function withMessages(array $messages): self
-    {
-        return new self($messages, $this->variables, $this->metadata, $this->providerOverride, $this->modelOverride, $this->currentAttachments, $this->toolChoice, $this->providerOptions);
-    }
-
-    /**
-     * Create a new context with the given variables.
-     *
-     * @param  array<string, mixed>  $variables
-     */
-    public function withVariables(array $variables): self
-    {
-        return new self($this->messages, $variables, $this->metadata, $this->providerOverride, $this->modelOverride, $this->currentAttachments, $this->toolChoice, $this->providerOptions);
-    }
-
-    /**
-     * Create a new context with the given metadata.
-     *
-     * @param  array<string, mixed>  $metadata
-     */
-    public function withMetadata(array $metadata): self
-    {
-        return new self($this->messages, $this->variables, $metadata, $this->providerOverride, $this->modelOverride, $this->currentAttachments, $this->toolChoice, $this->providerOptions);
-    }
-
-    /**
-     * Create a new context with the given provider override.
-     *
-     * @param  string|null  $provider  The provider name to override with.
-     */
-    public function withProviderOverride(?string $provider): self
-    {
-        return new self($this->messages, $this->variables, $this->metadata, $provider, $this->modelOverride, $this->currentAttachments, $this->toolChoice, $this->providerOptions);
-    }
-
-    /**
-     * Create a new context with the given model override.
-     *
-     * @param  string|null  $model  The model name to override with.
-     */
-    public function withModelOverride(?string $model): self
-    {
-        return new self($this->messages, $this->variables, $this->metadata, $this->providerOverride, $model, $this->currentAttachments, $this->toolChoice, $this->providerOptions);
-    }
-
-    /**
-     * Create a new context with merged variables.
-     *
-     * @param  array<string, mixed>  $variables
-     */
-    public function mergeVariables(array $variables): self
-    {
-        return new self(
-            $this->messages,
-            array_merge($this->variables, $variables),
-            $this->metadata,
-            $this->providerOverride,
-            $this->modelOverride,
-            $this->currentAttachments,
-            $this->toolChoice,
-            $this->providerOptions,
-        );
-    }
-
-    /**
-     * Create a new context with merged metadata.
-     *
-     * @param  array<string, mixed>  $metadata
-     */
-    public function mergeMetadata(array $metadata): self
-    {
-        return new self(
-            $this->messages,
-            $this->variables,
-            array_merge($this->metadata, $metadata),
-            $this->providerOverride,
-            $this->modelOverride,
-            $this->currentAttachments,
-            $this->toolChoice,
-            $this->providerOptions,
-        );
-    }
-
-    /**
-     * Create a new context with the given current attachments.
-     *
-     * @param  array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>  $attachments
-     */
-    public function withCurrentAttachments(array $attachments): self
-    {
-        return new self(
-            $this->messages,
-            $this->variables,
-            $this->metadata,
-            $this->providerOverride,
-            $this->modelOverride,
-            $attachments,
-            $this->toolChoice,
-            $this->providerOptions,
-        );
-    }
-
-    /**
-     * Create a new context with the given tool choice.
-     *
-     * @param  ToolChoice|string|null  $toolChoice  The tool choice mode or specific tool name.
-     */
-    public function withToolChoice(ToolChoice|string|null $toolChoice): self
-    {
-        return new self(
-            $this->messages,
-            $this->variables,
-            $this->metadata,
-            $this->providerOverride,
-            $this->modelOverride,
-            $this->currentAttachments,
-            $toolChoice,
-            $this->providerOptions,
-        );
-    }
-
-    /**
-     * Create a new context with the given provider options.
-     *
-     * @param  array<string, mixed>  $providerOptions  Provider-specific options.
-     */
-    public function withProviderOptions(array $providerOptions): self
-    {
-        return new self(
-            $this->messages,
-            $this->variables,
-            $this->metadata,
-            $this->providerOverride,
-            $this->modelOverride,
-            $this->currentAttachments,
-            $this->toolChoice,
-            $providerOptions,
-        );
-    }
-
-    /**
-     * Check if provider options are set.
-     */
-    public function hasProviderOptions(): bool
-    {
-        return $this->providerOptions !== [];
-    }
 
     /**
      * Get a variable value.
@@ -260,10 +105,10 @@ final readonly class ExecutionContext
     }
 
     /**
-     * Check if tool choice is set.
+     * Check if there are captured Prism calls to replay.
      */
-    public function hasToolChoice(): bool
+    public function hasPrismCalls(): bool
     {
-        return $this->toolChoice !== null;
+        return $this->prismCalls !== [];
     }
 }

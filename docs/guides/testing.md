@@ -60,10 +60,7 @@ public function test_system_prompt_contains_expected_variables(): void
 ### Testing Tool Logic
 
 ```php
-use App\Tools\LookupOrderTool;
-use Atlasphp\Atlas\Tools\Support\ToolContext;
-use Atlasphp\Atlas\Tools\Support\ToolResult;
-use PHPUnit\Framework\TestCase;
+use App\Tools\LookupOrderTool;use Atlasphp\Atlas\Contracts\Tools\Support\ToolContext;use PHPUnit\Framework\TestCase;
 
 class LookupOrderToolTest extends TestCase
 {

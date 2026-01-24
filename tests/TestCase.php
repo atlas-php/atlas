@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Tests;
 
-use Atlasphp\Atlas\Foundation\AtlasServiceProvider;
+use Atlasphp\Atlas\AtlasServiceProvider;
 use Orchestra\Testbench\TestCase as BaseTestCase;
 use Prism\Prism\PrismServiceProvider;
 

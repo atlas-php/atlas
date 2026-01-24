@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Tools\Exceptions\ToolException;
-use Atlasphp\Atlas\Tools\Exceptions\ToolNotFoundException;
+use Atlasphp\Atlas\Contracts\Tools\Exceptions\ToolException;
+use Atlasphp\Atlas\Contracts\Tools\Exceptions\ToolNotFoundException;
 
 test('it creates exception for tool not found by name', function () {
     $exception = ToolNotFoundException::forName('calculator');

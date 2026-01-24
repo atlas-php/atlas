@@ -34,11 +34,6 @@ Atlas handles **application-level AI concerns** while Prism handles **LLM commun
 * Use dynamic prompts to customize behavior based on user context
 * Extend behavior (logging, auth, metrics) without touching the core
 
-### Note from the Author
-> _Atlas has been built through deliberate iteration over the past year. This RC4 release reflects a stable, battle-tested core already running in large-scale production. Atlas is intentionally stateless, with persistence and orchestration planned for Nexus, a companion package in active development. Feedback and issues are always welcome._
->
-> _— TM_
-
 ---
 
 ## Table of Contents
@@ -121,8 +116,7 @@ Tools connect agents to your application services.
 
 ```php
 
-use Atlasphp\Atlas\Tools\ToolDefinition;
-use Atlasphp\Atlas\Tools\Support\{ToolParameter, ToolResult, ToolContext};
+use Atlasphp\Atlas\Contracts\Tools\Support\{ToolContext};use Atlasphp\Atlas\Contracts\Tools\Support\ToolParameter;use Atlasphp\Atlas\Contracts\Tools\Support\ToolResult;use Atlasphp\Atlas\Contracts\Tools\ToolDefinition;
 
 class LookupOrderTool extends ToolDefinition
 {

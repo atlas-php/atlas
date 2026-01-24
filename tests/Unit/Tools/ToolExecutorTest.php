@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Foundation\Services\PipelineRegistry;
-use Atlasphp\Atlas\Foundation\Services\PipelineRunner;
+use Atlasphp\Atlas\Contracts\Tools\Contracts\ToolContract;
+use Atlasphp\Atlas\Contracts\Tools\Services\ToolExecutor;
+use Atlasphp\Atlas\Contracts\Tools\Support\ToolContext;
+use Atlasphp\Atlas\Contracts\Tools\Support\ToolResult;
+use Atlasphp\Atlas\Pipelines\PipelineRegistry;
+use Atlasphp\Atlas\Pipelines\PipelineRunner;
 use Atlasphp\Atlas\Tests\Fixtures\TestTool;
-use Atlasphp\Atlas\Tools\Contracts\ToolContract;
-use Atlasphp\Atlas\Tools\Services\ToolExecutor;
-use Atlasphp\Atlas\Tools\Support\ToolContext;
-use Atlasphp\Atlas\Tools\Support\ToolResult;
 use Illuminate\Container\Container;
 
 beforeEach(function () {
@@ -122,7 +122,7 @@ test('it handles tool exception gracefully', function () {
 
         public function handle(array $args, ToolContext $context): ToolResult
         {
-            throw new \Atlasphp\Atlas\Tools\Exceptions\ToolException('Specific error');
+            throw new \Atlasphp\Atlas\Contracts\Tools\Exceptions\ToolException('Specific error');
         }
     };
 
@@ -246,7 +246,7 @@ test('it runs tool.on_error pipeline when tool throws ToolException', function (
 
         public function handle(array $args, ToolContext $context): ToolResult
         {
-            throw new \Atlasphp\Atlas\Tools\Exceptions\ToolException('Specific tool error');
+            throw new \Atlasphp\Atlas\Contracts\Tools\Exceptions\ToolException('Specific tool error');
         }
     };
 
@@ -255,13 +255,13 @@ test('it runs tool.on_error pipeline when tool throws ToolException', function (
 
     expect(ToolErrorCapturingHandler::$called)->toBeTrue();
     expect(ToolErrorCapturingHandler::$data)->not->toBeNull();
-    expect(ToolErrorCapturingHandler::$data['exception'])->toBeInstanceOf(\Atlasphp\Atlas\Tools\Exceptions\ToolException::class);
+    expect(ToolErrorCapturingHandler::$data['exception'])->toBeInstanceOf(\Atlasphp\Atlas\Contracts\Tools\Exceptions\ToolException::class);
     expect(ToolErrorCapturingHandler::$data['exception']->getMessage())->toBe('Specific tool error');
 });
 
 // Pipeline Handler Class for Tests
 
-class ToolErrorCapturingHandler implements \Atlasphp\Atlas\Foundation\Contracts\PipelineContract
+class ToolErrorCapturingHandler implements \Atlasphp\Atlas\Contracts\PipelineContract
 {
     public static bool $called = false;
 

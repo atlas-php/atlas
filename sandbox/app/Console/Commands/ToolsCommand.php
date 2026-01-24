@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use Atlasphp\Atlas\Agents\Contracts\AgentRegistryContract;
+use Atlasphp\Atlas\Contracts\Tools\Contracts\ToolRegistryContract;
 use Atlasphp\Atlas\Providers\Facades\Atlas;
-use Atlasphp\Atlas\Tools\Contracts\ToolRegistryContract;
 use Illuminate\Console\Command;
 
 /**

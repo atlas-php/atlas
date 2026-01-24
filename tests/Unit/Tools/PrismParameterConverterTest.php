@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Tools\Support\PrismParameterConverter;
-use Atlasphp\Atlas\Tools\Support\ToolParameter;
+use Atlasphp\Atlas\Contracts\Tools\Support\PrismParameterConverter;
+use Atlasphp\Atlas\Contracts\Tools\Support\ToolParameter;
 use Prism\Prism\Tool as PrismTool;
 
 afterEach(function () {

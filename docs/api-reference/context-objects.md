@@ -231,7 +231,7 @@ Immutable context for tool execution. Provides metadata access to tools.
 ### Constructor
 
 ```php
-use Atlasphp\Atlas\Tools\Support\ToolContext;
+use Atlasphp\Atlas\Contracts\Tools\Support\ToolContext;
 
 $context = new ToolContext([
     'user_id' => 123,

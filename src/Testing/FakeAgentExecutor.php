@@ -8,11 +8,15 @@ use Atlasphp\Atlas\Agents\Contracts\AgentContract;
 use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
 use Atlasphp\Atlas\Agents\Support\AgentResponse;
 use Atlasphp\Atlas\Agents\Support\ExecutionContext;
-use Atlasphp\Atlas\Streaming\StreamResponse;
 use Atlasphp\Atlas\Testing\Support\FakeResponseSequence;
 use Atlasphp\Atlas\Testing\Support\RecordedRequest;
-use Prism\Prism\Contracts\Schema;
-use Prism\Prism\Enums\StructuredMode;
+use Generator;
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Streaming\Events\StreamEndEvent;
+use Prism\Prism\Streaming\Events\StreamEvent;
+use Prism\Prism\Streaming\Events\StreamStartEvent;
+use Prism\Prism\Streaming\Events\TextDeltaEvent;
+use Prism\Prism\ValueObjects\Usage;
 use RuntimeException;
 
 /**
@@ -133,57 +137,47 @@ class FakeAgentExecutor implements AgentExecutorContract
     public function execute(
         AgentContract $agent,
         string $input,
-        ?ExecutionContext $context = null,
-        ?Schema $schema = null,
-        ?array $retry = null,
-        ?StructuredMode $structuredMode = null,
+        ExecutionContext $context,
     ): AgentResponse {
         $response = $this->getResponse($agent->key());
 
         // Handle throwables
         if ($response instanceof \Throwable) {
-            $this->recordRequest($agent, $input, $context, $schema, AgentResponse::empty());
+            $this->recordRequest($agent, $input, $context, AgentResponse::empty());
             throw $response;
         }
 
-        // Handle StreamResponse (shouldn't happen in execute, but return empty)
-        if ($response instanceof StreamResponse) {
-            $response = AgentResponse::empty();
-        }
-
-        $this->recordRequest($agent, $input, $context, $schema, $response);
-
-        return $response;
-    }
-
-    public function stream(
-        AgentContract $agent,
-        string $input,
-        ?ExecutionContext $context = null,
-        ?array $retry = null,
-    ): StreamResponse {
-        $response = $this->getResponse($agent->key());
-
-        // Handle throwables
-        if ($response instanceof \Throwable) {
-            $this->recordRequest($agent, $input, $context, null, AgentResponse::empty());
-            throw $response;
-        }
-
-        // Handle AgentResponse by converting to StreamResponse
-        if ($response instanceof AgentResponse) {
-            $response = $this->convertToStreamResponse($response);
-        }
-
-        $this->recordRequest($agent, $input, $context, null, AgentResponse::empty());
+        $this->recordRequest($agent, $input, $context, $response);
 
         return $response;
     }
 
     /**
+     * @return Generator<int, StreamEvent>
+     */
+    public function stream(
+        AgentContract $agent,
+        string $input,
+        ExecutionContext $context,
+    ): Generator {
+        $response = $this->getResponse($agent->key());
+
+        // Handle throwables
+        if ($response instanceof \Throwable) {
+            $this->recordRequest($agent, $input, $context, AgentResponse::empty());
+            throw $response;
+        }
+
+        $this->recordRequest($agent, $input, $context, $response);
+
+        // Convert AgentResponse to stream events
+        yield from $this->createFakeStreamGenerator($response->text ?? '');
+    }
+
+    /**
      * Get the next response for an agent.
      */
-    private function getResponse(string $agentKey): AgentResponse|StreamResponse|\Throwable
+    private function getResponse(string $agentKey): AgentResponse|\Throwable
     {
         // Check for agent-specific sequence
         if (isset($this->responseSequences[$agentKey])) {
@@ -219,27 +213,58 @@ class FakeAgentExecutor implements AgentExecutorContract
     private function recordRequest(
         AgentContract $agent,
         string $input,
-        ?ExecutionContext $context,
-        ?Schema $schema,
+        ExecutionContext $context,
         AgentResponse $response,
     ): void {
         $this->recordedRequests[] = new RecordedRequest(
             agent: $agent,
             input: $input,
             context: $context,
-            schema: $schema,
             response: $response,
             timestamp: time(),
         );
     }
 
     /**
-     * Convert an AgentResponse to a StreamResponse.
+     * Create a fake stream generator from text.
+     *
+     * @return Generator<int, StreamEvent>
      */
-    private function convertToStreamResponse(AgentResponse $response): StreamResponse
+    private function createFakeStreamGenerator(string $text): Generator
     {
-        $text = $response->text ?? '';
+        $timestamp = time();
+        $eventId = 0;
+        $messageId = 'msg_fake_'.uniqid();
 
-        return \Atlasphp\Atlas\Testing\Support\StreamEventFactory::fromText($text);
+        // Stream start
+        yield new StreamStartEvent(
+            id: 'evt_'.($eventId++),
+            timestamp: $timestamp,
+            model: 'fake-model',
+            provider: 'fake',
+        );
+
+        // Text deltas - split into chunks
+        $chunkSize = 10;
+        $chunks = str_split($text, $chunkSize);
+        foreach ($chunks as $chunk) {
+            yield new TextDeltaEvent(
+                id: 'evt_'.($eventId++),
+                timestamp: $timestamp,
+                delta: $chunk,
+                messageId: $messageId,
+            );
+        }
+
+        // Stream end
+        yield new StreamEndEvent(
+            id: 'evt_'.($eventId++),
+            timestamp: $timestamp,
+            finishReason: FinishReason::Stop,
+            usage: new Usage(
+                promptTokens: 10,
+                completionTokens: (int) ceil(strlen($text) / 4),
+            ),
+        );
     }
 }

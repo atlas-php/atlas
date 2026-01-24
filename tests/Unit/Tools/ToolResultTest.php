@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Tools\Support\ToolResult;
+use Atlasphp\Atlas\Contracts\Tools\Support\ToolResult;
 
 test('it creates with text and not error', function () {
     $result = new ToolResult('Some result');

@@ -7,7 +7,6 @@ namespace Atlasphp\Atlas\Tools\Services;
 use Atlasphp\Atlas\Agents\Contracts\AgentContract;
 use Atlasphp\Atlas\Tools\Contracts\ToolContract;
 use Atlasphp\Atlas\Tools\Contracts\ToolRegistryContract;
-use Atlasphp\Atlas\Tools\Support\PrismParameterConverter;
 use Atlasphp\Atlas\Tools\Support\ToolContext;
 use Atlasphp\Atlas\Tools\ToolDefinition;
 use Illuminate\Contracts\Container\Container;
@@ -134,8 +133,9 @@ class ToolBuilder
         $prismTool->as($tool->name());
         $prismTool->for($tool->description());
 
-        foreach ($tool->parameters() as $param) {
-            PrismParameterConverter::addParameter($prismTool, $param);
+        foreach ($tool->parameters() as $schema) {
+            // Parameters are now Prism Schema objects directly
+            $prismTool->withParameter($schema);
         }
 
         $prismTool->using($handler);

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Testing\Support;
 
 use Atlasphp\Atlas\Agents\Support\AgentResponse;
-use Atlasphp\Atlas\Streaming\StreamResponse;
 
 /**
  * Manages a sequence of fake responses for testing.
@@ -16,16 +15,16 @@ use Atlasphp\Atlas\Streaming\StreamResponse;
 final class FakeResponseSequence
 {
     /**
-     * @var array<int, AgentResponse|StreamResponse|\Throwable>
+     * @var array<int, AgentResponse|\Throwable>
      */
     private array $responses;
 
     private int $index = 0;
 
-    private AgentResponse|StreamResponse|\Throwable|null $whenEmpty = null;
+    private AgentResponse|\Throwable|null $whenEmpty = null;
 
     /**
-     * @param  array<int, AgentResponse|StreamResponse|\Throwable>  $responses  The responses to return in sequence.
+     * @param  array<int, AgentResponse|\Throwable>  $responses  The responses to return in sequence.
      */
     public function __construct(array $responses = [])
     {
@@ -35,7 +34,7 @@ final class FakeResponseSequence
     /**
      * Add a response to the sequence.
      */
-    public function push(AgentResponse|StreamResponse|\Throwable $response): self
+    public function push(AgentResponse|\Throwable $response): self
     {
         $this->responses[] = $response;
 
@@ -45,7 +44,7 @@ final class FakeResponseSequence
     /**
      * Get the next response in the sequence.
      */
-    public function next(): AgentResponse|StreamResponse|\Throwable
+    public function next(): AgentResponse|\Throwable
     {
         if (! $this->hasMore()) {
             if ($this->whenEmpty === null) {
@@ -69,7 +68,7 @@ final class FakeResponseSequence
     /**
      * Set the response to return when the sequence is exhausted.
      */
-    public function whenEmpty(AgentResponse|StreamResponse|\Throwable $response): self
+    public function whenEmpty(AgentResponse|\Throwable $response): self
     {
         $this->whenEmpty = $response;
 

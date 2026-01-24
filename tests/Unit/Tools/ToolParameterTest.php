@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Tools\Support\ToolParameter;
+use Atlasphp\Atlas\Contracts\Tools\Support\ToolParameter;
 use Prism\Prism\Schema\ArraySchema;
 use Prism\Prism\Schema\BooleanSchema;
 use Prism\Prism\Schema\EnumSchema;

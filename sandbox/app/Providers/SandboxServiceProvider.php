@@ -30,7 +30,7 @@ use App\Services\Tools\CalculatorTool;
 use App\Services\Tools\DateTimeTool;
 use App\Services\Tools\WeatherTool;
 use Atlasphp\Atlas\Agents\Contracts\AgentRegistryContract;
-use Atlasphp\Atlas\Tools\Contracts\ToolRegistryContract;
+use Atlasphp\Atlas\Contracts\Tools\Contracts\ToolRegistryContract;
 use Illuminate\Support\ServiceProvider;
 
 /**

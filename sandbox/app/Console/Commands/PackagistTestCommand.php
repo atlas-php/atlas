@@ -225,7 +225,7 @@ $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 $classes = [
     \Atlasphp\Atlas\Providers\Facades\Atlas::class,
     \Atlasphp\Atlas\Agents\AgentDefinition::class,
-    \Atlasphp\Atlas\Tools\ToolDefinition::class,
+    \Atlasphp\Atlas\Contracts\Tools\ToolDefinition::class,
 ];
 
 foreach ($classes as $class) {

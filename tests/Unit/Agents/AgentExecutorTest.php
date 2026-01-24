@@ -6,15 +6,15 @@ use Atlasphp\Atlas\Agents\Services\AgentExecutor;
 use Atlasphp\Atlas\Agents\Services\SystemPromptBuilder;
 use Atlasphp\Atlas\Agents\Support\AgentResponse;
 use Atlasphp\Atlas\Agents\Support\ExecutionContext;
-use Atlasphp\Atlas\Foundation\Services\PipelineRegistry;
-use Atlasphp\Atlas\Foundation\Services\PipelineRunner;
+use Atlasphp\Atlas\Contracts\Tools\Services\ToolBuilder;
+use Atlasphp\Atlas\Contracts\Tools\Services\ToolExecutor;
+use Atlasphp\Atlas\Contracts\Tools\Services\ToolRegistry;
+use Atlasphp\Atlas\Pipelines\PipelineRegistry;
+use Atlasphp\Atlas\Pipelines\PipelineRunner;
 use Atlasphp\Atlas\Providers\Contracts\PrismBuilderContract;
 use Atlasphp\Atlas\Providers\Services\ProviderConfigService;
 use Atlasphp\Atlas\Providers\Services\UsageExtractorRegistry;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
-use Atlasphp\Atlas\Tools\Services\ToolBuilder;
-use Atlasphp\Atlas\Tools\Services\ToolExecutor;
-use Atlasphp\Atlas\Tools\Services\ToolRegistry;
 use Illuminate\Container\Container;
 
 beforeEach(function () {
@@ -2291,7 +2291,7 @@ test('it applies provider options for structured requests', function () {
 
 // Pipeline Handler Classes for Tests
 
-class AgentErrorCapturingHandler implements \Atlasphp\Atlas\Foundation\Contracts\PipelineContract
+class AgentErrorCapturingHandler implements \Atlasphp\Atlas\Contracts\PipelineContract
 {
     public static bool $called = false;
 
@@ -2312,7 +2312,7 @@ class AgentErrorCapturingHandler implements \Atlasphp\Atlas\Foundation\Contracts
     }
 }
 
-class AgentAfterExecuteCapturingHandler implements \Atlasphp\Atlas\Foundation\Contracts\PipelineContract
+class AgentAfterExecuteCapturingHandler implements \Atlasphp\Atlas\Contracts\PipelineContract
 {
     public static bool $called = false;
 
@@ -2333,7 +2333,7 @@ class AgentAfterExecuteCapturingHandler implements \Atlasphp\Atlas\Foundation\Co
     }
 }
 
-class StreamOnEventCapturingHandler implements \Atlasphp\Atlas\Foundation\Contracts\PipelineContract
+class StreamOnEventCapturingHandler implements \Atlasphp\Atlas\Contracts\PipelineContract
 {
     public static array $events = [];
 
@@ -2350,7 +2350,7 @@ class StreamOnEventCapturingHandler implements \Atlasphp\Atlas\Foundation\Contra
     }
 }
 
-class StreamAfterCompleteCapturingHandler implements \Atlasphp\Atlas\Foundation\Contracts\PipelineContract
+class StreamAfterCompleteCapturingHandler implements \Atlasphp\Atlas\Contracts\PipelineContract
 {
     public static bool $called = false;
 

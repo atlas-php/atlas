@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Agents\Services;
 
-use Atlasphp\Atlas\Foundation\Services\AbstractExtensionRegistry;
+use Atlasphp\Atlas\Concerns\AbstractExtensionRegistry;
 
 /**
  * Registry for agent-related extensions.

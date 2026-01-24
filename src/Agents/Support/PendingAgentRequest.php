@@ -7,37 +7,50 @@ namespace Atlasphp\Atlas\Agents\Support;
 use Atlasphp\Atlas\Agents\Contracts\AgentContract;
 use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
 use Atlasphp\Atlas\Agents\Services\AgentResolver;
-use Atlasphp\Atlas\Providers\Support\HasMediaSupport;
-use Atlasphp\Atlas\Providers\Support\HasMessagesSupport;
-use Atlasphp\Atlas\Providers\Support\HasMetadataSupport;
-use Atlasphp\Atlas\Providers\Support\HasProviderCallbacks;
-use Atlasphp\Atlas\Providers\Support\HasProviderSupport;
-use Atlasphp\Atlas\Providers\Support\HasRetrySupport;
-use Atlasphp\Atlas\Providers\Support\HasSchemaSupport;
-use Atlasphp\Atlas\Providers\Support\HasStructuredModeSupport;
-use Atlasphp\Atlas\Providers\Support\HasToolChoiceSupport;
-use Atlasphp\Atlas\Providers\Support\HasVariablesSupport;
-use Atlasphp\Atlas\Streaming\StreamResponse;
+use Generator;
+use Prism\Prism\Streaming\Events\StreamEvent;
 
 /**
  * Fluent builder for agent chat operations.
  *
  * Provides a fluent API for configuring and executing chat operations
- * with messages, variables, metadata, schema, provider/model overrides,
- * and retry support. Uses immutable cloning for method chaining.
+ * with messages, variables, metadata, and provider/model overrides.
+ * Uses immutable cloning for method chaining.
+ *
+ * Unknown methods are forwarded to Prism's PendingRequest via __call(),
+ * allowing full access to Prism's API without explicit wrappers.
+ *
+ * @mixin \Prism\Prism\Text\PendingRequest
  */
 final class PendingAgentRequest
 {
     use HasMediaSupport;
-    use HasMessagesSupport;
     use HasMetadataSupport;
-    use HasProviderCallbacks;
-    use HasProviderSupport;
-    use HasRetrySupport;
-    use HasSchemaSupport;
-    use HasStructuredModeSupport;
-    use HasToolChoiceSupport;
     use HasVariablesSupport;
+
+    /**
+     * Conversation history with optional attachments.
+     *
+     * @var array<int, array{role: string, content: string, attachments?: array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>}>
+     */
+    private array $messages = [];
+
+    /**
+     * Provider override.
+     */
+    private ?string $providerOverride = null;
+
+    /**
+     * Model override.
+     */
+    private ?string $modelOverride = null;
+
+    /**
+     * Captured Prism method calls to replay on the request.
+     *
+     * @var array<int, array{method: string, args: array<int, mixed>}>
+     */
+    private array $prismCalls = [];
 
     public function __construct(
         private readonly AgentResolver $agentResolver,
@@ -46,84 +59,111 @@ final class PendingAgentRequest
     ) {}
 
     /**
-     * Execute a chat with the configured agent.
+     * Forward unknown methods to Prism's PendingRequest.
      *
-     * When stream is false (default), returns an AgentResponse with the complete response.
-     * When stream is true, returns a StreamResponse that can be iterated for real-time events.
+     * Captures the call for replay when chat()/stream() is called.
+     * This allows seamless access to all Prism methods like withSchema(),
+     * withToolChoice(), withClientRetry(), usingTemperature(), etc.
      *
-     * @param  string  $input  The user input message.
-     * @param  bool  $stream  Whether to stream the response.
-     *
-     * @throws \InvalidArgumentException If both schema and stream are provided.
+     * @param  array<int, mixed>  $arguments
      */
-    public function chat(
-        string $input,
-        bool $stream = false,
-    ): AgentResponse|StreamResponse {
-        $resolvedAgent = $this->agentResolver->resolve($this->agent);
+    public function __call(string $method, array $arguments): static
+    {
+        $clone = clone $this;
+        $clone->prismCalls[] = ['method' => $method, 'args' => $arguments];
 
-        // Resolve provider and apply any provider-specific callbacks
-        $resolvedProvider = $this->getProviderOverride()
-            ?? $resolvedAgent->provider()
-            ?? config('atlas.chat.provider');
+        return $clone;
+    }
 
-        $self = $this->applyProviderCallbacks($resolvedProvider);
+    /**
+     * Set conversation history messages.
+     *
+     * @param  array<int, array{role: string, content: string, attachments?: array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>}>  $messages
+     */
+    public function withMessages(array $messages): static
+    {
+        $clone = clone $this;
+        $clone->messages = $messages;
 
-        $messages = $self->getMessages();
-        $variables = $self->getVariables();
-        $metadata = $self->getMetadata();
-        $schema = $self->getSchema();
-        $providerOverride = $self->getProviderOverride();
-        $modelOverride = $self->getModelOverride();
-        $currentAttachments = $self->getCurrentAttachments();
-        $toolChoice = $self->getToolChoice();
-        $providerOptions = $self->getProviderOptions();
+        return $clone;
+    }
 
-        // Build context if any configuration is present
-        $hasConfig = $messages !== []
-            || $variables !== []
-            || $metadata !== []
-            || $providerOverride !== null
-            || $modelOverride !== null
-            || $currentAttachments !== []
-            || $toolChoice !== null
-            || $providerOptions !== [];
+    /**
+     * Override the provider and optionally the model for this request.
+     *
+     * @param  string  $provider  The provider name (e.g., 'openai', 'anthropic').
+     * @param  string|null  $model  Optional model name (e.g., 'gpt-4', 'dall-e-3').
+     */
+    public function withProvider(string $provider, ?string $model = null): static
+    {
+        $clone = clone $this;
+        $clone->providerOverride = $provider;
 
-        $context = $hasConfig
-            ? new ExecutionContext(
-                messages: $messages,
-                variables: $variables,
-                metadata: $metadata,
-                providerOverride: $providerOverride,
-                modelOverride: $modelOverride,
-                currentAttachments: $currentAttachments,
-                toolChoice: $toolChoice,
-                providerOptions: $providerOptions,
-            )
-            : null;
-
-        if ($stream) {
-            if ($schema !== null) {
-                throw new \InvalidArgumentException(
-                    'Streaming does not support structured output (schema). Use stream: false for structured responses.'
-                );
-            }
-
-            return $self->agentExecutor->stream(
-                $resolvedAgent,
-                $input,
-                $context,
-                $self->getRetryArray(),
-            );
+        if ($model !== null) {
+            $clone->modelOverride = $model;
         }
 
-        return $self->agentExecutor->execute(
-            $resolvedAgent,
-            $input,
-            $context,
-            $schema,
-            $self->getRetryArray(),
-            $self->getStructuredMode(),
+        return $clone;
+    }
+
+    /**
+     * Override the model for this request.
+     *
+     * @param  string  $model  The model name (e.g., 'gpt-4', 'dall-e-3').
+     */
+    public function withModel(string $model): static
+    {
+        $clone = clone $this;
+        $clone->modelOverride = $model;
+
+        return $clone;
+    }
+
+    /**
+     * Execute a blocking chat with the configured agent.
+     *
+     * Returns an AgentResponse with the complete response.
+     *
+     * @param  string  $input  The user input message.
+     */
+    public function chat(string $input): AgentResponse
+    {
+        $resolvedAgent = $this->agentResolver->resolve($this->agent);
+        $context = $this->buildContext();
+
+        return $this->agentExecutor->execute($resolvedAgent, $input, $context);
+    }
+
+    /**
+     * Stream a response from the configured agent.
+     *
+     * Returns a Generator yielding Prism StreamEvents directly.
+     * Consumers work with Prism's streaming API directly.
+     *
+     * @param  string  $input  The user input message.
+     * @return Generator<int, StreamEvent>
+     */
+    public function stream(string $input): Generator
+    {
+        $resolvedAgent = $this->agentResolver->resolve($this->agent);
+        $context = $this->buildContext();
+
+        yield from $this->agentExecutor->stream($resolvedAgent, $input, $context);
+    }
+
+    /**
+     * Build the execution context from current configuration.
+     */
+    private function buildContext(): ExecutionContext
+    {
+        return new ExecutionContext(
+            messages: $this->messages,
+            variables: $this->getVariables(),
+            metadata: $this->getMetadata(),
+            providerOverride: $this->providerOverride,
+            modelOverride: $this->modelOverride,
+            currentAttachments: $this->getCurrentAttachments(),
+            prismCalls: $this->prismCalls,
         );
     }
 }

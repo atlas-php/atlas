@@ -6,7 +6,6 @@ namespace Atlasphp\Atlas\Testing;
 
 use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
 use Atlasphp\Atlas\Agents\Support\AgentResponse;
-use Atlasphp\Atlas\Streaming\StreamResponse;
 use Atlasphp\Atlas\Testing\Concerns\HasFakeAssertions;
 use Atlasphp\Atlas\Testing\Support\FakeResponseSequence;
 use Atlasphp\Atlas\Testing\Support\RecordedRequest;
@@ -36,9 +35,9 @@ class AtlasFake
      * Configure a fake response for a specific agent.
      *
      * @param  string  $agentKey  The agent key.
-     * @param  AgentResponse|StreamResponse|null  $response  Optional immediate response.
+     * @param  AgentResponse|null  $response  Optional immediate response.
      */
-    public function response(string $agentKey, AgentResponse|StreamResponse|null $response = null): PendingFakeRequest|self
+    public function response(string $agentKey, ?AgentResponse $response = null): PendingFakeRequest|self
     {
         if ($response !== null) {
             $this->registerSequence($agentKey, (new FakeResponseSequence)->push($response));
@@ -52,7 +51,7 @@ class AtlasFake
     /**
      * Configure a sequence of responses for any agent.
      *
-     * @param  array<int, AgentResponse|StreamResponse>  $responses
+     * @param  array<int, AgentResponse>  $responses
      */
     public function sequence(array $responses): self
     {

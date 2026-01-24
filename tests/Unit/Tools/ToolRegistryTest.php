@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Contracts\Tools\Contracts\ToolContract;
+use Atlasphp\Atlas\Contracts\Tools\Exceptions\ToolException;
+use Atlasphp\Atlas\Contracts\Tools\Exceptions\ToolNotFoundException;
+use Atlasphp\Atlas\Contracts\Tools\Services\ToolRegistry;
 use Atlasphp\Atlas\Tests\Fixtures\TestTool;
-use Atlasphp\Atlas\Tools\Contracts\ToolContract;
-use Atlasphp\Atlas\Tools\Exceptions\ToolException;
-use Atlasphp\Atlas\Tools\Exceptions\ToolNotFoundException;
-use Atlasphp\Atlas\Tools\Services\ToolRegistry;
 use Illuminate\Container\Container;
 
 beforeEach(function () {

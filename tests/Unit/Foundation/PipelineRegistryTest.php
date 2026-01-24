@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Foundation\Contracts\PipelineContract;
-use Atlasphp\Atlas\Foundation\Services\PipelineRegistry;
+use Atlasphp\Atlas\Contracts\PipelineContract;
+use Atlasphp\Atlas\Pipelines\PipelineRegistry;
 
 beforeEach(function () {
     $this->registry = new PipelineRegistry;

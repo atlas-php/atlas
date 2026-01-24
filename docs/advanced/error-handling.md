@@ -181,7 +181,7 @@ try {
 Base exception for tool-related errors:
 
 ```php
-use Atlasphp\Atlas\Tools\Exceptions\ToolException;
+use Atlasphp\Atlas\Contracts\Tools\Exceptions\ToolException;
 
 try {
     $tool = $registry->get('my_tool');
@@ -195,7 +195,7 @@ try {
 When a tool cannot be resolved from the registry:
 
 ```php
-use Atlasphp\Atlas\Tools\Exceptions\ToolNotFoundException;
+use Atlasphp\Atlas\Contracts\Tools\Exceptions\ToolNotFoundException;
 
 try {
     $tool = $registry->get('nonexistent_tool');

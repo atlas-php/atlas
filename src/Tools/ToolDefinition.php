@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Tools;
 
 use Atlasphp\Atlas\Tools\Contracts\ToolContract;
-use Atlasphp\Atlas\Tools\Support\PrismParameterConverter;
-use Atlasphp\Atlas\Tools\Support\ToolParameter;
+use Prism\Prism\Contracts\Schema;
 use Prism\Prism\Tool as PrismTool;
 
 /**
@@ -20,7 +19,7 @@ abstract class ToolDefinition implements ToolContract
     /**
      * Get the parameters this tool accepts.
      *
-     * @return array<int, ToolParameter>
+     * @return array<int, Schema>
      */
     public function parameters(): array
     {
@@ -38,41 +37,12 @@ abstract class ToolDefinition implements ToolContract
         $tool->as($this->name());
         $tool->for($this->description());
 
-        foreach ($this->parameters() as $param) {
-            PrismParameterConverter::addParameter($tool, $param);
+        foreach ($this->parameters() as $schema) {
+            $tool->withParameter($schema);
         }
 
         $tool->using($handler);
 
         return $tool;
-    }
-
-    /**
-     * Build the JSON schema for all parameters.
-     *
-     * @return array<string, mixed>
-     */
-    public function buildParameterSchema(): array
-    {
-        $properties = [];
-        $required = [];
-
-        foreach ($this->parameters() as $param) {
-            $properties[$param->name] = $param->toSchema();
-            if ($param->required) {
-                $required[] = $param->name;
-            }
-        }
-
-        $schema = [
-            'type' => 'object',
-            'properties' => $properties,
-        ];
-
-        if ($required !== []) {
-            $schema['required'] = $required;
-        }
-
-        return $schema;
     }
 }

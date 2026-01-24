@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Tests\Fixtures;
 
-use Atlasphp\Atlas\Tools\Support\ToolContext;
-use Atlasphp\Atlas\Tools\Support\ToolParameter;
-use Atlasphp\Atlas\Tools\Support\ToolResult;
-use Atlasphp\Atlas\Tools\ToolDefinition;
+use Atlasphp\Atlas\Contracts\Tools\Support\ToolContext;
+use Atlasphp\Atlas\Contracts\Tools\Support\ToolParameter;
+use Atlasphp\Atlas\Contracts\Tools\Support\ToolResult;
+use Atlasphp\Atlas\Contracts\Tools\ToolDefinition;
 
 /**
  * Test tool fixture for unit and feature tests.

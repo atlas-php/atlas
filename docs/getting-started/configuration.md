@@ -276,9 +276,7 @@ Register agents and tools in a service provider:
 
 namespace App\Providers;
 
-use Atlasphp\Atlas\Agents\Contracts\AgentRegistryContract;
-use Atlasphp\Atlas\Tools\Contracts\ToolRegistryContract;
-use Illuminate\Support\ServiceProvider;
+use Atlasphp\Atlas\Agents\Contracts\AgentRegistryContract;use Atlasphp\Atlas\Contracts\Tools\Contracts\ToolRegistryContract;use Illuminate\Support\ServiceProvider;
 
 class AtlasServiceProvider extends ServiceProvider
 {
