@@ -6,9 +6,9 @@ namespace App\Console\Commands;
 
 use App\Services\ThreadStorageService;
 use Atlasphp\Atlas\Agents\Contracts\AgentRegistryContract;
+use Atlasphp\Atlas\Agents\Enums\MediaSource;
 use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Pipelines\PipelineRegistry;
-use Atlasphp\Atlas\Agents\Enums\MediaSource;
 use Illuminate\Console\Command;
 
 /**

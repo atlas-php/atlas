@@ -6,6 +6,8 @@ namespace App\Console\Commands;
 
 use Atlasphp\Atlas\Atlas;
 use Illuminate\Console\Command;
+use Prism\Prism\Moderation\Response as ModerationResponse;
+use Prism\Prism\ValueObjects\ModerationResult;
 
 /**
  * Command for testing content moderation.
@@ -74,7 +76,14 @@ class ModerationCommand extends Command
         $this->info('Analyzing content...');
         $this->line('');
 
-        $response = Atlas::moderation()->moderate($text);
+        /** @var ModerationResponse $response */
+        $response = Atlas::moderation()
+            ->using(
+                config('atlas.moderation.provider', 'openai'),
+                config('atlas.moderation.model', 'omni-moderation-latest')
+            )
+            ->withInput($text)
+            ->asModeration();
 
         $this->displayResult($response);
 
@@ -100,7 +109,14 @@ class ModerationCommand extends Command
         $this->info('Analyzing content...');
         $this->line('');
 
-        $response = Atlas::moderation()->moderate($testCases);
+        /** @var ModerationResponse $response */
+        $response = Atlas::moderation()
+            ->using(
+                config('atlas.moderation.provider', 'openai'),
+                config('atlas.moderation.model', 'omni-moderation-latest')
+            )
+            ->withInput($testCases)
+            ->asModeration();
 
         foreach ($response->results as $i => $result) {
             $text = $testCases[$i] ?? 'Unknown';
@@ -110,20 +126,16 @@ class ModerationCommand extends Command
         }
 
         $this->line('Response Details:');
-        $this->line("  ID: {$response->id}");
-        $this->line("  Model: {$response->model}");
         $this->line('  Total Results: '.count($response->results));
-        $this->line('  Flagged: '.($response->isFlagged() ? 'Yes' : 'No'));
+        $this->line('  Any Flagged: '.($response->isFlagged() ? 'Yes' : 'No'));
 
         return self::SUCCESS;
     }
 
     /**
      * Display a single moderation result.
-     *
-     * @param  \Atlasphp\Atlas\Providers\Support\ModerationResult  $result
      */
-    protected function displaySingleResult($result): void
+    protected function displaySingleResult(ModerationResult $result): void
     {
         if ($result->flagged) {
             $this->error('[FLAGGED]');
@@ -131,7 +143,7 @@ class ModerationCommand extends Command
             $this->info('[SAFE]');
         }
 
-        $flaggedCategories = $result->flaggedCategories();
+        $flaggedCategories = array_keys(array_filter($result->categories));
         if (! empty($flaggedCategories)) {
             $this->line('  Flagged categories: '.implode(', ', $flaggedCategories));
         }
@@ -139,10 +151,8 @@ class ModerationCommand extends Command
 
     /**
      * Display moderation result.
-     *
-     * @param  \Atlasphp\Atlas\Providers\Support\ModerationResponse  $response
      */
-    protected function displayResult($response): void
+    protected function displayResult(ModerationResponse $response): void
     {
         // Overall status
         if ($response->isFlagged()) {
@@ -153,16 +163,21 @@ class ModerationCommand extends Command
 
         $this->line('');
 
-        // Show flagged categories if any
-        $categories = $response->categories();
-        $scores = $response->categoryScores();
+        // Get first result for single text moderation
+        $result = $response->results[0] ?? null;
+        if ($result === null) {
+            $this->warn('No moderation result returned.');
 
-        if (! empty($categories)) {
+            return;
+        }
+
+        // Show categories if any
+        if (! empty($result->categories)) {
             $this->line('Categories:');
 
             $tableData = [];
-            foreach ($categories as $category => $isFlagged) {
-                $score = $scores[$category] ?? 0;
+            foreach ($result->categories as $category => $isFlagged) {
+                $score = $result->categoryScores[$category] ?? 0;
                 $status = $isFlagged ? '<fg=red>FLAGGED</>' : '<fg=green>OK</>';
                 $tableData[] = [
                     $category,
@@ -177,8 +192,6 @@ class ModerationCommand extends Command
         // Show API response details
         $this->line('');
         $this->line('Response Details:');
-        $this->line("  ID: {$response->id}");
-        $this->line("  Model: {$response->model}");
         $this->line('  Results: '.count($response->results));
     }
 }
