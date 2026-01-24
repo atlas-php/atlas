@@ -10,6 +10,7 @@ use Atlasphp\Atlas\Agents\Enums\MediaSource;
 use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Pipelines\PipelineRegistry;
 use Illuminate\Console\Command;
+use Prism\Prism\Images\Response as ImageResponse;
 
 /**
  * Comprehensive vision test command for multimodal attachments.
@@ -112,16 +113,20 @@ class VisionCommand extends Command
 
             try {
                 $response = Atlas::image()
-                    ->size('1024x1024')
-                    ->generate($prompt);
+                    ->using(
+                        config('atlas.image.provider', 'openai'),
+                        config('atlas.image.model', 'dall-e-3')
+                    )
+                    ->withPrompt($prompt)
+                    ->withProviderOptions([
+                        'size' => '1024x1024',
+                        'response_format' => 'b64_json',
+                    ])
+                    ->generate();
 
-                // Handle both object and array response types
-                $base64 = null;
-                if (is_object($response) && isset($response->base64)) {
-                    $base64 = $response->base64;
-                } elseif (is_array($response) && isset($response['base64'])) {
-                    $base64 = $response['base64'];
-                }
+                // Handle Prism ImageResponse
+                $image = $response->firstImage();
+                $base64 = $image?->base64;
 
                 if ($base64 !== null) {
                     file_put_contents($path, base64_decode($base64));

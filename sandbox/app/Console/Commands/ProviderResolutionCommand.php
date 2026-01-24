@@ -133,6 +133,7 @@ class ProviderResolutionCommand extends Command
             // Track which callback was applied via local variable
             $appliedCallback = 'none';
 
+            /** @phpstan-ignore method.notFound (whenProvider is forwarded via __call) */
             $response = Atlas::agent('general-assistant')
                 ->withProvider('anthropic', 'claude-sonnet-4-20250514')
                 ->whenProvider('openai', function ($r) use (&$appliedCallback) {

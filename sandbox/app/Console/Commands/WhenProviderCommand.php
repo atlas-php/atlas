@@ -64,6 +64,7 @@ class WhenProviderCommand extends Command
             // Track which callback was applied
             $appliedCallback = 'none';
 
+            /** @phpstan-ignore method.notFound (whenProvider is forwarded via __call) */
             $response = Atlas::agent('general-assistant')
                 ->withProvider($provider, $model)
                 ->whenProvider('anthropic', function ($r) use (&$appliedCallback) {

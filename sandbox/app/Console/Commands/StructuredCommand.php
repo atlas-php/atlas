@@ -291,6 +291,7 @@ class StructuredCommand extends Command
             return;
         }
 
+        /** @phpstan-ignore function.impossibleType */
         $json = is_string($structured)
             ? $structured
             : json_encode($structured, JSON_PRETTY_PRINT);
@@ -318,6 +319,7 @@ class StructuredCommand extends Command
         }
 
         // Convert to array if object
+        /** @phpstan-ignore function.alreadyNarrowedType */
         $data = is_array($structured) ? $structured : (array) $structured;
 
         // Check structure matches
