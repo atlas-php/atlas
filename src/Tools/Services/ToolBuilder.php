@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Tools\Services;
 
 use Atlasphp\Atlas\Agents\Contracts\AgentContract;
+use Atlasphp\Atlas\Tools\Contracts\ConfiguresPrismTool;
 use Atlasphp\Atlas\Tools\Contracts\ToolContract;
 use Atlasphp\Atlas\Tools\Contracts\ToolRegistryContract;
 use Atlasphp\Atlas\Tools\Support\ToolContext;
@@ -134,11 +135,14 @@ class ToolBuilder
         $prismTool->for($tool->description());
 
         foreach ($tool->parameters() as $schema) {
-            // Parameters are now Prism Schema objects directly
             $prismTool->withParameter($schema);
         }
 
         $prismTool->using($handler);
+
+        if ($tool instanceof ConfiguresPrismTool) {
+            return $tool->configurePrismTool($prismTool);
+        }
 
         return $prismTool;
     }

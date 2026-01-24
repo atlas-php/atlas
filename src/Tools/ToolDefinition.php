@@ -27,6 +27,23 @@ abstract class ToolDefinition implements ToolContract
     }
 
     /**
+     * Configure the Prism Tool with additional options.
+     *
+     * Override this method to access the full Prism Tool API:
+     * - `$tool->failed($handler)` - Custom error handling
+     * - `$tool->withErrorHandling()` - Enable error handling
+     * - `$tool->withoutErrorHandling()` - Disable error handling
+     * - `$tool->withProviderOptions($options)` - Provider-specific config
+     *
+     * @param  PrismTool  $tool  The fully-built Prism Tool.
+     * @return PrismTool The configured tool (can chain methods).
+     */
+    protected function configurePrismTool(PrismTool $tool): PrismTool
+    {
+        return $tool;
+    }
+
+    /**
      * Convert this tool to a Prism Tool instance.
      *
      * @param  callable  $handler  The handler function to execute the tool.
@@ -43,6 +60,6 @@ abstract class ToolDefinition implements ToolContract
 
         $tool->using($handler);
 
-        return $tool;
+        return $this->configurePrismTool($tool);
     }
 }
