@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use Atlasphp\Atlas\Providers\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Schema\Schema;
 use Atlasphp\Atlas\Schema\SchemaBuilder;
 use Illuminate\Console\Command;
@@ -79,14 +79,18 @@ class StructuredCommand extends Command
             $this->info('Extracting structured data...');
             $this->line('');
 
-            $agent = Atlas::agent('structured-output')->withSchema($schema);
+            $request = Atlas::structured()
+                ->using('openai', 'gpt-4o')
+                ->withSystemPrompt('Extract structured data from the input. Be precise and follow the schema exactly.')
+                ->withSchema($schema)
+                ->withPrompt($prompt);
 
             // Use JSON mode for schemas with optional fields
             if ($useJsonMode) {
-                $agent = $agent->usingJsonMode();
+                $request = $request->usingJsonMode();
             }
 
-            $response = $agent->chat($prompt);
+            $response = $request->asStructured();
 
             $this->displayResponse($response);
             $this->displayVerification($response, $requiredFields);
@@ -223,7 +227,7 @@ class StructuredCommand extends Command
     {
         $this->line('');
         $this->line('=== Atlas Structured Output Test ===');
-        $this->line('Agent: structured-output');
+        $this->line('Provider: openai / gpt-4o');
         $this->line("Schema: {$schemaKey}");
 
         if ($useJsonMode) {
@@ -250,7 +254,7 @@ class StructuredCommand extends Command
     /**
      * Display the structured response.
      *
-     * @param  \Atlasphp\Atlas\Agents\Support\AgentResponse  $response
+     * @param  \Prism\Prism\Structured\Response  $response
      */
     protected function displayResponse($response): void
     {
@@ -260,7 +264,7 @@ class StructuredCommand extends Command
 
         if ($structured === null) {
             $this->warn('No structured data returned.');
-            if ($response->hasText()) {
+            if ($response->text !== '') {
                 $this->line("Text response: {$response->text}");
             }
 
@@ -278,7 +282,7 @@ class StructuredCommand extends Command
     /**
      * Display verification results.
      *
-     * @param  \Atlasphp\Atlas\Agents\Support\AgentResponse  $response
+     * @param  \Prism\Prism\Structured\Response  $response
      * @param  array<string>  $requiredFields
      */
     protected function displayVerification($response, array $requiredFields): void

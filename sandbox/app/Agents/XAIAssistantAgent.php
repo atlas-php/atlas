@@ -2,23 +2,23 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Agents;
+namespace App\Agents;
 
 use Atlasphp\Atlas\Agents\AgentDefinition;
 
 /**
- * General-purpose chat agent for sandbox testing.
+ * xAI (Grok) based assistant agent for testing.
  *
- * Provides a simple, helpful assistant for interactive chat testing.
+ * Tests xAI Grok models.
  */
-class GeneralAssistantAgent extends AgentDefinition
+class XAIAssistantAgent extends AgentDefinition
 {
     /**
      * Get the AI provider for this agent.
      */
     public function provider(): ?string
     {
-        return 'openai';
+        return 'xai';
     }
 
     /**
@@ -26,7 +26,7 @@ class GeneralAssistantAgent extends AgentDefinition
      */
     public function model(): ?string
     {
-        return 'gpt-4o';
+        return 'grok-2-latest';
     }
 
     /**
@@ -34,8 +34,8 @@ class GeneralAssistantAgent extends AgentDefinition
      */
     public function systemPrompt(): ?string
     {
-        return 'You are a helpful assistant. Be concise and helpful in your responses. '
-            .'Keep answers focused and relevant to the user\'s questions.';
+        return 'You are a helpful assistant powered by xAI Grok. '
+            .'Be concise and helpful in your responses.';
     }
 
     /**
@@ -43,6 +43,14 @@ class GeneralAssistantAgent extends AgentDefinition
      */
     public function description(): ?string
     {
-        return 'A general-purpose assistant for interactive chat.';
+        return 'An assistant powered by xAI Grok for testing.';
+    }
+
+    /**
+     * Get the maximum steps for tool use iterations.
+     */
+    public function maxSteps(): ?int
+    {
+        return 5;
     }
 }

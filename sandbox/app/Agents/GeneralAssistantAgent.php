@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Agents;
+namespace App\Agents;
 
 use Atlasphp\Atlas\Agents\AgentDefinition;
 
 /**
- * Agent for testing structured output extraction.
+ * General-purpose chat agent for sandbox testing.
  *
- * Designed to extract structured data from text following a provided schema.
+ * Provides a simple, helpful assistant for interactive chat testing.
  */
-class StructuredOutputAgent extends AgentDefinition
+class GeneralAssistantAgent extends AgentDefinition
 {
     /**
      * Get the AI provider for this agent.
@@ -34,10 +34,8 @@ class StructuredOutputAgent extends AgentDefinition
      */
     public function systemPrompt(): ?string
     {
-        return 'Extract structured data from the input. '
-            .'Be precise and follow the provided schema exactly. '
-            .'Only extract information that is explicitly stated in the input. '
-            .'Do not infer or add information not present in the source text.';
+        return 'You are a helpful assistant. Be concise and helpful in your responses. '
+            .'Keep answers focused and relevant to the user\'s questions.';
     }
 
     /**
@@ -45,6 +43,6 @@ class StructuredOutputAgent extends AgentDefinition
      */
     public function description(): ?string
     {
-        return 'An agent for extracting structured data from unstructured text.';
+        return 'A general-purpose assistant for interactive chat.';
     }
 }

@@ -8,7 +8,7 @@ use App\Services\ThreadStorageService;
 use Atlasphp\Atlas\Agents\Contracts\AgentRegistryContract;
 use Atlasphp\Atlas\Foundation\Services\PipelineRegistry;
 use Atlasphp\Atlas\Providers\Enums\MediaSource;
-use Atlasphp\Atlas\Providers\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 use Illuminate\Console\Command;
 
 /**
@@ -330,11 +330,11 @@ class VisionCommand extends Command
 
             $text1 = $response1->text ?? '[No response]';
             $thread = $storage->addMessage($thread, 'assistant', $text1);
-            $thread = $storage->addTokens($thread, $response1->totalTokens());
+            $thread = $storage->addTokens($thread, $response1->usage->promptTokens + $response1->usage->completionTokens);
 
             $this->line('');
             $this->info("Response: {$text1}");
-            $this->line("Tokens: {$response1->totalTokens()}");
+            $this->line('Tokens: '.($response1->usage->promptTokens + $response1->usage->completionTokens));
             $this->line('');
 
         } catch (\Throwable $e) {
@@ -355,11 +355,11 @@ class VisionCommand extends Command
 
             $text2 = $response2->text ?? '[No response]';
             $thread = $storage->addMessage($thread, 'assistant', $text2);
-            $thread = $storage->addTokens($thread, $response2->totalTokens());
+            $thread = $storage->addTokens($thread, $response2->usage->promptTokens + $response2->usage->completionTokens);
 
             $this->line('');
             $this->info("Response: {$text2}");
-            $this->line("Tokens: {$response2->totalTokens()}");
+            $this->line('Tokens: '.($response2->usage->promptTokens + $response2->usage->completionTokens));
             $this->line('');
 
         } catch (\Throwable $e) {
@@ -389,11 +389,11 @@ class VisionCommand extends Command
 
                 $text3 = $response3->text ?? '[No response]';
                 $thread = $storage->addMessage($thread, 'assistant', $text3);
-                $thread = $storage->addTokens($thread, $response3->totalTokens());
+                $thread = $storage->addTokens($thread, $response3->usage->promptTokens + $response3->usage->completionTokens);
 
                 $this->line('');
                 $this->info("Response: {$text3}");
-                $this->line("Tokens: {$response3->totalTokens()}");
+                $this->line('Tokens: '.($response3->usage->promptTokens + $response3->usage->completionTokens));
                 $this->line('');
 
             } catch (\Throwable $e) {
@@ -1015,6 +1015,8 @@ class VisionCommand extends Command
 
     /**
      * Display response details.
+     *
+     * @param  \Prism\Prism\Text\Response  $response
      */
     protected function displayResponse($response): void
     {
@@ -1023,8 +1025,10 @@ class VisionCommand extends Command
         $this->line($response->text ?? '[No response]');
         $this->line('');
         $this->line('--- Details ---');
-        $this->line("Tokens: {$response->promptTokens()} prompt / {$response->completionTokens()} completion / {$response->totalTokens()} total");
-        $this->line("Finish: {$response->get('finish_reason', 'unknown')}");
+        $totalTokens = $response->usage->promptTokens + $response->usage->completionTokens;
+        $this->line("Tokens: {$response->usage->promptTokens} prompt / {$response->usage->completionTokens} completion / {$totalTokens} total");
+        $finishReason = $response->finishReason->value ?? 'unknown';
+        $this->line("Finish: {$finishReason}");
         $this->line('');
     }
 

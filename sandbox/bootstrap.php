@@ -10,7 +10,7 @@ declare(strict_types=1);
  */
 
 use App\Providers\SandboxServiceProvider;
-use Atlasphp\Atlas\Foundation\AtlasServiceProvider;
+use Atlasphp\Atlas\AtlasServiceProvider;
 use Dotenv\Dotenv;
 use Orchestra\Testbench\Foundation\Application;
 
@@ -52,7 +52,8 @@ $app->register(SandboxServiceProvider::class);
 // Boot the application
 $app->boot();
 
-// Load Atlas configuration
-$app['config']->set('atlas', require $sandboxPath.'/../config/atlas.php');
+// Load Atlas configuration from sandbox config directory
+$app['config']->set('atlas', require $sandboxPath.'/config/atlas.php');
+$app['config']->set('prism', require $sandboxPath.'/config/prism.php');
 
 return $app;

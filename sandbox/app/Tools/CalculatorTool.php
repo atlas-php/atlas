@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Tools;
+namespace App\Tools;
 
-use Atlasphp\Atlas\Contracts\Tools\Support\ToolContext;
-use Atlasphp\Atlas\Contracts\Tools\Support\ToolParameter;
-use Atlasphp\Atlas\Contracts\Tools\Support\ToolResult;
-use Atlasphp\Atlas\Contracts\Tools\ToolDefinition;
+use Atlasphp\Atlas\Tools\Support\ToolContext;
+use Atlasphp\Atlas\Tools\Support\ToolParameter;
+use Atlasphp\Atlas\Tools\Support\ToolResult;
+use Atlasphp\Atlas\Tools\ToolDefinition;
 
 /**
  * Calculator tool for basic math operations.
@@ -35,7 +35,7 @@ class CalculatorTool extends ToolDefinition
     /**
      * Get the tool parameters.
      *
-     * @return array<int, ToolParameter>
+     * @return array<int, \Prism\Prism\Contracts\Schema>
      */
     public function parameters(): array
     {
@@ -44,17 +44,14 @@ class CalculatorTool extends ToolDefinition
                 'operation',
                 'The math operation to perform',
                 ['add', 'subtract', 'multiply', 'divide'],
-                required: true,
             ),
             ToolParameter::number(
                 'a',
                 'The first number',
-                required: true,
             ),
             ToolParameter::number(
                 'b',
                 'The second number',
-                required: true,
             ),
         ];
     }

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use Atlasphp\Atlas\Providers\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Config;
 
@@ -217,7 +217,7 @@ class LocalChatCommand extends Command
     /**
      * Display response details.
      *
-     * @param  \Atlasphp\Atlas\Agents\Support\AgentResponse  $response
+     * @param  \Prism\Prism\Text\Response  $response
      */
     protected function displayResponseDetails($response): void
     {
@@ -225,12 +225,12 @@ class LocalChatCommand extends Command
 
         $this->line(sprintf(
             'Tokens: %d prompt / %d completion / %d total',
-            $response->promptTokens(),
-            $response->completionTokens(),
-            $response->totalTokens(),
+            $response->usage->promptTokens,
+            $response->usage->completionTokens,
+            $response->usage->promptTokens + $response->usage->completionTokens,
         ));
 
-        $finishReason = $response->get('finish_reason', 'unknown');
+        $finishReason = $response->finishReason->value ?? 'unknown';
         $this->line("Finish: {$finishReason}");
 
         $toolCallCount = count($response->toolCalls);

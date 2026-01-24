@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use Atlasphp\Atlas\Providers\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 use Illuminate\Console\Command;
 
 /**

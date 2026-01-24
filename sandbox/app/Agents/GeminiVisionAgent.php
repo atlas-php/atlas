@@ -2,23 +2,23 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Agents;
+namespace App\Agents;
 
 use Atlasphp\Atlas\Agents\AgentDefinition;
 
 /**
- * Anthropic vision agent for testing multimodal attachments.
+ * Gemini vision agent for testing multimodal attachments.
  *
- * Uses Claude 3.5 Sonnet which has vision capabilities for analyzing images.
+ * Uses Gemini 2.0 Flash which has vision capabilities for analyzing images.
  */
-class AnthropicVisionAgent extends AgentDefinition
+class GeminiVisionAgent extends AgentDefinition
 {
     /**
      * Get the unique key for this agent.
      */
     public function key(): string
     {
-        return 'anthropic-vision';
+        return 'gemini-vision';
     }
 
     /**
@@ -26,7 +26,7 @@ class AnthropicVisionAgent extends AgentDefinition
      */
     public function provider(): ?string
     {
-        return 'anthropic';
+        return 'gemini';
     }
 
     /**
@@ -34,7 +34,7 @@ class AnthropicVisionAgent extends AgentDefinition
      */
     public function model(): ?string
     {
-        return 'claude-sonnet-4-20250514';
+        return 'gemini-2.0-flash';
     }
 
     /**
@@ -52,6 +52,6 @@ class AnthropicVisionAgent extends AgentDefinition
      */
     public function description(): ?string
     {
-        return 'Vision agent using Anthropic Claude for image and document analysis.';
+        return 'Vision agent using Google Gemini for image and document analysis.';
     }
 }

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use Atlasphp\Atlas\Providers\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 use Illuminate\Console\Command;
 use Prism\Prism\Enums\Provider;
 
@@ -80,9 +80,9 @@ class WhenProviderCommand extends Command
             $this->line("Provider: {$provider}");
             $this->line(sprintf(
                 'Tokens: %d prompt / %d completion / %d total',
-                $response->promptTokens(),
-                $response->completionTokens(),
-                $response->totalTokens(),
+                $response->usage->promptTokens,
+                $response->usage->completionTokens,
+                $response->usage->promptTokens + $response->usage->completionTokens,
             ));
             $this->line('');
 

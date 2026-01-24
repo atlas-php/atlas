@@ -2,23 +2,23 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Agents;
+namespace App\Agents;
 
 use Atlasphp\Atlas\Agents\AgentDefinition;
 
 /**
- * OpenAI vision agent for testing multimodal attachments.
+ * Anthropic vision agent for testing multimodal attachments.
  *
- * Uses GPT-4o which has vision capabilities for analyzing images.
+ * Uses Claude 3.5 Sonnet which has vision capabilities for analyzing images.
  */
-class OpenAIVisionAgent extends AgentDefinition
+class AnthropicVisionAgent extends AgentDefinition
 {
     /**
      * Get the unique key for this agent.
      */
     public function key(): string
     {
-        return 'openai-vision';
+        return 'anthropic-vision';
     }
 
     /**
@@ -26,7 +26,7 @@ class OpenAIVisionAgent extends AgentDefinition
      */
     public function provider(): ?string
     {
-        return 'openai';
+        return 'anthropic';
     }
 
     /**
@@ -34,7 +34,7 @@ class OpenAIVisionAgent extends AgentDefinition
      */
     public function model(): ?string
     {
-        return 'gpt-4o';
+        return 'claude-sonnet-4-20250514';
     }
 
     /**
@@ -52,6 +52,6 @@ class OpenAIVisionAgent extends AgentDefinition
      */
     public function description(): ?string
     {
-        return 'Vision agent using OpenAI GPT-4o for image and document analysis.';
+        return 'Vision agent using Anthropic Claude for image and document analysis.';
     }
 }

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Agents;
+namespace App\Agents;
 
 use Atlasphp\Atlas\Agents\AgentDefinition;
 

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Agents;
+namespace App\Agents;
 
-use App\Services\Tools\CalculatorTool;
-use App\Services\Tools\DateTimeTool;
-use App\Services\Tools\WeatherTool;
+use App\Tools\CalculatorTool;
+use App\Tools\DateTimeTool;
+use App\Tools\WeatherTool;
 use Atlasphp\Atlas\Agents\AgentDefinition;
 
 /**

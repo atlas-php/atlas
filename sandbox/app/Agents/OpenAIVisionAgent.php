@@ -2,23 +2,23 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Agents;
+namespace App\Agents;
 
 use Atlasphp\Atlas\Agents\AgentDefinition;
 
 /**
- * Gemini vision agent for testing multimodal attachments.
+ * OpenAI vision agent for testing multimodal attachments.
  *
- * Uses Gemini 2.0 Flash which has vision capabilities for analyzing images.
+ * Uses GPT-4o which has vision capabilities for analyzing images.
  */
-class GeminiVisionAgent extends AgentDefinition
+class OpenAIVisionAgent extends AgentDefinition
 {
     /**
      * Get the unique key for this agent.
      */
     public function key(): string
     {
-        return 'gemini-vision';
+        return 'openai-vision';
     }
 
     /**
@@ -26,7 +26,7 @@ class GeminiVisionAgent extends AgentDefinition
      */
     public function provider(): ?string
     {
-        return 'gemini';
+        return 'openai';
     }
 
     /**
@@ -34,7 +34,7 @@ class GeminiVisionAgent extends AgentDefinition
      */
     public function model(): ?string
     {
-        return 'gemini-2.0-flash';
+        return 'gpt-4o';
     }
 
     /**
@@ -52,6 +52,6 @@ class GeminiVisionAgent extends AgentDefinition
      */
     public function description(): ?string
     {
-        return 'Vision agent using Google Gemini for image and document analysis.';
+        return 'Vision agent using OpenAI GPT-4o for image and document analysis.';
     }
 }

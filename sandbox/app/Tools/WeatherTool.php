@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Tools;
+namespace App\Tools;
 
-use Atlasphp\Atlas\Contracts\Tools\Support\ToolContext;
-use Atlasphp\Atlas\Contracts\Tools\Support\ToolParameter;
-use Atlasphp\Atlas\Contracts\Tools\Support\ToolResult;
-use Atlasphp\Atlas\Contracts\Tools\ToolDefinition;
+use Atlasphp\Atlas\Tools\Support\ToolContext;
+use Atlasphp\Atlas\Tools\Support\ToolParameter;
+use Atlasphp\Atlas\Tools\Support\ToolResult;
+use Atlasphp\Atlas\Tools\ToolDefinition;
 
 /**
  * Mock weather tool for testing.
