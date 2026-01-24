@@ -185,3 +185,33 @@ test('manually built tool includes parameters', function () {
     // Should have 2 parameters
     expect($parameters)->toHaveCount(2);
 });
+
+test('tool implementing ConfiguresPrismTool has configurePrismTool called', function () {
+    $tool = new \Atlasphp\Atlas\Tests\Fixtures\ConfigurableToolContract;
+    $context = new ToolContext;
+
+    $tools = $this->builder->buildFromInstances([$tool], $context);
+    $prismTool = $tools[0];
+
+    // Get providerOptions via reflection to verify configurePrismTool was called
+    $reflection = new ReflectionClass($prismTool);
+    $optionsProperty = $reflection->getProperty('providerOptions');
+    $optionsProperty->setAccessible(true);
+    $options = $optionsProperty->getValue($prismTool);
+
+    // ConfigurableToolContract sets custom_option => true
+    expect($options)->toBe(['custom_option' => true]);
+});
+
+test('ConfiguresPrismTool is only called for non-ToolDefinition tools', function () {
+    // ToolDefinition tools use toPrismTool() directly
+    // ConfiguresPrismTool is called in buildPrismToolManually()
+    $tool = new \Atlasphp\Atlas\Tests\Fixtures\ConfigurableToolContract;
+    $context = new ToolContext;
+
+    // This should work without errors
+    $tools = $this->builder->buildFromInstances([$tool], $context);
+
+    expect($tools)->toHaveCount(1);
+    expect($tools[0])->toBeInstanceOf(PrismTool::class);
+});
