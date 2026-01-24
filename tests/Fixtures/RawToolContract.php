@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Tests\Fixtures;
 
-use Atlasphp\Atlas\Contracts\Tools\Contracts\ToolContract;
-use Atlasphp\Atlas\Contracts\Tools\Support\ToolContext;
-use Atlasphp\Atlas\Contracts\Tools\Support\ToolParameter;
-use Atlasphp\Atlas\Contracts\Tools\Support\ToolResult;
+use Atlasphp\Atlas\Tools\Contracts\ToolContract;
+use Atlasphp\Atlas\Tools\Support\ToolContext;
+use Atlasphp\Atlas\Tools\Support\ToolParameter;
+use Atlasphp\Atlas\Tools\Support\ToolResult;
 
 /**
  * Test fixture that implements ToolContract directly without extending ToolDefinition.
@@ -28,8 +28,8 @@ class RawToolContract implements ToolContract
     public function parameters(): array
     {
         return [
-            ToolParameter::string('query', 'The search query', required: true),
-            ToolParameter::integer('limit', 'Maximum results', required: false),
+            ToolParameter::string('query', 'The search query'),
+            ToolParameter::integer('limit', 'Maximum results'),
         ];
     }
 

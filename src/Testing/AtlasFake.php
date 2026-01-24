@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Testing;
 
 use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
-use Atlasphp\Atlas\Agents\Support\AgentResponse;
 use Atlasphp\Atlas\Testing\Concerns\HasFakeAssertions;
 use Atlasphp\Atlas\Testing\Support\FakeResponseSequence;
 use Atlasphp\Atlas\Testing\Support\RecordedRequest;
 use Illuminate\Contracts\Container\Container;
+use Prism\Prism\Text\Response as PrismResponse;
 
 /**
  * Main fake manager for Atlas testing.
@@ -35,9 +35,9 @@ class AtlasFake
      * Configure a fake response for a specific agent.
      *
      * @param  string  $agentKey  The agent key.
-     * @param  AgentResponse|null  $response  Optional immediate response.
+     * @param  PrismResponse|null  $response  Optional immediate Prism response.
      */
-    public function response(string $agentKey, ?AgentResponse $response = null): PendingFakeRequest|self
+    public function response(string $agentKey, ?PrismResponse $response = null): PendingFakeRequest|self
     {
         if ($response !== null) {
             $this->registerSequence($agentKey, (new FakeResponseSequence)->push($response));
@@ -51,7 +51,7 @@ class AtlasFake
     /**
      * Configure a sequence of responses for any agent.
      *
-     * @param  array<int, AgentResponse>  $responses
+     * @param  array<int, PrismResponse>  $responses
      */
     public function sequence(array $responses): self
     {

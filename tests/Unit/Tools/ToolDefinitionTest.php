@@ -2,11 +2,12 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Contracts\Tools\Support\ToolContext;
-use Atlasphp\Atlas\Contracts\Tools\Support\ToolParameter;
-use Atlasphp\Atlas\Contracts\Tools\Support\ToolResult;
-use Atlasphp\Atlas\Contracts\Tools\ToolDefinition;
 use Atlasphp\Atlas\Tests\Fixtures\TestTool;
+use Atlasphp\Atlas\Tools\Support\ToolContext;
+use Atlasphp\Atlas\Tools\Support\ToolParameter;
+use Atlasphp\Atlas\Tools\Support\ToolResult;
+use Atlasphp\Atlas\Tools\ToolDefinition;
+use Prism\Prism\Schema\StringSchema;
 use Prism\Prism\Tool as PrismTool;
 
 test('it returns empty parameters by default', function () {
@@ -40,7 +41,7 @@ test('it converts to Prism tool', function () {
     expect($prismTool)->toBeInstanceOf(PrismTool::class);
 });
 
-test('it builds parameter schema', function () {
+test('it converts to Prism tool with parameters', function () {
     $tool = new class extends ToolDefinition
     {
         public function name(): string
@@ -57,7 +58,7 @@ test('it builds parameter schema', function () {
         {
             return [
                 ToolParameter::string('name', 'The name'),
-                ToolParameter::integer('age', 'The age', false),
+                ToolParameter::integer('age', 'The age'),
             ];
         }
 
@@ -67,12 +68,42 @@ test('it builds parameter schema', function () {
         }
     };
 
-    $schema = $tool->buildParameterSchema();
+    $handler = fn (array $args) => 'result';
+    $prismTool = $tool->toPrismTool($handler);
 
-    expect($schema['type'])->toBe('object');
-    expect($schema['properties'])->toHaveKey('name');
-    expect($schema['properties'])->toHaveKey('age');
-    expect($schema['required'])->toBe(['name']);
+    expect($prismTool)->toBeInstanceOf(PrismTool::class);
+});
+
+test('parameters returns Prism Schema objects', function () {
+    $tool = new class extends ToolDefinition
+    {
+        public function name(): string
+        {
+            return 'test';
+        }
+
+        public function description(): string
+        {
+            return 'Test';
+        }
+
+        public function parameters(): array
+        {
+            return [
+                ToolParameter::string('name', 'The name'),
+            ];
+        }
+
+        public function handle(array $args, ToolContext $context): ToolResult
+        {
+            return ToolResult::text('ok');
+        }
+    };
+
+    $parameters = $tool->parameters();
+
+    expect($parameters)->toHaveCount(1);
+    expect($parameters[0])->toBeInstanceOf(StringSchema::class);
 });
 
 test('TestTool fixture has correct name', function () {

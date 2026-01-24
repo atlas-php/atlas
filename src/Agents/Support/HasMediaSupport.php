@@ -6,6 +6,10 @@ namespace Atlasphp\Atlas\Agents\Support;
 
 use Atlasphp\Atlas\Agents\Enums\MediaSource;
 use Atlasphp\Atlas\Agents\Enums\MediaType;
+use Prism\Prism\ValueObjects\Media\Audio;
+use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\ValueObjects\Media\Video;
 
 /**
  * Trait for services that support media attachments.
@@ -13,15 +17,25 @@ use Atlasphp\Atlas\Agents\Enums\MediaType;
  * Provides fluent methods for attaching images, documents, audio, and video
  * to requests. Each method accepts a single item or an array of items.
  * Uses the clone pattern for immutability.
+ *
+ * Supports both array format (for serialization/queues) and direct Prism
+ * media objects (for direct API access).
  */
 trait HasMediaSupport
 {
     /**
-     * Current input attachments.
+     * Current input attachments (array format for serialization).
      *
      * @var array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>
      */
     private array $currentAttachments = [];
+
+    /**
+     * Direct Prism media objects.
+     *
+     * @var array<int, Image|Document|Audio|Video>
+     */
+    private array $prismMedia = [];
 
     /**
      * Attach one or more images to the request.
@@ -94,13 +108,46 @@ trait HasMediaSupport
     }
 
     /**
-     * Get the current attachments.
+     * Attach Prism media objects directly.
+     *
+     * This allows direct use of Prism's media objects for full API access:
+     * - Image::fromUrl(), Image::fromBase64(), Image::fromPath()
+     * - Document::fromUrl(), Document::fromBase64(), Document::fromPath()
+     * - Audio::fromUrl(), Audio::fromBase64(), Audio::fromPath()
+     * - Video::fromUrl(), Video::fromBase64(), Video::fromPath()
+     *
+     * @param  Image|Document|Audio|Video|array<int, Image|Document|Audio|Video>  $media
+     */
+    public function withMedia(Image|Document|Audio|Video|array $media): static
+    {
+        $clone = clone $this;
+        $items = is_array($media) ? $media : [$media];
+
+        foreach ($items as $item) {
+            $clone->prismMedia[] = $item;
+        }
+
+        return $clone;
+    }
+
+    /**
+     * Get the current attachments (array format).
      *
      * @return array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>
      */
     protected function getCurrentAttachments(): array
     {
         return $this->currentAttachments;
+    }
+
+    /**
+     * Get the direct Prism media objects.
+     *
+     * @return array<int, Image|Document|Audio|Video>
+     */
+    protected function getPrismMedia(): array
+    {
+        return $this->prismMedia;
     }
 
     /**

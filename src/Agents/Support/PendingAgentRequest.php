@@ -9,6 +9,7 @@ use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
 use Atlasphp\Atlas\Agents\Services\AgentResolver;
 use Generator;
 use Prism\Prism\Streaming\Events\StreamEvent;
+use Prism\Prism\Text\Response as PrismResponse;
 
 /**
  * Fluent builder for agent chat operations.
@@ -122,11 +123,17 @@ final class PendingAgentRequest
     /**
      * Execute a blocking chat with the configured agent.
      *
-     * Returns an AgentResponse with the complete response.
+     * Returns Prism's Response directly for full API access:
+     * - $response->text - Text response
+     * - $response->usage - Full usage stats including cache tokens, thought tokens
+     * - $response->steps - Multi-step agentic loop history
+     * - $response->toolCalls - Tool calls as ToolCall objects
+     * - $response->finishReason - Typed FinishReason enum
+     * - $response->meta - Request metadata, rate limits
      *
      * @param  string  $input  The user input message.
      */
-    public function chat(string $input): AgentResponse
+    public function chat(string $input): PrismResponse
     {
         $resolvedAgent = $this->agentResolver->resolve($this->agent);
         $context = $this->buildContext();
@@ -164,6 +171,7 @@ final class PendingAgentRequest
             modelOverride: $this->modelOverride,
             currentAttachments: $this->getCurrentAttachments(),
             prismCalls: $this->prismCalls,
+            prismMedia: $this->getPrismMedia(),
         );
     }
 }

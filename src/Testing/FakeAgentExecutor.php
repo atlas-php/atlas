@@ -6,7 +6,6 @@ namespace Atlasphp\Atlas\Testing;
 
 use Atlasphp\Atlas\Agents\Contracts\AgentContract;
 use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
-use Atlasphp\Atlas\Agents\Support\AgentResponse;
 use Atlasphp\Atlas\Agents\Support\ExecutionContext;
 use Atlasphp\Atlas\Testing\Support\FakeResponseSequence;
 use Atlasphp\Atlas\Testing\Support\RecordedRequest;
@@ -16,6 +15,7 @@ use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
+use Prism\Prism\Text\Response as PrismResponse;
 use Prism\Prism\ValueObjects\Usage;
 use RuntimeException;
 
@@ -138,12 +138,12 @@ class FakeAgentExecutor implements AgentExecutorContract
         AgentContract $agent,
         string $input,
         ExecutionContext $context,
-    ): AgentResponse {
+    ): PrismResponse {
         $response = $this->getResponse($agent->key());
 
         // Handle throwables
         if ($response instanceof \Throwable) {
-            $this->recordRequest($agent, $input, $context, AgentResponse::empty());
+            $this->recordRequest($agent, $input, $context, FakeResponseSequence::emptyResponse());
             throw $response;
         }
 
@@ -164,20 +164,20 @@ class FakeAgentExecutor implements AgentExecutorContract
 
         // Handle throwables
         if ($response instanceof \Throwable) {
-            $this->recordRequest($agent, $input, $context, AgentResponse::empty());
+            $this->recordRequest($agent, $input, $context, FakeResponseSequence::emptyResponse());
             throw $response;
         }
 
         $this->recordRequest($agent, $input, $context, $response);
 
-        // Convert AgentResponse to stream events
-        yield from $this->createFakeStreamGenerator($response->text ?? '');
+        // Convert PrismResponse to stream events
+        yield from $this->createFakeStreamGenerator($response->text);
     }
 
     /**
      * Get the next response for an agent.
      */
-    private function getResponse(string $agentKey): AgentResponse|\Throwable
+    private function getResponse(string $agentKey): PrismResponse|\Throwable
     {
         // Check for agent-specific sequence
         if (isset($this->responseSequences[$agentKey])) {
@@ -204,7 +204,7 @@ class FakeAgentExecutor implements AgentExecutorContract
         }
 
         // Return empty response
-        return AgentResponse::empty();
+        return FakeResponseSequence::emptyResponse();
     }
 
     /**
@@ -214,7 +214,7 @@ class FakeAgentExecutor implements AgentExecutorContract
         AgentContract $agent,
         string $input,
         ExecutionContext $context,
-        AgentResponse $response,
+        PrismResponse $response,
     ): void {
         $this->recordedRequests[] = new RecordedRequest(
             agent: $agent,

@@ -4,15 +4,16 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Testing;
 
-use Atlasphp\Atlas\Agents\Support\AgentResponse;
 use Atlasphp\Atlas\Testing\Support\FakeResponseSequence;
+use Prism\Prism\Text\Response as PrismResponse;
 use Throwable;
 
 /**
  * Fluent builder for configuring fake responses.
  *
  * Provides a clean API for setting up response sequences and
- * conditions for specific agents during testing.
+ * conditions for specific agents during testing. Uses Prism's
+ * native Response objects.
  */
 final class PendingFakeRequest
 {
@@ -26,9 +27,9 @@ final class PendingFakeRequest
     }
 
     /**
-     * Return a specific response.
+     * Return a specific Prism response.
      */
-    public function return(AgentResponse $response): AtlasFake
+    public function return(PrismResponse $response): AtlasFake
     {
         $this->sequence->push($response);
 
@@ -36,9 +37,9 @@ final class PendingFakeRequest
     }
 
     /**
-     * Return a sequence of responses.
+     * Return a sequence of Prism responses.
      *
-     * @param  array<int, AgentResponse>  $responses
+     * @param  array<int, PrismResponse>  $responses
      */
     public function returnSequence(array $responses): AtlasFake
     {
@@ -62,7 +63,7 @@ final class PendingFakeRequest
     /**
      * Set the response to return when the sequence is exhausted.
      */
-    public function whenEmpty(AgentResponse|Throwable $response): self
+    public function whenEmpty(PrismResponse|Throwable $response): self
     {
         $this->sequence->whenEmpty($response);
 

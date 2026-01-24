@@ -4,12 +4,20 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Agents\Support;
 
+use Prism\Prism\ValueObjects\Media\Audio;
+use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\ValueObjects\Media\Video;
+
 /**
  * Stateless execution context for agent invocation.
  *
  * Carries conversation history, variable bindings, metadata, provider
  * overrides, and captured Prism method calls without any database or
  * session dependencies. Consumer manages all persistence.
+ *
+ * Supports both array format attachments (for serialization/queues) and
+ * direct Prism media objects (for direct API access).
  *
  * This is a read-only value object built by PendingAgentRequest.
  */
@@ -21,8 +29,9 @@ final readonly class ExecutionContext
      * @param  array<string, mixed>  $metadata  Additional metadata for pipeline middleware.
      * @param  string|null  $providerOverride  Override the agent's configured provider.
      * @param  string|null  $modelOverride  Override the agent's configured model.
-     * @param  array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>  $currentAttachments  Attachments for the current input message.
+     * @param  array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>  $currentAttachments  Attachments for the current input message (array format for serialization).
      * @param  array<int, array{method: string, args: array<int, mixed>}>  $prismCalls  Captured Prism method calls to replay on the request.
+     * @param  array<int, Image|Document|Audio|Video>  $prismMedia  Direct Prism media objects for the current input.
      */
     public function __construct(
         public array $messages = [],
@@ -32,6 +41,7 @@ final readonly class ExecutionContext
         public ?string $modelOverride = null,
         public array $currentAttachments = [],
         public array $prismCalls = [],
+        public array $prismMedia = [],
     ) {}
 
     /**
@@ -65,11 +75,19 @@ final readonly class ExecutionContext
     }
 
     /**
-     * Check if current attachments are present.
+     * Check if current attachments are present (array format or Prism media).
      */
     public function hasCurrentAttachments(): bool
     {
-        return $this->currentAttachments !== [];
+        return $this->currentAttachments !== [] || $this->prismMedia !== [];
+    }
+
+    /**
+     * Check if direct Prism media objects are present.
+     */
+    public function hasPrismMedia(): bool
+    {
+        return $this->prismMedia !== [];
     }
 
     /**

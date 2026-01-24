@@ -7,7 +7,6 @@ namespace Atlasphp\Atlas\Agents\Services;
 use Atlasphp\Atlas\Agents\Contracts\AgentContract;
 use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
 use Atlasphp\Atlas\Agents\Exceptions\AgentException;
-use Atlasphp\Atlas\Agents\Support\AgentResponse;
 use Atlasphp\Atlas\Agents\Support\ExecutionContext;
 use Atlasphp\Atlas\Pipelines\PipelineRunner;
 use Atlasphp\Atlas\Tools\Services\ToolBuilder;
@@ -16,6 +15,7 @@ use Generator;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Text\PendingRequest as TextPendingRequest;
+use Prism\Prism\Text\Response as PrismResponse;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
@@ -42,12 +42,20 @@ class AgentExecutor implements AgentExecutorContract
 
     /**
      * Execute an agent with the given input.
+     *
+     * Returns Prism's Response directly, giving consumers access to:
+     * - $response->text - Text response
+     * - $response->usage - Full usage stats including cache tokens, thought tokens
+     * - $response->steps - Multi-step agentic loop history
+     * - $response->toolCalls - Tool calls as ToolCall objects
+     * - $response->finishReason - Typed FinishReason enum
+     * - $response->meta - Request metadata, rate limits
      */
     public function execute(
         AgentContract $agent,
         string $input,
         ExecutionContext $context,
-    ): AgentResponse {
+    ): PrismResponse {
         $systemPrompt = null;
 
         try {
@@ -72,19 +80,16 @@ class AgentExecutor implements AgentExecutorContract
             $request = $this->buildRequest($agent, $input, $context, $systemPrompt);
             $prismResponse = $request->asText();
 
-            // Build response
-            $response = $this->buildResponse($agent, $prismResponse);
-
-            // Run after_execute pipeline
+            // Run after_execute pipeline with Prism response directly
             $afterData = $this->pipelineRunner->runIfActive('agent.after_execute', [
                 'agent' => $agent,
                 'input' => $input,
                 'context' => $context,
-                'response' => $response,
+                'response' => $prismResponse,
                 'system_prompt' => $systemPrompt,
             ]);
 
-            /** @var AgentResponse $response */
+            /** @var PrismResponse */
             return $afterData['response'];
         } catch (AgentException $e) {
             $this->handleError($agent, $input, $context, $systemPrompt, $e);
@@ -238,6 +243,9 @@ class AgentExecutor implements AgentExecutorContract
     /**
      * Build attachments for the current input (prompt mode only).
      *
+     * Handles both array format (for serialization/queues) and direct
+     * Prism media objects (for direct API access).
+     *
      * @return array<int, mixed>
      */
     protected function buildAttachments(ExecutionContext $context): array
@@ -246,7 +254,22 @@ class AgentExecutor implements AgentExecutorContract
             return [];
         }
 
-        return $this->mediaConverter->convertMany($context->currentAttachments);
+        $attachments = [];
+
+        // Add direct Prism media objects first
+        foreach ($context->prismMedia as $media) {
+            $attachments[] = $media;
+        }
+
+        // Convert array format attachments if present
+        if ($context->currentAttachments !== []) {
+            $attachments = array_merge(
+                $attachments,
+                $this->mediaConverter->convertMany($context->currentAttachments)
+            );
+        }
+
+        return $attachments;
     }
 
     /**
@@ -335,84 +358,5 @@ class AgentExecutor implements AgentExecutorContract
         }
 
         return $providerTools;
-    }
-
-    /**
-     * Build an AgentResponse from the Prism response.
-     */
-    protected function buildResponse(AgentContract $agent, mixed $prismResponse): AgentResponse
-    {
-        $usage = $this->extractUsage($prismResponse);
-        $toolCalls = $this->extractToolCalls($prismResponse);
-
-        // Check for structured output
-        $structured = property_exists($prismResponse, 'structured') ? $prismResponse->structured : null;
-
-        return new AgentResponse(
-            text: $prismResponse->text ?? null,
-            structured: $structured,
-            toolCalls: $toolCalls,
-            usage: $usage,
-            metadata: ['finish_reason' => $prismResponse->finishReason->value ?? null],
-        );
-    }
-
-    /**
-     * Extract usage statistics from the Prism response.
-     *
-     * @return array<string, int>
-     */
-    protected function extractUsage(mixed $prismResponse): array
-    {
-        if (! isset($prismResponse->usage)) {
-            return [];
-        }
-
-        $usage = $prismResponse->usage;
-
-        return [
-            'prompt_tokens' => $usage->promptTokens ?? 0,
-            'completion_tokens' => $usage->completionTokens ?? 0,
-            'total_tokens' => ($usage->promptTokens ?? 0) + ($usage->completionTokens ?? 0),
-        ];
-    }
-
-    /**
-     * Extract tool calls from the Prism response.
-     *
-     * @return array<int, array{id: string|null, name: string, arguments: array<string, mixed>, result: string|null}>
-     */
-    protected function extractToolCalls(mixed $prismResponse): array
-    {
-        $toolCalls = [];
-
-        if (property_exists($prismResponse, 'steps') && $prismResponse->steps) {
-            foreach ($prismResponse->steps as $step) {
-                if (isset($step->toolCalls) && ! empty($step->toolCalls)) {
-                    foreach ($step->toolCalls as $i => $call) {
-                        $result = $step->toolResults[$i]->result ?? null;
-                        $toolCalls[] = [
-                            'id' => $call->id ?? null,
-                            'name' => $call->name,
-                            'arguments' => $call->arguments(),
-                            'result' => $result,
-                        ];
-                    }
-                }
-            }
-        }
-
-        if (empty($toolCalls) && property_exists($prismResponse, 'toolCalls') && $prismResponse->toolCalls) {
-            foreach ($prismResponse->toolCalls as $call) {
-                $toolCalls[] = [
-                    'id' => $call->id ?? null,
-                    'name' => $call->name,
-                    'arguments' => $call->arguments(),
-                    'result' => null,
-                ];
-            }
-        }
-
-        return $toolCalls;
     }
 }

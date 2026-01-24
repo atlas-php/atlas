@@ -2,128 +2,192 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Agents\Contracts\AgentContract;
-use Atlasphp\Atlas\Agents\Support\AgentResponse;
 use Atlasphp\Atlas\Agents\Support\ExecutionContext;
 use Atlasphp\Atlas\Testing\Support\RecordedRequest;
-use Prism\Prism\Schema\ObjectSchema;
+use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
+use Illuminate\Support\Collection;
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Text\Response as PrismResponse;
+use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\Usage;
 
-test('it stores request data', function () {
-    $agent = Mockery::mock(AgentContract::class);
-    $agent->shouldReceive('key')->andReturn('test-agent');
-    $response = AgentResponse::text('Response');
-
-    $request = new RecordedRequest(
-        agent: $agent,
-        input: 'Hello',
-        context: null,
-        schema: null,
-        response: $response,
-        timestamp: 1234567890,
-    );
-
-    expect($request->agent)->toBe($agent);
-    expect($request->input)->toBe('Hello');
-    expect($request->response)->toBe($response);
-    expect($request->timestamp)->toBe(1234567890);
-});
-
-test('it returns agent key', function () {
-    $agent = Mockery::mock(AgentContract::class);
-    $agent->shouldReceive('key')->andReturn('my-agent');
-
-    $request = new RecordedRequest(
-        agent: $agent,
-        input: 'Test',
-        context: null,
-        schema: null,
-        response: AgentResponse::empty(),
-        timestamp: time(),
-    );
-
-    expect($request->agentKey())->toBe('my-agent');
-});
-
-test('it checks if input contains string', function () {
-    $agent = Mockery::mock(AgentContract::class);
-    $agent->shouldReceive('key')->andReturn('test');
-
-    $request = new RecordedRequest(
-        agent: $agent,
-        input: 'Hello World, how are you?',
-        context: null,
-        schema: null,
-        response: AgentResponse::empty(),
-        timestamp: time(),
-    );
-
-    expect($request->inputContains('World'))->toBeTrue();
-    expect($request->inputContains('Goodbye'))->toBeFalse();
-});
-
-test('it checks for metadata presence', function () {
-    $agent = Mockery::mock(AgentContract::class);
-    $agent->shouldReceive('key')->andReturn('test');
-
+test('it captures agent, input, context, and PrismResponse', function () {
+    $agent = new TestAgent;
+    $input = 'Hello, AI!';
     $context = new ExecutionContext(
-        metadata: ['user_id' => 123, 'role' => 'admin']
+        variables: ['user_name' => 'John'],
+        metadata: ['session_id' => 'abc123'],
+    );
+    $response = new PrismResponse(
+        steps: new Collection([]),
+        text: 'Hello, John!',
+        finishReason: FinishReason::Stop,
+        toolCalls: [],
+        toolResults: [],
+        usage: new Usage(10, 5),
+        meta: new Meta('req-123', 'gpt-4'),
+        messages: new Collection([]),
     );
 
-    $request = new RecordedRequest(
+    $recorded = new RecordedRequest(
+        agent: $agent,
+        input: $input,
+        context: $context,
+        response: $response,
+        timestamp: time(),
+    );
+
+    expect($recorded->agent)->toBe($agent);
+    expect($recorded->input)->toBe($input);
+    expect($recorded->context)->toBe($context);
+    expect($recorded->response)->toBe($response);
+    expect($recorded->response->text)->toBe('Hello, John!');
+});
+
+test('agentKey returns agent key', function () {
+    $agent = new TestAgent;
+    $context = new ExecutionContext;
+    $response = new PrismResponse(
+        steps: new Collection([]),
+        text: '',
+        finishReason: FinishReason::Stop,
+        toolCalls: [],
+        toolResults: [],
+        usage: new Usage(0, 0),
+        meta: new Meta('id', 'model'),
+        messages: new Collection([]),
+    );
+
+    $recorded = new RecordedRequest(
         agent: $agent,
         input: 'Test',
         context: $context,
-        schema: null,
-        response: AgentResponse::empty(),
+        response: $response,
         timestamp: time(),
     );
 
-    expect($request->hasMetadata('user_id'))->toBeTrue();
-    expect($request->hasMetadata('user_id', 123))->toBeTrue();
-    expect($request->hasMetadata('user_id', 456))->toBeFalse();
-    expect($request->hasMetadata('nonexistent'))->toBeFalse();
+    expect($recorded->agentKey())->toBe('test-agent');
 });
 
-test('it returns false for metadata when no context', function () {
-    $agent = Mockery::mock(AgentContract::class);
-    $agent->shouldReceive('key')->andReturn('test');
+test('inputContains checks input string', function () {
+    $agent = new TestAgent;
+    $context = new ExecutionContext;
+    $response = new PrismResponse(
+        steps: new Collection([]),
+        text: '',
+        finishReason: FinishReason::Stop,
+        toolCalls: [],
+        toolResults: [],
+        usage: new Usage(0, 0),
+        meta: new Meta('id', 'model'),
+        messages: new Collection([]),
+    );
 
-    $request = new RecordedRequest(
+    $recorded = new RecordedRequest(
         agent: $agent,
-        input: 'Test',
-        context: null,
-        schema: null,
-        response: AgentResponse::empty(),
+        input: 'What is the weather in New York?',
+        context: $context,
+        response: $response,
         timestamp: time(),
     );
 
-    expect($request->hasMetadata('any'))->toBeFalse();
+    expect($recorded->inputContains('weather'))->toBeTrue();
+    expect($recorded->inputContains('New York'))->toBeTrue();
+    expect($recorded->inputContains('London'))->toBeFalse();
 });
 
-test('it checks for schema presence', function () {
-    $agent = Mockery::mock(AgentContract::class);
-    $agent->shouldReceive('key')->andReturn('test');
+test('hasMetadata checks context metadata', function () {
+    $agent = new TestAgent;
+    $context = new ExecutionContext(
+        metadata: ['session_id' => 'abc123', 'user_id' => 42],
+    );
+    $response = new PrismResponse(
+        steps: new Collection([]),
+        text: '',
+        finishReason: FinishReason::Stop,
+        toolCalls: [],
+        toolResults: [],
+        usage: new Usage(0, 0),
+        meta: new Meta('id', 'model'),
+        messages: new Collection([]),
+    );
 
-    $schema = new ObjectSchema('Test', 'A test schema', [], []);
-
-    $requestWithSchema = new RecordedRequest(
+    $recorded = new RecordedRequest(
         agent: $agent,
         input: 'Test',
-        context: null,
-        schema: $schema,
-        response: AgentResponse::empty(),
+        context: $context,
+        response: $response,
         timestamp: time(),
     );
 
-    $requestWithoutSchema = new RecordedRequest(
+    // Check key exists
+    expect($recorded->hasMetadata('session_id'))->toBeTrue();
+    expect($recorded->hasMetadata('missing_key'))->toBeFalse();
+
+    // Check key and value match
+    expect($recorded->hasMetadata('session_id', 'abc123'))->toBeTrue();
+    expect($recorded->hasMetadata('session_id', 'wrong'))->toBeFalse();
+    expect($recorded->hasMetadata('user_id', 42))->toBeTrue();
+});
+
+test('hasPrismCall checks prism calls in context', function () {
+    $agent = new TestAgent;
+    $context = new ExecutionContext(
+        prismCalls: [
+            ['method' => 'withMaxSteps', 'args' => [10]],
+            ['method' => 'withTemperature', 'args' => [0.7]],
+        ],
+    );
+    $response = new PrismResponse(
+        steps: new Collection([]),
+        text: '',
+        finishReason: FinishReason::Stop,
+        toolCalls: [],
+        toolResults: [],
+        usage: new Usage(0, 0),
+        meta: new Meta('id', 'model'),
+        messages: new Collection([]),
+    );
+
+    $recorded = new RecordedRequest(
         agent: $agent,
         input: 'Test',
-        context: null,
-        schema: null,
-        response: AgentResponse::empty(),
+        context: $context,
+        response: $response,
         timestamp: time(),
     );
 
-    expect($requestWithSchema->hasSchema())->toBeTrue();
-    expect($requestWithoutSchema->hasSchema())->toBeFalse();
+    expect($recorded->hasPrismCall('withMaxSteps'))->toBeTrue();
+    expect($recorded->hasPrismCall('withTemperature'))->toBeTrue();
+    expect($recorded->hasPrismCall('withSchema'))->toBeFalse();
+});
+
+test('getPrismCallArgs returns arguments for prism call', function () {
+    $agent = new TestAgent;
+    $context = new ExecutionContext(
+        prismCalls: [
+            ['method' => 'withMaxSteps', 'args' => [10]],
+        ],
+    );
+    $response = new PrismResponse(
+        steps: new Collection([]),
+        text: '',
+        finishReason: FinishReason::Stop,
+        toolCalls: [],
+        toolResults: [],
+        usage: new Usage(0, 0),
+        meta: new Meta('id', 'model'),
+        messages: new Collection([]),
+    );
+
+    $recorded = new RecordedRequest(
+        agent: $agent,
+        input: 'Test',
+        context: $context,
+        response: $response,
+        timestamp: time(),
+    );
+
+    expect($recorded->getPrismCallArgs('withMaxSteps'))->toBe([10]);
+    expect($recorded->getPrismCallArgs('withSchema'))->toBeNull();
 });

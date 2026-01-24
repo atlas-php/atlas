@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Contracts\Tools\Services\ToolBuilder;
-use Atlasphp\Atlas\Contracts\Tools\Services\ToolExecutor;
-use Atlasphp\Atlas\Contracts\Tools\Services\ToolRegistry;
-use Atlasphp\Atlas\Contracts\Tools\Support\ToolContext;
 use Atlasphp\Atlas\Pipelines\PipelineRegistry;
 use Atlasphp\Atlas\Pipelines\PipelineRunner;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
 use Atlasphp\Atlas\Tests\Fixtures\TestTool;
+use Atlasphp\Atlas\Tools\Services\ToolBuilder;
+use Atlasphp\Atlas\Tools\Services\ToolExecutor;
+use Atlasphp\Atlas\Tools\Services\ToolRegistry;
+use Atlasphp\Atlas\Tools\Support\ToolContext;
 use Illuminate\Container\Container;
 use Prism\Prism\Tool as PrismTool;
 

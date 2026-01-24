@@ -2,92 +2,136 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Agents\Support\AgentResponse;
 use Atlasphp\Atlas\Testing\Support\FakeResponseSequence;
+use Illuminate\Support\Collection;
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Text\Response as PrismResponse;
+use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\Usage;
 
-test('it returns responses in sequence', function () {
-    $response1 = AgentResponse::text('First');
-    $response2 = AgentResponse::text('Second');
+test('emptyResponse returns valid PrismResponse', function () {
+    $response = FakeResponseSequence::emptyResponse();
 
-    $sequence = new FakeResponseSequence([$response1, $response2]);
-
-    expect($sequence->next())->toBe($response1);
-    expect($sequence->next())->toBe($response2);
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response->text)->toBe('');
+    expect($response->finishReason)->toBe(FinishReason::Stop);
+    expect($response->toolCalls)->toBe([]);
+    expect($response->usage->promptTokens)->toBe(0);
+    expect($response->usage->completionTokens)->toBe(0);
 });
 
-test('it reports hasMore correctly', function () {
-    $response = AgentResponse::text('Test');
-    $sequence = new FakeResponseSequence([$response]);
+test('push and next work with PrismResponse', function () {
+    $response1 = new PrismResponse(
+        steps: new Collection([]),
+        text: 'First response',
+        finishReason: FinishReason::Stop,
+        toolCalls: [],
+        toolResults: [],
+        usage: new Usage(10, 5),
+        meta: new Meta('id-1', 'gpt-4'),
+        messages: new Collection([]),
+    );
 
+    $response2 = new PrismResponse(
+        steps: new Collection([]),
+        text: 'Second response',
+        finishReason: FinishReason::Stop,
+        toolCalls: [],
+        toolResults: [],
+        usage: new Usage(15, 10),
+        meta: new Meta('id-2', 'gpt-4'),
+        messages: new Collection([]),
+    );
+
+    $sequence = new FakeResponseSequence;
+    $sequence->push($response1);
+    $sequence->push($response2);
+
+    expect($sequence->count())->toBe(2);
     expect($sequence->hasMore())->toBeTrue();
-    $sequence->next();
+
+    $first = $sequence->next();
+    expect($first)->toBe($response1);
+    expect($first->text)->toBe('First response');
+
+    $second = $sequence->next();
+    expect($second)->toBe($response2);
+    expect($second->text)->toBe('Second response');
+
     expect($sequence->hasMore())->toBeFalse();
 });
 
-test('it returns empty response when sequence exhausted', function () {
-    $sequence = new FakeResponseSequence([]);
+test('whenEmpty returns fallback when sequence exhausted', function () {
+    $fallback = new PrismResponse(
+        steps: new Collection([]),
+        text: 'Fallback response',
+        finishReason: FinishReason::Stop,
+        toolCalls: [],
+        toolResults: [],
+        usage: new Usage(5, 3),
+        meta: new Meta('fallback-id', 'gpt-4'),
+        messages: new Collection([]),
+    );
 
-    $result = $sequence->next();
-
-    expect($result)->toBeInstanceOf(AgentResponse::class);
-    expect($result->text)->toBeNull();
-});
-
-test('it returns whenEmpty response after exhaustion', function () {
-    $fallback = AgentResponse::text('Fallback');
-    $sequence = new FakeResponseSequence([]);
+    $sequence = new FakeResponseSequence;
     $sequence->whenEmpty($fallback);
 
-    $result = $sequence->next();
-
-    expect($result)->toBe($fallback);
+    // Sequence is empty, should return fallback
+    $response = $sequence->next();
+    expect($response)->toBe($fallback);
+    expect($response->text)->toBe('Fallback response');
 });
 
-test('it pushes new responses', function () {
+test('next returns emptyResponse when sequence exhausted and no fallback', function () {
     $sequence = new FakeResponseSequence;
-    $response = AgentResponse::text('Pushed');
 
-    $sequence->push($response);
+    $response = $sequence->next();
 
-    expect($sequence->hasMore())->toBeTrue();
-    expect($sequence->next())->toBe($response);
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response->text)->toBe('');
 });
 
-test('it resets to beginning', function () {
-    $response = AgentResponse::text('Test');
+test('reset rewinds sequence to beginning', function () {
+    $response = new PrismResponse(
+        steps: new Collection([]),
+        text: 'Repeatable',
+        finishReason: FinishReason::Stop,
+        toolCalls: [],
+        toolResults: [],
+        usage: new Usage(10, 5),
+        meta: new Meta('id', 'gpt-4'),
+        messages: new Collection([]),
+    );
+
     $sequence = new FakeResponseSequence([$response]);
 
-    $sequence->next();
+    $first = $sequence->next();
+    expect($first->text)->toBe('Repeatable');
     expect($sequence->hasMore())->toBeFalse();
 
     $sequence->reset();
     expect($sequence->hasMore())->toBeTrue();
-    expect($sequence->next())->toBe($response);
+
+    $second = $sequence->next();
+    expect($second->text)->toBe('Repeatable');
 });
 
-test('it reports isEmpty correctly', function () {
-    $empty = new FakeResponseSequence;
-    $notEmpty = new FakeResponseSequence([AgentResponse::text('Test')]);
+test('isEmpty returns correct value', function () {
+    $sequence = new FakeResponseSequence;
+    expect($sequence->isEmpty())->toBeTrue();
 
-    expect($empty->isEmpty())->toBeTrue();
-    expect($notEmpty->isEmpty())->toBeFalse();
+    $sequence->push(FakeResponseSequence::emptyResponse());
+    expect($sequence->isEmpty())->toBeFalse();
 });
 
-test('it counts responses', function () {
-    $sequence = new FakeResponseSequence([
-        AgentResponse::text('One'),
-        AgentResponse::text('Two'),
-        AgentResponse::text('Three'),
-    ]);
+test('push supports exception for error testing', function () {
+    $exception = new RuntimeException('API Error');
 
-    expect($sequence->count())->toBe(3);
-});
+    $sequence = new FakeResponseSequence;
+    $sequence->push($exception);
 
-test('it handles throwables', function () {
-    $exception = new RuntimeException('Test error');
-    $sequence = new FakeResponseSequence([$exception]);
+    expect($sequence->count())->toBe(1);
 
     $result = $sequence->next();
-
     expect($result)->toBe($exception);
 });

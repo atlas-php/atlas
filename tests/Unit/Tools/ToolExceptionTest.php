@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Contracts\Tools\Exceptions\ToolException;
+use Atlasphp\Atlas\Tools\Exceptions\ToolException;
 
 test('it creates exception for execution failed', function () {
     $exception = ToolException::executionFailed('calculator', 'Division by zero');

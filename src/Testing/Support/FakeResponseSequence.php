@@ -4,27 +4,31 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Testing\Support;
 
-use Atlasphp\Atlas\Agents\Support\AgentResponse;
+use Illuminate\Support\Collection;
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Text\Response as PrismResponse;
+use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\Usage;
 
 /**
  * Manages a sequence of fake responses for testing.
  *
  * Returns responses in order, with optional fallback when sequence
- * is exhausted.
+ * is exhausted. Uses Prism's native Response objects.
  */
 final class FakeResponseSequence
 {
     /**
-     * @var array<int, AgentResponse|\Throwable>
+     * @var array<int, PrismResponse|\Throwable>
      */
     private array $responses;
 
     private int $index = 0;
 
-    private AgentResponse|\Throwable|null $whenEmpty = null;
+    private PrismResponse|\Throwable|null $whenEmpty = null;
 
     /**
-     * @param  array<int, AgentResponse|\Throwable>  $responses  The responses to return in sequence.
+     * @param  array<int, PrismResponse|\Throwable>  $responses  The responses to return in sequence.
      */
     public function __construct(array $responses = [])
     {
@@ -34,7 +38,7 @@ final class FakeResponseSequence
     /**
      * Add a response to the sequence.
      */
-    public function push(AgentResponse|\Throwable $response): self
+    public function push(PrismResponse|\Throwable $response): self
     {
         $this->responses[] = $response;
 
@@ -44,17 +48,34 @@ final class FakeResponseSequence
     /**
      * Get the next response in the sequence.
      */
-    public function next(): AgentResponse|\Throwable
+    public function next(): PrismResponse|\Throwable
     {
         if (! $this->hasMore()) {
             if ($this->whenEmpty === null) {
-                return AgentResponse::empty();
+                return self::emptyResponse();
             }
 
             return $this->whenEmpty;
         }
 
         return $this->responses[$this->index++];
+    }
+
+    /**
+     * Create an empty Prism response.
+     */
+    public static function emptyResponse(): PrismResponse
+    {
+        return new PrismResponse(
+            steps: new Collection([]),
+            text: '',
+            finishReason: FinishReason::Stop,
+            toolCalls: [],
+            toolResults: [],
+            usage: new Usage(promptTokens: 0, completionTokens: 0),
+            meta: new Meta(id: 'fake-id', model: 'fake-model'),
+            messages: new Collection([]),
+        );
     }
 
     /**
@@ -68,7 +89,7 @@ final class FakeResponseSequence
     /**
      * Set the response to return when the sequence is exhausted.
      */
-    public function whenEmpty(AgentResponse|\Throwable $response): self
+    public function whenEmpty(PrismResponse|\Throwable $response): self
     {
         $this->whenEmpty = $response;
 
