@@ -31,16 +31,16 @@ features:
     link: /core-concepts/tools
   - icon:
       src: /icons/multi-provider.svg
-      alt: Multi-Provider & Multimodal
-    title: Multi-Provider & Multimodal
+      alt: Multi-Provider Support
+    title: Multi-Provider Support
     details: Switch between OpenAI, Anthropic, Gemini, and more. Process images, audio, documents, and video alongside text.
-    link: /capabilities/multimodal
+    link: /capabilities/chat
   - icon:
       src: /icons/structured.svg
       alt: Structured Output
     title: Structured Output
     details: Extract typed data from AI responses. Get arrays, objects, or custom schemas instead of raw strings.
-    link: /core-concepts/structured-output
+    link: /capabilities/structured-output
   - icon:
       src: /icons/streaming.svg
       alt: Real-time Streaming

@@ -60,7 +60,7 @@ public function test_system_prompt_contains_expected_variables(): void
 ### Testing Tool Logic
 
 ```php
-use App\Tools\LookupOrderTool;use Atlasphp\Atlas\Contracts\Tools\Support\ToolContext;use PHPUnit\Framework\TestCase;
+use App\Tools\LookupOrderTool;use Atlasphp\Atlas\Tools\Support\ToolContext;use PHPUnit\Framework\TestCase;
 
 class LookupOrderToolTest extends TestCase
 {
@@ -180,7 +180,7 @@ Atlas provides a built-in `Atlas::fake()` method for testing, following Laravel'
 ### Basic Usage
 
 ```php
-use Atlasphp\Atlas\Providers\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Agents\Support\AgentResponse;
 
 public function test_chat_returns_expected_response(): void
@@ -513,6 +513,6 @@ public function test_handles_provider_errors(): void
 
 ## Next Steps
 
-- [Creating Agents](/guides/creating-agents) — Build testable agents
-- [Creating Tools](/guides/creating-tools) — Build testable tools
+- [Agents](/core-concepts/agents) — Build testable agents
+- [Tools](/core-concepts/tools) — Build testable tools
 - [Error Handling](/advanced/error-handling) — Test error scenarios

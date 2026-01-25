@@ -2,77 +2,42 @@
 
 Generate vector embeddings for semantic search, RAG, and similarity matching.
 
-## What are Embeddings?
+::: tip Prism Reference
+Atlas embeddings wraps Prism's embeddings API. For detailed documentation including all configuration options, see [Prism Embeddings](https://prismphp.com/core-concepts/embeddings.html).
+:::
 
-Embeddings are numerical representations of text that capture semantic meaning. Similar texts have similar embeddings, enabling:
-
-- **Semantic search** — Find relevant documents by meaning, not just keywords
-- **RAG (Retrieval Augmented Generation)** — Provide context to AI from your data
-- **Similarity matching** — Compare texts for relatedness
-- **Clustering** — Group similar content together
-
-## Single Embedding
+## Basic Usage
 
 ```php
-use Atlasphp\Atlas\Providers\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 
-$embedding = Atlas::embeddings()->generate('What is the return policy?');
-// Returns array of 1536 floats (for text-embedding-3-small)
+$response = Atlas::embeddings()
+    ->using('openai', 'text-embedding-3-small')
+    ->fromInput('What is the return policy?')
+    ->asEmbeddings();
+
+$vector = $response->embeddings[0];  // Array of floats
 ```
 
 ## Batch Embeddings
 
-Process multiple texts efficiently by passing an array:
+Process multiple texts in a single request:
 
 ```php
-$texts = [
-    'How do I return an item?',
-    'What is your shipping policy?',
-    'Do you offer refunds?',
-];
+$response = Atlas::embeddings()
+    ->using('openai', 'text-embedding-3-small')
+    ->fromInput([
+        'How do I return an item?',
+        'What is your shipping policy?',
+        'Do you offer refunds?',
+    ])
+    ->asEmbeddings();
 
-$embeddings = Atlas::embeddings()->generate($texts);
-// Returns array of 3 embedding vectors
+// $response->embeddings contains 3 vectors
+foreach ($response->embeddings as $index => $vector) {
+    // Process each embedding vector
+}
 ```
-
-## Get Configured Dimensions
-
-```php
-$dimensions = Atlas::embeddings()->dimensions();
-// 1536 (for text-embedding-3-small)
-```
-
-## Configuration
-
-Configure embeddings in `config/atlas.php`:
-
-```php
-'embedding' => [
-    'provider' => 'openai',
-    'model' => 'text-embedding-3-small',
-    'dimensions' => 1536,
-    'batch_size' => 100,
-],
-```
-
-Or via environment variables:
-
-```env
-ATLAS_EMBEDDING_PROVIDER=openai
-ATLAS_EMBEDDING_MODEL=text-embedding-3-small
-ATLAS_EMBEDDING_DIMENSIONS=1536
-ATLAS_EMBEDDING_BATCH_SIZE=100
-```
-
-## Available Models
-
-### OpenAI
-
-| Model | Dimensions | Best For |
-|-------|------------|----------|
-| `text-embedding-3-small` | 1536 (or 256-1536) | Cost-effective general use |
-| `text-embedding-3-large` | 3072 (or 256-3072) | Higher accuracy |
-| `text-embedding-ada-002` | 1536 | Legacy support |
 
 ## Semantic Search Example
 
@@ -80,12 +45,22 @@ ATLAS_EMBEDDING_BATCH_SIZE=100
 // Index documents
 $documents = Document::all();
 foreach ($documents as $doc) {
-    $doc->embedding = Atlas::embeddings()->generate($doc->content);
+    $response = Atlas::embeddings()
+        ->using('openai', 'text-embedding-3-small')
+        ->fromInput($doc->content)
+        ->asEmbeddings();
+
+    $doc->embedding = $response->embeddings[0];
     $doc->save();
 }
 
 // Search with query
-$queryEmbedding = Atlas::embeddings()->generate('How do I reset my password?');
+$queryResponse = Atlas::embeddings()
+    ->using('openai', 'text-embedding-3-small')
+    ->fromInput('How do I reset my password?')
+    ->asEmbeddings();
+
+$queryEmbedding = $queryResponse->embeddings[0];
 
 // Find similar documents (using pgvector)
 $results = Document::query()
@@ -96,13 +71,20 @@ $results = Document::query()
 
 ## RAG Implementation
 
+Combine embeddings with agents for retrieval-augmented generation:
+
 ```php
 class RagService
 {
     public function answer(string $question): string
     {
         // 1. Generate query embedding
-        $queryEmbedding = Atlas::embeddings()->generate($question);
+        $response = Atlas::embeddings()
+            ->using('openai', 'text-embedding-3-small')
+            ->fromInput($question)
+            ->asEmbeddings();
+
+        $queryEmbedding = $response->embeddings[0];
 
         // 2. Find relevant documents
         $context = Document::query()
@@ -119,86 +101,6 @@ class RagService
         return $response->text;
     }
 }
-```
-
-With an agent like:
-
-```php
-class RagAgent extends AgentDefinition
-{
-    public function systemPrompt(): string
-    {
-        return <<<PROMPT
-        Answer questions using the provided context.
-
-        Context:
-        {context}
-
-        If the context doesn't contain relevant information, say so.
-        PROMPT;
-    }
-}
-```
-
-## Chunking Strategies
-
-For long documents, split into chunks before embedding:
-
-```php
-class DocumentChunker
-{
-    public function chunk(string $content, int $maxTokens = 500): array
-    {
-        // Split by paragraphs
-        $paragraphs = preg_split('/\n\n+/', $content);
-
-        $chunks = [];
-        $current = '';
-
-        foreach ($paragraphs as $paragraph) {
-            if ($this->estimateTokens($current . $paragraph) > $maxTokens) {
-                if ($current) {
-                    $chunks[] = trim($current);
-                }
-                $current = $paragraph;
-            } else {
-                $current .= "\n\n" . $paragraph;
-            }
-        }
-
-        if ($current) {
-            $chunks[] = trim($current);
-        }
-
-        return $chunks;
-    }
-
-    private function estimateTokens(string $text): int
-    {
-        return (int) ceil(strlen($text) / 4);
-    }
-}
-```
-
-## Best Practices
-
-### 1. Batch When Possible
-
-```php
-// Good - single batch request
-$embeddings = Atlas::embeddings()->generate($texts);
-
-// Less efficient - multiple requests
-foreach ($texts as $text) {
-    $embeddings[] = Atlas::embeddings()->generate($text);
-}
-```
-
-### 2. Cache Embeddings
-
-```php
-$cacheKey = 'embedding:' . md5($text);
-$embedding = Cache::remember($cacheKey, 3600, fn() => Atlas::embeddings()->generate($text));
 ```
 
 ## Database Storage
@@ -227,67 +129,76 @@ CREATE TABLE documents (
 );
 ```
 
-## Retry & Resilience
+## Best Practices
 
-Enable automatic retries for embedding requests using the fluent pattern:
-
-```php
-// Simple retry: 3 attempts, 1 second delay
-$embedding = Atlas::embeddings()
-    ->withRetry(3, 1000)
-    ->generate('Hello world');
-
-// Batch with retry
-$embeddings = Atlas::embeddings()
-    ->withRetry(3, 1000)
-    ->generate($texts);
-
-// Exponential backoff
-$embedding = Atlas::embeddings()
-    ->withRetry(3, fn($attempt) => (2 ** $attempt) * 100)
-    ->generate('Hello world');
-
-// Only retry on rate limits
-$embedding = Atlas::embeddings()
-    ->withRetry(3, 1000, fn($e) => $e->getCode() === 429)
-    ->generate('Hello world');
-```
-
-## Provider Override
-
-Override the configured provider or model at runtime:
+### Batch When Possible
 
 ```php
-// Use a different model
-$embedding = Atlas::embeddings()
-    ->withModel('text-embedding-3-large')
-    ->generate('Hello world');
+// Good - single request for multiple texts
+$response = Atlas::embeddings()
+    ->using('openai', 'text-embedding-3-small')
+    ->fromInput($texts)
+    ->asEmbeddings();
 
-// Use a different provider and model
-$embedding = Atlas::embeddings()
-    ->withProvider('anthropic', 'claude-embedding-1')
-    ->generate('Hello world');
-
-// Pass provider-specific options
-$embedding = Atlas::embeddings()
-    ->withProviderOptions(['dimensions' => 256])
-    ->generate('Hello world');
+// Less efficient - multiple requests
+foreach ($texts as $text) {
+    $response = Atlas::embeddings()
+        ->using('openai', 'text-embedding-3-small')
+        ->fromInput($text)
+        ->asEmbeddings();
+}
 ```
 
-## API Summary
+### Cache Embeddings
 
-| Method | Description |
-|--------|-------------|
-| `Atlas::embeddings()->generate($text)` | Single text embedding |
-| `Atlas::embeddings()->generate($texts)` | Batch embeddings (array input) |
-| `Atlas::embeddings()->dimensions()` | Get configured vector dimensions |
-| `Atlas::embeddings()->withProvider($provider, $model)` | Override provider/model |
-| `Atlas::embeddings()->withModel($model)` | Override model |
-| `Atlas::embeddings()->withProviderOptions($options)` | Provider-specific options |
-| `Atlas::embeddings()->withRetry(...)->generate($text)` | With retry |
-| `Atlas::embeddings()->withMetadata([...])->generate($text)` | With metadata |
+```php
+$cacheKey = 'embedding:' . md5($text);
+
+$embedding = Cache::remember($cacheKey, 3600, function () use ($text) {
+    $response = Atlas::embeddings()
+        ->using('openai', 'text-embedding-3-small')
+        ->fromInput($text)
+        ->asEmbeddings();
+
+    return $response->embeddings[0];
+});
+```
+
+## Pipeline Hooks
+
+Embeddings support pipeline middleware for observability:
+
+<div class="full-width-table">
+
+| Pipeline | Trigger |
+|----------|---------|
+| `embeddings.before_embeddings` | Before generating embeddings |
+| `embeddings.after_embeddings` | After generating embeddings |
+
+</div>
+
+```php
+use Atlasphp\Atlas\Contracts\PipelineContract;
+
+class LogEmbeddings implements PipelineContract
+{
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        $result = $next($data);
+
+        Log::info('Embeddings generated', [
+            'count' => count($result['response']->embeddings),
+        ]);
+
+        return $result;
+    }
+}
+
+$registry->register('embeddings.after_embeddings', LogEmbeddings::class);
+```
 
 ## Next Steps
 
-- [Configuration](/getting-started/configuration) — Configure embedding providers
+- [Prism Embeddings](https://prismphp.com/core-concepts/embeddings.html) — Complete embeddings reference
 - [Chat](/capabilities/chat) — Use embeddings in RAG workflows
+- [Pipelines](/core-concepts/pipelines) — Add observability to embeddings

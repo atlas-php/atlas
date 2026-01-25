@@ -5,7 +5,7 @@ System prompts define your agent's behavior, personality, and capabilities. Atla
 ## Basic System Prompt
 
 ```php
-public function systemPrompt(): string
+public function systemPrompt(): ?string
 {
     return 'You are a helpful assistant.';
 }
@@ -16,7 +16,7 @@ public function systemPrompt(): string
 Use `{variable_name}` placeholders in system prompts:
 
 ```php
-public function systemPrompt(): string
+public function systemPrompt(): ?string
 {
     return <<<PROMPT
     You are a customer support agent for {user_name}.
@@ -33,6 +33,8 @@ public function systemPrompt(): string
 Variables are passed via `withVariables()`:
 
 ```php
+use Atlasphp\Atlas\Atlas;
+
 $response = Atlas::agent('support-agent')
     ->withMessages($messages)
     ->withVariables([
@@ -61,16 +63,36 @@ $builder = app(SystemPromptBuilder::class);
 // Register global variables
 $builder->registerVariable('current_date', date('Y-m-d'));
 $builder->registerVariable('app_name', config('app.name'));
+
+// Unregister a variable
+$builder->unregisterVariable('current_date');
 ```
+
+::: warning Singleton State
+`SystemPromptBuilder` is a singleton. In long-running processes (Octane, queues), registered variables persist across requests. For request-scoped variables, prefer `withVariables()` over `registerVariable()`.
+:::
 
 ## Prompt Sections
 
-Add reusable sections to prompts:
+Add reusable sections that are appended to all prompts:
 
 ```php
-$builder->addSection('rules', '## Guidelines\nFollow these rules...');
-$builder->addSection('context', '## Current Context\n{context_data}');
+use Atlasphp\Atlas\Agents\Services\SystemPromptBuilder;
+
+$builder = app(SystemPromptBuilder::class);
+
+// Add sections (appended after the main prompt)
+$builder->addSection('rules', "## Guidelines\nFollow these rules...");
+$builder->addSection('context', "## Current Context\n{context_data}");
+
+// Remove a specific section
+$builder->removeSection('context');
+
+// Clear all sections
+$builder->clearSections();
 ```
+
+Sections are appended to the prompt after variable interpolation, and can contain `{variable}` placeholders that will be interpolated.
 
 ## Best Practices
 
@@ -78,7 +100,7 @@ $builder->addSection('context', '## Current Context\n{context_data}');
 
 ```php
 // Good - specific instructions
-public function systemPrompt(): string
+public function systemPrompt(): ?string
 {
     return <<<PROMPT
     You are a technical support specialist for {product_name}.
@@ -99,7 +121,7 @@ public function systemPrompt(): string
 ### 2. Include Context
 
 ```php
-public function systemPrompt(): string
+public function systemPrompt(): ?string
 {
     return <<<PROMPT
     You help users with {product_name}.
@@ -117,7 +139,7 @@ public function systemPrompt(): string
 ### 3. Define Output Expectations
 
 ```php
-public function systemPrompt(): string
+public function systemPrompt(): ?string
 {
     return <<<PROMPT
     Analyze the sentiment of user messages.
@@ -133,7 +155,7 @@ public function systemPrompt(): string
 ### 4. Handle Edge Cases
 
 ```php
-public function systemPrompt(): string
+public function systemPrompt(): ?string
 {
     return <<<PROMPT
     You are a code review assistant.
@@ -151,76 +173,81 @@ public function systemPrompt(): string
 Modify prompts at runtime using pipeline middleware:
 
 ```php
-use Atlasphp\Atlas\Foundation\Services\PipelineRegistry;
+use Atlasphp\Atlas\Contracts\PipelineContract;
+use Closure;
+
+class AddTimestampToPrompt implements PipelineContract
+{
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        $timestamp = now()->toDateTimeString();
+        $data['prompt'] .= "\n\nCurrent time: {$timestamp}";
+
+        return $next($data);
+    }
+}
+
+// Register in a service provider
+use Atlasphp\Atlas\Pipelines\PipelineRegistry;
 
 $registry = app(PipelineRegistry::class);
-
-$registry->register('agent.system_prompt.after_build', function (array $data, $next) {
-    // Add dynamic content to the built prompt
-    $timestamp = now()->toDateTimeString();
-    $data['prompt'] .= "\n\nCurrent time: {$timestamp}";
-
-    return $next($data);
-});
+$registry->register('agent.system_prompt.after_build', AddTimestampToPrompt::class);
 ```
 
 ## Pipeline Hooks
+
+Intercept and modify the system prompt build process using pipeline middleware.
+
+<div class="full-width-table">
 
 | Pipeline | Description |
 |----------|-------------|
 | `agent.system_prompt.before_build` | Before building the prompt |
 | `agent.system_prompt.after_build` | After building (can modify final prompt) |
 
+</div>
+
 ### Before Build Hook
 
+Receives: `$data['agent']`, `$data['context']`, `$data['variables']`
+
 ```php
-$registry->register('agent.system_prompt.before_build', function (array $data, $next) {
-    // Access: $data['agent'], $data['context']
-    // Add variables or modify context before build
-    return $next($data);
-});
+use Atlasphp\Atlas\Contracts\PipelineContract;
+use Closure;
+
+class BeforeBuildHandler implements PipelineContract
+{
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        // Add or modify variables before interpolation
+        $data['variables']['extra_info'] = 'Dynamic value';
+
+        return $next($data);
+    }
+}
 ```
 
 ### After Build Hook
 
-```php
-$registry->register('agent.system_prompt.after_build', function (array $data, $next) {
-    // Access: $data['agent'], $data['context'], $data['prompt']
-    // Modify the built prompt string
-    return $next($data);
-});
-```
-
-## Troubleshooting
-
-### Variables Not Interpolated
-
-If `{variable}` placeholders appear in output:
-
-1. Ensure variable names match exactly (case-sensitive)
-2. Use snake_case for consistency
-3. Verify `withVariables()` is called before `chat()`
+Receives: `$data['agent']`, `$data['context']`, `$data['prompt']`
 
 ```php
-// Check variable names match
-$response = Atlas::agent('agent')
-    ->withVariables([
-        'user_name' => 'John',  // Matches {user_name}
-        'userName' => 'John',   // Would match {userName}
-    ])
-    ->chat('Hello');
+use Atlasphp\Atlas\Contracts\PipelineContract;
+use Closure;
+
+class AfterBuildHandler implements PipelineContract
+{
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        // Modify the built prompt string
+        $data['prompt'] .= "\n\nAdditional context here.";
+
+        return $next($data);
+    }
+}
 ```
-
-### Prompt Too Long
-
-If prompts exceed token limits:
-
-1. Move static content to documentation/knowledge base
-2. Use RAG to fetch relevant context
-3. Keep prompts focused on current task
 
 ## Next Steps
 
 - [Agents](/core-concepts/agents) — Agent configuration
-- [Creating Agents](/guides/creating-agents) — Step-by-step guide
 - [Pipelines](/core-concepts/pipelines) — Extend prompt building

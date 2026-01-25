@@ -32,7 +32,7 @@ For significant changes, open an issue to discuss your approach before investing
 AI agents must follow these steps precisely:
 
 1. **Read AGENTS.md completely** before making any changes
-2. **Read relevant documentation** - PRDs and SPECs for the module you're modifying
+2. **Read relevant documentation** - VitePress docs for the module you're modifying
 3. **Make focused changes** - One logical change per contribution
 4. **Run `composer check`** - All lint, static analysis, and tests must pass
 5. **Update documentation** - Keep docs in sync with code changes
@@ -98,9 +98,9 @@ All contributions must meet these requirements before merging:
 
 ### Documentation
 
-1. **Update SPECs** - When changing behavior, update the relevant specification
-2. **Follow documentation rules** - Read `docs/RULES-DOCUMENTATION.md`
-3. **Keep examples working** - All code examples must be syntactically correct
+1. **Update docs** - When changing behavior, update the relevant VitePress documentation
+2. **Keep examples working** - All code examples must be syntactically correct
+3. **Link to Prism** - For Prism-level features, link to Prism docs instead of duplicating
 
 ## Running Quality Checks
 

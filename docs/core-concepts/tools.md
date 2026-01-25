@@ -2,6 +2,10 @@
 
 Tools are functions that agents can invoke during execution. They connect AI agents to your application's business logic, databases, and external services.
 
+::: tip Prism Reference
+Atlas tools wrap Prism's tool system. For underlying tool concepts, schemas, and function calling details, see the [Prism Tools documentation](https://prismphp.com/core-concepts/tools-function-calling.html).
+:::
+
 ## What is a Tool?
 
 A tool defines:
@@ -11,7 +15,10 @@ A tool defines:
 - **Handler** — The function that executes when called
 
 ```php
-use Atlasphp\Atlas\Contracts\Tools\Support\{ToolContext};use Atlasphp\Atlas\Contracts\Tools\Support\ToolParameter;use Atlasphp\Atlas\Contracts\Tools\Support\ToolResult;use Atlasphp\Atlas\Contracts\Tools\ToolDefinition;
+use Atlasphp\Atlas\Tools\ToolDefinition;
+use Atlasphp\Atlas\Tools\Support\ToolContext;
+use Atlasphp\Atlas\Tools\Support\ToolParameter;
+use Atlasphp\Atlas\Tools\Support\ToolResult;
 
 class LookupOrderTool extends ToolDefinition
 {
@@ -28,7 +35,7 @@ class LookupOrderTool extends ToolDefinition
     public function parameters(): array
     {
         return [
-            ToolParameter::string('order_id', 'The order ID to look up', required: true),
+            ToolParameter::string('order_id', 'The order ID to look up'),
         ];
     }
 
@@ -49,18 +56,39 @@ class LookupOrderTool extends ToolDefinition
 }
 ```
 
-## Stateless Design
-
-Like agents, tools are stateless. They receive all context through:
-- `$arguments` — The parameters passed by the AI
-- `$context` — Metadata from the execution context
-
 ## Tool Registry
 
-Register tools for use across agents:
+Tools are automatically discovered and registered from your configured directory (default: `app/Tools`). Just create your tool class and it's ready to use:
 
 ```php
-use Atlasphp\Atlas\Contracts\Tools\Contracts\ToolRegistryContract;
+// app/Tools/LookupOrderTool.php
+class LookupOrderTool extends ToolDefinition
+{
+    // ... tool definition
+}
+
+// Use immediately in agents - no manual registration needed
+public function tools(): array
+{
+    return [LookupOrderTool::class];
+}
+```
+
+Configure auto-discovery in `config/atlas.php`:
+
+```php
+'tools' => [
+    'path' => app_path('Tools'),
+    'namespace' => 'App\\Tools',
+],
+```
+
+### Manual Registration
+
+If you prefer manual control or need to register tools from other locations:
+
+```php
+use Atlasphp\Atlas\Tools\Contracts\ToolRegistryContract;
 
 $registry = app(ToolRegistryContract::class);
 
@@ -94,55 +122,91 @@ public function tools(): array
 
 ## Parameter Types
 
-Atlas supports all JSON Schema parameter types:
-
-### String
+Atlas provides `ToolParameter` as a convenience factory for creating Prism schemas.
 
 ```php
-ToolParameter::string('query', 'The search query', required: true);
-ToolParameter::string('format', 'Output format', required: false, default: 'json');
+use Atlasphp\Atlas\Tools\Support\ToolParameter;
+
+public function parameters(): array
+{
+    return [
+        ToolParameter::string('query', 'The search query'),
+        ToolParameter::integer('limit', 'Maximum results'),
+        ToolParameter::number('price', 'Item price'),
+        ToolParameter::boolean('include_details', 'Include full details'),
+        ToolParameter::enum('status', 'Order status', ['pending', 'shipped', 'delivered']),
+    ];
+}
 ```
 
-### Integer
+### Available Types
+
+<div class="full-width-table">
+
+| Method | Description |
+|--------|-------------|
+| `ToolParameter::string($name, $description, $nullable)` | Text values |
+| `ToolParameter::number($name, $description, $nullable)` | Float/decimal values |
+| `ToolParameter::integer($name, $description, $nullable)` | Integer values (alias for number) |
+| `ToolParameter::boolean($name, $description, $nullable)` | True/false values |
+| `ToolParameter::enum($name, $description, $options)` | Predefined set of options |
+| `ToolParameter::array($name, $description, $items)` | List of items (pass a Schema for item type) |
+| `ToolParameter::object($name, $description, $properties, $requiredFields, $allowAdditionalProperties)` | Nested object |
+
+</div>
+
+### Nullable Parameters
+
+Mark parameters as nullable when they're optional:
 
 ```php
-ToolParameter::integer('limit', 'Maximum results', required: true);
-ToolParameter::integer('page', 'Page number', required: false, default: 1);
+ToolParameter::string('notes', 'Optional notes', nullable: true);
 ```
 
-### Number (Float)
+### Array Parameters
 
 ```php
-ToolParameter::number('price', 'Item price', required: true);
-ToolParameter::number('threshold', 'Confidence threshold', required: false, default: 0.8);
+// Array of strings
+ToolParameter::array('tags', 'List of tags', ToolParameter::string('tag', 'A tag'));
+
+// Array of objects
+ToolParameter::array('items', 'Order items', ToolParameter::object('item', 'An item', [
+    ToolParameter::string('name', 'Item name'),
+    ToolParameter::number('quantity', 'Quantity'),
+]));
 ```
 
-### Boolean
-
-```php
-ToolParameter::boolean('include_details', 'Include full details', required: false, default: false);
-```
-
-### Enum
-
-```php
-ToolParameter::enum('status', 'Order status', ['pending', 'shipped', 'delivered'], required: true);
-```
-
-### Array
-
-```php
-ToolParameter::array('tags', 'List of tags', items: ['type' => 'string']);
-```
-
-### Object
+### Object Parameters
 
 ```php
 ToolParameter::object('address', 'Shipping address', [
-    ToolParameter::string('street', 'Street address', required: true),
-    ToolParameter::string('city', 'City', required: true),
-    ToolParameter::string('zip', 'ZIP code', required: true),
-], required: true);
+    ToolParameter::string('street', 'Street address'),
+    ToolParameter::string('city', 'City'),
+    ToolParameter::string('zip', 'ZIP code'),
+], requiredFields: ['street', 'city', 'zip']);
+```
+
+## Using Prism Schemas Directly
+
+You can also use Prism schema classes directly instead of `ToolParameter`:
+
+```php
+use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Schema\NumberSchema;
+use Prism\Prism\Schema\BooleanSchema;
+use Prism\Prism\Schema\EnumSchema;
+use Prism\Prism\Schema\ArraySchema;
+use Prism\Prism\Schema\ObjectSchema;
+
+public function parameters(): array
+{
+    return [
+        new StringSchema('query', 'The search query'),
+        new NumberSchema('limit', 'Maximum results'),
+        new BooleanSchema('active', 'Is active'),
+        new EnumSchema('status', 'Status', ['pending', 'complete']),
+    ];
+}
 ```
 
 ## Tool Results
@@ -189,13 +253,16 @@ public function handle(array $arguments, ToolContext $context): ToolResult
     $userId = $context->getMeta('user_id');
     $tenantId = $context->getMeta('tenant_id');
 
+    // Get with default value
+    $limit = $context->getMeta('limit', 100);
+
     // Check if metadata exists
     if ($context->hasMeta('session_id')) {
         $sessionId = $context->getMeta('session_id');
     }
 
     // Use metadata in your logic
-    $orders = Order::where('user_id', $userId)->get();
+    $orders = Order::where('user_id', $userId)->limit($limit)->get();
 
     return ToolResult::json($orders);
 }
@@ -203,9 +270,15 @@ public function handle(array $arguments, ToolContext $context): ToolResult
 
 ## Example: Tool with Dependencies
 
-Tools can use dependency injection:
+Tools can use dependency injection via Laravel's container:
 
 ```php
+use Atlasphp\Atlas\Tools\ToolDefinition;
+use Atlasphp\Atlas\Tools\Support\ToolContext;
+use Atlasphp\Atlas\Tools\Support\ToolParameter;
+use Atlasphp\Atlas\Tools\Support\ToolResult;
+use Illuminate\Database\ConnectionInterface;
+
 class DatabaseQueryTool extends ToolDefinition
 {
     public function __construct(
@@ -225,8 +298,8 @@ class DatabaseQueryTool extends ToolDefinition
     public function parameters(): array
     {
         return [
-            ToolParameter::string('table', 'Table name', required: true),
-            ToolParameter::integer('limit', 'Max records', required: false, default: 100),
+            ToolParameter::string('table', 'Table name'),
+            ToolParameter::integer('limit', 'Max records', nullable: true),
         ];
     }
 
@@ -246,19 +319,115 @@ class DatabaseQueryTool extends ToolDefinition
 }
 ```
 
-## Max Steps
+## Security
 
-Control how many tool calls an agent can make:
+Tools execute real operations on behalf of users. Implement proper security measures.
+
+### Authorization
+
+Always verify the user has permission:
 
 ```php
-public function maxSteps(): ?int
+public function handle(array $arguments, ToolContext $context): ToolResult
 {
-    return 5; // Allow up to 5 tool iterations
+    $userId = $context->getMeta('user_id');
+
+    if (! $userId) {
+        return ToolResult::error('Authentication required');
+    }
+
+    $order = Order::find($arguments['order_id']);
+
+    if (! $order || $order->user_id !== $userId) {
+        return ToolResult::error('Order not found');
+    }
+
+    return ToolResult::json($order);
 }
+```
+
+### Input Validation
+
+Validate inputs beyond basic parameter types:
+
+```php
+public function handle(array $arguments, ToolContext $context): ToolResult
+{
+    $orderId = $arguments['order_id'];
+
+    if (! preg_match('/^[A-Z]{2}-\d{6}$/', $orderId)) {
+        return ToolResult::error('Invalid order ID format');
+    }
+
+    if ($arguments['quantity'] > 100) {
+        return ToolResult::error('Quantity exceeds maximum allowed');
+    }
+
+    // Continue processing...
+}
+```
+
+### Multi-Tenant Isolation
+
+Ensure data isolation in multi-tenant applications:
+
+```php
+public function handle(array $arguments, ToolContext $context): ToolResult
+{
+    $tenantId = $context->getMeta('tenant_id');
+
+    if (! $tenantId) {
+        return ToolResult::error('Tenant context required');
+    }
+
+    $order = Order::where('tenant_id', $tenantId)
+        ->where('id', $arguments['order_id'])
+        ->first();
+
+    if (! $order) {
+        return ToolResult::error('Order not found');
+    }
+
+    return ToolResult::json($order);
+}
+```
+
+## Pipeline Hooks
+
+Tool execution supports pipeline middleware:
+
+<div class="full-width-table">
+
+| Pipeline | Trigger |
+|----------|---------|
+| `tool.before_execute` | Before tool execution |
+| `tool.after_execute` | After tool execution |
+| `tool.on_error` | When tool execution fails |
+
+</div>
+
+```php
+use Atlasphp\Atlas\Contracts\PipelineContract;
+
+class LogToolExecution implements PipelineContract
+{
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        $result = $next($data);
+
+        Log::info('Tool executed', [
+            'tool' => $data['tool']->name(),
+            'success' => $result['result']->succeeded(),
+        ]);
+
+        return $result;
+    }
+}
+
+$registry->register('tool.after_execute', LogToolExecution::class);
 ```
 
 ## Next Steps
 
-- [Creating Tools](/guides/creating-tools) — Step-by-step guide
 - [Agents](/core-concepts/agents) — Add tools to agents
 - [Pipelines](/core-concepts/pipelines) — Add middleware to tool execution

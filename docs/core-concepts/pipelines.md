@@ -1,6 +1,10 @@
 # Pipelines
 
-Pipelines provide a middleware system for extending Atlas without modifying core code. Add logging, authentication, metrics, and more through composable handlers.
+Pipelines provide a middleware system for extending Atlas and Prism without modifying core code. Add logging, authentication, metrics, and more through composable handlers.
+
+::: tip Extending Prism
+Atlas pipelines are designed to extend Prism's capabilities. Since Atlas wraps Prism, pipelines give you hooks into all Prism operations—text generation, embeddings, images, audio, and moderation—allowing you to add observability, validation, and custom logic around any AI operation.
+:::
 
 ## How Pipelines Work
 
@@ -14,6 +18,8 @@ Pipelines intercept key operations and allow you to:
 
 ### Agent Pipelines
 
+<div class="full-width-table">
+
 | Pipeline | Trigger |
 |----------|---------|
 | `agent.before_execute` | Before agent execution starts |
@@ -22,14 +28,11 @@ Pipelines intercept key operations and allow you to:
 | `agent.system_prompt.after_build` | After building system prompt |
 | `agent.on_error` | When agent execution fails |
 
-### Streaming Pipelines
-
-| Pipeline | Trigger |
-|----------|---------|
-| `stream.on_event` | For each streaming event received |
-| `stream.after_complete` | After streaming completes |
+</div>
 
 ### Tool Pipelines
+
+<div class="full-width-table">
 
 | Pipeline | Trigger |
 |----------|---------|
@@ -37,44 +40,90 @@ Pipelines intercept key operations and allow you to:
 | `tool.after_execute` | After tool execution |
 | `tool.on_error` | When tool execution fails |
 
-### Embedding Pipelines
+</div>
+
+### Text Pipelines
+
+<div class="full-width-table">
 
 | Pipeline | Trigger |
 |----------|---------|
-| `embedding.before_generate` | Before generating a single embedding |
-| `embedding.after_generate` | After generating a single embedding |
-| `embedding.before_generate_batch` | Before generating batch embeddings |
-| `embedding.after_generate_batch` | After generating batch embeddings |
-| `embedding.on_error` | When embedding generation fails |
+| `text.before_text` | Before text generation |
+| `text.after_text` | After text generation |
+| `text.before_stream` | Before streaming starts |
+| `text.after_stream` | After streaming completes |
+
+</div>
+
+### Structured Pipelines
+
+<div class="full-width-table">
+
+| Pipeline | Trigger |
+|----------|---------|
+| `structured.before_structured` | Before structured output generation |
+| `structured.after_structured` | After structured output generation |
+
+</div>
+
+### Embeddings Pipelines
+
+<div class="full-width-table">
+
+| Pipeline | Trigger |
+|----------|---------|
+| `embeddings.before_embeddings` | Before generating embeddings |
+| `embeddings.after_embeddings` | After generating embeddings |
+
+</div>
 
 ### Image Pipelines
+
+<div class="full-width-table">
 
 | Pipeline | Trigger |
 |----------|---------|
 | `image.before_generate` | Before generating an image |
 | `image.after_generate` | After generating an image |
-| `image.on_error` | When image generation fails |
 
-### Speech Pipelines
+</div>
+
+### Audio Pipelines
+
+<div class="full-width-table">
 
 | Pipeline | Trigger |
 |----------|---------|
-| `speech.before_generate` | Before text-to-speech conversion |
-| `speech.after_generate` | After text-to-speech conversion |
-| `speech.before_transcribe` | Before speech-to-text transcription |
-| `speech.after_transcribe` | After speech-to-text transcription |
-| `speech.on_error` | When speech operation fails |
+| `audio.before_audio` | Before text-to-speech conversion |
+| `audio.after_audio` | After text-to-speech conversion |
+| `audio.before_text` | Before speech-to-text transcription |
+| `audio.after_text` | After speech-to-text transcription |
+
+</div>
+
+### Moderation Pipelines
+
+<div class="full-width-table">
+
+| Pipeline | Trigger |
+|----------|---------|
+| `moderation.before_moderation` | Before content moderation |
+| `moderation.after_moderation` | After content moderation |
+
+</div>
 
 ## Creating a Handler
 
-Pipeline handlers are invocable classes or closures:
+Pipeline handlers must implement `PipelineContract`:
 
 ```php
+use Atlasphp\Atlas\Contracts\PipelineContract;
 use Closure;
+use Illuminate\Support\Facades\Log;
 
-class LogAgentExecution
+class LogAgentExecution implements PipelineContract
 {
-    public function __invoke(array $data, Closure $next): mixed
+    public function handle(mixed $data, Closure $next): mixed
     {
         // Before execution
         Log::info('Agent execution started', [
@@ -85,10 +134,9 @@ class LogAgentExecution
         // Continue pipeline
         $result = $next($data);
 
-        // After execution
+        // After execution (for agent.after_execute, $result contains 'response')
         Log::info('Agent execution completed', [
             'agent' => $data['agent']->key(),
-            'tokens' => $result->totalTokens(),
         ]);
 
         return $result;
@@ -101,7 +149,7 @@ class LogAgentExecution
 Register handlers in a service provider:
 
 ```php
-use Atlasphp\Atlas\Foundation\Services\PipelineRegistry;
+use Atlasphp\Atlas\Pipelines\PipelineRegistry;
 
 public function boot(): void
 {
@@ -115,19 +163,36 @@ public function boot(): void
 }
 ```
 
-### Using Closures
+### Using Instances
+
+You can also register handler instances directly:
 
 ```php
-$registry->register('agent.after_execute', function (array $data, $next) {
-    $result = $next($data);
+$registry->register('agent.after_execute', new AuditLogHandler(), priority: 50);
+```
 
-    AuditLog::create([
-        'agent' => $data['agent']->key(),
-        'tokens' => $result->totalTokens(),
-    ]);
+### Defining Pipelines
 
-    return $result;
-}, priority: 50);
+Optionally define pipelines with metadata:
+
+```php
+$registry->define('agent.before_execute', 'Runs before agent execution', active: true);
+```
+
+### Querying the Registry
+
+```php
+// Check if a pipeline has handlers
+$registry->has('agent.before_execute');
+
+// Get all registered pipeline names
+$registry->pipelines();
+
+// Get all pipeline definitions
+$registry->definitions();
+
+// Check if a pipeline is active
+$registry->active('agent.before_execute');
 ```
 
 ## Priority
@@ -144,13 +209,25 @@ $registry->register('agent.after_execute', LowPriorityHandler::class, priority: 
 
 Each pipeline receives specific data:
 
-### agent.before_execute / agent.after_execute
+### agent.before_execute
 
 ```php
 [
     'agent' => AgentContract,
     'input' => string,
-    'context' => ?ExecutionContext,  // Contains messages, variables, metadata, currentAttachments
+    'context' => ExecutionContext,
+]
+```
+
+### agent.after_execute
+
+```php
+[
+    'agent' => AgentContract,
+    'input' => string,
+    'context' => ExecutionContext,
+    'response' => PrismResponse|StructuredResponse,
+    'system_prompt' => ?string,
 ]
 ```
 
@@ -165,7 +242,8 @@ The `ExecutionContext` provides access to:
 ```php
 [
     'agent' => AgentContract,
-    'context' => ?ExecutionContext,
+    'context' => ExecutionContext,
+    'variables' => array,  // Merged global and context variables
 ]
 ```
 
@@ -174,29 +252,8 @@ The `ExecutionContext` provides access to:
 ```php
 [
     'agent' => AgentContract,
-    'context' => ?ExecutionContext,
+    'context' => ExecutionContext,
     'prompt' => string,  // The built prompt
-]
-```
-
-### stream.on_event
-
-```php
-[
-    'event' => StreamEvent,
-    'agent' => AgentContract,
-    'context' => ?ExecutionContext,
-]
-```
-
-### stream.after_complete
-
-```php
-[
-    'agent' => AgentContract,
-    'input' => string,
-    'context' => ?ExecutionContext,
-    'system_prompt' => string,
 ]
 ```
 
@@ -210,76 +267,56 @@ The `ExecutionContext` provides access to:
 ]
 ```
 
-### agent.on_error / tool.on_error
+After execute also includes:
+- `result` — The ToolResult object
+
+### agent.on_error
 
 ```php
 [
-    'agent' => AgentContract,  // or 'tool' => ToolContract
-    'error' => Throwable,
-    'context' => ?ExecutionContext,  // or ToolContext for tools
+    'agent' => AgentContract,
+    'input' => string,
+    'context' => ExecutionContext,
+    'system_prompt' => ?string,
+    'exception' => Throwable,
 ]
 ```
 
-### embedding.before_generate / embedding.after_generate
+### tool.on_error
 
 ```php
 [
-    'text' => string,
-    'provider' => string,
-    'model' => string,
+    'tool' => ToolContract,
+    'args' => array,
+    'context' => ToolContext,
+    'exception' => Throwable,
 ]
 ```
 
-### embedding.before_generate_batch / embedding.after_generate_batch
+### Prism Proxy Pipelines
+
+All Prism proxy pipelines (text, structured, embeddings, image, audio, moderation) receive:
 
 ```php
 [
-    'texts' => array<string>,
-    'provider' => string,
-    'model' => string,
+    'pipeline' => string,      // The module name (e.g., 'text', 'image')
+    'metadata' => array,       // Custom metadata passed via withMetadata()
+    'request' => object,       // The Prism pending request object
 ]
 ```
 
-### image.before_generate / image.after_generate
+After pipelines also include:
+- `response` — The Prism response object
+
+## Example: Audit Logging
 
 ```php
-[
-    'prompt' => string,
-    'provider' => string,
-    'model' => string,
-    'options' => array,
-]
-```
+use Atlasphp\Atlas\Contracts\PipelineContract;
+use Closure;
 
-### speech.before_generate / speech.after_generate
-
-```php
-[
-    'text' => string,
-    'provider' => string,
-    'voice' => string,
-    'options' => array,
-]
-```
-
-### speech.before_transcribe / speech.after_transcribe
-
-```php
-[
-    'audio' => string,  // file path or content
-    'provider' => string,
-    'options' => array,
-]
-```
-
-## Examples
-
-### Audit Logging
-
-```php
-class AuditMiddleware
+class AuditMiddleware implements PipelineContract
 {
-    public function __invoke(array $data, Closure $next): mixed
+    public function handle(mixed $data, Closure $next): mixed
     {
         $result = $next($data);
 
@@ -287,7 +324,6 @@ class AuditMiddleware
             'type' => 'agent_execution',
             'agent' => $data['agent']->key(),
             'user_id' => $data['context']?->getMeta('user_id'),
-            'tokens' => $result->totalTokens(),
             'created_at' => now(),
         ]);
 
@@ -296,12 +332,15 @@ class AuditMiddleware
 }
 ```
 
-### Dynamic System Prompt
+## Example: Dynamic System Prompt
 
 ```php
-class AddTimestampToPrompt
+use Atlasphp\Atlas\Contracts\PipelineContract;
+use Closure;
+
+class AddTimestampToPrompt implements PipelineContract
 {
-    public function __invoke(array $data, Closure $next): mixed
+    public function handle(mixed $data, Closure $next): mixed
     {
         // Modify the built prompt
         $timestamp = now()->toDateTimeString();
@@ -314,25 +353,28 @@ class AddTimestampToPrompt
 $registry->register('agent.system_prompt.after_build', AddTimestampToPrompt::class);
 ```
 
-### Tool Rate Limiting
+## Example: Tool Rate Limiting
 
 ```php
-class RateLimitTools
+use Atlasphp\Atlas\Contracts\PipelineContract;
+use Atlasphp\Atlas\Tools\Support\ToolResult;
+use Closure;
+use Illuminate\Support\Facades\RateLimiter;
+
+class RateLimitTools implements PipelineContract
 {
-    public function __invoke(array $data, Closure $next): mixed
+    public function handle(mixed $data, Closure $next): mixed
     {
-        $tool = $data['tool'];
-        $context = $data['context'];
+        $userId = $data['context']->getMeta('user_id');
+        $toolName = $data['tool']->name();
+        $key = "tool:{$userId}:{$toolName}";
 
-        $userId = $context->getMeta('user_id');
-        $key = "tool_calls:{$userId}:{$tool->name()}";
-
-        if (Cache::get($key, 0) >= 10) {
-            return ToolResult::error('Rate limit exceeded');
+        if (RateLimiter::tooManyAttempts($key, maxAttempts: 10)) {
+            $data['result'] = ToolResult::error('Rate limit exceeded. Try again later.');
+            return $data;
         }
 
-        Cache::increment($key);
-        Cache::put($key, Cache::get($key), 60);
+        RateLimiter::hit($key, decaySeconds: 60);
 
         return $next($data);
     }
@@ -341,12 +383,15 @@ class RateLimitTools
 $registry->register('tool.before_execute', RateLimitTools::class);
 ```
 
-### Authentication Check
+## Example: Authentication Check
 
 ```php
-class RequireAuthentication
+use Atlasphp\Atlas\Contracts\PipelineContract;
+use Closure;
+
+class RequireAuthentication implements PipelineContract
 {
-    public function __invoke(array $data, Closure $next): mixed
+    public function handle(mixed $data, Closure $next): mixed
     {
         $userId = $data['context']?->getMeta('user_id');
 
@@ -361,14 +406,17 @@ class RequireAuthentication
 $registry->register('agent.before_execute', RequireAuthentication::class, priority: 1000);
 ```
 
-### Attachment Auditing
+## Example: Attachment Auditing
 
 Log multimodal attachments (images, documents, audio, video) for compliance and monitoring:
 
 ```php
-class AuditAttachments
+use Atlasphp\Atlas\Contracts\PipelineContract;
+use Closure;
+
+class AuditAttachments implements PipelineContract
 {
-    public function __invoke(array $data, Closure $next): mixed
+    public function handle(mixed $data, Closure $next): mixed
     {
         $context = $data['context'];
 
@@ -377,19 +425,12 @@ class AuditAttachments
             foreach ($context->currentAttachments as $attachment) {
                 AuditLog::create([
                     'type' => 'attachment_sent',
-                    'media_type' => $attachment['type'],     // image, document, audio, video
-                    'source' => $attachment['source'],       // url, base64, local_path, storage_path
+                    'media_type' => $attachment['type'],
+                    'source' => $attachment['source'],
                     'user_id' => $context->getMeta('user_id'),
                     'agent' => $data['agent']->key(),
                     'timestamp' => now(),
                 ]);
-            }
-        }
-
-        // Log attachments in conversation history
-        foreach ($context?->messages ?? [] as $message) {
-            foreach ($message['attachments'] ?? [] as $attachment) {
-                // Process historical attachments if needed
             }
         }
 
@@ -400,7 +441,94 @@ class AuditAttachments
 $registry->register('agent.before_execute', AuditAttachments::class, priority: 500);
 ```
 
-See [Multimodal](/capabilities/multimodal) for complete attachment documentation.
+See [Chat Attachments](/capabilities/chat#attachments) for complete attachment documentation.
+
+## Example: Token Usage Logging
+
+Log token usage for direct Prism text generation:
+
+```php
+use Atlasphp\Atlas\Contracts\PipelineContract;
+use Closure;
+use Illuminate\Support\Facades\Log;
+
+class LogTokenUsage implements PipelineContract
+{
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        $result = $next($data);
+
+        $response = $result['response'];
+        $metadata = $data['metadata'];
+
+        Log::channel('usage')->info('Text generation completed', [
+            'user_id' => $metadata['user_id'] ?? null,
+            'prompt_tokens' => $response->usage->promptTokens,
+            'completion_tokens' => $response->usage->completionTokens,
+            'total_tokens' => $response->usage->promptTokens + $response->usage->completionTokens,
+        ]);
+
+        return $result;
+    }
+}
+
+$registry->register('text.after_text', LogTokenUsage::class);
+```
+
+Usage with metadata:
+
+```php
+$response = Atlas::text()
+    ->using('openai', 'gpt-4o')
+    ->withMetadata(['user_id' => auth()->id()])
+    ->withPrompt('Explain quantum computing')
+    ->asText();
+```
+
+## Example: Caching Embeddings
+
+Cache embeddings to reduce API calls. Use metadata to pass a cache key:
+
+```php
+use Atlasphp\Atlas\Contracts\PipelineContract;
+use Closure;
+use Illuminate\Support\Facades\Cache;
+
+class CacheEmbeddings implements PipelineContract
+{
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        $cacheKey = $data['metadata']['cache_key'] ?? null;
+
+        if ($cacheKey && Cache::has($cacheKey)) {
+            $data['response'] = Cache::get($cacheKey);
+            return $data;
+        }
+
+        $result = $next($data);
+
+        if ($cacheKey) {
+            Cache::put($cacheKey, $result['response'], now()->addDay());
+        }
+
+        return $result;
+    }
+}
+
+$registry->register('embeddings.before_embeddings', CacheEmbeddings::class);
+```
+
+Usage:
+
+```php
+$cacheKey = 'embeddings:' . md5($text);
+
+$response = Atlas::embeddings()
+    ->using('openai', 'text-embedding-3-small')
+    ->withMetadata(['cache_key' => $cacheKey])
+    ->fromInput($text)
+    ->asEmbeddings();
+```
 
 ## Disabling Pipelines
 
@@ -416,70 +544,6 @@ $response = Atlas::agent('agent')->chat('input');
 $registry->setActive('agent.before_execute', true);
 ```
 
-## Complete Service Provider
-
-```php
-<?php
-
-namespace App\Providers;
-
-use Atlasphp\Atlas\Foundation\Services\PipelineRegistry;
-use Illuminate\Support\ServiceProvider;
-
-class AtlasPipelineServiceProvider extends ServiceProvider
-{
-    public function boot(): void
-    {
-        $registry = app(PipelineRegistry::class);
-
-        // Log all agent executions
-        $registry->register('agent.after_execute', function (array $data, $next) {
-            $result = $next($data);
-
-            Log::channel('atlas')->info('Agent executed', [
-                'agent' => $data['agent']->key(),
-                'tokens' => $result->totalTokens(),
-            ]);
-
-            return $result;
-        }, priority: 10);
-
-        // Log all tool calls
-        $registry->register('tool.after_execute', function (array $data, $next) {
-            $result = $next($data);
-
-            Log::channel('atlas')->info('Tool executed', [
-                'tool' => $data['tool']->name(),
-                'success' => $result->succeeded(),
-            ]);
-
-            return $result;
-        }, priority: 10);
-
-        // Add timestamp to prompts
-        $registry->register('agent.system_prompt.after_build', function (array $data, $next) {
-            $data['prompt'] .= "\n\nCurrent time: " . now()->toDateTimeString();
-            return $next($data);
-        }, priority: 100);
-    }
-}
-```
-
-## Troubleshooting
-
-### Handler Not Running
-
-1. Verify the pipeline name is spelled correctly
-2. Check that registration happens in `boot()`, not `register()`
-3. Ensure the pipeline is active: `$registry->active('pipeline.name')`
-
-### Wrong Execution Order
-
-1. Check priority values (higher = earlier)
-2. Use explicit priorities instead of defaults
-
 ## Next Steps
 
-- [Extending Atlas](/guides/extending-atlas) — Complete extension guide
 - [Error Handling](/advanced/error-handling) — Handle pipeline errors
-- [Performance](/advanced/performance) — Optimize pipeline performance

@@ -2,281 +2,144 @@
 
 Complete reference for configuring Atlas in your Laravel application.
 
-## Configuration File
+::: tip Prism Configuration
+Provider credentials, models, and API settings are configured in Prism. See the [Prism Configuration documentation](https://prismphp.com/getting-started/configuration.html) for provider setup.
+:::
 
-After publishing, you'll find the configuration at `config/atlas.php`:
+## Atlas Configuration File
+
+After publishing, you'll find the Atlas configuration at `config/atlas.php`:
 
 ```php
 return [
-    'providers' => [
-        'openai' => [
-            'api_key' => env('OPENAI_API_KEY'),
-        ],
-        'anthropic' => [
-            'api_key' => env('ANTHROPIC_API_KEY'),
-            'version' => '2023-06-01',
-        ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Pipelines Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Control whether Atlas pipelines are enabled. Pipelines provide
+    | middleware hooks for observability, logging, and custom processing
+    | during agent execution and API operations.
+    |
+    */
+
+    'pipelines' => [
+        'enabled' => env('ATLAS_PIPELINES_ENABLED', true),
     ],
 
-    'chat' => [
-        'provider' => 'openai',
-        'model' => 'gpt-4o',
+    /*
+    |--------------------------------------------------------------------------
+    | Agents Configuration (auto-discovery) *optional
+    |--------------------------------------------------------------------------
+    |
+    | Configure where Atlas should look for agent definitions.
+    | Agents can also be registered programmatically via the AgentRegistry.
+    |
+    */
+
+    'agents' => [
+        'path' => app_path('Agents'),
+        'namespace' => 'App\\Agents',
     ],
 
-    'embedding' => [
-        'provider' => 'openai',
-        'model' => 'text-embedding-3-small',
-        'dimensions' => 1536,
-        'batch_size' => 100,
+    /*
+    |--------------------------------------------------------------------------
+    | Tools Configuration (auto-discovery) *optional
+    |--------------------------------------------------------------------------
+    |
+    | Configure where Atlas should look for tool definitions.
+    | Tools can also be registered programmatically via the ToolRegistry.
+    |
+    */
+
+    'tools' => [
+        'path' => app_path('Tools'),
+        'namespace' => 'App\\Tools',
     ],
 
-    'image' => [
-        'provider' => 'openai',
-        'model' => 'dall-e-3',
-    ],
-
-    'speech' => [
-        'provider' => 'openai',
-        'model' => 'tts-1',
-        'transcription_model' => 'whisper-1',
-    ],
 ];
 ```
 
-## Environment Variables
+## Configuration Options
 
-Configure Atlas using environment variables in your `.env` file:
+### Pipelines
+
+Control the pipeline middleware system:
 
 ```env
-# Provider API Keys
+ATLAS_PIPELINES_ENABLED=true
+```
+
+When enabled, pipelines provide hooks for:
+- Logging agent executions
+- Adding authentication/authorization
+- Collecting metrics and observability data
+- Custom pre/post processing
+
+See [Pipelines](/core-concepts/pipelines) for available hooks.
+
+### Agent Auto-Discovery
+
+Atlas can automatically discover and register agents from a configured directory:
+
+```php
+'agents' => [
+    'path' => app_path('Agents'),      // Directory to scan
+    'namespace' => 'App\\Agents',       // PSR-4 namespace
+],
+```
+
+Place your agent classes in `app/Agents/` and they'll be registered automatically. Set `path` to `null` to disable auto-discovery.
+
+### Tool Auto-Discovery
+
+Similarly, tools can be auto-discovered:
+
+```php
+'tools' => [
+    'path' => app_path('Tools'),       // Directory to scan
+    'namespace' => 'App\\Tools',        // PSR-4 namespace
+],
+```
+
+Place your tool classes in `app/Tools/` and they'll be registered automatically. Set `path` to `null` to disable auto-discovery.
+
+## Prism Configuration
+
+Provider credentials and model defaults are configured in Prism's `config/prism.php`. After publishing:
+
+```bash
+php artisan vendor:publish --tag=prism-config
+```
+
+Configure your providers in `.env`:
+
+```env
+# OpenAI
 OPENAI_API_KEY=sk-...
+
+# Anthropic
 ANTHROPIC_API_KEY=sk-ant-...
 
-# Default Provider
-ATLAS_DEFAULT_PROVIDER=openai
-
-# Embedding Configuration
-ATLAS_EMBEDDING_PROVIDER=openai
-ATLAS_EMBEDDING_MODEL=text-embedding-3-small
-ATLAS_EMBEDDING_DIMENSIONS=1536
-ATLAS_EMBEDDING_BATCH_SIZE=100
-
-# Image Configuration
-ATLAS_IMAGE_PROVIDER=openai
-
-# Speech Configuration
-ATLAS_SPEECH_PROVIDER=openai
-```
-
-## Provider Configuration
-
-### OpenAI
-
-```php
-'providers' => [
-    'openai' => [
-        'api_key' => env('OPENAI_API_KEY'),
-        'organization' => env('OPENAI_ORGANIZATION'), // Optional
-    ],
-],
-```
-
-Common models include:
-- **Chat:** `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo`, `gpt-3.5-turbo`
-- **Embeddings:** `text-embedding-3-small`, `text-embedding-3-large`, `text-embedding-ada-002`
-- **Images:** `dall-e-3`, `dall-e-2`
-- **Speech:** `tts-1`, `tts-1-hd`, `whisper-1`
-
-Any model supported by OpenAI can be used.
-
-### Anthropic
-
-```php
-'providers' => [
-    'anthropic' => [
-        'api_key' => env('ANTHROPIC_API_KEY'),
-        'version' => '2023-06-01',
-    ],
-],
-```
-
-Common models include:
-- **Chat:** `claude-3-opus`, `claude-3-sonnet`, `claude-3-haiku`, `claude-3-5-sonnet`
-
-Any model supported by Anthropic can be used.
-
-### Ollama (Local LLMs)
-
-Atlas supports local LLMs through the Ollama provider, which connects to [Ollama](https://ollama.ai/) servers:
-
-```php
-'providers' => [
-    'ollama' => [
-        'url' => env('OLLAMA_URL', 'http://localhost:11434'),
-    ],
-],
-```
-
-Environment variables:
-```env
+# Ollama (local)
 OLLAMA_URL=http://localhost:11434
 ```
 
-Create an agent using a local model:
+For detailed provider configuration including custom URLs, organization IDs, and model options, see the [Prism Configuration documentation](https://prismphp.com/getting-started/configuration.html).
 
-```php
-class LocalAssistantAgent extends AgentDefinition
-{
-    public function provider(): string
-    {
-        return 'ollama';
-    }
+## Manual Registration
 
-    public function model(): string
-    {
-        return 'llama3'; // Or any model installed on your Ollama server
-    }
-}
-```
-
-### LM Studio and Other OpenAI-Compatible Servers
-
-[LM Studio](https://lmstudio.ai/) and other local LLM servers that provide an OpenAI-compatible API can be used by configuring a custom URL with the OpenAI provider:
-
-```env
-# Point OpenAI URL to your local server
-OPENAI_URL=http://localhost:1234/v1
-OPENAI_API_KEY=not-needed  # LM Studio doesn't require an API key
-```
-
-Or create a dedicated agent that configures the URL at runtime:
-
-```php
-use Atlasphp\Atlas\Providers\Facades\Atlas;
-use Illuminate\Support\Facades\Config;
-
-// Configure the OpenAI provider URL at runtime
-Config::set('prism.providers.openai.url', 'http://localhost:1234/v1');
-Config::set('prism.providers.openai.api_key', 'not-needed');
-
-// Use Atlas with your local LLM agent
-$response = Atlas::agent('my-local-agent')
-    ->withModel('your-local-model-name')
-    ->chat('Hello!');
-
-echo $response->text;
-```
-
-You can also create a dedicated agent class:
-
-```php
-class LocalLMAgent extends AgentDefinition
-{
-    public function provider(): string
-    {
-        return 'openai'; // Uses OpenAI-compatible API
-    }
-
-    public function model(): string
-    {
-        return env('OLLAMA_MODEL', 'llama3');
-    }
-
-    public function systemPrompt(): string
-    {
-        return 'You are a helpful local assistant.';
-    }
-}
-```
-
-This approach works with any server that implements the OpenAI Chat Completions API:
-- **LM Studio** - GUI application for running local models
-- **Ollama** (with OpenAI compatibility mode)
-- **LocalAI** - Self-hosted alternative to OpenAI
-- **Text Generation WebUI** (with API extension)
-- **vLLM** - High-throughput serving engine
-
-## Chat Configuration
-
-Default settings for chat operations:
-
-```php
-'chat' => [
-    'provider' => 'openai',
-    'model' => 'gpt-4o',
-],
-```
-
-These defaults are used when an agent doesn't specify its own provider/model.
-
-## Embedding Configuration
-
-Configure vector embedding generation:
-
-```php
-'embedding' => [
-    'provider' => 'openai',
-    'model' => 'text-embedding-3-small',
-    'dimensions' => 1536,
-    'batch_size' => 100,
-],
-```
-
-| Option | Description |
-|--------|-------------|
-| `provider` | AI provider for embeddings |
-| `model` | Embedding model to use |
-| `dimensions` | Output vector dimensions |
-| `batch_size` | Maximum texts per batch request |
-
-### Variable Dimensions
-
-Some models support custom dimensions. When using variable dimensions, configure the default in your configuration or pass provider-specific options through metadata.
-
-## Image Configuration
-
-Configure image generation:
-
-```php
-'image' => [
-    'provider' => 'openai',
-    'model' => 'dall-e-3',
-],
-```
-
-Override at runtime:
-
-```php
-$result = Atlas::image('openai', 'dall-e-3')
-    ->size('1024x1024')
-    ->quality('hd')
-    ->generate('A sunset over mountains');
-```
-
-## Speech Configuration
-
-Configure text-to-speech and transcription:
-
-```php
-'speech' => [
-    'provider' => 'openai',
-    'model' => 'tts-1',
-    'transcription_model' => 'whisper-1',
-],
-```
-
-Available voices for OpenAI TTS: `alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`
-
-## Registering Agents and Tools
-
-Register agents and tools in a service provider:
+If you prefer manual registration over auto-discovery, register agents and tools in a service provider:
 
 ```php
 <?php
 
 namespace App\Providers;
 
-use Atlasphp\Atlas\Agents\Contracts\AgentRegistryContract;use Atlasphp\Atlas\Contracts\Tools\Contracts\ToolRegistryContract;use Illuminate\Support\ServiceProvider;
+use Atlasphp\Atlas\Agents\Contracts\AgentRegistryContract;
+use Atlasphp\Atlas\Tools\Contracts\ToolRegistryContract;
+use Illuminate\Support\ServiceProvider;
 
 class AtlasServiceProvider extends ServiceProvider
 {
@@ -295,7 +158,7 @@ class AtlasServiceProvider extends ServiceProvider
 }
 ```
 
-## Pipeline Configuration
+## Pipeline Registration
 
 Register pipeline middleware for extensibility:
 
@@ -317,22 +180,8 @@ public function boot(): void
 
 See [Pipelines](/core-concepts/pipelines) for available hooks.
 
-## Caching Configuration
-
-For production, consider caching your configuration:
-
-```bash
-php artisan config:cache
-```
-
-Remember to clear the cache when making changes:
-
-```bash
-php artisan config:clear
-```
-
 ## Next Steps
 
 - [Agents](/core-concepts/agents) — Understand the agent system
 - [Tools](/core-concepts/tools) — Learn about typed tools
-- [Creating Agents](/guides/creating-agents) — Build your first agent
+- [Chat](/capabilities/chat) — Start using agents

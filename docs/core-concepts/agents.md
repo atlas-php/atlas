@@ -1,33 +1,38 @@
 # Agents
 
-Agents are the core building blocks in Atlas. An agent is a stateless execution unit that combines a provider, model, system prompt, and tools into a reusable configuration.
+Agents are reusable AI configurations that combine a provider, model, system prompt, and tools into a single class.
 
 ## What is an Agent?
 
-An agent defines:
-- **Provider** — The AI service (OpenAI, Anthropic, etc.)
-- **Model** — The specific model to use
-- **System Prompt** — Instructions that shape the agent's behavior (supports variable interpolation)
-- **Tools** — Custom functions the agent can call during execution
-- **Provider Tools** — Built-in provider capabilities (web search, code execution, etc.)
-- **Settings** — Temperature, token limits, and execution constraints
+An agent can define:
+- **Provider** — The AI provider (`openai`, `anthropic`, etc.) - optional, uses config default
+- **Model** — The model to use (`gpt-4o`, `claude-sonnet-4-20250514`, etc.)
+- **System Prompt** — Instructions with `{variable}` interpolation support
+- **Tools** — Custom tool classes the agent can invoke
+- **Provider Tools** — Built-in provider capabilities (web search, code execution)
+- **Options** — Temperature, max tokens, max steps, client options, provider options
+- **Schema** — For structured output responses
+
+All methods have sensible defaults. Override only what you need.
+
+## Example
 
 ```php
 use Atlasphp\Atlas\Agents\AgentDefinition;
 
 class CustomerSupportAgent extends AgentDefinition
 {
-    public function provider(): string
+    public function provider(): ?string
     {
         return 'openai';
     }
 
-    public function model(): string
+    public function model(): ?string
     {
         return 'gpt-4o';
     }
 
-    public function systemPrompt(): string
+    public function systemPrompt(): ?string
     {
         return <<<'PROMPT'
         You are a senior customer support specialist for {user_name}.
@@ -77,19 +82,33 @@ class CustomerSupportAgent extends AgentDefinition
 }
 ```
 
-## Stateless Design
-
-Atlas agents are **stateless execution units**. They don't store conversation history or user context internally. Your application:
-
-1. Stores conversation history in your preferred storage
-2. Passes history to Atlas on each request via `ExecutionContext`
-3. Receives the response and updates storage
-
-This gives you complete control over persistence, trimming, summarization, and replay logic.
-
 ## Agent Registry
 
-Register agents for lookup by key:
+Agents are automatically discovered and registered from your configured directory (default: `app/Agents`). Just create your agent class and it's ready to use:
+
+```php
+// app/Agents/CustomerSupportAgent.php
+class CustomerSupportAgent extends AgentDefinition
+{
+    // ... agent definition
+}
+
+// Use immediately - no manual registration needed
+$response = Atlas::agent('customer-support')->chat('Hello');
+```
+
+Configure auto-discovery in `config/atlas.php`:
+
+```php
+'agents' => [
+    'path' => app_path('Agents'),
+    'namespace' => 'App\\Agents',
+],
+```
+
+## Manual Registration
+
+If you prefer manual control or need to register agents from other locations:
 
 ```php
 use Atlasphp\Atlas\Agents\Contracts\AgentRegistryContract;
@@ -104,6 +123,11 @@ $registry->register(CustomerSupportAgent::class, override: true);
 
 // Register an instance directly
 $registry->registerInstance(new CustomerSupportAgent());
+
+// Query agents
+$registry->has('customer-support');
+$registry->get('customer-support');
+$registry->all();
 ```
 
 ## Using Agents
@@ -111,7 +135,7 @@ $registry->registerInstance(new CustomerSupportAgent());
 Agents can be referenced three ways:
 
 ```php
-use Atlasphp\Atlas\Providers\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 
 // By registry key
 $response = Atlas::agent('customer-support')->chat('Hello');
@@ -123,28 +147,17 @@ $response = Atlas::agent(CustomerSupportAgent::class)->chat('Hello');
 $response = Atlas::agent(new CustomerSupportAgent())->chat('Hello');
 ```
 
-## Agent Resolution
-
-Atlas resolves agents in this order:
-
-1. **Instance** — If you pass an agent instance, it's used directly
-2. **Registry** — Looks up by key in the agent registry
-3. **Container** — Instantiates the class via Laravel's container
-
 ## Configuration Options
 
-### Required Methods
+All methods have sensible defaults. Override only what you need.
 
-| Method | Description |
-|--------|-------------|
-| `provider()` | AI provider name (`openai`, `anthropic`) |
-| `model()` | Model identifier (`gpt-4o`, `claude-3-sonnet`) |
-| `systemPrompt()` | The system prompt template |
-
-### Optional Methods
+<div class="full-width-table">
 
 | Method | Default | Description |
 |--------|---------|-------------|
+| `provider()` | `null` (uses config default) | AI provider name (`openai`, `anthropic`) |
+| `model()` | `null` | Model identifier (`gpt-4o`, `claude-sonnet-4-20250514`) |
+| `systemPrompt()` | `null` | The system prompt template with `{variable}` support |
 | `key()` | Class name in kebab-case | Unique identifier for registry |
 | `name()` | Class name with spaces | Display name |
 | `description()` | `null` | Agent description |
@@ -153,9 +166,13 @@ Atlas resolves agents in this order:
 | `temperature()` | `null` | Sampling temperature (0-2) |
 | `maxTokens()` | `null` | Maximum response tokens |
 | `maxSteps()` | `null` | Maximum tool use iterations |
-| `settings()` | `[]` | Additional provider settings |
+| `clientOptions()` | `[]` | HTTP client options (timeout, retries) |
+| `providerOptions()` | `[]` | Provider-specific options |
+| `schema()` | `null` | Schema for structured output |
 
-### Provider Tools
+</div>
+
+## Provider Tools
 
 Provider tools are built-in capabilities offered by AI providers. They can be specified as simple strings or with configuration options:
 
@@ -175,7 +192,7 @@ public function providerTools(): array
 }
 ```
 
-#### OpenAI Web Search with Domain Restrictions
+### OpenAI Web Search with Domain Restrictions
 
 Restrict web search to specific domains for more controlled results:
 
@@ -206,21 +223,77 @@ Common provider tools include:
 - `code_execution` — Execute code in a sandboxed environment
 - `file_search` — Search through uploaded files
 
-## Agent Types
+## Structured Output with Schema
+
+Define a `schema()` method to always return structured data from the agent:
 
 ```php
-use Atlasphp\Atlas\Agents\Enums\AgentType;
+use Atlasphp\Atlas\Agents\AgentDefinition;
+use Atlasphp\Atlas\Schema\Schema;
+use Prism\Prism\Contracts\Schema as PrismSchema;
 
-public function type(): AgentType
+class SentimentAnalyzerAgent extends AgentDefinition
 {
-    return AgentType::Api; // Default
+    public function provider(): ?string
+    {
+        return 'openai';
+    }
+
+    public function model(): ?string
+    {
+        return 'gpt-4o';
+    }
+
+    public function systemPrompt(): ?string
+    {
+        return 'Analyze the sentiment of the provided text.';
+    }
+
+    public function schema(): ?PrismSchema
+    {
+        return Schema::object('sentiment_analysis', 'Sentiment analysis result')
+            ->enum('sentiment', 'The detected sentiment', ['positive', 'negative', 'neutral'])
+            ->number('confidence', 'Confidence score from 0 to 1')
+            ->string('reasoning', 'Brief explanation of the sentiment')
+            ->build();
+    }
 }
 ```
 
-| Type | Description |
-|------|-------------|
-| `Api` | Standard API-based execution (default) |
-| `Cli` | Command-line interface execution (reserved) |
+Usage:
+
+```php
+$response = Atlas::agent('sentiment-analyzer')->chat('I absolutely love this product!');
+
+$response->structured['sentiment'];   // "positive"
+$response->structured['confidence'];  // 0.95
+$response->structured['reasoning'];   // "The text expresses strong enthusiasm..."
+```
+
+You can also use Prism schema classes directly:
+
+```php
+use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\StringSchema;
+use Prism\Prism\Schema\NumberSchema;
+use Prism\Prism\Schema\EnumSchema;
+
+public function schema(): ?PrismSchema
+{
+    return new ObjectSchema(
+        name: 'sentiment_analysis',
+        description: 'Sentiment analysis result',
+        properties: [
+            new EnumSchema('sentiment', 'The detected sentiment', ['positive', 'negative', 'neutral']),
+            new NumberSchema('confidence', 'Confidence score from 0 to 1'),
+            new StringSchema('reasoning', 'Brief explanation'),
+        ],
+        requiredFields: ['sentiment', 'confidence', 'reasoning'],
+    );
+}
+```
+
+See [Structured Output](/capabilities/structured-output) for more schema options.
 
 ## Example: Complete Agent
 
@@ -242,17 +315,17 @@ class ResearchAgent extends AgentDefinition
         return 'Researches topics using web search and analyzes findings';
     }
 
-    public function provider(): string
+    public function provider(): ?string
     {
         return 'openai';
     }
 
-    public function model(): string
+    public function model(): ?string
     {
         return 'gpt-4o';
     }
 
-    public function systemPrompt(): string
+    public function systemPrompt(): ?string
     {
         return <<<PROMPT
         You are a research assistant for {user_name}.
@@ -299,6 +372,6 @@ class ResearchAgent extends AgentDefinition
 
 ## Next Steps
 
+- [Chat](/capabilities/chat) — Use agents in conversations
 - [System Prompts](/core-concepts/system-prompts) — Variable interpolation in prompts
 - [Tools](/core-concepts/tools) — Add callable tools to agents
-- [Creating Agents](/guides/creating-agents) — Step-by-step guide

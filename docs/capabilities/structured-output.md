@@ -2,11 +2,16 @@
 
 Atlas supports schema-based responses for extracting structured data from AI responses.
 
+::: tip Prism Reference
+Atlas uses Prism's schema system under the hood. For detailed schema documentation, see [Prism Structured Output](https://prismphp.com/core-concepts/structured-output.html) and [Prism Schemas](https://prismphp.com/core-concepts/schemas.html).
+:::
+
 ## What is Structured Output?
 
 Instead of free-form text, structured output returns data in a predefined format:
 
 ```php
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Schema\Schema;
 
 $response = Atlas::agent('analyzer')
@@ -21,16 +26,16 @@ echo $response->structured['sentiment'];   // "positive"
 echo $response->structured['confidence'];  // 0.95
 ```
 
-## Schema Builder
+## Atlas Schema Builder
 
-The Schema Builder provides a fluent API for defining schemas with automatic required field tracking.
+Atlas provides a fluent Schema Builder that creates Prism schemas with less boilerplate and automatic required field tracking.
 
 ### Basic Usage
 
 ```php
 use Atlasphp\Atlas\Schema\Schema;
 
-// Pass directly to withSchema() - no build() needed
+// Inline - auto-builds when passed to withSchema()
 $response = Atlas::agent('extractor')
     ->withSchema(
         Schema::object('contact', 'Contact information')
@@ -40,101 +45,98 @@ $response = Atlas::agent('extractor')
     )
     ->chat('Extract: John Smith, john@example.com, 30 years old');
 
-// Or build separately if you need to reuse the schema
+// Or build separately for reuse
 $schema = Schema::object('contact', 'Contact information')
     ->string('name', 'Full name')
     ->string('email', 'Email address')
     ->build();
 ```
 
-All fields are **required by default**, matching OpenAI's recommended practice.
+The Schema Builder automatically tracks required fields and builds valid Prism schema objects. All fields are **required by default**, matching OpenAI's recommended practice.
 
 ### Property Types
 
-#### String
-
 ```php
+// String
 ->string('name', 'The person\'s full name')
-```
 
-#### Number
-
-```php
+// Number (float/decimal)
 ->number('score', 'A score between 0 and 100')
-```
 
-#### Integer
-
-```php
+// Integer (alias for number)
 ->integer('count', 'Number of items')
-```
 
-#### Boolean
-
-```php
+// Boolean
 ->boolean('is_valid', 'Whether the input is valid')
-```
 
-#### Enum
-
-```php
+// Enum
 ->enum('status', 'The current status', ['pending', 'approved', 'rejected'])
-```
 
-### Arrays
-
-#### String Array
-
-```php
+// String array
 ->stringArray('tags', 'List of relevant tags')
-```
 
-#### Number Array
-
-```php
+// Number array
 ->numberArray('scores', 'List of scores')
-```
 
-#### Object Array
-
-```php
+// Object array
 ->array('items', 'Order items', fn($s) => $s
     ->string('name', 'Item name')
     ->number('quantity', 'Quantity')
-    ->number('price', 'Unit price')
 )
-```
 
-### Nested Objects
-
-```php
+// Nested object
 ->object('address', 'Mailing address', fn($s) => $s
     ->string('street', 'Street address')
     ->string('city', 'City name')
-    ->string('zip', 'ZIP or postal code')
 )
 ```
 
-### Optional Fields
-
-Mark fields as optional with `->optional()`:
+### Optional and Nullable Fields
 
 ```php
 Schema::object('user', 'User profile')
-    ->string('name', 'Full name')           // required
-    ->string('email', 'Email address')      // required
-    ->string('phone', 'Phone number')->optional()  // NOT required
+    ->string('name', 'Full name')                        // required
+    ->string('email', 'Email address')                   // required
+    ->string('phone', 'Phone number')->optional()        // NOT required
+    ->string('notes', 'Optional notes')->nullable()      // NOT required + can be null
+    ->build()
 ```
 
-### Nullable Fields
+- `->optional()` — Removes the field from required fields
+- `->nullable()` — Makes the field nullable (implies optional)
 
-Mark fields as nullable with `->nullable()` (implies optional):
+## Using Prism Schemas Directly
+
+Atlas accepts Prism schema objects directly. If you're already familiar with Prism or need advanced schema features, you can use Prism's schema classes:
 
 ```php
-Schema::object('record', 'Data record')
-    ->string('id', 'Record ID')
-    ->string('notes', 'Optional notes')->nullable()
+use Atlasphp\Atlas\Atlas;
+use Prism\Prism\Schema\ObjectSchema;
+use Prism\Prism\Schema\NumberSchema;
+use Prism\Prism\Schema\EnumSchema;
+
+$schema = new ObjectSchema(
+    name: 'sentiment',
+    description: 'Sentiment analysis result',
+    properties: [
+        new EnumSchema('sentiment', 'The sentiment', ['positive', 'negative', 'neutral']),
+        new NumberSchema('confidence', 'Confidence score from 0 to 1'),
+    ],
+    requiredFields: ['sentiment', 'confidence'],
+);
+
+$response = Atlas::agent('analyzer')
+    ->withSchema($schema)
+    ->chat('I love this product!');
 ```
+
+Available Prism schema types:
+- `StringSchema` — Text values
+- `NumberSchema` — Integers and floats
+- `BooleanSchema` — True/false values
+- `ArraySchema` — Lists of items
+- `EnumSchema` — Predefined set of options
+- `ObjectSchema` — Nested structures
 
 ## Structured Output Modes
 
@@ -261,6 +263,9 @@ $data = $response->structured;
 ## Checking Responses
 
 ```php
+use Atlasphp\Atlas\Atlas;
+use Atlasphp\Atlas\Schema\Schema;
+
 $response = Atlas::agent('extractor')
     ->withSchema(
         Schema::object('person', 'Person details')
@@ -269,7 +274,7 @@ $response = Atlas::agent('extractor')
     )
     ->chat('Extract from: John Smith can be reached at john@example.com');
 
-if ($response->hasStructured()) {
+if ($response->structured !== null) {
     $person = $response->structured;
     echo "Name: {$person['name']}";    // "John Smith"
     echo "Email: {$person['email']}";  // "john@example.com"
@@ -307,9 +312,11 @@ Schema::object('user', 'User profile')
 Design your agent's system prompt to produce the expected structure:
 
 ```php
+use Atlasphp\Atlas\Agents\AgentDefinition;
+
 class DataExtractorAgent extends AgentDefinition
 {
-    public function systemPrompt(): string
+    public function systemPrompt(): ?string
     {
         return <<<PROMPT
         You extract structured data from text.
@@ -324,4 +331,4 @@ class DataExtractorAgent extends AgentDefinition
 
 - [Chat](/capabilities/chat) — Chat API details
 - [Agents](/core-concepts/agents) — Agent configuration
-- [Response Objects](/api-reference/response-objects) — AgentResponse API
+- [Prism Schemas](https://prismphp.com/core-concepts/schemas.html) — Full schema reference

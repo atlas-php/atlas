@@ -1,260 +1,117 @@
-# Image Generation
+# Images
 
 Generate images using DALL-E and other AI image providers.
 
-## Basic Generation
+::: tip Prism Reference
+Atlas image generation wraps Prism's image API. For detailed documentation including all provider options, see [Prism Image Generation](https://prismphp.com/core-concepts/image-generation.html).
+:::
+
+## Basic Usage
 
 ```php
-use Atlasphp\Atlas\Providers\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 
-$result = Atlas::image()->generate('A sunset over mountains');
+$response = Atlas::image()
+    ->using('openai', 'dall-e-3')
+    ->withPrompt('A sunset over mountains')
+    ->generate();
 
-echo $result['url'];           // URL to generated image
-echo $result['revised_prompt']; // AI-revised prompt (if applicable)
+$url = $response->images[0]->url;
 ```
 
-## With Provider and Model
+## With Options
 
 ```php
-$result = Atlas::image('openai', 'dall-e-3')
-    ->generate('A futuristic cityscape');
-
-// Or using the fluent method
-$result = Atlas::image()
-    ->withProvider('openai', 'dall-e-3')
-    ->generate('A futuristic cityscape');
+$response = Atlas::image()
+    ->using('openai', 'dall-e-3')
+    ->withPrompt('A photorealistic portrait of a robot')
+    ->withSize(1024, 1024)
+    ->withProviderMeta('openai', ['quality' => 'hd', 'style' => 'vivid'])
+    ->generate();
 ```
-
-## Fluent Configuration
-
-```php
-$result = Atlas::image()
-    ->withProvider('openai', 'dall-e-3')
-    ->withSize('1024x1024')
-    ->withQuality('hd')
-    ->generate('A photorealistic portrait of a robot');
-```
-
-## Provider-Specific Options
-
-```php
-$result = Atlas::image('openai', 'dall-e-3')
-    ->withSize('1024x1024')
-    ->withQuality('hd')
-    ->withProviderOptions(['style' => 'vivid'])  // OpenAI: 'vivid' or 'natural'
-    ->generate('A vibrant abstract painting');
-```
-
-## Response Format
-
-```php
-$result = Atlas::image()->generate('A mountain landscape');
-
-// Result structure
-[
-    'url' => 'https://...',      // Image URL
-    'base64' => null,            // Base64 data (if requested)
-    'revised_prompt' => '...',   // Provider's revised prompt
-]
-```
-
-## Configuration
-
-Configure defaults in `config/atlas.php`:
-
-```php
-'image' => [
-    'provider' => 'openai',
-    'model' => 'dall-e-3',
-],
-```
-
-## Available Options
-
-### Size
-
-```php
-->withSize('1024x1024')  // Square
-->withSize('1792x1024')  // Landscape
-->withSize('1024x1792')  // Portrait
-```
-
-**DALL-E 3 sizes:** `1024x1024`, `1792x1024`, `1024x1792`
-**DALL-E 2 sizes:** `256x256`, `512x512`, `1024x1024`
-
-### Quality
-
-```php
-->withQuality('standard')  // Default, faster
-->withQuality('hd')        // Higher detail, slower
-```
-
-### Style (OpenAI)
-
-```php
-->withProviderOptions(['style' => 'vivid'])   // Bold colors, dramatic
-->withProviderOptions(['style' => 'natural']) // Subtle, realistic
-```
-
-## PendingImageRequest Methods
-
-| Method | Description |
-|--------|-------------|
-| `withProvider(string $provider, ?string $model = null)` | Set provider and optionally model |
-| `withModel(string $model)` | Set model |
-| `withSize(string $size)` | Set image dimensions |
-| `withQuality(string $quality)` | Set quality level |
-| `withProviderOptions(array $options)` | Set provider-specific options |
-| `withMetadata(array $metadata)` | Set metadata for pipelines |
-| `withRetry($times, $delay, $when, $throw)` | Configure retry |
-| `generate(string $prompt, array $options = [])` | Generate image |
 
 ## Saving Images
 
 ```php
-$result = Atlas::image()
-    ->withSize('1024x1024')
-    ->generate('A serene lake at dawn');
+$response = Atlas::image()
+    ->using('openai', 'dall-e-3')
+    ->withPrompt('A serene lake at dawn')
+    ->generate();
 
 // Save from URL
-$imageContent = file_get_contents($result['url']);
+$imageContent = file_get_contents($response->images[0]->url);
 Storage::put('images/lake.png', $imageContent);
 
 // Or using Laravel's HTTP client
-Http::sink(storage_path('images/lake.png'))->get($result['url']);
-```
-
-## Use Cases
-
-### Product Mockups
-
-```php
-$result = Atlas::image('openai', 'dall-e-3')
-    ->withSize('1024x1024')
-    ->withQuality('hd')
-    ->withProviderOptions(['style' => 'natural'])
-    ->generate('A minimalist white coffee mug on a wooden desk, professional product photography');
-```
-
-### Creative Assets
-
-```php
-$result = Atlas::image('openai', 'dall-e-3')
-    ->withSize('1792x1024')
-    ->withQuality('hd')
-    ->withProviderOptions(['style' => 'vivid'])
-    ->generate('Abstract digital art representing innovation and technology, blue and purple gradients');
-```
-
-### Illustrations
-
-```php
-$result = Atlas::image('openai', 'dall-e-3')
-    ->withSize('1024x1024')
-    ->generate('A friendly cartoon robot waving, simple flat design style');
+Http::sink(storage_path('images/lake.png'))->get($response->images[0]->url);
 ```
 
 ## Complete Example
 
 ```php
-class ImageGeneratorController extends Controller
+use Atlasphp\Atlas\Atlas;
+
+class ImageController extends Controller
 {
     public function generate(Request $request)
     {
         $request->validate([
             'prompt' => 'required|string|max:1000',
-            'size' => 'in:1024x1024,1792x1024,1024x1792',
-            'quality' => 'in:standard,hd',
         ]);
 
-        $result = Atlas::image('openai', 'dall-e-3')
-            ->withSize($request->input('size', '1024x1024'))
-            ->withQuality($request->input('quality', 'standard'))
-            ->generate($request->input('prompt'));
+        $response = Atlas::image()
+            ->using('openai', 'dall-e-3')
+            ->withPrompt($request->input('prompt'))
+            ->withSize(1024, 1024)
+            ->generate();
 
         // Save to storage
         $filename = 'generated/' . Str::uuid() . '.png';
-        $content = file_get_contents($result['url']);
+        $content = file_get_contents($response->images[0]->url);
         Storage::put($filename, $content);
 
         return response()->json([
             'url' => Storage::url($filename),
-            'revised_prompt' => $result['revised_prompt'],
         ]);
     }
 }
 ```
 
-## Retry & Resilience
+## Pipeline Hooks
 
-Enable automatic retries for image generation:
+Image generation supports pipeline middleware for observability:
 
-```php
-// Simple retry: 3 attempts, 1 second delay
-$result = Atlas::image()
-    ->withRetry(3, 1000)
-    ->generate('A sunset over mountains');
+<div class="full-width-table">
 
-// Exponential backoff
-$result = Atlas::image()
-    ->withRetry(3, fn($attempt) => (2 ** $attempt) * 100)
-    ->withSize('1024x1024')
-    ->generate('A sunset');
+| Pipeline | Trigger |
+|----------|---------|
+| `image.before_generate` | Before generating image |
+| `image.after_generate` | After generating image |
 
-// Only retry on rate limits
-$result = Atlas::image('openai', 'dall-e-3')
-    ->withRetry(3, 1000, fn($e) => $e->getCode() === 429)
-    ->generate('A landscape');
-
-// With metadata for pipeline observability
-$result = Atlas::image()
-    ->withMetadata(['user_id' => 123])
-    ->withRetry(3, 1000)
-    ->generate('A landscape');
-```
-
-## Error Handling
+</div>
 
 ```php
-try {
-    $result = Atlas::image()->generate('...');
-} catch (ProviderException $e) {
-    // Handle provider errors (rate limits, invalid prompts, etc.)
-    Log::error('Image generation failed', [
-        'error' => $e->getMessage(),
-    ]);
+use Atlasphp\Atlas\Contracts\PipelineContract;
+
+class LogImageGeneration implements PipelineContract
+{
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        $result = $next($data);
+
+        Log::info('Image generated', [
+            'user_id' => $data['metadata']['user_id'] ?? null,
+        ]);
+
+        return $result;
+    }
 }
+
+$registry->register('image.after_generate', LogImageGeneration::class);
 ```
-
-## Best Practices
-
-### 1. Be Specific in Prompts
-
-```php
-// Good - specific and detailed
-'A photorealistic image of a golden retriever puppy sitting in a sunlit garden,
-shallow depth of field, professional pet photography'
-
-// Less effective - vague
-'A dog picture'
-```
-
-### 2. Include Style Guidance
-
-```php
-// Specify the desired style
-'Digital illustration in the style of Studio Ghibli,
-a small cottage in a forest clearing, soft lighting'
-```
-
-### 3. Handle Costs
-
-Image generation can be expensive. Consider:
-- Rate limiting requests
-- Caching generated images
-- Using lower quality for previews
 
 ## Next Steps
 
-- [Configuration](/getting-started/configuration) — Configure image providers
+- [Prism Image Generation](https://prismphp.com/core-concepts/image-generation.html) — Complete image reference
 - [Speech](/capabilities/speech) — Text-to-speech and transcription
+- [Pipelines](/core-concepts/pipelines) — Add observability to image generation

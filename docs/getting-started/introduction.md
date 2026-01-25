@@ -2,7 +2,7 @@
 
 Atlas is a Laravel package for building AI-powered applications with structure and scale. It provides reusable agents, typed tools, system prompt templating, and execution pipelines—all through a clean, stateless API.
 
-Built on [Prism PHP](https://github.com/prism-php/prism), Atlas lets you focus on application logic instead of wiring AI infrastructure.
+Built on [Prism PHP](https://prismphp.com), Atlas lets you focus on application logic instead of wiring AI infrastructure.
 
 ## Quick Example
 
@@ -12,7 +12,9 @@ $response = Atlas::agent('support-agent')->chat('I need help with my order');
 
 ## What Atlas Provides
 
-Atlas handles **application-level AI concerns** while Prism handles **LLM communication**.
+Atlas is built on [Prism PHP](https://prismphp.com) and handles **application-level AI concerns** while Prism handles **LLM communication**. You can always use Prism directly—Atlas provides convenience and structure, not limitations.
+
+<div class="full-width-table">
 
 | Feature | Description |
 |---------|-------------|
@@ -22,19 +24,17 @@ Atlas handles **application-level AI concerns** while Prism handles **LLM commun
 | **Pipelines** | Extend Atlas for logging, auth, metrics—without coupling |
 | **Multi-Provider** | OpenAI, Anthropic, others. Swap via config |
 
-## Why Atlas?
+</div>
 
-- **Build reusable, composable agents** — not one-off prompts
-- **Keep AI logic stateless, testable, and framework-native**
-- **Extend behavior (logging, auth, metrics) without touching the core**
-
-## Beyond Chat
-
-Atlas provides more than just chat capabilities:
-
-- [Embeddings](/capabilities/embeddings) — Vector embeddings for semantic search and RAG
-- [Image Generation](/capabilities/images) — Generate images with DALL-E and other providers
-- [Speech](/capabilities/speech) — Text-to-speech and speech-to-text services
+::: tip Full Prism Access
+Any Prism method works through Atlas:
+```php
+Atlas::agent('support')
+    ->withMaxTokens(1000)     // Prism method
+    ->withTemperature(0.7)    // Prism method
+    ->chat('Hello');          // Atlas terminal
+```
+:::
 
 ## Design Philosophy
 
@@ -43,17 +43,6 @@ Atlas is intentionally stateless. Your application manages all persistence (conv
 - Full control over conversation history and storage
 - Freedom to implement custom trimming, summarization, or replay logic
 - Clean separation between AI execution and your application state
-
-## Note from the Author
-
-> Atlas has been built through deliberate iteration over the past year. This RC4 release reflects a stable, battle-tested core already running in large-scale production. Atlas is intentionally stateless, with persistence and orchestration planned for Nexus, a companion package in active development. Feedback and issues are always welcome.
->
-> — TM
-
-## Requirements
-
-- PHP 8.4+
-- Laravel 12.x
 
 ## Next Steps
 

@@ -17,7 +17,6 @@ export default defineConfig({
     nav: [
       { text: 'Home', link: '/' },
       { text: 'Docs', link: '/getting-started/introduction' },
-      { text: 'API Reference', link: '/api-reference/atlas-facade' }
     ],
 
     sidebar: [
@@ -27,6 +26,7 @@ export default defineConfig({
           { text: 'Introduction', link: '/getting-started/introduction' },
           { text: 'Installation', link: '/getting-started/installation' },
           { text: 'Configuration', link: '/getting-started/configuration' },
+          { text: 'Providers', link: '/getting-started/providers' },
         ]
       },
       {
@@ -34,9 +34,7 @@ export default defineConfig({
         items: [
           { text: 'Agents', link: '/core-concepts/agents' },
           { text: 'Tools', link: '/core-concepts/tools' },
-          { text: 'Conversations', link: '/core-concepts/conversations' },
           { text: 'System Prompts', link: '/core-concepts/system-prompts' },
-          { text: 'Structured Output', link: '/core-concepts/structured-output' },
           { text: 'Pipelines', link: '/core-concepts/pipelines' },
         ]
       },
@@ -44,44 +42,22 @@ export default defineConfig({
         text: 'Capabilities',
         items: [
           { text: 'Chat', link: '/capabilities/chat' },
-          { text: 'Multimodal', link: '/capabilities/multimodal' },
-          { text: 'Streaming', link: '/capabilities/streaming' },
+          { text: 'Text', link: '/capabilities/text' },
+          { text: 'Images', link: '/capabilities/images' },
+          { text: 'Audio', link: '/capabilities/speech' },
           { text: 'Embeddings', link: '/capabilities/embeddings' },
-          { text: 'Image Generation', link: '/capabilities/images' },
-          { text: 'Speech', link: '/capabilities/speech' },
+          { text: 'Structured', link: '/capabilities/structured-output' },
+          { text: 'Streaming', link: '/capabilities/streaming' },
           { text: 'Moderation', link: '/capabilities/moderation' },
-        ]
-      },
-      {
-        text: 'Guides',
-        collapsed: true,
-        items: [
-          { text: 'Creating Agents', link: '/guides/creating-agents' },
-          { text: 'Creating Tools', link: '/guides/creating-tools' },
-          { text: 'Multi-Turn Conversations', link: '/guides/multi-turn-conversations' },
-          { text: 'Extending Atlas', link: '/guides/extending-atlas' },
-          { text: 'Testing', link: '/guides/testing' },
-        ]
-      },
-      {
-        text: 'API Reference',
-        collapsed: true,
-        items: [
-          { text: 'Atlas Facade', link: '/api-reference/atlas-facade' },
-          { text: 'AgentContract', link: '/api-reference/agent-contract' },
-          { text: 'ToolContract', link: '/api-reference/tool-contract' },
-          { text: 'Response Objects', link: '/api-reference/response-objects' },
-          { text: 'Context Objects', link: '/api-reference/context-objects' },
         ]
       },
       {
         text: 'Advanced',
         collapsed: true,
         items: [
-          { text: 'Stateless Architecture', link: '/advanced/stateless-architecture' },
+          { text: 'Testing', link: '/advanced/testing' },
           { text: 'Custom Providers', link: '/advanced/custom-providers' },
           { text: 'Error Handling', link: '/advanced/error-handling' },
-          { text: 'Performance', link: '/advanced/performance' },
         ]
       },
     ],
