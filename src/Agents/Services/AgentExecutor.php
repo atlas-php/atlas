@@ -305,10 +305,21 @@ class AgentExecutor implements AgentExecutorContract
         // Text-specific: tools, messages, maxSteps, providerTools
         if (! $isStructured) {
             $toolContext = new ToolContext($context->metadata);
-            $tools = $this->toolBuilder->buildForAgent($agent, $toolContext);
 
-            if ($tools !== []) {
-                $request = $request->withTools($tools);
+            // Build native Atlas tools
+            $nativeTools = $this->toolBuilder->buildForAgent($agent, $toolContext);
+
+            // Get agent-defined MCP tools
+            $agentMcpTools = $agent->mcpTools();
+
+            // Get runtime MCP tools from context
+            $runtimeMcpTools = $context->mcpTools;
+
+            // Merge all tools (native + agent MCP + runtime MCP)
+            $allTools = [...$nativeTools, ...$agentMcpTools, ...$runtimeMcpTools];
+
+            if ($allTools !== []) {
+                $request = $request->withTools($allTools);
             }
 
             $request = $context->hasMessages()

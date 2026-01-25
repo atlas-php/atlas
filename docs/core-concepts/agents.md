@@ -163,6 +163,7 @@ All methods have sensible defaults. Override only what you need.
 | `description()` | `null` | Agent description |
 | `tools()` | `[]` | Custom tool classes available to agent |
 | `providerTools()` | `[]` | Provider-specific tools (web search, code execution) |
+| `mcpTools()` | `[]` | MCP tools from external servers ([details](/capabilities/mcp)) |
 | `temperature()` | `null` | Sampling temperature (0-2) |
 | `maxTokens()` | `null` | Maximum response tokens |
 | `maxSteps()` | `null` | Maximum tool use iterations |
@@ -532,6 +533,7 @@ public function name(): string;
 public function description(): ?string;
 public function tools(): array;
 public function providerTools(): array;
+public function mcpTools(): array;  // MCP tools from external servers
 public function temperature(): ?float;
 public function maxTokens(): ?int;
 public function maxSteps(): ?int;
@@ -547,6 +549,7 @@ Atlas::agent(string|AgentContract $agent)
     ->withProvider(string $provider, ?string $model = null)  // Override provider
     ->withModel(string $model)                   // Override model
     ->withMedia(Image|Document|Audio|Video|array $media)     // Attach media
+    ->withMcpTools(array $tools)                 // Add MCP tools at runtime
     ->withSchema(SchemaBuilder|ObjectSchema $schema)         // Structured output
     ->usingAutoMode()                            // Auto schema mode (default)
     ->usingNativeMode()                          // Native JSON schema mode
@@ -587,4 +590,5 @@ $registry->clearDecorators(): void;
 - [Chat](/capabilities/chat) — Use agents in conversations
 - [System Prompts](/core-concepts/system-prompts) — Variable interpolation in prompts
 - [Tools](/core-concepts/tools) — Add callable tools to agents
+- [MCP](/capabilities/mcp) — External tools from MCP servers
 - [Pipelines](/core-concepts/pipelines) — Add middleware for agent execution

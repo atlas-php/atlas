@@ -68,6 +68,13 @@ final class PendingAgentRequest
      */
     private array $prismCalls = [];
 
+    /**
+     * MCP tools from prism-php/relay.
+     *
+     * @var array<int, \Prism\Prism\Tool>
+     */
+    private array $mcpTools = [];
+
     public function __construct(
         private readonly AgentResolver $agentResolver,
         private readonly AgentExecutorContract $agentExecutor,
@@ -174,6 +181,21 @@ final class PendingAgentRequest
     }
 
     /**
+     * Add MCP tools from prism-php/relay.
+     *
+     * Tools are accumulated across multiple calls to this method.
+     *
+     * @param  array<int, \Prism\Prism\Tool>  $tools  Prism Tool instances from MCP servers.
+     */
+    public function withMcpTools(array $tools): static
+    {
+        $clone = clone $this;
+        $clone->mcpTools = [...$clone->mcpTools, ...$tools];
+
+        return $clone;
+    }
+
+    /**
      * Execute a blocking chat with the configured agent.
      *
      * Supports two styles for attachments (Prism-consistent):
@@ -252,6 +274,7 @@ final class PendingAgentRequest
             prismCalls: $this->prismCalls,
             prismMedia: $allMedia,
             prismMessages: $this->prismMessages,
+            mcpTools: $this->mcpTools,
         );
     }
 }

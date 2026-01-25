@@ -49,6 +49,7 @@ export default defineConfig({
           { text: 'Structured', link: '/capabilities/structured-output' },
           { text: 'Streaming', link: '/capabilities/streaming' },
           { text: 'Moderation', link: '/capabilities/moderation' },
+          { text: 'MCP', link: '/capabilities/mcp' },
         ]
       },
       {

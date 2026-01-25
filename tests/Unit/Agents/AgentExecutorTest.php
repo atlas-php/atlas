@@ -1732,3 +1732,169 @@ class AgentExceptionThrowingHandler implements PipelineContract
         throw new AgentException('Pipeline threw AgentException');
     }
 }
+
+// === MCP Tools Tests ===
+
+test('it merges native tools with agent MCP tools', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response with MCP tools')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create a mock MCP tool
+    $mcpTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $mcpTool->shouldReceive('name')->andReturn('mcp_tool');
+
+    // Create agent with MCP tools
+    $agent = new class($mcpTool) extends \Atlasphp\Atlas\Agents\AgentDefinition
+    {
+        public function __construct(private $tool) {}
+
+        public function key(): string
+        {
+            return 'agent-with-mcp-tools';
+        }
+
+        public function provider(): ?string
+        {
+            return 'openai';
+        }
+
+        public function model(): ?string
+        {
+            return 'gpt-4';
+        }
+
+        public function mcpTools(): array
+        {
+            return [$this->tool];
+        }
+    };
+
+    $context = new ExecutionContext;
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response->text)->toBe('Response with MCP tools');
+});
+
+test('it merges native tools with runtime MCP tools', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response with runtime MCP tools')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create a mock MCP tool
+    $mcpTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $mcpTool->shouldReceive('name')->andReturn('runtime_mcp_tool');
+
+    $agent = new TestAgent;
+    $context = new ExecutionContext(
+        mcpTools: [$mcpTool],
+    );
+
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response->text)->toBe('Response with runtime MCP tools');
+});
+
+test('it merges all three tool sources correctly', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response with all tools')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create mock MCP tools
+    $agentMcpTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $agentMcpTool->shouldReceive('name')->andReturn('agent_mcp_tool');
+
+    $runtimeMcpTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $runtimeMcpTool->shouldReceive('name')->andReturn('runtime_mcp_tool');
+
+    // Create agent with native tools and MCP tools
+    $agent = new class($agentMcpTool) extends \Atlasphp\Atlas\Agents\AgentDefinition
+    {
+        public function __construct(private $tool) {}
+
+        public function key(): string
+        {
+            return 'agent-with-all-tools';
+        }
+
+        public function provider(): ?string
+        {
+            return 'openai';
+        }
+
+        public function model(): ?string
+        {
+            return 'gpt-4';
+        }
+
+        public function mcpTools(): array
+        {
+            return [$this->tool];
+        }
+    };
+
+    $context = new ExecutionContext(
+        mcpTools: [$runtimeMcpTool],
+    );
+
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response->text)->toBe('Response with all tools');
+});
+
+test('it handles empty mcpTools gracefully', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response without MCP tools')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Agent with default empty mcpTools
+    $agent = new TestAgent;
+    expect($agent->mcpTools())->toBe([]);
+
+    // Context with no MCP tools
+    $context = new ExecutionContext;
+    expect($context->mcpTools)->toBe([]);
+
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+});

@@ -585,3 +585,104 @@ test('chaining preserves all configuration', function () {
     expect($capturedContext->prismMedia[0])->toBeInstanceOf(Image::class);
     expect($capturedContext->prismCalls)->toHaveCount(1);
 });
+
+// === withMcpTools Tests ===
+
+test('withMcpTools adds tools immutably', function () {
+    $mockTool = Mockery::mock(\Prism\Prism\Tool::class);
+
+    $request2 = $this->request->withMcpTools([$mockTool]);
+
+    expect($request2)->not->toBe($this->request);
+    expect($request2)->toBeInstanceOf(PendingAgentRequest::class);
+});
+
+test('withMcpTools includes tools in context', function () {
+    $mockTool = Mockery::mock(\Prism\Prism\Tool::class);
+
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $this->request
+        ->withMcpTools([$mockTool])
+        ->chat('Hello');
+
+    expect($capturedContext->mcpTools)->toHaveCount(1);
+    expect($capturedContext->mcpTools[0])->toBe($mockTool);
+});
+
+test('withMcpTools accumulates with chained calls', function () {
+    $mockTool1 = Mockery::mock(\Prism\Prism\Tool::class);
+    $mockTool2 = Mockery::mock(\Prism\Prism\Tool::class);
+
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $this->request
+        ->withMcpTools([$mockTool1])
+        ->withMcpTools([$mockTool2])
+        ->chat('Hello');
+
+    expect($capturedContext->mcpTools)->toHaveCount(2);
+    expect($capturedContext->mcpTools[0])->toBe($mockTool1);
+    expect($capturedContext->mcpTools[1])->toBe($mockTool2);
+});
+
+test('withMcpTools works with multiple tools in single call', function () {
+    $mockTool1 = Mockery::mock(\Prism\Prism\Tool::class);
+    $mockTool2 = Mockery::mock(\Prism\Prism\Tool::class);
+
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $this->request
+        ->withMcpTools([$mockTool1, $mockTool2])
+        ->chat('Hello');
+
+    expect($capturedContext->mcpTools)->toHaveCount(2);
+});
+
+test('withMcpTools can be combined with other methods', function () {
+    $mockTool = Mockery::mock(\Prism\Prism\Tool::class);
+
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $this->request
+        ->withVariables(['name' => 'John'])
+        ->withMcpTools([$mockTool])
+        ->withMetadata(['id' => '123'])
+        ->chat('Hello');
+
+    expect($capturedContext->mcpTools)->toHaveCount(1);
+    expect($capturedContext->variables)->toBe(['name' => 'John']);
+    expect($capturedContext->metadata)->toBe(['id' => '123']);
+});

@@ -251,3 +251,40 @@ test('getPrismCallsWithoutSchema returns all calls when no schema', function () 
     expect($calls[0]['method'])->toBe('withMaxSteps');
     expect($calls[1]['method'])->toBe('usingTemperature');
 });
+
+// === MCP Tools Tests ===
+
+test('it creates with default empty mcpTools', function () {
+    $context = new ExecutionContext;
+
+    expect($context->mcpTools)->toBe([]);
+});
+
+test('it creates with provided mcpTools', function () {
+    $mockTool = Mockery::mock(\Prism\Prism\Tool::class);
+
+    $context = new ExecutionContext(mcpTools: [$mockTool]);
+
+    expect($context->mcpTools)->toBe([$mockTool]);
+});
+
+test('it reports hasMcpTools correctly', function () {
+    $mockTool = Mockery::mock(\Prism\Prism\Tool::class);
+
+    $empty = new ExecutionContext;
+    $withMcpTools = new ExecutionContext(mcpTools: [$mockTool]);
+
+    expect($empty->hasMcpTools())->toBeFalse();
+    expect($withMcpTools->hasMcpTools())->toBeTrue();
+});
+
+test('it creates with multiple mcpTools', function () {
+    $mockTool1 = Mockery::mock(\Prism\Prism\Tool::class);
+    $mockTool2 = Mockery::mock(\Prism\Prism\Tool::class);
+
+    $context = new ExecutionContext(mcpTools: [$mockTool1, $mockTool2]);
+
+    expect($context->mcpTools)->toHaveCount(2);
+    expect($context->mcpTools[0])->toBe($mockTool1);
+    expect($context->mcpTools[1])->toBe($mockTool2);
+});

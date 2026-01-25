@@ -38,6 +38,7 @@ final readonly class ExecutionContext
      * @param  array<int, array{method: string, args: array<int, mixed>}>  $prismCalls  Captured Prism method calls to replay on the request.
      * @param  array<int, Image|Document|Audio|Video>  $prismMedia  Prism media objects for the current input.
      * @param  array<int, UserMessage|AssistantMessage|SystemMessage>  $prismMessages  Prism message objects for conversation history (direct Prism compatibility).
+     * @param  array<int, \Prism\Prism\Tool>  $mcpTools  MCP tools from prism-php/relay for runtime tool injection.
      */
     public function __construct(
         public array $messages = [],
@@ -48,6 +49,7 @@ final readonly class ExecutionContext
         public array $prismCalls = [],
         public array $prismMedia = [],
         public array $prismMessages = [],
+        public array $mcpTools = [],
     ) {}
 
     /**
@@ -136,6 +138,14 @@ final readonly class ExecutionContext
     public function hasPrismCalls(): bool
     {
         return $this->prismCalls !== [];
+    }
+
+    /**
+     * Check if MCP tools are present.
+     */
+    public function hasMcpTools(): bool
+    {
+        return $this->mcpTools !== [];
     }
 
     /**
