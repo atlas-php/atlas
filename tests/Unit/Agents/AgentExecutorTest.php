@@ -1394,11 +1394,92 @@ test('error pipeline recovery works for AgentException', function () {
     expect($response->text)->toBe('Recovered from AgentException');
 });
 
-// Note: Stream error handling in wrapStreamWithAfterPipeline catches errors during iteration,
-// not during setup. Errors during buildRequest() propagate before wrapStreamWithAfterPipeline runs.
-// Testing iteration errors requires Prism to throw during actual streaming, which Prism::fake()
-// doesn't support. The wrapStreamWithAfterPipeline error handling is structurally verified
-// through the stream.after tests which confirm the finally block executes.
+// Tests for catch (AgentException $e) block - lines 112-117
+// These tests throw AgentException directly to hit the first catch block
+
+test('catch AgentException block calls handleError and rethrows when no recovery', function () {
+    ErrorRecoveryHandler::reset();
+    AgentExceptionThrowingHandler::reset();
+
+    $this->pipelineRegistry->define('agent.before_execute');
+    $this->pipelineRegistry->register('agent.before_execute', AgentExceptionThrowingHandler::class);
+
+    $this->pipelineRegistry->define('agent.on_error');
+    $this->pipelineRegistry->register('agent.on_error', ErrorRecoveryHandler::class);
+
+    Prism::fake([
+        TextResponseFake::make()->withText('Response')->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $agent = new TestAgent;
+    $context = new ExecutionContext;
+
+    try {
+        $executor->execute($agent, 'Hello', $context);
+        $this->fail('Expected AgentException');
+    } catch (AgentException $e) {
+        // Error handler should be called
+        expect(ErrorRecoveryHandler::$called)->toBeTrue();
+        expect(ErrorRecoveryHandler::$data['exception'])->toBeInstanceOf(AgentException::class);
+        // Original AgentException should be rethrown (not wrapped)
+        expect($e->getMessage())->toBe('Pipeline threw AgentException');
+    }
+});
+
+test('catch AgentException block returns recovery when provided', function () {
+    ErrorRecoveryHandler::reset();
+    AgentExceptionThrowingHandler::reset();
+
+    $this->pipelineRegistry->define('agent.before_execute');
+    $this->pipelineRegistry->register('agent.before_execute', AgentExceptionThrowingHandler::class);
+
+    $this->pipelineRegistry->define('agent.on_error');
+    $this->pipelineRegistry->register('agent.on_error', ErrorRecoveryHandler::class);
+
+    // Set recovery response
+    $recoveryResponse = new PrismResponse(
+        steps: collect([]),
+        text: 'Recovered from AgentException in first catch block',
+        finishReason: FinishReason::Stop,
+        toolCalls: [],
+        toolResults: [],
+        usage: new Usage(10, 5),
+        meta: new Meta('recovery-id', 'gpt-4'),
+        messages: collect([]),
+        additionalContent: [],
+    );
+    ErrorRecoveryHandler::setRecoveryResponse($recoveryResponse);
+
+    Prism::fake([
+        TextResponseFake::make()->withText('Response')->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $agent = new TestAgent;
+    $context = new ExecutionContext;
+
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect(ErrorRecoveryHandler::$called)->toBeTrue();
+    expect($response)->toBe($recoveryResponse);
+    expect($response->text)->toBe('Recovered from AgentException in first catch block');
+});
+
+// Tests for catch (Throwable $e) block - lines 118-124
+// These tests throw non-AgentException to hit the second catch block
 
 test('execute handles Throwable and wraps in AgentException', function () {
     ErrorRecoveryHandler::reset();
@@ -1631,5 +1712,23 @@ class ErrorRecoveryHandler implements PipelineContract
         }
 
         return $next($data);
+    }
+}
+
+class AgentExceptionThrowingHandler implements PipelineContract
+{
+    public static bool $called = false;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+    }
+
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        self::$called = true;
+
+        // Throw a plain AgentException (not via executionFailed which wraps the message)
+        throw new AgentException('Pipeline threw AgentException');
     }
 }

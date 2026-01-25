@@ -31,10 +31,10 @@ features:
     link: /core-concepts/tools
   - icon:
       src: /icons/multi-provider.svg
-      alt: Multi-Provider Support
-    title: Multi-Provider Support
-    details: Switch between OpenAI, Anthropic, Gemini, and more. Process images, audio, documents, and video alongside text.
-    link: /capabilities/chat
+      alt: Built on Prism
+    title: Built on Prism
+    details: Full access to Prism's multi-provider support, streaming, and multimodal capabilities. Atlas organizes without limiting.
+    link: /getting-started/introduction
   - icon:
       src: /icons/structured.svg
       alt: Structured Output
@@ -43,10 +43,10 @@ features:
     link: /capabilities/structured-output
   - icon:
       src: /icons/streaming.svg
-      alt: Real-time Streaming
-    title: Real-time Streaming
-    details: Stream responses token-by-token for instant feedback. Built-in SSE support for web apps.
-    link: /capabilities/streaming
+      alt: Dynamic Prompts
+    title: Dynamic Prompts
+    details: System prompts with {variable} interpolation. Inject user context, session data, or custom values at runtime.
+    link: /core-concepts/system-prompts
   - icon:
       src: /icons/pipeline.svg
       alt: Extensible Pipelines
