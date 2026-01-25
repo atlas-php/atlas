@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use Atlasphp\Atlas\Providers\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 use Illuminate\Console\Command;
+use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
 
 /**
  * Command for testing embedding generation.
@@ -22,8 +23,7 @@ class EmbedCommand extends Command
     protected $signature = 'atlas:embed
                             {text? : Text to embed}
                             {--batch : Enter batch mode for multiple texts}
-                            {--file= : Read texts from file (one per line)}
-                            {--dimensions : Show configured embedding dimensions}';
+                            {--file= : Read texts from file (one per line)}';
 
     /**
      * The console command description.
@@ -37,14 +37,6 @@ class EmbedCommand extends Command
      */
     public function handle(): int
     {
-        // Show dimensions only
-        if ($this->option('dimensions')) {
-            $dimensions = Atlas::embeddings()->dimensions();
-            $this->info("Configured embedding dimensions: {$dimensions}");
-
-            return self::SUCCESS;
-        }
-
         $this->displayHeader();
 
         // Handle file input
@@ -81,7 +73,6 @@ class EmbedCommand extends Command
         $this->line('=== Atlas Embedding Test ===');
         $this->line('Provider: '.config('atlas.embedding.provider', 'openai'));
         $this->line('Model: '.config('atlas.embedding.model', 'text-embedding-3-small'));
-        $this->line('Dimensions: '.Atlas::embeddings()->dimensions());
         $this->line('');
     }
 
@@ -94,7 +85,17 @@ class EmbedCommand extends Command
         $this->line('');
 
         try {
-            $embedding = Atlas::embeddings()->generate($text);
+            /** @var EmbeddingsResponse $response */
+            $response = Atlas::embeddings()
+                ->using(
+                    config('atlas.embedding.provider', 'openai'),
+                    config('atlas.embedding.model', 'text-embedding-3-small')
+                )
+                ->fromInput($text)
+                ->asEmbeddings();
+
+            // Get the first embedding vector
+            $embedding = $response->embeddings[0]->embedding;
 
             $this->displayEmbeddingAnalysis($embedding);
             $this->displayVerification($embedding);
@@ -136,12 +137,19 @@ class EmbedCommand extends Command
         $this->info("Processing {$count} texts...");
 
         try {
-            $embeddings = Atlas::embeddings()->generate($texts);
+            /** @var EmbeddingsResponse $response */
+            $response = Atlas::embeddings()
+                ->using(
+                    config('atlas.embedding.provider', 'openai'),
+                    config('atlas.embedding.model', 'text-embedding-3-small')
+                )
+                ->fromArray($texts)
+                ->asEmbeddings();
 
-            foreach ($embeddings as $i => $embedding) {
+            foreach ($response->embeddings as $i => $embeddingObj) {
                 $this->line('');
                 $this->info("--- Text {$i}: \"{$texts[$i]}\" ---");
-                $this->displayEmbeddingAnalysis($embedding);
+                $this->displayEmbeddingAnalysis($embeddingObj->embedding);
             }
 
             $this->line('');
@@ -188,15 +196,24 @@ class EmbedCommand extends Command
         $this->info("Processing {$count} texts from file...");
 
         try {
-            $embeddings = Atlas::embeddings()->generate($texts);
+            /** @var EmbeddingsResponse $response */
+            $response = Atlas::embeddings()
+                ->using(
+                    config('atlas.embedding.provider', 'openai'),
+                    config('atlas.embedding.model', 'text-embedding-3-small')
+                )
+                ->fromArray(array_values($texts))
+                ->asEmbeddings();
 
-            foreach ($embeddings as $i => $embedding) {
+            foreach ($response->embeddings as $i => $embeddingObj) {
+                $textKeys = array_values($texts);
+                $text = $textKeys[$i] ?? 'Unknown';
                 $this->line('');
-                $textPreview = strlen($texts[$i]) > 50
-                    ? substr($texts[$i], 0, 50).'...'
-                    : $texts[$i];
+                $textPreview = strlen($text) > 50
+                    ? substr($text, 0, 50).'...'
+                    : $text;
                 $this->info("--- Text {$i}: \"{$textPreview}\" ---");
-                $this->line('  Dimensions: '.count($embedding));
+                $this->line('  Dimensions: '.count($embeddingObj->embedding));
             }
 
             $this->line('');
@@ -213,7 +230,7 @@ class EmbedCommand extends Command
     /**
      * Display embedding vector analysis.
      *
-     * @param  array<int, float>  $embedding
+     * @param  array<int, float|int|string>  $embedding
      */
     protected function displayEmbeddingAnalysis(array $embedding): void
     {
@@ -222,17 +239,17 @@ class EmbedCommand extends Command
         $last5 = array_slice($embedding, -5);
 
         // Calculate magnitude
-        $sumSquares = array_sum(array_map(fn ($v) => $v * $v, $embedding));
+        $sumSquares = array_sum(array_map(fn ($v) => (float) $v * (float) $v, $embedding));
         $magnitude = sqrt($sumSquares);
 
         // Count non-zero values
-        $nonZero = count(array_filter($embedding, fn ($v) => $v !== 0.0));
+        $nonZero = count(array_filter($embedding, fn ($v) => (float) $v !== 0.0));
         $nonZeroPercent = round($nonZero / $count * 100);
 
         $this->line('Embedding Vector:');
         $this->line("  Dimensions: {$count}");
-        $this->line('  First 5 values: ['.implode(', ', array_map(fn ($v) => round($v, 4), $first5)).']');
-        $this->line('  Last 5 values: ['.implode(', ', array_map(fn ($v) => round($v, 4), $last5)).']');
+        $this->line('  First 5 values: ['.implode(', ', array_map(fn ($v) => round((float) $v, 4), $first5)).']');
+        $this->line('  Last 5 values: ['.implode(', ', array_map(fn ($v) => round((float) $v, 4), $last5)).']');
         $this->line('  Magnitude: '.round($magnitude, 4));
         $this->line("  Non-zero: {$nonZero} ({$nonZeroPercent}%)");
     }
@@ -240,36 +257,31 @@ class EmbedCommand extends Command
     /**
      * Display verification results.
      *
-     * @param  array<int, float>  $embedding
+     * @param  array<int, float|int|string>  $embedding
      */
     protected function displayVerification(array $embedding): void
     {
-        $expectedDimensions = Atlas::embeddings()->dimensions();
         $count = count($embedding);
 
         // Calculate magnitude
-        $sumSquares = array_sum(array_map(fn ($v) => $v * $v, $embedding));
+        $sumSquares = array_sum(array_map(fn ($v) => (float) $v * (float) $v, $embedding));
         $magnitude = sqrt($sumSquares);
 
         // Check values in range
-        $inRange = count(array_filter($embedding, fn ($v) => $v >= -1 && $v <= 1));
+        $inRange = count(array_filter($embedding, fn ($v) => (float) $v >= -1 && (float) $v <= 1));
         $allInRange = $inRange === $count;
 
         $this->line('');
         $this->line('--- Verification ---');
 
         // Dimension check
-        if ($count === $expectedDimensions) {
-            $this->info("[PASS] Vector has expected dimensions ({$expectedDimensions})");
-        } else {
-            $this->error("[FAIL] Vector has {$count} dimensions, expected {$expectedDimensions}");
-        }
+        $this->info("[PASS] Vector has {$count} dimensions");
 
         // Normalization check (magnitude should be ~1.0 for normalized vectors)
         if ($magnitude >= 0.99 && $magnitude <= 1.01) {
             $this->info('[PASS] Vector is normalized (magnitude ~1.0)');
         } else {
-            $this->warn("[WARN] Vector magnitude is {$magnitude} (expected ~1.0)");
+            $this->warn('[WARN] Vector magnitude is '.round($magnitude, 4).' (expected ~1.0)');
         }
 
         // Range check

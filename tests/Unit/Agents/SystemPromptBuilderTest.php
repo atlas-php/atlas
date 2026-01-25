@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Agents\Services\SystemPromptBuilder;
 use Atlasphp\Atlas\Agents\Support\ExecutionContext;
-use Atlasphp\Atlas\Foundation\Services\PipelineRegistry;
-use Atlasphp\Atlas\Foundation\Services\PipelineRunner;
+use Atlasphp\Atlas\Pipelines\PipelineRegistry;
+use Atlasphp\Atlas\Pipelines\PipelineRunner;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
 use Illuminate\Container\Container;
 
@@ -747,7 +747,7 @@ test('it runs before_build pipeline', function () {
     // Register a handler that modifies variables
     $registry->define('agent.system_prompt.before_build');
 
-    $handler = new class implements \Atlasphp\Atlas\Foundation\Contracts\PipelineContract
+    $handler = new class implements \Atlasphp\Atlas\Contracts\PipelineContract
     {
         public function handle(mixed $data, \Closure $next): mixed
         {
@@ -853,7 +853,7 @@ test('it runs after_build pipeline', function () {
     // Register a handler that modifies the final prompt
     $registry->define('agent.system_prompt.after_build');
 
-    $handler = new class implements \Atlasphp\Atlas\Foundation\Contracts\PipelineContract
+    $handler = new class implements \Atlasphp\Atlas\Contracts\PipelineContract
     {
         public function handle(mixed $data, \Closure $next): mixed
         {

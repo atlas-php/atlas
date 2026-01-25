@@ -8,10 +8,12 @@ use Atlasphp\Atlas\Agents\Services\AgentExecutor;
 use Atlasphp\Atlas\Agents\Services\AgentRegistry;
 use Atlasphp\Atlas\Agents\Services\AgentResolver;
 use Atlasphp\Atlas\Agents\Services\SystemPromptBuilder;
-use Atlasphp\Atlas\Agents\Support\AgentResponse;
 use Atlasphp\Atlas\Agents\Support\ExecutionContext;
-use Atlasphp\Atlas\Providers\Contracts\PrismBuilderContract;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Testing\TextResponseFake;
+use Prism\Prism\Text\Response as PrismResponse;
+use Prism\Prism\ValueObjects\Usage;
 
 test('it registers agent services in container', function () {
     expect(app(AgentRegistryContract::class))->toBeInstanceOf(AgentRegistry::class);
@@ -67,42 +69,19 @@ test('system prompt builder interpolates variables', function () {
     expect($prompt)->toContain('Help Jane');
 });
 
-test('agent executor integrates with mocked prism', function () {
-    // Mock the PrismBuilder response
-    $mockResponse = new class
-    {
-        public ?string $text = 'Mocked response';
-
-        public array $toolCalls = [];
-
-        public object $finishReason;
-
-        public function __construct()
-        {
-            $this->finishReason = new class
-            {
-                public string $value = 'stop';
-            };
-        }
-    };
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTool')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
-
-    $prismBuilder = Mockery::mock(PrismBuilderContract::class);
-    $prismBuilder->shouldReceive('forPrompt')->andReturn($mockPendingRequest);
-
-    app()->instance(PrismBuilderContract::class, $prismBuilder);
+test('agent executor integrates with Prism', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Mocked response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
 
     $executor = app(AgentExecutorContract::class);
     $agent = new TestAgent;
+    $context = new ExecutionContext;
 
-    $response = $executor->execute($agent, 'Hello');
+    $response = $executor->execute($agent, 'Hello', $context);
 
-    expect($response)->toBeInstanceOf(AgentResponse::class);
+    expect($response)->toBeInstanceOf(PrismResponse::class);
     expect($response->text)->toBe('Mocked response');
 });

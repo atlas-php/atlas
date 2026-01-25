@@ -4,15 +4,18 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Agents\Contracts\AgentContract;
 use Atlasphp\Atlas\Agents\Exceptions\AgentException;
+use Atlasphp\Atlas\Agents\Services\AgentExtensionRegistry;
 use Atlasphp\Atlas\Agents\Services\AgentRegistry;
 use Atlasphp\Atlas\Agents\Services\AgentResolver;
+use Atlasphp\Atlas\Agents\Support\AgentDecorator;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
 use Illuminate\Container\Container;
 
 beforeEach(function () {
     $this->container = new Container;
     $this->registry = new AgentRegistry($this->container);
-    $this->resolver = new AgentResolver($this->registry, $this->container);
+    $this->extensionRegistry = new AgentExtensionRegistry;
+    $this->resolver = new AgentResolver($this->registry, $this->container, $this->extensionRegistry);
 });
 
 test('it passes through agent instance', function () {
@@ -70,6 +73,41 @@ test('it throws InvalidAgentException when class does not implement AgentContrac
     $this->resolver->resolve($class);
 })->throws(\Atlasphp\Atlas\Agents\Exceptions\InvalidAgentException::class);
 
+test('it applies decorators when resolving instance', function () {
+    $this->extensionRegistry->registerDecorator(new ResolverTestDecorator);
+
+    $agent = new TestAgent;
+    $resolved = $this->resolver->resolve($agent);
+
+    expect($resolved->key())->toBe('decorated:test-agent');
+});
+
+test('it applies decorators when resolving from registry', function () {
+    $this->extensionRegistry->registerDecorator(new ResolverTestDecorator);
+    $this->registry->register(TestAgent::class);
+
+    $resolved = $this->resolver->resolve('test-agent');
+
+    expect($resolved->key())->toBe('decorated:test-agent');
+});
+
+test('it applies decorators when resolving from container', function () {
+    $this->extensionRegistry->registerDecorator(new ResolverTestDecorator);
+
+    $resolved = $this->resolver->resolve(TestAgent::class);
+
+    expect($resolved->key())->toBe('decorated:test-agent');
+});
+
+test('it works without extension registry', function () {
+    $resolver = new AgentResolver($this->registry, $this->container);
+
+    $agent = new TestAgent;
+    $resolved = $resolver->resolve($agent);
+
+    expect($resolved)->toBe($agent);
+});
+
 // Test helper classes
 
 class AgentWithUnresolvableDependency
@@ -88,4 +126,17 @@ class UnresolvableService
 class NotAnAgent
 {
     public function doSomething(): void {}
+}
+
+class ResolverTestDecorator extends AgentDecorator
+{
+    public function appliesTo(AgentContract $agent): bool
+    {
+        return true;
+    }
+
+    public function key(): string
+    {
+        return 'decorated:'.$this->agent->key();
+    }
 }

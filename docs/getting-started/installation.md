@@ -17,10 +17,14 @@ composer require atlas-php/atlas
 ## Publish Configuration
 
 ```bash
+# Publish Atlas configuration
 php artisan vendor:publish --tag=atlas-config
+
+# Publish Prism configuration (if not already published)
+php artisan vendor:publish --tag=prism-config
 ```
 
-This creates `config/atlas.php` with all configurable options.
+This creates `config/atlas.php` and `config/prism.php` with all configurable options.
 
 ## Configure Provider Credentials
 
@@ -39,7 +43,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 Test that Atlas is working correctly:
 
 ```php
-use Atlasphp\Atlas\Providers\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 
 // Test embedding generation
 $embedding = Atlas::embeddings()->generate('Hello, world!');
@@ -83,7 +87,7 @@ class SupportAgent extends AgentDefinition
 
 ```php
 use Atlasphp\Atlas\Agents\Contracts\AgentRegistryContract;
-use Atlasphp\Atlas\Providers\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 
 // Register in a service provider
 $registry = app(AgentRegistryContract::class);
@@ -101,9 +105,11 @@ $response = Atlas::agent('support')
 
 If you see "Provider not configured" errors:
 
-1. Ensure the provider key in config matches exactly (e.g., `openai`, not `OpenAI`)
-2. Verify the API key environment variable is set
+1. Ensure you've published Prism config: `php artisan vendor:publish --tag=prism-config`
+2. Verify the API key environment variable is set in `.env`
 3. Run `php artisan config:clear` after changes
+
+Provider configuration is handled by Prism. See [Prism Configuration](https://prismphp.com/getting-started/configuration.html) for details.
 
 ### Rate Limiting
 
@@ -120,5 +126,5 @@ composer dump-autoload
 ## Next Steps
 
 - [Configuration](/getting-started/configuration) — Complete configuration reference
-- [Creating Agents](/guides/creating-agents) — Build your first AI agent
-- [Creating Tools](/guides/creating-tools) — Add callable tools for agents
+- [Agents](/core-concepts/agents) — Build your first AI agent
+- [Tools](/core-concepts/tools) — Add callable tools for agents

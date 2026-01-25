@@ -6,7 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\ThreadStorageService;
 use Atlasphp\Atlas\Agents\Contracts\AgentRegistryContract;
-use Atlasphp\Atlas\Providers\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 use Illuminate\Console\Command;
 
 /**
@@ -207,7 +207,7 @@ class ChatCommand extends Command
                 // Add both messages to history after successful response
                 $thread = $storage->addMessage($thread, 'user', $input);
                 $thread = $storage->addMessage($thread, 'assistant', $text);
-                $thread = $storage->addTokens($thread, $response->totalTokens());
+                $thread = $storage->addTokens($thread, $response->usage->promptTokens + $response->usage->completionTokens);
                 $storage->save($thread);
 
                 // Display response
@@ -253,19 +253,19 @@ class ChatCommand extends Command
     /**
      * Display response details.
      *
-     * @param  \Atlasphp\Atlas\Agents\Support\AgentResponse  $response
+     * @param  \Prism\Prism\Text\Response  $response
      */
     protected function displayResponseDetails($response): void
     {
         $this->line('--- Response Details ---');
         $this->line(sprintf(
             'Tokens: %d prompt / %d completion / %d total',
-            $response->promptTokens(),
-            $response->completionTokens(),
-            $response->totalTokens(),
+            $response->usage->promptTokens,
+            $response->usage->completionTokens,
+            $response->usage->promptTokens + $response->usage->completionTokens,
         ));
 
-        $finishReason = $response->get('finish_reason', 'unknown');
+        $finishReason = $response->finishReason->value ?? 'unknown';
         $this->line("Finish: {$finishReason}");
 
         $toolCallCount = count($response->toolCalls);

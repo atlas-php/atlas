@@ -1,0 +1,30 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    paths:
+        - app/Console
+        - app/Providers
+        - app/Services
+    # Level 4 is appropriate for sandbox testing code
+    level: 4
+    ignoreErrors:
+        # Atlas classes come from a path repository and aren't always resolved
+        - '#unknown class Atlasphp\\Atlas#'
+        - '#Class Atlasphp\\Atlas\\.+ not found#'
+        - '#Call to an undefined method Atlasphp\\Atlas#'
+        - '#has invalid type Atlasphp\\Atlas#'
+        # env() calls in sandbox commands are acceptable for testing
+        - identifier: larastan.noEnvCallsOutsideOfConfig
+        # Comparison warnings
+        - identifier: greater.alwaysTrue
+        - identifier: notIdentical.alwaysTrue
+        # Property access on response
+        - identifier: property.notFound
+        # Null coalescing on always-set offsets (common in sandbox code)
+        - identifier: isset.offset
+        - identifier: nullCoalesce.expr
+        # Method void result usage
+        - identifier: method.void
+    # Report unmatched ignores is noisy when classes can't be resolved
+    reportUnmatchedIgnoredErrors: false

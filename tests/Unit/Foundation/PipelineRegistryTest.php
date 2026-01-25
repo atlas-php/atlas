@@ -2,8 +2,10 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Foundation\Contracts\PipelineContract;
-use Atlasphp\Atlas\Foundation\Services\PipelineRegistry;
+use Atlasphp\Atlas\Contracts\PipelineContract;
+use Atlasphp\Atlas\Pipelines\ConditionalPipelineHandler;
+use Atlasphp\Atlas\Pipelines\PipelineRegistry;
+use Illuminate\Container\Container;
 
 beforeEach(function () {
     $this->registry = new PipelineRegistry;
@@ -113,6 +115,55 @@ test('it supports method chaining', function () {
         ->setActive('test.pipeline', true);
 
     expect($result)->toBeInstanceOf(PipelineRegistry::class);
+});
+
+test('it can set container', function () {
+    $container = new Container;
+
+    $result = $this->registry->setContainer($container);
+
+    expect($result)->toBeInstanceOf(PipelineRegistry::class);
+});
+
+test('it can register conditional handler with registerWhen', function () {
+    $condition = fn (array $data) => ($data['premium'] ?? false) === true;
+
+    $this->registry->registerWhen('test.pipeline', TestPipelineHandler::class, $condition);
+
+    expect($this->registry->has('test.pipeline'))->toBeTrue();
+
+    $handlers = $this->registry->get('test.pipeline');
+    expect($handlers)->toHaveCount(1);
+    expect($handlers[0])->toBeInstanceOf(ConditionalPipelineHandler::class);
+});
+
+test('registerWhen respects priority', function () {
+    $condition = fn ($data) => true;
+
+    $this->registry->registerWhen('test.pipeline', TestPipelineHandler::class, $condition, priority: 100);
+    $this->registry->register('test.pipeline', LowPriorityHandler::class, priority: 10);
+
+    $handlers = $this->registry->get('test.pipeline');
+
+    // Conditional handler has higher priority, should be first
+    expect($handlers[0])->toBeInstanceOf(ConditionalPipelineHandler::class);
+    expect($handlers[1])->toBe(LowPriorityHandler::class);
+});
+
+test('registerWhen returns self for chaining', function () {
+    $condition = fn ($data) => true;
+
+    $result = $this->registry->registerWhen('test.pipeline', TestPipelineHandler::class, $condition);
+
+    expect($result)->toBe($this->registry);
+});
+
+test('setContainer returns self for chaining', function () {
+    $container = new Container;
+
+    $result = $this->registry->setContainer($container);
+
+    expect($result)->toBe($this->registry);
 });
 
 // Test Handler Classes

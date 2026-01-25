@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Foundation\Services\PipelineRegistry;
-use Atlasphp\Atlas\Foundation\Services\PipelineRunner;
+use Atlasphp\Atlas\Pipelines\PipelineRegistry;
+use Atlasphp\Atlas\Pipelines\PipelineRunner;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
 use Atlasphp\Atlas\Tests\Fixtures\TestTool;
 use Atlasphp\Atlas\Tools\Services\ToolBuilder;
@@ -15,12 +15,12 @@ use Prism\Prism\Tool as PrismTool;
 
 beforeEach(function () {
     $this->container = new Container;
-    $registry = new PipelineRegistry;
-    $runner = new PipelineRunner($registry, $this->container);
+    $this->pipelineRegistry = new PipelineRegistry;
+    $this->pipelineRunner = new PipelineRunner($this->pipelineRegistry, $this->container);
 
     $this->toolRegistry = new ToolRegistry($this->container);
-    $this->executor = new ToolExecutor($runner);
-    $this->builder = new ToolBuilder($this->toolRegistry, $this->executor, $this->container);
+    $this->executor = new ToolExecutor($this->pipelineRunner);
+    $this->builder = new ToolBuilder($this->toolRegistry, $this->executor, $this->container, $this->pipelineRunner);
 });
 
 test('it builds tools for agent', function () {
@@ -185,3 +185,184 @@ test('manually built tool includes parameters', function () {
     // Should have 2 parameters
     expect($parameters)->toHaveCount(2);
 });
+
+test('tool implementing ConfiguresPrismTool has configurePrismTool called', function () {
+    $tool = new \Atlasphp\Atlas\Tests\Fixtures\ConfigurableToolContract;
+    $context = new ToolContext;
+
+    $tools = $this->builder->buildFromInstances([$tool], $context);
+    $prismTool = $tools[0];
+
+    // Get providerOptions via reflection to verify configurePrismTool was called
+    $reflection = new ReflectionClass($prismTool);
+    $optionsProperty = $reflection->getProperty('providerOptions');
+    $optionsProperty->setAccessible(true);
+    $options = $optionsProperty->getValue($prismTool);
+
+    // ConfigurableToolContract sets custom_option => true
+    expect($options)->toBe(['custom_option' => true]);
+});
+
+test('ConfiguresPrismTool is only called for non-ToolDefinition tools', function () {
+    // ToolDefinition tools use toPrismTool() directly
+    // ConfiguresPrismTool is called in buildPrismToolManually()
+    $tool = new \Atlasphp\Atlas\Tests\Fixtures\ConfigurableToolContract;
+    $context = new ToolContext;
+
+    // This should work without errors
+    $tools = $this->builder->buildFromInstances([$tool], $context);
+
+    expect($tools)->toHaveCount(1);
+    expect($tools[0])->toBeInstanceOf(PrismTool::class);
+});
+
+test('it runs tool.before_resolve pipeline', function () {
+    ToolBeforeResolveCapturingHandler::reset();
+
+    $this->pipelineRegistry->define('tool.before_resolve');
+    $this->pipelineRegistry->register('tool.before_resolve', ToolBeforeResolveCapturingHandler::class);
+
+    $agent = new TestAgent;
+    $context = new ToolContext;
+
+    $this->builder->buildForAgent($agent, $context);
+
+    expect(ToolBeforeResolveCapturingHandler::$called)->toBeTrue();
+    expect(ToolBeforeResolveCapturingHandler::$data['agent'])->toBe($agent);
+    expect(ToolBeforeResolveCapturingHandler::$data['context'])->toBe($context);
+    expect(ToolBeforeResolveCapturingHandler::$data['tool_classes'])->toBe([TestTool::class]);
+});
+
+test('tool.before_resolve pipeline can filter tools', function () {
+    ToolFilteringHandler::reset();
+
+    $this->pipelineRegistry->define('tool.before_resolve');
+    $this->pipelineRegistry->register('tool.before_resolve', ToolFilteringHandler::class);
+
+    $agent = new TestAgent;
+    $context = new ToolContext;
+
+    $tools = $this->builder->buildForAgent($agent, $context);
+
+    // Tool was filtered out by pipeline
+    expect($tools)->toBe([]);
+});
+
+test('it runs tool.after_resolve pipeline', function () {
+    ToolAfterResolveCapturingHandler::reset();
+
+    $this->pipelineRegistry->define('tool.after_resolve');
+    $this->pipelineRegistry->register('tool.after_resolve', ToolAfterResolveCapturingHandler::class);
+
+    $agent = new TestAgent;
+    $context = new ToolContext;
+
+    $this->builder->buildForAgent($agent, $context);
+
+    expect(ToolAfterResolveCapturingHandler::$called)->toBeTrue();
+    expect(ToolAfterResolveCapturingHandler::$data['agent'])->toBe($agent);
+    expect(ToolAfterResolveCapturingHandler::$data['context'])->toBe($context);
+    expect(ToolAfterResolveCapturingHandler::$data['tool_classes'])->toBe([TestTool::class]);
+    expect(ToolAfterResolveCapturingHandler::$data['prism_tools'])->toHaveCount(1);
+    expect(ToolAfterResolveCapturingHandler::$data['prism_tools'][0])->toBeInstanceOf(PrismTool::class);
+});
+
+test('tool.after_resolve pipeline can modify prism_tools', function () {
+    ToolAfterModifyingHandler::reset();
+
+    $this->pipelineRegistry->define('tool.after_resolve');
+    $this->pipelineRegistry->register('tool.after_resolve', ToolAfterModifyingHandler::class);
+
+    $agent = new TestAgent;
+    $context = new ToolContext;
+
+    $tools = $this->builder->buildForAgent($agent, $context);
+
+    // Tool array was cleared by pipeline
+    expect($tools)->toBe([]);
+});
+
+// Pipeline Handler Classes for Tests
+
+use Atlasphp\Atlas\Contracts\PipelineContract;
+use Closure;
+
+class ToolBeforeResolveCapturingHandler implements PipelineContract
+{
+    public static bool $called = false;
+
+    public static ?array $data = null;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+        self::$data = null;
+    }
+
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        self::$called = true;
+        self::$data = $data;
+
+        return $next($data);
+    }
+}
+
+class ToolFilteringHandler implements PipelineContract
+{
+    public static bool $called = false;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+    }
+
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        self::$called = true;
+        // Filter out all tools
+        $data['tool_classes'] = [];
+
+        return $next($data);
+    }
+}
+
+class ToolAfterResolveCapturingHandler implements PipelineContract
+{
+    public static bool $called = false;
+
+    public static ?array $data = null;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+        self::$data = null;
+    }
+
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        self::$called = true;
+        self::$data = $data;
+
+        return $next($data);
+    }
+}
+
+class ToolAfterModifyingHandler implements PipelineContract
+{
+    public static bool $called = false;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+    }
+
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        self::$called = true;
+        // Clear all prism tools
+        $data['prism_tools'] = [];
+
+        return $next($data);
+    }
+}

@@ -129,7 +129,7 @@ trait HasFakeAssertions
     public function assertSentWithSchema(): void
     {
         $this->assertSent(function (RecordedRequest $request): bool {
-            return $request->hasSchema();
+            return $request->hasPrismCall('withSchema');
         });
     }
 

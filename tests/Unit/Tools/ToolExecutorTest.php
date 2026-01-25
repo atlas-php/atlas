@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Foundation\Services\PipelineRegistry;
-use Atlasphp\Atlas\Foundation\Services\PipelineRunner;
+use Atlasphp\Atlas\Pipelines\PipelineRegistry;
+use Atlasphp\Atlas\Pipelines\PipelineRunner;
 use Atlasphp\Atlas\Tests\Fixtures\TestTool;
 use Atlasphp\Atlas\Tools\Contracts\ToolContract;
 use Atlasphp\Atlas\Tools\Services\ToolExecutor;
@@ -261,7 +261,7 @@ test('it runs tool.on_error pipeline when tool throws ToolException', function (
 
 // Pipeline Handler Class for Tests
 
-class ToolErrorCapturingHandler implements \Atlasphp\Atlas\Foundation\Contracts\PipelineContract
+class ToolErrorCapturingHandler implements \Atlasphp\Atlas\Contracts\PipelineContract
 {
     public static bool $called = false;
 

@@ -2,91 +2,226 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Agents\Support\AgentResponse;
+use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
+use Atlasphp\Atlas\Agents\Support\ExecutionContext;
 use Atlasphp\Atlas\Testing\AtlasFake;
-use Atlasphp\Atlas\Testing\PendingFakeRequest;
-use Atlasphp\Atlas\Testing\Support\StreamEventFactory;
+use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
 use Illuminate\Container\Container;
+use Illuminate\Support\Collection;
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Text\Response as PrismResponse;
+use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\Usage;
+
+function createPendingFakeTestResponse(string $text): PrismResponse
+{
+    return new PrismResponse(
+        steps: new Collection,
+        text: $text,
+        finishReason: FinishReason::Stop,
+        toolCalls: [],
+        toolResults: [],
+        usage: new Usage(10, 20),
+        meta: new Meta('req-123', 'gpt-4'),
+        messages: new Collection,
+    );
+}
 
 beforeEach(function () {
     $this->container = new Container;
     $this->fake = new AtlasFake($this->container);
+    $this->agent = new TestAgent;
+    $this->context = new ExecutionContext;
 });
 
-test('return with AgentResponse registers sequence and returns AtlasFake', function () {
-    $pending = new PendingFakeRequest($this->fake, 'test-agent');
+// === return ===
 
-    $result = $pending->return(AgentResponse::text('Hello'));
+test('return registers single response', function () {
+    $response = createPendingFakeTestResponse('Single response');
+
+    $this->fake
+        ->response('test-agent')
+        ->return($response);
+
+    $this->fake->activate();
+
+    $executor = $this->container->make(AgentExecutorContract::class);
+    $result = $executor->execute($this->agent, 'Hi', $this->context);
+
+    expect($result->text)->toBe('Single response');
+});
+
+test('return returns AtlasFake for chaining', function () {
+    $response = createPendingFakeTestResponse('Response');
+
+    $result = $this->fake
+        ->response('test-agent')
+        ->return($response);
 
     expect($result)->toBe($this->fake);
 });
 
-test('return with StreamResponse registers sequence', function () {
-    $pending = new PendingFakeRequest($this->fake, 'test-agent');
-    $streamResponse = StreamEventFactory::fromText('Streamed');
-
-    $result = $pending->return($streamResponse);
-
-    expect($result)->toBe($this->fake);
-});
+// === returnSequence ===
 
 test('returnSequence registers multiple responses', function () {
-    $pending = new PendingFakeRequest($this->fake, 'test-agent');
+    $response1 = createPendingFakeTestResponse('First');
+    $response2 = createPendingFakeTestResponse('Second');
+    $response3 = createPendingFakeTestResponse('Third');
 
-    $result = $pending->returnSequence([
-        AgentResponse::text('First'),
-        AgentResponse::text('Second'),
-        AgentResponse::text('Third'),
-    ]);
+    $this->fake
+        ->response('test-agent')
+        ->returnSequence([$response1, $response2, $response3]);
+
+    $this->fake->activate();
+
+    $executor = $this->container->make(AgentExecutorContract::class);
+
+    expect($executor->execute($this->agent, 'Hi', $this->context)->text)->toBe('First');
+    expect($executor->execute($this->agent, 'Hi', $this->context)->text)->toBe('Second');
+    expect($executor->execute($this->agent, 'Hi', $this->context)->text)->toBe('Third');
+});
+
+test('returnSequence returns AtlasFake for chaining', function () {
+    $result = $this->fake
+        ->response('test-agent')
+        ->returnSequence([]);
 
     expect($result)->toBe($this->fake);
 });
 
-test('throw registers exception and returns AtlasFake', function () {
-    $pending = new PendingFakeRequest($this->fake, 'test-agent');
+// === throw ===
+
+test('throw registers exception', function () {
     $exception = new RuntimeException('Test error');
 
-    $result = $pending->throw($exception);
+    $this->fake
+        ->response('test-agent')
+        ->throw($exception);
+
+    $this->fake->activate();
+
+    $executor = $this->container->make(AgentExecutorContract::class);
+    $executor->execute($this->agent, 'Hi', $this->context);
+})->throws(RuntimeException::class, 'Test error');
+
+test('throw returns AtlasFake for chaining', function () {
+    $exception = new RuntimeException('Error');
+
+    $result = $this->fake
+        ->response('test-agent')
+        ->throw($exception);
 
     expect($result)->toBe($this->fake);
 });
 
-test('whenEmpty sets fallback response and returns self', function () {
-    $pending = new PendingFakeRequest($this->fake, 'test-agent');
+// === whenEmpty ===
 
-    $result = $pending->whenEmpty(AgentResponse::text('Fallback'));
+test('whenEmpty sets fallback response', function () {
+    $response = createPendingFakeTestResponse('Initial');
+    $fallback = createPendingFakeTestResponse('Fallback');
 
-    expect($result)->toBe($pending);
+    $this->fake
+        ->response('test-agent')
+        ->whenEmpty($fallback)
+        ->return($response);
+
+    $this->fake->activate();
+
+    $executor = $this->container->make(AgentExecutorContract::class);
+
+    // First call gets initial response
+    expect($executor->execute($this->agent, 'Hi', $this->context)->text)->toBe('Initial');
+
+    // Subsequent calls get fallback
+    expect($executor->execute($this->agent, 'Hi', $this->context)->text)->toBe('Fallback');
+    expect($executor->execute($this->agent, 'Hi', $this->context)->text)->toBe('Fallback');
 });
 
-test('whenEmpty with exception sets fallback', function () {
-    $pending = new PendingFakeRequest($this->fake, 'test-agent');
+test('whenEmpty sets fallback exception', function () {
+    $response = createPendingFakeTestResponse('Initial');
     $exception = new RuntimeException('Exhausted');
 
-    $result = $pending->whenEmpty($exception);
+    $this->fake
+        ->response('test-agent')
+        ->whenEmpty($exception)
+        ->return($response);
+
+    $this->fake->activate();
+
+    $executor = $this->container->make(AgentExecutorContract::class);
+
+    // First call succeeds
+    $executor->execute($this->agent, 'Hi', $this->context);
+
+    // Second call throws
+    $executor->execute($this->agent, 'Hi', $this->context);
+})->throws(RuntimeException::class, 'Exhausted');
+
+test('whenEmpty returns self for chaining', function () {
+    $fallback = createPendingFakeTestResponse('Fallback');
+
+    $pending = $this->fake->response('test-agent');
+    $result = $pending->whenEmpty($fallback);
 
     expect($result)->toBe($pending);
 });
 
-test('chained whenEmpty and return works', function () {
-    $pending = new PendingFakeRequest($this->fake, 'test-agent');
+// === Chaining ===
 
-    $result = $pending
-        ->whenEmpty(AgentResponse::text('Fallback'))
-        ->return(AgentResponse::text('First'));
+test('fluent API allows full configuration', function () {
+    $response1 = createPendingFakeTestResponse('First');
+    $response2 = createPendingFakeTestResponse('Second');
+    $fallback = createPendingFakeTestResponse('Fallback');
 
-    expect($result)->toBe($this->fake);
+    $this->fake
+        ->response('test-agent')
+        ->whenEmpty($fallback)
+        ->returnSequence([$response1, $response2]);
+
+    $this->fake->activate();
+
+    $executor = $this->container->make(AgentExecutorContract::class);
+
+    expect($executor->execute($this->agent, 'Hi', $this->context)->text)->toBe('First');
+    expect($executor->execute($this->agent, 'Hi', $this->context)->text)->toBe('Second');
+    expect($executor->execute($this->agent, 'Hi', $this->context)->text)->toBe('Fallback');
 });
 
-test('chained whenEmpty and returnSequence works', function () {
-    $pending = new PendingFakeRequest($this->fake, 'test-agent');
+test('multiple agents can be configured', function () {
+    $response1 = createPendingFakeTestResponse('Agent 1 response');
+    $response2 = createPendingFakeTestResponse('Agent 2 response');
 
-    $result = $pending
-        ->whenEmpty(AgentResponse::text('Fallback'))
-        ->returnSequence([
-            AgentResponse::text('First'),
-            AgentResponse::text('Second'),
-        ]);
+    $this->fake
+        ->response('test-agent')
+        ->return($response1);
 
-    expect($result)->toBe($this->fake);
+    $this->fake
+        ->response('other-agent')
+        ->return($response2);
+
+    $this->fake->activate();
+
+    $executor = $this->container->make(AgentExecutorContract::class);
+
+    $agent1 = new TestAgent;
+    $agent2 = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    {
+        public function key(): string
+        {
+            return 'other-agent';
+        }
+
+        public function provider(): string
+        {
+            return 'openai';
+        }
+
+        public function model(): string
+        {
+            return 'gpt-4';
+        }
+    };
+
+    expect($executor->execute($agent1, 'Hi', $this->context)->text)->toBe('Agent 1 response');
+    expect($executor->execute($agent2, 'Hi', $this->context)->text)->toBe('Agent 2 response');
 });

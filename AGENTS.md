@@ -8,8 +8,8 @@
 
 **These rules are non-negotiable. Violations will result in rejected work.**
 
-1. **Read documentation first** – Before working on any module, read the relevant PRD and SPEC
-2. **Documentation is the source of truth** – PRDs and SPECs override all assumptions
+1. **Read documentation first** – Before working on any module, read the relevant documentation
+2. **Documentation is the source of truth** – Documentation overrides all assumptions
 3. **Run `composer check` before submitting code changes** – All lint, analyse, and test checks must pass (not required for documentation-only changes)
 4. **Update documentation when code changes** – Keep docs in sync with implementation
 5. **No function-level namespace imports** – Never use `use function json_decode;`
@@ -20,20 +20,49 @@
 
 ---
 
+## Atlas and Prism Philosophy
+
+Atlas is a **Prism complement** that adds application-level AI concerns. It does NOT replace Prism—it enhances it.
+
+### Key Principles
+
+1. **Defer to Prism** — Atlas wraps Prism, never replaces it
+2. **Users access Prism directly** — All Prism methods remain available through Atlas
+3. **No feature duplication** — If Prism does it, don't rebuild it
+
+### Atlas Unique Value (document fully)
+
+| Feature | Description |
+|---------|-------------|
+| Agent Registry | Define agents once, resolve by key/class/instance |
+| Tool Registry | Register tools, resolve by name, attach to agents |
+| System Prompts | Variable interpolation ({var_name}), SystemPromptBuilder |
+| Pipelines | Before/after hooks for observability and extension |
+| ExecutionContext | Stateless context carrier with media support |
+| Testing | AtlasFake for agent testing without API calls |
+
+### Prism Handles (link, don't document)
+
+- Text generation, Chat responses
+- Tool/function calling syntax and execution
+- Structured output and schemas
+- Streaming implementation
+- Embeddings, Images, Audio, Moderation
+- Provider configuration
+- Error handling and rate limits
+
+---
+
 ## Documentation
 
-**Before working on any module, read the relevant documentation:**
+**Public documentation:** VitePress site at [atlasphp.io](https://atlasphp.io)
 
-| Resource         | Description                             |
-|------------------|-----------------------------------------|
-| `docs/README.md` | Documentation index and quick links     |
-| `docs/spec/`     | Technical specifications (how it works) |
-
-**When writing or updating documentation:**  
-Read `docs/RULES-DOCUMENTATION.md` first.
-
-**When asked to review code:**  
-Read `docs/RULES-REVIEW.md` first.
+**Key documentation files:**
+- `docs/getting-started/` — Installation and configuration
+- `docs/core-concepts/` — Agents, Tools, Pipelines, System Prompts
+- `docs/capabilities/` — Chat, Streaming, Embeddings, etc.
+- `docs/guides/` — How-to guides
+- `docs/api-reference/` — Full API documentation
 
 ---
 
@@ -43,7 +72,7 @@ Read `docs/RULES-REVIEW.md` first.
 2. Use **strict types** and modern **PHP 8.2+** syntax
 3. All code must be **stateless**, **framework-aware**, and **application-agnostic**
 4. Keep everything **self-contained** with no hard dependency on a consuming app
-5. Always reference **PRDs** for functional requirements and naming accuracy
+5. Always reference **documentation** for functional requirements and naming accuracy
 6. Write clear, testable, deterministic code
 7. Every class must include a **PHPDoc block** summarizing its purpose
 8. **Program to interfaces, not implementations**, when multiple implementations or testing seams are required
@@ -71,10 +100,12 @@ package-root/
 ├── composer.json
 ├── AGENTS.md
 ├── README.md
-├── docs/
-│   ├── README.md
-│   ├── spec/
-│   └── proposals/
+├── docs/                 # VitePress documentation
+│   ├── getting-started/
+│   ├── core-concepts/
+│   ├── capabilities/
+│   ├── guides/
+│   └── api-reference/
 ├── src/
 │   ├── Agents/
 │   ├── Contracts/
@@ -153,7 +184,7 @@ When creating a new domain module:
 2. Add subdirectories as needed: `Enums/`, `Models/`, `Services/`, `Events/`, etc.
 3. Register services in the package service provider
 4. Create corresponding test directories under `tests/Unit/{Module}/` and `tests/Feature/`
-5. Document the module in `docs/spec/SPEC-{Module}.md`
+5. Document the module in the appropriate VitePress docs section
 
 ---
 
@@ -278,7 +309,7 @@ class AgentModelService
 **Purpose:** Implements business logic and orchestrates workflows.
 
 **Allowed:**
-- Implementing PRD use cases
+- Implementing documented use cases
 - Orchestrating multiple model services
 - Managing database transactions
 - Dispatching events and jobs
@@ -443,7 +474,7 @@ class TokenCounter
 - Multiple implementations exist or are planned (e.g., provider clients)
 - Testing requires substituting a mock or fake
 - The dependency crosses a package/module boundary
-- PRD explicitly requires extensibility
+- Requirements explicitly specify extensibility
 
 **Don’t create a contract when:**
 - Only one implementation exists and none are planned
@@ -526,7 +557,7 @@ class ProcessAgentResponseService
 
 - Short, descriptive, predictable
 - Boolean methods prefixed with `is`, `has`, or `can`
-- Must match PRD terminology
+- Must match documented terminology
 - Action methods use verbs: `create`, `execute`, `process`
 
 ---
@@ -666,7 +697,7 @@ This runs Pint, PHPStan, and Pest in sequence. If any check fails, the command s
 
 **For code changes:**
 1. Run `composer check` – all checks must pass
-2. Confirm PRD alignment
+2. Confirm documentation alignment
 3. Remove debugging and unused imports
 4. Verify all classes include required PHPDoc
 5. Update documentation if behavior changed
@@ -676,22 +707,20 @@ This runs Pint, PHPStan, and Pest in sequence. If any check fails, the command s
 9. **Verify code is testable** – no hidden dependencies or excessive mocking required
 10. **Check for N+1 queries** – use eager loading where appropriate
 
-**For documentation-only changes:** `composer check` is not required. Simply ensure the documentation is accurate, follows `docs/RULES-DOCUMENTATION.md`, and links are valid.
+**For documentation-only changes:** `composer check` is not required. Simply ensure the documentation is accurate and links are valid.
 
 ---
 
 ## Documentation Maintenance
 
-**Before updating documentation, read `docs/RULES-DOCUMENTATION.md`.**
-
 | Code Change         | Documentation Update                                 |
 |---------------------|------------------------------------------------------|
-| Adding a feature    | Update relevant SPEC                                 |
-| Changing behavior   | Update SPEC immediately, PRD if requirements changed |
-| Adding a new module | Create PRD and SPEC documents                        |
+| Adding a feature    | Update relevant VitePress docs                       |
+| Changing behavior   | Update docs immediately                              |
+| Adding a new module | Add documentation to appropriate section             |
 | Fixing a bug        | No docs update unless behavior was misdocumented     |
 | Deprecating         | Mark as deprecated in docs, add migration notes      |
-| Removing            | Remove from docs completely (no “removed” comments)  |
+| Removing            | Remove from docs completely (no "removed" comments)  |
 
 ### Documentation Quality
 
@@ -699,14 +728,13 @@ This runs Pint, PHPStan, and Pest in sequence. If any check fails, the command s
 - Cross-references must use relative links
 - No duplicate content across files
 - Keep documentation in sync with implementation
+- For Prism-level features, link to Prism documentation instead of duplicating
 
 ---
 
 ## Code Reviews
 
 **Code reviews are only performed when explicitly requested by the user.**
-
-When asked for a review (e.g., “review this code”, “check for bugs”, “performance review”), follow the guidelines in `docs/RULES-REVIEW.md`.
 
 ### Review Types
 
@@ -734,12 +762,10 @@ When asked for a review (e.g., “review this code”, “check for bugs”, “
 
 1. Follow this guide precisely
 2. Read relevant module documentation before coding
-3. Use PRDs and SPECs as the source of truth
+3. Use documentation as the source of truth
 4. Complete all quality checks
 5. Update documentation when code changes
-6. Read `docs/RULES-DOCUMENTATION.md` before updating any documentation
-7. Read `docs/RULES-REVIEW.md` before performing code reviews
-8. Request clarification when documentation is incomplete
+6. Request clarification when documentation is incomplete
 9. Avoid any direct vendor edits
 10. **Respect all layer boundaries without exception**
 11. **Use dependency injection for all service dependencies**

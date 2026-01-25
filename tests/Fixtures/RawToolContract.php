@@ -28,8 +28,8 @@ class RawToolContract implements ToolContract
     public function parameters(): array
     {
         return [
-            ToolParameter::string('query', 'The search query', required: true),
-            ToolParameter::integer('limit', 'Maximum results', required: false),
+            ToolParameter::string('query', 'The search query'),
+            ToolParameter::integer('limit', 'Maximum results'),
         ];
     }
 

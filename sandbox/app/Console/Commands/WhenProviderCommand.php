@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use Atlasphp\Atlas\Providers\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 use Illuminate\Console\Command;
+use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
 use Prism\Prism\Enums\Provider;
+use Prism\Prism\Images\Response as ImageResponse;
 
 /**
  * Test command for verifying whenProvider conditional configuration.
@@ -59,17 +61,27 @@ class WhenProviderCommand extends Command
         };
 
         try {
+            // Track which callback was applied
+            $appliedCallback = 'none';
+
+            /** @phpstan-ignore method.notFound (whenProvider is forwarded via __call) */
             $response = Atlas::agent('general-assistant')
                 ->withProvider($provider, $model)
-                ->whenProvider('anthropic', fn ($r) => $r
-                    ->withProviderOptions(['cacheType' => 'ephemeral'])
-                    ->withMetadata(['applied_callback' => 'anthropic']))
-                ->whenProvider('openai', fn ($r) => $r
-                    ->withProviderOptions(['presence_penalty' => 0.5])
-                    ->withMetadata(['applied_callback' => 'openai']))
-                ->whenProvider(Provider::Gemini, fn ($r) => $r
-                    ->withProviderOptions(['safety_settings' => []])
-                    ->withMetadata(['applied_callback' => 'gemini']))
+                ->whenProvider('anthropic', function ($r) use (&$appliedCallback) {
+                    $appliedCallback = 'anthropic';
+
+                    return $r->withProviderOptions(['cacheType' => 'ephemeral']);
+                })
+                ->whenProvider('openai', function ($r) use (&$appliedCallback) {
+                    $appliedCallback = 'openai';
+
+                    return $r->withProviderOptions(['presence_penalty' => 0.5]);
+                })
+                ->whenProvider(Provider::Gemini, function ($r) use (&$appliedCallback) {
+                    $appliedCallback = 'gemini';
+
+                    return $r->withProviderOptions(['safety_settings' => []]);
+                })
                 ->chat('Say "Hello from '.$provider.'!" in exactly those words.');
 
             $this->line('--- Response ---');
@@ -78,11 +90,12 @@ class WhenProviderCommand extends Command
 
             $this->line('--- Details ---');
             $this->line("Provider: {$provider}");
+            $this->line("Applied Callback: {$appliedCallback}");
             $this->line(sprintf(
                 'Tokens: %d prompt / %d completion / %d total',
-                $response->promptTokens(),
-                $response->completionTokens(),
-                $response->totalTokens(),
+                $response->usage->promptTokens,
+                $response->usage->completionTokens,
+                $response->usage->promptTokens + $response->usage->completionTokens,
             ));
             $this->line('');
 
@@ -112,18 +125,26 @@ class WhenProviderCommand extends Command
         }
 
         try {
-            $result = Atlas::image()
-                ->withProvider($provider)
+            /** @var ImageResponse $response */
+            $response = Atlas::image()
+                ->using($provider, 'dall-e-3')
+                ->withPrompt('A simple red circle on white background')
                 ->whenProvider('openai', fn ($r) => $r
                     ->withProviderOptions(['style' => 'vivid']))
                 ->whenProvider('anthropic', fn ($r) => $r
                     ->withProviderOptions(['custom_option' => 'value']))
-                ->generate('A simple red circle on white background');
+                ->generate();
 
             $this->line('--- Response ---');
-            $this->line('URL: '.($result['url'] ? 'Present' : 'Not provided'));
-            $this->line('Base64: '.($result['base64'] ? 'Present ('.strlen($result['base64']).' bytes)' : 'Not provided'));
-            $this->line('Revised Prompt: '.($result['revised_prompt'] ?? 'None'));
+            $image = $response->firstImage();
+
+            if ($image !== null) {
+                $this->line('URL: '.($image->url ? 'Present' : 'Not provided'));
+                $this->line('Base64: '.($image->base64 ? 'Present ('.strlen($image->base64).' bytes)' : 'Not provided'));
+                $this->line('Revised Prompt: '.($image->revisedPrompt ?? 'None'));
+            } else {
+                $this->warn('No image generated');
+            }
             $this->line('');
 
             $this->info('[PASS] Image whenProvider callback executed successfully');
@@ -147,17 +168,21 @@ class WhenProviderCommand extends Command
         $this->line('');
 
         try {
-            $embedding = Atlas::embeddings()
-                ->withProvider($provider)
+            /** @var EmbeddingsResponse $response */
+            $response = Atlas::embeddings()
+                ->using($provider, 'text-embedding-3-small')
+                ->fromInput('Hello world')
                 ->whenProvider('openai', fn ($r) => $r
                     ->withProviderOptions(['dimensions' => 256]))
                 ->whenProvider('anthropic', fn ($r) => $r
                     ->withProviderOptions(['custom_option' => 'value']))
-                ->generate('Hello world');
+                ->asEmbeddings();
+
+            $embedding = $response->embeddings[0]->embedding;
 
             $this->line('--- Response ---');
             $this->line('Dimensions: '.count($embedding));
-            $this->line('First 5 values: ['.implode(', ', array_map(fn ($v) => round($v, 4), array_slice($embedding, 0, 5))).']');
+            $this->line('First 5 values: ['.implode(', ', array_map(fn ($v) => round((float) $v, 4), array_slice($embedding, 0, 5))).']');
             $this->line('');
 
             $expectedDimensions = $provider === 'openai' ? 256 : null;

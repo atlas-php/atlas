@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Tools\Services;
 
 use Atlasphp\Atlas\Agents\Contracts\AgentContract;
+use Atlasphp\Atlas\Pipelines\PipelineRunner;
+use Atlasphp\Atlas\Tools\Contracts\ConfiguresPrismTool;
 use Atlasphp\Atlas\Tools\Contracts\ToolContract;
 use Atlasphp\Atlas\Tools\Contracts\ToolRegistryContract;
-use Atlasphp\Atlas\Tools\Support\PrismParameterConverter;
 use Atlasphp\Atlas\Tools\Support\ToolContext;
 use Atlasphp\Atlas\Tools\ToolDefinition;
 use Illuminate\Contracts\Container\Container;
@@ -25,10 +26,14 @@ class ToolBuilder
         protected ToolRegistryContract $registry,
         protected ToolExecutor $executor,
         protected Container $container,
+        protected ?PipelineRunner $pipelineRunner = null,
     ) {}
 
     /**
      * Build Prism tools for an agent.
+     *
+     * Runs tool.before_resolve and tool.after_resolve pipelines
+     * to allow filtering, auditing, and modification of tools.
      *
      * @param  AgentContract  $agent  The agent to build tools for.
      * @param  ToolContext  $context  The tool execution context.
@@ -37,6 +42,16 @@ class ToolBuilder
     public function buildForAgent(AgentContract $agent, ToolContext $context): array
     {
         $toolClasses = $agent->tools();
+
+        // Run before_resolve pipeline - allows filtering or modifying tool classes
+        if ($this->pipelineRunner !== null) {
+            $beforeData = $this->pipelineRunner->runIfActive('tool.before_resolve', [
+                'agent' => $agent,
+                'tool_classes' => $toolClasses,
+                'context' => $context,
+            ]);
+            $toolClasses = $beforeData['tool_classes'];
+        }
 
         if ($toolClasses === []) {
             return [];
@@ -47,6 +62,17 @@ class ToolBuilder
         foreach ($toolClasses as $toolClass) {
             $tool = $this->resolveTool($toolClass);
             $prismTools[] = $this->buildPrismTool($tool, $context);
+        }
+
+        // Run after_resolve pipeline - allows auditing or modifying resolved tools
+        if ($this->pipelineRunner !== null) {
+            $afterData = $this->pipelineRunner->runIfActive('tool.after_resolve', [
+                'agent' => $agent,
+                'tool_classes' => $toolClasses,
+                'prism_tools' => $prismTools,
+                'context' => $context,
+            ]);
+            $prismTools = $afterData['prism_tools'];
         }
 
         return $prismTools;
@@ -134,11 +160,15 @@ class ToolBuilder
         $prismTool->as($tool->name());
         $prismTool->for($tool->description());
 
-        foreach ($tool->parameters() as $param) {
-            PrismParameterConverter::addParameter($prismTool, $param);
+        foreach ($tool->parameters() as $schema) {
+            $prismTool->withParameter($schema);
         }
 
         $prismTool->using($handler);
+
+        if ($tool instanceof ConfiguresPrismTool) {
+            return $tool->configurePrismTool($prismTool);
+        }
 
         return $prismTool;
     }

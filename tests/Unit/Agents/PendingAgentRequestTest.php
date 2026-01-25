@@ -4,21 +4,46 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
 use Atlasphp\Atlas\Agents\Services\AgentResolver;
-use Atlasphp\Atlas\Agents\Support\AgentResponse;
 use Atlasphp\Atlas\Agents\Support\ExecutionContext;
 use Atlasphp\Atlas\Agents\Support\PendingAgentRequest;
-use Atlasphp\Atlas\Streaming\StreamResponse;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
-use Prism\Prism\Contracts\Schema;
+use Illuminate\Support\Collection;
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Text\Response as PrismResponse;
+use Prism\Prism\ValueObjects\Media\Audio;
+use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\ValueObjects\Media\Video;
+use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\Usage;
+
+function makeMockPrismResponse(string $text): PrismResponse
+{
+    return new PrismResponse(
+        steps: new Collection,
+        text: $text,
+        finishReason: FinishReason::Stop,
+        toolCalls: [],
+        toolResults: [],
+        usage: new Usage(10, 20),
+        meta: new Meta('req-123', 'gpt-4'),
+        messages: new Collection,
+    );
+}
 
 beforeEach(function () {
-    $this->agentResolver = Mockery::mock(AgentResolver::class);
-    $this->agentExecutor = Mockery::mock(AgentExecutorContract::class);
-    $this->agent = 'test-agent';
+    $this->agent = new TestAgent;
+    $this->resolver = Mockery::mock(AgentResolver::class);
+    $this->executor = Mockery::mock(AgentExecutorContract::class);
+
+    $this->resolver->shouldReceive('resolve')
+        ->with($this->agent)
+        ->andReturn($this->agent)
+        ->byDefault();
 
     $this->request = new PendingAgentRequest(
-        $this->agentResolver,
-        $this->agentExecutor,
+        $this->resolver,
+        $this->executor,
         $this->agent,
     );
 });
@@ -27,773 +52,536 @@ afterEach(function () {
     Mockery::close();
 });
 
-test('withMessages returns new instance with messages', function () {
-    $messages = [['role' => 'user', 'content' => 'Previous']];
+// === withMessages ===
 
-    $result = $this->request->withMessages($messages);
+test('withMessages sets conversation history immutably', function () {
+    $messages = [
+        ['role' => 'user', 'content' => 'Hello'],
+        ['role' => 'assistant', 'content' => 'Hi there!'],
+    ];
 
-    expect($result)->not->toBe($this->request);
-    expect($result)->toBeInstanceOf(PendingAgentRequest::class);
+    $request2 = $this->request->withMessages($messages);
+
+    expect($request2)->not->toBe($this->request);
+    expect($request2)->toBeInstanceOf(PendingAgentRequest::class);
 });
 
-test('withVariables returns new instance with variables', function () {
-    $variables = ['user_name' => 'John'];
+test('withMessages includes messages in context', function () {
+    $messages = [
+        ['role' => 'user', 'content' => 'Previous message'],
+    ];
 
-    $result = $this->request->withVariables($variables);
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
 
-    expect($result)->not->toBe($this->request);
-    expect($result)->toBeInstanceOf(PendingAgentRequest::class);
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $this->request
+        ->withMessages($messages)
+        ->chat('New message');
+
+    expect($capturedContext->messages)->toBe($messages);
 });
 
-test('withMetadata returns new instance with metadata', function () {
-    $metadata = ['session_id' => 'abc123'];
+test('withMessages accepts Prism message objects', function () {
+    $prismMessages = [
+        new \Prism\Prism\ValueObjects\Messages\UserMessage('Previous message'),
+        new \Prism\Prism\ValueObjects\Messages\AssistantMessage('Previous response'),
+    ];
 
-    $result = $this->request->withMetadata($metadata);
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
 
-    expect($result)->not->toBe($this->request);
-    expect($result)->toBeInstanceOf(PendingAgentRequest::class);
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $this->request
+        ->withMessages($prismMessages)
+        ->chat('New message');
+
+    expect($capturedContext->prismMessages)->toBe($prismMessages);
+    expect($capturedContext->messages)->toBe([]);
+    expect($capturedContext->hasPrismMessages())->toBeTrue();
 });
 
-test('withRetry returns new instance with retry config', function () {
-    $result = $this->request->withRetry(3, 1000);
+test('withMessages with array format sets messages and clears prismMessages', function () {
+    $messages = [
+        ['role' => 'user', 'content' => 'Hello'],
+    ];
 
-    expect($result)->not->toBe($this->request);
-    expect($result)->toBeInstanceOf(PendingAgentRequest::class);
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $this->request
+        ->withMessages($messages)
+        ->chat('New message');
+
+    expect($capturedContext->messages)->toBe($messages);
+    expect($capturedContext->prismMessages)->toBe([]);
+    expect($capturedContext->hasPrismMessages())->toBeFalse();
 });
 
-test('withSchema returns new instance with schema', function () {
-    $schema = Mockery::mock(Schema::class);
+test('withMessages with Prism message objects includes SystemMessage', function () {
+    $prismMessages = [
+        new \Prism\Prism\ValueObjects\Messages\SystemMessage('You are a helpful assistant.'),
+        new \Prism\Prism\ValueObjects\Messages\UserMessage('Hello'),
+    ];
 
-    $result = $this->request->withSchema($schema);
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
 
-    expect($result)->not->toBe($this->request);
-    expect($result)->toBeInstanceOf(PendingAgentRequest::class);
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $this->request
+        ->withMessages($prismMessages)
+        ->chat('Follow up');
+
+    expect($capturedContext->prismMessages)->toHaveCount(2);
+    expect($capturedContext->prismMessages[0])->toBeInstanceOf(\Prism\Prism\ValueObjects\Messages\SystemMessage::class);
+    expect($capturedContext->prismMessages[1])->toBeInstanceOf(\Prism\Prism\ValueObjects\Messages\UserMessage::class);
 });
+
+// === withVariables ===
+
+test('withVariables sets variables immutably', function () {
+    $request2 = $this->request->withVariables(['name' => 'John']);
+
+    expect($request2)->not->toBe($this->request);
+});
+
+test('withVariables includes variables in context', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $this->request
+        ->withVariables(['name' => 'John', 'role' => 'admin'])
+        ->chat('Hello');
+
+    expect($capturedContext->variables)->toBe(['name' => 'John', 'role' => 'admin']);
+});
+
+// === withMetadata ===
+
+test('withMetadata sets metadata immutably', function () {
+    $request2 = $this->request->withMetadata(['request_id' => '123']);
+
+    expect($request2)->not->toBe($this->request);
+});
+
+test('withMetadata includes metadata in context', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $this->request
+        ->withMetadata(['request_id' => '123', 'user_id' => 456])
+        ->chat('Hello');
+
+    expect($capturedContext->metadata)->toBe(['request_id' => '123', 'user_id' => 456]);
+});
+
+// === withProvider / withModel ===
+
+test('withProvider sets provider override immutably', function () {
+    $request2 = $this->request->withProvider('anthropic');
+
+    expect($request2)->not->toBe($this->request);
+});
+
+test('withProvider includes provider override in context', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $this->request
+        ->withProvider('anthropic')
+        ->chat('Hello');
+
+    expect($capturedContext->providerOverride)->toBe('anthropic');
+});
+
+test('withProvider can set both provider and model', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $this->request
+        ->withProvider('anthropic', 'claude-3-opus')
+        ->chat('Hello');
+
+    expect($capturedContext->providerOverride)->toBe('anthropic');
+    expect($capturedContext->modelOverride)->toBe('claude-3-opus');
+});
+
+test('withModel sets model override immutably', function () {
+    $request2 = $this->request->withModel('gpt-4-turbo');
+
+    expect($request2)->not->toBe($this->request);
+});
+
+test('withModel includes model override in context', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $this->request
+        ->withModel('gpt-4-turbo')
+        ->chat('Hello');
+
+    expect($capturedContext->modelOverride)->toBe('gpt-4-turbo');
+});
+
+// === __call (Prism method forwarding) ===
+
+test('__call captures prism method calls immutably', function () {
+    $request2 = $this->request->usingTemperature(0.7);
+
+    expect($request2)->not->toBe($this->request);
+});
+
+test('__call captures multiple prism method calls', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $this->request
+        ->usingTemperature(0.7)
+        ->usingMaxTokens(1000)
+        ->withClientRetry(3)
+        ->chat('Hello');
+
+    expect($capturedContext->prismCalls)->toHaveCount(3);
+    expect($capturedContext->prismCalls[0])->toBe(['method' => 'usingTemperature', 'args' => [0.7]]);
+    expect($capturedContext->prismCalls[1])->toBe(['method' => 'usingMaxTokens', 'args' => [1000]]);
+    expect($capturedContext->prismCalls[2])->toBe(['method' => 'withClientRetry', 'args' => [3]]);
+});
+
+// === withMedia (Prism objects - builder style) ===
+
+test('withMedia adds single Prism media object', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $image = Image::fromUrl('https://example.com/image.png');
+
+    $this->request
+        ->withMedia($image)
+        ->chat('What is this?');
+
+    expect($capturedContext->prismMedia)->toHaveCount(1);
+    expect($capturedContext->prismMedia[0])->toBe($image);
+});
+
+test('withMedia adds multiple Prism media objects', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $image = Image::fromUrl('https://example.com/image.png');
+    $document = Document::fromUrl('https://example.com/doc.pdf');
+
+    $this->request
+        ->withMedia([$image, $document])
+        ->chat('Analyze these');
+
+    expect($capturedContext->prismMedia)->toHaveCount(2);
+});
+
+test('withMedia is immutable', function () {
+    $image = Image::fromUrl('https://example.com/image.png');
+
+    $request2 = $this->request->withMedia($image);
+
+    expect($request2)->not->toBe($this->request);
+});
+
+// === chat ===
 
 test('chat resolves agent and executes', function () {
-    $agent = new TestAgent;
-    $response = AgentResponse::text('Hello');
-
-    $this->agentResolver
-        ->shouldReceive('resolve')
+    $this->resolver->shouldReceive('resolve')
         ->once()
-        ->with('test-agent')
-        ->andReturn($agent);
+        ->with($this->agent)
+        ->andReturn($this->agent);
 
-    $this->agentExecutor
-        ->shouldReceive('execute')
+    $this->executor->shouldReceive('execute')
         ->once()
-        ->with($agent, 'Hello', null, null, null, null)
-        ->andReturn($response);
+        ->with($this->agent, 'Hello', Mockery::type(ExecutionContext::class))
+        ->andReturn(makeMockPrismResponse('Hi there!'));
 
-    $result = $this->request->chat('Hello');
+    $response = $this->request->chat('Hello');
 
-    expect($result)->toBe($response);
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response->text)->toBe('Hi there!');
 });
 
-test('chat passes messages to context', function () {
-    $agent = new TestAgent;
-    $messages = [['role' => 'user', 'content' => 'Previous']];
-    $response = AgentResponse::text('Hello');
-
-    $this->agentResolver
-        ->shouldReceive('resolve')
+test('chat passes input correctly', function () {
+    $capturedInput = null;
+    $this->executor->shouldReceive('execute')
         ->once()
-        ->andReturn($agent);
+        ->withArgs(function ($agent, $input, $context) use (&$capturedInput) {
+            $capturedInput = $input;
 
-    $this->agentExecutor
-        ->shouldReceive('execute')
-        ->once()
-        ->withArgs(function ($a, $input, $context, $schema, $retry, $structuredMode) use ($agent, $messages) {
-            return $a === $agent
-                && $input === 'Hello'
-                && $context instanceof ExecutionContext
-                && $context->messages === $messages
-                && $schema === null
-                && $retry === null;
+            return true;
         })
-        ->andReturn($response);
+        ->andReturn(makeMockPrismResponse('Response'));
 
-    $this->request->withMessages($messages)->chat('Hello');
+    $this->request->chat('Test input message');
+
+    expect($capturedInput)->toBe('Test input message');
 });
 
-test('chat passes variables to context', function () {
-    $agent = new TestAgent;
-    $variables = ['user_name' => 'John'];
-    $response = AgentResponse::text('Hello John');
-
-    $this->agentResolver
-        ->shouldReceive('resolve')
+test('chat accepts inline attachments (Prism-style)', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
         ->once()
-        ->andReturn($agent);
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
 
-    $this->agentExecutor
-        ->shouldReceive('execute')
-        ->once()
-        ->withArgs(function ($a, $input, $context, $schema, $retry, $structuredMode) use ($agent, $variables) {
-            return $a === $agent
-                && $input === 'Hello'
-                && $context instanceof ExecutionContext
-                && $context->variables === $variables
-                && $schema === null
-                && $retry === null;
+            return true;
         })
-        ->andReturn($response);
+        ->andReturn(makeMockPrismResponse('Response'));
 
-    $this->request->withVariables($variables)->chat('Hello');
+    $image = Image::fromUrl('https://example.com/image.png');
+
+    $this->request->chat('Describe this image', [$image]);
+
+    expect($capturedContext->prismMedia)->toHaveCount(1);
+    expect($capturedContext->prismMedia[0])->toBe($image);
 });
 
-test('chat passes metadata to context', function () {
-    $agent = new TestAgent;
-    $metadata = ['session_id' => 'abc123'];
-    $response = AgentResponse::text('Hello');
-
-    $this->agentResolver
-        ->shouldReceive('resolve')
+test('chat merges builder attachments with inline attachments', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
         ->once()
-        ->andReturn($agent);
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
 
-    $this->agentExecutor
-        ->shouldReceive('execute')
-        ->once()
-        ->withArgs(function ($a, $input, $context, $schema, $retry, $structuredMode) use ($agent, $metadata) {
-            return $a === $agent
-                && $input === 'Hello'
-                && $context instanceof ExecutionContext
-                && $context->metadata === $metadata
-                && $schema === null
-                && $retry === null;
+            return true;
         })
-        ->andReturn($response);
+        ->andReturn(makeMockPrismResponse('Response'));
 
-    $this->request->withMetadata($metadata)->chat('Hello');
-});
-
-test('chat passes retry config to executor', function () {
-    $agent = new TestAgent;
-    $response = AgentResponse::text('Hello');
-
-    $this->agentResolver
-        ->shouldReceive('resolve')
-        ->once()
-        ->andReturn($agent);
-
-    $this->agentExecutor
-        ->shouldReceive('execute')
-        ->once()
-        ->withArgs(function ($a, $input, $context, $schema, $retry, $structuredMode) use ($agent) {
-            return $a === $agent
-                && $input === 'Hello'
-                && $retry !== null
-                && $retry[0] === 3
-                && $retry[1] === 1000;
-        })
-        ->andReturn($response);
-
-    $this->request->withRetry(3, 1000)->chat('Hello');
-});
-
-test('chat with stream returns StreamResponse', function () {
-    $agent = new TestAgent;
-    $streamResponse = Mockery::mock(StreamResponse::class);
-
-    $this->agentResolver
-        ->shouldReceive('resolve')
-        ->once()
-        ->andReturn($agent);
-
-    $this->agentExecutor
-        ->shouldReceive('stream')
-        ->once()
-        ->with($agent, 'Hello', null, null)
-        ->andReturn($streamResponse);
-
-    $result = $this->request->chat('Hello', stream: true);
-
-    expect($result)->toBe($streamResponse);
-});
-
-test('chat with schema returns structured response', function () {
-    $agent = new TestAgent;
-    $schema = Mockery::mock(Schema::class);
-    $response = AgentResponse::structured(['name' => 'John']);
-
-    $this->agentResolver
-        ->shouldReceive('resolve')
-        ->once()
-        ->andReturn($agent);
-
-    $this->agentExecutor
-        ->shouldReceive('execute')
-        ->once()
-        ->with($agent, 'Hello', null, $schema, null, null)
-        ->andReturn($response);
-
-    $result = $this->request->withSchema($schema)->chat('Hello');
-
-    expect($result)->toBe($response);
-});
-
-test('withSchema accepts SchemaBuilder and auto-builds', function () {
-    $agent = new TestAgent;
-    $response = AgentResponse::structured(['name' => 'John']);
-
-    $this->agentResolver
-        ->shouldReceive('resolve')
-        ->once()
-        ->andReturn($agent);
-
-    $this->agentExecutor
-        ->shouldReceive('execute')
-        ->once()
-        ->withArgs(function ($a, $input, $context, $schema, $retry, $structuredMode) use ($agent) {
-            // Verify the SchemaBuilder was auto-built into an ObjectSchema
-            return $a === $agent
-                && $input === 'Hello'
-                && $schema instanceof \Prism\Prism\Schema\ObjectSchema
-                && $schema->name === 'test'
-                && count($schema->properties) === 1;
-        })
-        ->andReturn($response);
-
-    $builder = \Atlasphp\Atlas\Schema\Schema::object('test', 'Test schema')
-        ->string('name', 'Name');
-
-    $result = $this->request->withSchema($builder)->chat('Hello');
-
-    expect($result)->toBe($response);
-});
-
-test('chat throws exception when streaming with schema', function () {
-    $agent = new TestAgent;
-    $schema = Mockery::mock(Schema::class);
-
-    $this->agentResolver
-        ->shouldReceive('resolve')
-        ->once()
-        ->andReturn($agent);
-
-    expect(fn () => $this->request->withSchema($schema)->chat('Hello', stream: true))
-        ->toThrow(
-            \InvalidArgumentException::class,
-            'Streaming does not support structured output (schema). Use stream: false for structured responses.'
-        );
-});
-
-test('chaining preserves all config', function () {
-    $agent = new TestAgent;
-    $messages = [['role' => 'user', 'content' => 'Previous']];
-    $variables = ['user_name' => 'John'];
-    $metadata = ['session_id' => 'abc123'];
-    $response = AgentResponse::text('Hello');
-
-    $this->agentResolver
-        ->shouldReceive('resolve')
-        ->once()
-        ->andReturn($agent);
-
-    $this->agentExecutor
-        ->shouldReceive('execute')
-        ->once()
-        ->withArgs(function ($a, $input, $context, $schema, $retry, $structuredMode) use ($agent, $messages, $variables, $metadata) {
-            return $a === $agent
-                && $input === 'Hello'
-                && $context instanceof ExecutionContext
-                && $context->messages === $messages
-                && $context->variables === $variables
-                && $context->metadata === $metadata
-                && $retry !== null
-                && $retry[0] === 3;
-        })
-        ->andReturn($response);
+    $builderImage = Image::fromUrl('https://example.com/builder-image.png');
+    $inlineImage = Image::fromUrl('https://example.com/inline-image.png');
 
     $this->request
-        ->withMessages($messages)
-        ->withVariables($variables)
-        ->withMetadata($metadata)
-        ->withRetry(3, 1000)
-        ->chat('Hello');
+        ->withMedia($builderImage)
+        ->chat('Compare these images', [$inlineImage]);
+
+    expect($capturedContext->prismMedia)->toHaveCount(2);
+    expect($capturedContext->prismMedia[0])->toBe($builderImage);
+    expect($capturedContext->prismMedia[1])->toBe($inlineImage);
 });
 
-test('chaining with schema preserves all config', function () {
-    $agent = new TestAgent;
-    $messages = [['role' => 'user', 'content' => 'Previous']];
-    $variables = ['user_name' => 'John'];
-    $metadata = ['session_id' => 'abc123'];
-    $schema = Mockery::mock(Schema::class);
-    $response = AgentResponse::structured(['name' => 'John']);
-
-    $this->agentResolver
-        ->shouldReceive('resolve')
+test('chat accepts multiple inline attachments', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
         ->once()
-        ->andReturn($agent);
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
 
-    $this->agentExecutor
-        ->shouldReceive('execute')
-        ->once()
-        ->withArgs(function ($a, $input, $context, $actualSchema, $retry) use ($agent, $messages, $variables, $metadata, $schema) {
-            return $a === $agent
-                && $input === 'Hello'
-                && $context instanceof ExecutionContext
-                && $context->messages === $messages
-                && $context->variables === $variables
-                && $context->metadata === $metadata
-                && $actualSchema === $schema
-                && $retry !== null
-                && $retry[0] === 3;
+            return true;
         })
-        ->andReturn($response);
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $image = Image::fromUrl('https://example.com/image.png');
+    $document = Document::fromUrl('https://example.com/doc.pdf');
+
+    $this->request->chat('Analyze these', [$image, $document]);
+
+    expect($capturedContext->prismMedia)->toHaveCount(2);
+    expect($capturedContext->prismMedia[0])->toBeInstanceOf(Image::class);
+    expect($capturedContext->prismMedia[1])->toBeInstanceOf(Document::class);
+});
+
+test('chat accepts all media types inline', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $image = Image::fromUrl('https://example.com/image.png');
+    $document = Document::fromUrl('https://example.com/doc.pdf');
+    $audio = Audio::fromUrl('https://example.com/audio.mp3');
+    $video = Video::fromUrl('https://example.com/video.mp4');
+
+    $this->request->chat('Process all these', [$image, $document, $audio, $video]);
+
+    expect($capturedContext->prismMedia)->toHaveCount(4);
+    expect($capturedContext->prismMedia[0])->toBeInstanceOf(Image::class);
+    expect($capturedContext->prismMedia[1])->toBeInstanceOf(Document::class);
+    expect($capturedContext->prismMedia[2])->toBeInstanceOf(Audio::class);
+    expect($capturedContext->prismMedia[3])->toBeInstanceOf(Video::class);
+});
+
+// === stream ===
+
+test('stream resolves agent and returns generator', function () {
+    $this->resolver->shouldReceive('resolve')
+        ->once()
+        ->with($this->agent)
+        ->andReturn($this->agent);
+
+    $this->executor->shouldReceive('stream')
+        ->once()
+        ->with($this->agent, 'Hello', Mockery::type(ExecutionContext::class))
+        ->andReturn((function () {
+            yield 'chunk1';
+            yield 'chunk2';
+        })());
+
+    $result = $this->request->stream('Hello');
+
+    expect($result)->toBeInstanceOf(Generator::class);
+
+    $chunks = iterator_to_array($result);
+    expect($chunks)->toBe(['chunk1', 'chunk2']);
+});
+
+test('stream accepts inline attachments (Prism-style)', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('stream')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn((function () {
+            yield 'chunk';
+        })());
+
+    $image = Image::fromUrl('https://example.com/image.png');
+
+    iterator_to_array($this->request->stream('Describe this', [$image]));
+
+    expect($capturedContext->prismMedia)->toHaveCount(1);
+    expect($capturedContext->prismMedia[0])->toBe($image);
+});
+
+// === Fluent chaining ===
+
+test('all methods can be chained fluently', function () {
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $image = Image::fromUrl('https://example.com/image.png');
+
+    $response = $this->request
+        ->withMessages([['role' => 'user', 'content' => 'Previous']])
+        ->withVariables(['name' => 'John'])
+        ->withMetadata(['request_id' => '123'])
+        ->withProvider('anthropic', 'claude-3-opus')
+        ->usingTemperature(0.7)
+        ->chat('Hello', [$image]);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+});
+
+test('chaining preserves all configuration', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $image = Image::fromUrl('https://example.com/image.png');
 
     $this->request
-        ->withMessages($messages)
-        ->withVariables($variables)
-        ->withMetadata($metadata)
-        ->withSchema($schema)
-        ->withRetry(3, 1000)
-        ->chat('Hello');
-});
-
-test('chat accepts agent instance', function () {
-    $agent = new TestAgent;
-    $response = AgentResponse::text('Hello');
-
-    $request = new PendingAgentRequest(
-        $this->agentResolver,
-        $this->agentExecutor,
-        $agent,
-    );
-
-    $this->agentResolver
-        ->shouldReceive('resolve')
-        ->once()
-        ->with($agent)
-        ->andReturn($agent);
-
-    $this->agentExecutor
-        ->shouldReceive('execute')
-        ->once()
-        ->with($agent, 'Hello', null, null, null, null)
-        ->andReturn($response);
-
-    $result = $request->chat('Hello');
-
-    expect($result)->toBe($response);
-});
-
-test('chat accepts agent class string', function () {
-    $agent = new TestAgent;
-    $response = AgentResponse::text('Hello');
-
-    $request = new PendingAgentRequest(
-        $this->agentResolver,
-        $this->agentExecutor,
-        TestAgent::class,
-    );
-
-    $this->agentResolver
-        ->shouldReceive('resolve')
-        ->once()
-        ->with(TestAgent::class)
-        ->andReturn($agent);
-
-    $this->agentExecutor
-        ->shouldReceive('execute')
-        ->once()
-        ->with($agent, 'Hello', null, null, null, null)
-        ->andReturn($response);
-
-    $result = $request->chat('Hello');
-
-    expect($result)->toBe($response);
-});
-
-test('withProvider returns new instance with provider', function () {
-    $result = $this->request->withProvider('anthropic');
-
-    expect($result)->not->toBe($this->request);
-    expect($result)->toBeInstanceOf(PendingAgentRequest::class);
-});
-
-test('withModel returns new instance with model', function () {
-    $result = $this->request->withModel('gpt-4');
-
-    expect($result)->not->toBe($this->request);
-    expect($result)->toBeInstanceOf(PendingAgentRequest::class);
-});
-
-test('chat passes provider override to context', function () {
-    $agent = new TestAgent;
-    $response = AgentResponse::text('Hello');
-
-    $this->agentResolver
-        ->shouldReceive('resolve')
-        ->once()
-        ->andReturn($agent);
-
-    $this->agentExecutor
-        ->shouldReceive('execute')
-        ->once()
-        ->withArgs(function ($a, $input, $context, $schema, $retry, $structuredMode) use ($agent) {
-            return $a === $agent
-                && $input === 'Hello'
-                && $context instanceof ExecutionContext
-                && $context->providerOverride === 'anthropic'
-                && $schema === null
-                && $retry === null;
-        })
-        ->andReturn($response);
-
-    $this->request->withProvider('anthropic')->chat('Hello');
-});
-
-test('chat passes model override to context', function () {
-    $agent = new TestAgent;
-    $response = AgentResponse::text('Hello');
-
-    $this->agentResolver
-        ->shouldReceive('resolve')
-        ->once()
-        ->andReturn($agent);
-
-    $this->agentExecutor
-        ->shouldReceive('execute')
-        ->once()
-        ->withArgs(function ($a, $input, $context, $schema, $retry, $structuredMode) use ($agent) {
-            return $a === $agent
-                && $input === 'Hello'
-                && $context instanceof ExecutionContext
-                && $context->modelOverride === 'claude-3-opus'
-                && $schema === null
-                && $retry === null;
-        })
-        ->andReturn($response);
-
-    $this->request->withModel('claude-3-opus')->chat('Hello');
-});
-
-test('chat passes both provider and model overrides to context', function () {
-    $agent = new TestAgent;
-    $response = AgentResponse::text('Hello');
-
-    $this->agentResolver
-        ->shouldReceive('resolve')
-        ->once()
-        ->andReturn($agent);
-
-    $this->agentExecutor
-        ->shouldReceive('execute')
-        ->once()
-        ->withArgs(function ($a, $input, $context, $schema, $retry, $structuredMode) use ($agent) {
-            return $a === $agent
-                && $input === 'Hello'
-                && $context instanceof ExecutionContext
-                && $context->providerOverride === 'anthropic'
-                && $context->modelOverride === 'claude-3-opus'
-                && $schema === null
-                && $retry === null;
-        })
-        ->andReturn($response);
-
-    $this->request
+        ->withMessages([['role' => 'user', 'content' => 'Hi']])
+        ->withVariables(['name' => 'John'])
+        ->withMetadata(['id' => '123'])
         ->withProvider('anthropic')
         ->withModel('claude-3-opus')
-        ->chat('Hello');
-});
+        ->usingTemperature(0.7)
+        ->chat('Hello', [$image]);
 
-// ===========================================
-// MEDIA SUPPORT TESTS
-// ===========================================
-
-test('withImage returns new instance with image attachment', function () {
-    $result = $this->request->withImage('https://example.com/image.jpg');
-
-    expect($result)->not->toBe($this->request);
-    expect($result)->toBeInstanceOf(PendingAgentRequest::class);
-});
-
-test('withDocument returns new instance with document attachment', function () {
-    $result = $this->request->withDocument('https://example.com/doc.pdf');
-
-    expect($result)->not->toBe($this->request);
-    expect($result)->toBeInstanceOf(PendingAgentRequest::class);
-});
-
-test('withAudio returns new instance with audio attachment', function () {
-    $result = $this->request->withAudio('https://example.com/audio.mp3');
-
-    expect($result)->not->toBe($this->request);
-    expect($result)->toBeInstanceOf(PendingAgentRequest::class);
-});
-
-test('withVideo returns new instance with video attachment', function () {
-    $result = $this->request->withVideo('https://example.com/video.mp4');
-
-    expect($result)->not->toBe($this->request);
-    expect($result)->toBeInstanceOf(PendingAgentRequest::class);
-});
-
-test('chat passes current attachments to context', function () {
-    $agent = new TestAgent;
-    $response = AgentResponse::text('I can see the image');
-
-    $this->agentResolver
-        ->shouldReceive('resolve')
-        ->once()
-        ->andReturn($agent);
-
-    $this->agentExecutor
-        ->shouldReceive('execute')
-        ->once()
-        ->withArgs(function ($a, $input, $context, $schema, $retry, $structuredMode) use ($agent) {
-            return $a === $agent
-                && $input === 'What do you see?'
-                && $context instanceof ExecutionContext
-                && $context->hasCurrentAttachments()
-                && count($context->currentAttachments) === 1
-                && $context->currentAttachments[0]['type'] === 'image'
-                && $context->currentAttachments[0]['source'] === 'url'
-                && $context->currentAttachments[0]['data'] === 'https://example.com/image.jpg';
-        })
-        ->andReturn($response);
-
-    $this->request
-        ->withImage('https://example.com/image.jpg')
-        ->chat('What do you see?');
-});
-
-test('chat passes multiple attachments to context', function () {
-    $agent = new TestAgent;
-    $response = AgentResponse::text('I can see multiple items');
-
-    $this->agentResolver
-        ->shouldReceive('resolve')
-        ->once()
-        ->andReturn($agent);
-
-    $this->agentExecutor
-        ->shouldReceive('execute')
-        ->once()
-        ->withArgs(function ($a, $input, $context, $schema, $retry, $structuredMode) use ($agent) {
-            return $a === $agent
-                && $input === 'Describe what you see'
-                && $context instanceof ExecutionContext
-                && $context->hasCurrentAttachments()
-                && count($context->currentAttachments) === 2
-                && $context->currentAttachments[0]['type'] === 'image'
-                && $context->currentAttachments[1]['type'] === 'document';
-        })
-        ->andReturn($response);
-
-    $this->request
-        ->withImage('https://example.com/image.jpg')
-        ->withDocument('https://example.com/doc.pdf')
-        ->chat('Describe what you see');
-});
-
-test('chat with attachments and messages creates context', function () {
-    $agent = new TestAgent;
-    $messages = [['role' => 'user', 'content' => 'Hello']];
-    $response = AgentResponse::text('I see the image');
-
-    $this->agentResolver
-        ->shouldReceive('resolve')
-        ->once()
-        ->andReturn($agent);
-
-    $this->agentExecutor
-        ->shouldReceive('execute')
-        ->once()
-        ->withArgs(function ($a, $input, $context, $schema, $retry, $structuredMode) use ($agent, $messages) {
-            return $a === $agent
-                && $input === 'Now look at this'
-                && $context instanceof ExecutionContext
-                && $context->messages === $messages
-                && $context->hasCurrentAttachments()
-                && count($context->currentAttachments) === 1;
-        })
-        ->andReturn($response);
-
-    $this->request
-        ->withMessages($messages)
-        ->withImage('https://example.com/image.jpg')
-        ->chat('Now look at this');
-});
-
-test('chat with only attachments creates context', function () {
-    $agent = new TestAgent;
-    $response = AgentResponse::text('I see the image');
-
-    $this->agentResolver
-        ->shouldReceive('resolve')
-        ->once()
-        ->andReturn($agent);
-
-    $this->agentExecutor
-        ->shouldReceive('execute')
-        ->once()
-        ->withArgs(function ($a, $input, $context, $schema, $retry, $structuredMode) use ($agent) {
-            // Context should be created because there are attachments
-            return $a === $agent
-                && $input === 'What is this?'
-                && $context instanceof ExecutionContext
-                && $context->hasCurrentAttachments();
-        })
-        ->andReturn($response);
-
-    $this->request
-        ->withImage('https://example.com/image.jpg')
-        ->chat('What is this?');
-});
-
-// ===========================================
-// WHENPROVIDER TESTS
-// ===========================================
-
-test('whenProvider returns new instance with callback', function () {
-    $result = $this->request->whenProvider('anthropic', fn ($r) => $r);
-
-    expect($result)->not->toBe($this->request);
-    expect($result)->toBeInstanceOf(PendingAgentRequest::class);
-});
-
-test('whenProvider applies callback when provider matches via agent', function () {
-    // TestAgent returns 'openai' as its provider
-    $agent = new TestAgent;
-    $response = AgentResponse::text('Hello');
-
-    $this->agentResolver
-        ->shouldReceive('resolve')
-        ->once()
-        ->andReturn($agent);
-
-    $this->agentExecutor
-        ->shouldReceive('execute')
-        ->once()
-        ->withArgs(function ($a, $input, $context, $schema, $retry, $structuredMode) use ($agent) {
-            return $a === $agent
-                && $input === 'Hello'
-                && $context instanceof ExecutionContext
-                && $context->hasProviderOptions()
-                && $context->providerOptions['presence_penalty'] === 0.5;
-        })
-        ->andReturn($response);
-
-    // TestAgent's provider is 'openai', so the openai callback should apply
-    $this->request
-        ->whenProvider('openai', fn ($r) => $r->withProviderOptions(['presence_penalty' => 0.5]))
-        ->chat('Hello');
-});
-
-test('whenProvider does not apply callback when provider does not match', function () {
-    // TestAgent returns 'openai' as its provider
-    $agent = new TestAgent;
-    $response = AgentResponse::text('Hello');
-
-    $this->agentResolver
-        ->shouldReceive('resolve')
-        ->once()
-        ->andReturn($agent);
-
-    $this->agentExecutor
-        ->shouldReceive('execute')
-        ->once()
-        ->withArgs(function ($a, $input, $context, $schema, $retry, $structuredMode) use ($agent) {
-            // TestAgent provider is 'openai', so 'anthropic' callback should NOT apply
-            return $a === $agent
-                && $input === 'Hello'
-                && ($context === null || ! $context->hasProviderOptions());
-        })
-        ->andReturn($response);
-
-    $this->request
-        ->whenProvider('anthropic', fn ($r) => $r->withProviderOptions(['cacheType' => 'ephemeral']))
-        ->chat('Hello');
-});
-
-test('whenProvider uses provider override for matching', function () {
-    // TestAgent has 'openai' but we override to 'anthropic'
-    $agent = new TestAgent;
-    $response = AgentResponse::text('Hello');
-
-    $this->agentResolver
-        ->shouldReceive('resolve')
-        ->once()
-        ->andReturn($agent);
-
-    $this->agentExecutor
-        ->shouldReceive('execute')
-        ->once()
-        ->withArgs(function ($a, $input, $context, $schema, $retry, $structuredMode) use ($agent) {
-            return $a === $agent
-                && $input === 'Hello'
-                && $context instanceof ExecutionContext
-                && $context->providerOverride === 'anthropic'
-                && $context->hasProviderOptions()
-                && $context->providerOptions['cacheType'] === 'ephemeral';
-        })
-        ->andReturn($response);
-
-    // withProvider sets anthropic, so anthropic callback should apply
-    $this->request
-        ->withProvider('anthropic')
-        ->whenProvider('anthropic', fn ($r) => $r->withProviderOptions(['cacheType' => 'ephemeral']))
-        ->chat('Hello');
-});
-
-test('whenProvider chains multiple provider configs', function () {
-    // TestAgent returns 'openai' as its provider
-    $agent = new TestAgent;
-    $response = AgentResponse::text('Hello');
-
-    $this->agentResolver
-        ->shouldReceive('resolve')
-        ->once()
-        ->andReturn($agent);
-
-    $this->agentExecutor
-        ->shouldReceive('execute')
-        ->once()
-        ->withArgs(function ($a, $input, $context, $schema, $retry, $structuredMode) use ($agent) {
-            // Only openai callback should apply (TestAgent's provider)
-            return $a === $agent
-                && $input === 'Hello'
-                && $context instanceof ExecutionContext
-                && $context->hasProviderOptions()
-                && $context->providerOptions['presence_penalty'] === 0.5
-                && ! isset($context->providerOptions['cacheType']);
-        })
-        ->andReturn($response);
-
-    $this->request
-        ->whenProvider('anthropic', fn ($r) => $r->withProviderOptions(['cacheType' => 'ephemeral']))
-        ->whenProvider('openai', fn ($r) => $r->withProviderOptions(['presence_penalty' => 0.5]))
-        ->chat('Hello');
-});
-
-test('whenProvider with stream applies callback when provider matches', function () {
-    // TestAgent returns 'openai' as its provider
-    $agent = new TestAgent;
-    $streamResponse = Mockery::mock(StreamResponse::class);
-
-    $this->agentResolver
-        ->shouldReceive('resolve')
-        ->once()
-        ->andReturn($agent);
-
-    $this->agentExecutor
-        ->shouldReceive('stream')
-        ->once()
-        ->withArgs(function ($a, $input, $context, $retry) use ($agent) {
-            return $a === $agent
-                && $input === 'Hello'
-                && $context instanceof ExecutionContext
-                && $context->hasProviderOptions()
-                && $context->providerOptions['presence_penalty'] === 0.5;
-        })
-        ->andReturn($streamResponse);
-
-    // TestAgent's provider is 'openai', so openai callback should apply
-    $this->request
-        ->whenProvider('openai', fn ($r) => $r->withProviderOptions(['presence_penalty' => 0.5]))
-        ->chat('Hello', stream: true);
+    expect($capturedContext->messages)->toBe([['role' => 'user', 'content' => 'Hi']]);
+    expect($capturedContext->variables)->toBe(['name' => 'John']);
+    expect($capturedContext->metadata)->toBe(['id' => '123']);
+    expect($capturedContext->providerOverride)->toBe('anthropic');
+    expect($capturedContext->modelOverride)->toBe('claude-3-opus');
+    expect($capturedContext->prismMedia)->toHaveCount(1);
+    expect($capturedContext->prismMedia[0])->toBeInstanceOf(Image::class);
+    expect($capturedContext->prismCalls)->toHaveCount(1);
 });

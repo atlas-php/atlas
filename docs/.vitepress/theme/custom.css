@@ -446,3 +446,51 @@ body:has(.VPHome) .VPNavBar .content {
   margin: 0 auto !important;
   padding: 0 24px !important;
 }
+
+/* Prism feature box - vaporwave hover effect */
+.VPFeatures .items > .item:nth-child(3) .VPFeature:hover {
+  border-color: rgba(185, 103, 255, 0.5) !important;
+  box-shadow:
+    0 4px 20px rgba(255, 113, 206, 0.25),
+    0 0 30px rgba(185, 103, 255, 0.15),
+    0 0 40px rgba(1, 205, 254, 0.1) !important;
+}
+
+.dark .VPFeatures .items > .item:nth-child(3) .VPFeature:hover {
+  border-color: rgba(255, 113, 206, 0.5) !important;
+  box-shadow:
+    0 4px 20px rgba(255, 113, 206, 0.3),
+    0 0 30px rgba(185, 103, 255, 0.25),
+    0 0 40px rgba(1, 205, 254, 0.15) !important;
+}
+
+/* Feature icon images - ensure consistent height for title alignment */
+.VPFeatures .VPFeature .VPImage,
+.VPFeature .icon img,
+.VPFeature .icon .VPImage {
+  height: 48px !important;
+  width: auto !important;
+  max-width: 100px !important;
+  object-fit: contain !important;
+}
+
+/* Full-width tables */
+.full-width-table table {
+  width: 100%;
+  display: table;
+}
+
+.full-width-table th,
+.full-width-table td {
+  width: auto;
+}
+
+.full-width-table th:first-child,
+.full-width-table td:first-child {
+  width: 30%;
+}
+
+.full-width-table th:last-child,
+.full-width-table td:last-child {
+  width: 70%;
+}

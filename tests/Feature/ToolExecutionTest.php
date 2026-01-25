@@ -7,17 +7,16 @@ use Atlasphp\Atlas\Tools\Contracts\ToolContract;
 use Atlasphp\Atlas\Tools\Contracts\ToolRegistryContract;
 use Atlasphp\Atlas\Tools\Services\ToolBuilder;
 use Atlasphp\Atlas\Tools\Services\ToolExecutor;
-use Atlasphp\Atlas\Tools\Services\ToolExtensionRegistry;
 use Atlasphp\Atlas\Tools\Services\ToolRegistry;
 use Atlasphp\Atlas\Tools\Support\ToolContext;
 use Atlasphp\Atlas\Tools\Support\ToolResult;
+use Atlasphp\Atlas\Tools\ToolDefinition;
 use Prism\Prism\Tool as PrismTool;
 
 test('it registers tool services in container', function () {
     expect(app(ToolRegistryContract::class))->toBeInstanceOf(ToolRegistry::class);
     expect(app(ToolExecutor::class))->toBeInstanceOf(ToolExecutor::class);
     expect(app(ToolBuilder::class))->toBeInstanceOf(ToolBuilder::class);
-    expect(app(ToolExtensionRegistry::class))->toBeInstanceOf(ToolExtensionRegistry::class);
 });
 
 test('it resolves services as singletons', function () {
@@ -54,7 +53,7 @@ test('tool executor runs tool successfully', function () {
 test('tool executor passes context metadata', function () {
     $executor = app(ToolExecutor::class);
 
-    $tool = new class extends \Atlasphp\Atlas\Tools\ToolDefinition
+    $tool = new class extends ToolDefinition
     {
         public function name(): string
         {
@@ -102,7 +101,7 @@ test('tool builder handles tool with multiple parameters', function () {
 test('tool handles errors gracefully', function () {
     $executor = app(ToolExecutor::class);
 
-    $tool = new class extends \Atlasphp\Atlas\Tools\ToolDefinition
+    $tool = new class extends ToolDefinition
     {
         public function name(): string
         {
@@ -116,7 +115,7 @@ test('tool handles errors gracefully', function () {
 
         public function handle(array $args, ToolContext $context): ToolResult
         {
-            throw new \RuntimeException('Test error');
+            throw new RuntimeException('Test error');
         }
     };
 

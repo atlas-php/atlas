@@ -1,235 +1,114 @@
-# Speech
+# Audio
 
 Text-to-speech (TTS) and speech-to-text (STT) capabilities for voice-enabled applications.
+
+::: tip Prism Reference
+Atlas audio wraps Prism's audio API. For detailed documentation including all provider options, see [Prism Audio](https://prismphp.com/core-concepts/audio.html).
+:::
 
 ## Text to Speech
 
 Convert text to spoken audio:
 
 ```php
-use Atlasphp\Atlas\Providers\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 
-$result = Atlas::speech()->generate('Hello, welcome to our service!');
+$response = Atlas::audio()
+    ->using('openai', 'tts-1')
+    ->withVoice('nova')
+    ->fromText('Hello, welcome to our service!')
+    ->asAudio();
 
 // Save audio file
-file_put_contents('welcome.mp3', base64_decode($result['audio']));
+Storage::put('welcome.mp3', $response->audio);
 ```
 
-## Speech Configuration
+## Speech to Text
 
-### Voice Selection
+Transcribe audio to text:
 
 ```php
-$result = Atlas::speech('openai', 'tts-1')
-    ->withVoice('nova')
-    ->generate('Thank you for calling.');
+$response = Atlas::audio()
+    ->using('openai', 'whisper-1')
+    ->fromFile('/path/to/audio.mp3')
+    ->asText();
+
+echo $response->text;  // Transcribed text
 ```
 
-**Available OpenAI voices:** `alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`
+## Text-to-Speech Examples
 
-### Audio Format
+### With Voice Selection
 
 ```php
-$result = Atlas::speech()
-    ->withVoice('nova')
-    ->format('mp3')
-    ->generate('Hello world!');
+$response = Atlas::audio()
+    ->using('openai', 'tts-1')
+    ->withVoice('onyx')  // Deep, authoritative voice
+    ->fromText('Important announcement.')
+    ->asAudio();
 ```
 
-**Supported formats:** `mp3`, `opus`, `aac`, `flac`
-
-### Speed Control
-
-```php
-$result = Atlas::speech('openai', 'tts-1')
-    ->withVoice('nova')
-    ->withSpeed(1.25)  // 0.25 to 4.0 for OpenAI
-    ->generate('This is faster speech.');
-```
+**OpenAI voices:** `alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`
 
 ### HD Quality
 
 ```php
-$result = Atlas::speech('openai', 'tts-1-hd')
+$response = Atlas::audio()
+    ->using('openai', 'tts-1-hd')
     ->withVoice('alloy')
-    ->generate('This is high-definition audio quality.');
+    ->fromText('High-definition audio quality.')
+    ->asAudio();
 ```
 
-## Fluent Configuration
+## Speech-to-Text Examples
+
+### Basic Transcription
 
 ```php
-$result = Atlas::speech()
-    ->withProvider('openai', 'tts-1')
-    ->withVoice('nova')
-    ->format('mp3')
-    ->withSpeed(1.0)
-    ->generate('Complete configuration example.');
+$response = Atlas::audio()
+    ->using('openai', 'whisper-1')
+    ->fromFile($request->file('audio')->path())
+    ->asText();
+
+return response()->json([
+    'text' => $response->text,
+]);
 ```
 
-## Provider Options
+### With Language Hint
 
 ```php
-$result = Atlas::speech()
-    ->withVoice('nova')
-    ->withProviderOptions(['language' => 'en'])
-    ->generate('Hello world!');
+$response = Atlas::audio()
+    ->using('openai', 'whisper-1')
+    ->fromFile('/path/to/audio.mp3')
+    ->withProviderMeta('openai', ['language' => 'en'])
+    ->asText();
 ```
 
-## TTS Response Format
+## Complete Examples
 
-```php
-$result = Atlas::speech()->withVoice('alloy')->generate('Hello');
-
-// Result structure
-[
-    'audio' => '...',  // Base64 encoded audio
-    'format' => 'mp3', // Audio format
-]
-```
-
-## Speech to Text (Transcription)
-
-Convert audio to text:
-
-```php
-$result = Atlas::speech()->transcribe('/path/to/audio.mp3');
-
-echo $result['text'];      // Transcribed text
-echo $result['language'];  // Detected language (e.g., 'en')
-echo $result['duration'];  // Audio duration in seconds
-```
-
-### Transcription Model
-
-```php
-$result = Atlas::speech()
-    ->transcriptionModel('whisper-1')
-    ->transcribe('/path/to/recording.mp3');
-```
-
-### Transcription Options
-
-```php
-$result = Atlas::speech()
-    ->transcriptionModel('whisper-1')
-    ->withProviderOptions([
-        'language' => 'en',
-        'prompt' => 'Technical terminology context',
-    ])
-    ->transcribe('/path/to/audio.mp3');
-```
-
-## STT Response Format
-
-```php
-$result = Atlas::speech()->transcribe($audioPath);
-
-// Result structure
-[
-    'text' => '...',      // Transcribed text
-    'language' => 'en',   // Detected language
-    'duration' => 5.2,    // Audio duration in seconds
-]
-```
-
-## Configuration
-
-Configure defaults in `config/atlas.php`:
-
-```php
-'speech' => [
-    'provider' => 'openai',
-    'model' => 'tts-1',
-    'transcription_model' => 'whisper-1',
-],
-```
-
-## PendingSpeechRequest Methods
-
-| Method | Description |
-|--------|-------------|
-| `withProvider(string $provider, ?string $model = null)` | Set provider and optionally model |
-| `withModel(string $model)` | Set TTS model |
-| `transcriptionModel(string $model)` | Set transcription model |
-| `withVoice(string $voice)` | Set voice for TTS |
-| `withSpeed(float $speed)` | Set speech speed (0.25-4.0) |
-| `format(string $format)` | Set audio format |
-| `withProviderOptions(array $options)` | Set provider-specific options |
-| `withMetadata(array $metadata)` | Set metadata for pipelines |
-| `withRetry($times, $delay, $when, $throw)` | Configure retry |
-| `generate(string $text, array $options = [])` | Convert text to speech |
-| `transcribe(Audio\|string $audio, array $options = [])` | Transcribe audio |
-
-## Use Cases
-
-### Voice Notifications
+### Voice Notification Service
 
 ```php
 class NotificationService
 {
     public function sendVoiceNotification(User $user, string $message): void
     {
-        $audio = Atlas::speech()
+        $response = Atlas::audio()
+            ->using('openai', 'tts-1')
             ->withVoice('nova')
-            ->format('mp3')
-            ->generate($message);
+            ->fromText($message)
+            ->asAudio();
 
         $filename = 'notifications/' . Str::uuid() . '.mp3';
-        Storage::put($filename, base64_decode($audio['audio']));
+        Storage::put($filename, $response->audio);
 
-        // Send via phone/voice service
         $this->voiceService->call($user->phone, Storage::url($filename));
     }
 }
 ```
 
-### Podcast Generation
-
-```php
-class PodcastGenerator
-{
-    public function generate(Article $article): string
-    {
-        $script = $this->prepareScript($article);
-
-        $audio = Atlas::speech('openai', 'tts-1-hd')
-            ->withVoice('onyx')
-            ->withSpeed(0.9)  // Slightly slower for clarity
-            ->generate($script);
-
-        $filename = "podcasts/{$article->slug}.mp3";
-        Storage::put($filename, base64_decode($audio['audio']));
-
-        return Storage::url($filename);
-    }
-}
-```
-
-### Voice Transcription
-
-```php
-class TranscriptionController extends Controller
-{
-    public function transcribe(Request $request)
-    {
-        $request->validate([
-            'audio' => 'required|file|mimes:mp3,wav,m4a|max:25000',
-        ]);
-
-        $result = Atlas::speech()
-            ->transcriptionModel('whisper-1')
-            ->transcribe($request->file('audio')->path());
-
-        return response()->json([
-            'text' => $result['text'],
-            'language' => $result['language'],
-            'duration' => $result['duration'],
-        ]);
-    }
-}
-```
-
-### Meeting Notes
+### Meeting Transcription
 
 ```php
 class MeetingService
@@ -237,17 +116,17 @@ class MeetingService
     public function processRecording(string $audioPath): array
     {
         // Transcribe
-        $transcription = Atlas::speech()
-            ->transcriptionModel('whisper-1')
-            ->transcribe($audioPath);
+        $transcription = Atlas::audio()
+            ->using('openai', 'whisper-1')
+            ->fromFile($audioPath)
+            ->asText();
 
         // Summarize with AI
         $summary = Atlas::agent('summarizer')
-            ->chat("Summarize this meeting transcript:\n\n{$transcription['text']}");
+            ->chat("Summarize this meeting transcript:\n\n{$transcription->text}");
 
         return [
-            'transcript' => $transcription['text'],
-            'duration' => $transcription['duration'],
+            'transcript' => $transcription->text,
             'summary' => $summary->text,
         ];
     }
@@ -255,6 +134,8 @@ class MeetingService
 ```
 
 ## Voice Characteristics
+
+<div class="full-width-table">
 
 | Voice | Description |
 |-------|-------------|
@@ -265,72 +146,45 @@ class MeetingService
 | `nova` | Friendly, natural |
 | `shimmer` | Clear, energetic |
 
-## Best Practices
+</div>
 
-### 1. Choose Appropriate Voice
+## Pipeline Hooks
 
-Match voice to content:
-- **nova** — Customer service, friendly content
-- **onyx** — Professional announcements, authoritative content
-- **fable** — Storytelling, engaging content
+Audio operations support pipeline middleware for observability:
 
-### 2. Optimize for Length
+<div class="full-width-table">
 
-For long content, consider:
-- Breaking into segments
-- Using lower quality for drafts
-- Caching generated audio
+| Pipeline | Trigger |
+|----------|---------|
+| `audio.before_audio` | Before text-to-speech |
+| `audio.after_audio` | After text-to-speech |
+| `audio.before_text` | Before speech-to-text |
+| `audio.after_text` | After speech-to-text |
 
-### 3. Handle Errors with Retry
-
-Atlas provides built-in retry functionality:
+</div>
 
 ```php
-// Simple retry: 3 attempts, 1 second delay
-$result = Atlas::speech()
-    ->withRetry(3, 1000)
-    ->withVoice('nova')
-    ->generate($text);
+use Atlasphp\Atlas\Contracts\PipelineContract;
 
-// Exponential backoff
-$result = Atlas::speech()
-    ->withRetry(3, fn($attempt) => (2 ** $attempt) * 100)
-    ->generate($text);
+class LogAudioGeneration implements PipelineContract
+{
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        $result = $next($data);
 
-// Only retry on rate limits
-$result = Atlas::speech()
-    ->withRetry(3, 1000, fn($e) => $e->getCode() === 429)
-    ->transcribe($audioPath);
-```
+        Log::info('Audio generated', [
+            'user_id' => $data['metadata']['user_id'] ?? null,
+        ]);
 
-Or handle manually:
-
-```php
-try {
-    $result = Atlas::speech()->generate($text);
-} catch (ProviderException $e) {
-    Log::error('Speech generation failed', ['error' => $e->getMessage()]);
-    // Fallback logic
+        return $result;
+    }
 }
-```
 
-## API Summary
-
-**Text-to-Speech:**
-```php
-Atlas::speech()->generate($text)
-Atlas::speech()->withVoice('nova')->generate($text)
-Atlas::speech('openai', 'tts-1-hd')->generate($text)
-```
-
-**Speech-to-Text:**
-```php
-Atlas::speech()->transcribe($audioPath)
-Atlas::speech()->transcriptionModel('whisper-1')->transcribe($audioPath)
+$registry->register('audio.after_audio', LogAudioGeneration::class);
 ```
 
 ## Next Steps
 
-- [Configuration](/getting-started/configuration) — Configure speech providers
+- [Prism Audio](https://prismphp.com/core-concepts/audio.html) — Complete audio reference
 - [Chat](/capabilities/chat) — Combine with chat for voice assistants
-- [Embeddings](/capabilities/embeddings) — Index transcriptions for search
+- [Pipelines](/core-concepts/pipelines) — Add observability to audio operations

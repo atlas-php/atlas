@@ -1,61 +1,97 @@
 # Introduction
 
-Atlas is a Laravel package for building AI-powered applications with structure and scale. It provides reusable agents, typed tools, system prompt templating, and execution pipelines—all through a clean, stateless API.
+Atlas is an organizational layer for [Prism PHP](https://prismphp.com) that adds structure for building production AI applications in Laravel. It provides reusable agents, typed tools, dynamic prompts, and execution pipelines—without hiding or replacing Prism.
 
-Built on [Prism PHP](https://github.com/prism-php/prism), Atlas lets you focus on application logic instead of wiring AI infrastructure.
+**Atlas returns Prism responses directly.** You get the same `PrismResponse` objects with full access to `->text`, `->usage`, `->toolCalls`, `->steps`, and everything else Prism provides.
 
 ## Quick Example
 
 ```php
-$response = Atlas::agent('support-agent')->chat('I need help with my order');
+// Define once
+class SupportAgent extends AgentDefinition
+{
+    public function provider(): ?string { return 'anthropic'; }
+    public function model(): ?string { return 'claude-sonnet-4-20250514'; }
+    public function systemPrompt(): ?string { return 'You help {user_name} with support issues.'; }
+    public function tools(): array { return [LookupOrderTool::class]; }
+}
+
+// Use anywhere
+$response = Atlas::agent(SupportAgent::class)
+    ->withVariables(['user_name' => 'Sarah'])
+    ->chat('I need help with my order');
+
+$response->text;   // Prism response - full access
+$response->usage;  // Token usage, cache stats, etc.
 ```
 
-## What Atlas Provides
+## Full Prism Compatibility
 
-Atlas handles **application-level AI concerns** while Prism handles **LLM communication**.
+Atlas doesn't hide Prism—it organizes access to it. Everything you can do with Prism works through Atlas:
 
-| Feature | Description |
-|---------|-------------|
-| **Agent Registry** | Define agents once, use anywhere by key, class, or instance |
-| **Tool Registry** | Connect agents to your business services with typed parameters |
-| **Dynamic Prompts** | Variables like `{user_name}` interpolate at runtime |
-| **Pipelines** | Extend Atlas for logging, auth, metrics—without coupling |
-| **Multi-Provider** | OpenAI, Anthropic, others. Swap via config |
+```php
+// All Prism fluent methods work
+Atlas::agent('support')
+    ->withMaxTokens(2000)           // Prism method
+    ->usingTemperature(0.7)         // Prism method
+    ->withClientOptions([...])      // Prism method
+    ->withProviderOptions([...])    // Prism method
+    ->chat('Hello');
 
-## Why Atlas?
+// Direct Prism access with pipeline hooks
+Atlas::text()
+    ->using('openai', 'gpt-4o')
+    ->withPrompt('Explain quantum computing')
+    ->asText();  // Returns Prism Response directly
 
-- **Build reusable, composable agents** — not one-off prompts
-- **Keep AI logic stateless, testable, and framework-native**
-- **Extend behavior (logging, auth, metrics) without touching the core**
+// Or use Prism directly—Atlas doesn't interfere
+Prism::text()->using('openai', 'gpt-4o')->withPrompt('...')->asText();
+```
 
-## Beyond Chat
+::: tip Prism Passthrough
+When you call `Atlas::text()`, `Atlas::embeddings()`, `Atlas::image()`, etc., you get a thin proxy that adds pipeline hooks around Prism's terminal methods. All fluent methods pass through unchanged to Prism.
+:::
 
-Atlas provides more than just chat capabilities:
+## What Atlas Adds
 
-- [Embeddings](/capabilities/embeddings) — Vector embeddings for semantic search and RAG
-- [Image Generation](/capabilities/images) — Generate images with DALL-E and other providers
-- [Speech](/capabilities/speech) — Text-to-speech and speech-to-text services
+<div class="full-width-table">
+
+| Feature | What It Does |
+|---------|--------------|
+| **Agent Definitions** | Encapsulate provider, model, prompt, tools, and options in reusable classes |
+| **Tool Definitions** | Typed tool classes with parameter schemas and execution context |
+| **System Prompt Variables** | `{user_name}`, `{context}` interpolation with runtime values |
+| **Pipeline Middleware** | Before/after hooks for logging, auth, metrics, error recovery |
+| **Agent Decorators** | Modify agent behavior at runtime without changing classes |
+| **Conditional Pipelines** | Run handlers only when conditions match (premium users, specific agents) |
+| **Auto-Discovery** | Agents and tools auto-register from configured directories |
+| **Testing Utilities** | Fake responses, assert requests, test tool execution |
+
+</div>
 
 ## Design Philosophy
 
-Atlas is intentionally stateless. Your application manages all persistence (conversations, user context, etc.) and passes data via execution context. This gives you:
+Atlas is intentionally **stateless**. Your application manages all persistence (conversations, user context, etc.) and passes data via execution context:
 
-- Full control over conversation history and storage
-- Freedom to implement custom trimming, summarization, or replay logic
-- Clean separation between AI execution and your application state
+```php
+// You control the history
+$messages = $this->loadConversationHistory($userId);
 
-## Note from the Author
+$response = Atlas::agent('support')
+    ->withMessages($messages)
+    ->withMetadata(['user_id' => $userId])
+    ->chat($newMessage);
 
-> Atlas has been built through deliberate iteration over the past year. This RC4 release reflects a stable, battle-tested core already running in large-scale production. Atlas is intentionally stateless, with persistence and orchestration planned for Nexus, a companion package in active development. Feedback and issues are always welcome.
->
-> — TM
+// You control persistence
+$this->saveMessage($userId, $response->text);
+```
 
-## Requirements
-
-- PHP 8.4+
-- Laravel 12.x
+This gives you full control over conversation storage, trimming, summarization, and replay logic.
 
 ## Next Steps
 
 - [Installation](/getting-started/installation) — Get Atlas set up in your Laravel app
 - [Configuration](/getting-started/configuration) — Configure providers and defaults
+- [Agents](/core-concepts/agents) — Define reusable AI configurations
+- [Tools](/core-concepts/tools) — Add callable tools to agents
+- [Pipelines](/core-concepts/pipelines) — Add middleware for logging, auth, and metrics

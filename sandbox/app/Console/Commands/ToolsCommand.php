@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use Atlasphp\Atlas\Agents\Contracts\AgentRegistryContract;
-use Atlasphp\Atlas\Providers\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Tools\Contracts\ToolRegistryContract;
 use Illuminate\Console\Command;
 
@@ -134,7 +134,7 @@ class ToolsCommand extends Command
     /**
      * Display tool calls from the response.
      *
-     * @param  \Atlasphp\Atlas\Agents\Support\AgentResponse  $response
+     * @param  \Prism\Prism\Text\Response  $response
      */
     protected function displayToolCalls($response): void
     {
@@ -170,7 +170,7 @@ class ToolsCommand extends Command
     /**
      * Display the final response.
      *
-     * @param  \Atlasphp\Atlas\Agents\Support\AgentResponse  $response
+     * @param  \Prism\Prism\Text\Response  $response
      */
     protected function displayFinalResponse($response): void
     {
@@ -183,16 +183,16 @@ class ToolsCommand extends Command
     /**
      * Display token usage.
      *
-     * @param  \Atlasphp\Atlas\Agents\Support\AgentResponse  $response
+     * @param  \Prism\Prism\Text\Response  $response
      */
     protected function displayTokenUsage($response): void
     {
         $this->line('--- Token Usage ---');
         $this->line(sprintf(
             'Prompt: %d | Completion: %d | Total: %d',
-            $response->promptTokens(),
-            $response->completionTokens(),
-            $response->totalTokens(),
+            $response->usage->promptTokens,
+            $response->usage->completionTokens,
+            $response->usage->promptTokens + $response->usage->completionTokens,
         ));
         $this->line('');
     }
@@ -200,7 +200,7 @@ class ToolsCommand extends Command
     /**
      * Display verification results.
      *
-     * @param  \Atlasphp\Atlas\Agents\Support\AgentResponse  $response
+     * @param  \Prism\Prism\Text\Response  $response
      */
     protected function displayVerification($response, float $duration): void
     {
@@ -244,7 +244,7 @@ class ToolsCommand extends Command
         }
 
         // Check final response
-        if ($response->hasText()) {
+        if ($response->text !== '') {
             $this->info('[PASS] Agent incorporated tool result in response');
         } else {
             $this->warn('[WARN] Agent did not provide text response');

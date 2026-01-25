@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Foundation\Exceptions\AtlasException;
+use Atlasphp\Atlas\Exceptions\AtlasException;
 
 test('it creates exception for duplicate registration', function () {
     $exception = AtlasException::duplicateRegistration('agent', 'support-agent');

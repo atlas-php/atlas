@@ -5,20 +5,18 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use Atlasphp\Atlas\Agents\Contracts\AgentRegistryContract;
-use Atlasphp\Atlas\Providers\Facades\Atlas;
-use Atlasphp\Atlas\Streaming\Events\ErrorEvent;
-use Atlasphp\Atlas\Streaming\Events\StreamEndEvent;
-use Atlasphp\Atlas\Streaming\Events\StreamStartEvent;
-use Atlasphp\Atlas\Streaming\Events\TextDeltaEvent;
-use Atlasphp\Atlas\Streaming\Events\ToolCallEndEvent;
-use Atlasphp\Atlas\Streaming\Events\ToolCallStartEvent;
+use Atlasphp\Atlas\Atlas;
 use Illuminate\Console\Command;
+use Prism\Prism\Streaming\Events\ErrorEvent;
+use Prism\Prism\Streaming\Events\StreamEndEvent;
+use Prism\Prism\Streaming\Events\StreamStartEvent;
+use Prism\Prism\Streaming\Events\TextDeltaEvent;
+use Prism\Prism\Streaming\Events\ToolCallEvent;
 
 /**
  * Command for testing streaming responses from agents.
  *
- * Demonstrates real-time streaming capabilities with event handling
- * and statistics display.
+ * Demonstrates real-time streaming capabilities with event handling.
  */
 class StreamCommand extends Command
 {
@@ -67,17 +65,21 @@ class StreamCommand extends Command
 
         $this->info("Streaming response:\n");
 
-        $stream = Atlas::agent($agentKey)->chat($prompt, stream: true);
-
         $eventCount = 0;
         $startTime = microtime(true);
+        $finishReason = 'unknown';
 
         try {
-            foreach ($stream as $event) {
+            foreach (Atlas::agent($agentKey)->stream($prompt) as $event) {
                 $eventCount++;
 
                 if ($event instanceof TextDeltaEvent) {
-                    $this->output->write($event->text);
+                    $this->output->write($event->delta);
+                } elseif ($event instanceof StreamEndEvent) {
+                    $finishReason = $event->finishReason->value ?? 'unknown';
+                    if ($showEvents) {
+                        $this->info("\n[Stream ended: {$finishReason}]");
+                    }
                 } elseif ($showEvents) {
                     $this->displayEvent($event);
                 }
@@ -89,8 +91,14 @@ class StreamCommand extends Command
             return self::FAILURE;
         }
 
+        $duration = round(microtime(true) - $startTime, 2);
+
         $this->newLine(2);
-        $this->displayStreamStats($stream, $eventCount, $startTime);
+        $this->info('--- Stream Statistics ---');
+        $this->line("Events received: {$eventCount}");
+        $this->line("Duration: {$duration}s");
+        $this->line("Finish reason: {$finishReason}");
+        $this->line('-------------------------');
 
         return self::SUCCESS;
     }
@@ -98,7 +106,7 @@ class StreamCommand extends Command
     /**
      * Display the command header.
      */
-    protected function displayHeader(string $agentKey, string $provider, string $model): void
+    protected function displayHeader(string $agentKey, ?string $provider, ?string $model): void
     {
         $this->line('');
         $this->line('=== Atlas Stream Demo ===');
@@ -112,86 +120,22 @@ class StreamCommand extends Command
     protected function displayEvent(mixed $event): void
     {
         match (true) {
-            $event instanceof StreamStartEvent => $this->info("\n[Stream started: {$event->provider}/{$event->model}]"),
-            $event instanceof ToolCallStartEvent => $this->displayToolCallStart($event),
-            $event instanceof ToolCallEndEvent => $this->displayToolCallEnd($event),
-            $event instanceof StreamEndEvent => $this->info("\n[Stream ended: {$event->finishReason}]"),
+            $event instanceof StreamStartEvent => $this->info("\n[Stream started]"),
+            $event instanceof ToolCallEvent => $this->displayToolCall($event),
             $event instanceof ErrorEvent => $this->error("\n[Error: {$event->message}]"),
             default => null,
         };
     }
 
     /**
-     * Display tool call start event details.
+     * Display tool call event details.
      */
-    protected function displayToolCallStart(ToolCallStartEvent $event): void
+    protected function displayToolCall(ToolCallEvent $event): void
     {
         $this->newLine();
-        $this->warn('[TOOL CALL START]');
-        $this->line("  Tool Name: {$event->toolName}");
-        $this->line("  Tool ID: {$event->toolId}");
+        $this->warn('[TOOL CALL]');
+        $this->line("  Tool Name: {$event->name}");
+        $this->line("  Tool ID: {$event->id}");
         $this->line('  Arguments: '.json_encode($event->arguments));
-    }
-
-    /**
-     * Display tool call end event details.
-     */
-    protected function displayToolCallEnd(ToolCallEndEvent $event): void
-    {
-        $status = $event->success ? '<fg=green>success</>' : '<fg=red>failed</>';
-        $this->info('[TOOL CALL END]');
-        $this->line("  Tool Name: {$event->toolName}");
-        $this->line("  Tool ID: {$event->toolId}");
-        $this->line("  Status: {$status}");
-        $this->line('  Result: '.(is_array($event->result) ? json_encode($event->result) : $event->result));
-    }
-
-    /**
-     * Display stream statistics.
-     */
-    protected function displayStreamStats(mixed $stream, int $eventCount, float $startTime): void
-    {
-        $duration = round(microtime(true) - $startTime, 2);
-
-        $this->info('--- Stream Statistics ---');
-        $this->line("Events received: {$eventCount}");
-        $this->line("Duration: {$duration}s");
-        $this->line("Finish reason: {$stream->finishReason()}");
-
-        $usage = $stream->usage();
-        if ($usage !== []) {
-            $this->line(sprintf(
-                'Tokens: %d prompt / %d completion / %d total',
-                $usage['prompt_tokens'] ?? 0,
-                $usage['completion_tokens'] ?? 0,
-                $usage['total_tokens'] ?? 0,
-            ));
-        }
-
-        $toolCalls = $stream->toolCalls();
-        if ($toolCalls !== []) {
-            $this->line('Tool calls: '.count($toolCalls));
-            foreach ($toolCalls as $i => $call) {
-                $this->line("  [{$i}] {$call['name']}");
-                $this->line('      ID: '.($call['id'] ?? 'N/A'));
-                $this->line('      Args: '.json_encode($call['arguments'] ?? []));
-                $this->line('      Result: '.(is_array($call['result'] ?? null) ? json_encode($call['result']) : ($call['result'] ?? 'N/A')));
-            }
-        }
-
-        // Display all collected events summary
-        $events = $stream->events();
-        $this->line('');
-        $this->info('--- Event Summary ---');
-        $eventTypes = [];
-        foreach ($events as $event) {
-            $type = (new \ReflectionClass($event))->getShortName();
-            $eventTypes[$type] = ($eventTypes[$type] ?? 0) + 1;
-        }
-        foreach ($eventTypes as $type => $count) {
-            $this->line("  {$type}: {$count}");
-        }
-
-        $this->line('-------------------------');
     }
 }

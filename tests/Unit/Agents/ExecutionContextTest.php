@@ -10,6 +10,10 @@ test('it creates with default empty values', function () {
     expect($context->messages)->toBe([]);
     expect($context->variables)->toBe([]);
     expect($context->metadata)->toBe([]);
+    expect($context->providerOverride)->toBeNull();
+    expect($context->modelOverride)->toBeNull();
+    expect($context->prismCalls)->toBe([]);
+    expect($context->prismMedia)->toBe([]);
 });
 
 test('it creates with provided values', function () {
@@ -24,62 +28,38 @@ test('it creates with provided values', function () {
     expect($context->metadata)->toBe($metadata);
 });
 
-test('it creates new instance with messages', function () {
-    $context = new ExecutionContext;
+test('it creates with all constructor parameters', function () {
     $messages = [['role' => 'user', 'content' => 'Hello']];
-
-    $newContext = $context->withMessages($messages);
-
-    expect($newContext)->not->toBe($context);
-    expect($newContext->messages)->toBe($messages);
-    expect($context->messages)->toBe([]);
-});
-
-test('it creates new instance with variables', function () {
-    $context = new ExecutionContext;
     $variables = ['user_name' => 'John'];
+    $metadata = ['session_id' => '123'];
+    $prismCalls = [['method' => 'withMaxSteps', 'args' => [10]]];
 
-    $newContext = $context->withVariables($variables);
+    $context = new ExecutionContext(
+        messages: $messages,
+        variables: $variables,
+        metadata: $metadata,
+        providerOverride: 'anthropic',
+        modelOverride: 'claude-3-opus',
+        prismCalls: $prismCalls,
+    );
 
-    expect($newContext)->not->toBe($context);
-    expect($newContext->variables)->toBe($variables);
-});
-
-test('it creates new instance with metadata', function () {
-    $context = new ExecutionContext;
-    $metadata = ['key' => 'value'];
-
-    $newContext = $context->withMetadata($metadata);
-
-    expect($newContext)->not->toBe($context);
-    expect($newContext->metadata)->toBe($metadata);
-});
-
-test('it merges variables preserving existing', function () {
-    $context = new ExecutionContext([], ['a' => 1]);
-
-    $newContext = $context->mergeVariables(['b' => 2]);
-
-    expect($newContext->variables)->toBe(['a' => 1, 'b' => 2]);
-});
-
-test('it merges metadata preserving existing', function () {
-    $context = new ExecutionContext([], [], ['a' => 1]);
-
-    $newContext = $context->mergeMetadata(['b' => 2]);
-
-    expect($newContext->metadata)->toBe(['a' => 1, 'b' => 2]);
+    expect($context->messages)->toBe($messages);
+    expect($context->variables)->toBe($variables);
+    expect($context->metadata)->toBe($metadata);
+    expect($context->providerOverride)->toBe('anthropic');
+    expect($context->modelOverride)->toBe('claude-3-opus');
+    expect($context->prismCalls)->toBe($prismCalls);
 });
 
 test('it gets variable with default', function () {
-    $context = new ExecutionContext([], ['key' => 'value']);
+    $context = new ExecutionContext(variables: ['key' => 'value']);
 
     expect($context->getVariable('key'))->toBe('value');
     expect($context->getVariable('missing', 'default'))->toBe('default');
 });
 
 test('it gets meta with default', function () {
-    $context = new ExecutionContext([], [], ['key' => 'value']);
+    $context = new ExecutionContext(metadata: ['key' => 'value']);
 
     expect($context->getMeta('key'))->toBe('value');
     expect($context->getMeta('missing', 'default'))->toBe('default');
@@ -87,92 +67,36 @@ test('it gets meta with default', function () {
 
 test('it reports hasMessages correctly', function () {
     $empty = new ExecutionContext;
-    $withMessages = new ExecutionContext([['role' => 'user', 'content' => 'Hi']]);
+    $withMessages = new ExecutionContext(messages: [['role' => 'user', 'content' => 'Hi']]);
 
     expect($empty->hasMessages())->toBeFalse();
     expect($withMessages->hasMessages())->toBeTrue();
 });
 
 test('it reports hasVariable correctly', function () {
-    $context = new ExecutionContext([], ['key' => 'value']);
+    $context = new ExecutionContext(variables: ['key' => 'value']);
 
     expect($context->hasVariable('key'))->toBeTrue();
     expect($context->hasVariable('missing'))->toBeFalse();
 });
 
 test('it reports hasMeta correctly', function () {
-    $context = new ExecutionContext([], [], ['key' => 'value']);
+    $context = new ExecutionContext(metadata: ['key' => 'value']);
 
     expect($context->hasMeta('key'))->toBeTrue();
     expect($context->hasMeta('missing'))->toBeFalse();
 });
 
 test('it creates with provider and model overrides', function () {
-    $context = new ExecutionContext([], [], [], 'anthropic', 'claude-3-opus');
+    $context = new ExecutionContext(providerOverride: 'anthropic', modelOverride: 'claude-3-opus');
 
     expect($context->providerOverride)->toBe('anthropic');
     expect($context->modelOverride)->toBe('claude-3-opus');
 });
 
-test('it creates new instance with provider override', function () {
-    $context = new ExecutionContext;
-
-    $newContext = $context->withProviderOverride('anthropic');
-
-    expect($newContext)->not->toBe($context);
-    expect($newContext->providerOverride)->toBe('anthropic');
-    expect($context->providerOverride)->toBeNull();
-});
-
-test('it creates new instance with model override', function () {
-    $context = new ExecutionContext;
-
-    $newContext = $context->withModelOverride('gpt-4-turbo');
-
-    expect($newContext)->not->toBe($context);
-    expect($newContext->modelOverride)->toBe('gpt-4-turbo');
-    expect($context->modelOverride)->toBeNull();
-});
-
-test('withProviderOverride preserves other values', function () {
-    $context = new ExecutionContext(
-        [['role' => 'user', 'content' => 'Hello']],
-        ['key' => 'value'],
-        ['meta' => 'data'],
-        null,
-        'gpt-4',
-    );
-
-    $newContext = $context->withProviderOverride('anthropic');
-
-    expect($newContext->messages)->toBe([['role' => 'user', 'content' => 'Hello']]);
-    expect($newContext->variables)->toBe(['key' => 'value']);
-    expect($newContext->metadata)->toBe(['meta' => 'data']);
-    expect($newContext->providerOverride)->toBe('anthropic');
-    expect($newContext->modelOverride)->toBe('gpt-4');
-});
-
-test('withModelOverride preserves other values', function () {
-    $context = new ExecutionContext(
-        [['role' => 'user', 'content' => 'Hello']],
-        ['key' => 'value'],
-        ['meta' => 'data'],
-        'openai',
-        null,
-    );
-
-    $newContext = $context->withModelOverride('gpt-4-turbo');
-
-    expect($newContext->messages)->toBe([['role' => 'user', 'content' => 'Hello']]);
-    expect($newContext->variables)->toBe(['key' => 'value']);
-    expect($newContext->metadata)->toBe(['meta' => 'data']);
-    expect($newContext->providerOverride)->toBe('openai');
-    expect($newContext->modelOverride)->toBe('gpt-4-turbo');
-});
-
 test('it reports hasProviderOverride correctly', function () {
     $withoutOverride = new ExecutionContext;
-    $withOverride = new ExecutionContext([], [], [], 'anthropic');
+    $withOverride = new ExecutionContext(providerOverride: 'anthropic');
 
     expect($withoutOverride->hasProviderOverride())->toBeFalse();
     expect($withOverride->hasProviderOverride())->toBeTrue();
@@ -180,306 +104,150 @@ test('it reports hasProviderOverride correctly', function () {
 
 test('it reports hasModelOverride correctly', function () {
     $withoutOverride = new ExecutionContext;
-    $withOverride = new ExecutionContext([], [], [], null, 'gpt-4-turbo');
+    $withOverride = new ExecutionContext(modelOverride: 'gpt-4-turbo');
 
     expect($withoutOverride->hasModelOverride())->toBeFalse();
     expect($withOverride->hasModelOverride())->toBeTrue();
 });
 
-test('withProviderOverride can clear override with null', function () {
-    $context = new ExecutionContext([], [], [], 'anthropic');
-
-    $newContext = $context->withProviderOverride(null);
-
-    expect($newContext->providerOverride)->toBeNull();
-    expect($newContext->hasProviderOverride())->toBeFalse();
-});
-
-test('withModelOverride can clear override with null', function () {
-    $context = new ExecutionContext([], [], [], null, 'gpt-4-turbo');
-
-    $newContext = $context->withModelOverride(null);
-
-    expect($newContext->modelOverride)->toBeNull();
-    expect($newContext->hasModelOverride())->toBeFalse();
-});
-
-// ===========================================
-// CURRENT ATTACHMENTS TESTS
-// ===========================================
-
-test('it creates with default empty currentAttachments', function () {
+test('it creates with default empty prismMedia', function () {
     $context = new ExecutionContext;
 
-    expect($context->currentAttachments)->toBe([]);
+    expect($context->prismMedia)->toBe([]);
 });
 
-test('it creates with provided currentAttachments', function () {
-    $attachments = [
-        ['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image.jpg'],
-    ];
+test('it creates with provided prismMedia', function () {
+    $mockImage = Mockery::mock(\Prism\Prism\ValueObjects\Media\Image::class);
 
-    $context = new ExecutionContext([], [], [], null, null, $attachments);
+    $context = new ExecutionContext(prismMedia: [$mockImage]);
 
-    expect($context->currentAttachments)->toBe($attachments);
+    expect($context->prismMedia)->toBe([$mockImage]);
 });
 
-test('it creates new instance with currentAttachments', function () {
-    $context = new ExecutionContext;
-    $attachments = [
-        ['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image.jpg'],
-    ];
+test('it reports hasAttachments correctly', function () {
+    $mockImage = Mockery::mock(\Prism\Prism\ValueObjects\Media\Image::class);
 
-    $newContext = $context->withCurrentAttachments($attachments);
-
-    expect($newContext)->not->toBe($context);
-    expect($newContext->currentAttachments)->toBe($attachments);
-    expect($context->currentAttachments)->toBe([]);
-});
-
-test('it reports hasCurrentAttachments correctly', function () {
     $empty = new ExecutionContext;
-    $withAttachments = new ExecutionContext([], [], [], null, null, [
-        ['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image.jpg'],
+    $withMedia = new ExecutionContext(prismMedia: [$mockImage]);
+
+    expect($empty->hasAttachments())->toBeFalse();
+    expect($withMedia->hasAttachments())->toBeTrue();
+});
+
+test('it creates with prismCalls', function () {
+    $prismCalls = [
+        ['method' => 'withMaxSteps', 'args' => [10]],
+        ['method' => 'withTemperature', 'args' => [0.7]],
+    ];
+
+    $context = new ExecutionContext(prismCalls: $prismCalls);
+
+    expect($context->prismCalls)->toBe($prismCalls);
+});
+
+test('it creates with prismMessages', function () {
+    $mockUserMessage = Mockery::mock(\Prism\Prism\ValueObjects\Messages\UserMessage::class);
+    $mockAssistantMessage = Mockery::mock(\Prism\Prism\ValueObjects\Messages\AssistantMessage::class);
+
+    $context = new ExecutionContext(prismMessages: [$mockUserMessage, $mockAssistantMessage]);
+
+    expect($context->prismMessages)->toBe([$mockUserMessage, $mockAssistantMessage]);
+});
+
+test('it reports hasPrismMessages correctly', function () {
+    $mockUserMessage = Mockery::mock(\Prism\Prism\ValueObjects\Messages\UserMessage::class);
+
+    $empty = new ExecutionContext;
+    $withPrismMessages = new ExecutionContext(prismMessages: [$mockUserMessage]);
+
+    expect($empty->hasPrismMessages())->toBeFalse();
+    expect($withPrismMessages->hasPrismMessages())->toBeTrue();
+});
+
+test('hasMessages returns true for either array or prism messages', function () {
+    $mockUserMessage = Mockery::mock(\Prism\Prism\ValueObjects\Messages\UserMessage::class);
+
+    $empty = new ExecutionContext;
+    $withArrayMessages = new ExecutionContext(messages: [['role' => 'user', 'content' => 'Hi']]);
+    $withPrismMessages = new ExecutionContext(prismMessages: [$mockUserMessage]);
+
+    expect($empty->hasMessages())->toBeFalse();
+    expect($withArrayMessages->hasMessages())->toBeTrue();
+    expect($withPrismMessages->hasMessages())->toBeTrue();
+});
+
+test('it reports hasPrismCalls correctly', function () {
+    $empty = new ExecutionContext;
+    $withCalls = new ExecutionContext(prismCalls: [
+        ['method' => 'withMaxSteps', 'args' => [10]],
     ]);
 
-    expect($empty->hasCurrentAttachments())->toBeFalse();
-    expect($withAttachments->hasCurrentAttachments())->toBeTrue();
+    expect($empty->hasPrismCalls())->toBeFalse();
+    expect($withCalls->hasPrismCalls())->toBeTrue();
 });
 
-test('withMessages preserves currentAttachments', function () {
-    $attachments = [
-        ['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image.jpg'],
-    ];
-    $context = new ExecutionContext([], [], [], null, null, $attachments);
-
-    $newContext = $context->withMessages([['role' => 'user', 'content' => 'Hello']]);
-
-    expect($newContext->currentAttachments)->toBe($attachments);
-});
-
-test('withVariables preserves currentAttachments', function () {
-    $attachments = [
-        ['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image.jpg'],
-    ];
-    $context = new ExecutionContext([], [], [], null, null, $attachments);
-
-    $newContext = $context->withVariables(['key' => 'value']);
-
-    expect($newContext->currentAttachments)->toBe($attachments);
-});
-
-test('withMetadata preserves currentAttachments', function () {
-    $attachments = [
-        ['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image.jpg'],
-    ];
-    $context = new ExecutionContext([], [], [], null, null, $attachments);
-
-    $newContext = $context->withMetadata(['meta' => 'data']);
-
-    expect($newContext->currentAttachments)->toBe($attachments);
-});
-
-test('withProviderOverride preserves currentAttachments', function () {
-    $attachments = [
-        ['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image.jpg'],
-    ];
-    $context = new ExecutionContext([], [], [], null, null, $attachments);
-
-    $newContext = $context->withProviderOverride('anthropic');
-
-    expect($newContext->currentAttachments)->toBe($attachments);
-});
-
-test('withModelOverride preserves currentAttachments', function () {
-    $attachments = [
-        ['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image.jpg'],
-    ];
-    $context = new ExecutionContext([], [], [], null, null, $attachments);
-
-    $newContext = $context->withModelOverride('gpt-4-turbo');
-
-    expect($newContext->currentAttachments)->toBe($attachments);
-});
-
-test('mergeVariables preserves currentAttachments', function () {
-    $attachments = [
-        ['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image.jpg'],
-    ];
-    $context = new ExecutionContext([], ['a' => 1], [], null, null, $attachments);
-
-    $newContext = $context->mergeVariables(['b' => 2]);
-
-    expect($newContext->currentAttachments)->toBe($attachments);
-});
-
-test('mergeMetadata preserves currentAttachments', function () {
-    $attachments = [
-        ['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image.jpg'],
-    ];
-    $context = new ExecutionContext([], [], ['a' => 1], null, null, $attachments);
-
-    $newContext = $context->mergeMetadata(['b' => 2]);
-
-    expect($newContext->currentAttachments)->toBe($attachments);
-});
-
-test('withCurrentAttachments preserves other values', function () {
-    $context = new ExecutionContext(
-        [['role' => 'user', 'content' => 'Hello']],
-        ['key' => 'value'],
-        ['meta' => 'data'],
-        'openai',
-        'gpt-4',
-    );
-
-    $attachments = [
-        ['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image.jpg'],
-    ];
-    $newContext = $context->withCurrentAttachments($attachments);
-
-    expect($newContext->messages)->toBe([['role' => 'user', 'content' => 'Hello']]);
-    expect($newContext->variables)->toBe(['key' => 'value']);
-    expect($newContext->metadata)->toBe(['meta' => 'data']);
-    expect($newContext->providerOverride)->toBe('openai');
-    expect($newContext->modelOverride)->toBe('gpt-4');
-    expect($newContext->currentAttachments)->toBe($attachments);
-});
-
-// ===========================================
-// PROVIDER OPTIONS TESTS
-// ===========================================
-
-test('it creates with default empty providerOptions', function () {
-    $context = new ExecutionContext;
-
-    expect($context->providerOptions)->toBe([]);
-});
-
-test('it creates with provided providerOptions', function () {
-    $providerOptions = ['cacheType' => 'ephemeral', 'presence_penalty' => 0.5];
-
-    $context = new ExecutionContext([], [], [], null, null, [], null, $providerOptions);
-
-    expect($context->providerOptions)->toBe($providerOptions);
-});
-
-test('it creates new instance with providerOptions', function () {
-    $context = new ExecutionContext;
-    $providerOptions = ['cacheType' => 'ephemeral'];
-
-    $newContext = $context->withProviderOptions($providerOptions);
-
-    expect($newContext)->not->toBe($context);
-    expect($newContext->providerOptions)->toBe($providerOptions);
-    expect($context->providerOptions)->toBe([]);
-});
-
-test('it reports hasProviderOptions correctly', function () {
+test('it reports hasSchemaCall correctly', function () {
     $empty = new ExecutionContext;
-    $withOptions = new ExecutionContext([], [], [], null, null, [], null, ['cacheType' => 'ephemeral']);
+    $withSchema = new ExecutionContext(prismCalls: [
+        ['method' => 'withSchema', 'args' => ['mock-schema']],
+    ]);
+    $withOtherCalls = new ExecutionContext(prismCalls: [
+        ['method' => 'withMaxSteps', 'args' => [10]],
+    ]);
 
-    expect($empty->hasProviderOptions())->toBeFalse();
-    expect($withOptions->hasProviderOptions())->toBeTrue();
+    expect($empty->hasSchemaCall())->toBeFalse();
+    expect($withSchema->hasSchemaCall())->toBeTrue();
+    expect($withOtherCalls->hasSchemaCall())->toBeFalse();
 });
 
-test('withProviderOptions preserves other values', function () {
-    $attachments = [
-        ['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image.jpg'],
-    ];
-    $context = new ExecutionContext(
-        [['role' => 'user', 'content' => 'Hello']],
-        ['key' => 'value'],
-        ['meta' => 'data'],
-        'openai',
-        'gpt-4',
-        $attachments,
-        null,
-    );
+test('it gets schema from prism calls', function () {
+    $mockSchema = new \stdClass;
+    $mockSchema->name = 'test-schema';
 
-    $providerOptions = ['cacheType' => 'ephemeral'];
-    $newContext = $context->withProviderOptions($providerOptions);
+    $contextWithSchema = new ExecutionContext(prismCalls: [
+        ['method' => 'withMaxSteps', 'args' => [10]],
+        ['method' => 'withSchema', 'args' => [$mockSchema]],
+    ]);
 
-    expect($newContext->messages)->toBe([['role' => 'user', 'content' => 'Hello']]);
-    expect($newContext->variables)->toBe(['key' => 'value']);
-    expect($newContext->metadata)->toBe(['meta' => 'data']);
-    expect($newContext->providerOverride)->toBe('openai');
-    expect($newContext->modelOverride)->toBe('gpt-4');
-    expect($newContext->currentAttachments)->toBe($attachments);
-    expect($newContext->providerOptions)->toBe($providerOptions);
+    $contextWithoutSchema = new ExecutionContext(prismCalls: [
+        ['method' => 'withMaxSteps', 'args' => [10]],
+    ]);
+
+    expect($contextWithSchema->getSchemaFromCalls())->toBe($mockSchema);
+    expect($contextWithoutSchema->getSchemaFromCalls())->toBeNull();
 });
 
-test('withMessages preserves providerOptions', function () {
-    $providerOptions = ['cacheType' => 'ephemeral'];
-    $context = new ExecutionContext([], [], [], null, null, [], null, $providerOptions);
+test('it gets prism calls without schema', function () {
+    $mockSchema = new \stdClass;
 
-    $newContext = $context->withMessages([['role' => 'user', 'content' => 'Hello']]);
+    $context = new ExecutionContext(prismCalls: [
+        ['method' => 'withMaxSteps', 'args' => [10]],
+        ['method' => 'withSchema', 'args' => [$mockSchema]],
+        ['method' => 'usingTemperature', 'args' => [0.7]],
+    ]);
 
-    expect($newContext->providerOptions)->toBe($providerOptions);
+    $callsWithoutSchema = $context->getPrismCallsWithoutSchema();
+
+    expect($callsWithoutSchema)->toHaveCount(2);
+    expect($callsWithoutSchema[0]['method'])->toBe('withMaxSteps');
+    expect($callsWithoutSchema[1]['method'])->toBe('usingTemperature');
 });
 
-test('withVariables preserves providerOptions', function () {
-    $providerOptions = ['cacheType' => 'ephemeral'];
-    $context = new ExecutionContext([], [], [], null, null, [], null, $providerOptions);
+test('getPrismCallsWithoutSchema returns empty array when no calls', function () {
+    $context = new ExecutionContext;
 
-    $newContext = $context->withVariables(['key' => 'value']);
-
-    expect($newContext->providerOptions)->toBe($providerOptions);
+    expect($context->getPrismCallsWithoutSchema())->toBe([]);
 });
 
-test('withMetadata preserves providerOptions', function () {
-    $providerOptions = ['cacheType' => 'ephemeral'];
-    $context = new ExecutionContext([], [], [], null, null, [], null, $providerOptions);
+test('getPrismCallsWithoutSchema returns all calls when no schema', function () {
+    $context = new ExecutionContext(prismCalls: [
+        ['method' => 'withMaxSteps', 'args' => [10]],
+        ['method' => 'usingTemperature', 'args' => [0.7]],
+    ]);
 
-    $newContext = $context->withMetadata(['meta' => 'data']);
+    $calls = $context->getPrismCallsWithoutSchema();
 
-    expect($newContext->providerOptions)->toBe($providerOptions);
-});
-
-test('withProviderOverride preserves providerOptions', function () {
-    $providerOptions = ['cacheType' => 'ephemeral'];
-    $context = new ExecutionContext([], [], [], null, null, [], null, $providerOptions);
-
-    $newContext = $context->withProviderOverride('anthropic');
-
-    expect($newContext->providerOptions)->toBe($providerOptions);
-});
-
-test('withModelOverride preserves providerOptions', function () {
-    $providerOptions = ['cacheType' => 'ephemeral'];
-    $context = new ExecutionContext([], [], [], null, null, [], null, $providerOptions);
-
-    $newContext = $context->withModelOverride('gpt-4-turbo');
-
-    expect($newContext->providerOptions)->toBe($providerOptions);
-});
-
-test('withCurrentAttachments preserves providerOptions', function () {
-    $providerOptions = ['cacheType' => 'ephemeral'];
-    $context = new ExecutionContext([], [], [], null, null, [], null, $providerOptions);
-
-    $attachments = [
-        ['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image.jpg'],
-    ];
-    $newContext = $context->withCurrentAttachments($attachments);
-
-    expect($newContext->providerOptions)->toBe($providerOptions);
-});
-
-test('mergeVariables preserves providerOptions', function () {
-    $providerOptions = ['cacheType' => 'ephemeral'];
-    $context = new ExecutionContext([], ['a' => 1], [], null, null, [], null, $providerOptions);
-
-    $newContext = $context->mergeVariables(['b' => 2]);
-
-    expect($newContext->providerOptions)->toBe($providerOptions);
-});
-
-test('mergeMetadata preserves providerOptions', function () {
-    $providerOptions = ['cacheType' => 'ephemeral'];
-    $context = new ExecutionContext([], [], ['a' => 1], null, null, [], null, $providerOptions);
-
-    $newContext = $context->mergeMetadata(['b' => 2]);
-
-    expect($newContext->providerOptions)->toBe($providerOptions);
+    expect($calls)->toHaveCount(2);
+    expect($calls[0]['method'])->toBe('withMaxSteps');
+    expect($calls[1]['method'])->toBe('usingTemperature');
 });

@@ -18,7 +18,10 @@
     "autoload": {
         "psr-4": {
             "Atlasphp\\Atlas\\": "src/"
-        }
+        },
+        "files": [
+            "src/helpers.php"
+        ]
     },
     "autoload-dev": {
         "psr-4": {
@@ -45,10 +48,10 @@
     "extra": {
         "laravel": {
             "providers": [
-                "Atlasphp\\Atlas\\Foundation\\AtlasServiceProvider"
+                "Atlasphp\\Atlas\\AtlasServiceProvider"
             ],
             "aliases": {
-                "Atlas": "Atlasphp\\Atlas\\Providers\\Facades\\Atlas"
+                "Atlas": "Atlasphp\\Atlas\\Atlas"
             }
         }
     },

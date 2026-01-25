@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Agents;
 
 use Atlasphp\Atlas\Agents\Contracts\AgentContract;
 use Atlasphp\Atlas\Agents\Enums\AgentType;
+use Prism\Prism\Contracts\Schema;
 
 /**
  * Base class for agent definitions.
@@ -167,12 +168,35 @@ abstract class AgentDefinition implements AgentContract
     }
 
     /**
-     * Get additional provider-specific settings.
+     * Get HTTP client options (timeout, retries, etc.).
      *
      * @return array<string, mixed>
      */
-    public function settings(): array
+    public function clientOptions(): array
     {
         return [];
+    }
+
+    /**
+     * Get provider-specific options.
+     *
+     * @return array<string, mixed>
+     */
+    public function providerOptions(): array
+    {
+        return [];
+    }
+
+    /**
+     * Get the schema for structured output.
+     *
+     * When defined, the agent will use Prism's structured output module
+     * and return a StructuredResponse instead of a text Response.
+     *
+     * Defaults to null (text output). Override to enable structured output.
+     */
+    public function schema(): ?Schema
+    {
+        return null;
     }
 }

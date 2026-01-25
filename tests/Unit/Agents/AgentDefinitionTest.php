@@ -182,7 +182,7 @@ test('it returns null maxSteps by default', function () {
     expect($agent->maxSteps())->toBeNull();
 });
 
-test('it returns empty settings by default', function () {
+test('it returns empty clientOptions and providerOptions by default', function () {
     $agent = new class extends AgentDefinition
     {
         public function provider(): ?string
@@ -201,7 +201,8 @@ test('it returns empty settings by default', function () {
         }
     };
 
-    expect($agent->settings())->toBe([]);
+    expect($agent->clientOptions())->toBe([]);
+    expect($agent->providerOptions())->toBe([]);
 });
 
 test('it returns Api type by default', function () {
@@ -438,7 +439,11 @@ test('minimal agent uses all defaults', function () {
     // Arrays should be empty by default
     expect($agent->tools())->toBe([]);
     expect($agent->providerTools())->toBe([]);
-    expect($agent->settings())->toBe([]);
+    expect($agent->clientOptions())->toBe([]);
+    expect($agent->providerOptions())->toBe([]);
+
+    // Schema should be null by default
+    expect($agent->schema())->toBeNull();
 
     // Type should be Api by default
     expect($agent->type())->toBe(AgentType::Api);

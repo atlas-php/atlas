@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use Atlasphp\Atlas\Providers\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 use Illuminate\Console\Command;
 
 /**
@@ -124,26 +124,27 @@ class ProviderResolutionCommand extends Command
         $this->line('  Agent: general-assistant (configured with openai/gpt-4o)');
         $this->line('  Override: withProvider("anthropic", "claude-sonnet-4-20250514")');
         $this->line('  Callbacks:');
-        $this->line('    - whenProvider("openai") => metadata: openai-callback');
-        $this->line('    - whenProvider("anthropic") => metadata: anthropic-callback');
+        $this->line('    - whenProvider("openai") => providerOptions: openai-specific');
+        $this->line('    - whenProvider("anthropic") => providerOptions: anthropic-specific');
         $this->line('  Expected: Only anthropic callback applies (matches override)');
         $this->line('');
 
         try {
-            // Track which callback was applied via metadata
+            // Track which callback was applied via local variable
             $appliedCallback = 'none';
 
+            /** @phpstan-ignore method.notFound (whenProvider is forwarded via __call) */
             $response = Atlas::agent('general-assistant')
                 ->withProvider('anthropic', 'claude-sonnet-4-20250514')
                 ->whenProvider('openai', function ($r) use (&$appliedCallback) {
                     $appliedCallback = 'openai';
 
-                    return $r->withMetadata(['callback' => 'openai']);
+                    return $r->withProviderOptions(['openai_option' => true]);
                 })
                 ->whenProvider('anthropic', function ($r) use (&$appliedCallback) {
                     $appliedCallback = 'anthropic';
 
-                    return $r->withMetadata(['callback' => 'anthropic']);
+                    return $r->withProviderOptions(['anthropic_option' => true]);
                 })
                 ->chat('Respond with exactly: "Callback test complete"');
 

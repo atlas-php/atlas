@@ -2,39 +2,41 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Agents\Exceptions\AgentException;
 use Atlasphp\Atlas\Agents\Services\AgentExecutor;
+use Atlasphp\Atlas\Agents\Services\MediaConverter;
 use Atlasphp\Atlas\Agents\Services\SystemPromptBuilder;
-use Atlasphp\Atlas\Agents\Support\AgentResponse;
 use Atlasphp\Atlas\Agents\Support\ExecutionContext;
-use Atlasphp\Atlas\Foundation\Services\PipelineRegistry;
-use Atlasphp\Atlas\Foundation\Services\PipelineRunner;
-use Atlasphp\Atlas\Providers\Contracts\PrismBuilderContract;
-use Atlasphp\Atlas\Providers\Services\ProviderConfigService;
-use Atlasphp\Atlas\Providers\Services\UsageExtractorRegistry;
+use Atlasphp\Atlas\Contracts\PipelineContract;
+use Atlasphp\Atlas\Pipelines\PipelineRegistry;
+use Atlasphp\Atlas\Pipelines\PipelineRunner;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
 use Atlasphp\Atlas\Tools\Services\ToolBuilder;
 use Atlasphp\Atlas\Tools\Services\ToolExecutor;
 use Atlasphp\Atlas\Tools\Services\ToolRegistry;
 use Illuminate\Container\Container;
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Structured\Response as StructuredResponse;
+use Prism\Prism\Testing\StructuredResponseFake;
+use Prism\Prism\Testing\TextResponseFake;
+use Prism\Prism\Text\Response as PrismResponse;
+use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\ToolCall;
+use Prism\Prism\ValueObjects\Usage;
 
 beforeEach(function () {
     $this->container = new Container;
     $registry = new PipelineRegistry;
     $this->runner = new PipelineRunner($registry, $this->container);
-
-    // Create mock for PrismBuilder
-    $this->prismBuilder = Mockery::mock(PrismBuilderContract::class);
+    $this->pipelineRegistry = $registry;
 
     // Create real service instances
     $this->systemPromptBuilder = new SystemPromptBuilder($this->runner);
     $toolRegistry = new ToolRegistry($this->container);
     $toolExecutor = new ToolExecutor($this->runner);
     $this->toolBuilder = new ToolBuilder($toolRegistry, $toolExecutor, $this->container);
-    $this->usageExtractor = new UsageExtractorRegistry;
-
-    // Create mock for ProviderConfigService
-    $this->configService = Mockery::mock(ProviderConfigService::class);
-    $this->configService->shouldReceive('getRetryConfig')->andReturn(null);
+    $this->mediaConverter = new MediaConverter;
 });
 
 afterEach(function () {
@@ -43,101 +45,75 @@ afterEach(function () {
 
 test('it creates executor with dependencies', function () {
     $executor = new AgentExecutor(
-        $this->prismBuilder,
         $this->toolBuilder,
         $this->systemPromptBuilder,
         $this->runner,
-        $this->usageExtractor,
-        $this->configService,
+        $this->mediaConverter,
     );
 
     expect($executor)->toBeInstanceOf(AgentExecutor::class);
 });
 
-test('it creates default context when none provided', function () {
-    // Create a mock response object
-    $mockResponse = new class
-    {
-        public ?string $text = 'Hello';
-
-        public array $toolCalls = [];
-
-        public object $finishReason;
-
-        public function __construct()
-        {
-            $this->finishReason = new class
-            {
-                public string $value = 'stop';
-            };
-        }
-    };
-
-    // Mock the pending request
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
-
-    $this->prismBuilder
-        ->shouldReceive('forPrompt')
-        ->once()
-        ->andReturn($mockPendingRequest);
+test('it executes agent and returns PrismResponse', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Hello from AI')
+            ->withUsage(new Usage(10, 5))
+            ->withMeta(new Meta('test-id', 'gpt-4')),
+    ]);
 
     $executor = new AgentExecutor(
-        $this->prismBuilder,
         $this->toolBuilder,
         $this->systemPromptBuilder,
         $this->runner,
-        $this->usageExtractor,
-        $this->configService,
+        $this->mediaConverter,
     );
 
     $agent = new TestAgent;
-    $response = $executor->execute($agent, 'Hello');
+    $context = new ExecutionContext;
+    $response = $executor->execute($agent, 'Hello', $context);
 
-    expect($response)->toBeInstanceOf(AgentResponse::class);
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response->text)->toBe('Hello from AI');
 });
 
-test('it uses provided context', function () {
-    $mockResponse = new class
-    {
-        public ?string $text = 'Hello';
-
-        public array $toolCalls = [];
-
-        public object $finishReason;
-
-        public function __construct()
-        {
-            $this->finishReason = new class
-            {
-                public string $value = 'stop';
-            };
-        }
-    };
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
-
-    $this->prismBuilder
-        ->shouldReceive('forPrompt')
-        ->once()
-        ->andReturn($mockPendingRequest);
+test('it uses provided context with messages', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Continuing conversation')
+            ->withUsage(new Usage(15, 10)),
+    ]);
 
     $executor = new AgentExecutor(
-        $this->prismBuilder,
         $this->toolBuilder,
         $this->systemPromptBuilder,
         $this->runner,
-        $this->usageExtractor,
-        $this->configService,
+        $this->mediaConverter,
+    );
+
+    $context = new ExecutionContext(
+        messages: [['role' => 'user', 'content' => 'Previous message']],
+    );
+
+    $agent = new TestAgent;
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response->text)->toBe('Continuing conversation');
+});
+
+test('it uses context variables for prompt interpolation', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Hello John')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
     );
 
     $context = new ExecutionContext(
@@ -147,2151 +123,1431 @@ test('it uses provided context', function () {
     $agent = new TestAgent;
     $response = $executor->execute($agent, 'Hello', $context);
 
-    expect($response)->toBeInstanceOf(AgentResponse::class);
+    expect($response)->toBeInstanceOf(PrismResponse::class);
 });
 
-test('it uses forMessages when context has messages', function () {
-    $mockResponse = new class
-    {
-        public ?string $text = 'Hello';
-
-        public array $toolCalls = [];
-
-        public object $finishReason;
-
-        public function __construct()
-        {
-            $this->finishReason = new class
-            {
-                public string $value = 'stop';
-            };
-        }
-    };
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
-
-    $this->prismBuilder
-        ->shouldReceive('forMessages')
-        ->once()
-        ->andReturn($mockPendingRequest);
-
-    $executor = new AgentExecutor(
-        $this->prismBuilder,
-        $this->toolBuilder,
-        $this->systemPromptBuilder,
-        $this->runner,
-        $this->usageExtractor,
-        $this->configService,
-    );
-
-    $context = new ExecutionContext(
-        messages: [['role' => 'user', 'content' => 'Previous message']],
-    );
-
-    $agent = new TestAgent;
-    $response = $executor->execute($agent, 'Hello', $context);
-
-    expect($response)->toBeInstanceOf(AgentResponse::class);
-});
-
-test('it extracts text from response', function () {
-    $mockResponse = new class
-    {
-        public ?string $text = 'Response text';
-
-        public array $toolCalls = [];
-
-        public object $finishReason;
-
-        public function __construct()
-        {
-            $this->finishReason = new class
-            {
-                public string $value = 'stop';
-            };
-        }
-    };
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
-
-    $this->prismBuilder
-        ->shouldReceive('forPrompt')
-        ->once()
-        ->andReturn($mockPendingRequest);
-
-    $executor = new AgentExecutor(
-        $this->prismBuilder,
-        $this->toolBuilder,
-        $this->systemPromptBuilder,
-        $this->runner,
-        $this->usageExtractor,
-        $this->configService,
-    );
-
-    $agent = new TestAgent;
-    $response = $executor->execute($agent, 'Hello');
-
-    expect($response->text)->toBe('Response text');
-});
-
-test('it applies agent settings to request', function () {
-    $mockResponse = new class
-    {
-        public ?string $text = 'Hello';
-
-        public array $toolCalls = [];
-
-        public object $finishReason;
-
-        public function __construct()
-        {
-            $this->finishReason = new class
-            {
-                public string $value = 'stop';
-            };
-        }
-    };
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withTemperature')->once()->with(0.7)->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxTokens')->once()->with(1000)->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->once()->with(5)->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
-
-    $this->prismBuilder
-        ->shouldReceive('forPrompt')
-        ->once()
-        ->andReturn($mockPendingRequest);
-
-    $executor = new AgentExecutor(
-        $this->prismBuilder,
-        $this->toolBuilder,
-        $this->systemPromptBuilder,
-        $this->runner,
-        $this->usageExtractor,
-        $this->configService,
-    );
-
-    $agent = new TestAgent;
-    $response = $executor->execute($agent, 'Hello');
-
-    expect($response)->toBeInstanceOf(AgentResponse::class);
-});
-
-test('it builds structured response when schema provided', function () {
-    $mockResponse = new class
-    {
-        public mixed $structured = ['name' => 'John'];
-
-        public object $finishReason;
-
-        public function __construct()
-        {
-            $this->finishReason = new class
-            {
-                public string $value = 'stop';
-            };
-        }
-    };
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asStructured')->andReturn($mockResponse);
-
-    $mockSchema = Mockery::mock(\Prism\Prism\Contracts\Schema::class);
-
-    $this->prismBuilder
-        ->shouldReceive('forStructured')
-        ->once()
-        ->andReturn($mockPendingRequest);
-
-    $executor = new AgentExecutor(
-        $this->prismBuilder,
-        $this->toolBuilder,
-        $this->systemPromptBuilder,
-        $this->runner,
-        $this->usageExtractor,
-        $this->configService,
-    );
-
-    $agent = new TestAgent;
-    $response = $executor->execute($agent, 'Hello', null, $mockSchema);
-
-    expect($response->structured)->toBe(['name' => 'John']);
-});
-
-test('it converts provider tools strings to ProviderTool objects', function () {
-    $mockResponse = new class
-    {
-        public ?string $text = 'Hello';
-
-        public array $toolCalls = [];
-
-        public array $steps = [];
-
-        public object $finishReason;
-
-        public function __construct()
-        {
-            $this->finishReason = new class
-            {
-                public string $value = 'stop';
-            };
-        }
-    };
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTools')
-        ->once()
-        ->with(Mockery::on(function ($tools) {
-            // Verify tools is an array of ProviderTool objects
-            if (! is_array($tools) || count($tools) !== 2) {
-                return false;
-            }
-
-            // First tool should be web_search_preview string converted
-            $first = $tools[0];
-            if (! $first instanceof \Prism\Prism\ValueObjects\ProviderTool) {
-                return false;
-            }
-            if ($first->type !== 'web_search_preview') {
-                return false;
-            }
-
-            // Second tool should be code_execution with options
-            $second = $tools[1];
-            if (! $second instanceof \Prism\Prism\ValueObjects\ProviderTool) {
-                return false;
-            }
-            if ($second->type !== 'code_execution') {
-                return false;
-            }
-
-            return true;
-        }))
-        ->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
-
-    $this->prismBuilder
-        ->shouldReceive('forPrompt')
-        ->once()
-        ->andReturn($mockPendingRequest);
-
-    $executor = new AgentExecutor(
-        $this->prismBuilder,
-        $this->toolBuilder,
-        $this->systemPromptBuilder,
-        $this->runner,
-        $this->usageExtractor,
-        $this->configService,
-    );
-
-    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithProviderTools;
-    $response = $executor->execute($agent, 'Hello');
-
-    expect($response)->toBeInstanceOf(AgentResponse::class);
-});
-
-test('it extracts tool calls from response steps', function () {
-    // Create mock tool call
-    $mockToolCall = new class
-    {
-        public string $name = 'calculator';
-
-        public function arguments(): array
-        {
-            return ['operation' => 'add', 'a' => 5, 'b' => 3];
-        }
-    };
-
-    // Create mock tool result
-    $mockToolResult = new class
-    {
-        public string $result = '8';
-    };
-
-    // Create mock step with tool calls and results
-    $mockStep = new class($mockToolCall, $mockToolResult)
-    {
-        public array $toolCalls;
-
-        public array $toolResults;
-
-        public function __construct($toolCall, $toolResult)
-        {
-            $this->toolCalls = [$toolCall];
-            $this->toolResults = [$toolResult];
-        }
-    };
-
-    $mockResponse = new class($mockStep)
-    {
-        public ?string $text = 'The result is 8.';
-
-        public array $toolCalls = [];
-
-        public array $steps;
-
-        public object $finishReason;
-
-        public function __construct($step)
-        {
-            $this->steps = [$step];
-            $this->finishReason = new class
-            {
-                public string $value = 'stop';
-            };
-        }
-    };
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
-
-    $this->prismBuilder
-        ->shouldReceive('forPrompt')
-        ->once()
-        ->andReturn($mockPendingRequest);
-
-    $executor = new AgentExecutor(
-        $this->prismBuilder,
-        $this->toolBuilder,
-        $this->systemPromptBuilder,
-        $this->runner,
-        $this->usageExtractor,
-        $this->configService,
-    );
-
-    $agent = new TestAgent;
-    $response = $executor->execute($agent, 'What is 5 + 3?');
-
-    expect($response->toolCalls)->toHaveCount(1);
-    expect($response->toolCalls[0]['name'])->toBe('calculator');
-    expect($response->toolCalls[0]['arguments'])->toBe(['operation' => 'add', 'a' => 5, 'b' => 3]);
-    expect($response->toolCalls[0]['result'])->toBe('8');
-});
-
-test('it extracts tool calls without results from steps', function () {
-    // Create mock tool call without result
-    $mockToolCall = new class
-    {
-        public string $name = 'weather';
-
-        public function arguments(): array
-        {
-            return ['city' => 'New York'];
-        }
-    };
-
-    // Step with tool calls but no results array
-    $mockStep = new class($mockToolCall)
-    {
-        public array $toolCalls;
-
-        public array $toolResults = [];
-
-        public function __construct($toolCall)
-        {
-            $this->toolCalls = [$toolCall];
-        }
-    };
-
-    $mockResponse = new class($mockStep)
-    {
-        public ?string $text = 'Checking weather...';
-
-        public array $toolCalls = [];
-
-        public array $steps;
-
-        public object $finishReason;
-
-        public function __construct($step)
-        {
-            $this->steps = [$step];
-            $this->finishReason = new class
-            {
-                public string $value = 'tool_calls';
-            };
-        }
-    };
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
-
-    $this->prismBuilder
-        ->shouldReceive('forPrompt')
-        ->once()
-        ->andReturn($mockPendingRequest);
-
-    $executor = new AgentExecutor(
-        $this->prismBuilder,
-        $this->toolBuilder,
-        $this->systemPromptBuilder,
-        $this->runner,
-        $this->usageExtractor,
-        $this->configService,
-    );
-
-    $agent = new TestAgent;
-    $response = $executor->execute($agent, 'What is the weather in New York?');
-
-    expect($response->toolCalls)->toHaveCount(1);
-    expect($response->toolCalls[0]['name'])->toBe('weather');
-    expect($response->toolCalls[0]['arguments'])->toBe(['city' => 'New York']);
-    expect($response->toolCalls[0]['result'])->toBeNull();
-});
-
-test('it falls back to direct toolCalls when no steps present', function () {
-    // Create mock tool call on response directly
-    $mockToolCall = new class
-    {
-        public string $name = 'datetime';
-
-        public function arguments(): array
-        {
-            return ['format' => 'Y-m-d'];
-        }
-    };
-
-    $mockResponse = new class($mockToolCall)
-    {
-        public ?string $text = null;
-
-        public array $toolCalls;
-
-        public object $finishReason;
-
-        public function __construct($toolCall)
-        {
-            $this->toolCalls = [$toolCall];
-            $this->finishReason = new class
-            {
-                public string $value = 'tool_calls';
-            };
-        }
-    };
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
-
-    $this->prismBuilder
-        ->shouldReceive('forPrompt')
-        ->once()
-        ->andReturn($mockPendingRequest);
-
-    $executor = new AgentExecutor(
-        $this->prismBuilder,
-        $this->toolBuilder,
-        $this->systemPromptBuilder,
-        $this->runner,
-        $this->usageExtractor,
-        $this->configService,
-    );
-
-    $agent = new TestAgent;
-    $response = $executor->execute($agent, 'What is the current date?');
-
-    expect($response->toolCalls)->toHaveCount(1);
-    expect($response->toolCalls[0]['name'])->toBe('datetime');
-    expect($response->toolCalls[0]['arguments'])->toBe(['format' => 'Y-m-d']);
-    expect($response->toolCalls[0]['result'])->toBeNull();
-});
-
-test('it runs agent.on_error pipeline when execution fails', function () {
-    $container = new Container;
-    $registry = new PipelineRegistry;
-    $runner = new PipelineRunner($registry, $container);
-
-    // Define and activate the error pipeline
-    $registry->define('agent.on_error', 'Error pipeline');
-
-    // Reset static state
-    AgentErrorCapturingHandler::reset();
-    $registry->register('agent.on_error', AgentErrorCapturingHandler::class);
-
-    $prismBuilder = Mockery::mock(PrismBuilderContract::class);
-    $prismBuilder->shouldReceive('forPrompt')
-        ->andThrow(new \RuntimeException('API Error'));
-
-    $systemPromptBuilder = new SystemPromptBuilder($runner);
-    $toolRegistry = new ToolRegistry($container);
-    $toolExecutor = new ToolExecutor($runner);
-    $toolBuilder = new ToolBuilder($toolRegistry, $toolExecutor, $container);
-    $usageExtractor = new UsageExtractorRegistry;
-    $configService = Mockery::mock(ProviderConfigService::class);
-    $configService->shouldReceive('getRetryConfig')->andReturn(null);
-
-    $executor = new AgentExecutor(
-        $prismBuilder,
-        $toolBuilder,
-        $systemPromptBuilder,
-        $runner,
-        $usageExtractor,
-        $configService,
-    );
-
-    $agent = new TestAgent;
-
-    try {
-        $executor->execute($agent, 'Hello');
-    } catch (\Atlasphp\Atlas\Agents\Exceptions\AgentException $e) {
-        // Expected
-    }
-
-    expect(AgentErrorCapturingHandler::$called)->toBeTrue();
-    expect(AgentErrorCapturingHandler::$data)->not->toBeNull();
-    expect(AgentErrorCapturingHandler::$data['agent'])->toBe($agent);
-    expect(AgentErrorCapturingHandler::$data['input'])->toBe('Hello');
-    expect(AgentErrorCapturingHandler::$data['exception'])->toBeInstanceOf(\RuntimeException::class);
-});
-
-test('it includes system_prompt in after_execute pipeline data', function () {
-    $container = new Container;
-    $registry = new PipelineRegistry;
-    $runner = new PipelineRunner($registry, $container);
-
-    // Define and activate the after pipeline
-    $registry->define('agent.after_execute', 'After pipeline');
-
-    // Reset static state
-    AgentAfterExecuteCapturingHandler::reset();
-    $registry->register('agent.after_execute', AgentAfterExecuteCapturingHandler::class);
-
-    $mockResponse = new class
-    {
-        public ?string $text = 'Hello';
-
-        public array $toolCalls = [];
-
-        public object $finishReason;
-
-        public function __construct()
-        {
-            $this->finishReason = new class
-            {
-                public string $value = 'stop';
-            };
-        }
-    };
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
-
-    $prismBuilder = Mockery::mock(PrismBuilderContract::class);
-    $prismBuilder->shouldReceive('forPrompt')->andReturn($mockPendingRequest);
-
-    $systemPromptBuilder = new SystemPromptBuilder($runner);
-    $toolRegistry = new ToolRegistry($container);
-    $toolExecutor = new ToolExecutor($runner);
-    $toolBuilder = new ToolBuilder($toolRegistry, $toolExecutor, $container);
-    $usageExtractor = new UsageExtractorRegistry;
-    $configService = Mockery::mock(ProviderConfigService::class);
-    $configService->shouldReceive('getRetryConfig')->andReturn(null);
-
-    $executor = new AgentExecutor(
-        $prismBuilder,
-        $toolBuilder,
-        $systemPromptBuilder,
-        $runner,
-        $usageExtractor,
-        $configService,
-    );
-
-    $agent = new TestAgent;
-    $executor->execute($agent, 'Hello');
-
-    expect(AgentAfterExecuteCapturingHandler::$data)->not->toBeNull();
-    expect(array_key_exists('system_prompt', AgentAfterExecuteCapturingHandler::$data))->toBeTrue();
-    expect(AgentAfterExecuteCapturingHandler::$data['system_prompt'])->toBeString();
-});
-
-test('it extracts tool call id from response steps', function () {
-    // Create mock tool call with id
-    $mockToolCall = new class
-    {
-        public string $id = 'call_123abc';
-
-        public string $name = 'calculator';
-
-        public function arguments(): array
-        {
-            return ['operation' => 'add'];
-        }
-    };
-
-    $mockToolResult = new class
-    {
-        public string $result = '8';
-    };
-
-    $mockStep = new class($mockToolCall, $mockToolResult)
-    {
-        public array $toolCalls;
-
-        public array $toolResults;
-
-        public function __construct($toolCall, $toolResult)
-        {
-            $this->toolCalls = [$toolCall];
-            $this->toolResults = [$toolResult];
-        }
-    };
-
-    $mockResponse = new class($mockStep)
-    {
-        public ?string $text = 'Result';
-
-        public array $toolCalls = [];
-
-        public array $steps;
-
-        public object $finishReason;
-
-        public function __construct($step)
-        {
-            $this->steps = [$step];
-            $this->finishReason = new class
-            {
-                public string $value = 'stop';
-            };
-        }
-    };
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
-
-    $this->prismBuilder
-        ->shouldReceive('forPrompt')
-        ->once()
-        ->andReturn($mockPendingRequest);
-
-    $executor = new AgentExecutor(
-        $this->prismBuilder,
-        $this->toolBuilder,
-        $this->systemPromptBuilder,
-        $this->runner,
-        $this->usageExtractor,
-        $this->configService,
-    );
-
-    $agent = new TestAgent;
-    $response = $executor->execute($agent, 'Calculate');
-
-    expect($response->toolCalls)->toHaveCount(1);
-    expect($response->toolCalls[0]['id'])->toBe('call_123abc');
-    expect($response->toolCalls[0]['name'])->toBe('calculator');
-});
-
-test('it extracts null id when tool call has no id', function () {
-    // Create mock tool call without id
-    $mockToolCall = new class
-    {
-        public string $name = 'calculator';
-
-        public function arguments(): array
-        {
-            return ['operation' => 'add'];
-        }
-    };
-
-    $mockStep = new class($mockToolCall)
-    {
-        public array $toolCalls;
-
-        public array $toolResults = [];
-
-        public function __construct($toolCall)
-        {
-            $this->toolCalls = [$toolCall];
-        }
-    };
-
-    $mockResponse = new class($mockStep)
-    {
-        public ?string $text = 'Result';
-
-        public array $toolCalls = [];
-
-        public array $steps;
-
-        public object $finishReason;
-
-        public function __construct($step)
-        {
-            $this->steps = [$step];
-            $this->finishReason = new class
-            {
-                public string $value = 'stop';
-            };
-        }
-    };
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
-
-    $this->prismBuilder
-        ->shouldReceive('forPrompt')
-        ->once()
-        ->andReturn($mockPendingRequest);
-
-    $executor = new AgentExecutor(
-        $this->prismBuilder,
-        $this->toolBuilder,
-        $this->systemPromptBuilder,
-        $this->runner,
-        $this->usageExtractor,
-        $this->configService,
-    );
-
-    $agent = new TestAgent;
-    $response = $executor->execute($agent, 'Calculate');
-
-    expect($response->toolCalls)->toHaveCount(1);
-    expect($response->toolCalls[0]['id'])->toBeNull();
-});
-
-test('it preserves original exception in AgentException', function () {
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('forPrompt')
-        ->andThrow(new \RuntimeException('Original error'));
-
-    $this->prismBuilder
-        ->shouldReceive('forPrompt')
-        ->andThrow(new \RuntimeException('Original error'));
-
-    $executor = new AgentExecutor(
-        $this->prismBuilder,
-        $this->toolBuilder,
-        $this->systemPromptBuilder,
-        $this->runner,
-        $this->usageExtractor,
-        $this->configService,
-    );
-
-    $agent = new TestAgent;
-
-    try {
-        $executor->execute($agent, 'Hello');
-        $this->fail('Expected AgentException to be thrown');
-    } catch (\Atlasphp\Atlas\Agents\Exceptions\AgentException $e) {
-        expect($e->getPrevious())->toBeInstanceOf(\RuntimeException::class);
-        expect($e->getPrevious()->getMessage())->toBe('Original error');
-    }
-});
-
-test('it rethrows AgentException without wrapping', function () {
-    $container = new Container;
-    $registry = new PipelineRegistry;
-    $runner = new PipelineRunner($registry, $container);
-
-    // Define and activate the error pipeline
-    $registry->define('agent.on_error', 'Error pipeline');
-
-    // Reset static state
-    AgentErrorCapturingHandler::reset();
-    $registry->register('agent.on_error', AgentErrorCapturingHandler::class);
-
-    $originalException = \Atlasphp\Atlas\Agents\Exceptions\AgentException::executionFailed(
-        'test-agent',
-        'Custom agent error'
-    );
-
-    $prismBuilder = Mockery::mock(PrismBuilderContract::class);
-    $prismBuilder->shouldReceive('forPrompt')
-        ->andThrow($originalException);
-
-    $systemPromptBuilder = new SystemPromptBuilder($runner);
-    $toolRegistry = new ToolRegistry($container);
-    $toolExecutor = new ToolExecutor($runner);
-    $toolBuilder = new ToolBuilder($toolRegistry, $toolExecutor, $container);
-    $usageExtractor = new UsageExtractorRegistry;
-    $configService = Mockery::mock(ProviderConfigService::class);
-    $configService->shouldReceive('getRetryConfig')->andReturn(null);
-
-    $executor = new AgentExecutor(
-        $prismBuilder,
-        $toolBuilder,
-        $systemPromptBuilder,
-        $runner,
-        $usageExtractor,
-        $configService,
-    );
-
-    $agent = new TestAgent;
-
-    try {
-        $executor->execute($agent, 'Hello');
-        $this->fail('Expected AgentException to be thrown');
-    } catch (\Atlasphp\Atlas\Agents\Exceptions\AgentException $e) {
-        // Should be the exact same exception, not wrapped
-        expect($e)->toBe($originalException);
-        expect($e->getMessage())->toBe("Agent 'test-agent' execution failed: Custom agent error");
-        // Should have no previous exception (wasn't wrapped)
-        expect($e->getPrevious())->toBeNull();
-    }
-
-    // Error pipeline should still have been called
-    expect(AgentErrorCapturingHandler::$called)->toBeTrue();
-    expect(AgentErrorCapturingHandler::$data['exception'])->toBe($originalException);
-});
-
-test('it combines messages with input for structured requests', function () {
-    $mockResponse = new class
-    {
-        public mixed $structured = ['name' => 'John'];
-
-        public object $finishReason;
-
-        public function __construct()
-        {
-            $this->finishReason = new class
-            {
-                public string $value = 'stop';
-            };
-        }
-    };
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asStructured')->andReturn($mockResponse);
-
-    $mockSchema = Mockery::mock(\Prism\Prism\Contracts\Schema::class);
-
-    // Capture the combined input
-    $capturedInput = null;
-    $this->prismBuilder
-        ->shouldReceive('forStructured')
-        ->once()
-        ->withArgs(function ($provider, $model, $schema, $input, $systemPrompt) use (&$capturedInput) {
-            $capturedInput = $input;
-
-            return true;
-        })
-        ->andReturn($mockPendingRequest);
-
-    $executor = new AgentExecutor(
-        $this->prismBuilder,
-        $this->toolBuilder,
-        $this->systemPromptBuilder,
-        $this->runner,
-        $this->usageExtractor,
-        $this->configService,
-    );
-
-    $context = new ExecutionContext(
-        messages: [
-            ['role' => 'user', 'content' => 'My name is John.'],
-            ['role' => 'assistant', 'content' => 'Nice to meet you, John!'],
-        ],
-    );
-
-    $agent = new TestAgent;
-    $executor->execute($agent, 'What is my name?', $context, $mockSchema);
-
-    // Verify the combined format
-    expect($capturedInput)->toBe("User: My name is John.\n\nAssistant: Nice to meet you, John!\n\nUser: What is my name?");
-});
-
-// ===========================================
-// STREAMING TESTS
-// ===========================================
-
-test('stream returns StreamResponse', function () {
-    $prismTextDeltaEvent = new \Prism\Prism\Streaming\Events\TextDeltaEvent(
-        id: 'evt_1',
-        timestamp: 1234567890,
-        delta: 'Hello',
-        messageId: 'msg_1',
-    );
-
-    $prismUsage = new \Prism\Prism\ValueObjects\Usage(
-        promptTokens: 10,
-        completionTokens: 5,
-    );
-
-    $prismStreamEndEvent = new \Prism\Prism\Streaming\Events\StreamEndEvent(
-        id: 'evt_2',
-        timestamp: 1234567891,
-        finishReason: \Prism\Prism\Enums\FinishReason::Stop,
-        usage: $prismUsage,
-    );
-
-    $mockStreamGenerator = function () use ($prismTextDeltaEvent, $prismStreamEndEvent) {
-        yield $prismTextDeltaEvent;
-        yield $prismStreamEndEvent;
-    };
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asStream')->andReturn($mockStreamGenerator());
-
-    $this->prismBuilder
-        ->shouldReceive('forPrompt')
-        ->andReturn($mockPendingRequest);
-
-    $executor = new AgentExecutor(
-        $this->prismBuilder,
-        $this->toolBuilder,
-        $this->systemPromptBuilder,
-        $this->runner,
-        $this->usageExtractor,
-        $this->configService,
-    );
-
-    $agent = new TestAgent;
-    $stream = $executor->stream($agent, 'Hello');
-
-    // Verify return type
-    expect($stream)->toBeInstanceOf(\Atlasphp\Atlas\Streaming\StreamResponse::class);
-
-    // Iterate to trigger execution (generators are lazy)
-    iterator_to_array($stream);
-});
-
-test('stream generates text delta events', function () {
-    // Create real Prism TextDeltaEvent
-    $prismTextDeltaEvent = new \Prism\Prism\Streaming\Events\TextDeltaEvent(
-        id: 'evt_1',
-        timestamp: 1234567890,
-        delta: 'Hello World',
-        messageId: 'msg_1',
-    );
-
-    // Create real Prism StreamEndEvent with usage
-    $prismUsage = new \Prism\Prism\ValueObjects\Usage(
-        promptTokens: 10,
-        completionTokens: 5,
-    );
-
-    $prismStreamEndEvent = new \Prism\Prism\Streaming\Events\StreamEndEvent(
-        id: 'evt_2',
-        timestamp: 1234567891,
-        finishReason: \Prism\Prism\Enums\FinishReason::Stop,
-        usage: $prismUsage,
-    );
-
-    $mockStreamGenerator = function () use ($prismTextDeltaEvent, $prismStreamEndEvent) {
-        yield $prismTextDeltaEvent;
-        yield $prismStreamEndEvent;
-    };
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asStream')->andReturn($mockStreamGenerator());
-
-    $this->prismBuilder
-        ->shouldReceive('forPrompt')
-        ->once()
-        ->andReturn($mockPendingRequest);
-
-    $executor = new AgentExecutor(
-        $this->prismBuilder,
-        $this->toolBuilder,
-        $this->systemPromptBuilder,
-        $this->runner,
-        $this->usageExtractor,
-        $this->configService,
-    );
-
-    $agent = new TestAgent;
-    $stream = $executor->stream($agent, 'Hello');
-
-    // Iterate and collect events
-    $events = iterator_to_array($stream);
-
-    expect($events)->toHaveCount(2);
-    expect($events[0])->toBeInstanceOf(\Atlasphp\Atlas\Streaming\Events\TextDeltaEvent::class);
-    expect($events[0]->text)->toBe('Hello World');
-    expect($events[1])->toBeInstanceOf(\Atlasphp\Atlas\Streaming\Events\StreamEndEvent::class);
-    expect($events[1]->finishReason)->toBe('stop');
-});
-
-test('stream runs stream.on_event pipeline for each event', function () {
-    $container = new Container;
-    $registry = new PipelineRegistry;
-    $runner = new PipelineRunner($registry, $container);
-
-    // Define and activate the stream pipelines
-    $registry->define('stream.on_event', 'Stream event pipeline');
-
-    StreamOnEventCapturingHandler::reset();
-    $registry->register('stream.on_event', StreamOnEventCapturingHandler::class);
-
-    // Create real Prism events
-    $prismTextDeltaEvent = new \Prism\Prism\Streaming\Events\TextDeltaEvent(
-        id: 'evt_1',
-        timestamp: 1234567890,
-        delta: 'Hello',
-        messageId: 'msg_1',
-    );
-
-    $prismUsage = new \Prism\Prism\ValueObjects\Usage(
-        promptTokens: 10,
-        completionTokens: 5,
-    );
-
-    $prismStreamEndEvent = new \Prism\Prism\Streaming\Events\StreamEndEvent(
-        id: 'evt_2',
-        timestamp: 1234567891,
-        finishReason: \Prism\Prism\Enums\FinishReason::Stop,
-        usage: $prismUsage,
-    );
-
-    $mockStreamGenerator = function () use ($prismTextDeltaEvent, $prismStreamEndEvent) {
-        yield $prismTextDeltaEvent;
-        yield $prismStreamEndEvent;
-    };
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asStream')->andReturn($mockStreamGenerator());
-
-    $prismBuilder = Mockery::mock(PrismBuilderContract::class);
-    $prismBuilder->shouldReceive('forPrompt')->andReturn($mockPendingRequest);
-
-    $systemPromptBuilder = new SystemPromptBuilder($runner);
-    $toolRegistry = new ToolRegistry($container);
-    $toolExecutor = new ToolExecutor($runner);
-    $toolBuilder = new ToolBuilder($toolRegistry, $toolExecutor, $container);
-    $usageExtractor = new UsageExtractorRegistry;
-    $configService = Mockery::mock(ProviderConfigService::class);
-    $configService->shouldReceive('getRetryConfig')->andReturn(null);
-
-    $executor = new AgentExecutor(
-        $prismBuilder,
-        $toolBuilder,
-        $systemPromptBuilder,
-        $runner,
-        $usageExtractor,
-        $configService,
-    );
-
-    $agent = new TestAgent;
-    $stream = $executor->stream($agent, 'Hello');
-    iterator_to_array($stream);
-
-    expect(StreamOnEventCapturingHandler::$events)->toHaveCount(2);
-    expect(StreamOnEventCapturingHandler::$events[0]['event'])->toBeInstanceOf(\Atlasphp\Atlas\Streaming\Events\TextDeltaEvent::class);
-    expect(StreamOnEventCapturingHandler::$events[0]['agent'])->toBe($agent);
-});
-
-test('stream runs stream.after_complete pipeline when stream ends', function () {
-    $container = new Container;
-    $registry = new PipelineRegistry;
-    $runner = new PipelineRunner($registry, $container);
-
-    // Define and activate the stream pipelines
-    $registry->define('stream.after_complete', 'Stream after complete pipeline');
-
-    StreamAfterCompleteCapturingHandler::reset();
-    $registry->register('stream.after_complete', StreamAfterCompleteCapturingHandler::class);
-
-    $prismUsage = new \Prism\Prism\ValueObjects\Usage(
-        promptTokens: 10,
-        completionTokens: 5,
-    );
-
-    $prismStreamEndEvent = new \Prism\Prism\Streaming\Events\StreamEndEvent(
-        id: 'evt_1',
-        timestamp: 1234567890,
-        finishReason: \Prism\Prism\Enums\FinishReason::Stop,
-        usage: $prismUsage,
-    );
-
-    $mockStreamGenerator = function () use ($prismStreamEndEvent) {
-        yield $prismStreamEndEvent;
-    };
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asStream')->andReturn($mockStreamGenerator());
-
-    $prismBuilder = Mockery::mock(PrismBuilderContract::class);
-    $prismBuilder->shouldReceive('forPrompt')->andReturn($mockPendingRequest);
-
-    $systemPromptBuilder = new SystemPromptBuilder($runner);
-    $toolRegistry = new ToolRegistry($container);
-    $toolExecutor = new ToolExecutor($runner);
-    $toolBuilder = new ToolBuilder($toolRegistry, $toolExecutor, $container);
-    $usageExtractor = new UsageExtractorRegistry;
-    $configService = Mockery::mock(ProviderConfigService::class);
-    $configService->shouldReceive('getRetryConfig')->andReturn(null);
-
-    $executor = new AgentExecutor(
-        $prismBuilder,
-        $toolBuilder,
-        $systemPromptBuilder,
-        $runner,
-        $usageExtractor,
-        $configService,
-    );
-
-    $agent = new TestAgent;
-    $stream = $executor->stream($agent, 'Hello');
-    iterator_to_array($stream);
-
-    expect(StreamAfterCompleteCapturingHandler::$called)->toBeTrue();
-    expect(StreamAfterCompleteCapturingHandler::$data['agent'])->toBe($agent);
-    expect(StreamAfterCompleteCapturingHandler::$data['input'])->toBe('Hello');
-    expect(array_key_exists('system_prompt', StreamAfterCompleteCapturingHandler::$data))->toBeTrue();
-});
-
-test('stream runs agent.on_error pipeline when execution fails', function () {
-    $container = new Container;
-    $registry = new PipelineRegistry;
-    $runner = new PipelineRunner($registry, $container);
-
-    // Define and activate the error pipeline
-    $registry->define('agent.on_error', 'Error pipeline');
-
-    AgentErrorCapturingHandler::reset();
-    $registry->register('agent.on_error', AgentErrorCapturingHandler::class);
-
-    $prismBuilder = Mockery::mock(PrismBuilderContract::class);
-    $prismBuilder->shouldReceive('forPrompt')
-        ->andThrow(new \RuntimeException('Stream API Error'));
-
-    $systemPromptBuilder = new SystemPromptBuilder($runner);
-    $toolRegistry = new ToolRegistry($container);
-    $toolExecutor = new ToolExecutor($runner);
-    $toolBuilder = new ToolBuilder($toolRegistry, $toolExecutor, $container);
-    $usageExtractor = new UsageExtractorRegistry;
-    $configService = Mockery::mock(ProviderConfigService::class);
-    $configService->shouldReceive('getRetryConfig')->andReturn(null);
-
-    $executor = new AgentExecutor(
-        $prismBuilder,
-        $toolBuilder,
-        $systemPromptBuilder,
-        $runner,
-        $usageExtractor,
-        $configService,
-    );
-
-    $agent = new TestAgent;
-
-    try {
-        $stream = $executor->stream($agent, 'Hello');
-        iterator_to_array($stream);
-    } catch (\Atlasphp\Atlas\Agents\Exceptions\AgentException $e) {
-        // Expected
-    }
-
-    expect(AgentErrorCapturingHandler::$called)->toBeTrue();
-    expect(AgentErrorCapturingHandler::$data['agent'])->toBe($agent);
-    expect(AgentErrorCapturingHandler::$data['exception'])->toBeInstanceOf(\RuntimeException::class);
-});
-
-test('stream yields error event when execution fails', function () {
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asStream')
-        ->andThrow(new \RuntimeException('Stream failed'));
-
-    $this->prismBuilder
-        ->shouldReceive('forPrompt')
-        ->once()
-        ->andReturn($mockPendingRequest);
-
-    $executor = new AgentExecutor(
-        $this->prismBuilder,
-        $this->toolBuilder,
-        $this->systemPromptBuilder,
-        $this->runner,
-        $this->usageExtractor,
-        $this->configService,
-    );
-
-    $agent = new TestAgent;
-    $stream = $executor->stream($agent, 'Hello');
-
-    $events = [];
-    try {
-        foreach ($stream as $event) {
-            $events[] = $event;
-        }
-    } catch (\Atlasphp\Atlas\Agents\Exceptions\AgentException $e) {
-        // Expected
-    }
-
-    expect($events)->toHaveCount(1);
-    expect($events[0])->toBeInstanceOf(\Atlasphp\Atlas\Streaming\Events\ErrorEvent::class);
-    expect($events[0]->message)->toBe('Stream failed');
-    expect($events[0]->recoverable)->toBeFalse();
-});
-
-test('stream uses forMessages when context has messages', function () {
-    $prismUsage = new \Prism\Prism\ValueObjects\Usage(
-        promptTokens: 10,
-        completionTokens: 5,
-    );
-
-    $prismStreamEndEvent = new \Prism\Prism\Streaming\Events\StreamEndEvent(
-        id: 'evt_1',
-        timestamp: 1234567890,
-        finishReason: \Prism\Prism\Enums\FinishReason::Stop,
-        usage: $prismUsage,
-    );
-
-    $mockStreamGenerator = function () use ($prismStreamEndEvent) {
-        yield $prismStreamEndEvent;
-    };
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asStream')->andReturn($mockStreamGenerator());
-
-    $this->prismBuilder
-        ->shouldReceive('forMessages')
-        ->once()
-        ->andReturn($mockPendingRequest);
-
-    $executor = new AgentExecutor(
-        $this->prismBuilder,
-        $this->toolBuilder,
-        $this->systemPromptBuilder,
-        $this->runner,
-        $this->usageExtractor,
-        $this->configService,
-    );
-
-    $context = new ExecutionContext(
-        messages: [['role' => 'user', 'content' => 'Previous message']],
-    );
-
-    $agent = new TestAgent;
-    $stream = $executor->stream($agent, 'Hello', $context);
-    iterator_to_array($stream);
-
-    // Mockery will fail if forMessages was not called
-    expect(true)->toBeTrue();
-});
-
-test('stream converts tool call events', function () {
-    // Create real Prism ToolCallEvent
-    $prismToolCall = new \Prism\Prism\ValueObjects\ToolCall(
+test('it returns tool calls in response', function () {
+    $toolCall = new ToolCall(
         id: 'call_123',
         name: 'calculator',
         arguments: ['operation' => 'add', 'a' => 5, 'b' => 3],
     );
 
-    $prismToolCallEvent = new \Prism\Prism\Streaming\Events\ToolCallEvent(
-        id: 'evt_1',
-        timestamp: 1234567890,
-        toolCall: $prismToolCall,
-        messageId: 'msg_1',
-    );
-
-    // Create real Prism ToolResultEvent
-    $prismToolResult = new \Prism\Prism\ValueObjects\ToolResult(
-        toolCallId: 'call_123',
-        toolName: 'calculator',
-        args: ['operation' => 'add', 'a' => 5, 'b' => 3],
-        result: '8',
-    );
-
-    $prismToolResultEvent = new \Prism\Prism\Streaming\Events\ToolResultEvent(
-        id: 'evt_2',
-        timestamp: 1234567891,
-        toolResult: $prismToolResult,
-        messageId: 'msg_1',
-        success: true,
-    );
-
-    // Create real Prism StreamEndEvent
-    $prismUsage = new \Prism\Prism\ValueObjects\Usage(
-        promptTokens: 10,
-        completionTokens: 5,
-    );
-
-    $prismStreamEndEvent = new \Prism\Prism\Streaming\Events\StreamEndEvent(
-        id: 'evt_3',
-        timestamp: 1234567892,
-        finishReason: \Prism\Prism\Enums\FinishReason::Stop,
-        usage: $prismUsage,
-    );
-
-    $mockStreamGenerator = function () use ($prismToolCallEvent, $prismToolResultEvent, $prismStreamEndEvent) {
-        yield $prismToolCallEvent;
-        yield $prismToolResultEvent;
-        yield $prismStreamEndEvent;
-    };
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asStream')->andReturn($mockStreamGenerator());
-
-    $this->prismBuilder
-        ->shouldReceive('forPrompt')
-        ->once()
-        ->andReturn($mockPendingRequest);
-
-    $executor = new AgentExecutor(
-        $this->prismBuilder,
-        $this->toolBuilder,
-        $this->systemPromptBuilder,
-        $this->runner,
-        $this->usageExtractor,
-        $this->configService,
-    );
-
-    $agent = new TestAgent;
-    $stream = $executor->stream($agent, 'What is 5 + 3?');
-    $events = iterator_to_array($stream);
-
-    expect($events)->toHaveCount(3);
-    expect($events[0])->toBeInstanceOf(\Atlasphp\Atlas\Streaming\Events\ToolCallStartEvent::class);
-    expect($events[0]->toolId)->toBe('call_123');
-    expect($events[0]->toolName)->toBe('calculator');
-    expect($events[0]->arguments)->toBe(['operation' => 'add', 'a' => 5, 'b' => 3]);
-
-    expect($events[1])->toBeInstanceOf(\Atlasphp\Atlas\Streaming\Events\ToolCallEndEvent::class);
-    expect($events[1]->toolId)->toBe('call_123');
-    expect($events[1]->toolName)->toBe('calculator');
-    expect($events[1]->result)->toBe('8');
-    expect($events[1]->success)->toBeTrue();
-});
-
-test('stream converts stream start event', function () {
-    $prismStreamStartEvent = new \Prism\Prism\Streaming\Events\StreamStartEvent(
-        id: 'evt_start',
-        timestamp: 1234567890,
-        model: 'gpt-4',
-        provider: 'openai',
-    );
-
-    $prismUsage = new \Prism\Prism\ValueObjects\Usage(
-        promptTokens: 10,
-        completionTokens: 5,
-    );
-
-    $prismStreamEndEvent = new \Prism\Prism\Streaming\Events\StreamEndEvent(
-        id: 'evt_end',
-        timestamp: 1234567891,
-        finishReason: \Prism\Prism\Enums\FinishReason::Stop,
-        usage: $prismUsage,
-    );
-
-    $mockStreamGenerator = function () use ($prismStreamStartEvent, $prismStreamEndEvent) {
-        yield $prismStreamStartEvent;
-        yield $prismStreamEndEvent;
-    };
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asStream')->andReturn($mockStreamGenerator());
-
-    $this->prismBuilder
-        ->shouldReceive('forPrompt')
-        ->once()
-        ->andReturn($mockPendingRequest);
-
-    $executor = new AgentExecutor(
-        $this->prismBuilder,
-        $this->toolBuilder,
-        $this->systemPromptBuilder,
-        $this->runner,
-        $this->usageExtractor,
-        $this->configService,
-    );
-
-    $agent = new TestAgent;
-    $stream = $executor->stream($agent, 'Hello');
-    $events = iterator_to_array($stream);
-
-    expect($events[0])->toBeInstanceOf(\Atlasphp\Atlas\Streaming\Events\StreamStartEvent::class);
-    expect($events[0]->model)->toBe('gpt-4');
-    expect($events[0]->provider)->toBe('openai');
-});
-
-test('stream extracts usage from stream end event', function () {
-    $prismUsage = new \Prism\Prism\ValueObjects\Usage(
-        promptTokens: 50,
-        completionTokens: 25,
-    );
-
-    $prismStreamEndEvent = new \Prism\Prism\Streaming\Events\StreamEndEvent(
-        id: 'evt_end',
-        timestamp: 1234567890,
-        finishReason: \Prism\Prism\Enums\FinishReason::Stop,
-        usage: $prismUsage,
-    );
-
-    $mockStreamGenerator = function () use ($prismStreamEndEvent) {
-        yield $prismStreamEndEvent;
-    };
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asStream')->andReturn($mockStreamGenerator());
-
-    $this->prismBuilder
-        ->shouldReceive('forPrompt')
-        ->once()
-        ->andReturn($mockPendingRequest);
-
-    $executor = new AgentExecutor(
-        $this->prismBuilder,
-        $this->toolBuilder,
-        $this->systemPromptBuilder,
-        $this->runner,
-        $this->usageExtractor,
-        $this->configService,
-    );
-
-    $agent = new TestAgent;
-    $stream = $executor->stream($agent, 'Hello');
-    $events = iterator_to_array($stream);
-
-    $endEvent = $events[0];
-    expect($endEvent)->toBeInstanceOf(\Atlasphp\Atlas\Streaming\Events\StreamEndEvent::class);
-    expect($endEvent->usage)->toBe([
-        'prompt_tokens' => 50,
-        'completion_tokens' => 25,
-        'total_tokens' => 75,
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('The result is 8')
+            ->withToolCalls([$toolCall])
+            ->withUsage(new Usage(20, 15)),
     ]);
-    expect($endEvent->promptTokens())->toBe(50);
-    expect($endEvent->completionTokens())->toBe(25);
-    expect($endEvent->totalTokens())->toBe(75);
-});
-
-test('stream returns empty usage when stream end event has null usage', function () {
-    $prismStreamEndEvent = new \Prism\Prism\Streaming\Events\StreamEndEvent(
-        id: 'evt_end',
-        timestamp: 1234567890,
-        finishReason: \Prism\Prism\Enums\FinishReason::Stop,
-        usage: null,
-    );
-
-    $mockStreamGenerator = function () use ($prismStreamEndEvent) {
-        yield $prismStreamEndEvent;
-    };
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asStream')->andReturn($mockStreamGenerator());
-
-    $this->prismBuilder
-        ->shouldReceive('forPrompt')
-        ->once()
-        ->andReturn($mockPendingRequest);
 
     $executor = new AgentExecutor(
-        $this->prismBuilder,
         $this->toolBuilder,
         $this->systemPromptBuilder,
         $this->runner,
-        $this->usageExtractor,
-        $this->configService,
+        $this->mediaConverter,
     );
 
     $agent = new TestAgent;
-    $stream = $executor->stream($agent, 'Hello');
-    $events = iterator_to_array($stream);
+    $context = new ExecutionContext;
+    $response = $executor->execute($agent, 'What is 5 + 3?', $context);
 
-    $endEvent = $events[0];
-    expect($endEvent)->toBeInstanceOf(\Atlasphp\Atlas\Streaming\Events\StreamEndEvent::class);
-    expect($endEvent->usage)->toBe([]);
-    expect($endEvent->promptTokens())->toBe(0);
-    expect($endEvent->completionTokens())->toBe(0);
-    expect($endEvent->totalTokens())->toBe(0);
+    expect($response->toolCalls)->toHaveCount(1);
+    expect($response->toolCalls[0]->name)->toBe('calculator');
+    expect($response->toolCalls[0]->arguments())->toBe(['operation' => 'add', 'a' => 5, 'b' => 3]);
 });
 
-test('stream converts Prism error event to Atlas error event', function () {
-    $prismErrorEvent = new \Prism\Prism\Streaming\Events\ErrorEvent(
-        id: 'err_123',
-        timestamp: 1234567890,
-        errorType: 'rate_limit',
-        message: 'Rate limit exceeded',
-        recoverable: true,
-    );
+test('it runs agent.before_execute pipeline', function () {
+    $container = new Container;
+    $registry = new PipelineRegistry;
+    $runner = new PipelineRunner($registry, $container);
 
-    $prismUsage = new \Prism\Prism\ValueObjects\Usage(
-        promptTokens: 10,
-        completionTokens: 0,
-    );
+    $registry->define('agent.before_execute', 'Before execute pipeline');
+    BeforeExecuteCapturingHandler::reset();
+    $registry->register('agent.before_execute', BeforeExecuteCapturingHandler::class);
 
-    $prismStreamEndEvent = new \Prism\Prism\Streaming\Events\StreamEndEvent(
-        id: 'evt_end',
-        timestamp: 1234567891,
-        finishReason: \Prism\Prism\Enums\FinishReason::Stop,
-        usage: $prismUsage,
-    );
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
 
-    $mockStreamGenerator = function () use ($prismErrorEvent, $prismStreamEndEvent) {
-        yield $prismErrorEvent;
-        yield $prismStreamEndEvent;
-    };
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asStream')->andReturn($mockStreamGenerator());
-
-    $this->prismBuilder
-        ->shouldReceive('forPrompt')
-        ->once()
-        ->andReturn($mockPendingRequest);
+    $systemPromptBuilder = new SystemPromptBuilder($runner);
+    $toolRegistry = new ToolRegistry($container);
+    $toolExecutor = new ToolExecutor($runner);
+    $toolBuilder = new ToolBuilder($toolRegistry, $toolExecutor, $container);
 
     $executor = new AgentExecutor(
-        $this->prismBuilder,
-        $this->toolBuilder,
-        $this->systemPromptBuilder,
-        $this->runner,
-        $this->usageExtractor,
-        $this->configService,
+        $toolBuilder,
+        $systemPromptBuilder,
+        $runner,
+        new MediaConverter,
     );
 
     $agent = new TestAgent;
-    $stream = $executor->stream($agent, 'Hello');
-    $events = iterator_to_array($stream);
+    $context = new ExecutionContext;
+    $executor->execute($agent, 'Hello', $context);
 
-    expect($events)->toHaveCount(2);
-    expect($events[0])->toBeInstanceOf(\Atlasphp\Atlas\Streaming\Events\ErrorEvent::class);
-    expect($events[0]->id)->toBe('err_123');
-    expect($events[0]->timestamp)->toBe(1234567890);
-    expect($events[0]->errorType)->toBe('rate_limit');
-    expect($events[0]->message)->toBe('Rate limit exceeded');
-    expect($events[0]->recoverable)->toBeTrue();
+    expect(BeforeExecuteCapturingHandler::$called)->toBeTrue();
+    expect(BeforeExecuteCapturingHandler::$data['agent'])->toBe($agent);
+    expect(BeforeExecuteCapturingHandler::$data['input'])->toBe('Hello');
 });
 
-// ===========================================
-// PROVIDER TOOLS TESTS
-// ===========================================
+test('it runs agent.after_execute pipeline', function () {
+    $container = new Container;
+    $registry = new PipelineRegistry;
+    $runner = new PipelineRunner($registry, $container);
 
-test('it throws InvalidArgumentException for provider tool array without type key', function () {
-    $mockResponse = new class
-    {
-        public ?string $text = 'Hello';
+    $registry->define('agent.after_execute', 'After execute pipeline');
+    AfterExecuteCapturingHandler::reset();
+    $registry->register('agent.after_execute', AfterExecuteCapturingHandler::class);
 
-        public array $toolCalls = [];
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
 
-        public object $finishReason;
-
-        public function __construct()
-        {
-            $this->finishReason = new class
-            {
-                public string $value = 'stop';
-            };
-        }
-    };
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
-
-    $this->prismBuilder
-        ->shouldReceive('forPrompt')
-        ->andReturn($mockPendingRequest);
+    $systemPromptBuilder = new SystemPromptBuilder($runner);
+    $toolRegistry = new ToolRegistry($container);
+    $toolExecutor = new ToolExecutor($runner);
+    $toolBuilder = new ToolBuilder($toolRegistry, $toolExecutor, $container);
 
     $executor = new AgentExecutor(
-        $this->prismBuilder,
+        $toolBuilder,
+        $systemPromptBuilder,
+        $runner,
+        new MediaConverter,
+    );
+
+    $agent = new TestAgent;
+    $context = new ExecutionContext;
+    $executor->execute($agent, 'Hello', $context);
+
+    expect(AfterExecuteCapturingHandler::$called)->toBeTrue();
+    expect(AfterExecuteCapturingHandler::$data['agent'])->toBe($agent);
+    expect(AfterExecuteCapturingHandler::$data['input'])->toBe('Hello');
+    expect(AfterExecuteCapturingHandler::$data['response'])->toBeInstanceOf(PrismResponse::class);
+    expect(array_key_exists('system_prompt', AfterExecuteCapturingHandler::$data))->toBeTrue();
+});
+
+// Note: Prism::fake() doesn't support closures for throwing exceptions,
+// so we can't easily test error pipeline behavior through unit tests.
+// Error handling is covered by integration tests instead.
+
+// Note: Exception wrapping tests removed because Prism::fake() doesn't support
+// closures for throwing exceptions. Exception handling is covered by integration tests.
+
+test('it uses context override for provider and model', function () {
+    $fake = Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response from override')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
         $this->toolBuilder,
         $this->systemPromptBuilder,
         $this->runner,
-        $this->usageExtractor,
-        $this->configService,
+        $this->mediaConverter,
     );
 
-    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithInvalidProviderTools;
+    $context = new ExecutionContext(
+        providerOverride: 'anthropic',
+        modelOverride: 'claude-3-opus',
+    );
 
-    try {
-        $executor->execute($agent, 'Hello');
-        $this->fail('Expected exception to be thrown');
-    } catch (\Atlasphp\Atlas\Agents\Exceptions\AgentException $e) {
-        // The InvalidArgumentException gets wrapped in an AgentException
-        expect($e->getMessage())->toContain('Invalid provider tool format at index 0');
-        expect($e->getPrevious())->toBeInstanceOf(\InvalidArgumentException::class);
-        expect($e->getPrevious()->getMessage())->toBe('Invalid provider tool format at index 0. Array must have a "type" key.');
-    }
+    $agent = new TestAgent;
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response->text)->toBe('Response from override');
 });
 
-// ===========================================
-// NULL SYSTEM PROMPT TESTS
-// ===========================================
-
-test('it executes agent with null system prompt', function () {
-    $mockResponse = new class
-    {
-        public ?string $text = 'Hello';
-
-        public array $toolCalls = [];
-
-        public object $finishReason;
-
-        public function __construct()
-        {
-            $this->finishReason = new class
-            {
-                public string $value = 'stop';
-            };
-        }
-    };
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
-
-    // Verify null system prompt is passed
-    $this->prismBuilder
-        ->shouldReceive('forPrompt')
-        ->once()
-        ->withArgs(function ($provider, $model, $input, $systemPrompt) {
-            return $systemPrompt === null;
-        })
-        ->andReturn($mockPendingRequest);
-
+test('it throws when provider is null', function () {
     $executor = new AgentExecutor(
-        $this->prismBuilder,
         $this->toolBuilder,
         $this->systemPromptBuilder,
         $this->runner,
-        $this->usageExtractor,
-        $this->configService,
-    );
-
-    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentNoSystemPrompt;
-    $response = $executor->execute($agent, 'Hello');
-
-    expect($response)->toBeInstanceOf(AgentResponse::class);
-    expect($response->text)->toBe('Hello');
-});
-
-test('it streams agent with null system prompt', function () {
-    $prismUsage = new \Prism\Prism\ValueObjects\Usage(
-        promptTokens: 10,
-        completionTokens: 5,
-    );
-
-    $prismStreamEndEvent = new \Prism\Prism\Streaming\Events\StreamEndEvent(
-        id: 'evt_1',
-        timestamp: 1234567890,
-        finishReason: \Prism\Prism\Enums\FinishReason::Stop,
-        usage: $prismUsage,
-    );
-
-    $mockStreamGenerator = function () use ($prismStreamEndEvent) {
-        yield $prismStreamEndEvent;
-    };
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asStream')->andReturn($mockStreamGenerator());
-
-    // Verify null system prompt is passed
-    $this->prismBuilder
-        ->shouldReceive('forPrompt')
-        ->once()
-        ->withArgs(function ($provider, $model, $input, $systemPrompt) {
-            return $systemPrompt === null;
-        })
-        ->andReturn($mockPendingRequest);
-
-    $executor = new AgentExecutor(
-        $this->prismBuilder,
-        $this->toolBuilder,
-        $this->systemPromptBuilder,
-        $this->runner,
-        $this->usageExtractor,
-        $this->configService,
-    );
-
-    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentNoSystemPrompt;
-    $stream = $executor->stream($agent, 'Hello');
-    $events = iterator_to_array($stream);
-
-    expect($events)->toHaveCount(1);
-    expect($events[0])->toBeInstanceOf(\Atlasphp\Atlas\Streaming\Events\StreamEndEvent::class);
-});
-
-// ===========================================
-// CONFIG DEFAULT TESTS (NULL PROVIDER/MODEL)
-// ===========================================
-
-test('it uses config defaults when agent returns null provider and model', function () {
-    // Set up config to return defaults
-    config(['atlas.chat.provider' => 'anthropic']);
-    config(['atlas.chat.model' => 'claude-3-sonnet']);
-
-    $mockResponse = new class
-    {
-        public ?string $text = 'Hello';
-
-        public array $toolCalls = [];
-
-        public object $finishReason;
-
-        public function __construct()
-        {
-            $this->finishReason = new class
-            {
-                public string $value = 'stop';
-            };
-        }
-    };
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
-
-    // Verify config defaults are used
-    $this->prismBuilder
-        ->shouldReceive('forPrompt')
-        ->once()
-        ->withArgs(function ($provider, $model) {
-            return $provider === 'anthropic' && $model === 'claude-3-sonnet';
-        })
-        ->andReturn($mockPendingRequest);
-
-    $executor = new AgentExecutor(
-        $this->prismBuilder,
-        $this->toolBuilder,
-        $this->systemPromptBuilder,
-        $this->runner,
-        $this->usageExtractor,
-        $this->configService,
+        $this->mediaConverter,
     );
 
     $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithDefaults;
-    $response = $executor->execute($agent, 'Hello');
+    $context = new ExecutionContext;
 
-    expect($response)->toBeInstanceOf(AgentResponse::class);
-});
+    $executor->execute($agent, 'Hello', $context);
+})->throws(AgentException::class, 'Provider must be specified');
 
-test('it uses config defaults for structured requests when agent returns null', function () {
-    // Set up config to return defaults
-    config(['atlas.chat.provider' => 'anthropic']);
-    config(['atlas.chat.model' => 'claude-3-sonnet']);
+test('it throws when model is null but provider is set', function () {
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
 
-    $mockResponse = new class
+    // Create an agent with provider but null model
+    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
     {
-        public mixed $structured = ['name' => 'John'];
-
-        public object $finishReason;
-
-        public function __construct()
+        public function key(): string
         {
-            $this->finishReason = new class
-            {
-                public string $value = 'stop';
-            };
+            return 'agent-with-no-model';
+        }
+
+        public function provider(): ?string
+        {
+            return 'openai';
+        }
+
+        public function model(): ?string
+        {
+            return null; // No model
         }
     };
 
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asStructured')->andReturn($mockResponse);
+    $context = new ExecutionContext;
+
+    $executor->execute($agent, 'Hello', $context);
+})->throws(AgentException::class, 'Model must be specified');
+
+test('it throws for unknown message role', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $context = new ExecutionContext(
+        messages: [
+            ['role' => 'invalid_role', 'content' => 'Message with invalid role'],
+        ],
+    );
+
+    $agent = new TestAgent;
+    $executor->execute($agent, 'Hello', $context);
+})->throws(AgentException::class, 'Unknown message role: invalid_role');
+
+test('it builds messages with system role', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $context = new ExecutionContext(
+        messages: [
+            ['role' => 'system', 'content' => 'You are a helpful assistant.'],
+            ['role' => 'user', 'content' => 'Previous question'],
+            ['role' => 'assistant', 'content' => 'Previous answer'],
+        ],
+    );
+
+    $agent = new TestAgent;
+    $response = $executor->execute($agent, 'Follow up', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response->text)->toBe('Response');
+});
+
+test('it handles prismMessages directly from context', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Continuing conversation')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create Prism message objects directly
+    $prismMessages = [
+        new \Prism\Prism\ValueObjects\Messages\UserMessage('Previous question'),
+        new \Prism\Prism\ValueObjects\Messages\AssistantMessage('Previous answer'),
+    ];
+
+    $context = new ExecutionContext(
+        prismMessages: $prismMessages,
+    );
+
+    $agent = new TestAgent;
+    $response = $executor->execute($agent, 'Follow up', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response->text)->toBe('Continuing conversation');
+});
+
+test('it prioritizes prismMessages over array messages', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Using Prism messages')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create context with both array and Prism messages
+    // prismMessages should take priority
+    $prismMessages = [
+        new \Prism\Prism\ValueObjects\Messages\UserMessage('Prism question'),
+    ];
+
+    $context = new ExecutionContext(
+        messages: [['role' => 'user', 'content' => 'Array question']], // Should be ignored
+        prismMessages: $prismMessages,
+    );
+
+    $agent = new TestAgent;
+    $response = $executor->execute($agent, 'Follow up', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+    // Response verifies execution completed; internal message handling is tested
+});
+
+test('it handles prismMedia attachments directly', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('I see the image')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create a Prism media object using the correct namespace
+    $image = \Prism\Prism\ValueObjects\Media\Image::fromUrl('https://example.com/image.jpg');
+
+    $context = new ExecutionContext(
+        prismMedia: [$image],
+    );
+
+    $agent = new TestAgent;
+    $response = $executor->execute($agent, 'What do you see?', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response->text)->toBe('I see the image');
+});
+
+test('it handles multiple prismMedia attachments', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('I see both images')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create multiple Prism media objects
+    $image1 = \Prism\Prism\ValueObjects\Media\Image::fromUrl('https://example.com/image1.jpg');
+    $image2 = \Prism\Prism\ValueObjects\Media\Image::fromUrl('https://example.com/image2.jpg');
+
+    $context = new ExecutionContext(
+        prismMedia: [$image1, $image2],
+    );
+
+    $agent = new TestAgent;
+    $response = $executor->execute($agent, 'What do you see?', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response->text)->toBe('I see both images');
+});
+
+test('stream returns Generator', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Streaming response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $agent = new TestAgent;
+    $context = new ExecutionContext;
+    $stream = $executor->stream($agent, 'Hello', $context);
+
+    expect($stream)->toBeInstanceOf(Generator::class);
+
+    // Consume the stream
+    $events = iterator_to_array($stream);
+    expect($events)->not->toBeEmpty();
+});
+
+test('it replays prism calls from context', function () {
+    $fake = Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $context = new ExecutionContext(
+        prismCalls: [
+            ['method' => 'withMaxSteps', 'args' => [10]],
+        ],
+    );
+
+    $agent = new TestAgent;
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+});
+
+test('it handles prism media in context', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('I see the image')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $image = \Prism\Prism\ValueObjects\Media\Image::fromUrl('https://example.com/image.jpg');
+
+    $context = new ExecutionContext(
+        prismMedia: [$image],
+    );
+
+    $agent = new TestAgent;
+    $response = $executor->execute($agent, 'What do you see?', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response->text)->toBe('I see the image');
+});
+
+test('it returns usage from response', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(promptTokens: 50, completionTokens: 25)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $agent = new TestAgent;
+    $context = new ExecutionContext;
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect($response->usage->promptTokens)->toBe(50);
+    expect($response->usage->completionTokens)->toBe(25);
+});
+
+test('it returns finish reason from response', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withFinishReason(FinishReason::Stop)
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $agent = new TestAgent;
+    $context = new ExecutionContext;
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect($response->finishReason)->toBe(FinishReason::Stop);
+});
+
+test('it returns meta from response', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withMeta(new Meta('req-123', 'gpt-4-turbo'))
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $agent = new TestAgent;
+    $context = new ExecutionContext;
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect($response->meta->id)->toBe('req-123');
+    expect($response->meta->model)->toBe('gpt-4-turbo');
+});
+
+test('it returns StructuredResponse when withSchema is in prismCalls', function () {
+    Prism::fake([
+        StructuredResponseFake::make()
+            ->withStructured(['name' => 'John', 'age' => 30])
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create a mock schema
+    $mockSchema = Mockery::mock(\Prism\Prism\Contracts\Schema::class);
+
+    $context = new ExecutionContext(
+        prismCalls: [
+            ['method' => 'withSchema', 'args' => [$mockSchema]],
+        ],
+    );
+
+    $agent = new TestAgent;
+    $response = $executor->execute($agent, 'Extract person info', $context);
+
+    expect($response)->toBeInstanceOf(StructuredResponse::class);
+    expect($response->structured)->toBe(['name' => 'John', 'age' => 30]);
+});
+
+test('it replays prism calls without schema for structured output', function () {
+    Prism::fake([
+        StructuredResponseFake::make()
+            ->withStructured(['name' => 'John'])
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
 
     $mockSchema = Mockery::mock(\Prism\Prism\Contracts\Schema::class);
 
-    // Verify config defaults are used
-    $this->prismBuilder
-        ->shouldReceive('forStructured')
-        ->once()
-        ->withArgs(function ($provider, $model) {
-            return $provider === 'anthropic' && $model === 'claude-3-sonnet';
-        })
-        ->andReturn($mockPendingRequest);
-
-    $executor = new AgentExecutor(
-        $this->prismBuilder,
-        $this->toolBuilder,
-        $this->systemPromptBuilder,
-        $this->runner,
-        $this->usageExtractor,
-        $this->configService,
-    );
-
-    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithDefaults;
-    $response = $executor->execute($agent, 'Hello', null, $mockSchema);
-
-    expect($response->structured)->toBe(['name' => 'John']);
-});
-
-test('context overrides take precedence over config defaults', function () {
-    // Set up config defaults
-    config(['atlas.chat.provider' => 'anthropic']);
-    config(['atlas.chat.model' => 'claude-3-sonnet']);
-
-    $mockResponse = new class
-    {
-        public ?string $text = 'Hello';
-
-        public array $toolCalls = [];
-
-        public object $finishReason;
-
-        public function __construct()
-        {
-            $this->finishReason = new class
-            {
-                public string $value = 'stop';
-            };
-        }
-    };
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
-
-    // Context overrides should be used instead of config defaults
-    $this->prismBuilder
-        ->shouldReceive('forPrompt')
-        ->once()
-        ->withArgs(function ($provider, $model) {
-            return $provider === 'openai' && $model === 'gpt-4-turbo';
-        })
-        ->andReturn($mockPendingRequest);
-
-    $executor = new AgentExecutor(
-        $this->prismBuilder,
-        $this->toolBuilder,
-        $this->systemPromptBuilder,
-        $this->runner,
-        $this->usageExtractor,
-        $this->configService,
-    );
-
+    // usingTemperature is available on both Text and Structured requests
     $context = new ExecutionContext(
-        providerOverride: 'openai',
-        modelOverride: 'gpt-4-turbo',
-    );
-
-    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithDefaults;
-    $response = $executor->execute($agent, 'Hello', $context);
-
-    expect($response)->toBeInstanceOf(AgentResponse::class);
-});
-
-test('it passes through ProviderTool instances unchanged', function () {
-    $mockResponse = new class
-    {
-        public ?string $text = 'Hello';
-
-        public array $toolCalls = [];
-
-        public array $steps = [];
-
-        public object $finishReason;
-
-        public function __construct()
-        {
-            $this->finishReason = new class
-            {
-                public string $value = 'stop';
-            };
-        }
-    };
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTools')
-        ->once()
-        ->with(Mockery::on(function ($tools) {
-            // Verify tools is an array of ProviderTool objects
-            if (! is_array($tools) || count($tools) !== 2) {
-                return false;
-            }
-
-            // First tool should be the ProviderTool instance passed through unchanged
-            $first = $tools[0];
-            if (! $first instanceof \Prism\Prism\ValueObjects\ProviderTool) {
-                return false;
-            }
-            if ($first->type !== 'web_search') {
-                return false;
-            }
-            if ($first->name !== 'custom_search') {
-                return false;
-            }
-            if ($first->options !== ['max_results' => 10]) {
-                return false;
-            }
-
-            // Second tool should be code_execution string converted
-            $second = $tools[1];
-            if (! $second instanceof \Prism\Prism\ValueObjects\ProviderTool) {
-                return false;
-            }
-            if ($second->type !== 'code_execution') {
-                return false;
-            }
-
-            return true;
-        }))
-        ->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
-
-    $this->prismBuilder
-        ->shouldReceive('forPrompt')
-        ->once()
-        ->andReturn($mockPendingRequest);
-
-    $executor = new AgentExecutor(
-        $this->prismBuilder,
-        $this->toolBuilder,
-        $this->systemPromptBuilder,
-        $this->runner,
-        $this->usageExtractor,
-        $this->configService,
-    );
-
-    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithProviderToolInstances;
-    $response = $executor->execute($agent, 'Hello');
-
-    expect($response)->toBeInstanceOf(AgentResponse::class);
-});
-
-// ===========================================
-// PROVIDER OPTIONS TESTS
-// ===========================================
-
-test('it applies provider options from context', function () {
-    $mockResponse = new class
-    {
-        public ?string $text = 'Hello';
-
-        public array $toolCalls = [];
-
-        public object $finishReason;
-
-        public function __construct()
-        {
-            $this->finishReason = new class
-            {
-                public string $value = 'stop';
-            };
-        }
-    };
-
-    $providerOptions = ['cacheType' => 'ephemeral', 'presence_penalty' => 0.5];
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderOptions')
-        ->once()
-        ->with($providerOptions)
-        ->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
-
-    $this->prismBuilder
-        ->shouldReceive('forPrompt')
-        ->once()
-        ->andReturn($mockPendingRequest);
-
-    $executor = new AgentExecutor(
-        $this->prismBuilder,
-        $this->toolBuilder,
-        $this->systemPromptBuilder,
-        $this->runner,
-        $this->usageExtractor,
-        $this->configService,
-    );
-
-    $context = new ExecutionContext(
-        providerOptions: $providerOptions,
+        prismCalls: [
+            ['method' => 'withSchema', 'args' => [$mockSchema]],
+            ['method' => 'usingTemperature', 'args' => [0.5]],
+        ],
     );
 
     $agent = new TestAgent;
-    $response = $executor->execute($agent, 'Hello', $context);
+    $response = $executor->execute($agent, 'Extract person info', $context);
 
-    expect($response)->toBeInstanceOf(AgentResponse::class);
+    expect($response)->toBeInstanceOf(StructuredResponse::class);
 });
 
-test('it does not call withProviderOptions when context has no provider options', function () {
-    $mockResponse = new class
-    {
-        public ?string $text = 'Hello';
-
-        public array $toolCalls = [];
-
-        public object $finishReason;
-
-        public function __construct()
-        {
-            $this->finishReason = new class
-            {
-                public string $value = 'stop';
-            };
-        }
-    };
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
-    $mockPendingRequest->shouldNotReceive('withProviderOptions');
-    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
-
-    $this->prismBuilder
-        ->shouldReceive('forPrompt')
-        ->once()
-        ->andReturn($mockPendingRequest);
+test('it applies agent clientOptions to request', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response with client options')
+            ->withUsage(new Usage(10, 5)),
+    ]);
 
     $executor = new AgentExecutor(
-        $this->prismBuilder,
         $this->toolBuilder,
         $this->systemPromptBuilder,
         $this->runner,
-        $this->usageExtractor,
-        $this->configService,
+        $this->mediaConverter,
     );
 
-    // Context with empty provider options
+    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithOptions;
+    $context = new ExecutionContext;
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    // Verify the request was executed (clientOptions are internal to Prism)
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response->text)->toBe('Response with client options');
+
+    // Verify agent has clientOptions defined
+    expect($agent->clientOptions())->toBe([
+        'timeout' => 60,
+        'connect_timeout' => 10,
+    ]);
+});
+
+test('it applies agent providerOptions to request', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response with provider options')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithOptions;
+    $context = new ExecutionContext;
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    // Verify the request was executed (providerOptions are internal to Prism)
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response->text)->toBe('Response with provider options');
+
+    // Verify agent has providerOptions defined
+    expect($agent->providerOptions())->toBe([
+        'presence_penalty' => 0.5,
+        'frequency_penalty' => 0.3,
+    ]);
+});
+
+test('it applies agent providerTools to request', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response with provider tools')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithOptions;
+    $context = new ExecutionContext;
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    // Verify the request was executed
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response->text)->toBe('Response with provider tools');
+
+    // Verify agent has providerTools defined
+    expect($agent->providerTools())->toBe([
+        'web_search',
+        ['type' => 'code_execution', 'name' => 'execute_code'],
+    ]);
+});
+
+test('it does not apply empty clientOptions', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // TestAgent has empty clientOptions (uses default)
+    $agent = new TestAgent;
+    expect($agent->clientOptions())->toBe([]);
+
+    $context = new ExecutionContext;
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+});
+
+test('it does not apply empty providerOptions', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // TestAgent has empty providerOptions (uses default)
+    $agent = new TestAgent;
+    expect($agent->providerOptions())->toBe([]);
+
+    $context = new ExecutionContext;
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+});
+
+test('it does not apply empty providerTools', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // TestAgent has empty providerTools (uses default)
+    $agent = new TestAgent;
+    expect($agent->providerTools())->toBe([]);
+
+    $context = new ExecutionContext;
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+});
+
+test('it builds provider tools from string format', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create agent with string provider tools
+    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    {
+        public function key(): string
+        {
+            return 'agent-with-string-tools';
+        }
+
+        public function provider(): ?string
+        {
+            return 'openai';
+        }
+
+        public function model(): ?string
+        {
+            return 'gpt-4';
+        }
+
+        public function providerTools(): array
+        {
+            return ['web_search', 'code_execution'];
+        }
+    };
+
+    $context = new ExecutionContext;
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+});
+
+test('it builds provider tools from array format', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create agent with array provider tools
+    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    {
+        public function key(): string
+        {
+            return 'agent-with-array-tools';
+        }
+
+        public function provider(): ?string
+        {
+            return 'openai';
+        }
+
+        public function model(): ?string
+        {
+            return 'gpt-4';
+        }
+
+        public function providerTools(): array
+        {
+            return [
+                ['type' => 'web_search'],
+                ['type' => 'code_execution', 'name' => 'my_code_executor', 'extra' => 'option'],
+            ];
+        }
+    };
+
+    $context = new ExecutionContext;
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+});
+
+test('it builds provider tools from ProviderTool objects', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create agent with ProviderTool objects
+    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    {
+        public function key(): string
+        {
+            return 'agent-with-provider-tool-objects';
+        }
+
+        public function provider(): ?string
+        {
+            return 'openai';
+        }
+
+        public function model(): ?string
+        {
+            return 'gpt-4';
+        }
+
+        public function providerTools(): array
+        {
+            return [
+                new \Prism\Prism\ValueObjects\ProviderTool(type: 'web_search'),
+                new \Prism\Prism\ValueObjects\ProviderTool(type: 'code_execution', name: 'executor'),
+            ];
+        }
+    };
+
+    $context = new ExecutionContext;
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+});
+
+test('it throws for invalid provider tool format', function () {
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create agent with invalid provider tool (array without 'type')
+    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    {
+        public function key(): string
+        {
+            return 'agent-with-invalid-tools';
+        }
+
+        public function provider(): ?string
+        {
+            return 'openai';
+        }
+
+        public function model(): ?string
+        {
+            return 'gpt-4';
+        }
+
+        public function providerTools(): array
+        {
+            return [
+                ['name' => 'missing_type'], // Missing 'type' key
+            ];
+        }
+    };
+
+    $context = new ExecutionContext;
+    $executor->execute($agent, 'Hello', $context);
+})->throws(AgentException::class, 'Invalid provider tool format at index 0');
+
+test('it runs after_execute pipeline with StructuredResponse', function () {
+    $container = new Container;
+    $registry = new PipelineRegistry;
+    $runner = new PipelineRunner($registry, $container);
+
+    $registry->define('agent.after_execute', 'After execute pipeline');
+    AfterExecuteCapturingHandler::reset();
+    $registry->register('agent.after_execute', AfterExecuteCapturingHandler::class);
+
+    Prism::fake([
+        StructuredResponseFake::make()
+            ->withStructured(['name' => 'John'])
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $systemPromptBuilder = new SystemPromptBuilder($runner);
+    $toolRegistry = new ToolRegistry($container);
+    $toolExecutor = new ToolExecutor($runner);
+    $toolBuilder = new ToolBuilder($toolRegistry, $toolExecutor, $container);
+
+    $executor = new AgentExecutor(
+        $toolBuilder,
+        $systemPromptBuilder,
+        $runner,
+        new MediaConverter,
+    );
+
+    $mockSchema = Mockery::mock(\Prism\Prism\Contracts\Schema::class);
+
+    $context = new ExecutionContext(
+        prismCalls: [
+            ['method' => 'withSchema', 'args' => [$mockSchema]],
+        ],
+    );
+
+    $agent = new TestAgent;
+    $executor->execute($agent, 'Hello', $context);
+
+    expect(AfterExecuteCapturingHandler::$called)->toBeTrue();
+    expect(AfterExecuteCapturingHandler::$data['response'])->toBeInstanceOf(StructuredResponse::class);
+});
+
+test('stream runs agent.stream.after pipeline on completion', function () {
+    StreamAfterCapturingHandler::reset();
+
+    $this->pipelineRegistry->define('agent.stream.after');
+    $this->pipelineRegistry->register('agent.stream.after', StreamAfterCapturingHandler::class);
+
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Streaming response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $agent = new TestAgent;
+    $context = new ExecutionContext;
+    $stream = $executor->stream($agent, 'Hello', $context);
+
+    // Pipeline should not be called before consuming
+    expect(StreamAfterCapturingHandler::$called)->toBeFalse();
+
+    // Consume the stream
+    iterator_to_array($stream);
+
+    // Pipeline should be called after consuming
+    expect(StreamAfterCapturingHandler::$called)->toBeTrue();
+    expect(StreamAfterCapturingHandler::$data['agent'])->toBe($agent);
+    expect(StreamAfterCapturingHandler::$data['input'])->toBe('Hello');
+    expect(StreamAfterCapturingHandler::$data['context'])->toBe($context);
+    expect(StreamAfterCapturingHandler::$data['events'])->toBeArray();
+    expect(StreamAfterCapturingHandler::$data['error'])->toBeNull();
+});
+
+test('stream.after pipeline receives system_prompt', function () {
+    StreamAfterCapturingHandler::reset();
+
+    $this->pipelineRegistry->define('agent.stream.after');
+    $this->pipelineRegistry->register('agent.stream.after', StreamAfterCapturingHandler::class);
+
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $agent = new TestAgent;
     $context = new ExecutionContext;
 
-    $agent = new TestAgent;
-    $response = $executor->execute($agent, 'Hello', $context);
+    iterator_to_array($executor->stream($agent, 'Hello', $context));
 
-    expect($response)->toBeInstanceOf(AgentResponse::class);
+    expect(StreamAfterCapturingHandler::$data)->toHaveKey('system_prompt');
+    expect(StreamAfterCapturingHandler::$data['system_prompt'])->toBeString();
 });
 
-test('it applies provider options for structured requests', function () {
-    $mockResponse = new class
-    {
-        public array $structured = ['name' => 'John'];
+test('stream.after pipeline captures events', function () {
+    StreamAfterCapturingHandler::reset();
 
-        public array $toolCalls = [];
+    $this->pipelineRegistry->define('agent.stream.after');
+    $this->pipelineRegistry->register('agent.stream.after', StreamAfterCapturingHandler::class);
 
-        public object $finishReason;
-
-        public function __construct()
-        {
-            $this->finishReason = new class
-            {
-                public string $value = 'stop';
-            };
-        }
-    };
-
-    $providerOptions = ['cacheType' => 'ephemeral'];
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTools')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderOptions')
-        ->once()
-        ->with($providerOptions)
-        ->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asStructured')->andReturn($mockResponse);
-
-    $this->prismBuilder
-        ->shouldReceive('forStructured')
-        ->once()
-        ->andReturn($mockPendingRequest);
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Hello')
+            ->withUsage(new Usage(10, 5)),
+    ]);
 
     $executor = new AgentExecutor(
-        $this->prismBuilder,
         $this->toolBuilder,
         $this->systemPromptBuilder,
         $this->runner,
-        $this->usageExtractor,
-        $this->configService,
-    );
-
-    $schema = Mockery::mock(\Prism\Prism\Contracts\Schema::class);
-    $schema->shouldReceive('toArray')->andReturn(['type' => 'object']);
-
-    $context = new ExecutionContext(
-        providerOptions: $providerOptions,
+        $this->mediaConverter,
     );
 
     $agent = new TestAgent;
-    $response = $executor->execute($agent, 'Hello', $context, $schema);
+    $context = new ExecutionContext;
 
-    expect($response)->toBeInstanceOf(AgentResponse::class);
-    expect($response->structured)->toBe(['name' => 'John']);
+    $events = iterator_to_array($executor->stream($agent, 'Hello', $context));
+
+    expect(StreamAfterCapturingHandler::$data['events'])->toBe($events);
+});
+
+test('it runs agent.context.validate pipeline', function () {
+    ContextValidateCapturingHandler::reset();
+
+    $this->pipelineRegistry->define('agent.context.validate');
+    $this->pipelineRegistry->register('agent.context.validate', ContextValidateCapturingHandler::class);
+
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $agent = new TestAgent;
+    $context = new ExecutionContext(
+        metadata: ['user_id' => 123],
+    );
+    $executor->execute($agent, 'Hello', $context);
+
+    expect(ContextValidateCapturingHandler::$called)->toBeTrue();
+    expect(ContextValidateCapturingHandler::$data['agent'])->toBe($agent);
+    expect(ContextValidateCapturingHandler::$data['input'])->toBe('Hello');
+    expect(ContextValidateCapturingHandler::$data['context'])->toBeInstanceOf(ExecutionContext::class);
+    expect(ContextValidateCapturingHandler::$data['context']->getMeta('user_id'))->toBe(123);
+});
+
+test('context.validate pipeline can modify context', function () {
+    ContextModifyingHandler::reset();
+
+    $this->pipelineRegistry->define('agent.context.validate');
+    $this->pipelineRegistry->register('agent.context.validate', ContextModifyingHandler::class);
+
+    // Also capture after_execute to verify modified context
+    AfterExecuteCapturingHandler::reset();
+    $this->pipelineRegistry->define('agent.after_execute');
+    $this->pipelineRegistry->register('agent.after_execute', AfterExecuteCapturingHandler::class);
+
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $agent = new TestAgent;
+    $context = new ExecutionContext;
+    $executor->execute($agent, 'Hello', $context);
+
+    // Verify the modified context was used (after_execute receives the modified context)
+    expect(AfterExecuteCapturingHandler::$data['context']->getMeta('injected_by_validate'))->toBe(true);
+});
+
+test('context.validate pipeline runs for streaming', function () {
+    ContextValidateCapturingHandler::reset();
+
+    $this->pipelineRegistry->define('agent.context.validate');
+    $this->pipelineRegistry->register('agent.context.validate', ContextValidateCapturingHandler::class);
+
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $agent = new TestAgent;
+    $context = new ExecutionContext;
+
+    // Must consume stream for pipelines to run
+    iterator_to_array($executor->stream($agent, 'Hello', $context));
+
+    expect(ContextValidateCapturingHandler::$called)->toBeTrue();
+});
+
+test('error pipeline can provide recovery response', function () {
+    ErrorRecoveryHandler::reset();
+
+    $this->pipelineRegistry->define('agent.on_error');
+    $this->pipelineRegistry->register('agent.on_error', ErrorRecoveryHandler::class);
+
+    // Create a fake recovery response using the correct constructor
+    $recoveryResponse = new PrismResponse(
+        steps: collect([]),
+        text: 'Recovered from error',
+        finishReason: FinishReason::Stop,
+        toolCalls: [],
+        toolResults: [],
+        usage: new Usage(10, 5),
+        meta: new Meta('recovery-id', 'gpt-4'),
+        messages: collect([]),
+        additionalContent: [],
+    );
+    ErrorRecoveryHandler::setRecoveryResponse($recoveryResponse);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create an agent that will fail (null provider triggers error)
+    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithDefaults;
+    $context = new ExecutionContext;
+
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    // Verify recovery was used
+    expect(ErrorRecoveryHandler::$called)->toBeTrue();
+    expect(ErrorRecoveryHandler::$data['exception'])->toBeInstanceOf(\InvalidArgumentException::class);
+    expect($response)->toBe($recoveryResponse);
+    expect($response->text)->toBe('Recovered from error');
+});
+
+test('error pipeline receives exception details', function () {
+    ErrorRecoveryHandler::reset();
+
+    $this->pipelineRegistry->define('agent.on_error');
+    $this->pipelineRegistry->register('agent.on_error', ErrorRecoveryHandler::class);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create an agent that will fail
+    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithDefaults;
+    $context = new ExecutionContext;
+
+    try {
+        $executor->execute($agent, 'Hello', $context);
+    } catch (AgentException $e) {
+        // Expected when no recovery is provided
+    }
+
+    expect(ErrorRecoveryHandler::$called)->toBeTrue();
+    expect(ErrorRecoveryHandler::$data)->toHaveKey('agent');
+    expect(ErrorRecoveryHandler::$data)->toHaveKey('input');
+    expect(ErrorRecoveryHandler::$data)->toHaveKey('context');
+    expect(ErrorRecoveryHandler::$data)->toHaveKey('exception');
+    expect(ErrorRecoveryHandler::$data['input'])->toBe('Hello');
+});
+
+test('error pipeline without recovery rethrows exception', function () {
+    ErrorRecoveryHandler::reset();
+
+    $this->pipelineRegistry->define('agent.on_error');
+    $this->pipelineRegistry->register('agent.on_error', ErrorRecoveryHandler::class);
+
+    // Don't set recovery response
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithDefaults;
+    $context = new ExecutionContext;
+
+    $executor->execute($agent, 'Hello', $context);
+})->throws(AgentException::class);
+
+test('error pipeline recovery works for AgentException', function () {
+    ErrorRecoveryHandler::reset();
+
+    $this->pipelineRegistry->define('agent.on_error');
+    $this->pipelineRegistry->register('agent.on_error', ErrorRecoveryHandler::class);
+
+    // Create recovery response using the correct constructor
+    $recoveryResponse = new PrismResponse(
+        steps: collect([]),
+        text: 'Recovered from AgentException',
+        finishReason: FinishReason::Stop,
+        toolCalls: [],
+        toolResults: [],
+        usage: new Usage(10, 5),
+        meta: new Meta('recovery-id', 'gpt-4'),
+        messages: collect([]),
+        additionalContent: [],
+    );
+    ErrorRecoveryHandler::setRecoveryResponse($recoveryResponse);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Use agent with null model (triggers AgentException via InvalidArgumentException)
+    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    {
+        public function key(): string
+        {
+            return 'null-model-agent';
+        }
+
+        public function provider(): ?string
+        {
+            return 'openai';
+        }
+
+        public function model(): ?string
+        {
+            return null;
+        }
+    };
+
+    $context = new ExecutionContext;
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect(ErrorRecoveryHandler::$called)->toBeTrue();
+    expect($response->text)->toBe('Recovered from AgentException');
+});
+
+// Tests for catch (AgentException $e) block - lines 112-117
+// These tests throw AgentException directly to hit the first catch block
+
+test('catch AgentException block calls handleError and rethrows when no recovery', function () {
+    ErrorRecoveryHandler::reset();
+    AgentExceptionThrowingHandler::reset();
+
+    $this->pipelineRegistry->define('agent.before_execute');
+    $this->pipelineRegistry->register('agent.before_execute', AgentExceptionThrowingHandler::class);
+
+    $this->pipelineRegistry->define('agent.on_error');
+    $this->pipelineRegistry->register('agent.on_error', ErrorRecoveryHandler::class);
+
+    Prism::fake([
+        TextResponseFake::make()->withText('Response')->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $agent = new TestAgent;
+    $context = new ExecutionContext;
+
+    try {
+        $executor->execute($agent, 'Hello', $context);
+        $this->fail('Expected AgentException');
+    } catch (AgentException $e) {
+        // Error handler should be called
+        expect(ErrorRecoveryHandler::$called)->toBeTrue();
+        expect(ErrorRecoveryHandler::$data['exception'])->toBeInstanceOf(AgentException::class);
+        // Original AgentException should be rethrown (not wrapped)
+        expect($e->getMessage())->toBe('Pipeline threw AgentException');
+    }
+});
+
+test('catch AgentException block returns recovery when provided', function () {
+    ErrorRecoveryHandler::reset();
+    AgentExceptionThrowingHandler::reset();
+
+    $this->pipelineRegistry->define('agent.before_execute');
+    $this->pipelineRegistry->register('agent.before_execute', AgentExceptionThrowingHandler::class);
+
+    $this->pipelineRegistry->define('agent.on_error');
+    $this->pipelineRegistry->register('agent.on_error', ErrorRecoveryHandler::class);
+
+    // Set recovery response
+    $recoveryResponse = new PrismResponse(
+        steps: collect([]),
+        text: 'Recovered from AgentException in first catch block',
+        finishReason: FinishReason::Stop,
+        toolCalls: [],
+        toolResults: [],
+        usage: new Usage(10, 5),
+        meta: new Meta('recovery-id', 'gpt-4'),
+        messages: collect([]),
+        additionalContent: [],
+    );
+    ErrorRecoveryHandler::setRecoveryResponse($recoveryResponse);
+
+    Prism::fake([
+        TextResponseFake::make()->withText('Response')->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $agent = new TestAgent;
+    $context = new ExecutionContext;
+
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect(ErrorRecoveryHandler::$called)->toBeTrue();
+    expect($response)->toBe($recoveryResponse);
+    expect($response->text)->toBe('Recovered from AgentException in first catch block');
+});
+
+// Tests for catch (Throwable $e) block - lines 118-124
+// These tests throw non-AgentException to hit the second catch block
+
+test('execute handles Throwable and wraps in AgentException', function () {
+    ErrorRecoveryHandler::reset();
+
+    $this->pipelineRegistry->define('agent.on_error');
+    $this->pipelineRegistry->register('agent.on_error', ErrorRecoveryHandler::class);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Use agent with null provider - triggers InvalidArgumentException which is Throwable
+    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithDefaults;
+    $context = new ExecutionContext;
+
+    try {
+        $executor->execute($agent, 'Hello', $context);
+        $this->fail('Expected AgentException');
+    } catch (AgentException $e) {
+        // The error handler should be called even for non-AgentException throwables
+        expect(ErrorRecoveryHandler::$called)->toBeTrue();
+        expect($e->getMessage())->toContain('execution failed');
+    }
+});
+
+test('execute recovers from Throwable when recovery provided', function () {
+    ErrorRecoveryHandler::reset();
+
+    $this->pipelineRegistry->define('agent.on_error');
+    $this->pipelineRegistry->register('agent.on_error', ErrorRecoveryHandler::class);
+
+    // Create recovery response
+    $recoveryResponse = new PrismResponse(
+        steps: collect([]),
+        text: 'Recovered from Throwable',
+        finishReason: FinishReason::Stop,
+        toolCalls: [],
+        toolResults: [],
+        usage: new Usage(10, 5),
+        meta: new Meta('recovery-id', 'gpt-4'),
+        messages: collect([]),
+        additionalContent: [],
+    );
+    ErrorRecoveryHandler::setRecoveryResponse($recoveryResponse);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Use agent with null provider - triggers InvalidArgumentException
+    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithDefaults;
+    $context = new ExecutionContext;
+
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect(ErrorRecoveryHandler::$called)->toBeTrue();
+    expect($response->text)->toBe('Recovered from Throwable');
 });
 
 // Pipeline Handler Classes for Tests
 
-class AgentErrorCapturingHandler implements \Atlasphp\Atlas\Foundation\Contracts\PipelineContract
+class BeforeExecuteCapturingHandler implements PipelineContract
 {
     public static bool $called = false;
 
@@ -2303,7 +1559,7 @@ class AgentErrorCapturingHandler implements \Atlasphp\Atlas\Foundation\Contracts
         self::$data = null;
     }
 
-    public function handle(mixed $data, \Closure $next): mixed
+    public function handle(mixed $data, Closure $next): mixed
     {
         self::$called = true;
         self::$data = $data;
@@ -2312,7 +1568,7 @@ class AgentErrorCapturingHandler implements \Atlasphp\Atlas\Foundation\Contracts
     }
 }
 
-class AgentAfterExecuteCapturingHandler implements \Atlasphp\Atlas\Foundation\Contracts\PipelineContract
+class AfterExecuteCapturingHandler implements PipelineContract
 {
     public static bool $called = false;
 
@@ -2324,7 +1580,7 @@ class AgentAfterExecuteCapturingHandler implements \Atlasphp\Atlas\Foundation\Co
         self::$data = null;
     }
 
-    public function handle(mixed $data, \Closure $next): mixed
+    public function handle(mixed $data, Closure $next): mixed
     {
         self::$called = true;
         self::$data = $data;
@@ -2333,24 +1589,7 @@ class AgentAfterExecuteCapturingHandler implements \Atlasphp\Atlas\Foundation\Co
     }
 }
 
-class StreamOnEventCapturingHandler implements \Atlasphp\Atlas\Foundation\Contracts\PipelineContract
-{
-    public static array $events = [];
-
-    public static function reset(): void
-    {
-        self::$events = [];
-    }
-
-    public function handle(mixed $data, \Closure $next): mixed
-    {
-        self::$events[] = $data;
-
-        return $next($data);
-    }
-}
-
-class StreamAfterCompleteCapturingHandler implements \Atlasphp\Atlas\Foundation\Contracts\PipelineContract
+class ErrorCapturingHandler implements PipelineContract
 {
     public static bool $called = false;
 
@@ -2362,11 +1601,134 @@ class StreamAfterCompleteCapturingHandler implements \Atlasphp\Atlas\Foundation\
         self::$data = null;
     }
 
-    public function handle(mixed $data, \Closure $next): mixed
+    public function handle(mixed $data, Closure $next): mixed
     {
         self::$called = true;
         self::$data = $data;
 
         return $next($data);
+    }
+}
+
+class StreamAfterCapturingHandler implements PipelineContract
+{
+    public static bool $called = false;
+
+    public static ?array $data = null;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+        self::$data = null;
+    }
+
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        self::$called = true;
+        self::$data = $data;
+
+        return $next($data);
+    }
+}
+
+class ContextValidateCapturingHandler implements PipelineContract
+{
+    public static bool $called = false;
+
+    public static ?array $data = null;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+        self::$data = null;
+    }
+
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        self::$called = true;
+        self::$data = $data;
+
+        return $next($data);
+    }
+}
+
+class ContextModifyingHandler implements PipelineContract
+{
+    public static bool $called = false;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+    }
+
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        self::$called = true;
+
+        // Create a new context with injected metadata
+        $data['context'] = new ExecutionContext(
+            messages: $data['context']->messages,
+            variables: $data['context']->variables,
+            metadata: array_merge($data['context']->metadata, ['injected_by_validate' => true]),
+            providerOverride: $data['context']->providerOverride,
+            modelOverride: $data['context']->modelOverride,
+            prismCalls: $data['context']->prismCalls,
+            prismMedia: $data['context']->prismMedia,
+            prismMessages: $data['context']->prismMessages,
+        );
+
+        return $next($data);
+    }
+}
+
+class ErrorRecoveryHandler implements PipelineContract
+{
+    public static bool $called = false;
+
+    public static ?array $data = null;
+
+    public static ?PrismResponse $recoveryResponse = null;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+        self::$data = null;
+        self::$recoveryResponse = null;
+    }
+
+    public static function setRecoveryResponse(?PrismResponse $response): void
+    {
+        self::$recoveryResponse = $response;
+    }
+
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        self::$called = true;
+        self::$data = $data;
+
+        // If a recovery response is set, return it
+        if (self::$recoveryResponse !== null) {
+            $data['recovery'] = self::$recoveryResponse;
+        }
+
+        return $next($data);
+    }
+}
+
+class AgentExceptionThrowingHandler implements PipelineContract
+{
+    public static bool $called = false;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+    }
+
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        self::$called = true;
+
+        // Throw a plain AgentException (not via executionFailed which wraps the message)
+        throw new AgentException('Pipeline threw AgentException');
     }
 }

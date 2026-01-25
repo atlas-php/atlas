@@ -3,12 +3,14 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
-use Atlasphp\Atlas\Agents\Support\AgentResponse;
+use Atlasphp\Atlas\Agents\Services\MediaConverter;
 use Atlasphp\Atlas\Agents\Support\ExecutionContext;
-use Atlasphp\Atlas\Providers\Contracts\PrismBuilderContract;
-use Atlasphp\Atlas\Providers\Services\MediaConverter;
-use Atlasphp\Atlas\Providers\Services\PrismBuilder;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Testing\TextResponseFake;
+use Prism\Prism\Text\Response as PrismResponse;
+use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\ValueObjects\Usage;
 
 test('MediaConverter is registered as singleton', function () {
     $converter1 = app(MediaConverter::class);
@@ -18,154 +20,58 @@ test('MediaConverter is registered as singleton', function () {
     expect($converter1)->toBeInstanceOf(MediaConverter::class);
 });
 
-test('PrismBuilder is injected with MediaConverter', function () {
-    $builder = app(PrismBuilder::class);
-
-    expect($builder)->toBeInstanceOf(PrismBuilder::class);
-});
-
-test('agent executor passes current attachments to forPrompt', function () {
-    $mockResponse = createMockPrismResponse('I can see the image');
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTool')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
-
-    $prismBuilder = Mockery::mock(PrismBuilderContract::class);
-    $prismBuilder->shouldReceive('forPrompt')
-        ->with(
-            Mockery::any(),
-            Mockery::any(),
-            Mockery::any(),
-            Mockery::any(),
-            Mockery::any(),
-            Mockery::any(),
-            Mockery::on(function ($attachments) {
-                return count($attachments) === 1
-                    && $attachments[0]['type'] === 'image'
-                    && $attachments[0]['source'] === 'url'
-                    && $attachments[0]['data'] === 'https://example.com/image.jpg';
-            })
-        )
-        ->once()
-        ->andReturn($mockPendingRequest);
-
-    app()->instance(PrismBuilderContract::class, $prismBuilder);
+test('agent executor handles prism media attachments', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('I can see the image')
+            ->withUsage(new Usage(10, 5)),
+    ]);
 
     $executor = app(AgentExecutorContract::class);
     $agent = new TestAgent;
 
+    $image = Image::fromUrl('https://example.com/image.jpg');
+
     $context = new ExecutionContext(
-        currentAttachments: [
-            [
-                'type' => 'image',
-                'source' => 'url',
-                'data' => 'https://example.com/image.jpg',
-            ],
-        ],
+        prismMedia: [$image],
     );
 
     $response = $executor->execute($agent, 'What do you see?', $context);
 
-    expect($response)->toBeInstanceOf(AgentResponse::class);
+    expect($response)->toBeInstanceOf(PrismResponse::class);
     expect($response->text)->toBe('I can see the image');
 });
 
-test('agent executor merges current attachments into messages', function () {
-    $mockResponse = createMockPrismResponse('I see both images');
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTool')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
-
-    $prismBuilder = Mockery::mock(PrismBuilderContract::class);
-    $prismBuilder->shouldReceive('forMessages')
-        ->with(
-            Mockery::any(),
-            Mockery::any(),
-            Mockery::on(function ($messages) {
-                // Should have 2 messages: previous and current with attachments
-                if (count($messages) !== 2) {
-                    return false;
-                }
-
-                // Current message should have attachments
-                $currentMessage = $messages[1];
-
-                return $currentMessage['role'] === 'user'
-                    && $currentMessage['content'] === 'Now look at this one'
-                    && isset($currentMessage['attachments'])
-                    && count($currentMessage['attachments']) === 1
-                    && $currentMessage['attachments'][0]['type'] === 'image';
-            }),
-            Mockery::any(),
-            Mockery::any(),
-            Mockery::any()
-        )
-        ->once()
-        ->andReturn($mockPendingRequest);
-
-    app()->instance(PrismBuilderContract::class, $prismBuilder);
+test('agent executor handles messages with prism media', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('I see both images')
+            ->withUsage(new Usage(15, 10)),
+    ]);
 
     $executor = app(AgentExecutorContract::class);
     $agent = new TestAgent;
+
+    $image = Image::fromUrl('https://example.com/new-image.jpg');
 
     $context = new ExecutionContext(
         messages: [
             ['role' => 'user', 'content' => 'Hello'],
         ],
-        currentAttachments: [
-            [
-                'type' => 'image',
-                'source' => 'url',
-                'data' => 'https://example.com/new-image.jpg',
-            ],
-        ],
+        prismMedia: [$image],
     );
 
     $response = $executor->execute($agent, 'Now look at this one', $context);
 
-    expect($response)->toBeInstanceOf(AgentResponse::class);
+    expect($response)->toBeInstanceOf(PrismResponse::class);
 });
 
-test('history attachments are passed through in messages', function () {
-    $mockResponse = createMockPrismResponse('I can see both images from history');
-
-    $mockPendingRequest = Mockery::mock();
-    $mockPendingRequest->shouldReceive('withTemperature')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxTokens')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withMaxSteps')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('withProviderTool')->andReturnSelf();
-    $mockPendingRequest->shouldReceive('asText')->andReturn($mockResponse);
-
-    $prismBuilder = Mockery::mock(PrismBuilderContract::class);
-    $prismBuilder->shouldReceive('forMessages')
-        ->with(
-            Mockery::any(),
-            Mockery::any(),
-            Mockery::on(function ($messages) {
-                // First message should have attachments from history
-                if (! isset($messages[0]['attachments'])) {
-                    return false;
-                }
-
-                return $messages[0]['attachments'][0]['type'] === 'image'
-                    && $messages[0]['attachments'][0]['data'] === 'https://example.com/old-image.jpg';
-            }),
-            Mockery::any(),
-            Mockery::any(),
-            Mockery::any()
-        )
-        ->once()
-        ->andReturn($mockPendingRequest);
-
-    app()->instance(PrismBuilderContract::class, $prismBuilder);
+test('history attachments are preserved in messages', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('I can see the history image')
+            ->withUsage(new Usage(10, 5)),
+    ]);
 
     $executor = app(AgentExecutorContract::class);
     $agent = new TestAgent;
@@ -188,86 +94,41 @@ test('history attachments are passed through in messages', function () {
 
     $response = $executor->execute($agent, 'What did you see earlier?', $context);
 
-    expect($response)->toBeInstanceOf(AgentResponse::class);
+    expect($response)->toBeInstanceOf(PrismResponse::class);
 });
 
-test('execution context preserves current attachments through with methods', function () {
-    $attachments = [
-        [
-            'type' => 'image',
-            'source' => 'url',
-            'data' => 'https://example.com/image.jpg',
-        ],
-    ];
+test('execution context creates with prismMedia', function () {
+    $image = Image::fromUrl('https://example.com/image.jpg');
 
-    $context = new ExecutionContext(currentAttachments: $attachments);
+    $context = new ExecutionContext(prismMedia: [$image]);
 
-    // Test withMessages preserves attachments
-    $newContext = $context->withMessages([['role' => 'user', 'content' => 'Hello']]);
-    expect($newContext->currentAttachments)->toBe($attachments);
-
-    // Test withVariables preserves attachments
-    $newContext = $context->withVariables(['key' => 'value']);
-    expect($newContext->currentAttachments)->toBe($attachments);
-
-    // Test withMetadata preserves attachments
-    $newContext = $context->withMetadata(['meta' => 'data']);
-    expect($newContext->currentAttachments)->toBe($attachments);
-
-    // Test mergeVariables preserves attachments
-    $newContext = $context->mergeVariables(['key' => 'value']);
-    expect($newContext->currentAttachments)->toBe($attachments);
-
-    // Test mergeMetadata preserves attachments
-    $newContext = $context->mergeMetadata(['meta' => 'data']);
-    expect($newContext->currentAttachments)->toBe($attachments);
+    expect($context->prismMedia)->toBe([$image]);
+    expect($context->hasAttachments())->toBeTrue();
 });
 
-test('execution context hasCurrentAttachments returns correct value', function () {
-    $emptyContext = new ExecutionContext;
-    expect($emptyContext->hasCurrentAttachments())->toBeFalse();
-
-    $attachedContext = new ExecutionContext(
-        currentAttachments: [
-            ['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image.jpg'],
-        ],
-    );
-    expect($attachedContext->hasCurrentAttachments())->toBeTrue();
-});
-
-test('execution context withCurrentAttachments creates new context', function () {
+test('execution context without attachments reports hasAttachments false', function () {
     $context = new ExecutionContext;
-    $attachments = [
-        ['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image.jpg'],
-    ];
 
-    $newContext = $context->withCurrentAttachments($attachments);
-
-    expect($newContext)->not->toBe($context);
-    expect($context->currentAttachments)->toBe([]);
-    expect($newContext->currentAttachments)->toBe($attachments);
+    expect($context->prismMedia)->toBe([]);
+    expect($context->hasAttachments())->toBeFalse();
 });
 
-/**
- * Helper function to create a mock Prism response.
- */
-function createMockPrismResponse(string $text): object
-{
-    return new class($text)
-    {
-        public ?string $text;
+test('execution context creates with all parameters', function () {
+    $image = Image::fromUrl('https://example.com/image.jpg');
 
-        public array $toolCalls = [];
+    $context = new ExecutionContext(
+        messages: [['role' => 'user', 'content' => 'Hello']],
+        variables: ['key' => 'value'],
+        metadata: ['meta' => 'data'],
+        providerOverride: 'openai',
+        modelOverride: 'gpt-4',
+        prismMedia: [$image],
+    );
 
-        public object $finishReason;
-
-        public function __construct(string $text)
-        {
-            $this->text = $text;
-            $this->finishReason = new class
-            {
-                public string $value = 'stop';
-            };
-        }
-    };
-}
+    expect($context->messages)->toBe([['role' => 'user', 'content' => 'Hello']]);
+    expect($context->variables)->toBe(['key' => 'value']);
+    expect($context->metadata)->toBe(['meta' => 'data']);
+    expect($context->providerOverride)->toBe('openai');
+    expect($context->modelOverride)->toBe('gpt-4');
+    expect($context->prismMedia)->toBe([$image]);
+});

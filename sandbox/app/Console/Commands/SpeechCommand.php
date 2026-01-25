@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use Atlasphp\Atlas\Providers\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 use Illuminate\Console\Command;
+use Prism\Prism\Audio\AudioResponse;
+use Prism\Prism\Audio\TextResponse;
+use Prism\Prism\ValueObjects\Media\Audio;
 
 /**
  * Command for testing text-to-speech and speech-to-text.
@@ -68,10 +71,19 @@ class SpeechCommand extends Command
         try {
             $this->info('Generating speech...');
 
-            $response = Atlas::speech()
+            /** @var AudioResponse $response */
+            $response = Atlas::audio()
+                ->using(
+                    config('atlas.speech.provider', 'openai'),
+                    config('atlas.speech.model', 'tts-1')
+                )
+                ->withInput($text)
                 ->withVoice($voice)
-                ->withSpeed($speed)
-                ->generate($text);
+                ->withProviderOptions([
+                    'speed' => $speed,
+                    'response_format' => $format,
+                ])
+                ->asAudio();
 
             $this->displayTtsResponse($response, $format);
             $this->displayTtsVerification($response, $format);
@@ -106,7 +118,14 @@ class SpeechCommand extends Command
         try {
             $this->info('Transcribing audio...');
 
-            $response = Atlas::speech()->transcribe($file);
+            /** @var TextResponse $response */
+            $response = Atlas::audio()
+                ->using(
+                    config('atlas.speech.provider', 'openai'),
+                    config('atlas.speech.transcription_model', 'whisper-1')
+                )
+                ->withInput(Audio::fromPath($file))
+                ->asText();
 
             $this->displaySttResponse($response);
             $this->displaySttVerification($response);
@@ -138,18 +157,16 @@ class SpeechCommand extends Command
 
     /**
      * Display TTS response.
-     *
-     * @param  mixed  $response
      */
-    protected function displayTtsResponse($response, string $format): void
+    protected function displayTtsResponse(AudioResponse $response, string $format): void
     {
         $this->line('--- Response ---');
 
-        // Extract audio data
-        $audioData = $this->extractAudioData($response);
+        // Get raw audio bytes from GeneratedAudio object
+        $audioData = $response->audio->rawContent();
+        $size = $audioData !== null ? strlen($audioData) : 0;
 
-        if ($audioData) {
-            $size = strlen($audioData);
+        if ($size > 0) {
             $sizeKb = round($size / 1024, 1);
             $this->line("Audio Size: {$sizeKb} KB");
             $this->line("Format: {$format}");
@@ -173,16 +190,16 @@ class SpeechCommand extends Command
 
     /**
      * Display TTS verification.
-     *
-     * @param  mixed  $response
      */
-    protected function displayTtsVerification($response, string $format): void
+    protected function displayTtsVerification(AudioResponse $response, string $format): void
     {
         $this->line('--- Verification ---');
 
-        $audioData = $this->extractAudioData($response);
+        // Get raw audio bytes from GeneratedAudio object
+        $audioData = $response->audio->rawContent();
+        $size = $audioData !== null ? strlen($audioData) : 0;
 
-        if ($audioData && strlen($audioData) > 0) {
+        if ($size > 0) {
             $this->info('[PASS] Audio data returned');
 
             // Check format by magic bytes
@@ -216,27 +233,15 @@ class SpeechCommand extends Command
 
     /**
      * Display STT response.
-     *
-     * @param  mixed  $response
      */
-    protected function displaySttResponse($response): void
+    protected function displaySttResponse(TextResponse $response): void
     {
         $this->line('--- Response ---');
 
-        $text = $this->extractTranscriptionText($response);
-        $language = $this->extractLanguage($response);
-        $duration = $this->extractDuration($response);
-
-        if ($text) {
-            $this->line("Transcription: \"{$text}\"");
-        }
-
-        if ($language) {
-            $this->line("Language: {$language}");
-        }
-
-        if ($duration) {
-            $this->line("Duration: {$duration} seconds");
+        if ($response->text) {
+            $this->line("Transcription: \"{$response->text}\"");
+        } else {
+            $this->warn('No transcription text returned');
         }
 
         $this->line('');
@@ -244,127 +249,16 @@ class SpeechCommand extends Command
 
     /**
      * Display STT verification.
-     *
-     * @param  mixed  $response
      */
-    protected function displaySttVerification($response): void
+    protected function displaySttVerification(TextResponse $response): void
     {
         $this->line('--- Verification ---');
 
-        $text = $this->extractTranscriptionText($response);
-        $language = $this->extractLanguage($response);
-        $duration = $this->extractDuration($response);
-
-        if ($text && strlen($text) > 0) {
+        if ($response->text && strlen($response->text) > 0) {
             $this->info('[PASS] Transcription text returned');
         } else {
             $this->error('[FAIL] No transcription text returned');
         }
-
-        if ($language) {
-            $this->info('[PASS] Language detected');
-        } else {
-            $this->warn('[WARN] Language not detected');
-        }
-
-        if ($duration) {
-            $this->info('[PASS] Duration provided');
-        } else {
-            $this->warn('[WARN] Duration not provided');
-        }
-    }
-
-    /**
-     * Extract audio data from response.
-     *
-     * @param  mixed  $response
-     */
-    protected function extractAudioData($response): ?string
-    {
-        if (is_string($response)) {
-            return $response;
-        }
-
-        if (is_object($response)) {
-            if (isset($response->audio)) {
-                return $response->audio;
-            }
-            if (method_exists($response, 'audio')) {
-                return $response->audio();
-            }
-            if (method_exists($response, 'getContent')) {
-                return $response->getContent();
-            }
-        }
-
-        if (is_array($response) && isset($response['audio'])) {
-            return $response['audio'];
-        }
-
-        return null;
-    }
-
-    /**
-     * Extract transcription text from response.
-     *
-     * @param  mixed  $response
-     */
-    protected function extractTranscriptionText($response): ?string
-    {
-        if (is_string($response)) {
-            return $response;
-        }
-
-        if (is_object($response)) {
-            if (isset($response->text)) {
-                return $response->text;
-            }
-            if (method_exists($response, 'text')) {
-                return $response->text();
-            }
-        }
-
-        if (is_array($response) && isset($response['text'])) {
-            return $response['text'];
-        }
-
-        return null;
-    }
-
-    /**
-     * Extract language from response.
-     *
-     * @param  mixed  $response
-     */
-    protected function extractLanguage($response): ?string
-    {
-        if (is_object($response) && isset($response->language)) {
-            return $response->language;
-        }
-
-        if (is_array($response) && isset($response['language'])) {
-            return $response['language'];
-        }
-
-        return null;
-    }
-
-    /**
-     * Extract duration from response.
-     *
-     * @param  mixed  $response
-     */
-    protected function extractDuration($response): ?float
-    {
-        if (is_object($response) && isset($response->duration)) {
-            return (float) $response->duration;
-        }
-
-        if (is_array($response) && isset($response['duration'])) {
-            return (float) $response['duration'];
-        }
-
-        return null;
     }
 
     /**

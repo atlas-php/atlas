@@ -2,14 +2,15 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Foundation\Contracts\PipelineContract;
-use Atlasphp\Atlas\Foundation\Services\PipelineRegistry;
-use Atlasphp\Atlas\Foundation\Services\PipelineRunner;
+use Atlasphp\Atlas\Contracts\PipelineContract;
+use Atlasphp\Atlas\Pipelines\PipelineRegistry;
+use Atlasphp\Atlas\Pipelines\PipelineRunner;
 use Illuminate\Container\Container;
 
 beforeEach(function () {
     $this->registry = new PipelineRegistry;
     $this->container = new Container;
+    $this->registry->setContainer($this->container);
     $this->runner = new PipelineRunner($this->registry, $this->container);
 });
 
@@ -196,3 +197,92 @@ class AppendingHandlerB implements PipelineContract
         return $next($data);
     }
 }
+
+// Conditional Execution Tests
+
+test('registerWhen executes handler when condition is true', function () {
+    $condition = fn (array $data) => ($data['premium'] ?? false) === true;
+
+    $this->registry->registerWhen('test.pipeline', CountingHandler::class, $condition);
+
+    // Premium user - handler should run
+    $result = $this->runner->run('test.pipeline', ['count' => 0, 'premium' => true]);
+
+    expect($result['count'])->toBe(1);
+});
+
+test('registerWhen skips handler when condition is false', function () {
+    $condition = fn (array $data) => ($data['premium'] ?? false) === true;
+
+    $this->registry->registerWhen('test.pipeline', CountingHandler::class, $condition);
+
+    // Non-premium user - handler should be skipped
+    $result = $this->runner->run('test.pipeline', ['count' => 0, 'premium' => false]);
+
+    expect($result['count'])->toBe(0);
+});
+
+test('registerWhen works with handler instances', function () {
+    $condition = fn (array $data) => ($data['allowed'] ?? false) === true;
+    $handler = new CountingHandler;
+
+    $this->registry->registerWhen('test.pipeline', $handler, $condition);
+
+    $result = $this->runner->run('test.pipeline', ['count' => 0, 'allowed' => true]);
+
+    expect($result['count'])->toBe(1);
+});
+
+test('conditional handlers can be mixed with regular handlers', function () {
+    // Regular handler - always runs
+    $this->registry->register('test.pipeline', AppendingHandlerA::class, priority: 30);
+
+    // Conditional handler - only runs for premium
+    $condition = fn (array $data) => ($data['premium'] ?? false) === true;
+    $this->registry->registerWhen('test.pipeline', AppendingHandlerB::class, $condition, priority: 20);
+
+    // Premium user - both handlers run
+    $premiumResult = $this->runner->run('test.pipeline', ['order' => [], 'premium' => true]);
+    expect($premiumResult['order'])->toBe(['A', 'B']);
+
+    // Non-premium user - only regular handler runs
+    $normalResult = $this->runner->run('test.pipeline', ['order' => [], 'premium' => false]);
+    expect($normalResult['order'])->toBe(['A']);
+});
+
+test('multiple conditional handlers with different conditions', function () {
+    $premiumCondition = fn (array $data) => ($data['tier'] ?? '') === 'premium';
+    $adminCondition = fn (array $data) => ($data['role'] ?? '') === 'admin';
+
+    $this->registry->registerWhen('test.pipeline', AppendingHandlerA::class, $premiumCondition);
+    $this->registry->registerWhen('test.pipeline', AppendingHandlerB::class, $adminCondition);
+
+    // Premium user - only A runs
+    $premiumResult = $this->runner->run('test.pipeline', ['order' => [], 'tier' => 'premium']);
+    expect($premiumResult['order'])->toBe(['A']);
+
+    // Admin user - only B runs
+    $adminResult = $this->runner->run('test.pipeline', ['order' => [], 'role' => 'admin']);
+    expect($adminResult['order'])->toBe(['B']);
+
+    // Premium admin - both run
+    $bothResult = $this->runner->run('test.pipeline', ['order' => [], 'tier' => 'premium', 'role' => 'admin']);
+    expect($bothResult['order'])->toBe(['A', 'B']);
+
+    // Regular user - neither runs
+    $neitherResult = $this->runner->run('test.pipeline', ['order' => []]);
+    expect($neitherResult['order'])->toBe([]);
+});
+
+test('conditional handler passes data to next handler unchanged when skipped', function () {
+    $condition = fn (array $data) => false; // Always skip
+
+    $this->registry->registerWhen('test.pipeline', CountingHandler::class, $condition);
+    $this->registry->register('test.pipeline', AppendingHandlerA::class, priority: -10);
+
+    $result = $this->runner->run('test.pipeline', ['count' => 0, 'order' => [], 'custom_key' => 'preserved']);
+
+    expect($result['count'])->toBe(0); // CountingHandler was skipped
+    expect($result['order'])->toBe(['A']); // AppendingHandlerA ran
+    expect($result['custom_key'])->toBe('preserved'); // Data passed through
+});

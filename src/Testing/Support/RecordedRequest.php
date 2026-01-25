@@ -5,32 +5,29 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Testing\Support;
 
 use Atlasphp\Atlas\Agents\Contracts\AgentContract;
-use Atlasphp\Atlas\Agents\Support\AgentResponse;
 use Atlasphp\Atlas\Agents\Support\ExecutionContext;
-use Prism\Prism\Contracts\Schema;
+use Prism\Prism\Text\Response as PrismResponse;
 
 /**
  * Value object representing a recorded agent request.
  *
  * Captures all details of an agent execution for later assertion
- * during testing.
+ * during testing. Uses Prism's native Response objects.
  */
 final readonly class RecordedRequest
 {
     /**
      * @param  AgentContract  $agent  The agent that was executed.
      * @param  string  $input  The user input message.
-     * @param  ExecutionContext|null  $context  The execution context.
-     * @param  Schema|null  $schema  The structured output schema if used.
-     * @param  AgentResponse  $response  The response that was returned.
+     * @param  ExecutionContext  $context  The execution context.
+     * @param  PrismResponse  $response  The Prism response that was returned.
      * @param  int  $timestamp  Unix timestamp when the request was made.
      */
     public function __construct(
         public AgentContract $agent,
         public string $input,
-        public ?ExecutionContext $context,
-        public ?Schema $schema,
-        public AgentResponse $response,
+        public ExecutionContext $context,
+        public PrismResponse $response,
         public int $timestamp,
     ) {}
 
@@ -58,10 +55,6 @@ final readonly class RecordedRequest
      */
     public function hasMetadata(string $key, mixed $value = null): bool
     {
-        if ($this->context === null) {
-            return false;
-        }
-
         if (! $this->context->hasMeta($key)) {
             return false;
         }
@@ -74,10 +67,35 @@ final readonly class RecordedRequest
     }
 
     /**
-     * Check if a schema was used.
+     * Check if a specific Prism method was called.
+     *
+     * @param  string  $method  The method name to check for.
      */
-    public function hasSchema(): bool
+    public function hasPrismCall(string $method): bool
     {
-        return $this->schema !== null;
+        foreach ($this->context->prismCalls as $call) {
+            if ($call['method'] === $method) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Get arguments for a specific Prism method call.
+     *
+     * @param  string  $method  The method name.
+     * @return array<int, mixed>|null The arguments or null if not found.
+     */
+    public function getPrismCallArgs(string $method): ?array
+    {
+        foreach ($this->context->prismCalls as $call) {
+            if ($call['method'] === $method) {
+                return $call['args'];
+            }
+        }
+
+        return null;
     }
 }
