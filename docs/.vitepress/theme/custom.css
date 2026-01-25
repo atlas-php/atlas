@@ -56,8 +56,8 @@
 
 .VPFeature:hover {
   transform: translateY(-2px);
-  border-color: rgba(129, 140, 248, 0.4) !important;
-  box-shadow: 0 4px 20px rgba(129, 140, 248, 0.15);
+  border-color: rgba(55, 48, 163, 0.4) !important;
+  box-shadow: 0 8px 30px rgba(55, 48, 163, 0.25), 0 4px 15px rgba(55, 48, 163, 0.15);
 }
 
 .dark .VPFeature {
@@ -486,6 +486,12 @@ body:has(.VPHome) .VPNavBar .content {
   width: auto !important;
   max-width: 100px !important;
   object-fit: contain !important;
+}
+
+/* Darken icons in light mode to match title color */
+.VPFeature .icon img,
+.VPFeature .icon .VPImage {
+  filter: brightness(0.6) saturate(1.5);
 }
 
 /* Full-width tables */
