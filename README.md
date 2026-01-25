@@ -78,15 +78,14 @@ echo $response->text;
 
 ## Why Atlas?
 
-**The problem:** AI code gets messy fast. Prompts scattered across controllers, duplicated configurations, no consistent way to add logging or rate limiting, and tools tightly coupled to specific features.
+**The problem:** AI code gets messy fast. Prompts scattered across controllers, duplicated configurations, tools tightly coupled to features, and no consistent way to add logging or validation.
 
-**Atlas solves this** by giving you a clear structure:
+**Atlas decouples your AI logic:**
 
-- **Agents as classes** - Your AI configurations (provider, model, prompts, tools, options) live in dedicated classes. Change once, updates everywhere.
-- **Dynamic system prompts** - Interpolate `{variables}` at runtime to inject user context, preferences, or request-specific data into every interaction.
-- **Tools with contracts** - Your business logic stays in tool classes with typed parameters. Agents call tools; tools call your services.
-- **Pipelines for cross-cutting concerns** - Add logging, authentication, or usage tracking to all AI operations without modifying agent code.
-- **Testable by design** - Mock agents, fake tool responses, and verify interactions with standard Laravel testing patterns.
+- **Agents** - AI configurations live in dedicated classes, not inline across your codebase. Change once, updates everywhere.
+- **Tools** - Business logic stays in tool classes with typed parameters. Agents call tools; tools call your services.
+- **Pipelines** - Add logging, auth, or metrics to all AI operations without modifying agent code.
+- **Testable** - Mock agents and fake tool responses with standard Laravel testing patterns.
 
 Atlas doesn't replace Prism. It organizes how you use Prism in real applications.
 

@@ -180,7 +180,7 @@ class PackagistTestCommand extends Command
             $config = require $configPath;
 
             // Check required top-level keys exist
-            $requiredKeys = ['providers', 'chat', 'embedding'];
+            $requiredKeys = ['pipelines', 'agents', 'tools'];
 
             foreach ($requiredKeys as $key) {
                 if (! array_key_exists($key, $config)) {
@@ -188,19 +188,19 @@ class PackagistTestCommand extends Command
                 }
             }
 
-            // Check providers structure
-            if (! isset($config['providers']['openai']) && ! isset($config['providers']['anthropic'])) {
-                throw new \RuntimeException('Config missing provider definitions');
+            // Check pipelines structure
+            if (! array_key_exists('enabled', $config['pipelines'])) {
+                throw new \RuntimeException('Config pipelines section missing enabled key');
             }
 
-            // Check chat config has provider and model
-            if (! isset($config['chat']['provider']) || ! isset($config['chat']['model'])) {
-                throw new \RuntimeException('Config chat section missing provider or model');
+            // Check agents config has path and namespace
+            if (! isset($config['agents']['path']) || ! isset($config['agents']['namespace'])) {
+                throw new \RuntimeException('Config agents section missing path or namespace');
             }
 
-            // Check embedding config has required fields
-            if (! isset($config['embedding']['provider']) || ! isset($config['embedding']['model'])) {
-                throw new \RuntimeException('Config embedding section missing provider or model');
+            // Check tools config has path and namespace
+            if (! isset($config['tools']['path']) || ! isset($config['tools']['namespace'])) {
+                throw new \RuntimeException('Config tools section missing path or namespace');
             }
 
             return true;
