@@ -1394,6 +1394,76 @@ test('error pipeline recovery works for AgentException', function () {
     expect($response->text)->toBe('Recovered from AgentException');
 });
 
+// Note: Stream error handling in wrapStreamWithAfterPipeline catches errors during iteration,
+// not during setup. Errors during buildRequest() propagate before wrapStreamWithAfterPipeline runs.
+// Testing iteration errors requires Prism to throw during actual streaming, which Prism::fake()
+// doesn't support. The wrapStreamWithAfterPipeline error handling is structurally verified
+// through the stream.after tests which confirm the finally block executes.
+
+test('execute handles Throwable and wraps in AgentException', function () {
+    ErrorRecoveryHandler::reset();
+
+    $this->pipelineRegistry->define('agent.on_error');
+    $this->pipelineRegistry->register('agent.on_error', ErrorRecoveryHandler::class);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Use agent with null provider - triggers InvalidArgumentException which is Throwable
+    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithDefaults;
+    $context = new ExecutionContext;
+
+    try {
+        $executor->execute($agent, 'Hello', $context);
+        $this->fail('Expected AgentException');
+    } catch (AgentException $e) {
+        // The error handler should be called even for non-AgentException throwables
+        expect(ErrorRecoveryHandler::$called)->toBeTrue();
+        expect($e->getMessage())->toContain('execution failed');
+    }
+});
+
+test('execute recovers from Throwable when recovery provided', function () {
+    ErrorRecoveryHandler::reset();
+
+    $this->pipelineRegistry->define('agent.on_error');
+    $this->pipelineRegistry->register('agent.on_error', ErrorRecoveryHandler::class);
+
+    // Create recovery response
+    $recoveryResponse = new PrismResponse(
+        steps: collect([]),
+        text: 'Recovered from Throwable',
+        finishReason: FinishReason::Stop,
+        toolCalls: [],
+        toolResults: [],
+        usage: new Usage(10, 5),
+        meta: new Meta('recovery-id', 'gpt-4'),
+        messages: collect([]),
+        additionalContent: [],
+    );
+    ErrorRecoveryHandler::setRecoveryResponse($recoveryResponse);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Use agent with null provider - triggers InvalidArgumentException
+    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithDefaults;
+    $context = new ExecutionContext;
+
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect(ErrorRecoveryHandler::$called)->toBeTrue();
+    expect($response->text)->toBe('Recovered from Throwable');
+});
+
 // Pipeline Handler Classes for Tests
 
 class BeforeExecuteCapturingHandler implements PipelineContract
