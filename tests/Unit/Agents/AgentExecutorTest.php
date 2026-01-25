@@ -1064,6 +1064,336 @@ test('it runs after_execute pipeline with StructuredResponse', function () {
     expect(AfterExecuteCapturingHandler::$data['response'])->toBeInstanceOf(StructuredResponse::class);
 });
 
+test('stream runs agent.stream.after pipeline on completion', function () {
+    StreamAfterCapturingHandler::reset();
+
+    $this->pipelineRegistry->define('agent.stream.after');
+    $this->pipelineRegistry->register('agent.stream.after', StreamAfterCapturingHandler::class);
+
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Streaming response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $agent = new TestAgent;
+    $context = new ExecutionContext;
+    $stream = $executor->stream($agent, 'Hello', $context);
+
+    // Pipeline should not be called before consuming
+    expect(StreamAfterCapturingHandler::$called)->toBeFalse();
+
+    // Consume the stream
+    iterator_to_array($stream);
+
+    // Pipeline should be called after consuming
+    expect(StreamAfterCapturingHandler::$called)->toBeTrue();
+    expect(StreamAfterCapturingHandler::$data['agent'])->toBe($agent);
+    expect(StreamAfterCapturingHandler::$data['input'])->toBe('Hello');
+    expect(StreamAfterCapturingHandler::$data['context'])->toBe($context);
+    expect(StreamAfterCapturingHandler::$data['events'])->toBeArray();
+    expect(StreamAfterCapturingHandler::$data['error'])->toBeNull();
+});
+
+test('stream.after pipeline receives system_prompt', function () {
+    StreamAfterCapturingHandler::reset();
+
+    $this->pipelineRegistry->define('agent.stream.after');
+    $this->pipelineRegistry->register('agent.stream.after', StreamAfterCapturingHandler::class);
+
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $agent = new TestAgent;
+    $context = new ExecutionContext;
+
+    iterator_to_array($executor->stream($agent, 'Hello', $context));
+
+    expect(StreamAfterCapturingHandler::$data)->toHaveKey('system_prompt');
+    expect(StreamAfterCapturingHandler::$data['system_prompt'])->toBeString();
+});
+
+test('stream.after pipeline captures events', function () {
+    StreamAfterCapturingHandler::reset();
+
+    $this->pipelineRegistry->define('agent.stream.after');
+    $this->pipelineRegistry->register('agent.stream.after', StreamAfterCapturingHandler::class);
+
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Hello')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $agent = new TestAgent;
+    $context = new ExecutionContext;
+
+    $events = iterator_to_array($executor->stream($agent, 'Hello', $context));
+
+    expect(StreamAfterCapturingHandler::$data['events'])->toBe($events);
+});
+
+test('it runs agent.context.validate pipeline', function () {
+    ContextValidateCapturingHandler::reset();
+
+    $this->pipelineRegistry->define('agent.context.validate');
+    $this->pipelineRegistry->register('agent.context.validate', ContextValidateCapturingHandler::class);
+
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $agent = new TestAgent;
+    $context = new ExecutionContext(
+        metadata: ['user_id' => 123],
+    );
+    $executor->execute($agent, 'Hello', $context);
+
+    expect(ContextValidateCapturingHandler::$called)->toBeTrue();
+    expect(ContextValidateCapturingHandler::$data['agent'])->toBe($agent);
+    expect(ContextValidateCapturingHandler::$data['input'])->toBe('Hello');
+    expect(ContextValidateCapturingHandler::$data['context'])->toBeInstanceOf(ExecutionContext::class);
+    expect(ContextValidateCapturingHandler::$data['context']->getMeta('user_id'))->toBe(123);
+});
+
+test('context.validate pipeline can modify context', function () {
+    ContextModifyingHandler::reset();
+
+    $this->pipelineRegistry->define('agent.context.validate');
+    $this->pipelineRegistry->register('agent.context.validate', ContextModifyingHandler::class);
+
+    // Also capture after_execute to verify modified context
+    AfterExecuteCapturingHandler::reset();
+    $this->pipelineRegistry->define('agent.after_execute');
+    $this->pipelineRegistry->register('agent.after_execute', AfterExecuteCapturingHandler::class);
+
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $agent = new TestAgent;
+    $context = new ExecutionContext;
+    $executor->execute($agent, 'Hello', $context);
+
+    // Verify the modified context was used (after_execute receives the modified context)
+    expect(AfterExecuteCapturingHandler::$data['context']->getMeta('injected_by_validate'))->toBe(true);
+});
+
+test('context.validate pipeline runs for streaming', function () {
+    ContextValidateCapturingHandler::reset();
+
+    $this->pipelineRegistry->define('agent.context.validate');
+    $this->pipelineRegistry->register('agent.context.validate', ContextValidateCapturingHandler::class);
+
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $agent = new TestAgent;
+    $context = new ExecutionContext;
+
+    // Must consume stream for pipelines to run
+    iterator_to_array($executor->stream($agent, 'Hello', $context));
+
+    expect(ContextValidateCapturingHandler::$called)->toBeTrue();
+});
+
+test('error pipeline can provide recovery response', function () {
+    ErrorRecoveryHandler::reset();
+
+    $this->pipelineRegistry->define('agent.on_error');
+    $this->pipelineRegistry->register('agent.on_error', ErrorRecoveryHandler::class);
+
+    // Create a fake recovery response using the correct constructor
+    $recoveryResponse = new PrismResponse(
+        steps: collect([]),
+        text: 'Recovered from error',
+        finishReason: FinishReason::Stop,
+        toolCalls: [],
+        toolResults: [],
+        usage: new Usage(10, 5),
+        meta: new Meta('recovery-id', 'gpt-4'),
+        messages: collect([]),
+        additionalContent: [],
+    );
+    ErrorRecoveryHandler::setRecoveryResponse($recoveryResponse);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create an agent that will fail (null provider triggers error)
+    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithDefaults;
+    $context = new ExecutionContext;
+
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    // Verify recovery was used
+    expect(ErrorRecoveryHandler::$called)->toBeTrue();
+    expect(ErrorRecoveryHandler::$data['exception'])->toBeInstanceOf(\InvalidArgumentException::class);
+    expect($response)->toBe($recoveryResponse);
+    expect($response->text)->toBe('Recovered from error');
+});
+
+test('error pipeline receives exception details', function () {
+    ErrorRecoveryHandler::reset();
+
+    $this->pipelineRegistry->define('agent.on_error');
+    $this->pipelineRegistry->register('agent.on_error', ErrorRecoveryHandler::class);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create an agent that will fail
+    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithDefaults;
+    $context = new ExecutionContext;
+
+    try {
+        $executor->execute($agent, 'Hello', $context);
+    } catch (AgentException $e) {
+        // Expected when no recovery is provided
+    }
+
+    expect(ErrorRecoveryHandler::$called)->toBeTrue();
+    expect(ErrorRecoveryHandler::$data)->toHaveKey('agent');
+    expect(ErrorRecoveryHandler::$data)->toHaveKey('input');
+    expect(ErrorRecoveryHandler::$data)->toHaveKey('context');
+    expect(ErrorRecoveryHandler::$data)->toHaveKey('exception');
+    expect(ErrorRecoveryHandler::$data['input'])->toBe('Hello');
+});
+
+test('error pipeline without recovery rethrows exception', function () {
+    ErrorRecoveryHandler::reset();
+
+    $this->pipelineRegistry->define('agent.on_error');
+    $this->pipelineRegistry->register('agent.on_error', ErrorRecoveryHandler::class);
+
+    // Don't set recovery response
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithDefaults;
+    $context = new ExecutionContext;
+
+    $executor->execute($agent, 'Hello', $context);
+})->throws(AgentException::class);
+
+test('error pipeline recovery works for AgentException', function () {
+    ErrorRecoveryHandler::reset();
+
+    $this->pipelineRegistry->define('agent.on_error');
+    $this->pipelineRegistry->register('agent.on_error', ErrorRecoveryHandler::class);
+
+    // Create recovery response using the correct constructor
+    $recoveryResponse = new PrismResponse(
+        steps: collect([]),
+        text: 'Recovered from AgentException',
+        finishReason: FinishReason::Stop,
+        toolCalls: [],
+        toolResults: [],
+        usage: new Usage(10, 5),
+        meta: new Meta('recovery-id', 'gpt-4'),
+        messages: collect([]),
+        additionalContent: [],
+    );
+    ErrorRecoveryHandler::setRecoveryResponse($recoveryResponse);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Use agent with null model (triggers AgentException via InvalidArgumentException)
+    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    {
+        public function key(): string
+        {
+            return 'null-model-agent';
+        }
+
+        public function provider(): ?string
+        {
+            return 'openai';
+        }
+
+        public function model(): ?string
+        {
+            return null;
+        }
+    };
+
+    $context = new ExecutionContext;
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect(ErrorRecoveryHandler::$called)->toBeTrue();
+    expect($response->text)->toBe('Recovered from AgentException');
+});
+
 // Pipeline Handler Classes for Tests
 
 class BeforeExecuteCapturingHandler implements PipelineContract
@@ -1124,6 +1454,111 @@ class ErrorCapturingHandler implements PipelineContract
     {
         self::$called = true;
         self::$data = $data;
+
+        return $next($data);
+    }
+}
+
+class StreamAfterCapturingHandler implements PipelineContract
+{
+    public static bool $called = false;
+
+    public static ?array $data = null;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+        self::$data = null;
+    }
+
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        self::$called = true;
+        self::$data = $data;
+
+        return $next($data);
+    }
+}
+
+class ContextValidateCapturingHandler implements PipelineContract
+{
+    public static bool $called = false;
+
+    public static ?array $data = null;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+        self::$data = null;
+    }
+
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        self::$called = true;
+        self::$data = $data;
+
+        return $next($data);
+    }
+}
+
+class ContextModifyingHandler implements PipelineContract
+{
+    public static bool $called = false;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+    }
+
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        self::$called = true;
+
+        // Create a new context with injected metadata
+        $data['context'] = new ExecutionContext(
+            messages: $data['context']->messages,
+            variables: $data['context']->variables,
+            metadata: array_merge($data['context']->metadata, ['injected_by_validate' => true]),
+            providerOverride: $data['context']->providerOverride,
+            modelOverride: $data['context']->modelOverride,
+            prismCalls: $data['context']->prismCalls,
+            prismMedia: $data['context']->prismMedia,
+            prismMessages: $data['context']->prismMessages,
+        );
+
+        return $next($data);
+    }
+}
+
+class ErrorRecoveryHandler implements PipelineContract
+{
+    public static bool $called = false;
+
+    public static ?array $data = null;
+
+    public static ?PrismResponse $recoveryResponse = null;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+        self::$data = null;
+        self::$recoveryResponse = null;
+    }
+
+    public static function setRecoveryResponse(?PrismResponse $response): void
+    {
+        self::$recoveryResponse = $response;
+    }
+
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        self::$called = true;
+        self::$data = $data;
+
+        // If a recovery response is set, return it
+        if (self::$recoveryResponse !== null) {
+            $data['recovery'] = self::$recoveryResponse;
+        }
 
         return $next($data);
     }

@@ -77,6 +77,16 @@ class AgentExecutor implements AgentExecutorContract
             /** @var ExecutionContext $context */
             $context = $beforeData['context'];
 
+            // Run context.validate pipeline for context-specific validation and transformation
+            $contextData = $this->pipelineRunner->runIfActive('agent.context.validate', [
+                'agent' => $agent,
+                'input' => $input,
+                'context' => $context,
+            ]);
+
+            /** @var ExecutionContext $context */
+            $context = $contextData['context'];
+
             // Build system prompt
             $systemPrompt = $this->systemPromptBuilder->build($agent, $context);
 
@@ -100,16 +110,25 @@ class AgentExecutor implements AgentExecutorContract
             /** @var PrismResponse|StructuredResponse */
             return $afterData['response'];
         } catch (AgentException $e) {
-            $this->handleError($agent, $input, $context, $systemPrompt, $e);
+            $recovery = $this->handleError($agent, $input, $context, $systemPrompt, $e);
+            if ($recovery !== null) {
+                return $recovery;
+            }
             throw $e;
         } catch (Throwable $e) {
-            $this->handleError($agent, $input, $context, $systemPrompt, $e);
+            $recovery = $this->handleError($agent, $input, $context, $systemPrompt, $e);
+            if ($recovery !== null) {
+                return $recovery;
+            }
             throw AgentException::executionFailed($agent->key(), $e->getMessage(), $e);
         }
     }
 
     /**
      * Stream a response from an agent.
+     *
+     * Wraps the Prism generator to fire the agent.stream.after pipeline
+     * when streaming completes, enabling analytics and completion tracking.
      *
      * @return Generator<int, StreamEvent>
      */
@@ -132,17 +151,77 @@ class AgentExecutor implements AgentExecutorContract
         /** @var ExecutionContext $context */
         $context = $beforeData['context'];
 
+        // Run context.validate pipeline for context-specific validation and transformation
+        $contextData = $this->pipelineRunner->runIfActive('agent.context.validate', [
+            'agent' => $agent,
+            'input' => $input,
+            'context' => $context,
+        ]);
+
+        /** @var ExecutionContext $context */
+        $context = $contextData['context'];
+
         // Build system prompt
         $systemPrompt = $this->systemPromptBuilder->build($agent, $context);
 
         // Build request
         $request = $this->buildRequest($agent, $input, $context, $systemPrompt);
 
-        return $request->asStream();
+        // Wrap generator to fire after pipeline on completion
+        yield from $this->wrapStreamWithAfterPipeline(
+            $request->asStream(),
+            $agent,
+            $input,
+            $context,
+            $systemPrompt,
+        );
+    }
+
+    /**
+     * Wrap a stream generator to fire the after pipeline on completion.
+     *
+     * @param  Generator<int, StreamEvent>  $stream
+     * @return Generator<int, StreamEvent>
+     */
+    protected function wrapStreamWithAfterPipeline(
+        Generator $stream,
+        AgentContract $agent,
+        string $input,
+        ExecutionContext $context,
+        ?string $systemPrompt,
+    ): Generator {
+        $events = [];
+        $error = null;
+
+        try {
+            foreach ($stream as $event) {
+                $events[] = $event;
+                yield $event;
+            }
+        } catch (Throwable $e) {
+            $error = $e;
+            $this->handleError($agent, $input, $context, $systemPrompt, $e);
+            throw $e;
+        } finally {
+            // Run after_stream pipeline when streaming completes (success or error)
+            $this->pipelineRunner->runIfActive('agent.stream.after', [
+                'agent' => $agent,
+                'input' => $input,
+                'context' => $context,
+                'system_prompt' => $systemPrompt,
+                'events' => $events,
+                'error' => $error,
+            ]);
+        }
     }
 
     /**
      * Handle an error by running the error pipeline.
+     *
+     * If the pipeline returns a 'recovery' key with a valid response,
+     * that response will be returned instead of throwing the exception.
+     *
+     * @return PrismResponse|StructuredResponse|null Recovery response or null to rethrow
      */
     protected function handleError(
         AgentContract $agent,
@@ -150,14 +229,21 @@ class AgentExecutor implements AgentExecutorContract
         ExecutionContext $context,
         ?string $systemPrompt,
         Throwable $exception,
-    ): void {
-        $this->pipelineRunner->runIfActive('agent.on_error', [
+    ): PrismResponse|StructuredResponse|null {
+        $result = $this->pipelineRunner->runIfActive('agent.on_error', [
             'agent' => $agent,
             'input' => $input,
             'context' => $context,
             'system_prompt' => $systemPrompt,
             'exception' => $exception,
         ]);
+
+        // Check if pipeline provided a recovery response
+        if (isset($result['recovery']) && ($result['recovery'] instanceof PrismResponse || $result['recovery'] instanceof StructuredResponse)) {
+            return $result['recovery'];
+        }
+
+        return null;
     }
 
     /**

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Pipelines;
 
 use Atlasphp\Atlas\Contracts\PipelineContract;
+use Closure;
+use Illuminate\Contracts\Container\Container;
 
 /**
  * Registry for managing pipeline definitions and handlers.
@@ -14,6 +16,11 @@ use Atlasphp\Atlas\Contracts\PipelineContract;
  */
 class PipelineRegistry
 {
+    /**
+     * Container for resolving conditional handlers.
+     */
+    protected ?Container $container = null;
+
     /**
      * Pipeline definitions with metadata.
      *
@@ -66,6 +73,44 @@ class PipelineRegistry
             'handler' => $handler,
             'priority' => $priority,
         ];
+
+        return $this;
+    }
+
+    /**
+     * Register a handler that only executes when a condition is met.
+     *
+     * The condition callback receives the pipeline data and should return
+     * a boolean. If true, the handler executes. If false, it's skipped.
+     *
+     * @param  string  $name  The pipeline name.
+     * @param  class-string<PipelineContract>|PipelineContract  $handler  The handler class or instance.
+     * @param  Closure(mixed): bool  $condition  Condition that determines if handler should run.
+     * @param  int  $priority  Handler priority (higher runs first).
+     */
+    public function registerWhen(
+        string $name,
+        string|PipelineContract $handler,
+        Closure $condition,
+        int $priority = 0,
+    ): static {
+        $conditionalHandler = new ConditionalPipelineHandler(
+            $handler,
+            $condition,
+            $this->container,
+        );
+
+        return $this->register($name, $conditionalHandler, $priority);
+    }
+
+    /**
+     * Set the container for resolving conditional handlers.
+     *
+     * Required for registerWhen() to resolve class-string handlers.
+     */
+    public function setContainer(Container $container): static
+    {
+        $this->container = $container;
 
         return $this;
     }

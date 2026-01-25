@@ -16,12 +16,15 @@ use Throwable;
  *
  * Handles resolution from registry keys, class names, or instance passthrough.
  * Provides a unified interface for obtaining agent instances.
+ *
+ * After resolution, applies any registered decorators from the extension registry.
  */
 class AgentResolver
 {
     public function __construct(
         protected AgentRegistryContract $registry,
         protected Container $container,
+        protected ?AgentExtensionRegistry $extensionRegistry = null,
     ) {}
 
     /**
@@ -32,6 +35,8 @@ class AgentResolver
      * 2. Registry lookup - check if it's a registered key
      * 3. Container instantiation - attempt to instantiate as a class
      *
+     * After resolution, applies any registered decorators from the extension registry.
+     *
      * @param  string|AgentContract  $agent  The agent key, class, or instance.
      *
      * @throws AgentException If the agent cannot be resolved.
@@ -41,16 +46,28 @@ class AgentResolver
     {
         // Instance passthrough
         if ($agent instanceof AgentContract) {
-            return $agent;
+            return $this->applyDecorators($agent);
         }
 
         // Registry lookup
         if ($this->registry->has($agent)) {
-            return $this->registry->get($agent);
+            return $this->applyDecorators($this->registry->get($agent));
         }
 
         // Container instantiation
-        return $this->resolveFromContainer($agent);
+        return $this->applyDecorators($this->resolveFromContainer($agent));
+    }
+
+    /**
+     * Apply decorators from the extension registry.
+     */
+    protected function applyDecorators(AgentContract $agent): AgentContract
+    {
+        if ($this->extensionRegistry === null) {
+            return $agent;
+        }
+
+        return $this->extensionRegistry->applyDecorators($agent);
     }
 
     /**

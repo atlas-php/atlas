@@ -370,8 +370,112 @@ class ResearchAgent extends AgentDefinition
 }
 ```
 
+## Agent Decorators
+
+Decorators allow you to dynamically modify agent behavior at runtime without changing agent classes. This is useful for:
+- Adding logging to specific agents
+- Injecting request-specific tools
+- Applying feature flags
+- Adding cross-cutting concerns
+
+### Creating a Decorator
+
+Extend `AgentDecorator` and override the methods you want to modify:
+
+```php
+use Atlasphp\Atlas\Agents\Support\AgentDecorator;
+use Atlasphp\Atlas\Agents\Contracts\AgentContract;
+
+class LoggingDecorator extends AgentDecorator
+{
+    /**
+     * Determine which agents this decorator applies to.
+     */
+    public function appliesTo(AgentContract $agent): bool
+    {
+        return true; // Apply to all agents
+    }
+
+    /**
+     * Optionally define a priority (higher runs first).
+     */
+    public function priority(): int
+    {
+        return 100;
+    }
+
+    /**
+     * Override any AgentContract method to modify behavior.
+     */
+    public function systemPrompt(): ?string
+    {
+        $original = $this->agent->systemPrompt();
+        return $original . "\n\n[Logging enabled for this session]";
+    }
+}
+```
+
+### Registering Decorators
+
+Register decorators in a service provider:
+
+```php
+use Atlasphp\Atlas\Agents\Services\AgentExtensionRegistry;
+
+public function boot(): void
+{
+    $registry = app(AgentExtensionRegistry::class);
+
+    $registry->registerDecorator(new LoggingDecorator());
+    $registry->registerDecorator(new PremiumToolsDecorator());
+}
+```
+
+### Selective Application
+
+Apply decorators only to specific agents:
+
+```php
+class PremiumOnlyDecorator extends AgentDecorator
+{
+    public function appliesTo(AgentContract $agent): bool
+    {
+        return str_starts_with($agent->key(), 'premium-');
+    }
+
+    public function tools(): array
+    {
+        return array_merge($this->agent->tools(), [
+            AdvancedAnalysisTool::class,
+            PriorityQueueTool::class,
+        ]);
+    }
+}
+```
+
+### Decorator Priority
+
+Decorators are applied in priority order (highest first). When multiple decorators apply, they wrap the agent in layers:
+
+```php
+// Priority 100 decorator wraps first
+// Priority 50 decorator wraps second (wraps the first wrapper)
+// Final key: "outer:inner:original-agent"
+```
+
+### Querying the Extension Registry
+
+```php
+$registry = app(AgentExtensionRegistry::class);
+
+$registry->hasDecorators();   // true if any decorators registered
+$registry->decoratorCount();  // number of registered decorators
+$registry->clearDecorators(); // remove all decorators
+```
+
 ## Next Steps
 
 - [Chat](/capabilities/chat) — Use agents in conversations
 - [System Prompts](/core-concepts/system-prompts) — Variable interpolation in prompts
 - [Tools](/core-concepts/tools) — Add callable tools to agents
+- [Pipelines](/core-concepts/pipelines) — Add middleware for agent execution

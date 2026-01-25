@@ -23,10 +23,12 @@ Pipelines intercept key operations and allow you to:
 | Pipeline | Trigger |
 |----------|---------|
 | `agent.before_execute` | Before agent execution starts |
+| `agent.context.validate` | After before_execute, before building the request (validate/modify context) |
 | `agent.after_execute` | After agent execution completes |
+| `agent.stream.after` | After streaming completes (success or error) |
 | `agent.system_prompt.before_build` | Before building system prompt |
 | `agent.system_prompt.after_build` | After building system prompt |
-| `agent.on_error` | When agent execution fails |
+| `agent.on_error` | When agent execution fails (supports recovery responses) |
 
 </div>
 
@@ -36,6 +38,8 @@ Pipelines intercept key operations and allow you to:
 
 | Pipeline | Trigger |
 |----------|---------|
+| `tool.before_resolve` | Before tools are built for an agent (filter/modify tool list) |
+| `tool.after_resolve` | After tools are built, before execution (audit/modify Prism tools) |
 | `tool.before_execute` | Before tool execution |
 | `tool.after_execute` | After tool execution |
 | `tool.on_error` | When tool execution fails |
@@ -179,6 +183,46 @@ Optionally define pipelines with metadata:
 $registry->define('agent.before_execute', 'Runs before agent execution', active: true);
 ```
 
+### Conditional Execution
+
+Register handlers that only run when a condition is met:
+
+```php
+$registry->registerWhen(
+    'agent.before_execute',
+    PremiumOnlyHandler::class,
+    fn(array $data) => $data['context']->getMeta('tier') === 'premium',
+    priority: 100,
+);
+```
+
+The condition callback receives the pipeline data and should return `true` if the handler should run:
+
+```php
+// Only run for specific agents
+$registry->registerWhen(
+    'agent.after_execute',
+    SpecialAgentLogger::class,
+    fn(array $data) => $data['agent']->key() === 'special-agent',
+);
+
+// Only run for authenticated users
+$registry->registerWhen(
+    'tool.before_execute',
+    AuditToolUsage::class,
+    fn(array $data) => $data['context']->getMeta('user_id') !== null,
+);
+
+// Only run for large inputs
+$registry->registerWhen(
+    'text.before_text',
+    LogLargeRequests::class,
+    fn(array $data) => strlen($data['metadata']['prompt'] ?? '') > 1000,
+);
+```
+
+Conditional handlers can be mixed with regular handlers and respect priority ordering.
+
 ### Querying the Registry
 
 ```php
@@ -219,6 +263,39 @@ Each pipeline receives specific data:
 ]
 ```
 
+### agent.context.validate
+
+Runs after `agent.before_execute` but before building the system prompt or request. Useful for validating or modifying the execution context.
+
+```php
+[
+    'agent' => AgentContract,
+    'input' => string,
+    'context' => ExecutionContext,
+]
+```
+
+You can modify the context by replacing it in the data array:
+
+```php
+class InjectMetadataHandler implements PipelineContract
+{
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        // Modify context with injected metadata
+        $data['context'] = new ExecutionContext(
+            messages: $data['context']->messages,
+            variables: $data['context']->variables,
+            metadata: array_merge($data['context']->metadata, [
+                'validated_at' => now()->toIso8601String(),
+            ]),
+        );
+
+        return $next($data);
+    }
+}
+```
+
 ### agent.after_execute
 
 ```php
@@ -228,6 +305,21 @@ Each pipeline receives specific data:
     'context' => ExecutionContext,
     'response' => PrismResponse|StructuredResponse,
     'system_prompt' => ?string,
+]
+```
+
+### agent.stream.after
+
+Fires when streaming completes (whether successful or with an error). Useful for analytics, logging stream completion, and cleanup.
+
+```php
+[
+    'agent' => AgentContract,
+    'input' => string,
+    'context' => ExecutionContext,
+    'system_prompt' => ?string,
+    'events' => array,     // All stream events collected
+    'error' => ?Throwable, // Exception if streaming failed, null on success
 ]
 ```
 
@@ -257,6 +349,50 @@ The `ExecutionContext` provides access to:
 ]
 ```
 
+### tool.before_resolve
+
+Fires before tools are built for an agent. Allows filtering or modifying which tools are available.
+
+```php
+[
+    'agent' => AgentContract,
+    'tool_classes' => array,  // Array of tool class names
+    'context' => ToolContext,
+]
+```
+
+Modify `tool_classes` to filter which tools are available:
+
+```php
+class FilterToolsForUser implements PipelineContract
+{
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        $allowedTools = $this->getUserAllowedTools($data['context']->getMeta('user_id'));
+
+        $data['tool_classes'] = array_filter(
+            $data['tool_classes'],
+            fn ($tool) => in_array($tool, $allowedTools)
+        );
+
+        return $next($data);
+    }
+}
+```
+
+### tool.after_resolve
+
+Fires after tools are built into Prism tool objects. Allows auditing or modifying the final tool list.
+
+```php
+[
+    'agent' => AgentContract,
+    'tool_classes' => array,    // Original tool class names
+    'prism_tools' => array,     // Built Prism Tool objects
+    'context' => ToolContext,
+]
+```
+
 ### tool.before_execute / tool.after_execute
 
 ```php
@@ -281,6 +417,40 @@ After execute also includes:
     'exception' => Throwable,
 ]
 ```
+
+**Recovery Support:** You can return a recovery response instead of letting the exception propagate:
+
+```php
+class ErrorRecoveryHandler implements PipelineContract
+{
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        // Optionally provide a recovery response
+        if ($this->shouldRecover($data['exception'])) {
+            $data['recovery'] = $this->createFallbackResponse();
+        }
+
+        return $next($data);
+    }
+
+    protected function createFallbackResponse(): PrismResponse
+    {
+        return new PrismResponse(
+            steps: collect([]),
+            text: 'I apologize, but I encountered an issue. Please try again.',
+            finishReason: FinishReason::Stop,
+            toolCalls: [],
+            toolResults: [],
+            usage: new Usage(0, 0),
+            meta: new Meta('fallback', 'fallback'),
+            messages: collect([]),
+            additionalContent: [],
+        );
+    }
+}
+```
+
+When a `recovery` key is set with a valid `PrismResponse` or `StructuredResponse`, the exception will not be thrown and the recovery response will be returned instead.
 
 ### tool.on_error
 

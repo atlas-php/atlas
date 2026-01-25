@@ -63,8 +63,11 @@ class AtlasServiceProvider extends ServiceProvider
      */
     protected function registerFoundationServices(): void
     {
-        $this->app->singleton(PipelineRegistry::class, function (): PipelineRegistry {
-            return new PipelineRegistry;
+        $this->app->singleton(PipelineRegistry::class, function (Container $app): PipelineRegistry {
+            $registry = new PipelineRegistry;
+            $registry->setContainer($app);
+
+            return $registry;
         });
 
         $this->app->singleton(PipelineRunner::class, function (Container $app): PipelineRunner {
@@ -88,6 +91,7 @@ class AtlasServiceProvider extends ServiceProvider
             return new AgentResolver(
                 $app->make(AgentRegistryContract::class),
                 $app,
+                $app->make(AgentExtensionRegistry::class),
             );
         });
 
@@ -135,6 +139,7 @@ class AtlasServiceProvider extends ServiceProvider
                 $app->make(ToolRegistryContract::class),
                 $app->make(ToolExecutor::class),
                 $app,
+                $app->make(PipelineRunner::class),
             );
         });
     }
@@ -183,12 +188,26 @@ class AtlasServiceProvider extends ServiceProvider
         $registry = $this->app->make(PipelineRegistry::class);
 
         // Agent pipelines
-        foreach (['agent.before_execute', 'agent.after_execute', 'agent.system_prompt.before_build', 'agent.system_prompt.after_build', 'agent.on_error'] as $event) {
+        foreach ([
+            'agent.before_execute',
+            'agent.context.validate',
+            'agent.after_execute',
+            'agent.stream.after',
+            'agent.system_prompt.before_build',
+            'agent.system_prompt.after_build',
+            'agent.on_error',
+        ] as $event) {
             $registry->define($event);
         }
 
         // Tool pipelines
-        foreach (['tool.before_execute', 'tool.after_execute', 'tool.on_error'] as $event) {
+        foreach ([
+            'tool.before_resolve',
+            'tool.after_resolve',
+            'tool.before_execute',
+            'tool.after_execute',
+            'tool.on_error',
+        ] as $event) {
             $registry->define($event);
         }
 
