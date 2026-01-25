@@ -6,11 +6,13 @@ namespace App\Console\Commands;
 
 use App\Services\ThreadStorageService;
 use Atlasphp\Atlas\Agents\Contracts\AgentRegistryContract;
-use Atlasphp\Atlas\Agents\Enums\MediaSource;
 use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Pipelines\PipelineRegistry;
 use Illuminate\Console\Command;
 use Prism\Prism\Images\Response as ImageResponse;
+use Prism\Prism\ValueObjects\Media\Audio;
+use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\Media\Image;
 
 /**
  * Comprehensive vision test command for multimodal attachments.
@@ -244,33 +246,24 @@ class VisionCommand extends Command
         $this->line("Image: {$imagePath}");
         $this->line('');
 
-        // Determine source type
-        $source = MediaSource::LocalPath;
-        if ($this->option('url')) {
-            $source = MediaSource::Url;
-        } elseif ($this->option('base64')) {
-            $source = MediaSource::Base64;
-            // Read and encode file
-            if (file_exists($imagePath)) {
-                $imagePath = base64_encode(file_get_contents($imagePath));
-            }
-        }
-
         try {
             $prompt = 'Describe this image in detail. What objects, colors, and scenes do you see?';
             $this->line("Prompt: {$prompt}");
             $this->line('');
 
-            $request = Atlas::agent($agentKey)
-                ->withImage($imagePath, $source);
-
-            // Add mime type for base64
-            if ($source === MediaSource::Base64) {
-                $request = Atlas::agent($agentKey)
-                    ->withImage($imagePath, $source, 'image/png');
+            // Create Prism Image object based on source type
+            if ($this->option('url')) {
+                $image = Image::fromUrl($imagePath);
+            } elseif ($this->option('base64')) {
+                $base64Data = file_exists($imagePath)
+                    ? base64_encode(file_get_contents($imagePath))
+                    : $imagePath;
+                $image = Image::fromBase64($base64Data, 'image/png');
+            } else {
+                $image = Image::fromLocalPath($imagePath);
             }
 
-            $response = $request->chat($prompt);
+            $response = Atlas::agent($agentKey)->chat($prompt, [$image]);
 
             $this->displayResponse($response);
 
@@ -319,19 +312,12 @@ class VisionCommand extends Command
         $this->info('--- Turn 1: First Image ---');
         $this->line("Image: {$image1}");
 
-        $attachment1 = [
-            'type' => 'image',
-            'source' => 'local_path',
-            'data' => $image1,
-        ];
-
-        $thread = $storage->addMessage($thread, 'user', 'What do you see in this image?', [$attachment1]);
+        $thread = $storage->addMessage($thread, 'user', 'What do you see in this image?');
 
         try {
             $response1 = Atlas::agent($agentKey)
                 ->withMessages($thread['messages'])
-                ->withImage($image1, MediaSource::LocalPath)
-                ->chat('What do you see in this image?');
+                ->chat('What do you see in this image?', [Image::fromLocalPath($image1)]);
 
             $text1 = $response1->text ?? '[No response]';
             $thread = $storage->addMessage($thread, 'assistant', $text1);
@@ -378,19 +364,12 @@ class VisionCommand extends Command
             $this->info('--- Turn 3: Second Image Comparison ---');
             $this->line("Image: {$image2}");
 
-            $attachment2 = [
-                'type' => 'image',
-                'source' => 'local_path',
-                'data' => $image2,
-            ];
-
-            $thread = $storage->addMessage($thread, 'user', 'Now look at this new image. How does it compare to the first one?', [$attachment2]);
+            $thread = $storage->addMessage($thread, 'user', 'Now look at this new image. How does it compare to the first one?');
 
             try {
                 $response3 = Atlas::agent($agentKey)
                     ->withMessages($thread['messages'])
-                    ->withImage($image2, MediaSource::LocalPath)
-                    ->chat('Now look at this new image. How does it compare to the first one?');
+                    ->chat('Now look at this new image. How does it compare to the first one?', [Image::fromLocalPath($image2)]);
 
                 $text3 = $response3->text ?? '[No response]';
                 $thread = $storage->addMessage($thread, 'assistant', $text3);
@@ -461,8 +440,7 @@ class VisionCommand extends Command
                 }
 
                 $response = Atlas::agent($agentKey)
-                    ->withImage($image, MediaSource::LocalPath)
-                    ->chat('What is in this image? Be brief.');
+                    ->chat('What is in this image? Be brief.', [Image::fromLocalPath($image)]);
 
                 if ($response->text !== null && strlen($response->text) > 10) {
                     $results["single_image_{$provider}"] = 'PASS';
@@ -498,8 +476,10 @@ class VisionCommand extends Command
                 $this->line("  Testing {$provider}...");
                 try {
                     $response = Atlas::agent($agentKey)
-                        ->withImage([$image1, $image2], MediaSource::LocalPath)
-                        ->chat('I sent you two images. Briefly describe both.');
+                        ->chat('I sent you two images. Briefly describe both.', [
+                            Image::fromLocalPath($image1),
+                            Image::fromLocalPath($image2),
+                        ]);
 
                     if ($response->text !== null && strlen($response->text) > 20) {
                         $results["multi_image_{$provider}"] = 'PASS';
@@ -537,8 +517,9 @@ class VisionCommand extends Command
                 $this->line("  Testing {$provider}...");
                 try {
                     $response = Atlas::agent($agentKey)
-                        ->withImage($base64Data, MediaSource::Base64, 'image/png')
-                        ->chat('What is this image? Be very brief.');
+                        ->chat('What is this image? Be very brief.', [
+                            Image::fromBase64($base64Data, 'image/png'),
+                        ]);
 
                     if ($response->text !== null && strlen($response->text) > 5) {
                         $results["base64_{$provider}"] = 'PASS';
@@ -643,8 +624,9 @@ class VisionCommand extends Command
                     }
 
                     $response = Atlas::agent($agentKey)
-                        ->withDocument($documentPath, MediaSource::LocalPath, $mimeType)
-                        ->chat('What is this document about? List the key features mentioned.');
+                        ->chat('What is this document about? List the key features mentioned.', [
+                            Document::fromLocalPath($documentPath),
+                        ]);
 
                     if ($response->text !== null && strlen($response->text) > 20) {
                         // Check if response mentions Atlas or features from the document
@@ -698,8 +680,9 @@ class VisionCommand extends Command
                 $this->line("  Audio file: {$audioPath}");
                 try {
                     $response = Atlas::agent($agentKey)
-                        ->withAudio($audioPath, MediaSource::LocalPath, 'audio/mpeg')
-                        ->chat('What is being said in this audio? Transcribe or describe the content.');
+                        ->chat('What is being said in this audio? Transcribe or describe the content.', [
+                            Audio::fromLocalPath($audioPath),
+                        ]);
 
                     if ($response->text !== null && strlen($response->text) > 10) {
                         $results["audio_{$provider}"] = 'PASS';
@@ -808,8 +791,9 @@ class VisionCommand extends Command
         try {
             if (\Illuminate\Support\Facades\Storage::disk('outputs')->exists('test-apple.png')) {
                 $response = Atlas::agent('gemini-vision')
-                    ->withImage('test-apple.png', MediaSource::StoragePath, 'image/png', 'outputs')
-                    ->chat('What do you see in this image? Be brief.');
+                    ->chat('What do you see in this image? Be brief.', [
+                        Image::fromStoragePath('test-apple.png', 'image/png', 'outputs'),
+                    ]);
 
                 if ($response->text !== null && strlen($response->text) > 10) {
                     $results['storage_image'] = 'PASS';
@@ -832,8 +816,9 @@ class VisionCommand extends Command
         try {
             if (\Illuminate\Support\Facades\Storage::disk('assets')->exists('test-document.txt')) {
                 $response = Atlas::agent('gemini-vision')
-                    ->withDocument('test-document.txt', MediaSource::StoragePath, 'text/plain', 'Test Document', 'assets')
-                    ->chat('What is this document about?');
+                    ->chat('What is this document about?', [
+                        Document::fromStoragePath('test-document.txt', 'text/plain', 'assets'),
+                    ]);
 
                 if ($response->text !== null && strlen($response->text) > 10) {
                     $results['storage_document'] = 'PASS';
@@ -859,8 +844,9 @@ class VisionCommand extends Command
 
             if ($speechFile) {
                 $response = Atlas::agent('gemini-vision')
-                    ->withAudio($speechFile, MediaSource::StoragePath, 'audio/mpeg', 'outputs')
-                    ->chat('What is being said in this audio?');
+                    ->chat('What is being said in this audio?', [
+                        Audio::fromStoragePath($speechFile, 'audio/mpeg', 'outputs'),
+                    ]);
 
                 if ($response->text !== null && strlen($response->text) > 10) {
                     $results['storage_audio'] = 'PASS';
