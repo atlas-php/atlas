@@ -251,3 +251,70 @@ test('getPrismCallsWithoutSchema returns all calls when no schema', function () 
     expect($calls[0]['method'])->toBe('withMaxSteps');
     expect($calls[1]['method'])->toBe('usingTemperature');
 });
+
+// === Runtime Tools Tests ===
+
+test('it creates with default empty tools', function () {
+    $context = new ExecutionContext;
+
+    expect($context->tools)->toBe([]);
+});
+
+test('it creates with provided tools', function () {
+    $context = new ExecutionContext(tools: ['App\\Tools\\MyTool']);
+
+    expect($context->tools)->toBe(['App\\Tools\\MyTool']);
+});
+
+test('it reports hasTools correctly', function () {
+    $empty = new ExecutionContext;
+    $withTools = new ExecutionContext(tools: ['App\\Tools\\MyTool']);
+
+    expect($empty->hasTools())->toBeFalse();
+    expect($withTools->hasTools())->toBeTrue();
+});
+
+test('it creates with multiple tools', function () {
+    $context = new ExecutionContext(tools: ['App\\Tools\\ToolA', 'App\\Tools\\ToolB']);
+
+    expect($context->tools)->toHaveCount(2);
+    expect($context->tools[0])->toBe('App\\Tools\\ToolA');
+    expect($context->tools[1])->toBe('App\\Tools\\ToolB');
+});
+
+// === MCP Tools Tests ===
+
+test('it creates with default empty mcpTools', function () {
+    $context = new ExecutionContext;
+
+    expect($context->mcpTools)->toBe([]);
+});
+
+test('it creates with provided mcpTools', function () {
+    $mockTool = Mockery::mock(\Prism\Prism\Tool::class);
+
+    $context = new ExecutionContext(mcpTools: [$mockTool]);
+
+    expect($context->mcpTools)->toBe([$mockTool]);
+});
+
+test('it reports hasMcpTools correctly', function () {
+    $mockTool = Mockery::mock(\Prism\Prism\Tool::class);
+
+    $empty = new ExecutionContext;
+    $withMcpTools = new ExecutionContext(mcpTools: [$mockTool]);
+
+    expect($empty->hasMcpTools())->toBeFalse();
+    expect($withMcpTools->hasMcpTools())->toBeTrue();
+});
+
+test('it creates with multiple mcpTools', function () {
+    $mockTool1 = Mockery::mock(\Prism\Prism\Tool::class);
+    $mockTool2 = Mockery::mock(\Prism\Prism\Tool::class);
+
+    $context = new ExecutionContext(mcpTools: [$mockTool1, $mockTool2]);
+
+    expect($context->mcpTools)->toHaveCount(2);
+    expect($context->mcpTools[0])->toBe($mockTool1);
+    expect($context->mcpTools[1])->toBe($mockTool2);
+});

@@ -191,6 +191,7 @@ class AtlasServiceProvider extends ServiceProvider
         foreach ([
             'agent.before_execute',
             'agent.context.validate',
+            'agent.tools.merged',
             'agent.after_execute',
             'agent.stream.after',
             'agent.system_prompt.before_build',

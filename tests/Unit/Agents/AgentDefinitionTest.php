@@ -503,3 +503,39 @@ test('agent can override systemPrompt to return specific value', function () {
     expect($agent->provider())->toBeNull(); // Still uses default
     expect($agent->model())->toBeNull(); // Still uses default
 });
+
+// === MCP Tools Tests ===
+
+test('it returns empty mcpTools by default', function () {
+    $agent = new class extends AgentDefinition
+    {
+        public function key(): string
+        {
+            return 'minimal-agent';
+        }
+    };
+
+    expect($agent->mcpTools())->toBe([]);
+});
+
+test('agent can override mcpTools to return tools', function () {
+    $mockTool = Mockery::mock(\Prism\Prism\Tool::class);
+
+    $agent = new class($mockTool) extends AgentDefinition
+    {
+        public function __construct(private $tool) {}
+
+        public function key(): string
+        {
+            return 'mcp-agent';
+        }
+
+        public function mcpTools(): array
+        {
+            return [$this->tool];
+        }
+    };
+
+    expect($agent->mcpTools())->toHaveCount(1);
+    expect($agent->mcpTools()[0])->toBe($mockTool);
+});

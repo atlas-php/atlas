@@ -6,6 +6,10 @@ Tools are functions that agents can invoke during execution. They connect AI age
 Atlas tools wrap Prism's tool system. For underlying tool concepts, schemas, and function calling details, see the [Prism Tools documentation](https://prismphp.com/core-concepts/tools-function-calling.html).
 :::
 
+::: info External Tools
+For tools from external MCP servers, see [MCP Integration](/capabilities/mcp).
+:::
+
 ## What is a Tool?
 
 A tool defines:
@@ -525,6 +529,9 @@ $registry->get(string $name): ToolContract;
 $registry->all(): array;
 $registry->only(array $names): array;
 
+// Runtime tools on PendingAgentRequest
+->withTools(array $tools): static;  // Add tools at runtime, accumulates across calls
+
 // ConfiguresPrismTool interface (optional)
 public function configurePrismTool(PrismTool $tool): PrismTool;
 ```
@@ -532,4 +539,5 @@ public function configurePrismTool(PrismTool $tool): PrismTool;
 ## Next Steps
 
 - [Agents](/core-concepts/agents) — Add tools to agents
+- [MCP](/capabilities/mcp) — External tools from MCP servers
 - [Pipelines](/core-concepts/pipelines) — Add middleware to tool execution

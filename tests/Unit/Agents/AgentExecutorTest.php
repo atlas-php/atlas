@@ -1732,3 +1732,676 @@ class AgentExceptionThrowingHandler implements PipelineContract
         throw new AgentException('Pipeline threw AgentException');
     }
 }
+
+// === MCP Tools Tests ===
+
+test('it merges native tools with agent MCP tools', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response with MCP tools')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create a mock MCP tool
+    $mcpTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $mcpTool->shouldReceive('name')->andReturn('mcp_tool');
+
+    // Create agent with MCP tools
+    $agent = new class($mcpTool) extends \Atlasphp\Atlas\Agents\AgentDefinition
+    {
+        public function __construct(private $tool) {}
+
+        public function key(): string
+        {
+            return 'agent-with-mcp-tools';
+        }
+
+        public function provider(): ?string
+        {
+            return 'openai';
+        }
+
+        public function model(): ?string
+        {
+            return 'gpt-4';
+        }
+
+        public function mcpTools(): array
+        {
+            return [$this->tool];
+        }
+    };
+
+    $context = new ExecutionContext;
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response->text)->toBe('Response with MCP tools');
+});
+
+test('it merges native tools with runtime MCP tools', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response with runtime MCP tools')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create a mock MCP tool
+    $mcpTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $mcpTool->shouldReceive('name')->andReturn('runtime_mcp_tool');
+
+    $agent = new TestAgent;
+    $context = new ExecutionContext(
+        mcpTools: [$mcpTool],
+    );
+
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response->text)->toBe('Response with runtime MCP tools');
+});
+
+test('it merges all three tool sources correctly', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response with all tools')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create mock MCP tools
+    $agentMcpTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $agentMcpTool->shouldReceive('name')->andReturn('agent_mcp_tool');
+
+    $runtimeMcpTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $runtimeMcpTool->shouldReceive('name')->andReturn('runtime_mcp_tool');
+
+    // Create agent with native tools and MCP tools
+    $agent = new class($agentMcpTool) extends \Atlasphp\Atlas\Agents\AgentDefinition
+    {
+        public function __construct(private $tool) {}
+
+        public function key(): string
+        {
+            return 'agent-with-all-tools';
+        }
+
+        public function provider(): ?string
+        {
+            return 'openai';
+        }
+
+        public function model(): ?string
+        {
+            return 'gpt-4';
+        }
+
+        public function mcpTools(): array
+        {
+            return [$this->tool];
+        }
+    };
+
+    $context = new ExecutionContext(
+        mcpTools: [$runtimeMcpTool],
+    );
+
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response->text)->toBe('Response with all tools');
+});
+
+test('it handles empty mcpTools gracefully', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response without MCP tools')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Agent with default empty mcpTools
+    $agent = new TestAgent;
+    expect($agent->mcpTools())->toBe([]);
+
+    // Context with no MCP tools
+    $context = new ExecutionContext;
+    expect($context->mcpTools)->toBe([]);
+
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+});
+
+// === withTools (runtime native tools) Tests ===
+
+test('it merges runtime native tools with agent tools', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response with runtime tools')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $agent = new TestAgent;
+    $context = new ExecutionContext(
+        tools: [], // Empty is valid
+    );
+
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response->text)->toBe('Response with runtime tools');
+});
+
+test('it builds runtime tools from withTools classes', function () {
+    ToolsMergedCapturingHandler::reset();
+
+    $this->pipelineRegistry->define('agent.tools.merged');
+    $this->pipelineRegistry->register('agent.tools.merged', ToolsMergedCapturingHandler::class);
+
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Use agent without tools to isolate runtime tool testing
+    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    {
+        public function key(): string
+        {
+            return 'no-tools-agent';
+        }
+
+        public function provider(): ?string
+        {
+            return 'openai';
+        }
+
+        public function model(): ?string
+        {
+            return 'gpt-4';
+        }
+    };
+
+    $context = new ExecutionContext(
+        tools: [\Atlasphp\Atlas\Tests\Fixtures\TestTool::class],
+    );
+
+    $executor->execute($agent, 'Hello', $context);
+
+    // Verify agent_tools contains the built runtime tool
+    expect(ToolsMergedCapturingHandler::$data['agent_tools'])->toHaveCount(1);
+    expect(ToolsMergedCapturingHandler::$data['agent_tools'][0])->toBeInstanceOf(\Prism\Prism\Tool::class);
+    expect(ToolsMergedCapturingHandler::$data['agent_tools'][0]->name())->toBe('test_tool');
+});
+
+test('it combines agent tools with runtime tools', function () {
+    ToolsMergedCapturingHandler::reset();
+
+    $this->pipelineRegistry->define('agent.tools.merged');
+    $this->pipelineRegistry->register('agent.tools.merged', ToolsMergedCapturingHandler::class);
+
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create agent with its own tool
+    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    {
+        public function key(): string
+        {
+            return 'agent-with-tools';
+        }
+
+        public function provider(): ?string
+        {
+            return 'openai';
+        }
+
+        public function model(): ?string
+        {
+            return 'gpt-4';
+        }
+
+        public function tools(): array
+        {
+            return [\Atlasphp\Atlas\Tests\Fixtures\TestTool::class];
+        }
+    };
+
+    // Add another tool at runtime (same class, but demonstrates merging)
+    $context = new ExecutionContext(
+        tools: [\Atlasphp\Atlas\Tests\Fixtures\TestTool::class],
+    );
+
+    $executor->execute($agent, 'Hello', $context);
+
+    // Both agent tool and runtime tool should be in agent_tools
+    expect(ToolsMergedCapturingHandler::$data['agent_tools'])->toHaveCount(2);
+    expect(ToolsMergedCapturingHandler::$data['tools'])->toHaveCount(2);
+});
+
+test('it builds multiple runtime tools from withTools', function () {
+    ToolsMergedCapturingHandler::reset();
+
+    $this->pipelineRegistry->define('agent.tools.merged');
+    $this->pipelineRegistry->register('agent.tools.merged', ToolsMergedCapturingHandler::class);
+
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Use agent without tools to isolate runtime tool testing
+    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    {
+        public function key(): string
+        {
+            return 'no-tools-agent';
+        }
+
+        public function provider(): ?string
+        {
+            return 'openai';
+        }
+
+        public function model(): ?string
+        {
+            return 'gpt-4';
+        }
+    };
+
+    // Add multiple tools at runtime
+    $context = new ExecutionContext(
+        tools: [
+            \Atlasphp\Atlas\Tests\Fixtures\TestTool::class,
+            \Atlasphp\Atlas\Tests\Fixtures\TestTool::class, // Duplicate for testing
+        ],
+    );
+
+    $executor->execute($agent, 'Hello', $context);
+
+    expect(ToolsMergedCapturingHandler::$data['agent_tools'])->toHaveCount(2);
+    expect(ToolsMergedCapturingHandler::$data['tools'])->toHaveCount(2);
+});
+
+test('runtime tools are included in final tools array', function () {
+    ToolsMergedCapturingHandler::reset();
+
+    $this->pipelineRegistry->define('agent.tools.merged');
+    $this->pipelineRegistry->register('agent.tools.merged', ToolsMergedCapturingHandler::class);
+
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create mock MCP tool
+    $mcpTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $mcpTool->shouldReceive('name')->andReturn('mcp_tool');
+
+    // Use agent without tools to isolate runtime tool testing
+    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    {
+        public function key(): string
+        {
+            return 'no-tools-agent';
+        }
+
+        public function provider(): ?string
+        {
+            return 'openai';
+        }
+
+        public function model(): ?string
+        {
+            return 'gpt-4';
+        }
+    };
+
+    $context = new ExecutionContext(
+        tools: [\Atlasphp\Atlas\Tests\Fixtures\TestTool::class],
+        mcpTools: [$mcpTool],
+    );
+
+    $executor->execute($agent, 'Hello', $context);
+
+    // Final tools should include both native and MCP
+    expect(ToolsMergedCapturingHandler::$data['agent_tools'])->toHaveCount(1);
+    expect(ToolsMergedCapturingHandler::$data['agent_mcp_tools'])->toHaveCount(1);
+    expect(ToolsMergedCapturingHandler::$data['tools'])->toHaveCount(2);
+
+    // Verify tool names
+    $toolNames = array_map(fn ($t) => $t->name(), ToolsMergedCapturingHandler::$data['tools']);
+    expect($toolNames)->toContain('test_tool');
+    expect($toolNames)->toContain('mcp_tool');
+});
+
+test('it merges all four tool sources correctly', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response with all tool types')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create mock MCP tools
+    $agentMcpTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $agentMcpTool->shouldReceive('name')->andReturn('agent_mcp_tool');
+
+    $runtimeMcpTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $runtimeMcpTool->shouldReceive('name')->andReturn('runtime_mcp_tool');
+
+    // Create agent with MCP tools
+    $agent = new class($agentMcpTool) extends \Atlasphp\Atlas\Agents\AgentDefinition
+    {
+        public function __construct(private $tool) {}
+
+        public function key(): string
+        {
+            return 'agent-with-all-tool-types';
+        }
+
+        public function provider(): ?string
+        {
+            return 'openai';
+        }
+
+        public function model(): ?string
+        {
+            return 'gpt-4';
+        }
+
+        public function mcpTools(): array
+        {
+            return [$this->tool];
+        }
+    };
+
+    // Context with runtime native tools (empty for this test) and runtime MCP tools
+    $context = new ExecutionContext(
+        tools: [],
+        mcpTools: [$runtimeMcpTool],
+    );
+
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response->text)->toBe('Response with all tool types');
+});
+
+// === agent.tools.merged Pipeline Tests ===
+
+test('it runs agent.tools.merged pipeline', function () {
+    ToolsMergedCapturingHandler::reset();
+
+    $this->pipelineRegistry->define('agent.tools.merged');
+    $this->pipelineRegistry->register('agent.tools.merged', ToolsMergedCapturingHandler::class);
+
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $agent = new TestAgent;
+    $context = new ExecutionContext;
+    $executor->execute($agent, 'Hello', $context);
+
+    expect(ToolsMergedCapturingHandler::$called)->toBeTrue();
+    expect(ToolsMergedCapturingHandler::$data)->toHaveKey('agent');
+    expect(ToolsMergedCapturingHandler::$data)->toHaveKey('context');
+    expect(ToolsMergedCapturingHandler::$data)->toHaveKey('tool_context');
+    expect(ToolsMergedCapturingHandler::$data)->toHaveKey('agent_tools');
+    expect(ToolsMergedCapturingHandler::$data)->toHaveKey('agent_mcp_tools');
+    expect(ToolsMergedCapturingHandler::$data)->toHaveKey('tools');
+});
+
+test('agent.tools.merged pipeline receives all tool categories', function () {
+    ToolsMergedCapturingHandler::reset();
+
+    $this->pipelineRegistry->define('agent.tools.merged');
+    $this->pipelineRegistry->register('agent.tools.merged', ToolsMergedCapturingHandler::class);
+
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create mock MCP tools
+    $agentMcpTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $agentMcpTool->shouldReceive('name')->andReturn('agent_mcp_tool');
+
+    $runtimeMcpTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $runtimeMcpTool->shouldReceive('name')->andReturn('runtime_mcp_tool');
+
+    // Create agent with MCP tools
+    $agent = new class($agentMcpTool) extends \Atlasphp\Atlas\Agents\AgentDefinition
+    {
+        public function __construct(private $tool) {}
+
+        public function key(): string
+        {
+            return 'agent-with-mcp';
+        }
+
+        public function provider(): ?string
+        {
+            return 'openai';
+        }
+
+        public function model(): ?string
+        {
+            return 'gpt-4';
+        }
+
+        public function mcpTools(): array
+        {
+            return [$this->tool];
+        }
+    };
+
+    $context = new ExecutionContext(
+        mcpTools: [$runtimeMcpTool],
+    );
+
+    $executor->execute($agent, 'Hello', $context);
+
+    // agent_mcp_tools combines agent's mcpTools() + runtime withMcpTools()
+    expect(ToolsMergedCapturingHandler::$data['agent_mcp_tools'])->toHaveCount(2);
+    expect(ToolsMergedCapturingHandler::$data['tools'])->toHaveCount(2);
+});
+
+test('agent.tools.merged pipeline can filter tools', function () {
+    ToolsFilteringHandler::reset();
+
+    $this->pipelineRegistry->define('agent.tools.merged');
+    $this->pipelineRegistry->register('agent.tools.merged', ToolsFilteringHandler::class);
+
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create mock MCP tools
+    $tool1 = Mockery::mock(\Prism\Prism\Tool::class);
+    $tool1->shouldReceive('name')->andReturn('allowed_tool');
+
+    $tool2 = Mockery::mock(\Prism\Prism\Tool::class);
+    $tool2->shouldReceive('name')->andReturn('blocked_tool');
+
+    $agent = new class([$tool1, $tool2]) extends \Atlasphp\Atlas\Agents\AgentDefinition
+    {
+        public function __construct(private array $tools) {}
+
+        public function key(): string
+        {
+            return 'agent-with-multiple-tools';
+        }
+
+        public function provider(): ?string
+        {
+            return 'openai';
+        }
+
+        public function model(): ?string
+        {
+            return 'gpt-4';
+        }
+
+        public function mcpTools(): array
+        {
+            return $this->tools;
+        }
+    };
+
+    $context = new ExecutionContext;
+    $executor->execute($agent, 'Hello', $context);
+
+    // Handler filters out tools with 'blocked' in name
+    expect(ToolsFilteringHandler::$filteredCount)->toBe(1);
+});
+
+class ToolsMergedCapturingHandler implements PipelineContract
+{
+    public static bool $called = false;
+
+    public static ?array $data = null;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+        self::$data = null;
+    }
+
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        self::$called = true;
+        self::$data = $data;
+
+        return $next($data);
+    }
+}
+
+class ToolsFilteringHandler implements PipelineContract
+{
+    public static bool $called = false;
+
+    public static int $filteredCount = 0;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+        self::$filteredCount = 0;
+    }
+
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        self::$called = true;
+
+        // Filter out tools with 'blocked' in their name
+        $data['tools'] = array_filter(
+            $data['tools'],
+            fn ($tool) => ! str_contains($tool->name(), 'blocked')
+        );
+
+        self::$filteredCount = count($data['tools']);
+
+        return $next($data);
+    }
+}

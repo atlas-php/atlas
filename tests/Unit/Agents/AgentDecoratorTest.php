@@ -97,6 +97,13 @@ test('providerTools delegates to wrapped agent', function () {
     expect($decorated->providerTools())->toBe(['web_search']);
 });
 
+test('mcpTools delegates to wrapped agent', function () {
+    $decorator = new PassthroughDecorator;
+    $decorated = $decorator->decorate($this->agent);
+
+    expect($decorated->mcpTools())->toBe([]);
+});
+
 test('schema delegates to wrapped agent', function () {
     $decorator = new PassthroughDecorator;
     $decorated = $decorator->decorate($this->agent);

@@ -227,3 +227,33 @@ test('inactive pipelines can be re-enabled', function () {
     $registry->setActive('agent.before_execute', true);
     expect($registry->active('agent.before_execute'))->toBeTrue();
 });
+
+/**
+ * Test that demonstrates proper config-based pipeline disabling.
+ *
+ * IMPORTANT: To properly disable pipelines in tests, the config must be
+ * set BEFORE the service provider boots. Setting config after boot will
+ * NOT disable pipelines - use setActive() instead for runtime disabling.
+ */
+test('pipelines are disabled when config is set before boot', function () {
+    // This test class sets config in defineEnvironment() which runs BEFORE boot
+    // See the DisabledPipelinesTest below for the proper way to test this
+})->skip('Use DisabledPipelinesTest class for proper boot-time config testing');
+
+test('setting config after boot does not affect pipeline state', function () {
+    $registry = app(PipelineRegistry::class);
+
+    // Pipelines are enabled by default after boot
+    expect($registry->active('agent.before_execute'))->toBeTrue();
+
+    // Setting config AFTER boot does NOT disable pipelines
+    // because configurePipelinesState() already ran during boot
+    config(['atlas.pipelines.enabled' => false]);
+
+    // Pipeline is still active because the service provider already booted
+    expect($registry->active('agent.before_execute'))->toBeTrue();
+
+    // To disable after boot, you must use setActive() directly
+    $registry->setActive('agent.before_execute', false);
+    expect($registry->active('agent.before_execute'))->toBeFalse();
+});

@@ -15,6 +15,9 @@
         "orchestra/testbench": "^9.0|^10.0",
         "pestphp/pest": "^3.0"
     },
+    "suggest": {
+        "prism-php/relay": "Required for MCP (Model Context Protocol) tool support"
+    },
     "autoload": {
         "psr-4": {
             "Atlasphp\\Atlas\\": "src/"

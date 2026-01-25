@@ -81,6 +81,15 @@ interface AgentContract
     public function providerTools(): array;
 
     /**
+     * Get MCP tools from external MCP servers.
+     *
+     * Returns Prism Tool instances, typically from prism-php/relay.
+     *
+     * @return array<int, \Prism\Prism\Tool>
+     */
+    public function mcpTools(): array;
+
+    /**
      * Get the temperature setting.
      */
     public function temperature(): ?float;

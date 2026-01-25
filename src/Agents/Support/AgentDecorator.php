@@ -103,6 +103,11 @@ abstract class AgentDecorator implements AgentContract, AgentDecoratorContract
         return $this->agent->providerTools();
     }
 
+    public function mcpTools(): array
+    {
+        return $this->agent->mcpTools();
+    }
+
     public function schema(): ?Schema
     {
         return $this->agent->schema();

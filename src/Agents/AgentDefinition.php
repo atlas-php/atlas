@@ -144,6 +144,19 @@ abstract class AgentDefinition implements AgentContract
     }
 
     /**
+     * Get MCP tools from external MCP servers.
+     *
+     * Returns Prism Tool instances, typically from prism-php/relay.
+     * Override this method to provide MCP tools for your agent.
+     *
+     * @return array<int, \Prism\Prism\Tool>
+     */
+    public function mcpTools(): array
+    {
+        return [];
+    }
+
+    /**
      * Get the temperature setting.
      */
     public function temperature(): ?float

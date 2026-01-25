@@ -68,6 +68,20 @@ final class PendingAgentRequest
      */
     private array $prismCalls = [];
 
+    /**
+     * Runtime Atlas tool classes.
+     *
+     * @var array<int, class-string<\Atlasphp\Atlas\Tools\Contracts\ToolContract>>
+     */
+    private array $tools = [];
+
+    /**
+     * MCP tools from prism-php/relay.
+     *
+     * @var array<int, \Prism\Prism\Tool>
+     */
+    private array $mcpTools = [];
+
     public function __construct(
         private readonly AgentResolver $agentResolver,
         private readonly AgentExecutorContract $agentExecutor,
@@ -174,6 +188,37 @@ final class PendingAgentRequest
     }
 
     /**
+     * Add Atlas tools at runtime.
+     *
+     * Tools are accumulated across multiple calls to this method.
+     * These are merged with the agent's defined tools.
+     *
+     * @param  array<int, class-string<\Atlasphp\Atlas\Tools\Contracts\ToolContract>>  $tools  Tool class names.
+     */
+    public function withTools(array $tools): static
+    {
+        $clone = clone $this;
+        $clone->tools = [...$clone->tools, ...$tools];
+
+        return $clone;
+    }
+
+    /**
+     * Add MCP tools from prism-php/relay.
+     *
+     * Tools are accumulated across multiple calls to this method.
+     *
+     * @param  array<int, \Prism\Prism\Tool>  $tools  Prism Tool instances from MCP servers.
+     */
+    public function withMcpTools(array $tools): static
+    {
+        $clone = clone $this;
+        $clone->mcpTools = [...$clone->mcpTools, ...$tools];
+
+        return $clone;
+    }
+
+    /**
      * Execute a blocking chat with the configured agent.
      *
      * Supports two styles for attachments (Prism-consistent):
@@ -252,6 +297,8 @@ final class PendingAgentRequest
             prismCalls: $this->prismCalls,
             prismMedia: $allMedia,
             prismMessages: $this->prismMessages,
+            tools: $this->tools,
+            mcpTools: $this->mcpTools,
         );
     }
 }
