@@ -71,7 +71,7 @@ export default defineConfig({
 
     footer: {
       message: 'Released under the MIT License.',
-      copyright: 'Copyright 2025 Atlas PHP'
+      copyright: 'Copyright 2025 Atlas PHP · Created by <a href="https://github.com/timothymarois" target="_blank">Timothy Marois</a>'
     }
   },
 

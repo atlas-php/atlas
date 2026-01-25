@@ -1,78 +1,78 @@
 :root {
-  --atlas-blue: #1e3a5f;
-  --atlas-blue-light: #2d5a8a;
-  --atlas-blue-dark: #0f2744;
-  --atlas-cyan: #4a9eff;
+  --atlas-indigo: #3730a3;
+  --atlas-indigo-light: #4f46e5;
+  --atlas-indigo-dark: #1e1b4b;
+  --atlas-indigo-accent: #818cf8;
 
-  --vp-c-brand-1: var(--atlas-blue);
-  --vp-c-brand-2: var(--atlas-blue-light);
-  --vp-c-brand-3: var(--atlas-blue-dark);
-  --vp-c-brand-soft: rgba(30, 58, 95, 0.14);
+  --vp-c-brand-1: var(--atlas-indigo);
+  --vp-c-brand-2: var(--atlas-indigo-light);
+  --vp-c-brand-3: var(--atlas-indigo-dark);
+  --vp-c-brand-soft: rgba(55, 48, 163, 0.14);
 
-  --vp-button-brand-bg: #2563eb;
-  --vp-button-brand-hover-bg: #3b82f6;
-  --vp-button-brand-active-bg: #1d4ed8;
+  --vp-button-brand-bg: #4f46e5;
+  --vp-button-brand-hover-bg: #6366f1;
+  --vp-button-brand-active-bg: #4338ca;
 
-  --vp-home-hero-name-color: var(--atlas-blue);
+  --vp-home-hero-name-color: var(--atlas-indigo);
   --vp-home-hero-name-background: none;
-  --vp-home-hero-image-background-image: linear-gradient(-45deg, rgba(30,58,95,0.4) 30%, rgba(74,158,255,0.3) 70%);
+  --vp-home-hero-image-background-image: linear-gradient(-45deg, rgba(55,48,163,0.4) 30%, rgba(129,140,248,0.3) 70%);
   --vp-home-hero-image-filter: blur(40px);
   --vp-home-hero-image-opacity: 0.6;
 }
 
 .dark {
-  --vp-c-brand-1: var(--atlas-cyan);
-  --vp-c-brand-2: var(--atlas-blue-light);
-  --vp-button-brand-bg: #3b82f6;
-  --vp-button-brand-hover-bg: #60a5fa;
+  --vp-c-brand-1: var(--atlas-indigo-accent);
+  --vp-c-brand-2: var(--atlas-indigo-light);
+  --vp-button-brand-bg: #6366f1;
+  --vp-button-brand-hover-bg: #818cf8;
 }
 
 /* Brand button pop effect */
 .VPButton.brand {
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4);
   transition: all 0.3s ease;
 }
 
 .VPButton.brand:hover {
-  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
   transform: translateY(-2px);
 }
 
 .dark .VPButton.brand {
-  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
 }
 
 .dark .VPButton.brand:hover {
-  box-shadow: 0 6px 20px rgba(96, 165, 250, 0.4);
+  box-shadow: 0 6px 20px rgba(129, 140, 248, 0.4);
 }
 
 /* Feature boxes with subtle glow and border */
 .VPFeature {
-  border: 1px solid rgba(30, 58, 95, 0.25) !important;
+  border: 1px solid rgba(55, 48, 163, 0.25) !important;
   background: var(--vp-c-bg);
-  box-shadow: 0 2px 12px rgba(30, 58, 95, 0.1);
+  box-shadow: 0 2px 12px rgba(55, 48, 163, 0.1);
   transition: all 0.3s ease;
 }
 
 .VPFeature:hover {
   transform: translateY(-2px);
-  border-color: rgba(74, 158, 255, 0.4) !important;
-  box-shadow: 0 4px 20px rgba(74, 158, 255, 0.15);
+  border-color: rgba(129, 140, 248, 0.4) !important;
+  box-shadow: 0 4px 20px rgba(129, 140, 248, 0.15);
 }
 
 .dark .VPFeature {
-  border-color: rgba(74, 158, 255, 0.15) !important;
+  border-color: rgba(129, 140, 248, 0.15) !important;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
 }
 
 .dark .VPFeature:hover {
-  border-color: rgba(74, 158, 255, 0.4) !important;
-  box-shadow: 0 4px 20px rgba(74, 158, 255, 0.2);
+  border-color: rgba(129, 140, 248, 0.4) !important;
+  box-shadow: 0 4px 20px rgba(129, 140, 248, 0.2);
 }
 
-/* Feature title blue color */
+/* Feature title indigo color */
 .VPFeature .title {
-  color: var(--atlas-blue) !important;
+  color: var(--atlas-indigo) !important;
   font-weight: 600;
 }
 
@@ -80,32 +80,32 @@
   color: #ffffff !important;
 }
 
-/* Code blocks with subtle blue glow */
+/* Code blocks with subtle indigo glow */
 .vp-doc [class*='language-'] {
   border-left: none;
   box-shadow:
-    0 0 10px rgba(30, 58, 95, 0.15),
-    0 0 20px rgba(30, 58, 95, 0.08);
+    0 0 10px rgba(55, 48, 163, 0.15),
+    0 0 20px rgba(55, 48, 163, 0.08);
   transition: box-shadow 0.3s ease;
 }
 
 .vp-doc [class*='language-']:hover {
   box-shadow:
-    0 0 15px rgba(30, 58, 95, 0.25),
-    0 0 30px rgba(74, 158, 255, 0.15);
+    0 0 15px rgba(55, 48, 163, 0.25),
+    0 0 30px rgba(129, 140, 248, 0.15);
 }
 
 .dark .vp-doc [class*='language-'] {
   box-shadow:
-    0 0 10px rgba(74, 158, 255, 0.1),
-    0 0 20px rgba(74, 158, 255, 0.05);
+    0 0 10px rgba(129, 140, 248, 0.1),
+    0 0 20px rgba(129, 140, 248, 0.05);
   transition: box-shadow 0.3s ease;
 }
 
 .dark .vp-doc [class*='language-']:hover {
   box-shadow:
-    0 0 15px rgba(74, 158, 255, 0.2),
-    0 0 30px rgba(74, 158, 255, 0.1);
+    0 0 15px rgba(129, 140, 248, 0.2),
+    0 0 30px rgba(129, 140, 248, 0.1);
 }
 
 /* Hero text colors */
@@ -117,25 +117,25 @@
   color: #ffffff !important;
 }
 
-/* Hero text - Laravel in blue */
+/* Hero text - Laravel in indigo */
 .VPHero .text-laravel {
-  color: var(--atlas-cyan) !important;
+  color: var(--atlas-indigo-accent) !important;
 }
 
 .dark .VPHero .text-laravel {
-  color: var(--atlas-cyan) !important;
+  color: var(--atlas-indigo-accent) !important;
 }
 
 /* Hero title - gradient effect */
 .VPHero .name {
-  background: linear-gradient(135deg, var(--atlas-blue) 0%, var(--atlas-cyan) 50%, var(--atlas-blue-light) 100%) !important;
+  background: linear-gradient(135deg, var(--atlas-indigo) 0%, var(--atlas-indigo-accent) 50%, var(--atlas-indigo-light) 100%) !important;
   -webkit-background-clip: text !important;
   background-clip: text !important;
   -webkit-text-fill-color: transparent !important;
 }
 
 .dark .VPHero .name {
-  background: linear-gradient(135deg, var(--atlas-cyan) 0%, #6db3f2 50%, var(--atlas-blue-light) 100%) !important;
+  background: linear-gradient(135deg, var(--atlas-indigo-accent) 0%, #a5b4fc 50%, var(--atlas-indigo-light) 100%) !important;
   -webkit-background-clip: text !important;
   background-clip: text !important;
   -webkit-text-fill-color: transparent !important;
@@ -164,9 +164,9 @@
 @keyframes logoGlowFadeDark {
   0% {
     filter:
-      drop-shadow(0 0 20px rgba(74, 158, 255, 0.8))
-      drop-shadow(0 0 40px rgba(74, 158, 255, 0.5))
-      drop-shadow(0 0 60px rgba(96, 165, 250, 0.3));
+      drop-shadow(0 0 20px rgba(129, 140, 248, 0.8))
+      drop-shadow(0 0 40px rgba(129, 140, 248, 0.5))
+      drop-shadow(0 0 60px rgba(165, 180, 252, 0.3));
   }
   100% {
     filter: drop-shadow(0 0 0 transparent);
@@ -185,9 +185,9 @@
 
 .dark .VPHero .VPImage:hover {
   filter:
-    drop-shadow(0 0 20px rgba(74, 158, 255, 0.8))
-    drop-shadow(0 0 40px rgba(74, 158, 255, 0.5))
-    drop-shadow(0 0 60px rgba(96, 165, 250, 0.3));
+    drop-shadow(0 0 20px rgba(129, 140, 248, 0.8))
+    drop-shadow(0 0 40px rgba(129, 140, 248, 0.5))
+    drop-shadow(0 0 60px rgba(165, 180, 252, 0.3));
 }
 
 /* Glass effect header */
@@ -211,13 +211,13 @@
 }
 
 .VPNav.has-sidebar:not(.top-arrived) {
-  border-bottom-color: rgba(30, 58, 95, 0.1) !important;
-  box-shadow: 0 4px 20px rgba(30, 58, 95, 0.15), 0 0 40px rgba(74, 158, 255, 0.1) !important;
+  border-bottom-color: rgba(55, 48, 163, 0.1) !important;
+  box-shadow: 0 4px 20px rgba(55, 48, 163, 0.15), 0 0 40px rgba(129, 140, 248, 0.1) !important;
 }
 
 .dark .VPNav.has-sidebar:not(.top-arrived) {
-  border-bottom-color: rgba(74, 158, 255, 0.1) !important;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 0 40px rgba(74, 158, 255, 0.15) !important;
+  border-bottom-color: rgba(129, 140, 248, 0.1) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 0 40px rgba(129, 140, 248, 0.15) !important;
 }
 
 .VPNavBar {
@@ -302,33 +302,33 @@
 .dark .VPNavBarTitle .title {
   color: #ffffff !important;
   text-shadow:
-    0 0 10px rgba(74, 158, 255, 0.7),
-    0 0 25px rgba(74, 158, 255, 0.5),
-    0 0 50px rgba(74, 158, 255, 0.25);
+    0 0 10px rgba(129, 140, 248, 0.7),
+    0 0 25px rgba(129, 140, 248, 0.5),
+    0 0 50px rgba(129, 140, 248, 0.25);
 }
 
 .dark .VPNavBarTitle .title:hover {
   text-shadow:
-    0 0 15px rgba(74, 158, 255, 0.9),
-    0 0 35px rgba(74, 158, 255, 0.6),
-    0 0 60px rgba(74, 158, 255, 0.35);
+    0 0 15px rgba(129, 140, 248, 0.9),
+    0 0 35px rgba(129, 140, 248, 0.6),
+    0 0 60px rgba(129, 140, 248, 0.35);
 }
 
-/* Sidebar active link - blue in light mode */
+/* Sidebar active link - indigo in light mode */
 .VPSidebarItem.is-active > .item > .link > .text {
-  color: var(--atlas-cyan) !important;
+  color: var(--atlas-indigo-accent) !important;
 }
 
 .VPSidebarItem.is-active > .item > .indicator {
-  background-color: var(--atlas-cyan) !important;
+  background-color: var(--atlas-indigo-accent) !important;
 }
 
 .dark .VPSidebarItem.is-active > .item > .link > .text {
-  color: var(--atlas-cyan) !important;
+  color: var(--atlas-indigo-accent) !important;
 }
 
 .dark .VPSidebarItem.is-active > .item > .indicator {
-  background-color: var(--atlas-cyan) !important;
+  background-color: var(--atlas-indigo-accent) !important;
 }
 
 /* =========================================
@@ -386,7 +386,7 @@
   transform: translateY(-50%);
   width: 2px;
   height: 20px;
-  background-color: var(--atlas-cyan);
+  background-color: var(--atlas-indigo-accent);
   border-radius: 1px;
 }
 
@@ -404,7 +404,7 @@
 
 /* Hover effect for sidebar links */
 .VPSidebarItem .items .link:hover .text {
-  color: var(--atlas-cyan);
+  color: var(--atlas-indigo-accent);
 }
 
 /* Smooth transition for hover states */
@@ -447,13 +447,27 @@ body:has(.VPHome) .VPNavBar .content {
   padding: 0 24px !important;
 }
 
-/* Prism feature box - vaporwave hover effect */
+/* Prism feature box - vaporwave effect */
+.VPFeatures .items > .item:nth-child(3) .VPFeature {
+  border-color: rgba(185, 103, 255, 0.2) !important;
+  box-shadow:
+    0 2px 10px rgba(255, 113, 206, 0.1),
+    0 0 15px rgba(185, 103, 255, 0.08) !important;
+}
+
 .VPFeatures .items > .item:nth-child(3) .VPFeature:hover {
   border-color: rgba(185, 103, 255, 0.5) !important;
   box-shadow:
     0 4px 20px rgba(255, 113, 206, 0.25),
     0 0 30px rgba(185, 103, 255, 0.15),
     0 0 40px rgba(1, 205, 254, 0.1) !important;
+}
+
+.dark .VPFeatures .items > .item:nth-child(3) .VPFeature {
+  border-color: rgba(185, 103, 255, 0.15) !important;
+  box-shadow:
+    0 2px 10px rgba(255, 113, 206, 0.12),
+    0 0 15px rgba(185, 103, 255, 0.1) !important;
 }
 
 .dark .VPFeatures .items > .item:nth-child(3) .VPFeature:hover {
