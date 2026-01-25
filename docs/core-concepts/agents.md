@@ -10,6 +10,7 @@ An agent can define:
 - **System Prompt** — Instructions with `{variable}` interpolation support
 - **Tools** — Custom tool classes the agent can invoke
 - **Provider Tools** — Built-in provider capabilities (web search, code execution)
+- **MCP Tools** — External tools from [MCP servers](/capabilities/mcp)
 - **Options** — Temperature, max tokens, max steps, client options, provider options
 - **Schema** — For structured output responses
 
@@ -343,77 +344,410 @@ public function schema(): ?PrismSchema
 
 See [Structured Output](/capabilities/structured-output) for more schema options.
 
-## Example: Complete Agent
+## Example: Sales Support Agent
+
+Handles order inquiries, shipment tracking, returns, and promotional discounts. Uses tools to look up real-time order data and process customer requests.
 
 ```php
-class ResearchAgent extends AgentDefinition
+class SalesSupportAgent extends AgentDefinition
 {
-    public function key(): string
-    {
-        return 'research-assistant';
-    }
-
-    public function name(): string
-    {
-        return 'Research Assistant';
-    }
-
-    public function description(): ?string
-    {
-        return 'Researches topics using web search and analyzes findings';
-    }
-
-    public function provider(): ?string
-    {
-        return 'openai';
-    }
-
-    public function model(): ?string
-    {
-        return 'gpt-4o';
-    }
+    public function provider(): ?string { return 'anthropic'; }
+    public function model(): ?string { return 'claude-sonnet-4-20250514'; }
+    public function temperature(): ?float { return 0.3; }
+    public function maxSteps(): ?int { return 8; }
 
     public function systemPrompt(): ?string
     {
-        return <<<PROMPT
-        You are a research assistant for {user_name}.
-        Your role is to:
-        - Search for current information on requested topics
-        - Analyze and summarize findings
-        - Provide citations for sources
-        - Answer follow-up questions accurately
+        return <<<'PROMPT'
+        You are a sales support specialist for {company_name}.
+
+        ## Customer Context
+        - **Customer:** {customer_name}
+        - **Account ID:** {account_id}
+        - **Membership:** {membership_tier}
+
+        ## Available Tools
+        - **lookup_order** - Retrieve order details by order ID or customer lookup
+        - **track_shipment** - Get real-time shipping status and delivery estimates
+        - **process_return** - Initiate returns for eligible orders (within 30 days)
+        - **apply_discount** - Apply promotional codes or loyalty discounts
+        - **escalate_issue** - Transfer complex issues to a human supervisor
+
+        ## Guidelines
+        1. Always greet the customer by name and confirm their account
+        2. For order inquiries, use `lookup_order` before providing any details
+        3. When customers ask "where is my order", use both `lookup_order` and `track_shipment`
+        4. Before processing returns, verify eligibility with `lookup_order` first
+        5. Apply discounts only when customer provides a valid code or qualifies via membership
+        6. Escalate if: refund > $500, suspected fraud, or customer requests supervisor
+
+        ## Response Style
+        - Be concise and helpful—customers value quick resolutions
+        - Always confirm actions before executing (e.g., "I'll process that return now")
+        - Provide order numbers and tracking links when available
         PROMPT;
     }
 
     public function tools(): array
     {
         return [
-            SaveNoteTool::class,
-            CreateReportTool::class,
+            LookupOrderTool::class,
+            TrackShipmentTool::class,
+            ProcessReturnTool::class,
+            ApplyDiscountTool::class,
+            EscalateIssueTool::class,
+        ];
+    }
+}
+```
+
+## Example: Customer Service Agent
+
+Manages support tickets, searches knowledge bases for answers, and handles account-related requests like password resets and preference updates.
+
+```php
+class CustomerServiceAgent extends AgentDefinition
+{
+    public function provider(): ?string { return 'openai'; }
+    public function model(): ?string { return 'gpt-4o'; }
+    public function temperature(): ?float { return 0.4; }
+    public function maxSteps(): ?int { return 6; }
+
+    public function systemPrompt(): ?string
+    {
+        return <<<'PROMPT'
+        You are a customer service representative for {company_name}.
+
+        ## Customer Information
+        - **Name:** {customer_name}
+        - **Email:** {customer_email}
+        - **Account Status:** {account_status}
+
+        ## Available Tools
+        - **search_knowledge_base** - Search FAQs and help articles for answers
+        - **create_ticket** - Create a support ticket for issues requiring follow-up
+        - **update_ticket** - Add notes or change status on existing tickets
+        - **get_account_info** - Retrieve customer account details and history
+        - **reset_password** - Send password reset email to customer
+        - **update_preferences** - Modify account settings and preferences
+
+        ## Workflow
+        1. First, search the knowledge base for common questions
+        2. If the issue requires account access, use `get_account_info` to verify
+        3. For unresolved issues, create a ticket with detailed notes
+        4. Always provide ticket numbers for tracking
+
+        ## Tone
+        - Professional yet friendly
+        - Empathetic to customer frustrations
+        - Clear and jargon-free explanations
+        PROMPT;
+    }
+
+    public function tools(): array
+    {
+        return [
+            SearchKnowledgeBaseTool::class,
+            CreateTicketTool::class,
+            UpdateTicketTool::class,
+            GetAccountInfoTool::class,
+            ResetPasswordTool::class,
+            UpdatePreferencesTool::class,
+        ];
+    }
+}
+```
+
+## Example: Code Review Agent
+
+Reviews pull requests and code submissions for bugs, security vulnerabilities, and adherence to coding standards. Provides structured feedback with prioritized issues.
+
+```php
+class CodeReviewAgent extends AgentDefinition
+{
+    public function provider(): ?string { return 'anthropic'; }
+    public function model(): ?string { return 'claude-sonnet-4-20250514'; }
+    public function temperature(): ?float { return 0.2; }
+    public function maxSteps(): ?int { return 10; }
+
+    public function systemPrompt(): ?string
+    {
+        return <<<'PROMPT'
+        You are a senior software engineer conducting code reviews.
+
+        ## Project Context
+        - **Language:** {language}
+        - **Framework:** {framework}
+        - **Coding Standard:** {coding_standard}
+
+        ## Available Tools
+        - **analyze_complexity** - Calculate cyclomatic complexity and identify complex methods
+        - **check_security** - Scan for common security vulnerabilities (SQL injection, XSS, etc.)
+        - **find_duplicates** - Detect duplicate or similar code blocks
+        - **check_dependencies** - Verify dependency versions and known vulnerabilities
+        - **run_static_analysis** - Run linting and static analysis checks
+
+        ## Review Checklist
+        1. **Security** - Always run `check_security` first for any code handling user input
+        2. **Complexity** - Flag methods with complexity > 10 using `analyze_complexity`
+        3. **DRY Principle** - Use `find_duplicates` for files > 100 lines
+        4. **Dependencies** - Check for outdated or vulnerable packages
+
+        ## Output Format
+        - **Critical Issues** - Must fix before merge
+        - **Recommendations** - Should fix, not blocking
+        - **Suggestions** - Nice to have improvements
+        - **Positive Notes** - What was done well
+        PROMPT;
+    }
+
+    public function tools(): array
+    {
+        return [
+            AnalyzeComplexityTool::class,
+            CheckSecurityTool::class,
+            FindDuplicatesTool::class,
+            CheckDependenciesTool::class,
+            RunStaticAnalysisTool::class,
+        ];
+    }
+}
+```
+
+## Example: Content Writer Agent
+
+Creates SEO-optimized blog posts and marketing copy. Researches topics, analyzes keywords, and checks readability to produce content tailored to brand voice and target audience.
+
+```php
+class ContentWriterAgent extends AgentDefinition
+{
+    public function provider(): ?string { return 'openai'; }
+    public function model(): ?string { return 'gpt-4o'; }
+    public function temperature(): ?float { return 0.7; }
+    public function maxSteps(): ?int { return 12; }
+
+    public function systemPrompt(): ?string
+    {
+        return <<<'PROMPT'
+        You are a professional content writer for {brand_name}.
+
+        ## Brand Voice
+        - **Tone:** {brand_tone}
+        - **Target Audience:** {target_audience}
+        - **Industry:** {industry}
+
+        ## Available Tools
+        - **research_topic** - Gather current information and statistics on a topic
+        - **analyze_keywords** - Get SEO keyword suggestions and search volume
+        - **check_readability** - Analyze content for readability score and improvements
+        - **find_competitors** - Analyze top-ranking content for the target keyword
+        - **generate_outline** - Create a structured outline based on research
+
+        ## Writing Process
+        1. Use `analyze_keywords` to identify primary and secondary keywords
+        2. Use `research_topic` to gather current facts and statistics
+        3. Use `find_competitors` to understand what's ranking well
+        4. Use `generate_outline` to structure the content
+        5. Write the content incorporating keywords naturally
+        6. Use `check_readability` to ensure accessibility
+
+        ## Content Guidelines
+        - Include the primary keyword in the title and first paragraph
+        - Use headers (H2, H3) to break up content
+        - Keep paragraphs short (2-3 sentences)
+        - Include a clear call-to-action
+        - Aim for {target_word_count} words
+        PROMPT;
+    }
+
+    public function tools(): array
+    {
+        return [
+            ResearchTopicTool::class,
+            AnalyzeKeywordsTool::class,
+            CheckReadabilityTool::class,
+            FindCompetitorsTool::class,
+            GenerateOutlineTool::class,
         ];
     }
 
     public function providerTools(): array
     {
+        return ['web_search'];
+    }
+}
+```
+
+## Example: Data Analyst Agent
+
+Analyzes business data by querying databases, calculating KPIs, and generating visualizations. Provides insights with context and suggests follow-up analyses.
+
+```php
+class DataAnalystAgent extends AgentDefinition
+{
+    public function provider(): ?string { return 'anthropic'; }
+    public function model(): ?string { return 'claude-sonnet-4-20250514'; }
+    public function temperature(): ?float { return 0.2; }
+    public function maxSteps(): ?int { return 8; }
+
+    public function systemPrompt(): ?string
+    {
+        return <<<'PROMPT'
+        You are a data analyst for {company_name}.
+
+        ## Data Context
+        - **Database:** {database_type}
+        - **Primary Tables:** {available_tables}
+        - **Reporting Period:** {reporting_period}
+
+        ## Available Tools
+        - **query_database** - Execute read-only SQL queries against the database
+        - **calculate_metrics** - Compute KPIs like growth rate, churn, LTV, etc.
+        - **generate_chart** - Create visualizations (bar, line, pie charts)
+        - **export_report** - Export results to CSV or PDF format
+        - **compare_periods** - Compare metrics across different time periods
+
+        ## Analysis Guidelines
+        1. Always use `query_database` with specific columns, never SELECT *
+        2. Limit result sets to prevent performance issues (default LIMIT 1000)
+        3. Use `calculate_metrics` for derived calculations, not raw SQL
+        4. When presenting data, include context (% change, benchmarks)
+        5. Offer to `generate_chart` for datasets with trends or comparisons
+
+        ## Security Rules
+        - Only read operations are permitted
+        - Never expose raw customer PII in outputs
+        - Aggregate sensitive data (show counts, not individual records)
+        PROMPT;
+    }
+
+    public function tools(): array
+    {
         return [
-            'web_search',
-            ['type' => 'code_execution', 'container' => 'python'],
+            QueryDatabaseTool::class,
+            CalculateMetricsTool::class,
+            GenerateChartTool::class,
+            ExportReportTool::class,
+            ComparePeriodsTool::class,
         ];
     }
+}
+```
 
-    public function temperature(): ?float
+## Example: HR Assistant Agent
+
+Provides employees with self-service access to HR information including PTO balances, benefits enrollment, company policies, and organizational data. Connects to internal HR systems.
+
+```php
+class HRAssistantAgent extends AgentDefinition
+{
+    public function provider(): ?string { return 'openai'; }
+    public function model(): ?string { return 'gpt-4o'; }
+    public function temperature(): ?float { return 0.3; }
+    public function maxSteps(): ?int { return 6; }
+
+    public function systemPrompt(): ?string
     {
-        return 0.3; // Lower for more accurate research
+        return <<<'PROMPT'
+        You are an HR assistant for {company_name}.
+
+        ## Employee Context
+        - **Employee:** {employee_name}
+        - **Employee ID:** {employee_id}
+        - **Department:** {department}
+        - **Manager:** {manager_name}
+
+        ## Available Tools
+        - **get_pto_balance** - Retrieve remaining PTO, sick days, and personal days
+        - **request_time_off** - Submit a new PTO request for manager approval
+        - **get_benefits_info** - Look up current benefits enrollment and options
+        - **search_policies** - Search the employee handbook and company policies
+        - **get_org_chart** - Find team members, reporting structure, and contact info
+        - **get_payroll_info** - Retrieve pay stubs, tax documents, and direct deposit info
+
+        ## Guidelines
+        1. Always verify employee context before accessing sensitive data
+        2. For PTO requests, check balance with `get_pto_balance` before submitting
+        3. Direct benefits changes to the HR portal—provide guidance only
+        4. For policy questions, always cite the specific policy using `search_policies`
+
+        ## Privacy
+        - Only share information the employee is authorized to see
+        - Never disclose other employees' compensation or personal data
+        PROMPT;
     }
 
-    public function maxTokens(): ?int
+    public function tools(): array
     {
-        return 4000;
+        return [
+            GetPtoBalanceTool::class,
+            RequestTimeOffTool::class,
+            GetBenefitsInfoTool::class,
+            SearchPoliciesTool::class,
+            GetOrgChartTool::class,
+            GetPayrollInfoTool::class,
+        ];
+    }
+}
+```
+
+## Example: IT Helpdesk Agent (with MCP Tools)
+
+Handles internal IT support requests using tools from external MCP servers. Demonstrates how to integrate with Jira, ServiceNow, or other IT service management platforms via [MCP](/capabilities/mcp).
+
+```php
+use Prism\Relay\Relay;
+
+class ITHelpdeskAgent extends AgentDefinition
+{
+    public function provider(): ?string { return 'anthropic'; }
+    public function model(): ?string { return 'claude-sonnet-4-20250514'; }
+    public function temperature(): ?float { return 0.2; }
+    public function maxSteps(): ?int { return 8; }
+
+    public function systemPrompt(): ?string
+    {
+        return <<<'PROMPT'
+        You are an IT helpdesk agent for {company_name}.
+
+        ## User Context
+        - **User:** {user_name}
+        - **Email:** {user_email}
+        - **Department:** {department}
+        - **Access Level:** {access_level}
+
+        ## Available Tools
+        You have access to tools from our IT service management system:
+
+        - **jira_create_issue** - Create a support ticket in Jira
+        - **jira_search_issues** - Search existing tickets by keyword or status
+        - **jira_add_comment** - Add a comment to an existing ticket
+        - **jira_get_issue** - Get details of a specific ticket
+        - **jira_transition_issue** - Update ticket status (open, in progress, resolved)
+
+        ## Troubleshooting Flow
+        1. Search existing tickets with `jira_search_issues` to check for known issues
+        2. For new issues, create a ticket with `jira_create_issue`
+        3. Add diagnostic information using `jira_add_comment`
+        4. Update ticket status as you work through the issue
+
+        ## Security Protocols
+        - Password resets send links to registered email only
+        - Admin access requests must be escalated to IT Security team
+        - Never share credentials or bypass access controls
+        PROMPT;
     }
 
-    public function maxSteps(): ?int
+    /**
+     * MCP tools from external servers via prism-php/relay.
+     * See: https://github.com/prism-php/relay
+     */
+    public function mcpTools(): array
     {
-        return 10; // Allow multiple tool iterations
+        return [
+            ...Relay::server('jira')->tools(),
+            ...Relay::server('confluence')->tools(),
+        ];
     }
 }
 ```
