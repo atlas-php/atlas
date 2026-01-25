@@ -223,6 +223,39 @@ $response = Atlas::agent('support-agent')
 
 All Prism methods are available via pass-through (e.g., `withToolChoice()`, `withMaxTokens()`).
 
+## Prism Passthrough Methods
+
+Atlas provides full access to all Prism methods through passthrough. Any method available on Prism's generator can be called directly on the Atlas agent builder:
+
+```php
+use Prism\Prism\Enums\ToolChoice;
+
+$response = Atlas::agent('support-agent')
+    ->withToolChoice(ToolChoice::Any)      // Force tool usage
+    ->withClientRetry(3, 100)              // Retry with backoff
+    ->usingTopP(0.9)                       // Top-p sampling
+    ->withMaxTokens(2000)                  // Limit response length
+    ->chat('Help me find my order');
+```
+
+### Common Passthrough Methods
+
+<div class="full-width-table">
+
+| Method | Description |
+|--------|-------------|
+| `withToolChoice(ToolChoice $choice)` | Control how tools are selected (`Auto`, `Any`, `None`) |
+| `withClientRetry(int $times, int $sleepMs)` | Automatic retries with backoff |
+| `usingTopP(float $topP)` | Top-p (nucleus) sampling |
+| `usingTopK(int $topK)` | Top-k sampling |
+| `withMaxTokens(int $tokens)` | Maximum response tokens |
+| `withClientOptions(array $options)` | HTTP client configuration |
+| `withProviderOptions(array $options)` | Provider-specific options |
+
+</div>
+
+See [Prism Text Generation](https://prismphp.com/core-concepts/text-generation.html) for the complete API.
+
 ## Response Handling
 
 Chat operations return Prism's response object directly:

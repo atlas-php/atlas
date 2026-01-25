@@ -172,6 +172,53 @@ All methods have sensible defaults. Override only what you need.
 
 </div>
 
+## Provider Options
+
+Use `providerOptions()` to configure provider-specific features that aren't part of the standard API.
+
+### Anthropic Cache Control
+
+Enable prompt caching to reduce costs for repeated system prompts:
+
+```php
+public function providerOptions(): array
+{
+    return [
+        'cacheType' => 'ephemeral',
+    ];
+}
+```
+
+### Anthropic Extended Thinking
+
+Enable Claude's extended thinking for complex reasoning tasks:
+
+```php
+public function providerOptions(): array
+{
+    return [
+        'thinking' => [
+            'enabled' => true,
+            'budget_tokens' => 5000,
+        ],
+    ];
+}
+```
+
+### OpenAI Specific Options
+
+```php
+public function providerOptions(): array
+{
+    return [
+        'response_format' => ['type' => 'json_object'],
+        'seed' => 12345,  // For reproducible outputs
+    ];
+}
+```
+
+Provider options are passed directly to the underlying Prism provider. See your provider's documentation for available options.
+
 ## Provider Tools
 
 Provider tools are built-in capabilities offered by AI providers. They can be specified as simple strings or with configuration options:

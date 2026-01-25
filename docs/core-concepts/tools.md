@@ -427,6 +427,64 @@ class LogToolExecution implements PipelineContract
 $registry->register('tool.after_execute', LogToolExecution::class);
 ```
 
+## Advanced Prism Configuration
+
+For advanced use cases, implement `ConfiguresPrismTool` to access the full Prism Tool API directly. This gives you control over error handling, provider options, and other Prism-specific features.
+
+```php
+use Atlasphp\Atlas\Tools\ToolDefinition;
+use Atlasphp\Atlas\Tools\Contracts\ConfiguresPrismTool;
+use Atlasphp\Atlas\Tools\Support\ToolContext;
+use Atlasphp\Atlas\Tools\Support\ToolParameter;
+use Atlasphp\Atlas\Tools\Support\ToolResult;
+use Prism\Prism\Tool as PrismTool;
+use Illuminate\Support\Facades\Log;
+
+class RiskyOperationTool extends ToolDefinition implements ConfiguresPrismTool
+{
+    public function name(): string
+    {
+        return 'risky_operation';
+    }
+
+    public function description(): string
+    {
+        return 'Performs an operation that may fail';
+    }
+
+    public function parameters(): array
+    {
+        return [
+            ToolParameter::string('input', 'The input data'),
+        ];
+    }
+
+    public function handle(array $arguments, ToolContext $context): ToolResult
+    {
+        // Your tool logic here
+        return ToolResult::text('Operation completed');
+    }
+
+    public function configurePrismTool(PrismTool $tool): PrismTool
+    {
+        return $tool->failed(function ($error) {
+            Log::warning('Tool failed', ['error' => $error]);
+            return 'Tool encountered an error, please try again.';
+        });
+    }
+}
+```
+
+### Available Prism Tool Methods
+
+The `configurePrismTool` method gives you access to:
+
+- `failed(callable $handler)` — Custom error handling with user-friendly messages
+- `withErrorHandling()` / `withoutErrorHandling()` — Toggle automatic error handling
+- `withProviderOptions(array $options)` — Provider-specific tool configuration
+
+See [Prism Tools documentation](https://prismphp.com/core-concepts/tools-function-calling.html) for the full API.
+
 ## Next Steps
 
 - [Agents](/core-concepts/agents) — Add tools to agents
