@@ -87,6 +87,37 @@ ANTHROPIC_API_KEY=sk-ant-...
 
 See [Configuration](/getting-started/configuration) for full configuration options.
 
+## API Reference
+
+```php
+// Agent provider configuration (override in agent class)
+public function provider(): ?string;    // e.g., 'openai', 'anthropic', 'gemini'
+public function model(): ?string;       // e.g., 'gpt-4o', 'claude-sonnet-4-20250514'
+
+// Runtime provider override
+Atlas::agent('agent')
+    ->withProvider(string $provider, ?string $model = null)
+    ->chat(string $input);
+
+// Direct Prism usage
+Atlas::text()->using(string $provider, string $model);
+Atlas::image()->using(string $provider, string $model);
+Atlas::audio()->using(string $provider, string $model);
+Atlas::embeddings()->using(string $provider, string $model);
+Atlas::moderation()->using(string $provider, string $model);
+
+// Common provider/model combinations
+->using('openai', 'gpt-4o')
+->using('openai', 'gpt-4o-mini')
+->using('anthropic', 'claude-sonnet-4-20250514')
+->using('anthropic', 'claude-opus-4-20250514')
+->using('gemini', 'gemini-2.0-flash')
+->using('mistral', 'mistral-large-latest')
+->using('groq', 'llama-3.3-70b-versatile')
+->using('deepseek', 'deepseek-chat')
+->using('ollama', 'llama3.2')
+```
+
 ## Next Steps
 
 - [Configuration](/getting-started/configuration) — Configure providers and defaults

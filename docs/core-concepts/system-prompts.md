@@ -247,6 +247,25 @@ class AfterBuildHandler implements PipelineContract
 }
 ```
 
+## API Reference
+
+```php
+// SystemPromptBuilder methods
+$builder = app(SystemPromptBuilder::class);
+
+$builder->registerVariable(string $name, string $value): void;
+$builder->unregisterVariable(string $name): void;
+$builder->addSection(string $name, string $content): void;
+$builder->removeSection(string $name): void;
+$builder->clearSections(): void;
+$builder->build(AgentContract $agent, ExecutionContext $context): string;
+
+// ExecutionContext variable passing (via AgentExecutor)
+Atlas::agent('agent')
+    ->withVariables(array $variables)
+    ->chat(string $input);
+```
+
 ## Next Steps
 
 - [Agents](/core-concepts/agents) — Agent configuration

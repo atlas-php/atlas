@@ -485,6 +485,50 @@ The `configurePrismTool` method gives you access to:
 
 See [Prism Tools documentation](https://prismphp.com/core-concepts/tools-function-calling.html) for the full API.
 
+## API Reference
+
+```php
+// ToolDefinition methods (override in your tool class)
+public function name(): string;
+public function description(): string;
+public function parameters(): array;
+public function handle(array $arguments, ToolContext $context): ToolResult;
+
+// ToolParameter factory methods
+ToolParameter::string(string $name, string $description, bool $nullable = false);
+ToolParameter::number(string $name, string $description, bool $nullable = false);
+ToolParameter::integer(string $name, string $description, bool $nullable = false);
+ToolParameter::boolean(string $name, string $description, bool $nullable = false);
+ToolParameter::enum(string $name, string $description, array $options);
+ToolParameter::array(string $name, string $description, Schema $items);
+ToolParameter::object(string $name, string $description, array $properties, array $requiredFields = [], bool $allowAdditionalProperties = false);
+
+// ToolResult factory methods
+ToolResult::text(string $text): ToolResult;
+ToolResult::json(array $data): ToolResult;
+ToolResult::error(string $message): ToolResult;
+
+// ToolResult instance methods
+$result->succeeded(): bool;
+$result->failed(): bool;
+$result->toArray(): array;
+
+// ToolContext methods
+$context->getMeta(string $key, mixed $default = null): mixed;
+$context->hasMeta(string $key): bool;
+
+// ToolRegistryContract methods
+$registry->register(string $class): void;
+$registry->registerInstance(ToolContract $tool): void;
+$registry->has(string $name): bool;
+$registry->get(string $name): ToolContract;
+$registry->all(): array;
+$registry->only(array $names): array;
+
+// ConfiguresPrismTool interface (optional)
+public function configurePrismTool(PrismTool $tool): PrismTool;
+```
+
 ## Next Steps
 
 - [Agents](/core-concepts/agents) — Add tools to agents

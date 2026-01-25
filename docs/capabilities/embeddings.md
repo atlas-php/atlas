@@ -39,7 +39,7 @@ foreach ($response->embeddings as $index => $vector) {
 }
 ```
 
-## Semantic Search Example
+## Example: Semantic Search
 
 ```php
 // Index documents
@@ -69,7 +69,7 @@ $results = Document::query()
     ->get();
 ```
 
-## RAG Implementation
+## Example: RAG Implementation
 
 Combine embeddings with agents for retrieval-augmented generation:
 
@@ -195,6 +195,38 @@ class LogEmbeddings implements PipelineContract
 }
 
 $registry->register('embeddings.after_embeddings', LogEmbeddings::class);
+```
+
+## API Reference
+
+```php
+// Embeddings fluent API
+Atlas::embeddings()
+    ->using(string $provider, string $model)              // Set provider and model
+    ->fromInput(string|array $input)                      // Text(s) to embed
+    ->withProviderMeta(string $provider, array $options)  // Provider-specific options
+    ->withMetadata(array $metadata)                       // Pipeline metadata
+    ->asEmbeddings(): EmbeddingsResponse;
+
+// Response properties (EmbeddingsResponse)
+$response->embeddings;           // array of embedding vectors
+$response->embeddings[0];        // First embedding (array of floats)
+$response->usage->tokens;        // Tokens used
+
+// Common models
+->using('openai', 'text-embedding-3-small')   // 1536 dimensions, cheaper
+->using('openai', 'text-embedding-3-large')   // 3072 dimensions, more accurate
+->using('openai', 'text-embedding-ada-002')   // 1536 dimensions, legacy
+
+// Single vs batch input
+->fromInput('Single text to embed')
+->fromInput(['Text one', 'Text two', 'Text three'])  // Batch (more efficient)
+
+// Provider options (via withProviderMeta)
+->withProviderMeta('openai', [
+    'dimensions' => 512,         // Reduce dimensions (text-embedding-3-* only)
+    'encoding_format' => 'float' // 'float' or 'base64'
+])
 ```
 
 ## Next Steps

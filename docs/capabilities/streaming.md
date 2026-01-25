@@ -230,7 +230,7 @@ try {
 }
 ```
 
-## Complete Example
+## Example: Complete Streaming Service
 
 ```php
 use Atlasphp\Atlas\Atlas;
@@ -282,11 +282,67 @@ class ChatService
 }
 ```
 
-## Notes
+## API Reference
 
-- Streaming returns Prism events directly—Atlas doesn't wrap them
-- All Prism streaming features (tool calls, thinking, etc.) work with Atlas agents
-- The `stream()` method accepts the same configuration as `chat()` (messages, variables, metadata)
+```php
+// Agent streaming fluent API (same configuration as chat)
+Atlas::agent(string|AgentContract $agent)
+    // Context configuration
+    ->withMessages(array $messages)                       // Conversation history
+    ->withVariables(array $variables)                     // System prompt variables
+    ->withMetadata(array $metadata)                       // Pipeline/tool metadata
+
+    // Provider overrides
+    ->withProvider(string $provider, ?string $model)      // Override provider/model
+    ->withModel(string $model)                            // Override model only
+
+    // Attachments
+    ->withMedia(Image|Document|Audio|Video|array $media)  // Attach media
+
+    // Prism passthrough methods
+    ->withToolChoice(ToolChoice $choice)                  // Tool selection
+    ->withMaxTokens(int $tokens)                          // Max response tokens
+    ->withTemperature(float $temp)                        // Sampling temperature
+    ->usingTopP(float $topP)                              // Top-p sampling
+    ->withClientRetry(int $times, int $sleepMs)           // Retry with backoff
+    ->withProviderOptions(array $options)                 // Provider-specific options
+
+    // Execution
+    ->stream(string $input, array $attachments = []): Generator<StreamEvent>;
+
+// Direct text streaming (without agents)
+Atlas::text()
+    ->using(string $provider, string $model)
+    ->withSystemPrompt(string $prompt)
+    ->withPrompt(string $prompt)
+    ->withMessages(array $messages)
+    ->withMetadata(array $metadata)
+    ->asStream(): Generator<StreamEvent>;
+
+// Common Prism stream events
+use Prism\Prism\Streaming\Events\StreamStartEvent;   // Stream initialized
+use Prism\Prism\Streaming\Events\TextDeltaEvent;     // Text chunk received
+use Prism\Prism\Streaming\Events\StreamEndEvent;     // Stream completed
+use Prism\Prism\Streaming\Events\ToolCallStartEvent; // Tool call starting
+use Prism\Prism\Streaming\Events\ToolCallDeltaEvent; // Tool call argument chunk
+use Prism\Prism\Streaming\Events\ToolResultEvent;    // Tool execution result
+use Prism\Prism\Streaming\Events\ThinkingEvent;      // Model thinking (Claude)
+
+// Event properties
+$event instanceof TextDeltaEvent;
+$event->text;           // The text chunk
+
+$event instanceof StreamEndEvent;
+$event->response;       // Full PrismResponse object (when available)
+
+$event instanceof ToolCallStartEvent;
+$event->name;           // Tool name
+$event->id;             // Tool call ID
+
+$event instanceof ToolResultEvent;
+$event->toolCallId;     // Tool call ID
+$event->result;         // Tool result
+```
 
 ## Next Steps
 

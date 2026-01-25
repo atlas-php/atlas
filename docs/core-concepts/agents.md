@@ -15,7 +15,7 @@ An agent can define:
 
 All methods have sensible defaults. Override only what you need.
 
-## Example
+## Example: Basic Agent
 
 ```php
 use Atlasphp\Atlas\Agents\AgentDefinition;
@@ -518,6 +518,68 @@ $registry = app(AgentExtensionRegistry::class);
 $registry->hasDecorators();   // true if any decorators registered
 $registry->decoratorCount();  // number of registered decorators
 $registry->clearDecorators(); // remove all decorators
+```
+
+## API Reference
+
+```php
+// AgentDefinition methods (override in your agent class)
+public function provider(): ?string;
+public function model(): ?string;
+public function systemPrompt(): ?string;
+public function key(): string;
+public function name(): string;
+public function description(): ?string;
+public function tools(): array;
+public function providerTools(): array;
+public function temperature(): ?float;
+public function maxTokens(): ?int;
+public function maxSteps(): ?int;
+public function clientOptions(): array;
+public function providerOptions(): array;
+public function schema(): ?PrismSchema;
+
+// Agent execution fluent API (PendingAgentRequest)
+Atlas::agent(string|AgentContract $agent)
+    ->withMessages(array $messages)              // Conversation history
+    ->withVariables(array $variables)            // System prompt variables
+    ->withMetadata(array $metadata)              // Pipeline metadata
+    ->withProvider(string $provider, ?string $model = null)  // Override provider
+    ->withModel(string $model)                   // Override model
+    ->withMedia(Image|Document|Audio|Video|array $media)     // Attach media
+    ->withSchema(SchemaBuilder|ObjectSchema $schema)         // Structured output
+    ->usingAutoMode()                            // Auto schema mode (default)
+    ->usingNativeMode()                          // Native JSON schema mode
+    ->usingJsonMode()                            // JSON mode (for optional fields)
+    ->chat(string $input, array $attachments = []): PrismResponse|StructuredResponse;
+    ->stream(string $input, array $attachments = []): Generator<StreamEvent>;
+
+// Response properties (PrismResponse)
+$response->text;          // Text response
+$response->usage;         // Token usage stats
+$response->steps;         // Multi-step agentic loop history
+$response->toolCalls;     // Tool calls as ToolCall objects
+$response->toolResults;   // Tool results
+$response->finishReason;  // FinishReason enum
+$response->meta;          // Request metadata
+
+// Response properties (StructuredResponse - when using withSchema)
+$response->structured;    // The structured data array
+$response->text;          // Raw text (if available)
+$response->usage;         // Token usage stats
+
+// AgentRegistryContract methods
+$registry->register(string $class, bool $override = false): void;
+$registry->registerInstance(AgentContract $agent, bool $override = false): void;
+$registry->has(string $key): bool;
+$registry->get(string $key): AgentContract;
+$registry->all(): array;
+
+// AgentExtensionRegistry methods
+$registry->registerDecorator(AgentDecorator $decorator): void;
+$registry->hasDecorators(): bool;
+$registry->decoratorCount(): int;
+$registry->clearDecorators(): void;
 ```
 
 ## Next Steps

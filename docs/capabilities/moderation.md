@@ -113,6 +113,43 @@ class LogFlaggedContent implements PipelineContract
 $registry->register('moderation.after_moderation', LogFlaggedContent::class);
 ```
 
+## API Reference
+
+```php
+// Moderation fluent API
+Atlas::moderation()
+    ->using(string $provider, string $model)              // Set provider and model
+    ->fromInput(string|array $input)                      // Content to moderate
+    ->withProviderMeta(string $provider, array $options)  // Provider-specific options
+    ->withMetadata(array $metadata)                       // Pipeline metadata
+    ->asModeration(): ModerationResponse;
+
+// Response properties (ModerationResponse)
+$response->isFlagged(): bool;        // True if any content flagged
+$response->results;                  // Array of ModerationResult objects
+$response->flagged(): array;         // Only flagged results
+
+// ModerationResult properties
+$result->flagged;                    // bool - Whether this input was flagged
+$result->categories;                 // array - Category flags (e.g., 'violence' => true)
+$result->categoryScores;             // array - Category scores (e.g., 'violence' => 0.92)
+
+// Available models
+->using('openai', 'omni-moderation-latest')   // Latest omni model (recommended)
+->using('openai', 'text-moderation-latest')   // Text-only model
+->using('openai', 'text-moderation-stable')   // Stable text model
+
+// Single vs batch input
+->fromInput('Single text to moderate')
+->fromInput(['Text one', 'Text two', 'Text three'])  // Batch (more efficient)
+
+// Common categories (OpenAI)
+// harassment, harassment/threatening, hate, hate/threatening,
+// illicit, illicit/violent, self-harm, self-harm/intent,
+// self-harm/instructions, sexual, sexual/minors, violence,
+// violence/graphic
+```
+
 ## Next Steps
 
 - [Prism Moderation](https://prismphp.com/core-concepts/moderation.html) — Complete moderation reference

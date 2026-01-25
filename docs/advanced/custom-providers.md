@@ -92,6 +92,47 @@ Atlas::agent('my-agent')
     ->chat('Hello');
 ```
 
+## API Reference
+
+```php
+// Agent provider configuration (override in agent class)
+public function provider(): ?string;                  // Provider name (e.g., 'openai', 'anthropic')
+public function model(): ?string;                     // Model name (e.g., 'gpt-4o', 'claude-sonnet-4-20250514')
+public function clientOptions(): array;               // HTTP client options
+public function providerOptions(): array;             // Provider-specific options
+
+// Runtime provider override
+Atlas::agent('agent')
+    ->withProvider(string $provider, ?string $model = null)  // Override provider and optionally model
+    ->withModel(string $model)                               // Override model only
+    ->withProviderOptions(array $options)                    // Provider-specific options
+    ->chat(string $input);
+
+// Direct Prism usage with providers
+Atlas::text()->using(string $provider, string $model);
+Atlas::image()->using(string $provider, string $model);
+Atlas::audio()->using(string $provider, string $model);
+Atlas::embeddings()->using(string $provider, string $model);
+Atlas::moderation()->using(string $provider, string $model);
+
+// Provider-specific options (via withProviderMeta or withProviderOptions)
+// Anthropic:
+->withProviderOptions(['cacheType' => 'ephemeral'])           // Prompt caching
+
+// OpenAI:
+->withProviderOptions([
+    'presence_penalty' => 0.5,    // -2.0 to 2.0
+    'frequency_penalty' => 0.3,   // -2.0 to 2.0
+    'logit_bias' => [],           // Token biases
+    'user' => 'user-123',         // End-user identifier
+])
+
+// Provider resolution order:
+// 1. withProvider() override (highest priority)
+// 2. Agent's provider() method
+// 3. Exception if neither set
+```
+
 ## Next Steps
 
 - [Chat](/capabilities/chat) — Chat configuration

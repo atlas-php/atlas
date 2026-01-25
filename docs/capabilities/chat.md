@@ -276,6 +276,80 @@ if ($response->text !== null) {
 
 See [Prism Response](https://prismphp.com/core-concepts/text-generation.html#the-response-object) for the complete response API.
 
+## API Reference
+
+```php
+// Agent chat fluent API
+Atlas::agent(string|AgentContract $agent)
+    // Context configuration
+    ->withMessages(array $messages)                       // Conversation history
+    ->withVariables(array $variables)                     // System prompt variables
+    ->withMetadata(array $metadata)                       // Pipeline/tool metadata
+
+    // Provider overrides
+    ->withProvider(string $provider, ?string $model)      // Override provider/model
+    ->withModel(string $model)                            // Override model only
+
+    // Attachments
+    ->withMedia(Image|Document|Audio|Video|array $media)  // Attach media (builder style)
+
+    // Structured output
+    ->withSchema(SchemaBuilder|ObjectSchema $schema)      // Schema for structured response
+    ->usingAutoMode()                                     // Auto schema mode (default)
+    ->usingNativeMode()                                   // Native JSON schema mode
+    ->usingJsonMode()                                     // JSON mode (for optional fields)
+
+    // Prism passthrough methods
+    ->withToolChoice(ToolChoice $choice)                  // Tool selection (Auto, Any, None)
+    ->withMaxTokens(int $tokens)                          // Max response tokens
+    ->withTemperature(float $temp)                        // Sampling temperature
+    ->usingTopP(float $topP)                              // Top-p sampling
+    ->usingTopK(int $topK)                                // Top-k sampling
+    ->withClientRetry(int $times, int $sleepMs)           // Retry with backoff
+    ->withClientOptions(array $options)                   // HTTP client options
+    ->withProviderOptions(array $options)                 // Provider-specific options
+
+    // Execution
+    ->chat(string $input, array $attachments = []): PrismResponse|StructuredResponse;
+    ->stream(string $input, array $attachments = []): Generator<StreamEvent>;
+
+// Response properties (PrismResponse)
+$response->text;                    // Generated text
+$response->usage->promptTokens;     // Input tokens
+$response->usage->completionTokens; // Output tokens
+$response->steps;                   // Multi-step agentic loop history
+$response->toolCalls;               // Tool calls made
+$response->toolResults;             // Tool execution results
+$response->finishReason;            // FinishReason enum
+$response->meta;                    // Request metadata
+
+// Response properties (StructuredResponse - when using withSchema)
+$response->structured;              // Extracted structured data array
+$response->text;                    // Raw text (if available)
+$response->usage;                   // Token usage stats
+
+// Message formats for withMessages()
+// Array format (for persistence):
+[
+    ['role' => 'user', 'content' => 'Hello'],
+    ['role' => 'assistant', 'content' => 'Hi there!'],
+]
+
+// Prism message objects (for full API access):
+[
+    new UserMessage('Hello'),
+    new AssistantMessage('Hi there!'),
+]
+
+// Prism media objects for attachments
+Image::fromUrl(string $url): Image;
+Image::fromLocalPath(string $path): Image;
+Image::fromBase64(string $data, string $mimeType): Image;
+Image::fromStoragePath(string $path, string $mimeType, ?string $disk): Image;
+Image::fromFileId(string $fileId): Image;
+// Same methods available on Document, Audio, Video
+```
+
 ## Next Steps
 
 - [Streaming](/capabilities/streaming) — Real-time streaming responses

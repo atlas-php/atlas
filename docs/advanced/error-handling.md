@@ -225,6 +225,66 @@ class ChatController extends Controller
 }
 ```
 
+## API Reference
+
+```php
+// Atlas exception hierarchy
+use Atlasphp\Atlas\Exceptions\AtlasException;
+use Atlasphp\Atlas\Agents\Exceptions\AgentException;
+use Atlasphp\Atlas\Agents\Exceptions\AgentNotFoundException;
+use Atlasphp\Atlas\Agents\Exceptions\InvalidAgentException;
+use Atlasphp\Atlas\Tools\Exceptions\ToolException;
+use Atlasphp\Atlas\Tools\Exceptions\ToolNotFoundException;
+
+// Base exception - catch all Atlas errors
+try {
+    $response = Atlas::agent('agent')->chat('Hello');
+} catch (AtlasException $e) {
+    // Any Atlas configuration error
+}
+
+// Agent exceptions
+try {
+    $response = Atlas::agent('unknown')->chat('Hello');
+} catch (AgentNotFoundException $e) {
+    $e->getMessage();  // "No agent found with key 'unknown'."
+} catch (InvalidAgentException $e) {
+    $e->getMessage();  // Invalid agent configuration
+} catch (AgentException $e) {
+    // Any agent-related error
+}
+
+// Tool exceptions
+try {
+    $tool = $registry->get('unknown_tool');
+} catch (ToolNotFoundException $e) {
+    $e->getMessage();  // "Tool not found: unknown_tool"
+} catch (ToolException $e) {
+    // Any tool-related error
+}
+
+// ToolResult for tool error handling (don't throw, return errors)
+use Atlasphp\Atlas\Tools\Support\ToolResult;
+
+ToolResult::text(string $text): ToolResult;   // Success with text
+ToolResult::json(array $data): ToolResult;    // Success with JSON
+ToolResult::error(string $message): ToolResult; // Error result
+
+$result->succeeded(): bool;  // Check if successful
+$result->failed(): bool;     // Check if failed
+
+// Prism exceptions (pass through Atlas)
+// See: https://prismphp.com/advanced/error-handling.html
+use Prism\Prism\Exceptions\PrismException;
+use Prism\Prism\Exceptions\PrismRateLimitException;
+use Prism\Prism\Exceptions\PrismContextLengthExceededException;
+
+// Retry configuration (via Prism passthrough)
+Atlas::agent('agent')
+    ->withClientRetry(int $times, int $sleepMs)  // Automatic retries
+    ->chat('Hello');
+```
+
 ## Next Steps
 
 - [Pipelines](/core-concepts/pipelines) — Add error handling middleware

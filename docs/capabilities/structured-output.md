@@ -176,9 +176,9 @@ $response = Atlas::agent('extractor')
 - You need flexibility in what the model returns
 - You're working with providers that don't support native structured output
 
-## Complex Examples
+## Examples
 
-### Nested Schema with Optional Fields
+### Example: Nested Schema with Optional Fields
 
 ```php
 $response = Atlas::agent('order-extractor')
@@ -199,7 +199,7 @@ $response = Atlas::agent('order-extractor')
     ->chat($orderText);
 ```
 
-### Classification Schema
+### Example: Classification Schema
 
 ```php
 $response = Atlas::agent('classifier')
@@ -215,7 +215,7 @@ $response = Atlas::agent('classifier')
 // $response->structured = ['category' => 'support', 'confidence' => 0.92, 'tags' => ['refund', 'return']]
 ```
 
-### Data Extraction Schema
+### Example: Data Extraction Schema
 
 ```php
 $response = Atlas::agent('extractor')
@@ -231,7 +231,7 @@ $response = Atlas::agent('extractor')
 // $response->structured = ['name' => 'John Smith', 'email' => 'john@example.com', 'phone' => '555-1234']
 ```
 
-### Summary Schema
+### Example: Summary Schema
 
 ```php
 $response = Atlas::agent('summarizer')
@@ -325,6 +325,40 @@ class DataExtractorAgent extends AgentDefinition
         PROMPT;
     }
 }
+```
+
+## API Reference
+
+```php
+// Schema factory
+Schema::object(string $name, string $description): SchemaBuilder;
+
+// SchemaBuilder property methods (all return SchemaProperty for chaining)
+$builder->string(string $name, string $description): SchemaProperty;
+$builder->number(string $name, string $description): SchemaProperty;
+$builder->integer(string $name, string $description): SchemaProperty;
+$builder->boolean(string $name, string $description): SchemaProperty;
+$builder->enum(string $name, string $description, array $options): SchemaProperty;
+$builder->stringArray(string $name, string $description): SchemaProperty;
+$builder->numberArray(string $name, string $description): SchemaProperty;
+$builder->object(string $name, string $description, callable $callback): SchemaProperty;
+$builder->array(string $name, string $description, callable $callback): SchemaProperty;
+$builder->build(): ObjectSchema;
+
+// SchemaProperty modifiers
+$property->optional(): SchemaProperty;  // Remove from required fields
+$property->nullable(): SchemaProperty;  // Allow null values (implies optional)
+
+// Agent executor schema methods
+Atlas::agent('agent')
+    ->withSchema(SchemaBuilder|ObjectSchema $schema)
+    ->usingAutoMode()    // Let Atlas choose (default)
+    ->usingNativeMode()  // Use native JSON schema
+    ->usingJsonMode()    // Use JSON mode (required for optional fields)
+    ->chat(string $input);
+
+// Response
+$response->structured;  // array|null - The structured data
 ```
 
 ## Next Steps

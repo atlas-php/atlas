@@ -511,6 +511,75 @@ public function test_handles_provider_errors(): void
 </groups>
 ```
 
+## API Reference
+
+```php
+// Enabling fake mode
+$fake = Atlas::fake();                              // Returns AtlasFake instance
+$fake = Atlas::fake([PrismResponse $response]);     // With default response
+
+// Configuring fake responses
+$fake->response(string $agentKey): PendingFakeRequest;
+$fake->response(string $agentKey, PrismResponse $response): AtlasFake;
+$fake->sequence(array $responses): AtlasFake;       // Default sequence for any agent
+$fake->preventStrayRequests(): AtlasFake;           // Fail on unconfigured agents
+$fake->allowStrayRequests(): AtlasFake;             // Allow unconfigured agents
+$fake->reset(): AtlasFake;                          // Clear recorded requests
+
+// PendingFakeRequest fluent API
+$fake->response('agent-key')
+    ->return(PrismResponse $response): AtlasFake;
+    ->returnSequence(array $responses): AtlasFake;
+    ->throw(Throwable $exception): AtlasFake;
+    ->whenEmpty(PrismResponse|Throwable $response): PendingFakeRequest;
+
+// Creating fake Prism responses
+use Prism\Prism\Text\Response as PrismResponse;
+use Prism\Prism\ValueObjects\Usage;
+use Prism\Prism\Enums\FinishReason;
+
+// Simple text response
+new PrismResponse(
+    text: 'Hello! How can I help?',
+    finishReason: FinishReason::Stop,
+    usage: new Usage(promptTokens: 10, completionTokens: 20),
+);
+
+// Assertion methods
+$fake->assertCalled(): void;                        // Any agent called
+$fake->assertCalled(string $agentKey): void;        // Specific agent called
+$fake->assertCalledTimes(string $agentKey, int $times): void;
+$fake->assertNotCalled(string $agentKey): void;
+$fake->assertNothingCalled(): void;
+$fake->assertSent(Closure $callback): void;         // Custom assertion
+$fake->assertSentWithContext(string $key, mixed $value = null): void;
+$fake->assertSentWithSchema(): void;
+$fake->assertSentWithInput(string $needle): void;
+
+// Accessing recorded requests
+$fake->recorded(): array;                           // All RecordedRequest objects
+$fake->recordedFor(string $agentKey): array;        // For specific agent
+
+// RecordedRequest properties and methods
+$request->agent;                                    // AgentContract instance
+$request->input;                                    // User input string
+$request->context;                                  // ExecutionContext
+$request->response;                                 // PrismResponse
+$request->timestamp;                                // Unix timestamp
+$request->agentKey(): string;
+$request->inputContains(string $needle): bool;
+$request->hasMetadata(string $key, mixed $value = null): bool;
+$request->hasPrismCall(string $method): bool;
+$request->getPrismCallArgs(string $method): ?array;
+
+// Cleanup
+Atlas::unfake();                                    // Restore real executor
+$fake->restore();                                   // Alternative restore method
+
+// Auto-cleanup trait
+use Atlasphp\Atlas\Testing\Concerns\InteractsWithAtlasFake;
+```
+
 ## Next Steps
 
 - [Agents](/core-concepts/agents) — Build testable agents

@@ -46,7 +46,7 @@ Storage::put('images/lake.png', $imageContent);
 Http::sink(storage_path('images/lake.png'))->get($response->images[0]->url);
 ```
 
-## Complete Example
+## Example: Complete Image Generation
 
 ```php
 use Atlasphp\Atlas\Atlas;
@@ -108,6 +108,38 @@ class LogImageGeneration implements PipelineContract
 }
 
 $registry->register('image.after_generate', LogImageGeneration::class);
+```
+
+## API Reference
+
+```php
+// Image generation fluent API
+Atlas::image()
+    ->using(string $provider, string $model)              // Set provider and model
+    ->withPrompt(string $prompt)                          // Image description
+    ->withSize(int $width, int $height)                   // Image dimensions
+    ->withProviderMeta(string $provider, array $options)  // Provider-specific options
+    ->withMetadata(array $metadata)                       // Pipeline metadata
+    ->generate(): ImageResponse;
+
+// Response properties (ImageResponse)
+$response->images;              // array of Image objects
+$response->images[0]->url;      // URL to generated image
+$response->images[0]->base64;   // Base64 encoded image (if requested)
+$response->images[0]->revisedPrompt;  // Revised prompt (if modified by provider)
+
+// Common provider options (via withProviderMeta)
+// OpenAI DALL-E 3:
+->withProviderMeta('openai', [
+    'quality' => 'standard',     // 'standard' or 'hd'
+    'style' => 'vivid',          // 'vivid' or 'natural'
+    'response_format' => 'url',  // 'url' or 'b64_json'
+])
+
+// Common sizes
+->withSize(1024, 1024)   // Square (DALL-E 3)
+->withSize(1792, 1024)   // Landscape (DALL-E 3)
+->withSize(1024, 1792)   // Portrait (DALL-E 3)
 ```
 
 ## Next Steps

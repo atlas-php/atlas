@@ -78,6 +78,41 @@ class LogTextGeneration implements PipelineContract
 $registry->register('text.after_text', LogTextGeneration::class);
 ```
 
+## API Reference
+
+```php
+// Text generation fluent API
+Atlas::text()
+    ->using(string $provider, string $model)              // Set provider and model
+    ->withSystemPrompt(string $prompt)                    // System instructions
+    ->withPrompt(string $prompt)                          // User prompt
+    ->withMessages(array $messages)                       // Message history
+    ->withMaxTokens(int $tokens)                          // Max response tokens
+    ->withTemperature(float $temp)                        // Sampling temperature (0-2)
+    ->usingTopP(float $topP)                              // Top-p sampling
+    ->usingTopK(int $topK)                                // Top-k sampling
+    ->withClientRetry(int $times, int $sleepMs)           // Retry with backoff
+    ->withClientOptions(array $options)                   // HTTP client options
+    ->withProviderOptions(array $options)                 // Provider-specific options
+    ->withMetadata(array $metadata)                       // Pipeline metadata
+    ->asText(): PrismResponse;                            // Execute and return response
+    ->asStream(): Generator<StreamEvent>;                 // Execute and stream
+
+// Response properties (PrismResponse)
+$response->text;                    // Generated text
+$response->finishReason;            // FinishReason enum
+$response->usage->promptTokens;     // Input tokens
+$response->usage->completionTokens; // Output tokens
+$response->meta;                    // Request metadata
+
+// Message format for withMessages()
+[
+    ['role' => 'system', 'content' => 'You are helpful.'],
+    ['role' => 'user', 'content' => 'Hello'],
+    ['role' => 'assistant', 'content' => 'Hi there!'],
+]
+```
+
 ## Next Steps
 
 - [Chat](/capabilities/chat) — Agent-based conversations

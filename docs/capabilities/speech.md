@@ -85,9 +85,9 @@ $response = Atlas::audio()
     ->asText();
 ```
 
-## Complete Examples
+## Examples
 
-### Voice Notification Service
+### Example: Voice Notification Service
 
 ```php
 class NotificationService
@@ -108,7 +108,7 @@ class NotificationService
 }
 ```
 
-### Meeting Transcription
+### Example: Meeting Transcription
 
 ```php
 class MeetingService
@@ -181,6 +181,61 @@ class LogAudioGeneration implements PipelineContract
 }
 
 $registry->register('audio.after_audio', LogAudioGeneration::class);
+```
+
+## API Reference
+
+```php
+// Text-to-Speech fluent API
+Atlas::audio()
+    ->using(string $provider, string $model)              // Set provider and model
+    ->withVoice(string $voice)                            // Voice selection
+    ->fromText(string $text)                              // Text to convert
+    ->withProviderMeta(string $provider, array $options)  // Provider-specific options
+    ->withMetadata(array $metadata)                       // Pipeline metadata
+    ->asAudio(): AudioResponse;
+
+// Speech-to-Text fluent API
+Atlas::audio()
+    ->using(string $provider, string $model)              // Set provider and model
+    ->fromFile(string $path)                              // Audio file path
+    ->withProviderMeta(string $provider, array $options)  // Provider-specific options
+    ->withMetadata(array $metadata)                       // Pipeline metadata
+    ->asText(): TranscriptionResponse;
+
+// Text-to-Speech response (AudioResponse)
+$response->audio;    // Raw audio bytes (save directly to file)
+
+// Speech-to-Text response (TranscriptionResponse)
+$response->text;     // Transcribed text
+
+// OpenAI TTS models
+->using('openai', 'tts-1')      // Standard quality
+->using('openai', 'tts-1-hd')   // High definition
+
+// OpenAI STT models
+->using('openai', 'whisper-1')  // Whisper transcription
+
+// OpenAI voices
+->withVoice('alloy')    // Neutral, balanced
+->withVoice('echo')     // Clear, confident
+->withVoice('fable')    // Warm, expressive
+->withVoice('onyx')     // Deep, authoritative
+->withVoice('nova')     // Friendly, natural
+->withVoice('shimmer')  // Clear, energetic
+
+// Common provider options (via withProviderMeta)
+// OpenAI TTS:
+->withProviderMeta('openai', [
+    'speed' => 1.0,              // 0.25 to 4.0
+    'response_format' => 'mp3',  // 'mp3', 'opus', 'aac', 'flac'
+])
+
+// OpenAI STT:
+->withProviderMeta('openai', [
+    'language' => 'en',          // ISO-639-1 language code
+    'temperature' => 0,          // 0 to 1
+])
 ```
 
 ## Next Steps

@@ -713,6 +713,28 @@ $response = Atlas::agent('agent')->chat('input');
 $registry->setActive('agent.before_execute', true);
 ```
 
+## API Reference
+
+```php
+// PipelineRegistry methods
+$registry = app(PipelineRegistry::class);
+
+$registry->define(string $pipeline, string $description, bool $active = true): void;
+$registry->register(string $pipeline, string|PipelineContract $handler, int $priority = 0): void;
+$registry->registerWhen(string $pipeline, string|PipelineContract $handler, callable $condition, int $priority = 0): void;
+$registry->has(string $pipeline): bool;
+$registry->pipelines(): array;
+$registry->definitions(): array;
+$registry->active(string $pipeline): bool;
+$registry->setActive(string $pipeline, bool $active): void;
+
+// PipelineContract interface
+interface PipelineContract
+{
+    public function handle(mixed $data, Closure $next): mixed;
+}
+```
+
 ## Next Steps
 
 - [Error Handling](/advanced/error-handling) — Handle pipeline errors
