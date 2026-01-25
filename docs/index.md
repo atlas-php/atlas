@@ -30,7 +30,7 @@ features:
     details: Let AI call your PHP code. Define typed tools that interact with your database, APIs, and services.
     link: /core-concepts/tools
   - icon:
-      src: /icons/multi-provider.svg
+      src: /icons/prism-logo.webp
       alt: Built on Prism
     title: Built on Prism
     details: Full access to Prism's multi-provider support, streaming, and multimodal capabilities. Atlas organizes without limiting.
