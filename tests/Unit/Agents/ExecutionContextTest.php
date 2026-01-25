@@ -252,6 +252,36 @@ test('getPrismCallsWithoutSchema returns all calls when no schema', function () 
     expect($calls[1]['method'])->toBe('usingTemperature');
 });
 
+// === Runtime Tools Tests ===
+
+test('it creates with default empty tools', function () {
+    $context = new ExecutionContext;
+
+    expect($context->tools)->toBe([]);
+});
+
+test('it creates with provided tools', function () {
+    $context = new ExecutionContext(tools: ['App\\Tools\\MyTool']);
+
+    expect($context->tools)->toBe(['App\\Tools\\MyTool']);
+});
+
+test('it reports hasTools correctly', function () {
+    $empty = new ExecutionContext;
+    $withTools = new ExecutionContext(tools: ['App\\Tools\\MyTool']);
+
+    expect($empty->hasTools())->toBeFalse();
+    expect($withTools->hasTools())->toBeTrue();
+});
+
+test('it creates with multiple tools', function () {
+    $context = new ExecutionContext(tools: ['App\\Tools\\ToolA', 'App\\Tools\\ToolB']);
+
+    expect($context->tools)->toHaveCount(2);
+    expect($context->tools[0])->toBe('App\\Tools\\ToolA');
+    expect($context->tools[1])->toBe('App\\Tools\\ToolB');
+});
+
 // === MCP Tools Tests ===
 
 test('it creates with default empty mcpTools', function () {

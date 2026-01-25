@@ -306,17 +306,12 @@ class AgentExecutor implements AgentExecutorContract
         if (! $isStructured) {
             $toolContext = new ToolContext($context->metadata);
 
-            // Build native Atlas tools
-            $nativeTools = $this->toolBuilder->buildForAgent($agent, $toolContext);
-
-            // Get agent-defined MCP tools
-            $agentMcpTools = $agent->mcpTools();
-
-            // Get runtime MCP tools from context
-            $runtimeMcpTools = $context->mcpTools;
-
-            // Merge all tools (native + agent MCP + runtime MCP)
-            $allTools = [...$nativeTools, ...$agentMcpTools, ...$runtimeMcpTools];
+            // Build all tools and merge in order:
+            // 1. Agent-defined Atlas tools (from agent's tools() method)
+            // 2. Runtime Atlas tools (from withTools())
+            // 3. Agent-defined MCP tools (from agent's mcpTools() method)
+            // 4. Runtime MCP tools (from withMcpTools())
+            $allTools = $this->buildAllTools($agent, $context, $toolContext);
 
             if ($allTools !== []) {
                 $request = $request->withTools($allTools);
@@ -403,6 +398,35 @@ class AgentExecutor implements AgentExecutorContract
         $additionalContent = $this->mediaConverter->convertMany($attachments);
 
         return new UserMessage($message['content'], $additionalContent);
+    }
+
+    /**
+     * Build and merge all tools from agent and runtime context.
+     *
+     * Order: agent native → runtime native → agent MCP → runtime MCP
+     *
+     * @return array<int, \Prism\Prism\Tool>
+     */
+    protected function buildAllTools(
+        AgentContract $agent,
+        ExecutionContext $context,
+        ToolContext $toolContext
+    ): array {
+        // 1. Agent-defined Atlas tools (built from tool class names)
+        $agentNativeTools = $this->toolBuilder->buildForAgent($agent, $toolContext);
+
+        // 2. Runtime Atlas tools (built from tool class names via withTools())
+        $runtimeNativeTools = $context->hasTools()
+            ? $this->toolBuilder->buildFromClasses($context->tools, $toolContext)
+            : [];
+
+        // 3. Agent-defined MCP tools (already Prism Tool instances)
+        $agentMcpTools = $agent->mcpTools();
+
+        // 4. Runtime MCP tools (already Prism Tool instances via withMcpTools())
+        $runtimeMcpTools = $context->mcpTools;
+
+        return [...$agentNativeTools, ...$runtimeNativeTools, ...$agentMcpTools, ...$runtimeMcpTools];
     }
 
     /**

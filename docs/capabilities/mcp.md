@@ -3,7 +3,7 @@
 Add external tools from MCP servers to your agents using prism-php/relay. MCP enables agents to use tools from external servers, expanding their capabilities beyond native Atlas tools.
 
 ::: tip Prism Relay
-Atlas integrates with MCP through prism-php/relay. For complete MCP server configuration, transport options, and tool management, see the [Prism Relay documentation](https://prismphp.com/extras/relay.html).
+Atlas integrates with MCP through prism-php/relay. For complete MCP server configuration, transport options, and tool management, see the [Prism Relay repository](https://github.com/prism-php/relay).
 :::
 
 ## Installation
@@ -16,7 +16,7 @@ composer require prism-php/relay
 
 ## Configuration
 
-Configure your MCP servers in `config/prism.php`. See [Prism Relay documentation](https://prismphp.com/extras/relay.html) for detailed configuration options.
+Configure your MCP servers in `config/relay.php`. See the [Prism Relay README](https://github.com/prism-php/relay#configuration) for detailed configuration options.
 
 ```php
 // config/prism.php
@@ -156,9 +156,10 @@ foreach ($stream as $event) {
 
 When tools are merged, they follow this order:
 
-1. **Native Atlas tools** from `tools()` method
-2. **Agent MCP tools** from `mcpTools()` method
-3. **Runtime MCP tools** from `withMcpTools()` calls
+1. **Agent native tools** from `tools()` method
+2. **Runtime native tools** from `withTools()` calls
+3. **Agent MCP tools** from `mcpTools()` method
+4. **Runtime MCP tools** from `withMcpTools()` calls
 
 All tools are passed to Prism together. If tools have conflicting names, the first occurrence takes precedence.
 
@@ -185,18 +186,21 @@ try {
 }
 ```
 
-See [Prism Relay documentation](https://prismphp.com/extras/relay.html) for complete error handling guidance.
+See the [Prism Relay repository](https://github.com/prism-php/relay) for complete error handling guidance.
 
 ## API Reference
 
 ```php
-// Agent definition method
+// Agent definition methods
 public function mcpTools(): array;  // Override to return Prism Tool instances
 
-// Runtime method on PendingAgentRequest
-->withMcpTools(array $tools): static;  // Add MCP tools, accumulates across calls
+// Runtime methods on PendingAgentRequest
+->withTools(array $tools): static;     // Add Atlas tools at runtime, accumulates
+->withMcpTools(array $tools): static;  // Add MCP tools at runtime, accumulates
 
-// ExecutionContext property
+// ExecutionContext properties
+$context->tools;           // array<int, class-string<ToolContract>>
+$context->hasTools();      // bool - check if runtime tools are present
 $context->mcpTools;        // array<int, \Prism\Prism\Tool>
 $context->hasMcpTools();   // bool - check if MCP tools are present
 
@@ -208,5 +212,5 @@ $relay->tool(string $serverName, string $toolName): Tool;  // Get specific tool
 ## Next Steps
 
 - [Tools](/core-concepts/tools) - Native Atlas tool definitions
-- [Prism Relay documentation](https://prismphp.com/extras/relay.html) - Complete MCP configuration
+- [Prism Relay](https://github.com/prism-php/relay) - Complete MCP server configuration
 - [Chat](/capabilities/chat) - Using tools in conversations

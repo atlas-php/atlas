@@ -586,6 +586,95 @@ test('chaining preserves all configuration', function () {
     expect($capturedContext->prismCalls)->toHaveCount(1);
 });
 
+// === withTools Tests ===
+
+test('withTools adds tools immutably', function () {
+    $request2 = $this->request->withTools(['App\\Tools\\MyTool']);
+
+    expect($request2)->not->toBe($this->request);
+    expect($request2)->toBeInstanceOf(PendingAgentRequest::class);
+});
+
+test('withTools includes tools in context', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $this->request
+        ->withTools(['App\\Tools\\MyTool'])
+        ->chat('Hello');
+
+    expect($capturedContext->tools)->toHaveCount(1);
+    expect($capturedContext->tools[0])->toBe('App\\Tools\\MyTool');
+});
+
+test('withTools accumulates with chained calls', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $this->request
+        ->withTools(['App\\Tools\\ToolA'])
+        ->withTools(['App\\Tools\\ToolB'])
+        ->chat('Hello');
+
+    expect($capturedContext->tools)->toHaveCount(2);
+    expect($capturedContext->tools[0])->toBe('App\\Tools\\ToolA');
+    expect($capturedContext->tools[1])->toBe('App\\Tools\\ToolB');
+});
+
+test('withTools works with multiple tools in single call', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $this->request
+        ->withTools(['App\\Tools\\ToolA', 'App\\Tools\\ToolB'])
+        ->chat('Hello');
+
+    expect($capturedContext->tools)->toHaveCount(2);
+});
+
+test('withTools can be combined with withMcpTools', function () {
+    $mockMcpTool = Mockery::mock(\Prism\Prism\Tool::class);
+
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $this->request
+        ->withTools(['App\\Tools\\MyTool'])
+        ->withMcpTools([$mockMcpTool])
+        ->chat('Hello');
+
+    expect($capturedContext->tools)->toHaveCount(1);
+    expect($capturedContext->mcpTools)->toHaveCount(1);
+});
+
 // === withMcpTools Tests ===
 
 test('withMcpTools adds tools immutably', function () {

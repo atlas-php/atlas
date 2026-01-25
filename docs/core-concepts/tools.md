@@ -529,6 +529,9 @@ $registry->get(string $name): ToolContract;
 $registry->all(): array;
 $registry->only(array $names): array;
 
+// Runtime tools on PendingAgentRequest
+->withTools(array $tools): static;  // Add tools at runtime, accumulates across calls
+
 // ConfiguresPrismTool interface (optional)
 public function configurePrismTool(PrismTool $tool): PrismTool;
 ```

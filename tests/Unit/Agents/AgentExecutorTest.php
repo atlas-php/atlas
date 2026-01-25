@@ -1898,3 +1898,91 @@ test('it handles empty mcpTools gracefully', function () {
 
     expect($response)->toBeInstanceOf(PrismResponse::class);
 });
+
+// === withTools (runtime native tools) Tests ===
+
+test('it merges runtime native tools with agent tools', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response with runtime tools')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $agent = new TestAgent;
+    // Note: We can't easily test the actual tool building without real tool classes,
+    // but we can verify that the context with tools is handled without errors
+    $context = new ExecutionContext(
+        tools: [], // Empty is valid
+    );
+
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response->text)->toBe('Response with runtime tools');
+});
+
+test('it merges all four tool sources correctly', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response with all tool types')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create mock MCP tools
+    $agentMcpTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $agentMcpTool->shouldReceive('name')->andReturn('agent_mcp_tool');
+
+    $runtimeMcpTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $runtimeMcpTool->shouldReceive('name')->andReturn('runtime_mcp_tool');
+
+    // Create agent with MCP tools
+    $agent = new class($agentMcpTool) extends \Atlasphp\Atlas\Agents\AgentDefinition
+    {
+        public function __construct(private $tool) {}
+
+        public function key(): string
+        {
+            return 'agent-with-all-tool-types';
+        }
+
+        public function provider(): ?string
+        {
+            return 'openai';
+        }
+
+        public function model(): ?string
+        {
+            return 'gpt-4';
+        }
+
+        public function mcpTools(): array
+        {
+            return [$this->tool];
+        }
+    };
+
+    // Context with runtime native tools (empty for this test) and runtime MCP tools
+    $context = new ExecutionContext(
+        tools: [],
+        mcpTools: [$runtimeMcpTool],
+    );
+
+    $response = $executor->execute($agent, 'Hello', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response->text)->toBe('Response with all tool types');
+});

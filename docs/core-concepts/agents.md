@@ -549,6 +549,7 @@ Atlas::agent(string|AgentContract $agent)
     ->withProvider(string $provider, ?string $model = null)  // Override provider
     ->withModel(string $model)                   // Override model
     ->withMedia(Image|Document|Audio|Video|array $media)     // Attach media
+    ->withTools(array $tools)                    // Add Atlas tools at runtime
     ->withMcpTools(array $tools)                 // Add MCP tools at runtime
     ->withSchema(SchemaBuilder|ObjectSchema $schema)         // Structured output
     ->usingAutoMode()                            // Auto schema mode (default)

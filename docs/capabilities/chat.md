@@ -218,6 +218,7 @@ $response = Atlas::agent('support-agent')
 | `withProvider(string $provider, ?string $model)` | Override agent's provider/model |
 | `withSchema(Schema $schema)` | Schema for structured output ([details](/capabilities/structured-output)) |
 | `withMedia(array $media)` | Attach Prism media objects via builder pattern |
+| `withTools(array $tools)` | Add Atlas tools at runtime (accumulates) |
 | `withMcpTools(array $tools)` | Add MCP tools at runtime ([details](/capabilities/mcp)) |
 
 </div>
@@ -295,6 +296,7 @@ Atlas::agent(string|AgentContract $agent)
     ->withMedia(Image|Document|Audio|Video|array $media)  // Attach media (builder style)
 
     // Tools
+    ->withTools(array $tools)                             // Add Atlas tools at runtime
     ->withMcpTools(array $tools)                          // Add MCP tools at runtime
 
     // Structured output
