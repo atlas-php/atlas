@@ -327,6 +327,39 @@ class DataExtractorAgent extends AgentDefinition
 }
 ```
 
+## Pipeline Hooks
+
+Structured output supports pipeline middleware for observability:
+
+<div class="full-width-table">
+
+| Pipeline | Trigger |
+|----------|---------|
+| `structured.before_structured` | Before structured output generation |
+| `structured.after_structured` | After structured output generation |
+
+</div>
+
+```php
+use Atlasphp\Atlas\Contracts\PipelineContract;
+
+class LogStructuredOutput implements PipelineContract
+{
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        $result = $next($data);
+
+        Log::info('Structured output generated', [
+            'user_id' => $data['metadata']['user_id'] ?? null,
+        ]);
+
+        return $result;
+    }
+}
+
+$registry->register('structured.after_structured', LogStructuredOutput::class);
+```
+
 ## API Reference
 
 ```php

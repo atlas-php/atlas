@@ -5,7 +5,7 @@ Agents are reusable AI configurations that combine a provider, model, system pro
 ## What is an Agent?
 
 An agent can define:
-- **Provider** — The AI provider (`openai`, `anthropic`, etc.) - optional, uses config default
+- **Provider** — The AI provider (`openai`, `anthropic`, etc.)
 - **Model** — The model to use (`gpt-4o`, `claude-sonnet-4-20250514`, etc.)
 - **System Prompt** — Instructions with `{variable}` interpolation support
 - **Tools** — Custom tool classes the agent can invoke
@@ -23,43 +23,27 @@ use Atlasphp\Atlas\Agents\AgentDefinition;
 
 class CustomerSupportAgent extends AgentDefinition
 {
-    public function provider(): ?string
-    {
-        return 'openai';
-    }
-
-    public function model(): ?string
-    {
-        return 'gpt-4o';
-    }
+    public function provider(): ?string { return 'openai'; }
+    public function model(): ?string { return 'gpt-4o'; }
+    public function temperature(): ?float { return 0.7; }
 
     public function systemPrompt(): ?string
     {
         return <<<'PROMPT'
-        You are a senior customer support specialist for {user_name}.
+        You are a customer support specialist for {company_name}.
 
         ## Customer Context
-        - **Name:** {user_name}
+        - **Name:** {customer_name}
         - **Account Tier:** {account_tier}
-        - **Customer Since:** {customer_since}
 
-        ## Your Responsibilities
-        - Resolve customer inquiries efficiently and empathetically
-        - Look up order information when customers ask about purchases
-        - Process refunds according to company policy (30-day window, valid reason required)
-        - Escalate complex issues you cannot resolve directly
+        ## Available Tools
+        - **lookup_order** - Retrieve order details by order ID
+        - **process_refund** - Process refunds for eligible orders
 
         ## Guidelines
-        - Always greet the customer by name and maintain a warm, professional tone
-        - For order inquiries, use the `lookup_order` tool to retrieve current status
+        - Always greet the customer by name
+        - For order inquiries, use `lookup_order` before providing details
         - Before processing refunds, verify eligibility using order data
-        - If a request falls outside policy, explain clearly and offer alternatives
-        - Never share internal system details or other customers' information
-
-        ## Response Style
-        - Be concise but thorough—customers value their time
-        - Use bullet points for multiple pieces of information
-        - End interactions by asking if there's anything else you can help with
         PROMPT;
     }
 
@@ -67,18 +51,8 @@ class CustomerSupportAgent extends AgentDefinition
     {
         return [
             LookupOrderTool::class,
-            RefundTool::class,
+            ProcessRefundTool::class,
         ];
-    }
-
-    public function temperature(): ?float
-    {
-        return 0.7;
-    }
-
-    public function maxTokens(): ?int
-    {
-        return 2000;
     }
 }
 ```
@@ -147,6 +121,47 @@ $response = Atlas::agent(CustomerSupportAgent::class)->chat('Hello');
 // By instance
 $response = Atlas::agent(new CustomerSupportAgent())->chat('Hello');
 ```
+
+### Streaming Responses
+
+Use `stream()` for real-time token streaming:
+
+```php
+$stream = Atlas::agent('customer-support')
+    ->withVariables(['customer_name' => 'Sarah'])
+    ->stream('Where is my order?');
+
+foreach ($stream as $event) {
+    echo $event->text; // Output tokens as they arrive
+}
+```
+
+### Passing Metadata to Tools
+
+Use `withMetadata()` to pass context that tools can access via `ToolContext`:
+
+```php
+$response = Atlas::agent('customer-support')
+    ->withMetadata([
+        'user_id' => auth()->id(),
+        'tenant_id' => $tenant->id,
+    ])
+    ->chat('Look up my recent orders');
+```
+
+Inside your tool, access this metadata:
+
+```php
+public function handle(array $arguments, ToolContext $context): ToolResult
+{
+    $userId = $context->getMeta('user_id');
+    $orders = Order::where('user_id', $userId)->get();
+
+    return ToolResult::json($orders);
+}
+```
+
+This allows tools to access user context, tenant isolation, and other request-specific data without hardcoding it.
 
 ## Configuration Options
 
