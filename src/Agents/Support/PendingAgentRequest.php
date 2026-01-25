@@ -175,7 +175,6 @@ final class PendingAgentRequest
             metadata: $this->getMetadata(),
             providerOverride: $this->providerOverride,
             modelOverride: $this->modelOverride,
-            currentAttachments: $this->getCurrentAttachments(),
             prismCalls: $this->prismCalls,
             prismMedia: $this->getPrismMedia(),
         );

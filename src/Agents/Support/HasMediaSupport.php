@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Agents\Support;
 
 use Atlasphp\Atlas\Agents\Enums\MediaSource;
-use Atlasphp\Atlas\Agents\Enums\MediaType;
 use Prism\Prism\ValueObjects\Media\Audio;
 use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Media\Image;
@@ -18,20 +17,13 @@ use Prism\Prism\ValueObjects\Media\Video;
  * to requests. Each method accepts a single item or an array of items.
  * Uses the clone pattern for immutability.
  *
- * Supports both array format (for serialization/queues) and direct Prism
- * media objects (for direct API access).
+ * All methods create Prism media objects directly, deferring to Prism
+ * for media handling as per the Atlas philosophy.
  */
 trait HasMediaSupport
 {
     /**
-     * Current input attachments (array format for serialization).
-     *
-     * @var array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>
-     */
-    private array $currentAttachments = [];
-
-    /**
-     * Direct Prism media objects.
+     * Prism media objects for current input.
      *
      * @var array<int, Image|Document|Audio|Video>
      */
@@ -51,7 +43,20 @@ trait HasMediaSupport
         ?string $mimeType = null,
         ?string $disk = null,
     ): static {
-        return $this->addAttachments(MediaType::Image, $data, $source, $mimeType, null, $disk);
+        $clone = clone $this;
+        $items = is_array($data) ? $data : [$data];
+
+        foreach ($items as $item) {
+            $clone->prismMedia[] = match ($source) {
+                MediaSource::Url => Image::fromUrl($item, $mimeType),
+                MediaSource::Base64 => Image::fromBase64($item, $mimeType),
+                MediaSource::LocalPath => Image::fromLocalPath($item, $mimeType),
+                MediaSource::StoragePath => Image::fromStoragePath($item, $disk),
+                MediaSource::FileId => Image::fromFileId($item),
+            };
+        }
+
+        return $clone;
     }
 
     /**
@@ -70,7 +75,20 @@ trait HasMediaSupport
         ?string $title = null,
         ?string $disk = null,
     ): static {
-        return $this->addAttachments(MediaType::Document, $data, $source, $mimeType, $title, $disk);
+        $clone = clone $this;
+        $items = is_array($data) ? $data : [$data];
+
+        foreach ($items as $item) {
+            $clone->prismMedia[] = match ($source) {
+                MediaSource::Url => Document::fromUrl($item, $title),
+                MediaSource::Base64 => Document::fromBase64($item, $mimeType, $title),
+                MediaSource::LocalPath => Document::fromLocalPath($item, $title),
+                MediaSource::StoragePath => Document::fromStoragePath($item, $disk, $title),
+                MediaSource::FileId => Document::fromFileId($item, $title),
+            };
+        }
+
+        return $clone;
     }
 
     /**
@@ -87,7 +105,20 @@ trait HasMediaSupport
         ?string $mimeType = null,
         ?string $disk = null,
     ): static {
-        return $this->addAttachments(MediaType::Audio, $data, $source, $mimeType, null, $disk);
+        $clone = clone $this;
+        $items = is_array($data) ? $data : [$data];
+
+        foreach ($items as $item) {
+            $clone->prismMedia[] = match ($source) {
+                MediaSource::Url => Audio::fromUrl($item, $mimeType),
+                MediaSource::Base64 => Audio::fromBase64($item, $mimeType),
+                MediaSource::LocalPath => Audio::fromLocalPath($item, $mimeType),
+                MediaSource::StoragePath => Audio::fromStoragePath($item, $disk),
+                MediaSource::FileId => Audio::fromFileId($item),
+            };
+        }
+
+        return $clone;
     }
 
     /**
@@ -104,7 +135,20 @@ trait HasMediaSupport
         ?string $mimeType = null,
         ?string $disk = null,
     ): static {
-        return $this->addAttachments(MediaType::Video, $data, $source, $mimeType, null, $disk);
+        $clone = clone $this;
+        $items = is_array($data) ? $data : [$data];
+
+        foreach ($items as $item) {
+            $clone->prismMedia[] = match ($source) {
+                MediaSource::Url => Video::fromUrl($item, $mimeType),
+                MediaSource::Base64 => Video::fromBase64($item, $mimeType),
+                MediaSource::LocalPath => Video::fromLocalPath($item, $mimeType),
+                MediaSource::StoragePath => Video::fromStoragePath($item, $disk),
+                MediaSource::FileId => Video::fromFileId($item),
+            };
+        }
+
+        return $clone;
     }
 
     /**
@@ -131,64 +175,12 @@ trait HasMediaSupport
     }
 
     /**
-     * Get the current attachments (array format).
-     *
-     * @return array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>
-     */
-    protected function getCurrentAttachments(): array
-    {
-        return $this->currentAttachments;
-    }
-
-    /**
-     * Get the direct Prism media objects.
+     * Get the Prism media objects.
      *
      * @return array<int, Image|Document|Audio|Video>
      */
     protected function getPrismMedia(): array
     {
         return $this->prismMedia;
-    }
-
-    /**
-     * Add attachments of a specific type.
-     *
-     * @param  string|array<int, string>  $data  Single item or array of items.
-     */
-    protected function addAttachments(
-        MediaType $type,
-        string|array $data,
-        MediaSource $source,
-        ?string $mimeType = null,
-        ?string $title = null,
-        ?string $disk = null,
-    ): static {
-        $clone = clone $this;
-
-        $items = is_array($data) ? $data : [$data];
-
-        foreach ($items as $item) {
-            $attachment = [
-                'type' => $type->value,
-                'source' => $source->value,
-                'data' => $item,
-            ];
-
-            if ($mimeType !== null) {
-                $attachment['mime_type'] = $mimeType;
-            }
-
-            if ($title !== null) {
-                $attachment['title'] = $title;
-            }
-
-            if ($disk !== null) {
-                $attachment['disk'] = $disk;
-            }
-
-            $clone->currentAttachments[] = $attachment;
-        }
-
-        return $clone;
     }
 }

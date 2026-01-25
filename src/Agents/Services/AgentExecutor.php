@@ -227,7 +227,7 @@ class AgentExecutor implements AgentExecutorContract
 
             $request = $context->hasMessages()
                 ? $request->withMessages($this->buildMessages($context, $input))
-                : $request->withPrompt($input, $this->buildAttachments($context));
+                : $request->withPrompt($input, $context->prismMedia);
 
             if ($agent->maxSteps() !== null) {
                 $request = $request->withMaxSteps($agent->maxSteps());
@@ -260,7 +260,7 @@ class AgentExecutor implements AgentExecutorContract
     {
         $messages = [];
 
-        // Convert existing messages
+        // Convert existing messages (history uses array format for serialization)
         foreach ($context->messages as $message) {
             $messages[] = match ($message['role']) {
                 'user' => $this->createUserMessage($message),
@@ -272,50 +272,17 @@ class AgentExecutor implements AgentExecutorContract
             };
         }
 
-        // Add current input as user message
-        $currentMessage = ['role' => 'user', 'content' => $input];
-        if ($context->hasCurrentAttachments()) {
-            $currentMessage['attachments'] = $context->currentAttachments;
-        }
-        $messages[] = $this->createUserMessage($currentMessage);
+        // Add current input as user message with Prism media objects directly
+        $messages[] = new UserMessage($input, $context->prismMedia);
 
         return $messages;
     }
 
     /**
-     * Build attachments for the current input (prompt mode only).
+     * Create a UserMessage with optional attachments from message history.
      *
-     * Handles both array format (for serialization/queues) and direct
-     * Prism media objects (for direct API access).
-     *
-     * @return array<int, mixed>
-     */
-    protected function buildAttachments(ExecutionContext $context): array
-    {
-        if (! $context->hasCurrentAttachments()) {
-            return [];
-        }
-
-        $attachments = [];
-
-        // Add direct Prism media objects first
-        foreach ($context->prismMedia as $media) {
-            $attachments[] = $media;
-        }
-
-        // Convert array format attachments if present
-        if ($context->currentAttachments !== []) {
-            $attachments = array_merge(
-                $attachments,
-                $this->mediaConverter->convertMany($context->currentAttachments)
-            );
-        }
-
-        return $attachments;
-    }
-
-    /**
-     * Create a UserMessage with optional attachments.
+     * Uses MediaConverter to convert array-format attachments (for serialization)
+     * into Prism media objects.
      *
      * @param  array{role: string, content: string, attachments?: array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>}  $message
      */

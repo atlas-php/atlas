@@ -390,7 +390,7 @@ test('it handles prismMedia attachments directly', function () {
     expect($response->text)->toBe('I see the image');
 });
 
-test('it combines prismMedia with currentAttachments', function () {
+test('it handles multiple prismMedia attachments', function () {
     Prism::fake([
         TextResponseFake::make()
             ->withText('I see both images')
@@ -404,14 +404,12 @@ test('it combines prismMedia with currentAttachments', function () {
         $this->mediaConverter,
     );
 
-    // Create a Prism media object using the correct namespace
-    $image = \Prism\Prism\ValueObjects\Media\Image::fromUrl('https://example.com/image1.jpg');
+    // Create multiple Prism media objects
+    $image1 = \Prism\Prism\ValueObjects\Media\Image::fromUrl('https://example.com/image1.jpg');
+    $image2 = \Prism\Prism\ValueObjects\Media\Image::fromUrl('https://example.com/image2.jpg');
 
     $context = new ExecutionContext(
-        prismMedia: [$image],
-        currentAttachments: [
-            ['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image2.jpg'],
-        ],
+        prismMedia: [$image1, $image2],
     );
 
     $agent = new TestAgent;
@@ -472,7 +470,7 @@ test('it replays prism calls from context', function () {
     expect($response)->toBeInstanceOf(PrismResponse::class);
 });
 
-test('it handles current attachments in context', function () {
+test('it handles prism media in context', function () {
     Prism::fake([
         TextResponseFake::make()
             ->withText('I see the image')
@@ -486,10 +484,10 @@ test('it handles current attachments in context', function () {
         $this->mediaConverter,
     );
 
+    $image = \Prism\Prism\ValueObjects\Media\Image::fromUrl('https://example.com/image.jpg');
+
     $context = new ExecutionContext(
-        currentAttachments: [
-            ['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image.jpg'],
-        ],
+        prismMedia: [$image],
     );
 
     $agent = new TestAgent;

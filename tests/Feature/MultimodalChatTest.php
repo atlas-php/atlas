@@ -9,6 +9,7 @@ use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Testing\TextResponseFake;
 use Prism\Prism\Text\Response as PrismResponse;
+use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Usage;
 
 test('MediaConverter is registered as singleton', function () {
@@ -19,7 +20,7 @@ test('MediaConverter is registered as singleton', function () {
     expect($converter1)->toBeInstanceOf(MediaConverter::class);
 });
 
-test('agent executor handles current attachments', function () {
+test('agent executor handles prism media attachments', function () {
     Prism::fake([
         TextResponseFake::make()
             ->withText('I can see the image')
@@ -29,14 +30,10 @@ test('agent executor handles current attachments', function () {
     $executor = app(AgentExecutorContract::class);
     $agent = new TestAgent;
 
+    $image = Image::fromUrl('https://example.com/image.jpg');
+
     $context = new ExecutionContext(
-        currentAttachments: [
-            [
-                'type' => 'image',
-                'source' => 'url',
-                'data' => 'https://example.com/image.jpg',
-            ],
-        ],
+        prismMedia: [$image],
     );
 
     $response = $executor->execute($agent, 'What do you see?', $context);
@@ -45,7 +42,7 @@ test('agent executor handles current attachments', function () {
     expect($response->text)->toBe('I can see the image');
 });
 
-test('agent executor handles messages with attachments', function () {
+test('agent executor handles messages with prism media', function () {
     Prism::fake([
         TextResponseFake::make()
             ->withText('I see both images')
@@ -55,17 +52,13 @@ test('agent executor handles messages with attachments', function () {
     $executor = app(AgentExecutorContract::class);
     $agent = new TestAgent;
 
+    $image = Image::fromUrl('https://example.com/new-image.jpg');
+
     $context = new ExecutionContext(
         messages: [
             ['role' => 'user', 'content' => 'Hello'],
         ],
-        currentAttachments: [
-            [
-                'type' => 'image',
-                'source' => 'url',
-                'data' => 'https://example.com/new-image.jpg',
-            ],
-        ],
+        prismMedia: [$image],
     );
 
     $response = $executor->execute($agent, 'Now look at this one', $context);
@@ -104,32 +97,24 @@ test('history attachments are preserved in messages', function () {
     expect($response)->toBeInstanceOf(PrismResponse::class);
 });
 
-test('execution context creates with currentAttachments', function () {
-    $attachments = [
-        [
-            'type' => 'image',
-            'source' => 'url',
-            'data' => 'https://example.com/image.jpg',
-        ],
-    ];
+test('execution context creates with prismMedia', function () {
+    $image = Image::fromUrl('https://example.com/image.jpg');
 
-    $context = new ExecutionContext(currentAttachments: $attachments);
+    $context = new ExecutionContext(prismMedia: [$image]);
 
-    expect($context->currentAttachments)->toBe($attachments);
-    expect($context->hasCurrentAttachments())->toBeTrue();
+    expect($context->prismMedia)->toBe([$image]);
+    expect($context->hasAttachments())->toBeTrue();
 });
 
-test('execution context without attachments reports hasCurrentAttachments false', function () {
+test('execution context without attachments reports hasAttachments false', function () {
     $context = new ExecutionContext;
 
-    expect($context->currentAttachments)->toBe([]);
-    expect($context->hasCurrentAttachments())->toBeFalse();
+    expect($context->prismMedia)->toBe([]);
+    expect($context->hasAttachments())->toBeFalse();
 });
 
 test('execution context creates with all parameters', function () {
-    $attachments = [
-        ['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image.jpg'],
-    ];
+    $image = Image::fromUrl('https://example.com/image.jpg');
 
     $context = new ExecutionContext(
         messages: [['role' => 'user', 'content' => 'Hello']],
@@ -137,7 +122,7 @@ test('execution context creates with all parameters', function () {
         metadata: ['meta' => 'data'],
         providerOverride: 'openai',
         modelOverride: 'gpt-4',
-        currentAttachments: $attachments,
+        prismMedia: [$image],
     );
 
     expect($context->messages)->toBe([['role' => 'user', 'content' => 'Hello']]);
@@ -145,5 +130,5 @@ test('execution context creates with all parameters', function () {
     expect($context->metadata)->toBe(['meta' => 'data']);
     expect($context->providerOverride)->toBe('openai');
     expect($context->modelOverride)->toBe('gpt-4');
-    expect($context->currentAttachments)->toBe($attachments);
+    expect($context->prismMedia)->toBe([$image]);
 });

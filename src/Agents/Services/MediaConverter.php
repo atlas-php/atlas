@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Agents\Services;
 
 use Atlasphp\Atlas\Agents\Enums\MediaSource;
-use Atlasphp\Atlas\Agents\Enums\MediaType;
 use InvalidArgumentException;
 use Prism\Prism\ValueObjects\Media\Audio;
 use Prism\Prism\ValueObjects\Media\Document;
@@ -15,8 +14,12 @@ use Prism\Prism\ValueObjects\Media\Video;
 /**
  * Service to convert attachment arrays to Prism Media objects.
  *
- * Converts the serializable attachment format used by Atlas into the
- * corresponding Prism media objects for API requests.
+ * Converts the serializable attachment format used by Atlas (for message history)
+ * into the corresponding Prism media objects for API requests.
+ *
+ * This converter is only needed for message history attachments, which use
+ * array format for serialization. Current input attachments are stored as
+ * Prism objects directly.
  */
 class MediaConverter
 {
@@ -31,7 +34,7 @@ class MediaConverter
     {
         $this->validateAttachment($attachment);
 
-        $type = MediaType::from($attachment['type']);
+        $type = $attachment['type'];
         $source = MediaSource::from($attachment['source']);
         $data = $attachment['data'];
         $mimeType = $attachment['mime_type'] ?? null;
@@ -39,10 +42,13 @@ class MediaConverter
         $disk = $attachment['disk'] ?? null;
 
         return match ($type) {
-            MediaType::Image => $this->createImage($source, $data, $mimeType, $disk),
-            MediaType::Document => $this->createDocument($source, $data, $mimeType, $title, $disk),
-            MediaType::Audio => $this->createAudio($source, $data, $mimeType, $disk),
-            MediaType::Video => $this->createVideo($source, $data, $mimeType, $disk),
+            'image' => $this->createImage($source, $data, $mimeType, $disk),
+            'document' => $this->createDocument($source, $data, $mimeType, $title, $disk),
+            'audio' => $this->createAudio($source, $data, $mimeType, $disk),
+            'video' => $this->createVideo($source, $data, $mimeType, $disk),
+            default => throw new InvalidArgumentException(
+                sprintf('Unknown attachment type: %s. Valid types are: image, document, audio, video.', $type)
+            ),
         };
     }
 

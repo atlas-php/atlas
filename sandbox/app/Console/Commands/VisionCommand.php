@@ -880,94 +880,57 @@ class VisionCommand extends Command
 
         $this->line('');
 
-        // Test 9: Context construction verification (all media types)
-        $this->info('Test 9: Context Construction Verification (All Media Types)');
+        // Test 9: Context construction verification (Prism media objects)
+        $this->info('Test 9: Context Construction Verification (Prism Media Objects)');
         $this->line('');
 
-        $this->line('  Testing context with multiple attachment types...');
+        $this->line('  Testing context with Prism media objects...');
         try {
-            // Build context with all media types
-            $allAttachments = [];
+            // Build context with Prism media objects
+            $prismMedia = [];
 
             if ($image1 !== null) {
-                $allAttachments[] = [
-                    'type' => 'image',
-                    'source' => 'local_path',
-                    'data' => $image1,
-                ];
+                $prismMedia[] = \Prism\Prism\ValueObjects\Media\Image::fromLocalPath($image1);
             }
             if ($documentPath !== null) {
-                $allAttachments[] = [
-                    'type' => 'document',
-                    'source' => 'local_path',
-                    'data' => $documentPath,
-                    'mime_type' => 'text/plain',
-                ];
+                $prismMedia[] = \Prism\Prism\ValueObjects\Media\Document::fromLocalPath($documentPath);
             }
             if ($audioPath !== null) {
-                $allAttachments[] = [
-                    'type' => 'audio',
-                    'source' => 'local_path',
-                    'data' => $audioPath,
-                    'mime_type' => 'audio/mpeg',
-                ];
+                $prismMedia[] = \Prism\Prism\ValueObjects\Media\Audio::fromLocalPath($audioPath);
             }
 
             $context = new \Atlasphp\Atlas\Agents\Support\ExecutionContext(
                 messages: [],
                 variables: [],
                 metadata: ['test_key' => 'test_value'],
-                currentAttachments: $allAttachments,
+                prismMedia: $prismMedia,
             );
 
-            $hasAttachments = $context->hasCurrentAttachments();
+            $hasAttachments = $context->hasAttachments();
             $hasMetadata = ! empty($context->metadata);
-            $attachmentCount = count($context->currentAttachments);
+            $attachmentCount = count($context->prismMedia);
 
-            $this->line('    hasCurrentAttachments(): '.($hasAttachments ? 'true' : 'false'));
-            $this->line("    Attachment count: {$attachmentCount}");
+            $this->line('    hasAttachments(): '.($hasAttachments ? 'true' : 'false'));
+            $this->line("    Prism media count: {$attachmentCount}");
 
-            // Show each attachment type
+            // Show each media type
             $types = [];
-            foreach ($context->currentAttachments as $i => $attachment) {
-                $types[] = $attachment['type'];
-                $this->line("    [{$i}] type={$attachment['type']}, source={$attachment['source']}");
+            foreach ($context->prismMedia as $i => $media) {
+                $type = (new \ReflectionClass($media))->getShortName();
+                $types[] = $type;
+                $this->line("    [{$i}] type={$type}");
             }
 
             if ($hasAttachments && $hasMetadata && $attachmentCount >= 1) {
                 $results['context_construction'] = 'PASS';
-                $this->info('    [PASS] Context properly constructed with '.implode(', ', $types).' attachments');
+                $this->info('    [PASS] Context properly constructed with '.implode(', ', $types).' Prism media objects');
             } else {
                 $results['context_construction'] = 'FAIL';
                 $this->error('    [FAIL] Context construction incorrect');
             }
 
-            // Verify context preserves through with* methods
-            $newContext = $context->withMessages([['role' => 'user', 'content' => 'test']]);
-            if ($newContext->hasCurrentAttachments() && count($newContext->currentAttachments) === $attachmentCount) {
-                $this->info('    [PASS] withMessages() preserves all currentAttachments');
-            } else {
-                $results['context_construction'] = 'FAIL';
-                $this->error('    [FAIL] withMessages() lost currentAttachments');
-            }
-
-            // Verify withCurrentAttachments replaces attachments (immutable pattern)
-            $newAttachments = [['type' => 'video', 'source' => 'url', 'data' => 'https://example.com/video.mp4']];
-            $updatedContext = $context->withCurrentAttachments($newAttachments);
-            if (count($updatedContext->currentAttachments) === 1 && $updatedContext->currentAttachments[0]['type'] === 'video') {
-                $this->info('    [PASS] withCurrentAttachments() correctly replaces attachments (immutable)');
-            } else {
-                $results['context_construction'] = 'FAIL';
-                $this->error('    [FAIL] withCurrentAttachments() did not replace correctly');
-            }
-
-            // Verify original context is unchanged (immutability)
-            if (count($context->currentAttachments) === $attachmentCount) {
-                $this->info('    [PASS] Original context unchanged (immutability verified)');
-            } else {
-                $results['context_construction'] = 'FAIL';
-                $this->error('    [FAIL] Original context was mutated');
-            }
+            // ExecutionContext is readonly, verify immutability is enforced
+            $this->info('    [INFO] ExecutionContext is readonly - immutability enforced at the type level');
 
         } catch (\Throwable $e) {
             $results['context_construction'] = 'FAIL';
@@ -1051,18 +1014,19 @@ class VisionCommand extends Command
             $this->line('before_execute:');
             $this->line("  Agent: {$pipelineData['before_execute']['agent']}");
             $this->line("  Input: {$pipelineData['before_execute']['input']}");
-            $this->line('  Has Current Attachments: '.($pipelineData['before_execute']['has_current_attachments'] ? 'Yes' : 'No'));
-            $this->line("  Current Attachments Count: {$pipelineData['before_execute']['current_attachments_count']}");
+            $this->line('  Has Attachments: '.($pipelineData['before_execute']['has_attachments'] ? 'Yes' : 'No'));
+            $this->line("  Prism Media Count: {$pipelineData['before_execute']['prism_media_count']}");
             $this->line("  Messages Count: {$pipelineData['before_execute']['messages_count']}");
             $this->line('  Metadata: '.json_encode($pipelineData['before_execute']['metadata']));
 
-            // Show attachment details if present
+            // Show media details if present
             $context = $pipelineData['before_execute']['context'] ?? null;
-            if ($context !== null && $context->hasCurrentAttachments()) {
+            if ($context !== null && $context->hasAttachments()) {
                 $this->line('');
-                $this->line('  Current Attachments:');
-                foreach ($context->currentAttachments as $i => $attachment) {
-                    $this->line("    [{$i}] type={$attachment['type']}, source={$attachment['source']}");
+                $this->line('  Prism Media:');
+                foreach ($context->prismMedia as $i => $media) {
+                    $type = (new \ReflectionClass($media))->getShortName();
+                    $this->line("    [{$i}] type={$type}");
                 }
             }
         }

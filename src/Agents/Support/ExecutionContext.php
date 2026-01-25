@@ -16,8 +16,8 @@ use Prism\Prism\ValueObjects\Media\Video;
  * overrides, and captured Prism method calls without any database or
  * session dependencies. Consumer manages all persistence.
  *
- * Supports both array format attachments (for serialization/queues) and
- * direct Prism media objects (for direct API access).
+ * Current input attachments are stored as Prism media objects directly,
+ * while message history attachments use array format for serialization.
  *
  * This is a read-only value object built by PendingAgentRequest.
  */
@@ -29,9 +29,8 @@ final readonly class ExecutionContext
      * @param  array<string, mixed>  $metadata  Additional metadata for pipeline middleware.
      * @param  string|null  $providerOverride  Override the agent's configured provider.
      * @param  string|null  $modelOverride  Override the agent's configured model.
-     * @param  array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>  $currentAttachments  Attachments for the current input message (array format for serialization).
      * @param  array<int, array{method: string, args: array<int, mixed>}>  $prismCalls  Captured Prism method calls to replay on the request.
-     * @param  array<int, Image|Document|Audio|Video>  $prismMedia  Direct Prism media objects for the current input.
+     * @param  array<int, Image|Document|Audio|Video>  $prismMedia  Prism media objects for the current input.
      */
     public function __construct(
         public array $messages = [],
@@ -39,7 +38,6 @@ final readonly class ExecutionContext
         public array $metadata = [],
         public ?string $providerOverride = null,
         public ?string $modelOverride = null,
-        public array $currentAttachments = [],
         public array $prismCalls = [],
         public array $prismMedia = [],
     ) {}
@@ -75,17 +73,9 @@ final readonly class ExecutionContext
     }
 
     /**
-     * Check if current attachments are present (array format or Prism media).
+     * Check if attachments are present for current input.
      */
-    public function hasCurrentAttachments(): bool
-    {
-        return $this->currentAttachments !== [] || $this->prismMedia !== [];
-    }
-
-    /**
-     * Check if direct Prism media objects are present.
-     */
-    public function hasPrismMedia(): bool
+    public function hasAttachments(): bool
     {
         return $this->prismMedia !== [];
     }

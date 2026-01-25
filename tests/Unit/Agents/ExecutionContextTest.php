@@ -12,7 +12,6 @@ test('it creates with default empty values', function () {
     expect($context->metadata)->toBe([]);
     expect($context->providerOverride)->toBeNull();
     expect($context->modelOverride)->toBeNull();
-    expect($context->currentAttachments)->toBe([]);
     expect($context->prismCalls)->toBe([]);
     expect($context->prismMedia)->toBe([]);
 });
@@ -33,7 +32,6 @@ test('it creates with all constructor parameters', function () {
     $messages = [['role' => 'user', 'content' => 'Hello']];
     $variables = ['user_name' => 'John'];
     $metadata = ['session_id' => '123'];
-    $attachments = [['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image.jpg']];
     $prismCalls = [['method' => 'withMaxSteps', 'args' => [10]]];
 
     $context = new ExecutionContext(
@@ -42,7 +40,6 @@ test('it creates with all constructor parameters', function () {
         metadata: $metadata,
         providerOverride: 'anthropic',
         modelOverride: 'claude-3-opus',
-        currentAttachments: $attachments,
         prismCalls: $prismCalls,
     );
 
@@ -51,7 +48,6 @@ test('it creates with all constructor parameters', function () {
     expect($context->metadata)->toBe($metadata);
     expect($context->providerOverride)->toBe('anthropic');
     expect($context->modelOverride)->toBe('claude-3-opus');
-    expect($context->currentAttachments)->toBe($attachments);
     expect($context->prismCalls)->toBe($prismCalls);
 });
 
@@ -114,30 +110,28 @@ test('it reports hasModelOverride correctly', function () {
     expect($withOverride->hasModelOverride())->toBeTrue();
 });
 
-test('it creates with default empty currentAttachments', function () {
+test('it creates with default empty prismMedia', function () {
     $context = new ExecutionContext;
 
-    expect($context->currentAttachments)->toBe([]);
+    expect($context->prismMedia)->toBe([]);
 });
 
-test('it creates with provided currentAttachments', function () {
-    $attachments = [
-        ['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image.jpg'],
-    ];
+test('it creates with provided prismMedia', function () {
+    $mockImage = Mockery::mock(\Prism\Prism\ValueObjects\Media\Image::class);
 
-    $context = new ExecutionContext(currentAttachments: $attachments);
+    $context = new ExecutionContext(prismMedia: [$mockImage]);
 
-    expect($context->currentAttachments)->toBe($attachments);
+    expect($context->prismMedia)->toBe([$mockImage]);
 });
 
-test('it reports hasCurrentAttachments correctly for array attachments', function () {
+test('it reports hasAttachments correctly', function () {
+    $mockImage = Mockery::mock(\Prism\Prism\ValueObjects\Media\Image::class);
+
     $empty = new ExecutionContext;
-    $withAttachments = new ExecutionContext(currentAttachments: [
-        ['type' => 'image', 'source' => 'url', 'data' => 'https://example.com/image.jpg'],
-    ]);
+    $withMedia = new ExecutionContext(prismMedia: [$mockImage]);
 
-    expect($empty->hasCurrentAttachments())->toBeFalse();
-    expect($withAttachments->hasCurrentAttachments())->toBeTrue();
+    expect($empty->hasAttachments())->toBeFalse();
+    expect($withMedia->hasAttachments())->toBeTrue();
 });
 
 test('it creates with prismCalls', function () {
@@ -159,34 +153,6 @@ test('it reports hasPrismCalls correctly', function () {
 
     expect($empty->hasPrismCalls())->toBeFalse();
     expect($withCalls->hasPrismCalls())->toBeTrue();
-});
-
-test('it creates with prismMedia', function () {
-    // Create a mock Prism media object
-    $mockImage = Mockery::mock(\Prism\Prism\ValueObjects\Media\Image::class);
-
-    $context = new ExecutionContext(prismMedia: [$mockImage]);
-
-    expect($context->prismMedia)->toBe([$mockImage]);
-});
-
-test('it reports hasPrismMedia correctly', function () {
-    $mockImage = Mockery::mock(\Prism\Prism\ValueObjects\Media\Image::class);
-
-    $empty = new ExecutionContext;
-    $withMedia = new ExecutionContext(prismMedia: [$mockImage]);
-
-    expect($empty->hasPrismMedia())->toBeFalse();
-    expect($withMedia->hasPrismMedia())->toBeTrue();
-});
-
-test('hasCurrentAttachments returns true when prismMedia is present', function () {
-    $mockImage = Mockery::mock(\Prism\Prism\ValueObjects\Media\Image::class);
-
-    $context = new ExecutionContext(prismMedia: [$mockImage]);
-
-    // hasCurrentAttachments should return true when either array attachments or prismMedia is present
-    expect($context->hasCurrentAttachments())->toBeTrue();
 });
 
 test('it reports hasSchemaCall correctly', function () {

@@ -235,7 +235,7 @@ The `ExecutionContext` provides access to:
 - `messages` — Conversation history (may include attachments per message)
 - `variables` — System prompt variables
 - `metadata` — Execution metadata (user_id, session_id, etc.)
-- `currentAttachments` — Attachments for current input (images, documents, audio, video)
+- `prismMedia` — Prism media objects for current input (images, documents, audio, video)
 
 ### agent.system_prompt.before_build
 
@@ -420,13 +420,12 @@ class AuditAttachments implements PipelineContract
     {
         $context = $data['context'];
 
-        // Log current input attachments
-        if ($context?->hasCurrentAttachments()) {
-            foreach ($context->currentAttachments as $attachment) {
+        // Log current input attachments (Prism media objects)
+        if ($context?->hasAttachments()) {
+            foreach ($context->prismMedia as $media) {
                 AuditLog::create([
                     'type' => 'attachment_sent',
-                    'media_type' => $attachment['type'],
-                    'source' => $attachment['source'],
+                    'media_type' => get_class($media),
                     'user_id' => $context->getMeta('user_id'),
                     'agent' => $data['agent']->key(),
                     'timestamp' => now(),
