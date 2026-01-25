@@ -8,6 +8,9 @@ use Prism\Prism\ValueObjects\Media\Audio;
 use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Media\Video;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\SystemMessage;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
 
 /**
  * Stateless execution context for agent invocation.
@@ -16,21 +19,25 @@ use Prism\Prism\ValueObjects\Media\Video;
  * overrides, and captured Prism method calls without any database or
  * session dependencies. Consumer manages all persistence.
  *
- * Current input attachments are stored as Prism media objects directly,
- * while message history attachments use array format for serialization.
+ * Message history can be provided in two formats:
+ * - Array format ($messages): For serialization and persistence
+ * - Prism message objects ($prismMessages): For direct Prism compatibility
+ *
+ * Current input attachments are stored as Prism media objects directly.
  *
  * This is a read-only value object built by PendingAgentRequest.
  */
 final readonly class ExecutionContext
 {
     /**
-     * @param  array<int, array{role: string, content: string, attachments?: array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>}>  $messages  Conversation history with optional attachments.
+     * @param  array<int, array{role: string, content: string, attachments?: array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>}>  $messages  Conversation history with optional attachments (array format for serialization).
      * @param  array<string, mixed>  $variables  Variables for system prompt interpolation.
      * @param  array<string, mixed>  $metadata  Additional metadata for pipeline middleware.
      * @param  string|null  $providerOverride  Override the agent's configured provider.
      * @param  string|null  $modelOverride  Override the agent's configured model.
      * @param  array<int, array{method: string, args: array<int, mixed>}>  $prismCalls  Captured Prism method calls to replay on the request.
      * @param  array<int, Image|Document|Audio|Video>  $prismMedia  Prism media objects for the current input.
+     * @param  array<int, UserMessage|AssistantMessage|SystemMessage>  $prismMessages  Prism message objects for conversation history (direct Prism compatibility).
      */
     public function __construct(
         public array $messages = [],
@@ -40,6 +47,7 @@ final readonly class ExecutionContext
         public ?string $modelOverride = null,
         public array $prismCalls = [],
         public array $prismMedia = [],
+        public array $prismMessages = [],
     ) {}
 
     /**
@@ -65,11 +73,21 @@ final readonly class ExecutionContext
     }
 
     /**
-     * Check if messages are present.
+     * Check if messages are present (either array or Prism format).
      */
     public function hasMessages(): bool
     {
-        return $this->messages !== [];
+        return $this->messages !== [] || $this->prismMessages !== [];
+    }
+
+    /**
+     * Check if Prism message objects are present.
+     *
+     * When true, prismMessages should be used instead of messages array.
+     */
+    public function hasPrismMessages(): bool
+    {
+        return $this->prismMessages !== [];
     }
 
     /**

@@ -362,6 +362,69 @@ test('it builds messages with system role', function () {
     expect($response->text)->toBe('Response');
 });
 
+test('it handles prismMessages directly from context', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Continuing conversation')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create Prism message objects directly
+    $prismMessages = [
+        new \Prism\Prism\ValueObjects\Messages\UserMessage('Previous question'),
+        new \Prism\Prism\ValueObjects\Messages\AssistantMessage('Previous answer'),
+    ];
+
+    $context = new ExecutionContext(
+        prismMessages: $prismMessages,
+    );
+
+    $agent = new TestAgent;
+    $response = $executor->execute($agent, 'Follow up', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response->text)->toBe('Continuing conversation');
+});
+
+test('it prioritizes prismMessages over array messages', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Using Prism messages')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create context with both array and Prism messages
+    // prismMessages should take priority
+    $prismMessages = [
+        new \Prism\Prism\ValueObjects\Messages\UserMessage('Prism question'),
+    ];
+
+    $context = new ExecutionContext(
+        messages: [['role' => 'user', 'content' => 'Array question']], // Should be ignored
+        prismMessages: $prismMessages,
+    );
+
+    $agent = new TestAgent;
+    $response = $executor->execute($agent, 'Follow up', $context);
+
+    expect($response)->toBeInstanceOf(PrismResponse::class);
+    // Response verifies execution completed; internal message handling is tested
+});
+
 test('it handles prismMedia attachments directly', function () {
     Prism::fake([
         TextResponseFake::make()

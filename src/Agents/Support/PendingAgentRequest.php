@@ -11,6 +11,9 @@ use Generator;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Text\Response as PrismResponse;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\SystemMessage;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
 
 /**
  * Fluent builder for agent chat operations.
@@ -31,11 +34,18 @@ final class PendingAgentRequest
     use HasVariablesSupport;
 
     /**
-     * Conversation history with optional attachments.
+     * Conversation history in array format (for serialization).
      *
      * @var array<int, array{role: string, content: string, attachments?: array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>}>
      */
     private array $messages = [];
+
+    /**
+     * Conversation history as Prism message objects (for direct Prism compatibility).
+     *
+     * @var array<int, UserMessage|AssistantMessage|SystemMessage>
+     */
+    private array $prismMessages = [];
 
     /**
      * Provider override.
@@ -80,14 +90,52 @@ final class PendingAgentRequest
     /**
      * Set conversation history messages.
      *
-     * @param  array<int, array{role: string, content: string, attachments?: array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>}>  $messages
+     * Accepts either array format (for serialization/persistence) or Prism message objects directly:
+     *
+     * Array format:
+     * ```php
+     * ->withMessages([
+     *     ['role' => 'user', 'content' => 'Hello'],
+     *     ['role' => 'assistant', 'content' => 'Hi there!'],
+     * ])
+     * ```
+     *
+     * Prism message objects:
+     * ```php
+     * use Prism\Prism\ValueObjects\Messages\{UserMessage, AssistantMessage};
+     *
+     * ->withMessages([
+     *     new UserMessage('Hello'),
+     *     new AssistantMessage('Hi there!'),
+     * ])
+     * ```
+     *
+     * @param  array<int, array{role: string, content: string, attachments?: array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>}|UserMessage|AssistantMessage|SystemMessage>  $messages
      */
     public function withMessages(array $messages): static
     {
         $clone = clone $this;
-        $clone->messages = $messages;
+
+        // Determine if messages are Prism objects or array format
+        if ($messages !== [] && $this->isPrismMessageObject($messages[0])) {
+            $clone->prismMessages = $messages;
+            $clone->messages = [];
+        } else {
+            $clone->messages = $messages;
+            $clone->prismMessages = [];
+        }
 
         return $clone;
+    }
+
+    /**
+     * Check if a value is a Prism message object.
+     */
+    private function isPrismMessageObject(mixed $value): bool
+    {
+        return $value instanceof UserMessage
+            || $value instanceof AssistantMessage
+            || $value instanceof SystemMessage;
     }
 
     /**
@@ -177,6 +225,7 @@ final class PendingAgentRequest
             modelOverride: $this->modelOverride,
             prismCalls: $this->prismCalls,
             prismMedia: $this->getPrismMedia(),
+            prismMessages: $this->prismMessages,
         );
     }
 }

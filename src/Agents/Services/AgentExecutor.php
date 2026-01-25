@@ -254,22 +254,31 @@ class AgentExecutor implements AgentExecutorContract
     /**
      * Build the messages array for multi-turn conversation.
      *
+     * Supports two formats for message history:
+     * - Prism message objects (via prismMessages): Used directly for full Prism compatibility
+     * - Array format (via messages): Converted to Prism objects, supports serialization
+     *
      * @return array<int, UserMessage|AssistantMessage|SystemMessage>
      */
     protected function buildMessages(ExecutionContext $context, string $input): array
     {
         $messages = [];
 
-        // Convert existing messages (history uses array format for serialization)
-        foreach ($context->messages as $message) {
-            $messages[] = match ($message['role']) {
-                'user' => $this->createUserMessage($message),
-                'assistant' => new AssistantMessage($message['content']),
-                'system' => new SystemMessage($message['content']),
-                default => throw new \InvalidArgumentException(
-                    sprintf('Unknown message role: %s. Valid roles are: user, assistant, system.', $message['role'])
-                ),
-            };
+        // Use Prism message objects directly if provided
+        if ($context->hasPrismMessages()) {
+            $messages = $context->prismMessages;
+        } else {
+            // Convert array format messages (history uses array format for serialization)
+            foreach ($context->messages as $message) {
+                $messages[] = match ($message['role']) {
+                    'user' => $this->createUserMessage($message),
+                    'assistant' => new AssistantMessage($message['content']),
+                    'system' => new SystemMessage($message['content']),
+                    default => throw new \InvalidArgumentException(
+                        sprintf('Unknown message role: %s. Valid roles are: user, assistant, system.', $message['role'])
+                    ),
+                };
+            }
         }
 
         // Add current input as user message with Prism media objects directly

@@ -89,6 +89,80 @@ test('withMessages includes messages in context', function () {
     expect($capturedContext->messages)->toBe($messages);
 });
 
+test('withMessages accepts Prism message objects', function () {
+    $prismMessages = [
+        new \Prism\Prism\ValueObjects\Messages\UserMessage('Previous message'),
+        new \Prism\Prism\ValueObjects\Messages\AssistantMessage('Previous response'),
+    ];
+
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $this->request
+        ->withMessages($prismMessages)
+        ->chat('New message');
+
+    expect($capturedContext->prismMessages)->toBe($prismMessages);
+    expect($capturedContext->messages)->toBe([]);
+    expect($capturedContext->hasPrismMessages())->toBeTrue();
+});
+
+test('withMessages with array format sets messages and clears prismMessages', function () {
+    $messages = [
+        ['role' => 'user', 'content' => 'Hello'],
+    ];
+
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $this->request
+        ->withMessages($messages)
+        ->chat('New message');
+
+    expect($capturedContext->messages)->toBe($messages);
+    expect($capturedContext->prismMessages)->toBe([]);
+    expect($capturedContext->hasPrismMessages())->toBeFalse();
+});
+
+test('withMessages with Prism message objects includes SystemMessage', function () {
+    $prismMessages = [
+        new \Prism\Prism\ValueObjects\Messages\SystemMessage('You are a helpful assistant.'),
+        new \Prism\Prism\ValueObjects\Messages\UserMessage('Hello'),
+    ];
+
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $this->request
+        ->withMessages($prismMessages)
+        ->chat('Follow up');
+
+    expect($capturedContext->prismMessages)->toHaveCount(2);
+    expect($capturedContext->prismMessages[0])->toBeInstanceOf(\Prism\Prism\ValueObjects\Messages\SystemMessage::class);
+    expect($capturedContext->prismMessages[1])->toBeInstanceOf(\Prism\Prism\ValueObjects\Messages\UserMessage::class);
+});
+
 // === withVariables ===
 
 test('withVariables sets variables immutably', function () {

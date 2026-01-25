@@ -29,7 +29,11 @@ $response = Atlas::agent('support-agent')
 
 ## Message Format
 
-Messages follow the standard chat format:
+Messages can be provided in two formats: array format for persistence/serialization, or Prism message objects for full Prism compatibility.
+
+### Array Format
+
+Ideal for storing in databases and JSON serialization:
 
 ```php
 $messages = [
@@ -39,12 +43,33 @@ $messages = [
 ];
 ```
 
+### Prism Message Objects
+
+For direct Prism compatibility and full API access:
+
+```php
+use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\SystemMessage;
+
+$messages = [
+    new SystemMessage('You are a helpful assistant.'),
+    new UserMessage('Hello!'),
+    new AssistantMessage('Hi there! How can I help?'),
+];
+
+$response = Atlas::agent('support-agent')
+    ->withMessages($messages)
+    ->chat('I have a question');
+```
+
 <div class="full-width-table">
 
-| Role | Description |
-|------|-------------|
-| `user` | Messages from the user |
-| `assistant` | Responses from the AI |
+| Role/Class | Description |
+|------------|-------------|
+| `user` / `UserMessage` | Messages from the user |
+| `assistant` / `AssistantMessage` | Responses from the AI |
+| `system` / `SystemMessage` | System instructions |
 
 </div>
 
@@ -151,7 +176,7 @@ $response = Atlas::agent('support-agent')
 
 | Method | Description |
 |--------|-------------|
-| `withMessages(array $messages)` | Conversation history array |
+| `withMessages(array $messages)` | Conversation history (array format or Prism message objects) |
 | `withVariables(array $variables)` | Variables for system prompt interpolation |
 | `withMetadata(array $metadata)` | Metadata for pipeline middleware and tools |
 | `withProvider(string $provider, ?string $model)` | Override agent's provider/model |

@@ -145,6 +145,37 @@ test('it creates with prismCalls', function () {
     expect($context->prismCalls)->toBe($prismCalls);
 });
 
+test('it creates with prismMessages', function () {
+    $mockUserMessage = Mockery::mock(\Prism\Prism\ValueObjects\Messages\UserMessage::class);
+    $mockAssistantMessage = Mockery::mock(\Prism\Prism\ValueObjects\Messages\AssistantMessage::class);
+
+    $context = new ExecutionContext(prismMessages: [$mockUserMessage, $mockAssistantMessage]);
+
+    expect($context->prismMessages)->toBe([$mockUserMessage, $mockAssistantMessage]);
+});
+
+test('it reports hasPrismMessages correctly', function () {
+    $mockUserMessage = Mockery::mock(\Prism\Prism\ValueObjects\Messages\UserMessage::class);
+
+    $empty = new ExecutionContext;
+    $withPrismMessages = new ExecutionContext(prismMessages: [$mockUserMessage]);
+
+    expect($empty->hasPrismMessages())->toBeFalse();
+    expect($withPrismMessages->hasPrismMessages())->toBeTrue();
+});
+
+test('hasMessages returns true for either array or prism messages', function () {
+    $mockUserMessage = Mockery::mock(\Prism\Prism\ValueObjects\Messages\UserMessage::class);
+
+    $empty = new ExecutionContext;
+    $withArrayMessages = new ExecutionContext(messages: [['role' => 'user', 'content' => 'Hi']]);
+    $withPrismMessages = new ExecutionContext(prismMessages: [$mockUserMessage]);
+
+    expect($empty->hasMessages())->toBeFalse();
+    expect($withArrayMessages->hasMessages())->toBeTrue();
+    expect($withPrismMessages->hasMessages())->toBeTrue();
+});
+
 test('it reports hasPrismCalls correctly', function () {
     $empty = new ExecutionContext;
     $withCalls = new ExecutionContext(prismCalls: [
