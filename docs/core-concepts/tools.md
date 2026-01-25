@@ -248,9 +248,15 @@ $result->toArray();   // ['text' => '...', 'is_error' => false]
 
 ## Tool Context
 
-Access execution metadata via `ToolContext`:
+Access execution metadata via `ToolContext`. Metadata is passed from the agent using `withMetadata()`:
 
 ```php
+// When calling the agent
+Atlas::agent('support')->withMetadata(['user_id' => 1, 'tenant_id' => 5])->chat('...');
+```
+
+```php
+// Inside your tool
 public function handle(array $arguments, ToolContext $context): ToolResult
 {
     // Get metadata passed from execution context
@@ -319,6 +325,171 @@ class DatabaseQueryTool extends ToolDefinition
         } catch (\Exception $e) {
             return ToolResult::error("Query failed: {$e->getMessage()}");
         }
+    }
+}
+```
+
+## Example: Order Lookup Tool
+
+A tool for retrieving order details, commonly used in sales and support agents.
+
+```php
+class LookupOrderTool extends ToolDefinition
+{
+    public function name(): string { return 'lookup_order'; }
+    public function description(): string { return 'Look up order details by order ID'; }
+
+    public function parameters(): array
+    {
+        return [
+            ToolParameter::string('order_id', 'The order ID to look up'),
+        ];
+    }
+
+    public function handle(array $arguments, ToolContext $context): ToolResult
+    {
+        $userId = $context->getMeta('user_id');
+
+        $order = Order::where('id', $arguments['order_id'])
+            ->where('user_id', $userId)
+            ->first();
+
+        if (! $order) {
+            return ToolResult::error('Order not found');
+        }
+
+        return ToolResult::json([
+            'id' => $order->id,
+            'status' => $order->status,
+            'total' => $order->total,
+            'items' => $order->items->count(),
+            'created_at' => $order->created_at->toDateString(),
+        ]);
+    }
+}
+```
+
+## Example: Search Knowledge Base Tool
+
+A tool for searching FAQs and help articles, useful for customer service agents.
+
+```php
+class SearchKnowledgeBaseTool extends ToolDefinition
+{
+    public function __construct(private KnowledgeBaseService $kb) {}
+
+    public function name(): string { return 'search_knowledge_base'; }
+    public function description(): string { return 'Search FAQs and help articles for answers'; }
+
+    public function parameters(): array
+    {
+        return [
+            ToolParameter::string('query', 'The search query'),
+            ToolParameter::integer('limit', 'Maximum results to return', nullable: true),
+        ];
+    }
+
+    public function handle(array $arguments, ToolContext $context): ToolResult
+    {
+        $results = $this->kb->search(
+            query: $arguments['query'],
+            limit: $arguments['limit'] ?? 5
+        );
+
+        if ($results->isEmpty()) {
+            return ToolResult::text('No articles found matching your query.');
+        }
+
+        return ToolResult::json($results->map(fn ($article) => [
+            'title' => $article->title,
+            'summary' => Str::limit($article->content, 200),
+            'url' => $article->url,
+        ])->toArray());
+    }
+}
+```
+
+## Example: Create Support Ticket Tool
+
+A tool for creating support tickets, with input validation and context awareness.
+
+```php
+class CreateTicketTool extends ToolDefinition
+{
+    public function name(): string { return 'create_ticket'; }
+    public function description(): string { return 'Create a support ticket for issues requiring follow-up'; }
+
+    public function parameters(): array
+    {
+        return [
+            ToolParameter::string('subject', 'Brief description of the issue'),
+            ToolParameter::string('description', 'Detailed description of the problem'),
+            ToolParameter::enum('priority', 'Ticket priority', ['low', 'medium', 'high']),
+            ToolParameter::string('category', 'Issue category', nullable: true),
+        ];
+    }
+
+    public function handle(array $arguments, ToolContext $context): ToolResult
+    {
+        $userId = $context->getMeta('user_id');
+
+        if (! $userId) {
+            return ToolResult::error('User authentication required');
+        }
+
+        $ticket = Ticket::create([
+            'user_id' => $userId,
+            'subject' => $arguments['subject'],
+            'description' => $arguments['description'],
+            'priority' => $arguments['priority'],
+            'category' => $arguments['category'] ?? 'general',
+            'status' => 'open',
+        ]);
+
+        return ToolResult::json([
+            'ticket_id' => $ticket->id,
+            'message' => "Ticket #{$ticket->id} created successfully",
+        ]);
+    }
+}
+```
+
+## Example: Send Notification Tool
+
+A tool for sending notifications via multiple channels.
+
+```php
+class SendNotificationTool extends ToolDefinition
+{
+    public function name(): string { return 'send_notification'; }
+    public function description(): string { return 'Send a notification to the user via email or SMS'; }
+
+    public function parameters(): array
+    {
+        return [
+            ToolParameter::enum('channel', 'Notification channel', ['email', 'sms']),
+            ToolParameter::string('subject', 'Notification subject (email only)', nullable: true),
+            ToolParameter::string('message', 'The notification message'),
+        ];
+    }
+
+    public function handle(array $arguments, ToolContext $context): ToolResult
+    {
+        $user = User::find($context->getMeta('user_id'));
+
+        if (! $user) {
+            return ToolResult::error('User not found');
+        }
+
+        match ($arguments['channel']) {
+            'email' => $user->notify(new GenericEmailNotification(
+                subject: $arguments['subject'] ?? 'Notification',
+                message: $arguments['message']
+            )),
+            'sms' => $user->notify(new SmsNotification($arguments['message'])),
+        };
+
+        return ToolResult::text("Notification sent via {$arguments['channel']}");
     }
 }
 ```
@@ -404,6 +575,8 @@ Tool execution supports pipeline middleware:
 
 | Pipeline | Trigger |
 |----------|---------|
+| `tool.before_resolve` | Before tool is resolved from registry |
+| `tool.after_resolve` | After tool is resolved, before building |
 | `tool.before_execute` | Before tool execution |
 | `tool.after_execute` | After tool execution |
 | `tool.on_error` | When tool execution fails |

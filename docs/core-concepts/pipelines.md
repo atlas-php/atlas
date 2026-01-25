@@ -3,7 +3,7 @@
 Pipelines provide a middleware system for extending Atlas and Prism without modifying core code. Add logging, authentication, metrics, and more through composable handlers.
 
 ::: tip Extending Prism
-Atlas pipelines are designed to extend Prism's capabilities. Since Atlas wraps Prism, pipelines give you hooks into all Prism operations—text generation, embeddings, images, audio, and moderation—allowing you to add observability, validation, and custom logic around any AI operation.
+Atlas pipelines are designed to extend Prism's capabilities. Since Atlas wraps Prism, pipelines give you hooks into all Prism operations (text generation, embeddings, images, audio, and moderation) allowing you to add observability, validation, and custom logic around any AI operation.
 :::
 
 ## How Pipelines Work

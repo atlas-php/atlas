@@ -55,6 +55,8 @@ Text generation supports pipeline middleware for observability:
 |----------|---------|
 | `text.before_text` | Before text generation |
 | `text.after_text` | After text generation |
+| `text.before_stream` | Before streaming text generation |
+| `text.after_stream` | After streaming text generation |
 
 </div>
 

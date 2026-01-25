@@ -1,6 +1,6 @@
 # Chat
 
-Execute conversations with AI agents using the Atlas chat API. Atlas doesn't store conversation history—your application manages persistence and passes history on each request.
+Execute conversations with AI agents using the Atlas chat API. Atlas doesn't store conversation history. Your application manages persistence and passes history on each request.
 
 ::: tip Prism Reference
 Atlas automatically builds messages into Prism's format. For detailed text generation documentation including message chains, see [Prism Text Generation](https://prismphp.com/core-concepts/text-generation.html).

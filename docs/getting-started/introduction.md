@@ -1,6 +1,6 @@
 # Introduction
 
-Atlas is an organizational layer for [Prism PHP](https://prismphp.com) that adds structure for building production AI applications in Laravel. It provides reusable agents, typed tools, dynamic prompts, and execution pipelines—without hiding or replacing Prism.
+Atlas is an organizational layer for [Prism PHP](https://prismphp.com) that adds structure for building production AI applications in Laravel. It provides reusable agents, typed tools, dynamic prompts, and execution pipelines without hiding or replacing Prism.
 
 **Atlas returns Prism responses directly.** You get the same `PrismResponse` objects with full access to `->text`, `->usage`, `->toolCalls`, `->steps`, and everything else Prism provides.
 
@@ -27,7 +27,7 @@ $response->usage;  // Token usage, cache stats, etc.
 
 ## Full Prism Compatibility
 
-Atlas doesn't hide Prism—it organizes access to it. Everything you can do with Prism works through Atlas:
+Atlas doesn't hide Prism. It organizes access to it. Everything you can do with Prism works through Atlas:
 
 ```php
 // All Prism fluent methods work
@@ -44,7 +44,7 @@ Atlas::text()
     ->withPrompt('Explain quantum computing')
     ->asText();  // Returns Prism Response directly
 
-// Or use Prism directly—Atlas doesn't interfere
+// Or use Prism directly, Atlas doesn't interfere
 Prism::text()->using('openai', 'gpt-4o')->withPrompt('...')->asText();
 ```
 
