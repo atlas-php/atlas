@@ -16,17 +16,18 @@
 
 # Atlas
 
-Atlas is a Laravel package for building AI-powered applications with structure and scale. Define agents once, use them everywhere—with tools, dynamic prompts, and middleware that keeps your AI logic clean and testable.
+Atlas is a Laravel package that brings structure to AI development. It organizes your AI logic into reusable agents, typed tools, and middleware pipelines so you can build production applications without scattering prompts and API calls throughout your codebase.
 
-Built on [Prism PHP](https://prismphp.com), Atlas adds the application layer: agent registries, tool management, prompt templating, and execution pipelines. Prism handles the LLM communication; Atlas handles your business logic.
+Built on [Prism PHP](https://prismphp.com), Atlas adds the application layer you need: agent definitions, tool management, prompt templating, and execution pipelines. Prism handles LLM communication; Atlas handles your business logic.
 
 ## Features
 
-- **Reusable Agents** — Define AI configurations once, resolve by key or class anywhere in your app
-- **Typed Tools** — Connect agents to your services with validated parameters and structured results
-- **Dynamic Prompts** — Interpolate `{variables}` at runtime for personalized, context-aware interactions
-- **Pipelines** — Add logging, auth, rate limiting, or metrics without touching agent code
-- **Full Prism Access** — Use embeddings, images, speech, moderation, and all Prism features directly
+- **Reusable Agents** - Define AI configurations once, resolve by key or class anywhere
+- **Typed Tools** - Connect agents to your services with validated parameters and structured results
+- **MCP Tools** - Integrate external tools from MCP servers via [Prism Relay](https://github.com/prism-php/relay)
+- **Dynamic Prompts** - Interpolate `{variables}` at runtime for personalized interactions
+- **Pipelines** - Add logging, auth, rate limiting, or metrics without touching agent code
+- **Full Prism Access** - Use embeddings, images, speech, moderation, and structured output directly
 
 ## Quick Start
 
@@ -77,22 +78,26 @@ echo $response->text;
 
 ## Why Atlas?
 
-| You want to... | Atlas provides... |
-|----------------|-------------------|
-| Reuse AI configurations across your app | Agent registry with key/class/instance resolution |
-| Give agents access to your services | Typed tools with parameter validation |
-| Personalize prompts per user/request | Variable interpolation in system prompts |
-| Add observability without coupling | Pipeline middleware for logging, metrics, auth |
-| Use embeddings, images, or speech | Direct passthrough to all Prism capabilities |
+**The problem:** AI code gets messy fast. Prompts scattered across controllers, duplicated configurations, no consistent way to add logging or rate limiting, and tools tightly coupled to specific features.
+
+**Atlas solves this** by giving you a clear structure:
+
+- **Agents as classes** - Your AI configurations live in dedicated classes, not inline strings. Change a prompt once, it updates everywhere.
+- **Tools with contracts** - Your business logic stays in tool classes with typed parameters. Agents call tools; tools call your services.
+- **Pipelines for cross-cutting concerns** - Add logging, authentication, or usage tracking to all AI operations without modifying agent code.
+- **Testable by design** - Mock agents, fake tool responses, and verify interactions with standard Laravel testing patterns.
+
+Atlas doesn't replace Prism. It organizes how you use Prism in real applications.
 
 ## Documentation
 
-📚 **[atlasphp.org](https://atlasphp.org)** — Full guides, API reference, and examples.
+📚 **[atlasphp.org](https://atlasphp.org)** - Full guides, API reference, and examples.
 
-- [Getting Started](https://atlasphp.org/getting-started/installation.html) — Installation and configuration
-- [Agents](https://atlasphp.org/core-concepts/agents.html) — Define reusable AI configurations
-- [Tools](https://atlasphp.org/core-concepts/tools.html) — Connect agents to your application
-- [Pipelines](https://atlasphp.org/core-concepts/pipelines.html) — Extend with middleware
+- [Getting Started](https://atlasphp.org/getting-started/installation.html) - Installation and configuration
+- [Agents](https://atlasphp.org/core-concepts/agents.html) - Define reusable AI configurations
+- [Tools](https://atlasphp.org/core-concepts/tools.html) - Connect agents to your application
+- [MCP Integration](https://atlasphp.org/capabilities/mcp.html) - External tools from MCP servers
+- [Pipelines](https://atlasphp.org/core-concepts/pipelines.html) - Extend with middleware
 
 ## Contributing
 
