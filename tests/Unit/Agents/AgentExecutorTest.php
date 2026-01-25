@@ -1986,3 +1986,207 @@ test('it merges all four tool sources correctly', function () {
     expect($response)->toBeInstanceOf(PrismResponse::class);
     expect($response->text)->toBe('Response with all tool types');
 });
+
+// === agent.tools.merged Pipeline Tests ===
+
+test('it runs agent.tools.merged pipeline', function () {
+    ToolsMergedCapturingHandler::reset();
+
+    $this->pipelineRegistry->define('agent.tools.merged');
+    $this->pipelineRegistry->register('agent.tools.merged', ToolsMergedCapturingHandler::class);
+
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $agent = new TestAgent;
+    $context = new ExecutionContext;
+    $executor->execute($agent, 'Hello', $context);
+
+    expect(ToolsMergedCapturingHandler::$called)->toBeTrue();
+    expect(ToolsMergedCapturingHandler::$data)->toHaveKey('agent');
+    expect(ToolsMergedCapturingHandler::$data)->toHaveKey('context');
+    expect(ToolsMergedCapturingHandler::$data)->toHaveKey('tool_context');
+    expect(ToolsMergedCapturingHandler::$data)->toHaveKey('agent_tools');
+    expect(ToolsMergedCapturingHandler::$data)->toHaveKey('agent_mcp_tools');
+    expect(ToolsMergedCapturingHandler::$data)->toHaveKey('tools');
+});
+
+test('agent.tools.merged pipeline receives all tool categories', function () {
+    ToolsMergedCapturingHandler::reset();
+
+    $this->pipelineRegistry->define('agent.tools.merged');
+    $this->pipelineRegistry->register('agent.tools.merged', ToolsMergedCapturingHandler::class);
+
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create mock MCP tools
+    $agentMcpTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $agentMcpTool->shouldReceive('name')->andReturn('agent_mcp_tool');
+
+    $runtimeMcpTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $runtimeMcpTool->shouldReceive('name')->andReturn('runtime_mcp_tool');
+
+    // Create agent with MCP tools
+    $agent = new class($agentMcpTool) extends \Atlasphp\Atlas\Agents\AgentDefinition
+    {
+        public function __construct(private $tool) {}
+
+        public function key(): string
+        {
+            return 'agent-with-mcp';
+        }
+
+        public function provider(): ?string
+        {
+            return 'openai';
+        }
+
+        public function model(): ?string
+        {
+            return 'gpt-4';
+        }
+
+        public function mcpTools(): array
+        {
+            return [$this->tool];
+        }
+    };
+
+    $context = new ExecutionContext(
+        mcpTools: [$runtimeMcpTool],
+    );
+
+    $executor->execute($agent, 'Hello', $context);
+
+    // agent_mcp_tools combines agent's mcpTools() + runtime withMcpTools()
+    expect(ToolsMergedCapturingHandler::$data['agent_mcp_tools'])->toHaveCount(2);
+    expect(ToolsMergedCapturingHandler::$data['tools'])->toHaveCount(2);
+});
+
+test('agent.tools.merged pipeline can filter tools', function () {
+    ToolsFilteringHandler::reset();
+
+    $this->pipelineRegistry->define('agent.tools.merged');
+    $this->pipelineRegistry->register('agent.tools.merged', ToolsFilteringHandler::class);
+
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $executor = new AgentExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    // Create mock MCP tools
+    $tool1 = Mockery::mock(\Prism\Prism\Tool::class);
+    $tool1->shouldReceive('name')->andReturn('allowed_tool');
+
+    $tool2 = Mockery::mock(\Prism\Prism\Tool::class);
+    $tool2->shouldReceive('name')->andReturn('blocked_tool');
+
+    $agent = new class([$tool1, $tool2]) extends \Atlasphp\Atlas\Agents\AgentDefinition
+    {
+        public function __construct(private array $tools) {}
+
+        public function key(): string
+        {
+            return 'agent-with-multiple-tools';
+        }
+
+        public function provider(): ?string
+        {
+            return 'openai';
+        }
+
+        public function model(): ?string
+        {
+            return 'gpt-4';
+        }
+
+        public function mcpTools(): array
+        {
+            return $this->tools;
+        }
+    };
+
+    $context = new ExecutionContext;
+    $executor->execute($agent, 'Hello', $context);
+
+    // Handler filters out tools with 'blocked' in name
+    expect(ToolsFilteringHandler::$filteredCount)->toBe(1);
+});
+
+class ToolsMergedCapturingHandler implements PipelineContract
+{
+    public static bool $called = false;
+
+    public static ?array $data = null;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+        self::$data = null;
+    }
+
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        self::$called = true;
+        self::$data = $data;
+
+        return $next($data);
+    }
+}
+
+class ToolsFilteringHandler implements PipelineContract
+{
+    public static bool $called = false;
+
+    public static int $filteredCount = 0;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+        self::$filteredCount = 0;
+    }
+
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        self::$called = true;
+
+        // Filter out tools with 'blocked' in their name
+        $data['tools'] = array_filter(
+            $data['tools'],
+            fn ($tool) => ! str_contains($tool->name(), 'blocked')
+        );
+
+        self::$filteredCount = count($data['tools']);
+
+        return $next($data);
+    }
+}

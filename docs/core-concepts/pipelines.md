@@ -24,6 +24,7 @@ Pipelines intercept key operations and allow you to:
 |----------|---------|
 | `agent.before_execute` | Before agent execution starts |
 | `agent.context.validate` | After before_execute, before building the request (validate/modify context) |
+| `agent.tools.merged` | After all tools are merged, before sending to Prism (filter/audit/inject tools) |
 | `agent.after_execute` | After agent execution completes |
 | `agent.stream.after` | After streaming completes (success or error) |
 | `agent.system_prompt.before_build` | Before building system prompt |
@@ -328,6 +329,10 @@ The `ExecutionContext` provides access to:
 - `variables` — System prompt variables
 - `metadata` — Execution metadata (user_id, session_id, etc.)
 - `prismMedia` — Prism media objects for current input (images, documents, audio, video)
+- `tools` — Runtime Atlas tool class names (from `withTools()`)
+- `mcpTools` — Runtime MCP Tool instances (from `withMcpTools()`)
+
+See [ExecutionContext Reference](#executioncontext-reference) for the complete API.
 
 ### agent.system_prompt.before_build
 
@@ -347,6 +352,61 @@ The `ExecutionContext` provides access to:
     'context' => ExecutionContext,
     'prompt' => string,  // The built prompt
 ]
+```
+
+### agent.tools.merged
+
+Fires after all tools from all sources are merged, before sending to Prism. Provides complete visibility into the tool set and allows filtering, auditing, or injecting tools.
+
+```php
+[
+    'agent' => AgentContract,
+    'context' => ExecutionContext,
+    'tool_context' => ToolContext,
+    'agent_tools' => array,      // Native Atlas tools (from tools() + withTools())
+    'agent_mcp_tools' => array,  // MCP tools (from mcpTools() + withMcpTools())
+    'tools' => array,            // Final merged array (modify this to change tools sent to Prism)
+]
+```
+
+Modify `tools` to filter, reorder, or inject tools:
+
+```php
+class FilterToolsByPermission implements PipelineContract
+{
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        $userId = $data['context']->getMeta('user_id');
+        $allowedToolNames = $this->getUserAllowedTools($userId);
+
+        // Filter tools to only include allowed tools
+        $data['tools'] = array_filter(
+            $data['tools'],
+            fn ($tool) => in_array($tool->name(), $allowedToolNames)
+        );
+
+        return $next($data);
+    }
+}
+```
+
+Use individual arrays to audit tool types:
+
+```php
+class AuditToolSources implements PipelineContract
+{
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        Log::info('Tools for agent execution', [
+            'agent' => $data['agent']->key(),
+            'native_tools' => count($data['agent_tools']),
+            'mcp_tools' => count($data['agent_mcp_tools']),
+            'total_tools' => count($data['tools']),
+        ]);
+
+        return $next($data);
+    }
+}
 ```
 
 ### tool.before_resolve
@@ -712,6 +772,83 @@ $response = Atlas::agent('agent')->chat('input');
 // Re-enable
 $registry->setActive('agent.before_execute', true);
 ```
+
+## ExecutionContext Reference
+
+The `ExecutionContext` object is available in most agent pipelines and provides access to the full request configuration:
+
+```php
+// Properties
+$context->messages;          // array - Conversation history (array format)
+$context->prismMessages;     // array - Conversation history (Prism message objects)
+$context->variables;         // array - System prompt variables
+$context->metadata;          // array - Execution metadata
+$context->providerOverride;  // ?string - Provider override
+$context->modelOverride;     // ?string - Model override
+$context->prismCalls;        // array - Captured Prism method calls
+$context->prismMedia;        // array - Prism media objects (Image, Document, Audio, Video)
+$context->tools;             // array - Runtime Atlas tool class names (from withTools())
+$context->mcpTools;          // array - Runtime MCP Tool instances (from withMcpTools())
+
+// Helper methods
+$context->hasMessages(): bool;         // Has conversation history (either format)
+$context->hasPrismMessages(): bool;    // Has Prism message objects specifically
+$context->hasAttachments(): bool;      // Has media attachments for current input
+$context->hasTools(): bool;            // Has runtime Atlas tools
+$context->hasMcpTools(): bool;         // Has runtime MCP tools
+$context->hasProviderOverride(): bool; // Has provider override
+$context->hasModelOverride(): bool;    // Has model override
+$context->hasPrismCalls(): bool;       // Has captured Prism calls
+$context->hasSchemaCall(): bool;       // Has withSchema() in Prism calls
+
+// Value accessors
+$context->getVariable(string $key, mixed $default = null): mixed;
+$context->getMeta(string $key, mixed $default = null): mixed;
+$context->hasVariable(string $key): bool;
+$context->hasMeta(string $key): bool;
+$context->getSchemaFromCalls(): ?Schema;
+$context->getPrismCallsWithoutSchema(): array;
+```
+
+### Example: Checking for Tools
+
+```php
+class ToolAwareHandler implements PipelineContract
+{
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        $context = $data['context'];
+
+        // Check if any runtime tools are configured
+        if ($context->hasTools()) {
+            Log::info('Runtime tools added', [
+                'tool_classes' => $context->tools,
+            ]);
+        }
+
+        // Check if MCP tools are configured
+        if ($context->hasMcpTools()) {
+            Log::info('MCP tools added', [
+                'count' => count($context->mcpTools),
+            ]);
+        }
+
+        return $next($data);
+    }
+}
+```
+
+## ToolContext Reference
+
+The `ToolContext` object is available in tool pipelines and provides access to execution metadata:
+
+```php
+// Methods
+$toolContext->getMeta(string $key, mixed $default = null): mixed;
+$toolContext->hasMeta(string $key): bool;
+```
+
+The tool context receives metadata from `ExecutionContext->metadata`, allowing tools to access request-level information like user IDs, session data, or feature flags.
 
 ## API Reference
 

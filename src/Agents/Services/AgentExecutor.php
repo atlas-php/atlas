@@ -405,6 +405,9 @@ class AgentExecutor implements AgentExecutorContract
      *
      * Order: agent native → runtime native → agent MCP → runtime MCP
      *
+     * Fires the agent.tools.merged pipeline to allow inspection and modification
+     * of the complete tool set before sending to Prism.
+     *
      * @return array<int, \Prism\Prism\Tool>
      */
     protected function buildAllTools(
@@ -426,7 +429,26 @@ class AgentExecutor implements AgentExecutorContract
         // 4. Runtime MCP tools (already Prism Tool instances via withMcpTools())
         $runtimeMcpTools = $context->mcpTools;
 
-        return [...$agentNativeTools, ...$runtimeNativeTools, ...$agentMcpTools, ...$runtimeMcpTools];
+        // Combine native tools (agent + runtime)
+        $allNativeTools = [...$agentNativeTools, ...$runtimeNativeTools];
+
+        // Combine MCP tools (agent + runtime)
+        $allMcpTools = [...$agentMcpTools, ...$runtimeMcpTools];
+
+        // Merge all tools
+        $allTools = [...$allNativeTools, ...$allMcpTools];
+
+        // Run agent.tools.merged pipeline - allows auditing, filtering, or injecting tools
+        $mergedData = $this->pipelineRunner->runIfActive('agent.tools.merged', [
+            'agent' => $agent,
+            'context' => $context,
+            'tool_context' => $toolContext,
+            'agent_tools' => $allNativeTools,
+            'agent_mcp_tools' => $allMcpTools,
+            'tools' => $allTools,
+        ]);
+
+        return $mergedData['tools'];
     }
 
     /**
