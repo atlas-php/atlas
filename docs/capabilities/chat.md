@@ -75,7 +75,7 @@ $response = Atlas::agent('support-agent')
 
 ## Attachments
 
-Add images, documents, audio, and video to chat requests for vision analysis and document processing.
+Add images, documents, audio, and video to chat requests for vision analysis and document processing. Atlas uses Prism media objects directly for a consistent API.
 
 ::: tip Prism Reference
 For detailed input modalities documentation, see Prism's [Images](https://prismphp.com/input-modalities/images.html), [Documents](https://prismphp.com/input-modalities/documents.html), [Audio](https://prismphp.com/input-modalities/audio.html), and [Video](https://prismphp.com/input-modalities/video.html) guides.
@@ -83,69 +83,105 @@ For detailed input modalities documentation, see Prism's [Images](https://prismp
 
 ### Basic Attachments
 
+Pass Prism media objects as the second argument to `chat()`:
+
 ```php
 use Atlasphp\Atlas\Atlas;
+use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\Media\Audio;
+use Prism\Prism\ValueObjects\Media\Video;
 
-// Image from URL (default)
+// Image from URL
 $response = Atlas::agent('vision-agent')
-    ->withImage('https://example.com/photo.jpg')
-    ->chat('What do you see in this image?');
+    ->chat('What do you see in this image?', [
+        Image::fromUrl('https://example.com/photo.jpg'),
+    ]);
 
 // Document
 $response = Atlas::agent('analyzer')
-    ->withDocument('https://example.com/report.pdf')
-    ->chat('Summarize this document');
+    ->chat('Summarize this document', [
+        Document::fromUrl('https://example.com/report.pdf'),
+    ]);
 
 // Audio
 $response = Atlas::agent('transcriber')
-    ->withAudio('https://example.com/speech.mp3')
-    ->chat('What is being said?');
+    ->chat('What is being said?', [
+        Audio::fromUrl('https://example.com/speech.mp3'),
+    ]);
 
 // Video
 $response = Atlas::agent('analyzer')
-    ->withVideo('https://example.com/clip.mp4')
-    ->chat('Describe what happens');
+    ->chat('Describe what happens', [
+        Video::fromUrl('https://example.com/clip.mp4'),
+    ]);
 ```
 
 ### Source Types
 
-Use `MediaSource` to specify how media data should be loaded:
+Prism media objects support multiple source types:
 
 ```php
-use Atlasphp\Atlas\Agents\Enums\MediaSource;
+use Prism\Prism\ValueObjects\Media\Image;
 
-// URL (default)
-->withImage('https://example.com/image.jpg')
+// From URL
+Image::fromUrl('https://example.com/image.jpg')
 
-// Local file path
-->withImage('/path/to/image.png', MediaSource::LocalPath)
+// From local file path
+Image::fromLocalPath('/path/to/image.png')
 
-// Base64 with MIME type
-->withImage($base64Data, MediaSource::Base64, 'image/png')
+// From base64 data
+Image::fromBase64($base64Data, 'image/png')
 
-// Laravel Storage path with disk
-->withImage('images/photo.png', MediaSource::StoragePath, 'image/png', 's3')
+// From Laravel Storage
+Image::fromStoragePath('images/photo.png', 'image/png', 's3')
 
-// Provider file ID
-->withImage('file-abc123', MediaSource::FileId)
+// From provider file ID
+Image::fromFileId('file-abc123')
 ```
+
+The same methods are available on `Document`, `Audio`, and `Video` classes.
 
 ### Multiple Attachments
 
 ```php
+use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\ValueObjects\Media\Document;
+
 // Multiple images
 $response = Atlas::agent('vision')
-    ->withImage([
-        'https://example.com/before.jpg',
-        'https://example.com/after.jpg',
-    ])
-    ->chat('Compare these images');
+    ->chat('Compare these images', [
+        Image::fromUrl('https://example.com/before.jpg'),
+        Image::fromUrl('https://example.com/after.jpg'),
+    ]);
 
 // Different media types
 $response = Atlas::agent('analyzer')
-    ->withImage('https://example.com/chart.png')
-    ->withDocument('https://example.com/data.pdf')
-    ->chat('Explain the chart using the document data');
+    ->chat('Explain the chart using the document data', [
+        Image::fromUrl('https://example.com/chart.png'),
+        Document::fromUrl('https://example.com/data.pdf'),
+    ]);
+```
+
+### Builder Style
+
+For cases where you need to configure attachments separately, use `withMedia()`:
+
+```php
+use Prism\Prism\ValueObjects\Media\Image;
+
+$response = Atlas::agent('vision')
+    ->withMedia([
+        Image::fromUrl('https://example.com/photo.jpg'),
+    ])
+    ->chat('Describe this image');
+
+// Both styles can be combined (attachments are merged)
+$response = Atlas::agent('vision')
+    ->withMedia([Image::fromUrl('https://example.com/photo1.jpg')])
+    ->chat('Compare with this', [
+        Image::fromUrl('https://example.com/photo2.jpg'),
+    ]);
 ```
 
 ::: warning Provider Support
@@ -181,7 +217,7 @@ $response = Atlas::agent('support-agent')
 | `withMetadata(array $metadata)` | Metadata for pipeline middleware and tools |
 | `withProvider(string $provider, ?string $model)` | Override agent's provider/model |
 | `withSchema(Schema $schema)` | Schema for structured output ([details](/capabilities/structured-output)) |
-| `withImage/withDocument/withAudio/withVideo` | Attach media ([details](#attachments)) |
+| `withMedia(array $media)` | Attach Prism media objects via builder pattern |
 
 </div>
 

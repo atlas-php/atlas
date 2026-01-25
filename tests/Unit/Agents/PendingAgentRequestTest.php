@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
-use Atlasphp\Atlas\Agents\Enums\MediaSource;
 use Atlasphp\Atlas\Agents\Services\AgentResolver;
 use Atlasphp\Atlas\Agents\Support\ExecutionContext;
 use Atlasphp\Atlas\Agents\Support\PendingAgentRequest;
@@ -315,202 +314,7 @@ test('__call captures multiple prism method calls', function () {
     expect($capturedContext->prismCalls[2])->toBe(['method' => 'withClientRetry', 'args' => [3]]);
 });
 
-// === withImage ===
-
-test('withImage adds single image attachment as Prism Image object', function () {
-    $capturedContext = null;
-    $this->executor->shouldReceive('execute')
-        ->once()
-        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
-            $capturedContext = $context;
-
-            return true;
-        })
-        ->andReturn(makeMockPrismResponse('Response'));
-
-    $this->request
-        ->withImage('https://example.com/image.png')
-        ->chat('What is in this image?');
-
-    expect($capturedContext->prismMedia)->toHaveCount(1);
-    expect($capturedContext->prismMedia[0])->toBeInstanceOf(Image::class);
-});
-
-test('withImage adds multiple image attachments as Prism Image objects', function () {
-    $capturedContext = null;
-    $this->executor->shouldReceive('execute')
-        ->once()
-        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
-            $capturedContext = $context;
-
-            return true;
-        })
-        ->andReturn(makeMockPrismResponse('Response'));
-
-    $this->request
-        ->withImage([
-            'https://example.com/image1.png',
-            'https://example.com/image2.png',
-        ])
-        ->chat('Compare these images');
-
-    expect($capturedContext->prismMedia)->toHaveCount(2);
-    expect($capturedContext->prismMedia[0])->toBeInstanceOf(Image::class);
-    expect($capturedContext->prismMedia[1])->toBeInstanceOf(Image::class);
-});
-
-test('withImage supports base64 source', function () {
-    $capturedContext = null;
-    $this->executor->shouldReceive('execute')
-        ->once()
-        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
-            $capturedContext = $context;
-
-            return true;
-        })
-        ->andReturn(makeMockPrismResponse('Response'));
-
-    $this->request
-        ->withImage('base64data...', MediaSource::Base64, 'image/png')
-        ->chat('What is this?');
-
-    expect($capturedContext->prismMedia)->toHaveCount(1);
-    expect($capturedContext->prismMedia[0])->toBeInstanceOf(Image::class);
-});
-
-test('withImage supports file path source', function () {
-    // Create a temporary image file for testing
-    $tempFile = tempnam(sys_get_temp_dir(), 'test_image_');
-    file_put_contents($tempFile, 'fake image data');
-
-    try {
-        $capturedContext = null;
-        $this->executor->shouldReceive('execute')
-            ->once()
-            ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
-                $capturedContext = $context;
-
-                return true;
-            })
-            ->andReturn(makeMockPrismResponse('Response'));
-
-        $this->request
-            ->withImage($tempFile, MediaSource::LocalPath)
-            ->chat('What is this?');
-
-        expect($capturedContext->prismMedia)->toHaveCount(1);
-        expect($capturedContext->prismMedia[0])->toBeInstanceOf(Image::class);
-    } finally {
-        @unlink($tempFile);
-    }
-});
-
-test('withImage supports storage path source with disk', function () {
-    // StoragePath requires Laravel Storage facade and configured disks
-    // This test verifies the method signature works when storage is configured
-    // Actual storage functionality is tested in feature tests
-    $capturedContext = null;
-    $this->executor->shouldReceive('execute')
-        ->once()
-        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
-            $capturedContext = $context;
-
-            return true;
-        })
-        ->andReturn(makeMockPrismResponse('Response'));
-
-    // Use 'local' disk which is available in default Laravel config
-    $this->request
-        ->withImage('test.png', MediaSource::StoragePath, null, 'local')
-        ->chat('What is this?');
-
-    expect($capturedContext->prismMedia)->toHaveCount(1);
-    expect($capturedContext->prismMedia[0])->toBeInstanceOf(Image::class);
-})->skip('Requires configured storage disk - covered in feature tests');
-
-// === withDocument ===
-
-test('withDocument adds document attachment as Prism Document object', function () {
-    $capturedContext = null;
-    $this->executor->shouldReceive('execute')
-        ->once()
-        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
-            $capturedContext = $context;
-
-            return true;
-        })
-        ->andReturn(makeMockPrismResponse('Response'));
-
-    $this->request
-        ->withDocument('https://example.com/document.pdf')
-        ->chat('Summarize this document');
-
-    expect($capturedContext->prismMedia)->toHaveCount(1);
-    expect($capturedContext->prismMedia[0])->toBeInstanceOf(Document::class);
-});
-
-test('withDocument creates Document with title', function () {
-    $capturedContext = null;
-    $this->executor->shouldReceive('execute')
-        ->once()
-        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
-            $capturedContext = $context;
-
-            return true;
-        })
-        ->andReturn(makeMockPrismResponse('Response'));
-
-    $this->request
-        ->withDocument('https://example.com/document.pdf', MediaSource::Url, 'application/pdf', 'Annual Report')
-        ->chat('Summarize this');
-
-    expect($capturedContext->prismMedia)->toHaveCount(1);
-    expect($capturedContext->prismMedia[0])->toBeInstanceOf(Document::class);
-});
-
-// === withAudio ===
-
-test('withAudio adds audio attachment as Prism Audio object', function () {
-    $capturedContext = null;
-    $this->executor->shouldReceive('execute')
-        ->once()
-        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
-            $capturedContext = $context;
-
-            return true;
-        })
-        ->andReturn(makeMockPrismResponse('Response'));
-
-    $this->request
-        ->withAudio('https://example.com/audio.mp3')
-        ->chat('Transcribe this audio');
-
-    expect($capturedContext->prismMedia)->toHaveCount(1);
-    expect($capturedContext->prismMedia[0])->toBeInstanceOf(Audio::class);
-});
-
-// === withVideo ===
-
-test('withVideo adds video attachment as Prism Video object', function () {
-    $capturedContext = null;
-    $this->executor->shouldReceive('execute')
-        ->once()
-        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
-            $capturedContext = $context;
-
-            return true;
-        })
-        ->andReturn(makeMockPrismResponse('Response'));
-
-    $this->request
-        ->withVideo('https://example.com/video.mp4')
-        ->chat('What happens in this video?');
-
-    expect($capturedContext->prismMedia)->toHaveCount(1);
-    expect($capturedContext->prismMedia[0])->toBeInstanceOf(Video::class);
-});
-
-// === withMedia (Prism objects) ===
+// === withMedia (Prism objects - builder style) ===
 
 test('withMedia adds single Prism media object', function () {
     $capturedContext = null;
@@ -597,6 +401,94 @@ test('chat passes input correctly', function () {
     expect($capturedInput)->toBe('Test input message');
 });
 
+test('chat accepts inline attachments (Prism-style)', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $image = Image::fromUrl('https://example.com/image.png');
+
+    $this->request->chat('Describe this image', [$image]);
+
+    expect($capturedContext->prismMedia)->toHaveCount(1);
+    expect($capturedContext->prismMedia[0])->toBe($image);
+});
+
+test('chat merges builder attachments with inline attachments', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $builderImage = Image::fromUrl('https://example.com/builder-image.png');
+    $inlineImage = Image::fromUrl('https://example.com/inline-image.png');
+
+    $this->request
+        ->withMedia($builderImage)
+        ->chat('Compare these images', [$inlineImage]);
+
+    expect($capturedContext->prismMedia)->toHaveCount(2);
+    expect($capturedContext->prismMedia[0])->toBe($builderImage);
+    expect($capturedContext->prismMedia[1])->toBe($inlineImage);
+});
+
+test('chat accepts multiple inline attachments', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $image = Image::fromUrl('https://example.com/image.png');
+    $document = Document::fromUrl('https://example.com/doc.pdf');
+
+    $this->request->chat('Analyze these', [$image, $document]);
+
+    expect($capturedContext->prismMedia)->toHaveCount(2);
+    expect($capturedContext->prismMedia[0])->toBeInstanceOf(Image::class);
+    expect($capturedContext->prismMedia[1])->toBeInstanceOf(Document::class);
+});
+
+test('chat accepts all media types inline', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $image = Image::fromUrl('https://example.com/image.png');
+    $document = Document::fromUrl('https://example.com/doc.pdf');
+    $audio = Audio::fromUrl('https://example.com/audio.mp3');
+    $video = Video::fromUrl('https://example.com/video.mp4');
+
+    $this->request->chat('Process all these', [$image, $document, $audio, $video]);
+
+    expect($capturedContext->prismMedia)->toHaveCount(4);
+    expect($capturedContext->prismMedia[0])->toBeInstanceOf(Image::class);
+    expect($capturedContext->prismMedia[1])->toBeInstanceOf(Document::class);
+    expect($capturedContext->prismMedia[2])->toBeInstanceOf(Audio::class);
+    expect($capturedContext->prismMedia[3])->toBeInstanceOf(Video::class);
+});
+
 // === stream ===
 
 test('stream resolves agent and returns generator', function () {
@@ -621,6 +513,27 @@ test('stream resolves agent and returns generator', function () {
     expect($chunks)->toBe(['chunk1', 'chunk2']);
 });
 
+test('stream accepts inline attachments (Prism-style)', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('stream')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn((function () {
+            yield 'chunk';
+        })());
+
+    $image = Image::fromUrl('https://example.com/image.png');
+
+    iterator_to_array($this->request->stream('Describe this', [$image]));
+
+    expect($capturedContext->prismMedia)->toHaveCount(1);
+    expect($capturedContext->prismMedia[0])->toBe($image);
+});
+
 // === Fluent chaining ===
 
 test('all methods can be chained fluently', function () {
@@ -628,14 +541,15 @@ test('all methods can be chained fluently', function () {
         ->once()
         ->andReturn(makeMockPrismResponse('Response'));
 
+    $image = Image::fromUrl('https://example.com/image.png');
+
     $response = $this->request
         ->withMessages([['role' => 'user', 'content' => 'Previous']])
         ->withVariables(['name' => 'John'])
         ->withMetadata(['request_id' => '123'])
         ->withProvider('anthropic', 'claude-3-opus')
-        ->withImage('https://example.com/image.png')
         ->usingTemperature(0.7)
-        ->chat('Hello');
+        ->chat('Hello', [$image]);
 
     expect($response)->toBeInstanceOf(PrismResponse::class);
 });
@@ -651,15 +565,16 @@ test('chaining preserves all configuration', function () {
         })
         ->andReturn(makeMockPrismResponse('Response'));
 
+    $image = Image::fromUrl('https://example.com/image.png');
+
     $this->request
         ->withMessages([['role' => 'user', 'content' => 'Hi']])
         ->withVariables(['name' => 'John'])
         ->withMetadata(['id' => '123'])
         ->withProvider('anthropic')
         ->withModel('claude-3-opus')
-        ->withImage('https://example.com/image.png')
         ->usingTemperature(0.7)
-        ->chat('Hello');
+        ->chat('Hello', [$image]);
 
     expect($capturedContext->messages)->toBe([['role' => 'user', 'content' => 'Hi']]);
     expect($capturedContext->variables)->toBe(['name' => 'John']);

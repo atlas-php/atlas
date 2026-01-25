@@ -11,6 +11,10 @@ use Generator;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Text\Response as PrismResponse;
+use Prism\Prism\ValueObjects\Media\Audio;
+use Prism\Prism\ValueObjects\Media\Document;
+use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\ValueObjects\Media\Video;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
@@ -172,6 +176,21 @@ final class PendingAgentRequest
     /**
      * Execute a blocking chat with the configured agent.
      *
+     * Supports two styles for attachments (Prism-consistent):
+     *
+     * ```php
+     * // Style 1: Prism-style with inline attachments
+     * ->chat('Describe this image', [Image::fromUrl('https://...')])
+     *
+     * // Style 2: Builder-style with convenience methods
+     * ->withImage('https://example.com/photo.jpg')
+     * ->chat('Describe this image')
+     *
+     * // Both can be combined (attachments are merged)
+     * ->withImage('https://example.com/photo1.jpg')
+     * ->chat('Compare with this', [Image::fromUrl('https://example.com/photo2.jpg')])
+     * ```
+     *
      * Returns Prism's Response directly for full API access:
      * - $response->text - Text response
      * - $response->usage - Full usage stats including cache tokens, thought tokens
@@ -186,11 +205,12 @@ final class PendingAgentRequest
      * - $response->usage - Full usage stats
      *
      * @param  string  $input  The user input message.
+     * @param  array<int, Image|Document|Audio|Video>  $attachments  Optional Prism media objects to attach.
      */
-    public function chat(string $input): PrismResponse|StructuredResponse
+    public function chat(string $input, array $attachments = []): PrismResponse|StructuredResponse
     {
         $resolvedAgent = $this->agentResolver->resolve($this->agent);
-        $context = $this->buildContext();
+        $context = $this->buildContext($attachments);
 
         return $this->agentExecutor->execute($resolvedAgent, $input, $context);
     }
@@ -202,21 +222,27 @@ final class PendingAgentRequest
      * Consumers work with Prism's streaming API directly.
      *
      * @param  string  $input  The user input message.
+     * @param  array<int, Image|Document|Audio|Video>  $attachments  Optional Prism media objects to attach.
      * @return Generator<int, StreamEvent>
      */
-    public function stream(string $input): Generator
+    public function stream(string $input, array $attachments = []): Generator
     {
         $resolvedAgent = $this->agentResolver->resolve($this->agent);
-        $context = $this->buildContext();
+        $context = $this->buildContext($attachments);
 
         yield from $this->agentExecutor->stream($resolvedAgent, $input, $context);
     }
 
     /**
      * Build the execution context from current configuration.
+     *
+     * @param  array<int, Image|Document|Audio|Video>  $inlineAttachments  Attachments passed directly to chat()/stream().
      */
-    private function buildContext(): ExecutionContext
+    private function buildContext(array $inlineAttachments = []): ExecutionContext
     {
+        // Merge builder attachments with inline attachments
+        $allMedia = array_merge($this->getPrismMedia(), $inlineAttachments);
+
         return new ExecutionContext(
             messages: $this->messages,
             variables: $this->getVariables(),
@@ -224,7 +250,7 @@ final class PendingAgentRequest
             providerOverride: $this->providerOverride,
             modelOverride: $this->modelOverride,
             prismCalls: $this->prismCalls,
-            prismMedia: $this->getPrismMedia(),
+            prismMedia: $allMedia,
             prismMessages: $this->prismMessages,
         );
     }
