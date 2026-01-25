@@ -82,7 +82,8 @@ echo $response->text;
 
 **Atlas solves this** by giving you a clear structure:
 
-- **Agents as classes** - Your AI configurations live in dedicated classes, not inline strings. Change a prompt once, it updates everywhere.
+- **Agents as classes** - Your AI configurations (provider, model, prompts, tools, options) live in dedicated classes. Change once, updates everywhere.
+- **Dynamic system prompts** - Interpolate `{variables}` at runtime to inject user context, preferences, or request-specific data into every interaction.
 - **Tools with contracts** - Your business logic stays in tool classes with typed parameters. Agents call tools; tools call your services.
 - **Pipelines for cross-cutting concerns** - Add logging, authentication, or usage tracking to all AI operations without modifying agent code.
 - **Testable by design** - Mock agents, fake tool responses, and verify interactions with standard Laravel testing patterns.
