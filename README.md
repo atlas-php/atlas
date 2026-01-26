@@ -93,8 +93,9 @@ class SupportAgent extends AgentDefinition
 ```php
 $response = Atlas::agent(SupportAgent::class)
     ->withVariables([
-        'company' => 'Acme', 
-        'user_name' => 'Sarah'
+        'company_name' => 'Acme', 
+        'customer_name' => 'Sarah',
+        'account_tier' => 'Premium',
     ])
     ->chat('Where is my order #12345?');
 
