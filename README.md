@@ -125,9 +125,28 @@ Atlas doesn't replace Prism. It organizes how you use Prism in real applications
 - [MCP Integration](https://atlasphp.org/capabilities/mcp.html) - External tools from MCP servers
 - [Pipelines](https://atlasphp.org/core-concepts/pipelines.html) - Extend with middleware
 
+---
+
+## Testing and Code Quality
+
+Atlas uses several tools to maintain high code quality:
+
+```bash
+composer check
+```
+
+| Tool                                             | Purpose                                                                                                                |
+|--------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
+| [Pest](https://pestphp.com)                      | Testing framework                                                                                                      |
+| [Larastan](https://github.com/larastan/larastan) | Static analysis                                                                                                        |
+| [Laravel Pint](https://laravel.com/docs/pint)    | Code style                                                                                                             |
+| [Codecov](https://codecov.io/gh/atlas-php/atlas) | [![codecov](https://codecov.io/gh/atlas-php/atlas/branch/main/graph/badge.svg)](https://codecov.io/gh/atlas-php/atlas) |
+
+---
+
 ## Contributing
 
-We welcome contributions! 
+We welcome contributions!
 
 Please see our [Contributing Guide](.github/CONTRIBUTING.md) for details.
 
