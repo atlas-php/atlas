@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Agents\Services\SystemPromptBuilder;
-use Atlasphp\Atlas\Agents\Support\ExecutionContext;
+use Atlasphp\Atlas\Agents\Support\AgentContext;
 use Atlasphp\Atlas\Pipelines\PipelineRegistry;
 use Atlasphp\Atlas\Pipelines\PipelineRunner;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
@@ -18,7 +18,7 @@ beforeEach(function () {
 
 test('it builds system prompt from agent', function () {
     $agent = new TestAgent;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
 
     $prompt = $this->builder->build($agent, $context);
 
@@ -30,7 +30,7 @@ test('it builds system prompt from agent', function () {
 
 test('it interpolates variables', function () {
     $agent = new TestAgent;
-    $context = new ExecutionContext(variables: [
+    $context = new AgentContext(variables: [
         'agent_name' => 'Atlas',
         'user_name' => 'John',
     ]);
@@ -45,7 +45,7 @@ test('it uses global variables', function () {
     $this->builder->registerVariable('agent_name', 'GlobalAgent');
 
     $agent = new TestAgent;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
 
     $prompt = $this->builder->build($agent, $context);
 
@@ -56,7 +56,7 @@ test('context variables override global variables', function () {
     $this->builder->registerVariable('agent_name', 'GlobalAgent');
 
     $agent = new TestAgent;
-    $context = new ExecutionContext(variables: ['agent_name' => 'ContextAgent']);
+    $context = new AgentContext(variables: ['agent_name' => 'ContextAgent']);
 
     $prompt = $this->builder->build($agent, $context);
 
@@ -68,7 +68,7 @@ test('it unregisters global variable', function () {
     $this->builder->unregisterVariable('agent_name');
 
     $agent = new TestAgent;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
 
     $prompt = $this->builder->build($agent, $context);
 
@@ -79,7 +79,7 @@ test('it adds sections to prompt', function () {
     $this->builder->addSection('rules', '## Rules\nFollow these rules.');
 
     $agent = new TestAgent;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
 
     $prompt = $this->builder->build($agent, $context);
 
@@ -92,7 +92,7 @@ test('it removes section', function () {
     $this->builder->removeSection('rules');
 
     $agent = new TestAgent;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
 
     $prompt = $this->builder->build($agent, $context);
 
@@ -105,7 +105,7 @@ test('it clears all sections', function () {
     $this->builder->clearSections();
 
     $agent = new TestAgent;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
 
     $prompt = $this->builder->build($agent, $context);
 
@@ -137,7 +137,7 @@ test('it handles boolean variables', function () {
         }
     };
 
-    $context = new ExecutionContext(variables: ['debug' => true]);
+    $context = new AgentContext(variables: ['debug' => true]);
     $prompt = $this->builder->build($agent, $context);
 
     expect($prompt)->toContain('Debug mode: true');
@@ -167,7 +167,7 @@ test('it handles array variables as JSON', function () {
         }
     };
 
-    $context = new ExecutionContext(variables: ['data' => ['a' => 1]]);
+    $context = new AgentContext(variables: ['data' => ['a' => 1]]);
     $prompt = $this->builder->build($agent, $context);
 
     expect($prompt)->toContain('{"a":1}');
@@ -201,7 +201,7 @@ test('it handles integer variables', function () {
         }
     };
 
-    $context = new ExecutionContext(variables: ['count' => 42]);
+    $context = new AgentContext(variables: ['count' => 42]);
     $prompt = $this->builder->build($agent, $context);
 
     expect($prompt)->toBe('Count: 42');
@@ -231,7 +231,7 @@ test('it handles float variables', function () {
         }
     };
 
-    $context = new ExecutionContext(variables: ['temp' => 0.7]);
+    $context = new AgentContext(variables: ['temp' => 0.7]);
     $prompt = $this->builder->build($agent, $context);
 
     expect($prompt)->toBe('Temperature: 0.7');
@@ -261,7 +261,7 @@ test('it handles null variables as empty string', function () {
         }
     };
 
-    $context = new ExecutionContext(variables: ['value' => null]);
+    $context = new AgentContext(variables: ['value' => null]);
     $prompt = $this->builder->build($agent, $context);
 
     expect($prompt)->toBe('Value: ');
@@ -291,7 +291,7 @@ test('it handles boolean false as string false', function () {
         }
     };
 
-    $context = new ExecutionContext(variables: ['active' => false]);
+    $context = new AgentContext(variables: ['active' => false]);
     $prompt = $this->builder->build($agent, $context);
 
     expect($prompt)->toBe('Active: false');
@@ -321,7 +321,7 @@ test('it handles nested arrays as JSON', function () {
         }
     };
 
-    $context = new ExecutionContext(variables: [
+    $context = new AgentContext(variables: [
         'config' => ['level1' => ['level2' => ['value' => 'deep']]],
     ]);
     $prompt = $this->builder->build($agent, $context);
@@ -337,7 +337,7 @@ test('it concatenates multiple sections with newlines', function () {
     $this->builder->addSection('notes', '## Notes');
 
     $agent = new TestAgent;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
 
     $prompt = $this->builder->build($agent, $context);
 
@@ -408,7 +408,7 @@ test('it handles prompt with no placeholders', function () {
         }
     };
 
-    $context = new ExecutionContext(variables: ['unused' => 'value']);
+    $context = new AgentContext(variables: ['unused' => 'value']);
     $prompt = $this->builder->build($agent, $context);
 
     expect($prompt)->toBe('You are a helpful assistant.');
@@ -438,7 +438,7 @@ test('it handles empty prompt', function () {
         }
     };
 
-    $context = new ExecutionContext;
+    $context = new AgentContext;
     $prompt = $this->builder->build($agent, $context);
 
     expect($prompt)->toBe('');
@@ -468,7 +468,7 @@ test('it handles multiple variables in single prompt', function () {
         }
     };
 
-    $context = new ExecutionContext(variables: [
+    $context = new AgentContext(variables: [
         'name' => 'Alice',
         'role' => 'Engineer',
         'company' => 'Acme',
@@ -506,7 +506,7 @@ test('it leaves unmatched placeholders intact', function () {
         }
     };
 
-    $context = new ExecutionContext(variables: ['name' => 'Bob']);
+    $context = new AgentContext(variables: ['name' => 'Bob']);
     $prompt = $this->builder->build($agent, $context);
 
     expect($prompt)->toBe('Hello Bob, your id is {user_id}');
@@ -536,7 +536,7 @@ test('it ignores invalid placeholder formats', function () {
         }
     };
 
-    $context = new ExecutionContext(variables: ['valid' => 'works']);
+    $context = new AgentContext(variables: ['valid' => 'works']);
     $prompt = $this->builder->build($agent, $context);
 
     // Invalid patterns should remain unchanged
@@ -549,7 +549,7 @@ test('it ignores invalid placeholder formats', function () {
 
 test('it handles empty context variables', function () {
     $agent = new TestAgent;
-    $context = new ExecutionContext(variables: []);
+    $context = new AgentContext(variables: []);
 
     $prompt = $this->builder->build($agent, $context);
 
@@ -596,7 +596,7 @@ test('it handles empty string variable', function () {
         }
     };
 
-    $context = new ExecutionContext(variables: ['name' => '']);
+    $context = new AgentContext(variables: ['name' => '']);
     $prompt = $this->builder->build($agent, $context);
 
     expect($prompt)->toBe('Name: ');
@@ -626,7 +626,7 @@ test('it handles camelCase variable names', function () {
         }
     };
 
-    $context = new ExecutionContext(variables: [
+    $context = new AgentContext(variables: [
         'userName' => 'John',
         'accountType' => 'premium',
     ]);
@@ -659,7 +659,7 @@ test('it handles underscore prefixed variable names', function () {
         }
     };
 
-    $context = new ExecutionContext(variables: ['_internal' => 'secret']);
+    $context = new AgentContext(variables: ['_internal' => 'secret']);
     $prompt = $this->builder->build($agent, $context);
 
     expect($prompt)->toBe('Internal: secret');
@@ -689,7 +689,7 @@ test('it handles same variable used multiple times', function () {
         }
     };
 
-    $context = new ExecutionContext(variables: ['name' => 'Alice']);
+    $context = new AgentContext(variables: ['name' => 'Alice']);
     $prompt = $this->builder->build($agent, $context);
 
     expect($prompt)->toBe('Hello Alice! How are you, Alice? Goodbye Alice.');
@@ -700,7 +700,7 @@ test('it replaces section with same key', function () {
     $this->builder->addSection('rules', 'New rules');
 
     $agent = new TestAgent;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
 
     $prompt = $this->builder->build($agent, $context);
 
@@ -732,7 +732,7 @@ test('it handles special characters in variable values', function () {
         }
     };
 
-    $context = new ExecutionContext(variables: [
+    $context = new AgentContext(variables: [
         'content' => 'Test with $pecial ch@rs & <html> "quotes"',
     ]);
     $prompt = $this->builder->build($agent, $context);
@@ -785,7 +785,7 @@ test('it runs before_build pipeline', function () {
         }
     };
 
-    $context = new ExecutionContext;
+    $context = new AgentContext;
     $prompt = $builder->build($agent, $context);
 
     expect($prompt)->toBe('Injected: pipeline_value');
@@ -809,7 +809,7 @@ test('it returns null when agent has no system prompt and no sections', function
         }
     };
 
-    $context = new ExecutionContext;
+    $context = new AgentContext;
     $prompt = $this->builder->build($agent, $context);
 
     expect($prompt)->toBeNull();
@@ -831,7 +831,7 @@ test('it builds sections only when agent has null system prompt but sections exi
         }
     };
 
-    $context = new ExecutionContext;
+    $context = new AgentContext;
     $prompt = $this->builder->build($agent, $context);
 
     expect($prompt)->toBe('## Rules\nFollow these rules.');
@@ -839,7 +839,7 @@ test('it builds sections only when agent has null system prompt but sections exi
 
 test('it handles agent with null system prompt using fixture', function () {
     $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentNoSystemPrompt;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
 
     $prompt = $this->builder->build($agent, $context);
 
@@ -869,7 +869,7 @@ test('it runs after_build pipeline', function () {
     $builder = new SystemPromptBuilder($runner);
 
     $agent = new TestAgent;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
 
     $prompt = $builder->build($agent, $context);
 

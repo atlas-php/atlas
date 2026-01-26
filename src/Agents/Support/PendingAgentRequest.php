@@ -283,12 +283,12 @@ final class PendingAgentRequest
      *
      * @param  array<int, Image|Document|Audio|Video>  $inlineAttachments  Attachments passed directly to chat()/stream().
      */
-    private function buildContext(array $inlineAttachments = []): ExecutionContext
+    private function buildContext(array $inlineAttachments = []): AgentContext
     {
         // Merge builder attachments with inline attachments
         $allMedia = array_merge($this->getPrismMedia(), $inlineAttachments);
 
-        return new ExecutionContext(
+        return new AgentContext(
             messages: $this->messages,
             variables: $this->getVariables(),
             metadata: $this->getMetadata(),

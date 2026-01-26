@@ -885,7 +885,7 @@ class VisionCommand extends Command
                 $prismMedia[] = \Prism\Prism\ValueObjects\Media\Audio::fromLocalPath($audioPath);
             }
 
-            $context = new \Atlasphp\Atlas\Agents\Support\ExecutionContext(
+            $context = new \Atlasphp\Atlas\Agents\Support\AgentContext(
                 messages: [],
                 variables: [],
                 metadata: ['test_key' => 'test_value'],
@@ -915,8 +915,8 @@ class VisionCommand extends Command
                 $this->error('    [FAIL] Context construction incorrect');
             }
 
-            // ExecutionContext is readonly, verify immutability is enforced
-            $this->info('    [INFO] ExecutionContext is readonly - immutability enforced at the type level');
+            // AgentContext is readonly, verify immutability is enforced
+            $this->info('    [INFO] AgentContext is readonly - immutability enforced at the type level');
 
         } catch (\Throwable $e) {
             $results['context_construction'] = 'FAIL';

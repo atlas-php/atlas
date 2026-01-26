@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Agents\Support\ExecutionContext;
+use Atlasphp\Atlas\Agents\Support\AgentContext;
 use Atlasphp\Atlas\Testing\Support\RecordedRequest;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
 use Illuminate\Support\Collection;
@@ -14,7 +14,7 @@ use Prism\Prism\ValueObjects\Usage;
 test('it captures agent, input, context, and PrismResponse', function () {
     $agent = new TestAgent;
     $input = 'Hello, AI!';
-    $context = new ExecutionContext(
+    $context = new AgentContext(
         variables: ['user_name' => 'John'],
         metadata: ['session_id' => 'abc123'],
     );
@@ -46,7 +46,7 @@ test('it captures agent, input, context, and PrismResponse', function () {
 
 test('agentKey returns agent key', function () {
     $agent = new TestAgent;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
     $response = new PrismResponse(
         steps: new Collection([]),
         text: '',
@@ -71,7 +71,7 @@ test('agentKey returns agent key', function () {
 
 test('inputContains checks input string', function () {
     $agent = new TestAgent;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
     $response = new PrismResponse(
         steps: new Collection([]),
         text: '',
@@ -98,7 +98,7 @@ test('inputContains checks input string', function () {
 
 test('hasMetadata checks context metadata', function () {
     $agent = new TestAgent;
-    $context = new ExecutionContext(
+    $context = new AgentContext(
         metadata: ['session_id' => 'abc123', 'user_id' => 42],
     );
     $response = new PrismResponse(
@@ -132,7 +132,7 @@ test('hasMetadata checks context metadata', function () {
 
 test('hasPrismCall checks prism calls in context', function () {
     $agent = new TestAgent;
-    $context = new ExecutionContext(
+    $context = new AgentContext(
         prismCalls: [
             ['method' => 'withMaxSteps', 'args' => [10]],
             ['method' => 'withTemperature', 'args' => [0.7]],
@@ -164,7 +164,7 @@ test('hasPrismCall checks prism calls in context', function () {
 
 test('getPrismCallArgs returns arguments for prism call', function () {
     $agent = new TestAgent;
-    $context = new ExecutionContext(
+    $context = new AgentContext(
         prismCalls: [
             ['method' => 'withMaxSteps', 'args' => [10]],
         ],

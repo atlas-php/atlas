@@ -6,7 +6,7 @@ use Atlasphp\Atlas\Agents\Exceptions\AgentException;
 use Atlasphp\Atlas\Agents\Services\AgentExecutor;
 use Atlasphp\Atlas\Agents\Services\MediaConverter;
 use Atlasphp\Atlas\Agents\Services\SystemPromptBuilder;
-use Atlasphp\Atlas\Agents\Support\ExecutionContext;
+use Atlasphp\Atlas\Agents\Support\AgentContext;
 use Atlasphp\Atlas\Contracts\PipelineContract;
 use Atlasphp\Atlas\Pipelines\PipelineRegistry;
 use Atlasphp\Atlas\Pipelines\PipelineRunner;
@@ -70,7 +70,7 @@ test('it executes agent and returns PrismResponse', function () {
     );
 
     $agent = new TestAgent;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
     $response = $executor->execute($agent, 'Hello', $context);
 
     expect($response)->toBeInstanceOf(PrismResponse::class);
@@ -91,7 +91,7 @@ test('it uses provided context with messages', function () {
         $this->mediaConverter,
     );
 
-    $context = new ExecutionContext(
+    $context = new AgentContext(
         messages: [['role' => 'user', 'content' => 'Previous message']],
     );
 
@@ -116,7 +116,7 @@ test('it uses context variables for prompt interpolation', function () {
         $this->mediaConverter,
     );
 
-    $context = new ExecutionContext(
+    $context = new AgentContext(
         variables: ['user_name' => 'John'],
     );
 
@@ -148,7 +148,7 @@ test('it returns tool calls in response', function () {
     );
 
     $agent = new TestAgent;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
     $response = $executor->execute($agent, 'What is 5 + 3?', $context);
 
     expect($response->toolCalls)->toHaveCount(1);
@@ -184,7 +184,7 @@ test('it runs agent.before_execute pipeline', function () {
     );
 
     $agent = new TestAgent;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
     $executor->execute($agent, 'Hello', $context);
 
     expect(BeforeExecuteCapturingHandler::$called)->toBeTrue();
@@ -220,7 +220,7 @@ test('it runs agent.after_execute pipeline', function () {
     );
 
     $agent = new TestAgent;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
     $executor->execute($agent, 'Hello', $context);
 
     expect(AfterExecuteCapturingHandler::$called)->toBeTrue();
@@ -251,7 +251,7 @@ test('it uses context override for provider and model', function () {
         $this->mediaConverter,
     );
 
-    $context = new ExecutionContext(
+    $context = new AgentContext(
         providerOverride: 'anthropic',
         modelOverride: 'claude-3-opus',
     );
@@ -272,7 +272,7 @@ test('it throws when provider is null', function () {
     );
 
     $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithDefaults;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
 
     $executor->execute($agent, 'Hello', $context);
 })->throws(AgentException::class, 'Provider must be specified');
@@ -304,7 +304,7 @@ test('it throws when model is null but provider is set', function () {
         }
     };
 
-    $context = new ExecutionContext;
+    $context = new AgentContext;
 
     $executor->execute($agent, 'Hello', $context);
 })->throws(AgentException::class, 'Model must be specified');
@@ -323,7 +323,7 @@ test('it throws for unknown message role', function () {
         $this->mediaConverter,
     );
 
-    $context = new ExecutionContext(
+    $context = new AgentContext(
         messages: [
             ['role' => 'invalid_role', 'content' => 'Message with invalid role'],
         ],
@@ -347,7 +347,7 @@ test('it builds messages with system role', function () {
         $this->mediaConverter,
     );
 
-    $context = new ExecutionContext(
+    $context = new AgentContext(
         messages: [
             ['role' => 'system', 'content' => 'You are a helpful assistant.'],
             ['role' => 'user', 'content' => 'Previous question'],
@@ -382,7 +382,7 @@ test('it handles prismMessages directly from context', function () {
         new \Prism\Prism\ValueObjects\Messages\AssistantMessage('Previous answer'),
     ];
 
-    $context = new ExecutionContext(
+    $context = new AgentContext(
         prismMessages: $prismMessages,
     );
 
@@ -413,7 +413,7 @@ test('it prioritizes prismMessages over array messages', function () {
         new \Prism\Prism\ValueObjects\Messages\UserMessage('Prism question'),
     ];
 
-    $context = new ExecutionContext(
+    $context = new AgentContext(
         messages: [['role' => 'user', 'content' => 'Array question']], // Should be ignored
         prismMessages: $prismMessages,
     );
@@ -442,7 +442,7 @@ test('it handles prismMedia attachments directly', function () {
     // Create a Prism media object using the correct namespace
     $image = \Prism\Prism\ValueObjects\Media\Image::fromUrl('https://example.com/image.jpg');
 
-    $context = new ExecutionContext(
+    $context = new AgentContext(
         prismMedia: [$image],
     );
 
@@ -471,7 +471,7 @@ test('it handles multiple prismMedia attachments', function () {
     $image1 = \Prism\Prism\ValueObjects\Media\Image::fromUrl('https://example.com/image1.jpg');
     $image2 = \Prism\Prism\ValueObjects\Media\Image::fromUrl('https://example.com/image2.jpg');
 
-    $context = new ExecutionContext(
+    $context = new AgentContext(
         prismMedia: [$image1, $image2],
     );
 
@@ -497,7 +497,7 @@ test('stream returns Generator', function () {
     );
 
     $agent = new TestAgent;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
     $stream = $executor->stream($agent, 'Hello', $context);
 
     expect($stream)->toBeInstanceOf(Generator::class);
@@ -521,7 +521,7 @@ test('it replays prism calls from context', function () {
         $this->mediaConverter,
     );
 
-    $context = new ExecutionContext(
+    $context = new AgentContext(
         prismCalls: [
             ['method' => 'withMaxSteps', 'args' => [10]],
         ],
@@ -549,7 +549,7 @@ test('it handles prism media in context', function () {
 
     $image = \Prism\Prism\ValueObjects\Media\Image::fromUrl('https://example.com/image.jpg');
 
-    $context = new ExecutionContext(
+    $context = new AgentContext(
         prismMedia: [$image],
     );
 
@@ -575,7 +575,7 @@ test('it returns usage from response', function () {
     );
 
     $agent = new TestAgent;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
     $response = $executor->execute($agent, 'Hello', $context);
 
     expect($response->usage->promptTokens)->toBe(50);
@@ -598,7 +598,7 @@ test('it returns finish reason from response', function () {
     );
 
     $agent = new TestAgent;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
     $response = $executor->execute($agent, 'Hello', $context);
 
     expect($response->finishReason)->toBe(FinishReason::Stop);
@@ -620,7 +620,7 @@ test('it returns meta from response', function () {
     );
 
     $agent = new TestAgent;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
     $response = $executor->execute($agent, 'Hello', $context);
 
     expect($response->meta->id)->toBe('req-123');
@@ -644,7 +644,7 @@ test('it returns StructuredResponse when withSchema is in prismCalls', function 
     // Create a mock schema
     $mockSchema = Mockery::mock(\Prism\Prism\Contracts\Schema::class);
 
-    $context = new ExecutionContext(
+    $context = new AgentContext(
         prismCalls: [
             ['method' => 'withSchema', 'args' => [$mockSchema]],
         ],
@@ -674,7 +674,7 @@ test('it replays prism calls without schema for structured output', function () 
     $mockSchema = Mockery::mock(\Prism\Prism\Contracts\Schema::class);
 
     // usingTemperature is available on both Text and Structured requests
-    $context = new ExecutionContext(
+    $context = new AgentContext(
         prismCalls: [
             ['method' => 'withSchema', 'args' => [$mockSchema]],
             ['method' => 'usingTemperature', 'args' => [0.5]],
@@ -702,7 +702,7 @@ test('it applies agent clientOptions to request', function () {
     );
 
     $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithOptions;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
     $response = $executor->execute($agent, 'Hello', $context);
 
     // Verify the request was executed (clientOptions are internal to Prism)
@@ -731,7 +731,7 @@ test('it applies agent providerOptions to request', function () {
     );
 
     $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithOptions;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
     $response = $executor->execute($agent, 'Hello', $context);
 
     // Verify the request was executed (providerOptions are internal to Prism)
@@ -760,7 +760,7 @@ test('it applies agent providerTools to request', function () {
     );
 
     $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithOptions;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
     $response = $executor->execute($agent, 'Hello', $context);
 
     // Verify the request was executed
@@ -792,7 +792,7 @@ test('it does not apply empty clientOptions', function () {
     $agent = new TestAgent;
     expect($agent->clientOptions())->toBe([]);
 
-    $context = new ExecutionContext;
+    $context = new AgentContext;
     $response = $executor->execute($agent, 'Hello', $context);
 
     expect($response)->toBeInstanceOf(PrismResponse::class);
@@ -816,7 +816,7 @@ test('it does not apply empty providerOptions', function () {
     $agent = new TestAgent;
     expect($agent->providerOptions())->toBe([]);
 
-    $context = new ExecutionContext;
+    $context = new AgentContext;
     $response = $executor->execute($agent, 'Hello', $context);
 
     expect($response)->toBeInstanceOf(PrismResponse::class);
@@ -840,7 +840,7 @@ test('it does not apply empty providerTools', function () {
     $agent = new TestAgent;
     expect($agent->providerTools())->toBe([]);
 
-    $context = new ExecutionContext;
+    $context = new AgentContext;
     $response = $executor->execute($agent, 'Hello', $context);
 
     expect($response)->toBeInstanceOf(PrismResponse::class);
@@ -884,7 +884,7 @@ test('it builds provider tools from string format', function () {
         }
     };
 
-    $context = new ExecutionContext;
+    $context = new AgentContext;
     $response = $executor->execute($agent, 'Hello', $context);
 
     expect($response)->toBeInstanceOf(PrismResponse::class);
@@ -931,7 +931,7 @@ test('it builds provider tools from array format', function () {
         }
     };
 
-    $context = new ExecutionContext;
+    $context = new AgentContext;
     $response = $executor->execute($agent, 'Hello', $context);
 
     expect($response)->toBeInstanceOf(PrismResponse::class);
@@ -978,7 +978,7 @@ test('it builds provider tools from ProviderTool objects', function () {
         }
     };
 
-    $context = new ExecutionContext;
+    $context = new AgentContext;
     $response = $executor->execute($agent, 'Hello', $context);
 
     expect($response)->toBeInstanceOf(PrismResponse::class);
@@ -1018,7 +1018,7 @@ test('it throws for invalid provider tool format', function () {
         }
     };
 
-    $context = new ExecutionContext;
+    $context = new AgentContext;
     $executor->execute($agent, 'Hello', $context);
 })->throws(AgentException::class, 'Invalid provider tool format at index 0');
 
@@ -1051,7 +1051,7 @@ test('it runs after_execute pipeline with StructuredResponse', function () {
 
     $mockSchema = Mockery::mock(\Prism\Prism\Contracts\Schema::class);
 
-    $context = new ExecutionContext(
+    $context = new AgentContext(
         prismCalls: [
             ['method' => 'withSchema', 'args' => [$mockSchema]],
         ],
@@ -1084,7 +1084,7 @@ test('stream runs agent.stream.after pipeline on completion', function () {
     );
 
     $agent = new TestAgent;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
     $stream = $executor->stream($agent, 'Hello', $context);
 
     // Pipeline should not be called before consuming
@@ -1122,7 +1122,7 @@ test('stream.after pipeline receives system_prompt', function () {
     );
 
     $agent = new TestAgent;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
 
     iterator_to_array($executor->stream($agent, 'Hello', $context));
 
@@ -1150,7 +1150,7 @@ test('stream.after pipeline captures events', function () {
     );
 
     $agent = new TestAgent;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
 
     $events = iterator_to_array($executor->stream($agent, 'Hello', $context));
 
@@ -1177,7 +1177,7 @@ test('it runs agent.context.validate pipeline', function () {
     );
 
     $agent = new TestAgent;
-    $context = new ExecutionContext(
+    $context = new AgentContext(
         metadata: ['user_id' => 123],
     );
     $executor->execute($agent, 'Hello', $context);
@@ -1185,7 +1185,7 @@ test('it runs agent.context.validate pipeline', function () {
     expect(ContextValidateCapturingHandler::$called)->toBeTrue();
     expect(ContextValidateCapturingHandler::$data['agent'])->toBe($agent);
     expect(ContextValidateCapturingHandler::$data['input'])->toBe('Hello');
-    expect(ContextValidateCapturingHandler::$data['context'])->toBeInstanceOf(ExecutionContext::class);
+    expect(ContextValidateCapturingHandler::$data['context'])->toBeInstanceOf(AgentContext::class);
     expect(ContextValidateCapturingHandler::$data['context']->getMeta('user_id'))->toBe(123);
 });
 
@@ -1214,7 +1214,7 @@ test('context.validate pipeline can modify context', function () {
     );
 
     $agent = new TestAgent;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
     $executor->execute($agent, 'Hello', $context);
 
     // Verify the modified context was used (after_execute receives the modified context)
@@ -1241,7 +1241,7 @@ test('context.validate pipeline runs for streaming', function () {
     );
 
     $agent = new TestAgent;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
 
     // Must consume stream for pipelines to run
     iterator_to_array($executor->stream($agent, 'Hello', $context));
@@ -1278,7 +1278,7 @@ test('error pipeline can provide recovery response', function () {
 
     // Create an agent that will fail (null provider triggers error)
     $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithDefaults;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
 
     $response = $executor->execute($agent, 'Hello', $context);
 
@@ -1304,7 +1304,7 @@ test('error pipeline receives exception details', function () {
 
     // Create an agent that will fail
     $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithDefaults;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
 
     try {
         $executor->execute($agent, 'Hello', $context);
@@ -1336,7 +1336,7 @@ test('error pipeline without recovery rethrows exception', function () {
     );
 
     $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithDefaults;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
 
     $executor->execute($agent, 'Hello', $context);
 })->throws(AgentException::class);
@@ -1387,7 +1387,7 @@ test('error pipeline recovery works for AgentException', function () {
         }
     };
 
-    $context = new ExecutionContext;
+    $context = new AgentContext;
     $response = $executor->execute($agent, 'Hello', $context);
 
     expect(ErrorRecoveryHandler::$called)->toBeTrue();
@@ -1419,7 +1419,7 @@ test('catch AgentException block calls handleError and rethrows when no recovery
     );
 
     $agent = new TestAgent;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
 
     try {
         $executor->execute($agent, 'Hello', $context);
@@ -1469,7 +1469,7 @@ test('catch AgentException block returns recovery when provided', function () {
     );
 
     $agent = new TestAgent;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
 
     $response = $executor->execute($agent, 'Hello', $context);
 
@@ -1496,7 +1496,7 @@ test('execute handles Throwable and wraps in AgentException', function () {
 
     // Use agent with null provider - triggers InvalidArgumentException which is Throwable
     $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithDefaults;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
 
     try {
         $executor->execute($agent, 'Hello', $context);
@@ -1537,7 +1537,7 @@ test('execute recovers from Throwable when recovery provided', function () {
 
     // Use agent with null provider - triggers InvalidArgumentException
     $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithDefaults;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
 
     $response = $executor->execute($agent, 'Hello', $context);
 
@@ -1666,7 +1666,7 @@ class ContextModifyingHandler implements PipelineContract
         self::$called = true;
 
         // Create a new context with injected metadata
-        $data['context'] = new ExecutionContext(
+        $data['context'] = new AgentContext(
             messages: $data['context']->messages,
             variables: $data['context']->variables,
             metadata: array_merge($data['context']->metadata, ['injected_by_validate' => true]),
@@ -1779,7 +1779,7 @@ test('it merges native tools with agent MCP tools', function () {
         }
     };
 
-    $context = new ExecutionContext;
+    $context = new AgentContext;
     $response = $executor->execute($agent, 'Hello', $context);
 
     expect($response)->toBeInstanceOf(PrismResponse::class);
@@ -1805,7 +1805,7 @@ test('it merges native tools with runtime MCP tools', function () {
     $mcpTool->shouldReceive('name')->andReturn('runtime_mcp_tool');
 
     $agent = new TestAgent;
-    $context = new ExecutionContext(
+    $context = new AgentContext(
         mcpTools: [$mcpTool],
     );
 
@@ -1862,7 +1862,7 @@ test('it merges all three tool sources correctly', function () {
         }
     };
 
-    $context = new ExecutionContext(
+    $context = new AgentContext(
         mcpTools: [$runtimeMcpTool],
     );
 
@@ -1891,7 +1891,7 @@ test('it handles empty mcpTools gracefully', function () {
     expect($agent->mcpTools())->toBe([]);
 
     // Context with no MCP tools
-    $context = new ExecutionContext;
+    $context = new AgentContext;
     expect($context->mcpTools)->toBe([]);
 
     $response = $executor->execute($agent, 'Hello', $context);
@@ -1916,7 +1916,7 @@ test('it merges runtime native tools with agent tools', function () {
     );
 
     $agent = new TestAgent;
-    $context = new ExecutionContext(
+    $context = new AgentContext(
         tools: [], // Empty is valid
     );
 
@@ -1964,7 +1964,7 @@ test('it builds runtime tools from withTools classes', function () {
         }
     };
 
-    $context = new ExecutionContext(
+    $context = new AgentContext(
         tools: [\Atlasphp\Atlas\Tests\Fixtures\TestTool::class],
     );
 
@@ -2020,7 +2020,7 @@ test('it combines agent tools with runtime tools', function () {
     };
 
     // Add another tool at runtime (same class, but demonstrates merging)
-    $context = new ExecutionContext(
+    $context = new AgentContext(
         tools: [\Atlasphp\Atlas\Tests\Fixtures\TestTool::class],
     );
 
@@ -2070,7 +2070,7 @@ test('it builds multiple runtime tools from withTools', function () {
     };
 
     // Add multiple tools at runtime
-    $context = new ExecutionContext(
+    $context = new AgentContext(
         tools: [
             \Atlasphp\Atlas\Tests\Fixtures\TestTool::class,
             \Atlasphp\Atlas\Tests\Fixtures\TestTool::class, // Duplicate for testing
@@ -2125,7 +2125,7 @@ test('runtime tools are included in final tools array', function () {
         }
     };
 
-    $context = new ExecutionContext(
+    $context = new AgentContext(
         tools: [\Atlasphp\Atlas\Tests\Fixtures\TestTool::class],
         mcpTools: [$mcpTool],
     );
@@ -2191,7 +2191,7 @@ test('it merges all four tool sources correctly', function () {
     };
 
     // Context with runtime native tools (empty for this test) and runtime MCP tools
-    $context = new ExecutionContext(
+    $context = new AgentContext(
         tools: [],
         mcpTools: [$runtimeMcpTool],
     );
@@ -2224,7 +2224,7 @@ test('it runs agent.tools.merged pipeline', function () {
     );
 
     $agent = new TestAgent;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
     $executor->execute($agent, 'Hello', $context);
 
     expect(ToolsMergedCapturingHandler::$called)->toBeTrue();
@@ -2288,7 +2288,7 @@ test('agent.tools.merged pipeline receives all tool categories', function () {
         }
     };
 
-    $context = new ExecutionContext(
+    $context = new AgentContext(
         mcpTools: [$runtimeMcpTool],
     );
 
@@ -2350,7 +2350,7 @@ test('agent.tools.merged pipeline can filter tools', function () {
         }
     };
 
-    $context = new ExecutionContext;
+    $context = new AgentContext;
     $executor->execute($agent, 'Hello', $context);
 
     // Handler filters out tools with 'blocked' in name

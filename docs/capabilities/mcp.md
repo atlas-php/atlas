@@ -198,7 +198,7 @@ public function mcpTools(): array;  // Override to return Prism Tool instances
 ->withTools(array $tools): static;     // Add Atlas tools at runtime, accumulates
 ->withMcpTools(array $tools): static;  // Add MCP tools at runtime, accumulates
 
-// ExecutionContext properties
+// AgentContext properties
 $context->tools;           // array<int, class-string<ToolContract>>
 $context->hasTools();      // bool - check if runtime tools are present
 $context->mcpTools;        // array<int, \Prism\Prism\Tool>

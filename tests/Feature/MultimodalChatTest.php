@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
 use Atlasphp\Atlas\Agents\Services\MediaConverter;
-use Atlasphp\Atlas\Agents\Support\ExecutionContext;
+use Atlasphp\Atlas\Agents\Support\AgentContext;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Testing\TextResponseFake;
@@ -32,7 +32,7 @@ test('agent executor handles prism media attachments', function () {
 
     $image = Image::fromUrl('https://example.com/image.jpg');
 
-    $context = new ExecutionContext(
+    $context = new AgentContext(
         prismMedia: [$image],
     );
 
@@ -54,7 +54,7 @@ test('agent executor handles messages with prism media', function () {
 
     $image = Image::fromUrl('https://example.com/new-image.jpg');
 
-    $context = new ExecutionContext(
+    $context = new AgentContext(
         messages: [
             ['role' => 'user', 'content' => 'Hello'],
         ],
@@ -76,7 +76,7 @@ test('history attachments are preserved in messages', function () {
     $executor = app(AgentExecutorContract::class);
     $agent = new TestAgent;
 
-    $context = new ExecutionContext(
+    $context = new AgentContext(
         messages: [
             [
                 'role' => 'user',
@@ -100,14 +100,14 @@ test('history attachments are preserved in messages', function () {
 test('execution context creates with prismMedia', function () {
     $image = Image::fromUrl('https://example.com/image.jpg');
 
-    $context = new ExecutionContext(prismMedia: [$image]);
+    $context = new AgentContext(prismMedia: [$image]);
 
     expect($context->prismMedia)->toBe([$image]);
     expect($context->hasAttachments())->toBeTrue();
 });
 
 test('execution context without attachments reports hasAttachments false', function () {
-    $context = new ExecutionContext;
+    $context = new AgentContext;
 
     expect($context->prismMedia)->toBe([]);
     expect($context->hasAttachments())->toBeFalse();
@@ -116,7 +116,7 @@ test('execution context without attachments reports hasAttachments false', funct
 test('execution context creates with all parameters', function () {
     $image = Image::fromUrl('https://example.com/image.jpg');
 
-    $context = new ExecutionContext(
+    $context = new AgentContext(
         messages: [['role' => 'user', 'content' => 'Hello']],
         variables: ['key' => 'value'],
         metadata: ['meta' => 'data'],

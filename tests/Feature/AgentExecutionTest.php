@@ -8,7 +8,7 @@ use Atlasphp\Atlas\Agents\Services\AgentExecutor;
 use Atlasphp\Atlas\Agents\Services\AgentRegistry;
 use Atlasphp\Atlas\Agents\Services\AgentResolver;
 use Atlasphp\Atlas\Agents\Services\SystemPromptBuilder;
-use Atlasphp\Atlas\Agents\Support\ExecutionContext;
+use Atlasphp\Atlas\Agents\Support\AgentContext;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Testing\TextResponseFake;
@@ -58,7 +58,7 @@ test('system prompt builder interpolates variables', function () {
     $builder = app(SystemPromptBuilder::class);
     $agent = new TestAgent;
 
-    $context = new ExecutionContext(variables: [
+    $context = new AgentContext(variables: [
         'agent_name' => 'Atlas',
         'user_name' => 'Jane',
     ]);
@@ -78,7 +78,7 @@ test('agent executor integrates with Prism', function () {
 
     $executor = app(AgentExecutorContract::class);
     $agent = new TestAgent;
-    $context = new ExecutionContext;
+    $context = new AgentContext;
 
     $response = $executor->execute($agent, 'Hello', $context);
 

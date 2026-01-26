@@ -260,7 +260,7 @@ Each pipeline receives specific data:
 [
     'agent' => AgentContract,
     'input' => string,
-    'context' => ExecutionContext,
+    'context' => AgentContext,
 ]
 ```
 
@@ -272,7 +272,7 @@ Runs after `agent.before_execute` but before building the system prompt or reque
 [
     'agent' => AgentContract,
     'input' => string,
-    'context' => ExecutionContext,
+    'context' => AgentContext,
 ]
 ```
 
@@ -284,7 +284,7 @@ class InjectMetadataHandler implements PipelineContract
     public function handle(mixed $data, Closure $next): mixed
     {
         // Modify context with injected metadata
-        $data['context'] = new ExecutionContext(
+        $data['context'] = new AgentContext(
             messages: $data['context']->messages,
             variables: $data['context']->variables,
             metadata: array_merge($data['context']->metadata, [
@@ -303,7 +303,7 @@ class InjectMetadataHandler implements PipelineContract
 [
     'agent' => AgentContract,
     'input' => string,
-    'context' => ExecutionContext,
+    'context' => AgentContext,
     'response' => PrismResponse|StructuredResponse,
     'system_prompt' => ?string,
 ]
@@ -317,14 +317,14 @@ Fires when streaming completes (whether successful or with an error). Useful for
 [
     'agent' => AgentContract,
     'input' => string,
-    'context' => ExecutionContext,
+    'context' => AgentContext,
     'system_prompt' => ?string,
     'events' => array,     // All stream events collected
     'error' => ?Throwable, // Exception if streaming failed, null on success
 ]
 ```
 
-The `ExecutionContext` provides access to:
+The `AgentContext` provides access to:
 - `messages` — Conversation history (may include attachments per message)
 - `variables` — System prompt variables
 - `metadata` — Execution metadata (user_id, session_id, etc.)
@@ -332,14 +332,14 @@ The `ExecutionContext` provides access to:
 - `tools` — Runtime Atlas tool class names (from `withTools()`)
 - `mcpTools` — Runtime MCP Tool instances (from `withMcpTools()`)
 
-See [ExecutionContext Reference](#executioncontext-reference) for the complete API.
+See [AgentContext Reference](#executioncontext-reference) for the complete API.
 
 ### agent.system_prompt.before_build
 
 ```php
 [
     'agent' => AgentContract,
-    'context' => ExecutionContext,
+    'context' => AgentContext,
     'variables' => array,  // Merged global and context variables
 ]
 ```
@@ -349,7 +349,7 @@ See [ExecutionContext Reference](#executioncontext-reference) for the complete A
 ```php
 [
     'agent' => AgentContract,
-    'context' => ExecutionContext,
+    'context' => AgentContext,
     'prompt' => string,  // The built prompt
 ]
 ```
@@ -361,7 +361,7 @@ Fires after all tools from all sources are merged, before sending to Prism. Prov
 ```php
 [
     'agent' => AgentContract,
-    'context' => ExecutionContext,
+    'context' => AgentContext,
     'tool_context' => ToolContext,
     'agent_tools' => array,      // Native Atlas tools (from tools() + withTools())
     'agent_mcp_tools' => array,  // MCP tools (from mcpTools() + withMcpTools())
@@ -472,7 +472,7 @@ After execute also includes:
 [
     'agent' => AgentContract,
     'input' => string,
-    'context' => ExecutionContext,
+    'context' => AgentContext,
     'system_prompt' => ?string,
     'exception' => Throwable,
 ]
@@ -773,9 +773,9 @@ $response = Atlas::agent('agent')->chat('input');
 $registry->setActive('agent.before_execute', true);
 ```
 
-## ExecutionContext Reference
+## AgentContext Reference
 
-The `ExecutionContext` object is available in most agent pipelines and provides access to the full request configuration:
+The `AgentContext` object is available in most agent pipelines and provides access to the full request configuration:
 
 ```php
 // Properties
@@ -848,7 +848,7 @@ $toolContext->getMeta(string $key, mixed $default = null): mixed;
 $toolContext->hasMeta(string $key): bool;
 ```
 
-The tool context receives metadata from `ExecutionContext->metadata`, allowing tools to access request-level information like user IDs, session data, or feature flags.
+The tool context receives metadata from `AgentContext->metadata`, allowing tools to access request-level information like user IDs, session data, or feature flags.
 
 ## API Reference
 

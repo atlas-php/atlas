@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Agents\Support\ExecutionContext;
+use Atlasphp\Atlas\Agents\Support\AgentContext;
 use Atlasphp\Atlas\Testing\FakeAgentExecutor;
 use Atlasphp\Atlas\Testing\Support\FakeResponseSequence;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
@@ -32,7 +32,7 @@ function createTestPrismResponse(string $text): PrismResponse
 beforeEach(function () {
     $this->executor = new FakeAgentExecutor;
     $this->agent = new TestAgent;
-    $this->context = new ExecutionContext;
+    $this->context = new AgentContext;
 });
 
 // === addSequence ===

@@ -7,7 +7,7 @@ namespace Atlasphp\Atlas\Agents\Services;
 use Atlasphp\Atlas\Agents\Contracts\AgentContract;
 use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
 use Atlasphp\Atlas\Agents\Exceptions\AgentException;
-use Atlasphp\Atlas\Agents\Support\ExecutionContext;
+use Atlasphp\Atlas\Agents\Support\AgentContext;
 use Atlasphp\Atlas\Pipelines\PipelineRunner;
 use Atlasphp\Atlas\Tools\Services\ToolBuilder;
 use Atlasphp\Atlas\Tools\Support\ToolContext;
@@ -58,7 +58,7 @@ class AgentExecutor implements AgentExecutorContract
     public function execute(
         AgentContract $agent,
         string $input,
-        ExecutionContext $context,
+        AgentContext $context,
     ): PrismResponse|StructuredResponse {
         $systemPrompt = null;
 
@@ -74,7 +74,7 @@ class AgentExecutor implements AgentExecutorContract
             $agent = $beforeData['agent'];
             /** @var string $input */
             $input = $beforeData['input'];
-            /** @var ExecutionContext $context */
+            /** @var AgentContext $context */
             $context = $beforeData['context'];
 
             // Run context.validate pipeline for context-specific validation and transformation
@@ -84,7 +84,7 @@ class AgentExecutor implements AgentExecutorContract
                 'context' => $context,
             ]);
 
-            /** @var ExecutionContext $context */
+            /** @var AgentContext $context */
             $context = $contextData['context'];
 
             // Build system prompt
@@ -135,7 +135,7 @@ class AgentExecutor implements AgentExecutorContract
     public function stream(
         AgentContract $agent,
         string $input,
-        ExecutionContext $context,
+        AgentContext $context,
     ): Generator {
         // Run before_execute pipeline
         $beforeData = $this->pipelineRunner->runIfActive('agent.before_execute', [
@@ -148,7 +148,7 @@ class AgentExecutor implements AgentExecutorContract
         $agent = $beforeData['agent'];
         /** @var string $input */
         $input = $beforeData['input'];
-        /** @var ExecutionContext $context */
+        /** @var AgentContext $context */
         $context = $beforeData['context'];
 
         // Run context.validate pipeline for context-specific validation and transformation
@@ -158,7 +158,7 @@ class AgentExecutor implements AgentExecutorContract
             'context' => $context,
         ]);
 
-        /** @var ExecutionContext $context */
+        /** @var AgentContext $context */
         $context = $contextData['context'];
 
         // Build system prompt
@@ -187,7 +187,7 @@ class AgentExecutor implements AgentExecutorContract
         Generator $stream,
         AgentContract $agent,
         string $input,
-        ExecutionContext $context,
+        AgentContext $context,
         ?string $systemPrompt,
     ): Generator {
         $events = [];
@@ -226,7 +226,7 @@ class AgentExecutor implements AgentExecutorContract
     protected function handleError(
         AgentContract $agent,
         string $input,
-        ExecutionContext $context,
+        AgentContext $context,
         ?string $systemPrompt,
         Throwable $exception,
     ): PrismResponse|StructuredResponse|null {
@@ -255,7 +255,7 @@ class AgentExecutor implements AgentExecutorContract
     protected function buildRequest(
         AgentContract $agent,
         string $input,
-        ExecutionContext $context,
+        AgentContext $context,
         ?string $systemPrompt,
     ): TextPendingRequest|StructuredPendingRequest {
         $provider = $context->providerOverride ?? $agent->provider();
@@ -352,7 +352,7 @@ class AgentExecutor implements AgentExecutorContract
      *
      * @return array<int, UserMessage|AssistantMessage|SystemMessage>
      */
-    protected function buildMessages(ExecutionContext $context, string $input): array
+    protected function buildMessages(AgentContext $context, string $input): array
     {
         $messages = [];
 
@@ -412,7 +412,7 @@ class AgentExecutor implements AgentExecutorContract
      */
     protected function buildAllTools(
         AgentContract $agent,
-        ExecutionContext $context,
+        AgentContext $context,
         ToolContext $toolContext
     ): array {
         // 1. Agent-defined Atlas tools (built from tool class names)
