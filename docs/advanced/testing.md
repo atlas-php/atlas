@@ -28,7 +28,7 @@ class CustomerSupportAgentTest extends TestCase
         $this->assertEquals('customer-support', $agent->key());
         $this->assertEquals('openai', $agent->provider());
         $this->assertEquals('gpt-4o', $agent->model());
-        $this->assertStringContains('customer support', $agent->systemPrompt());
+        $this->assertStringContainsString('customer support', $agent->systemPrompt());
     }
 
     public function test_agent_has_required_tools(): void
@@ -50,8 +50,8 @@ public function test_system_prompt_contains_expected_variables(): void
     $agent = new CustomerSupportAgent();
     $prompt = $agent->systemPrompt();
 
-    $this->assertStringContains('{user_name}', $prompt);
-    $this->assertStringContains('{customer_name}', $prompt);
+    $this->assertStringContainsString('{user_name}', $prompt);
+    $this->assertStringContainsString('{customer_name}', $prompt);
 }
 ```
 
@@ -60,7 +60,9 @@ public function test_system_prompt_contains_expected_variables(): void
 ### Testing Tool Logic
 
 ```php
-use App\Tools\LookupOrderTool;use Atlasphp\Atlas\Tools\Support\ToolContext;use PHPUnit\Framework\TestCase;
+use App\Tools\LookupOrderTool;
+use Atlasphp\Atlas\Tools\Support\ToolContext;
+use PHPUnit\Framework\TestCase;
 
 class LookupOrderToolTest extends TestCase
 {
@@ -78,7 +80,7 @@ class LookupOrderToolTest extends TestCase
         $result = $tool->handle(['order_id' => 'ORD-123'], $context);
 
         $this->assertTrue($result->succeeded());
-        $this->assertStringContains('shipped', $result->text);
+        $this->assertStringContainsString('shipped', $result->text);
     }
 
     public function test_returns_error_when_not_found(): void
@@ -89,7 +91,7 @@ class LookupOrderToolTest extends TestCase
         $result = $tool->handle(['order_id' => 'INVALID'], $context);
 
         $this->assertTrue($result->failed());
-        $this->assertStringContains('not found', $result->text);
+        $this->assertStringContainsString('not found', $result->text);
     }
 
     public function test_uses_context_metadata_for_authorization(): void
@@ -117,7 +119,7 @@ public function test_tool_has_correct_parameters(): void
 
     $this->assertCount(1, $params);
     $this->assertEquals('order_id', $params[0]->name);
-    $this->assertTrue($params[0]->required);
+    $this->assertFalse($params[0]->nullable);
 }
 ```
 

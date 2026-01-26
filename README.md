@@ -60,7 +60,7 @@ class SupportAgent extends AgentDefinition
 
     public function systemPrompt(): ?string
     {
-        return <<<'PROMPT'
+        return <<<PROMPT
         You are a customer support specialist for {company_name}.
 
         ## Customer Context
@@ -116,10 +116,10 @@ class LookupOrderTool extends ToolDefinition
         $order = $this->orders->find($args['order_id']);
 
         if (! $order) {
-            return ToolResult::failure('Order not found');
+            return ToolResult::error('Order not found');
         }
 
-        return ToolResult::success($order);
+        return ToolResult::json($order->toArray());
     }
 }
 ```

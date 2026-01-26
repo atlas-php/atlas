@@ -29,7 +29,7 @@ class CustomerSupportAgent extends AgentDefinition
 
     public function systemPrompt(): ?string
     {
-        return <<<'PROMPT'
+        return <<<PROMPT
         You are a customer support specialist for {company_name}.
 
         ## Customer Context
@@ -373,7 +373,7 @@ class SalesSupportAgent extends AgentDefinition
 
     public function systemPrompt(): ?string
     {
-        return <<<'PROMPT'
+        return <<<PROMPT
         You are a sales support specialist for {company_name}.
 
         ## Customer Context
@@ -430,7 +430,7 @@ class CustomerServiceAgent extends AgentDefinition
 
     public function systemPrompt(): ?string
     {
-        return <<<'PROMPT'
+        return <<<PROMPT
         You are a customer service representative for {company_name}.
 
         ## Customer Information
@@ -487,7 +487,7 @@ class CodeReviewAgent extends AgentDefinition
 
     public function systemPrompt(): ?string
     {
-        return <<<'PROMPT'
+        return <<<PROMPT
         You are a senior software engineer conducting code reviews.
 
         ## Project Context
@@ -543,7 +543,7 @@ class ContentWriterAgent extends AgentDefinition
 
     public function systemPrompt(): ?string
     {
-        return <<<'PROMPT'
+        return <<<PROMPT
         You are a professional content writer for {brand_name}.
 
         ## Brand Voice
@@ -607,7 +607,7 @@ class DataAnalystAgent extends AgentDefinition
 
     public function systemPrompt(): ?string
     {
-        return <<<'PROMPT'
+        return <<<PROMPT
         You are a data analyst for {company_name}.
 
         ## Data Context
@@ -663,7 +663,7 @@ class HRAssistantAgent extends AgentDefinition
 
     public function systemPrompt(): ?string
     {
-        return <<<'PROMPT'
+        return <<<PROMPT
         You are an HR assistant for {company_name}.
 
         ## Employee Context
@@ -722,7 +722,7 @@ class ITHelpdeskAgent extends AgentDefinition
 
     public function systemPrompt(): ?string
     {
-        return <<<'PROMPT'
+        return <<<PROMPT
         You are an IT helpdesk agent for {company_name}.
 
         ## User Context
