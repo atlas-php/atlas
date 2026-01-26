@@ -304,7 +304,7 @@ class AgentExecutor implements AgentExecutorContract
 
         // Text-specific: tools, messages, maxSteps, providerTools
         if (! $isStructured) {
-            $toolContext = new ToolContext($context->metadata);
+            $toolContext = new ToolContext($context->metadata, $agent);
 
             // Build all tools and merge in order:
             // 1. Agent-defined Atlas tools (from agent's tools() method)

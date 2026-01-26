@@ -17,8 +17,6 @@ use Prism\Prism\Schema\StringSchema;
  *
  * Provides a convenient API for defining tool parameters
  * that directly produce Prism-compatible schemas.
- *
- * Consumers can also use Prism Schema classes directly if preferred.
  */
 final class ToolParameter
 {

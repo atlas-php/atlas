@@ -249,7 +249,7 @@ $result->failed();    // true if error
 
 ## Tool Context
 
-Access execution metadata via `ToolContext`. Metadata is passed from the agent using `withMetadata()`:
+Access execution metadata and the invoking agent via `ToolContext`. Metadata is passed from the agent using `withMetadata()`:
 
 ```php
 // When calling the agent
@@ -260,6 +260,10 @@ Atlas::agent('support')->withMetadata(['user_id' => 1, 'tenant_id' => 5])->chat(
 // Inside your tool
 public function handle(array $arguments, ToolContext $context): ToolResult
 {
+    // Access the agent that invoked this tool
+    $agent = $context->getAgent();
+    $agentKey = $agent?->key();
+
     // Get metadata passed from execution context
     $userId = $context->getMeta('user_id');
     $tenantId = $context->getMeta('tenant_id');
@@ -693,6 +697,7 @@ $result->succeeded(): bool;
 $result->failed(): bool;
 
 // ToolContext methods
+$context->getAgent(): ?AgentContract;
 $context->getMeta(string $key, mixed $default = null): mixed;
 $context->hasMeta(string $key): bool;
 
