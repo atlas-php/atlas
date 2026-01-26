@@ -58,7 +58,7 @@ final readonly class ToolContext
      */
     public function withMetadata(array $metadata): self
     {
-        return new self($metadata);
+        return new self($metadata, $this->agent);
     }
 
     /**
@@ -68,6 +68,6 @@ final readonly class ToolContext
      */
     public function mergeMetadata(array $metadata): self
     {
-        return new self(array_merge($this->metadata, $metadata));
+        return new self(array_merge($this->metadata, $metadata), $this->agent);
     }
 }
