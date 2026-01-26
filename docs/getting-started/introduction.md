@@ -2,7 +2,7 @@
 
 Atlas is an organizational layer for [Prism PHP](https://prismphp.com) that adds structure for building production AI applications in Laravel. It provides reusable agents, typed tools, dynamic prompts, and execution pipelines without hiding or replacing Prism.
 
-**Atlas returns Prism responses directly.** You get the same `PrismResponse` objects with full access to `->text`, `->usage`, `->toolCalls`, `->steps`, and everything else Prism provides.
+**Atlas wraps Prism responses with agent context.** You get an `AgentResponse` that provides backward compatible access to `->text`, `->usage`, `->toolCalls`, `->steps`, and everything else Prism provides, plus agent-specific metadata.
 
 ## Quick Example
 
@@ -21,8 +21,8 @@ $response = Atlas::agent(SupportAgent::class)
     ->withVariables(['user_name' => 'Sarah'])
     ->chat('I need help with my order');
 
-$response->text;   // Prism response - full access
-$response->usage;  // Token usage, cache stats, etc.
+$response->text();      // Generated text
+$response->usage();     // Token usage, cache stats, etc.
 ```
 
 ## Full Prism Compatibility

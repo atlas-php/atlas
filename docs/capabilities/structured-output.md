@@ -262,6 +262,8 @@ $data = $response->structured;
 
 ## Checking Responses
 
+Chat operations return an `AgentResponse` that wraps Prism's response with agent context:
+
 ```php
 use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Schema\Schema;
@@ -274,14 +276,15 @@ $response = Atlas::agent('extractor')
     )
     ->chat('Extract from: John Smith can be reached at john@example.com');
 
-if ($response->structured !== null) {
-    $person = $response->structured;
+// Check if structured and access data
+if ($response->isStructured()) {
+    $person = $response->structured();
     echo "Name: {$person['name']}";    // "John Smith"
     echo "Email: {$person['email']}";  // "john@example.com"
-} else {
-    // Handle case where extraction failed
-    echo "Could not extract person data";
 }
+
+// Backward compatible property access also works
+echo $response->structured['name'];  // Via __get magic
 ```
 
 ## Best Practices
@@ -388,10 +391,20 @@ Atlas::agent('agent')
     ->usingAutoMode()    // Let Atlas choose (default)
     ->usingNativeMode()  // Use native JSON schema
     ->usingJsonMode()    // Use JSON mode (required for optional fields)
-    ->chat(string $input);
+    ->chat(string $input): AgentResponse;
 
-// Response
-$response->structured;  // array|null - The structured data
+// AgentResponse structured output methods
+$response->isStructured(): bool;        // Check if response is structured
+$response->structured(): ?array;        // Get structured data (or null)
+$response->structured;                  // Property access via __get (backward compatible)
+
+// AgentResponse agent context
+$response->agentKey(): string;          // Agent key
+$response->agentName(): string;         // Agent name
+$response->systemPrompt;                // System prompt used
+$response->metadata(): array;           // Pipeline metadata
+$response->variables(): array;          // Variables used
+$response->response;                    // Full Prism StructuredResponse
 ```
 
 ## Next Steps

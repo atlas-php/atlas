@@ -129,27 +129,21 @@ public function test_tool_has_correct_parameters(): void
 
 ```php
 use Atlasphp\Atlas\Providers\Services\AtlasManager;
-use Atlasphp\Atlas\Agents\Support\AgentResponse;
 use Mockery;
 
 class ChatControllerTest extends TestCase
 {
     public function test_chat_endpoint_returns_response(): void
     {
-        // Mock AtlasManager
-        $mockManager = Mockery::mock(AtlasManager::class);
-        $mockManager->shouldReceive('chat')
-            ->once()
-            ->andReturn(AgentResponse::text('Hello! How can I help?'));
-
-        $this->app->instance(AtlasManager::class, $mockManager);
+        // Use Atlas::fake() instead - see "Faking Atlas" section
+        Atlas::fake();
 
         $response = $this->postJson('/api/chat', [
             'message' => 'Hello',
         ]);
 
-        $response->assertOk()
-            ->assertJsonPath('message', 'Hello! How can I help?');
+        $response->assertOk();
+        Atlas::assertCalled('support-agent');
     }
 }
 ```
@@ -183,20 +177,27 @@ Atlas provides a built-in `Atlas::fake()` method for testing, following Laravel'
 
 ```php
 use Atlasphp\Atlas\Atlas;
-use Atlasphp\Atlas\Agents\Support\AgentResponse;
+use Atlasphp\Atlas\Testing\Support\FakeResponseSequence;
+use Prism\Prism\Text\Response as PrismResponse;
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\ValueObjects\Usage;
 
 public function test_chat_returns_expected_response(): void
 {
     // Enable fake mode with a default response
     Atlas::fake([
-        AgentResponse::text('Hello! How can I help?'),
+        new PrismResponse(
+            text: 'Hello! How can I help?',
+            finishReason: FinishReason::Stop,
+            usage: new Usage(promptTokens: 10, completionTokens: 20),
+        ),
     ]);
 
     // Call your code that uses Atlas
     $response = Atlas::agent('support-agent')->chat('Hello');
 
-    // Assert the response
-    $this->assertEquals('Hello! How can I help?', $response->text);
+    // Assert the response (returns AgentResponse which wraps PrismResponse)
+    $this->assertEquals('Hello! How can I help?', $response->text());
 
     // Assert the agent was called
     Atlas::assertCalled('support-agent');
@@ -208,9 +209,20 @@ public function test_chat_returns_expected_response(): void
 Configure different responses for different agents:
 
 ```php
+use Prism\Prism\Text\Response as PrismResponse;
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\ValueObjects\Usage;
+
+// Helper to create responses
+$makeResponse = fn(string $text) => new PrismResponse(
+    text: $text,
+    finishReason: FinishReason::Stop,
+    usage: new Usage(promptTokens: 10, completionTokens: 20),
+);
+
 Atlas::fake()
-    ->forAgent('billing-agent', AgentResponse::text('Your balance is $100'))
-    ->forAgent('support-agent', AgentResponse::text('How can I help?'));
+    ->forAgent('billing-agent', $makeResponse('Your balance is $100'))
+    ->forAgent('support-agent', $makeResponse('How can I help?'));
 
 $billing = Atlas::agent('billing-agent')->chat('Balance?');
 $support = Atlas::agent('support-agent')->chat('Help');
@@ -224,12 +236,22 @@ Atlas::assertCalled('support-agent');
 Return different responses for consecutive calls:
 
 ```php
+use Prism\Prism\Text\Response as PrismResponse;
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\ValueObjects\Usage;
+
+$makeResponse = fn(string $text) => new PrismResponse(
+    text: $text,
+    finishReason: FinishReason::Stop,
+    usage: new Usage(promptTokens: 10, completionTokens: 20),
+);
+
 Atlas::fake()
     ->forAgent('assistant')
     ->sequence([
-        AgentResponse::text('First response'),
-        AgentResponse::text('Second response'),
-        AgentResponse::text('Third response'),
+        $makeResponse('First response'),
+        $makeResponse('Second response'),
+        $makeResponse('Third response'),
     ]);
 
 // Each call returns the next response in sequence
@@ -243,15 +265,25 @@ $third = Atlas::agent('assistant')->chat('3');   // "Third response"
 Return responses based on input content:
 
 ```php
+use Prism\Prism\Text\Response as PrismResponse;
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\ValueObjects\Usage;
+
+$makeResponse = fn(string $text) => new PrismResponse(
+    text: $text,
+    finishReason: FinishReason::Stop,
+    usage: new Usage(promptTokens: 10, completionTokens: 20),
+);
+
 Atlas::fake()
     ->forAgent('assistant')
     ->when(
         fn($agent, $input) => str_contains($input, 'order'),
-        AgentResponse::text('I can help with your order')
+        $makeResponse('I can help with your order')
     )
     ->when(
         fn($agent, $input) => str_contains($input, 'refund'),
-        AgentResponse::text('I can process your refund')
+        $makeResponse('I can process your refund')
     );
 ```
 
@@ -322,7 +354,7 @@ Atlas::assertSentWithSchema('analyzer', fn($schema) =>
 ### Accessing Recorded Requests
 
 ```php
-Atlas::fake([AgentResponse::text('Response')]);
+Atlas::fake();  // Uses empty response by default
 
 Atlas::agent('assistant')->chat('Hello');
 Atlas::agent('assistant')->chat('How are you?');
@@ -334,11 +366,11 @@ $recorded = Atlas::recorded();
 $assistantRequests = Atlas::recordedFor('assistant');
 
 foreach ($assistantRequests as $request) {
-    echo $request->agent;    // Agent key
-    echo $request->input;    // User input
-    $request->context;       // AgentContext
-    $request->response;      // AgentResponse
-    $request->timestamp;     // When it was called
+    echo $request->agentKey();   // Agent key
+    echo $request->input;        // User input
+    $request->context;           // AgentContext
+    $request->response;          // AgentResponse (wraps PrismResponse)
+    $request->timestamp;         // When it was called
 }
 ```
 
@@ -347,8 +379,16 @@ foreach ($assistantRequests as $request) {
 Fail tests if an unexpected agent is called:
 
 ```php
+use Prism\Prism\Text\Response as PrismResponse;
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\ValueObjects\Usage;
+
 Atlas::fake()
-    ->forAgent('support-agent', AgentResponse::text('OK'))
+    ->forAgent('support-agent', new PrismResponse(
+        text: 'OK',
+        finishReason: FinishReason::Stop,
+        usage: new Usage(promptTokens: 10, completionTokens: 5),
+    ))
     ->preventStrayRequests();
 
 // This will pass
@@ -383,6 +423,12 @@ class MyTest extends TestCase
 ### Testing Pipeline Handlers
 
 ```php
+use Atlasphp\Atlas\Agents\Support\AgentResponse;
+use Atlasphp\Atlas\Agents\Support\AgentContext;
+use Prism\Prism\Text\Response as PrismResponse;
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\ValueObjects\Usage;
+
 class LogAgentExecutionTest extends TestCase
 {
     public function test_logs_execution_details(): void
@@ -399,8 +445,18 @@ class LogAgentExecutionTest extends TestCase
         $handler([
             'agent' => $agent,
             'input' => 'Hello',
-            'context' => null,
-        ], fn($data) => AgentResponse::text('Hi'));
+            'context' => new AgentContext(),
+        ], fn($data) => new AgentResponse(
+            response: new PrismResponse(
+                text: 'Hi',
+                finishReason: FinishReason::Stop,
+                usage: new Usage(promptTokens: 10, completionTokens: 5),
+            ),
+            agent: $agent,
+            input: 'Hello',
+            systemPrompt: null,
+            context: $data['context'],
+        ));
     }
 }
 ```
@@ -422,30 +478,33 @@ public function setUp(): void
 ## Testing Structured Output
 
 ```php
+use Atlasphp\Atlas\Schema\Schema;
+use Prism\Prism\Structured\Response as StructuredResponse;
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\ValueObjects\Usage;
+
 public function test_extracts_structured_data(): void
 {
-    $schema = new ObjectSchema(
-        name: 'sentiment',
-        description: 'Sentiment result',
-        properties: [
-            new StringSchema('sentiment', 'The sentiment'),
-        ],
-        requiredFields: ['sentiment'],
+    // Create a fake structured response
+    $structuredResponse = new StructuredResponse(
+        text: '{"sentiment": "positive"}',
+        structured: ['sentiment' => 'positive'],
+        finishReason: FinishReason::Stop,
+        usage: new Usage(promptTokens: 10, completionTokens: 20),
     );
 
-    // Mock response with structured data
-    $response = AgentResponse::structured(['sentiment' => 'positive']);
+    // Use Atlas::fake() for testing
+    Atlas::fake([$structuredResponse]);
 
-    $mockManager = Mockery::mock(AtlasManager::class);
-    $mockManager->shouldReceive('chat')
-        ->withArgs(fn($agent, $input, $messages, $schema) => $schema !== null)
-        ->andReturn($response);
+    $response = Atlas::agent('analyzer')
+        ->withSchema(
+            Schema::object('sentiment', 'Sentiment result')
+                ->string('sentiment', 'The sentiment')
+        )
+        ->chat('Great product!');
 
-    $this->app->instance(AtlasManager::class, $mockManager);
-
-    $result = $this->service->analyzeSentiment('Great product!');
-
-    $this->assertEquals('positive', $result['sentiment']);
+    $this->assertTrue($response->isStructured());
+    $this->assertEquals('positive', $response->structured()['sentiment']);
 }
 ```
 
@@ -454,23 +513,29 @@ public function test_extracts_structured_data(): void
 ### 1. Use Factories for Test Data
 
 ```php
-// AgentResponseFactory.php
-class AgentResponseFactory
+use Prism\Prism\Text\Response as PrismResponse;
+use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\ValueObjects\Usage;
+
+// PrismResponseFactory.php - Helper for creating test responses
+class PrismResponseFactory
 {
-    public static function text(string $text): AgentResponse
+    public static function text(string $text): PrismResponse
     {
-        return AgentResponse::text($text);
+        return new PrismResponse(
+            text: $text,
+            finishReason: FinishReason::Stop,
+            usage: new Usage(promptTokens: 10, completionTokens: 20),
+        );
     }
 
-    public static function withToolCalls(array $calls): AgentResponse
+    public static function withUsage(string $text, int $promptTokens, int $completionTokens): PrismResponse
     {
-        return AgentResponse::withToolCalls($calls);
-    }
-
-    public static function withUsage(int $tokens): AgentResponse
-    {
-        return AgentResponse::text('Response')
-            ->withUsage(['total_tokens' => $tokens]);
+        return new PrismResponse(
+            text: $text,
+            finishReason: FinishReason::Stop,
+            usage: new Usage(promptTokens: $promptTokens, completionTokens: $completionTokens),
+        );
     }
 }
 ```
@@ -566,7 +631,7 @@ $fake->recordedFor(string $agentKey): array;        // For specific agent
 $request->agent;                                    // AgentContract instance
 $request->input;                                    // User input string
 $request->context;                                  // AgentContext
-$request->response;                                 // PrismResponse
+$request->response;                                 // AgentResponse (wraps PrismResponse)
 $request->timestamp;                                // Unix timestamp
 $request->agentKey(): string;
 $request->inputContains(string $needle): bool;

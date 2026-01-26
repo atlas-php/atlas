@@ -260,23 +260,29 @@ See [Prism Text Generation](https://prismphp.com/core-concepts/text-generation.h
 
 ## Response Handling
 
-Chat operations return Prism's response object directly:
+Chat operations return an `AgentResponse` that wraps Prism's response with agent context:
 
 ```php
-// Text response
+// Text response (backward compatible property access)
 echo $response->text;
 
 // Token usage
 echo $response->usage->promptTokens;
 echo $response->usage->completionTokens;
 
-// Check for content
-if ($response->text !== null) {
-    // Handle text response
-}
+// Agent context access
+echo $response->agentKey();       // The agent key
+echo $response->systemPrompt;     // The system prompt used
+$response->metadata();            // Pipeline metadata
+$response->variables();           // Variables used
+
+// Full Prism response access
+$prismResponse = $response->response;
 ```
 
-See [Prism Response](https://prismphp.com/core-concepts/text-generation.html#the-response-object) for the complete response API.
+For structured output, check `$response->isStructured()` and use `$response->structured()` to get the data.
+
+See [Prism Response](https://prismphp.com/core-concepts/text-generation.html#the-response-object) for the underlying Prism response API.
 
 ## API Reference
 
@@ -316,10 +322,10 @@ Atlas::agent(string|AgentContract $agent)
     ->withProviderOptions(array $options)                 // Provider-specific options
 
     // Execution
-    ->chat(string $input, array $attachments = []): PrismResponse|StructuredResponse;
-    ->stream(string $input, array $attachments = []): Generator<StreamEvent>;
+    ->chat(string $input, array $attachments = []): AgentResponse;
+    ->stream(string $input, array $attachments = []): AgentStreamResponse;
 
-// Response properties (PrismResponse)
+// AgentResponse properties (backward compatible via __get magic)
 $response->text;                    // Generated text
 $response->usage->promptTokens;     // Input tokens
 $response->usage->completionTokens; // Output tokens
@@ -329,10 +335,17 @@ $response->toolResults;             // Tool execution results
 $response->finishReason;            // FinishReason enum
 $response->meta;                    // Request metadata
 
-// Response properties (StructuredResponse - when using withSchema)
-$response->structured;              // Extracted structured data array
-$response->text;                    // Raw text (if available)
-$response->usage;                   // Token usage stats
+// AgentResponse agent context
+$response->agentKey();              // Agent key
+$response->agentName();             // Agent name
+$response->systemPrompt;            // System prompt used
+$response->metadata();              // Pipeline metadata
+$response->variables();             // Variables used
+$response->response;                // Full Prism response (PrismResponse|StructuredResponse)
+
+// Structured output (when using withSchema)
+$response->isStructured();          // Check if structured response
+$response->structured();            // Get structured data (or null)
 
 // Message formats for withMessages()
 // Array format (for persistence):

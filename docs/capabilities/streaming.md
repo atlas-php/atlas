@@ -325,7 +325,7 @@ Atlas::agent(string|AgentContract $agent)
     ->withProviderOptions(array $options)                 // Provider-specific options
 
     // Execution
-    ->stream(string $input, array $attachments = []): Generator<StreamEvent>;
+    ->stream(string $input, array $attachments = []): AgentStreamResponse;
 
 // Direct text streaming (without agents)
 Atlas::text()
