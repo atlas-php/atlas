@@ -792,7 +792,7 @@ class VisionCommand extends Command
             if (\Illuminate\Support\Facades\Storage::disk('outputs')->exists('test-apple.png')) {
                 $response = Atlas::agent('gemini-vision')
                     ->chat('What do you see in this image? Be brief.', [
-                        Image::fromStoragePath('test-apple.png', 'image/png', 'outputs'),
+                        Image::fromStoragePath('test-apple.png', 'outputs'),
                     ]);
 
                 if ($response->text !== null && strlen($response->text) > 10) {
@@ -845,7 +845,7 @@ class VisionCommand extends Command
             if ($speechFile) {
                 $response = Atlas::agent('gemini-vision')
                     ->chat('What is being said in this audio?', [
-                        Audio::fromStoragePath($speechFile, 'audio/mpeg', 'outputs'),
+                        Audio::fromStoragePath($speechFile, 'outputs'),
                     ]);
 
                 if ($response->text !== null && strlen($response->text) > 10) {

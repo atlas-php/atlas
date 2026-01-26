@@ -390,6 +390,134 @@ Prompt: "Extract person info: John Smith is a 35-year-old software engineer at j
 [PASS] No extra fields in response
 ```
 
+### `atlas:comprehensive-tools` - Comprehensive Tool Verification
+
+Test that all expected tools are called with detailed verification output.
+
+```bash
+# Test with Atlas tools only
+php artisan atlas:comprehensive-tools
+
+# Strict verification (fail if any tool not called)
+php artisan atlas:comprehensive-tools --verify-all
+
+# Custom prompt
+php artisan atlas:comprehensive-tools --prompt="Calculate 100/5, get Paris weather, show current time"
+```
+
+**Output Example:**
+```
+=== Atlas Comprehensive Tools Test ===
+Agent: comprehensive-tool
+Available Tools: calculator, weather, datetime
+
+Prompt: "Please demonstrate ALL your available tools..."
+
+=== Tool Execution Verification ===
+
+Expected Tools: calculator, weather, datetime
+Called Tools: calculator, weather, datetime
+
+--- Tool Call Details ---
+Step 1: calculator
+  Args: {"operation": "multiply", "a": 42, "b": 17}
+  Result: "714"
+
+Step 2: weather
+  Args: {"location": "Paris", "units": "celsius"}
+  Result: {"temperature": 18, "conditions": "partly cloudy"}
+
+Step 3: datetime
+  Args: {"timezone": "UTC", "format": "full"}
+  Result: {"datetime": "2024-01-26 15:30:00", "timezone": "UTC"}
+
+--- Verification Results ---
+[PASS] All 3 expected tools were called
+[PASS] Agent provided text response
+```
+
+### `atlas:pipeline` - Pipeline Context Manipulation
+
+Test pipeline middleware patterns for context injection, tool filtering, and execution logging.
+
+```bash
+# Run all demos
+php artisan atlas:pipeline --demo=all
+
+# Test context injection only
+php artisan atlas:pipeline --demo=context
+
+# Test tool filtering only
+php artisan atlas:pipeline --demo=tools
+
+# Test execution logging only
+php artisan atlas:pipeline --demo=log
+```
+
+**Available Demos:**
+- `context` - Inject metadata into agent context, visible in `$response->metadata()`
+- `tools` - Filter available tools to an allowlist
+- `log` - Observe execution details for logging/auditing
+
+**Output Example (Context Demo):**
+```
+--- Demo: Context Injection ---
+
+This demo shows how pipelines can inject metadata into the agent context.
+The InjectMetadataHandler adds custom metadata before agent execution.
+
+Prompt: "What is 2 + 2?"
+
+=== Response ===
+2 + 2 equals 4.
+
+=== Injected Metadata ===
+  injected_at: 2024-01-26T15:30:00+00:00
+  request_id: req_65b3a1f2e4b0c
+  pipeline_demo: true
+  custom_data: {"user_tier":"premium","rate_limit":100}
+
+[PASS] Context injection demo completed
+```
+
+### `atlas:mcp` - MCP Tools Integration
+
+Test MCP (Model Context Protocol) tools via Prism Relay integration.
+
+```bash
+# List configured MCP servers
+php artisan atlas:mcp --list-servers
+
+# List tools from a server
+php artisan atlas:mcp --server=filesystem --list-tools
+
+# Test MCP tools with prompt
+php artisan atlas:mcp --server=filesystem --prompt="List files in the storage directory"
+```
+
+**Note:** Requires `prism-php/relay` package to be installed. The command gracefully handles cases where Relay is not available.
+
+**Output Example:**
+```
+=== Atlas MCP Tools Test ===
+
+Configured MCP Servers:
+
+| Name       | Type  | Command/URL                    |
+|------------|-------|--------------------------------|
+| filesystem | stdio | npx @anthropic/mcp-filesystem  |
+
+Tools from server: filesystem
+
+| Name          | Description                           |
+|---------------|---------------------------------------|
+| read_file     | Read contents of a file               |
+| write_file    | Write contents to a file              |
+| list_directory| List files and directories            |
+
+Total: 3 tools
+```
+
 ## Available Agents
 
 | Agent Key | Provider | Model | Description |
@@ -397,8 +525,11 @@ Prompt: "Extract person info: John Smith is a 35-year-old software engineer at j
 | `general-assistant` | openai | gpt-4o | General-purpose chat |
 | `local-l-m` | openai | (from OLLAMA_MODEL env) | Local LLM via OpenAI-compatible API |
 | `tool-demo` | openai | gpt-4o | Agent with tools |
+| `comprehensive-tool` | openai | gpt-4o | Agent requiring ALL tools be demonstrated |
+| `full-featured` | openai | gpt-4o | Demo of Atlas + Provider + MCP tools |
 | `structured-output` | openai | gpt-4o | Structured data extraction |
 | `openai-vision` | openai | gpt-4o | Vision/multimodal image analysis |
+| `openai-web-search` | openai | gpt-4o | Agent with web search provider tool |
 | `anthropic-vision` | anthropic | claude-sonnet-4 | Vision/multimodal image analysis |
 | `gemini-vision` | gemini | gemini-2.0-flash | Vision/multimodal image analysis |
 
@@ -460,29 +591,38 @@ sandbox/
 ├── .env.example               # Environment template
 ├── README.md                  # This file
 ├── app/
+│   ├── Agents/
+│   │   ├── ComprehensiveToolAgent.php
+│   │   ├── FullFeaturedAgent.php
+│   │   ├── GeneralAssistantAgent.php
+│   │   ├── LocalLMAgent.php
+│   │   ├── ToolDemoAgent.php
+│   │   └── StructuredOutputAgent.php
 │   ├── Console/
 │   │   └── Commands/
 │   │       ├── ChatCommand.php
+│   │       ├── ComprehensiveToolsCommand.php
 │   │       ├── EmbedCommand.php
 │   │       ├── ImageCommand.php
 │   │       ├── LocalChatCommand.php
+│   │       ├── McpCommand.php
+│   │       ├── PipelineCommand.php
 │   │       ├── SpeechCommand.php
 │   │       ├── StructuredCommand.php
 │   │       ├── ToolsCommand.php
 │   │       └── VisionCommand.php
+│   ├── Pipelines/
+│   │   ├── FilterToolsHandler.php
+│   │   ├── InjectMetadataHandler.php
+│   │   └── LogExecutionHandler.php
 │   ├── Providers/
 │   │   └── SandboxServiceProvider.php
-│   └── Services/
-│       ├── Agents/
-│       │   ├── GeneralAssistantAgent.php
-│       │   ├── LocalLMAgent.php
-│       │   ├── ToolDemoAgent.php
-│       │   └── StructuredOutputAgent.php
-│       ├── Tools/
-│       │   ├── CalculatorTool.php
-│       │   ├── DateTimeTool.php
-│       │   └── WeatherTool.php
-│       └── ThreadStorageService.php
+│   ├── Services/
+│   │   └── ThreadStorageService.php
+│   └── Tools/
+│       ├── CalculatorTool.php
+│       ├── DateTimeTool.php
+│       └── WeatherTool.php
 └── storage/
     ├── outputs/               # Generated files
     └── threads/               # Chat thread JSON files
@@ -493,37 +633,37 @@ sandbox/
 ```php
 <?php
 
-namespace App\Services\Agents;
+namespace App\Agents;
 
 use Atlasphp\Atlas\Agents\AgentDefinition;
 
 class MyCustomAgent extends AgentDefinition
 {
-    public function provider(): string
+    public function provider(): ?string
     {
         return 'openai';
     }
 
-    public function model(): string
+    public function model(): ?string
     {
         return 'gpt-4o';
     }
 
-    public function systemPrompt(): string
+    public function systemPrompt(): ?string
     {
         return 'Your custom instructions here.';
     }
 }
 ```
 
-Register in `App\Providers\SandboxServiceProvider::registerAgents()`.
+Agents are auto-discovered from `app/Agents/` via the atlas.php configuration.
 
 ## Creating Custom Tools
 
 ```php
 <?php
 
-namespace App\Services\Tools;
+namespace App\Tools;
 
 use Atlasphp\Atlas\Tools\Support\ToolContext;
 use Atlasphp\Atlas\Tools\Support\ToolParameter;
@@ -557,4 +697,4 @@ class MyCustomTool extends ToolDefinition
 }
 ```
 
-Register in `App\Providers\SandboxServiceProvider::registerTools()`.
+Tools are auto-discovered from `app/Tools/` via the atlas.php configuration.

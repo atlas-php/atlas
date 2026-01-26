@@ -3,9 +3,12 @@ includes:
 
 parameters:
     paths:
+        - app/Agents
         - app/Console
+        - app/Pipelines
         - app/Providers
         - app/Services
+        - app/Tools
     # Level 4 is appropriate for sandbox testing code
     level: 4
     ignoreErrors:
@@ -24,6 +27,7 @@ parameters:
         # Null coalescing on always-set offsets (common in sandbox code)
         - identifier: isset.offset
         - identifier: nullCoalesce.expr
+        - identifier: nullCoalesce.offset
         # Method void result usage
         - identifier: method.void
     # Report unmatched ignores is noisy when classes can't be resolved

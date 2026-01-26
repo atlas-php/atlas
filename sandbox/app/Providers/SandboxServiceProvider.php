@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Console\Commands\ChatCommand;
+use App\Console\Commands\ComprehensiveToolsCommand;
 use App\Console\Commands\EmbedCommand;
 use App\Console\Commands\ImageCommand;
 use App\Console\Commands\LocalChatCommand;
+use App\Console\Commands\McpCommand;
 use App\Console\Commands\ModerationCommand;
 use App\Console\Commands\PackagistTestCommand;
+use App\Console\Commands\PipelineCommand;
 use App\Console\Commands\ProviderResolutionCommand;
 use App\Console\Commands\SpeechCommand;
 use App\Console\Commands\StreamCommand;
@@ -59,11 +62,14 @@ class SandboxServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 ChatCommand::class,
+                ComprehensiveToolsCommand::class,
                 EmbedCommand::class,
                 ImageCommand::class,
                 LocalChatCommand::class,
+                McpCommand::class,
                 ModerationCommand::class,
                 PackagistTestCommand::class,
+                PipelineCommand::class,
                 ProviderResolutionCommand::class,
                 SpeechCommand::class,
                 StreamCommand::class,
