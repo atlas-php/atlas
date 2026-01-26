@@ -853,7 +853,7 @@ test('withTools includes tools in context', function () {
     expect($capturedContext->tools[0])->toBe('App\\Tools\\MyTool');
 });
 
-test('withTools accumulates with chained calls', function () {
+test('withTools replaces with chained calls', function () {
     $capturedContext = null;
     $this->executor->shouldReceive('execute')
         ->once()
@@ -869,6 +869,28 @@ test('withTools accumulates with chained calls', function () {
     $this->request
         ->withTools(['App\\Tools\\ToolA'])
         ->withTools(['App\\Tools\\ToolB'])
+        ->chat('Hello');
+
+    expect($capturedContext->tools)->toHaveCount(1);
+    expect($capturedContext->tools[0])->toBe('App\\Tools\\ToolB');
+});
+
+test('mergeTools accumulates with chained calls', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
+
+    $this->request
+        ->withTools(['App\\Tools\\ToolA'])
+        ->mergeTools(['App\\Tools\\ToolB'])
         ->chat('Hello');
 
     expect($capturedContext->tools)->toHaveCount(2);
@@ -954,7 +976,7 @@ test('withMcpTools includes tools in context', function () {
     expect($capturedContext->mcpTools[0])->toBe($mockTool);
 });
 
-test('withMcpTools accumulates with chained calls', function () {
+test('withMcpTools replaces with chained calls', function () {
     $mockTool1 = Mockery::mock(\Prism\Prism\Tool::class);
     $mockTool2 = Mockery::mock(\Prism\Prism\Tool::class);
 
@@ -973,6 +995,31 @@ test('withMcpTools accumulates with chained calls', function () {
     $this->request
         ->withMcpTools([$mockTool1])
         ->withMcpTools([$mockTool2])
+        ->chat('Hello');
+
+    expect($capturedContext->mcpTools)->toHaveCount(1);
+    expect($capturedContext->mcpTools[0])->toBe($mockTool2);
+});
+
+test('mergeMcpTools accumulates with chained calls', function () {
+    $mockTool1 = Mockery::mock(\Prism\Prism\Tool::class);
+    $mockTool2 = Mockery::mock(\Prism\Prism\Tool::class);
+
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
+
+    $this->request
+        ->withMcpTools([$mockTool1])
+        ->mergeMcpTools([$mockTool2])
         ->chat('Hello');
 
     expect($capturedContext->mcpTools)->toHaveCount(2);

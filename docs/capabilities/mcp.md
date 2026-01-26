@@ -102,16 +102,27 @@ $response = Atlas::agent('general-assistant')
     ->chat('List open issues in the atlas-php/atlas repository');
 ```
 
-### Accumulating Tools
+### Combining Multiple Servers
 
-Multiple calls to `withMcpTools()` accumulate tools:
+Use `mergeMcpTools()` to combine tools from multiple servers:
 
 ```php
 use Prism\Relay\Facades\Relay;
 
 $response = Atlas::agent('research-agent')
     ->withMcpTools(Relay::tools('filesystem'))
-    ->withMcpTools(Relay::tools('github'))
+    ->mergeMcpTools(Relay::tools('github'))
+    ->chat('Find the README and check for related GitHub issues');
+```
+
+Or spread them in a single call:
+
+```php
+$response = Atlas::agent('research-agent')
+    ->withMcpTools([
+        ...Relay::tools('filesystem'),
+        ...Relay::tools('github'),
+    ])
     ->chat('Find the README and check for related GitHub issues');
 ```
 
@@ -199,8 +210,10 @@ See the [Prism Relay repository](https://github.com/prism-php/relay) for complet
 public function mcpTools(): array;  // Override to return Prism Tool instances
 
 // Runtime methods on PendingAgentRequest
-->withTools(array $tools): static;     // Add Atlas tools at runtime, accumulates
-->withMcpTools(array $tools): static;  // Add MCP tools at runtime, accumulates
+->withTools(array $tools): static;      // Set Atlas tools (replaces)
+->mergeTools(array $tools): static;     // Merge Atlas tools (accumulates)
+->withMcpTools(array $tools): static;   // Set MCP tools (replaces)
+->mergeMcpTools(array $tools): static;  // Merge MCP tools (accumulates)
 
 // AgentContext properties
 $context->tools;           // array<int, class-string<ToolContract>>

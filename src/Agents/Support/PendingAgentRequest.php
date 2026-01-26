@@ -184,14 +184,27 @@ final class PendingAgentRequest
     }
 
     /**
-     * Add Atlas tools at runtime.
+     * Set Atlas tools at runtime.
      *
-     * Tools are accumulated across multiple calls to this method.
-     * These are merged with the agent's defined tools.
+     * Replaces any previously set runtime tools entirely.
+     * These are merged with the agent's defined tools at execution time.
      *
      * @param  array<int, class-string<\Atlasphp\Atlas\Tools\Contracts\ToolContract>>  $tools  Tool class names.
      */
     public function withTools(array $tools): static
+    {
+        $clone = clone $this;
+        $clone->tools = $tools;
+
+        return $clone;
+    }
+
+    /**
+     * Merge Atlas tools with any previously set runtime tools.
+     *
+     * @param  array<int, class-string<\Atlasphp\Atlas\Tools\Contracts\ToolContract>>  $tools  Tool class names.
+     */
+    public function mergeTools(array $tools): static
     {
         $clone = clone $this;
         $clone->tools = [...$clone->tools, ...$tools];
@@ -200,13 +213,26 @@ final class PendingAgentRequest
     }
 
     /**
-     * Add MCP tools from prism-php/relay.
+     * Set MCP tools from prism-php/relay.
      *
-     * Tools are accumulated across multiple calls to this method.
+     * Replaces any previously set MCP tools entirely.
      *
      * @param  array<int, \Prism\Prism\Tool>  $tools  Prism Tool instances from MCP servers.
      */
     public function withMcpTools(array $tools): static
+    {
+        $clone = clone $this;
+        $clone->mcpTools = $tools;
+
+        return $clone;
+    }
+
+    /**
+     * Merge MCP tools with any previously set MCP tools.
+     *
+     * @param  array<int, \Prism\Prism\Tool>  $tools  Prism Tool instances from MCP servers.
+     */
+    public function mergeMcpTools(array $tools): static
     {
         $clone = clone $this;
         $clone->mcpTools = [...$clone->mcpTools, ...$tools];
