@@ -115,6 +115,10 @@ class LookupOrderTool extends ToolDefinition
     {
         $order = $this->orders->find($args['order_id']);
 
+        if (! $order) {
+            return ToolResult::failure('Order not found');
+        }
+
         return ToolResult::success($order);
     }
 }
