@@ -22,12 +22,12 @@ Built on [Prism PHP](https://prismphp.com), Atlas adds the application layer you
 
 ## ✨ Features
 
-- **Reusable Agents** - Define your AI agent behavior and configurations
-- **Typed Tools** - Connect agents to your services with validated parameters and structured results
-- **MCP Tools** - Integrate external tools from MCP servers via [Prism Relay](https://github.com/prism-php/relay)
-- **Dynamic Prompts** - Inject context `{variables}` into system prompts at runtime for personalized interactions
-- **Pipelines** - Add logging, auth, rate limiting, or metrics without coupling the codebase
-- **Full Prism Access** - Use embeddings, images, speech, moderation, and structured output directly
+- **Reusable Agents** – Define your AI agent behavior and configurations
+- **Typed Tools** – Connect agents to your services with validated parameters and structured results
+- **MCP Tools** – Integrate external tools from MCP servers via [Prism Relay](https://github.com/prism-php/relay)
+- **Dynamic Prompts** – Inject context `{variables}` into system prompts at runtime for personalized interactions
+- **Pipelines** – Add logging, auth, rate limiting, or metrics without coupling the codebase
+- **Full Prism Access** – Use embeddings, images, speech, moderation, and structured output without limits
 
 ## Quick Start
 
@@ -179,6 +179,8 @@ composer check
 ## Contributing
 
 We welcome contributions!
+
+Support the community by giving a GitHub star ⭐️. Thank you!
 
 Please see our [Contributing Guide](.github/CONTRIBUTING.md) for details.
 
