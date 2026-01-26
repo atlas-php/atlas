@@ -259,7 +259,307 @@ test('it runs tool.on_error pipeline when tool throws ToolException', function (
     expect(ToolErrorCapturingHandler::$data['exception']->getMessage())->toBe('Specific tool error');
 });
 
-// Pipeline Handler Class for Tests
+test('it runs tool.before_execute pipeline with correct data', function () {
+    $container = new Container;
+    $registry = new PipelineRegistry;
+    $runner = new PipelineRunner($registry, $container);
+
+    $registry->define('tool.before_execute', 'Before execute pipeline');
+    ToolBeforeExecuteCapturingHandler::reset();
+    $registry->register('tool.before_execute', ToolBeforeExecuteCapturingHandler::class);
+
+    $executor = new ToolExecutor($runner);
+
+    $tool = new TestTool;
+    $context = new ToolContext(['user_id' => 123]);
+
+    $executor->execute($tool, ['input' => 'test value'], $context);
+
+    expect(ToolBeforeExecuteCapturingHandler::$called)->toBeTrue();
+    expect(ToolBeforeExecuteCapturingHandler::$data)->not->toBeNull();
+    expect(ToolBeforeExecuteCapturingHandler::$data['tool'])->toBe($tool);
+    expect(ToolBeforeExecuteCapturingHandler::$data['args'])->toBe(['input' => 'test value']);
+    expect(ToolBeforeExecuteCapturingHandler::$data['context'])->toBe($context);
+});
+
+test('tool.before_execute pipeline can modify args', function () {
+    $container = new Container;
+    $registry = new PipelineRegistry;
+    $runner = new PipelineRunner($registry, $container);
+
+    $registry->define('tool.before_execute', 'Before execute pipeline');
+    ToolBeforeExecuteModifyingHandler::reset();
+    $registry->register('tool.before_execute', ToolBeforeExecuteModifyingHandler::class);
+
+    $executor = new ToolExecutor($runner);
+
+    $tool = new TestTool;
+    $context = new ToolContext;
+
+    $result = $executor->execute($tool, ['input' => 'original'], $context);
+
+    // The handler modifies input to 'modified by pipeline'
+    expect($result->text)->toBe('Result: modified by pipeline');
+});
+
+test('it runs tool.after_execute pipeline with correct data including result', function () {
+    $container = new Container;
+    $registry = new PipelineRegistry;
+    $runner = new PipelineRunner($registry, $container);
+
+    $registry->define('tool.after_execute', 'After execute pipeline');
+    ToolAfterExecuteCapturingHandler::reset();
+    $registry->register('tool.after_execute', ToolAfterExecuteCapturingHandler::class);
+
+    $executor = new ToolExecutor($runner);
+
+    $tool = new TestTool;
+    $context = new ToolContext(['tenant_id' => 456]);
+
+    $executor->execute($tool, ['input' => 'hello world'], $context);
+
+    expect(ToolAfterExecuteCapturingHandler::$called)->toBeTrue();
+    expect(ToolAfterExecuteCapturingHandler::$data)->not->toBeNull();
+    expect(ToolAfterExecuteCapturingHandler::$data['tool'])->toBe($tool);
+    expect(ToolAfterExecuteCapturingHandler::$data['args'])->toBe(['input' => 'hello world']);
+    expect(ToolAfterExecuteCapturingHandler::$data['context'])->toBe($context);
+    expect(ToolAfterExecuteCapturingHandler::$data['result'])->toBeInstanceOf(ToolResult::class);
+    expect(ToolAfterExecuteCapturingHandler::$data['result']->text)->toBe('Result: hello world');
+});
+
+test('tool.after_execute pipeline can check result success status', function () {
+    $container = new Container;
+    $registry = new PipelineRegistry;
+    $runner = new PipelineRunner($registry, $container);
+
+    $registry->define('tool.after_execute', 'After execute pipeline');
+    ToolAfterExecuteStatusCheckHandler::reset();
+    $registry->register('tool.after_execute', ToolAfterExecuteStatusCheckHandler::class);
+
+    $executor = new ToolExecutor($runner);
+
+    $tool = new TestTool;
+    $context = new ToolContext;
+
+    $executor->execute($tool, ['input' => 'test'], $context);
+
+    expect(ToolAfterExecuteStatusCheckHandler::$succeeded)->toBeTrue();
+    expect(ToolAfterExecuteStatusCheckHandler::$failed)->toBeFalse();
+});
+
+test('tool.after_execute pipeline can check result failure status', function () {
+    $container = new Container;
+    $registry = new PipelineRegistry;
+    $runner = new PipelineRunner($registry, $container);
+
+    $registry->define('tool.after_execute', 'After execute pipeline');
+    ToolAfterExecuteStatusCheckHandler::reset();
+    $registry->register('tool.after_execute', ToolAfterExecuteStatusCheckHandler::class);
+
+    $executor = new ToolExecutor($runner);
+
+    $tool = new class implements ToolContract
+    {
+        public function name(): string
+        {
+            return 'failing_result_tool';
+        }
+
+        public function description(): string
+        {
+            return 'Returns error result';
+        }
+
+        public function parameters(): array
+        {
+            return [];
+        }
+
+        public function handle(array $args, ToolContext $context): ToolResult
+        {
+            return ToolResult::error('Something went wrong');
+        }
+    };
+
+    $context = new ToolContext;
+    $executor->execute($tool, [], $context);
+
+    expect(ToolAfterExecuteStatusCheckHandler::$succeeded)->toBeFalse();
+    expect(ToolAfterExecuteStatusCheckHandler::$failed)->toBeTrue();
+});
+
+test('tool.after_execute pipeline can modify the result', function () {
+    $container = new Container;
+    $registry = new PipelineRegistry;
+    $runner = new PipelineRunner($registry, $container);
+
+    $registry->define('tool.after_execute', 'After execute pipeline');
+    ToolAfterExecuteModifyingHandler::reset();
+    $registry->register('tool.after_execute', ToolAfterExecuteModifyingHandler::class);
+
+    $executor = new ToolExecutor($runner);
+
+    $tool = new TestTool;
+    $context = new ToolContext;
+
+    $result = $executor->execute($tool, ['input' => 'original'], $context);
+
+    // The handler replaces the result
+    expect($result->text)->toBe('Modified by after_execute pipeline');
+});
+
+test('tool.before_execute and tool.after_execute pipelines run in correct order', function () {
+    $container = new Container;
+    $registry = new PipelineRegistry;
+    $runner = new PipelineRunner($registry, $container);
+
+    $registry->define('tool.before_execute', 'Before execute pipeline');
+    $registry->define('tool.after_execute', 'After execute pipeline');
+
+    ToolExecutionOrderTracker::reset();
+    $registry->register('tool.before_execute', ToolBeforeExecuteOrderHandler::class);
+    $registry->register('tool.after_execute', ToolAfterExecuteOrderHandler::class);
+
+    $executor = new ToolExecutor($runner);
+
+    $tool = new TestTool;
+    $context = new ToolContext;
+
+    $executor->execute($tool, ['input' => 'test'], $context);
+
+    expect(ToolExecutionOrderTracker::$order)->toBe(['before_execute', 'after_execute']);
+});
+
+// Pipeline Handler Classes for Tests
+
+class ToolBeforeExecuteCapturingHandler implements \Atlasphp\Atlas\Contracts\PipelineContract
+{
+    public static bool $called = false;
+
+    public static ?array $data = null;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+        self::$data = null;
+    }
+
+    public function handle(mixed $data, \Closure $next): mixed
+    {
+        self::$called = true;
+        self::$data = $data;
+
+        return $next($data);
+    }
+}
+
+class ToolBeforeExecuteModifyingHandler implements \Atlasphp\Atlas\Contracts\PipelineContract
+{
+    public static bool $called = false;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+    }
+
+    public function handle(mixed $data, \Closure $next): mixed
+    {
+        self::$called = true;
+        $data['args']['input'] = 'modified by pipeline';
+
+        return $next($data);
+    }
+}
+
+class ToolAfterExecuteCapturingHandler implements \Atlasphp\Atlas\Contracts\PipelineContract
+{
+    public static bool $called = false;
+
+    public static ?array $data = null;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+        self::$data = null;
+    }
+
+    public function handle(mixed $data, \Closure $next): mixed
+    {
+        self::$called = true;
+        self::$data = $data;
+
+        return $next($data);
+    }
+}
+
+class ToolAfterExecuteStatusCheckHandler implements \Atlasphp\Atlas\Contracts\PipelineContract
+{
+    public static bool $succeeded = false;
+
+    public static bool $failed = false;
+
+    public static function reset(): void
+    {
+        self::$succeeded = false;
+        self::$failed = false;
+    }
+
+    public function handle(mixed $data, \Closure $next): mixed
+    {
+        self::$succeeded = $data['result']->succeeded();
+        self::$failed = $data['result']->failed();
+
+        return $next($data);
+    }
+}
+
+class ToolAfterExecuteModifyingHandler implements \Atlasphp\Atlas\Contracts\PipelineContract
+{
+    public static bool $called = false;
+
+    public static function reset(): void
+    {
+        self::$called = false;
+    }
+
+    public function handle(mixed $data, \Closure $next): mixed
+    {
+        self::$called = true;
+        $data['result'] = ToolResult::text('Modified by after_execute pipeline');
+
+        return $next($data);
+    }
+}
+
+class ToolExecutionOrderTracker
+{
+    public static array $order = [];
+
+    public static function reset(): void
+    {
+        self::$order = [];
+    }
+}
+
+class ToolBeforeExecuteOrderHandler implements \Atlasphp\Atlas\Contracts\PipelineContract
+{
+    public function handle(mixed $data, \Closure $next): mixed
+    {
+        ToolExecutionOrderTracker::$order[] = 'before_execute';
+
+        return $next($data);
+    }
+}
+
+class ToolAfterExecuteOrderHandler implements \Atlasphp\Atlas\Contracts\PipelineContract
+{
+    public function handle(mixed $data, \Closure $next): mixed
+    {
+        ToolExecutionOrderTracker::$order[] = 'after_execute';
+
+        return $next($data);
+    }
+}
 
 class ToolErrorCapturingHandler implements \Atlasphp\Atlas\Contracts\PipelineContract
 {
