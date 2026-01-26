@@ -47,10 +47,10 @@ class ToolBuilder
         if ($this->pipelineRunner !== null) {
             $beforeData = $this->pipelineRunner->runIfActive('tool.before_resolve', [
                 'agent' => $agent,
-                'tool_classes' => $toolClasses,
+                'tools' => $toolClasses,
                 'context' => $context,
             ]);
-            $toolClasses = $beforeData['tool_classes'];
+            $toolClasses = $beforeData['tools'];
         }
 
         if ($toolClasses === []) {
@@ -68,7 +68,7 @@ class ToolBuilder
         if ($this->pipelineRunner !== null) {
             $afterData = $this->pipelineRunner->runIfActive('tool.after_resolve', [
                 'agent' => $agent,
-                'tool_classes' => $toolClasses,
+                'tools' => $toolClasses,
                 'prism_tools' => $prismTools,
                 'context' => $context,
             ]);

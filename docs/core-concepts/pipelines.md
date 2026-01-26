@@ -416,12 +416,12 @@ Fires before tools are built for an agent. Allows filtering or modifying which t
 ```php
 [
     'agent' => AgentContract,
-    'tool_classes' => array,  // Array of tool class names
+    'tools' => array,  // Array of tool class names
     'context' => ToolContext,
 ]
 ```
 
-Modify `tool_classes` to filter which tools are available:
+Modify `tools` to filter which tools are available:
 
 ```php
 class FilterToolsForUser implements PipelineContract
@@ -430,8 +430,8 @@ class FilterToolsForUser implements PipelineContract
     {
         $allowedTools = $this->getUserAllowedTools($data['context']->getMeta('user_id'));
 
-        $data['tool_classes'] = array_filter(
-            $data['tool_classes'],
+        $data['tools'] = array_filter(
+            $data['tools'],
             fn ($tool) => in_array($tool, $allowedTools)
         );
 
@@ -447,7 +447,7 @@ Fires after tools are built into Prism tool objects. Allows auditing or modifyin
 ```php
 [
     'agent' => AgentContract,
-    'tool_classes' => array,    // Original tool class names
+    'tools' => array,    // Original tool class names
     'prism_tools' => array,     // Built Prism Tool objects
     'context' => ToolContext,
 ]
@@ -822,7 +822,7 @@ class ToolAwareHandler implements PipelineContract
         // Check if any runtime tools are configured
         if ($context->hasTools()) {
             Log::info('Runtime tools added', [
-                'tool_classes' => $context->tools,
+                'tools' => $context->tools,
             ]);
         }
 
