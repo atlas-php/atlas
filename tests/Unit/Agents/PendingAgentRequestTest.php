@@ -5,6 +5,8 @@ declare(strict_types=1);
 use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
 use Atlasphp\Atlas\Agents\Services\AgentResolver;
 use Atlasphp\Atlas\Agents\Support\AgentContext;
+use Atlasphp\Atlas\Agents\Support\AgentResponse;
+use Atlasphp\Atlas\Agents\Support\AgentStreamResponse;
 use Atlasphp\Atlas\Agents\Support\PendingAgentRequest;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
 use Illuminate\Support\Collection;
@@ -28,6 +30,17 @@ function makeMockPrismResponse(string $text): PrismResponse
         usage: new Usage(10, 20),
         meta: new Meta('req-123', 'gpt-4'),
         messages: new Collection,
+    );
+}
+
+function makeMockAgentResponse(string $text, $agent, string $input, AgentContext $context): AgentResponse
+{
+    return new AgentResponse(
+        response: makeMockPrismResponse($text),
+        agent: $agent,
+        input: $input,
+        systemPrompt: null,
+        context: $context,
     );
 }
 
@@ -79,7 +92,9 @@ test('withMessages includes messages in context', function () {
 
             return true;
         })
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $this->request
         ->withMessages($messages)
@@ -102,7 +117,9 @@ test('withMessages accepts Prism message objects', function () {
 
             return true;
         })
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $this->request
         ->withMessages($prismMessages)
@@ -126,7 +143,9 @@ test('withMessages with array format sets messages and clears prismMessages', fu
 
             return true;
         })
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $this->request
         ->withMessages($messages)
@@ -151,7 +170,9 @@ test('withMessages with Prism message objects includes SystemMessage', function 
 
             return true;
         })
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $this->request
         ->withMessages($prismMessages)
@@ -179,7 +200,9 @@ test('withVariables includes variables in context', function () {
 
             return true;
         })
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $this->request
         ->withVariables(['name' => 'John', 'role' => 'admin'])
@@ -197,7 +220,9 @@ test('withVariables replaces previous variables', function () {
 
             return true;
         })
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $this->request
         ->withVariables(['name' => 'John'])
@@ -216,7 +241,9 @@ test('mergeVariables accumulates across multiple calls', function () {
 
             return true;
         })
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $this->request
         ->mergeVariables(['name' => 'John'])
@@ -235,7 +262,9 @@ test('mergeVariables later calls override same keys', function () {
 
             return true;
         })
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $this->request
         ->mergeVariables(['name' => 'John', 'role' => 'user'])
@@ -254,7 +283,9 @@ test('clearVariables removes all variables', function () {
 
             return true;
         })
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $this->request
         ->withVariables(['name' => 'John', 'role' => 'admin'])
@@ -281,7 +312,9 @@ test('withMetadata includes metadata in context', function () {
 
             return true;
         })
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $this->request
         ->withMetadata(['request_id' => '123', 'user_id' => 456])
@@ -299,7 +332,9 @@ test('withMetadata replaces previous metadata', function () {
 
             return true;
         })
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $this->request
         ->withMetadata(['request_id' => '123'])
@@ -318,7 +353,9 @@ test('mergeMetadata accumulates across multiple calls', function () {
 
             return true;
         })
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $this->request
         ->mergeMetadata(['request_id' => '123'])
@@ -337,7 +374,9 @@ test('mergeMetadata later calls override same keys', function () {
 
             return true;
         })
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $this->request
         ->mergeMetadata(['request_id' => '123', 'trace_id' => 'abc'])
@@ -356,7 +395,9 @@ test('clearMetadata removes all metadata', function () {
 
             return true;
         })
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $this->request
         ->withMetadata(['request_id' => '123', 'user_id' => 456])
@@ -383,7 +424,9 @@ test('withProvider includes provider override in context', function () {
 
             return true;
         })
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $this->request
         ->withProvider('anthropic')
@@ -401,7 +444,9 @@ test('withProvider can set both provider and model', function () {
 
             return true;
         })
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $this->request
         ->withProvider('anthropic', 'claude-3-opus')
@@ -426,7 +471,9 @@ test('withModel includes model override in context', function () {
 
             return true;
         })
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $this->request
         ->withModel('gpt-4-turbo')
@@ -452,7 +499,9 @@ test('__call captures multiple prism method calls', function () {
 
             return true;
         })
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $this->request
         ->usingTemperature(0.7)
@@ -477,7 +526,9 @@ test('withMedia adds single Prism media object', function () {
 
             return true;
         })
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $image = Image::fromUrl('https://example.com/image.png');
 
@@ -498,7 +549,9 @@ test('withMedia adds multiple Prism media objects', function () {
 
             return true;
         })
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $image = Image::fromUrl('https://example.com/image.png');
     $document = Document::fromUrl('https://example.com/doc.pdf');
@@ -529,11 +582,13 @@ test('chat resolves agent and executes', function () {
     $this->executor->shouldReceive('execute')
         ->once()
         ->with($this->agent, 'Hello', Mockery::type(AgentContext::class))
-        ->andReturn(makeMockPrismResponse('Hi there!'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Hi there!', $agent, $input, $context);
+        });
 
     $response = $this->request->chat('Hello');
 
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
     expect($response->text)->toBe('Hi there!');
 });
 
@@ -546,7 +601,9 @@ test('chat passes input correctly', function () {
 
             return true;
         })
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $this->request->chat('Test input message');
 
@@ -562,7 +619,9 @@ test('chat accepts inline attachments (Prism-style)', function () {
 
             return true;
         })
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $image = Image::fromUrl('https://example.com/image.png');
 
@@ -581,7 +640,9 @@ test('chat merges builder attachments with inline attachments', function () {
 
             return true;
         })
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $builderImage = Image::fromUrl('https://example.com/builder-image.png');
     $inlineImage = Image::fromUrl('https://example.com/inline-image.png');
@@ -604,7 +665,9 @@ test('chat accepts multiple inline attachments', function () {
 
             return true;
         })
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $image = Image::fromUrl('https://example.com/image.png');
     $document = Document::fromUrl('https://example.com/doc.pdf');
@@ -625,7 +688,9 @@ test('chat accepts all media types inline', function () {
 
             return true;
         })
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $image = Image::fromUrl('https://example.com/image.png');
     $document = Document::fromUrl('https://example.com/doc.pdf');
@@ -643,7 +708,7 @@ test('chat accepts all media types inline', function () {
 
 // === stream ===
 
-test('stream resolves agent and returns generator', function () {
+test('stream resolves agent and returns AgentStreamResponse', function () {
     $this->resolver->shouldReceive('resolve')
         ->once()
         ->with($this->agent)
@@ -652,14 +717,22 @@ test('stream resolves agent and returns generator', function () {
     $this->executor->shouldReceive('stream')
         ->once()
         ->with($this->agent, 'Hello', Mockery::type(AgentContext::class))
-        ->andReturn((function () {
-            yield 'chunk1';
-            yield 'chunk2';
-        })());
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return new AgentStreamResponse(
+                stream: (function () {
+                    yield 'chunk1';
+                    yield 'chunk2';
+                })(),
+                agent: $agent,
+                input: $input,
+                systemPrompt: null,
+                context: $context,
+            );
+        });
 
     $result = $this->request->stream('Hello');
 
-    expect($result)->toBeInstanceOf(Generator::class);
+    expect($result)->toBeInstanceOf(AgentStreamResponse::class);
 
     $chunks = iterator_to_array($result);
     expect($chunks)->toBe(['chunk1', 'chunk2']);
@@ -674,9 +747,17 @@ test('stream accepts inline attachments (Prism-style)', function () {
 
             return true;
         })
-        ->andReturn((function () {
-            yield 'chunk';
-        })());
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return new AgentStreamResponse(
+                stream: (function () {
+                    yield 'chunk';
+                })(),
+                agent: $agent,
+                input: $input,
+                systemPrompt: null,
+                context: $context,
+            );
+        });
 
     $image = Image::fromUrl('https://example.com/image.png');
 
@@ -691,7 +772,9 @@ test('stream accepts inline attachments (Prism-style)', function () {
 test('all methods can be chained fluently', function () {
     $this->executor->shouldReceive('execute')
         ->once()
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $image = Image::fromUrl('https://example.com/image.png');
 
@@ -703,7 +786,7 @@ test('all methods can be chained fluently', function () {
         ->usingTemperature(0.7)
         ->chat('Hello', [$image]);
 
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
 });
 
 test('chaining preserves all configuration', function () {
@@ -715,7 +798,9 @@ test('chaining preserves all configuration', function () {
 
             return true;
         })
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $image = Image::fromUrl('https://example.com/image.png');
 
@@ -756,7 +841,9 @@ test('withTools includes tools in context', function () {
 
             return true;
         })
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $this->request
         ->withTools(['App\\Tools\\MyTool'])
@@ -775,7 +862,9 @@ test('withTools accumulates with chained calls', function () {
 
             return true;
         })
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $this->request
         ->withTools(['App\\Tools\\ToolA'])
@@ -796,7 +885,9 @@ test('withTools works with multiple tools in single call', function () {
 
             return true;
         })
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $this->request
         ->withTools(['App\\Tools\\ToolA', 'App\\Tools\\ToolB'])
@@ -816,7 +907,9 @@ test('withTools can be combined with withMcpTools', function () {
 
             return true;
         })
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $this->request
         ->withTools(['App\\Tools\\MyTool'])
@@ -849,7 +942,9 @@ test('withMcpTools includes tools in context', function () {
 
             return true;
         })
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $this->request
         ->withMcpTools([$mockTool])
@@ -871,7 +966,9 @@ test('withMcpTools accumulates with chained calls', function () {
 
             return true;
         })
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $this->request
         ->withMcpTools([$mockTool1])
@@ -895,7 +992,9 @@ test('withMcpTools works with multiple tools in single call', function () {
 
             return true;
         })
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $this->request
         ->withMcpTools([$mockTool1, $mockTool2])
@@ -915,7 +1014,9 @@ test('withMcpTools can be combined with other methods', function () {
 
             return true;
         })
-        ->andReturn(makeMockPrismResponse('Response'));
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
 
     $this->request
         ->withVariables(['name' => 'John'])

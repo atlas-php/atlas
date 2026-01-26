@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
 use Atlasphp\Atlas\Agents\Support\AgentContext;
+use Atlasphp\Atlas\Agents\Support\AgentResponse;
 use Atlasphp\Atlas\Testing\AtlasFake;
 use Atlasphp\Atlas\Testing\FakeAgentExecutor;
 use Atlasphp\Atlas\Testing\PendingFakeRequest;
@@ -107,7 +108,7 @@ test('allowStrayRequests disables prevention', function () {
     $executor = $this->container->make(AgentExecutorContract::class);
     $result = $executor->execute($this->agent, 'Hi', $this->context);
 
-    expect($result)->toBeInstanceOf(PrismResponse::class);
+    expect($result)->toBeInstanceOf(AgentResponse::class);
 });
 
 test('allowStrayRequests returns self for chaining', function () {

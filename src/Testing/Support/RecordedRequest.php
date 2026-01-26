@@ -6,13 +6,13 @@ namespace Atlasphp\Atlas\Testing\Support;
 
 use Atlasphp\Atlas\Agents\Contracts\AgentContract;
 use Atlasphp\Atlas\Agents\Support\AgentContext;
-use Prism\Prism\Text\Response as PrismResponse;
+use Atlasphp\Atlas\Agents\Support\AgentResponse;
 
 /**
  * Value object representing a recorded agent request.
  *
  * Captures all details of an agent execution for later assertion
- * during testing. Uses Prism's native Response objects.
+ * during testing. Stores AgentResponse for full agent context access.
  */
 final readonly class RecordedRequest
 {
@@ -20,14 +20,14 @@ final readonly class RecordedRequest
      * @param  AgentContract  $agent  The agent that was executed.
      * @param  string  $input  The user input message.
      * @param  AgentContext  $context  The execution context.
-     * @param  PrismResponse  $response  The Prism response that was returned.
+     * @param  AgentResponse  $response  The AgentResponse that was returned.
      * @param  int  $timestamp  Unix timestamp when the request was made.
      */
     public function __construct(
         public AgentContract $agent,
         public string $input,
         public AgentContext $context,
-        public PrismResponse $response,
+        public AgentResponse $response,
         public int $timestamp,
     ) {}
 

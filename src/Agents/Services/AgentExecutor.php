@@ -8,6 +8,8 @@ use Atlasphp\Atlas\Agents\Contracts\AgentContract;
 use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
 use Atlasphp\Atlas\Agents\Exceptions\AgentException;
 use Atlasphp\Atlas\Agents\Support\AgentContext;
+use Atlasphp\Atlas\Agents\Support\AgentResponse;
+use Atlasphp\Atlas\Agents\Support\AgentStreamResponse;
 use Atlasphp\Atlas\Pipelines\PipelineRunner;
 use Atlasphp\Atlas\Tools\Services\ToolBuilder;
 use Atlasphp\Atlas\Tools\Support\ToolContext;
@@ -45,7 +47,8 @@ class AgentExecutor implements AgentExecutorContract
     /**
      * Execute an agent with the given input.
      *
-     * Returns Prism's Response directly, giving consumers access to:
+     * Returns AgentResponse wrapping Prism's response with agent context.
+     * Backward compatible property access works via __get magic:
      * - $response->text - Text response
      * - $response->usage - Full usage stats including cache tokens, thought tokens
      * - $response->steps - Multi-step agentic loop history
@@ -53,13 +56,13 @@ class AgentExecutor implements AgentExecutorContract
      * - $response->finishReason - Typed FinishReason enum
      * - $response->meta - Request metadata, rate limits
      *
-     * If withSchema() was called, returns StructuredResponse instead.
+     * If withSchema() was called, $response->isStructured() returns true.
      */
     public function execute(
         AgentContract $agent,
         string $input,
         AgentContext $context,
-    ): PrismResponse|StructuredResponse {
+    ): AgentResponse {
         $systemPrompt = null;
 
         try {
@@ -107,8 +110,16 @@ class AgentExecutor implements AgentExecutorContract
                 'system_prompt' => $systemPrompt,
             ]);
 
-            /** @var PrismResponse|StructuredResponse */
-            return $afterData['response'];
+            /** @var PrismResponse|StructuredResponse $prismResponse */
+            $prismResponse = $afterData['response'];
+
+            return new AgentResponse(
+                response: $prismResponse,
+                agent: $agent,
+                input: $input,
+                systemPrompt: $systemPrompt,
+                context: $context,
+            );
         } catch (AgentException $e) {
             $recovery = $this->handleError($agent, $input, $context, $systemPrompt, $e);
             if ($recovery !== null) {
@@ -127,16 +138,15 @@ class AgentExecutor implements AgentExecutorContract
     /**
      * Stream a response from an agent.
      *
-     * Wraps the Prism generator to fire the agent.stream.after pipeline
-     * when streaming completes, enabling analytics and completion tracking.
-     *
-     * @return Generator<int, StreamEvent>
+     * Returns AgentStreamResponse which implements IteratorAggregate.
+     * Agent context is available before iteration; the stream fires
+     * the agent.stream.after pipeline when consumed.
      */
     public function stream(
         AgentContract $agent,
         string $input,
         AgentContext $context,
-    ): Generator {
+    ): AgentStreamResponse {
         // Run before_execute pipeline
         $beforeData = $this->pipelineRunner->runIfActive('agent.before_execute', [
             'agent' => $agent,
@@ -168,12 +178,20 @@ class AgentExecutor implements AgentExecutorContract
         $request = $this->buildRequest($agent, $input, $context, $systemPrompt);
 
         // Wrap generator to fire after pipeline on completion
-        yield from $this->wrapStreamWithAfterPipeline(
+        $wrappedStream = $this->wrapStreamWithAfterPipeline(
             $request->asStream(),
             $agent,
             $input,
             $context,
             $systemPrompt,
+        );
+
+        return new AgentStreamResponse(
+            stream: $wrappedStream,
+            agent: $agent,
+            input: $input,
+            systemPrompt: $systemPrompt,
+            context: $context,
         );
     }
 
@@ -219,9 +237,9 @@ class AgentExecutor implements AgentExecutorContract
      * Handle an error by running the error pipeline.
      *
      * If the pipeline returns a 'recovery' key with a valid response,
-     * that response will be returned instead of throwing the exception.
+     * that response will be wrapped in AgentResponse and returned.
      *
-     * @return PrismResponse|StructuredResponse|null Recovery response or null to rethrow
+     * @return AgentResponse|null Recovery response or null to rethrow
      */
     protected function handleError(
         AgentContract $agent,
@@ -229,7 +247,7 @@ class AgentExecutor implements AgentExecutorContract
         AgentContext $context,
         ?string $systemPrompt,
         Throwable $exception,
-    ): PrismResponse|StructuredResponse|null {
+    ): ?AgentResponse {
         $result = $this->pipelineRunner->runIfActive('agent.on_error', [
             'agent' => $agent,
             'input' => $input,
@@ -240,7 +258,13 @@ class AgentExecutor implements AgentExecutorContract
 
         // Check if pipeline provided a recovery response
         if (isset($result['recovery']) && ($result['recovery'] instanceof PrismResponse || $result['recovery'] instanceof StructuredResponse)) {
-            return $result['recovery'];
+            return new AgentResponse(
+                response: $result['recovery'],
+                agent: $agent,
+                input: $input,
+                systemPrompt: $systemPrompt,
+                context: $context,
+            );
         }
 
         return null;

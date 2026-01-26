@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Agents\Contracts\AgentRegistryContract;
+use Atlasphp\Atlas\Agents\Support\AgentResponse;
 use Atlasphp\Atlas\Agents\Support\PendingAgentRequest;
 use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\AtlasManager;
@@ -10,7 +11,6 @@ use Atlasphp\Atlas\PrismProxy;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Testing\TextResponseFake;
-use Prism\Prism\Text\Response as PrismResponse;
 use Prism\Prism\ValueObjects\Usage;
 
 test('facade resolves atlas manager', function () {
@@ -34,7 +34,7 @@ test('it executes simple chat', function () {
 
     $response = Atlas::agent('test-agent')->chat('Hello');
 
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
     expect($response->text)->toBe('Hello from agent');
 });
 
@@ -57,7 +57,7 @@ test('it executes chat with messages', function () {
         ->withMessages($messages)
         ->chat('Continue');
 
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
     expect($response->text)->toBe('Continuing conversation');
 });
 
@@ -76,7 +76,7 @@ test('it executes chat with variables', function () {
         ->withVariables(['user_name' => 'John'])
         ->chat('Continue');
 
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
     expect($response->text)->toBe('Hello John');
 });
 
@@ -95,7 +95,7 @@ test('it executes chat with metadata', function () {
         ->withMetadata(['session_id' => 'abc123'])
         ->chat('Continue');
 
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
     expect($response->text)->toBe('Response with metadata');
 });
 

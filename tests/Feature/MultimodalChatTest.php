@@ -5,10 +5,10 @@ declare(strict_types=1);
 use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
 use Atlasphp\Atlas\Agents\Services\MediaConverter;
 use Atlasphp\Atlas\Agents\Support\AgentContext;
+use Atlasphp\Atlas\Agents\Support\AgentResponse;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Testing\TextResponseFake;
-use Prism\Prism\Text\Response as PrismResponse;
 use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Usage;
 
@@ -38,7 +38,7 @@ test('agent executor handles prism media attachments', function () {
 
     $response = $executor->execute($agent, 'What do you see?', $context);
 
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
     expect($response->text)->toBe('I can see the image');
 });
 
@@ -63,7 +63,7 @@ test('agent executor handles messages with prism media', function () {
 
     $response = $executor->execute($agent, 'Now look at this one', $context);
 
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
 });
 
 test('history attachments are preserved in messages', function () {
@@ -94,7 +94,7 @@ test('history attachments are preserved in messages', function () {
 
     $response = $executor->execute($agent, 'What did you see earlier?', $context);
 
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
 });
 
 test('execution context creates with prismMedia', function () {

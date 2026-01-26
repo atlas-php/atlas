@@ -5,10 +5,8 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Agents\Contracts;
 
 use Atlasphp\Atlas\Agents\Support\AgentContext;
-use Generator;
-use Prism\Prism\Streaming\Events\StreamEvent;
-use Prism\Prism\Structured\Response as StructuredResponse;
-use Prism\Prism\Text\Response as PrismResponse;
+use Atlasphp\Atlas\Agents\Support\AgentResponse;
+use Atlasphp\Atlas\Agents\Support\AgentStreamResponse;
 
 /**
  * Contract for agent execution implementations.
@@ -16,18 +14,19 @@ use Prism\Prism\Text\Response as PrismResponse;
  * Defines the interface for executing agents with conversation context.
  * Supports both blocking and streaming execution modes.
  *
- * Returns Prism's Response directly, giving consumers full access to:
- * - response->text - Text response
+ * Returns AgentResponse which wraps Prism's response with agent context:
+ * - response->text - Text response (via __get magic)
  * - response->usage - Full usage stats including cache tokens, thought tokens
  * - response->steps - Multi-step agentic loop history
  * - response->toolCalls - Tool calls as ToolCall objects
  * - response->finishReason - Typed FinishReason enum
  * - response->meta - Request metadata, rate limits
+ * - response->agentKey() - The agent key
+ * - response->systemPrompt - The system prompt used
+ * - response->metadata() - Pipeline metadata
  *
- * When withSchema() is used, returns StructuredResponse instead with:
- * - response->structured - The structured data extracted
- * - response->text - The raw text (if available)
- * - response->usage - Full usage stats
+ * When withSchema() is used, response->isStructured() returns true and
+ * response->structured() provides the extracted data.
  *
  * All Prism-specific configuration (schema, retry, structuredMode, toolChoice, etc.)
  * is captured in the AgentContext's prismCalls and replayed on the request.
@@ -37,8 +36,8 @@ interface AgentExecutorContract
     /**
      * Execute an agent with the given input.
      *
-     * Returns Prism's Response directly for full API access.
-     * If withSchema() was called, returns StructuredResponse instead.
+     * Returns AgentResponse wrapping Prism's response with agent context.
+     * Backward compatible property access works via __get magic.
      *
      * @param  AgentContract  $agent  The agent to execute.
      * @param  string  $input  The user input message.
@@ -48,22 +47,22 @@ interface AgentExecutorContract
         AgentContract $agent,
         string $input,
         AgentContext $context,
-    ): PrismResponse|StructuredResponse;
+    ): AgentResponse;
 
     /**
      * Stream a response from an agent.
      *
-     * Returns a Generator yielding Prism StreamEvents directly.
-     * Consumers work with Prism's streaming API directly.
+     * Returns AgentStreamResponse which implements IteratorAggregate.
+     * Agent context is available before iteration; events are collected
+     * during iteration and available after via events().
      *
      * @param  AgentContract  $agent  The agent to execute.
      * @param  string  $input  The user input message.
      * @param  AgentContext  $context  Execution context with messages, variables, and Prism calls.
-     * @return Generator<int, StreamEvent>
      */
     public function stream(
         AgentContract $agent,
         string $input,
         AgentContext $context,
-    ): Generator;
+    ): AgentStreamResponse;
 }

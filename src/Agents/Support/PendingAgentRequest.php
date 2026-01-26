@@ -7,10 +7,6 @@ namespace Atlasphp\Atlas\Agents\Support;
 use Atlasphp\Atlas\Agents\Contracts\AgentContract;
 use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
 use Atlasphp\Atlas\Agents\Services\AgentResolver;
-use Generator;
-use Prism\Prism\Streaming\Events\StreamEvent;
-use Prism\Prism\Structured\Response as StructuredResponse;
-use Prism\Prism\Text\Response as PrismResponse;
 use Prism\Prism\ValueObjects\Media\Audio;
 use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Media\Image;
@@ -236,7 +232,8 @@ final class PendingAgentRequest
      * ->chat('Compare with this', [Image::fromUrl('https://example.com/photo2.jpg')])
      * ```
      *
-     * Returns Prism's Response directly for full API access:
+     * Returns AgentResponse wrapping Prism's response with agent context.
+     * Backward compatible property access works via __get magic:
      * - $response->text - Text response
      * - $response->usage - Full usage stats including cache tokens, thought tokens
      * - $response->steps - Multi-step agentic loop history
@@ -244,15 +241,18 @@ final class PendingAgentRequest
      * - $response->finishReason - Typed FinishReason enum
      * - $response->meta - Request metadata, rate limits
      *
-     * If withSchema() was called, returns StructuredResponse instead:
-     * - $response->structured - The structured data extracted
-     * - $response->text - The raw text (if available)
-     * - $response->usage - Full usage stats
+     * Agent-specific accessors:
+     * - $response->agentKey() - The agent key
+     * - $response->systemPrompt - The system prompt used
+     * - $response->metadata() - Pipeline metadata
+     *
+     * If withSchema() was called, $response->isStructured() returns true
+     * and $response->structured() provides the extracted data.
      *
      * @param  string  $input  The user input message.
      * @param  array<int, Image|Document|Audio|Video>  $attachments  Optional Prism media objects to attach.
      */
-    public function chat(string $input, array $attachments = []): PrismResponse|StructuredResponse
+    public function chat(string $input, array $attachments = []): AgentResponse
     {
         $resolvedAgent = $this->agentResolver->resolve($this->agent);
         $context = $this->buildContext($attachments);
@@ -263,19 +263,19 @@ final class PendingAgentRequest
     /**
      * Stream a response from the configured agent.
      *
-     * Returns a Generator yielding Prism StreamEvents directly.
-     * Consumers work with Prism's streaming API directly.
+     * Returns AgentStreamResponse which implements IteratorAggregate.
+     * Agent context is available before iteration; events are collected
+     * during iteration and available after via events().
      *
      * @param  string  $input  The user input message.
      * @param  array<int, Image|Document|Audio|Video>  $attachments  Optional Prism media objects to attach.
-     * @return Generator<int, StreamEvent>
      */
-    public function stream(string $input, array $attachments = []): Generator
+    public function stream(string $input, array $attachments = []): AgentStreamResponse
     {
         $resolvedAgent = $this->agentResolver->resolve($this->agent);
         $context = $this->buildContext($attachments);
 
-        yield from $this->agentExecutor->stream($resolvedAgent, $input, $context);
+        return $this->agentExecutor->stream($resolvedAgent, $input, $context);
     }
 
     /**
