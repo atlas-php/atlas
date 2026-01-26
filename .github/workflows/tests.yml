@@ -34,12 +34,12 @@ jobs:
 
   tests:
     runs-on: ubuntu-latest
-    name: Tests (PHP 8.4)
+    name: Tests (PHP 8.2)
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.4'
+          php-version: '8.2'
           extensions: dom, curl, mbstring, zip
           coverage: xdebug
       - run: composer install --prefer-dist --no-interaction --no-progress
