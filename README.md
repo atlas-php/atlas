@@ -22,10 +22,10 @@ Built on [Prism PHP](https://prismphp.com), Atlas adds the application layer you
 
 ## ✨ Features
 
-- **Reusable Agents** - Define your AI agent configurations
+- **Reusable Agents** - Define your AI agent behavior and configurations
 - **Typed Tools** - Connect agents to your services with validated parameters and structured results
 - **MCP Tools** - Integrate external tools from MCP servers via [Prism Relay](https://github.com/prism-php/relay)
-- **Dynamic Prompts** - Inject context `{variables}` at runtime for personalized interactions
+- **Dynamic Prompts** - Inject context `{variables}` into system prompts at runtime for personalized interactions
 - **Pipelines** - Add logging, auth, rate limiting, or metrics without coupling the codebase
 - **Full Prism Access** - Use embeddings, images, speech, moderation, and structured output directly
 
@@ -88,6 +88,38 @@ class SupportAgent extends AgentDefinition
 }
 ```
 
+### Build a Tool
+
+```php
+use Atlasphp\Atlas\Tools\ToolDefinition;
+use Atlasphp\Atlas\Tools\Support\ToolContext;
+use Atlasphp\Atlas\Tools\Support\ToolResult;
+
+class LookupOrderTool extends ToolDefinition
+{
+    public function __construct(
+        private OrderService $orders
+    ) {}
+
+    public function name(): string
+    {
+        return 'lookup_order';
+    }
+
+    public function description(): string
+    {
+        return 'Look up order details by order ID';
+    }
+
+    public function handle(array $args, ToolContext $context): ToolResult
+    {
+        $order = $this->orders->find($args['order_id']);
+
+        return ToolResult::success($order);
+    }
+}
+```
+
 ### Chat with the Agent
 
 ```php
@@ -104,7 +136,7 @@ echo $response->text;
 
 ## Why Atlas?
 
-**The problem:** Prompts scattered across controllers, duplicated configurations, tools tightly coupled to features, and no consistent way to add logging or validation.
+**The problem:** Prompts scattered across controllers, duplicated configurations, businesses logic tightly coupled with tools, and no consistent way to add logging, validation or even proper error handling.
 
 **Atlas decouples your businesses logic:**
 
@@ -125,8 +157,6 @@ Atlas doesn't replace Prism. It organizes how you use Prism in real applications
 - [MCP Integration](https://atlasphp.org/capabilities/mcp.html) - External tools from MCP servers
 - [Pipelines](https://atlasphp.org/core-concepts/pipelines.html) - Extend with middleware
 
----
-
 ## Testing and Code Quality
 
 Atlas uses several tools to maintain high code quality:
@@ -141,8 +171,6 @@ composer check
 | [Larastan](https://github.com/larastan/larastan) | Static analysis                                                                                                        |
 | [Laravel Pint](https://laravel.com/docs/pint)    | Code style                                                                                                             |
 | [Codecov](https://codecov.io/gh/atlas-php/atlas) | [![codecov](https://codecov.io/gh/atlas-php/atlas/branch/main/graph/badge.svg)](https://codecov.io/gh/atlas-php/atlas) |
-
----
 
 ## Contributing
 
