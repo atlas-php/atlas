@@ -7,17 +7,18 @@ namespace Atlasphp\Atlas\Tools\Support;
 /**
  * Result returned from tool execution.
  *
- * Encapsulates the tool output as text and tracks error status.
- * The text is returned to the AI as the tool response.
+ * Encapsulates the tool output and tracks error status.
+ * Use toText() for the string representation sent to the AI.
+ * Use toArray() to access structured data when available.
  */
 final readonly class ToolResult
 {
     /**
-     * @param  string  $text  The result text to return to the AI.
+     * @param  string|array<mixed>  $data  The result data (string or array).
      * @param  bool  $isError  Whether this represents an error.
      */
     public function __construct(
-        public string $text,
+        private string|array $data,
         public bool $isError = false,
     ) {}
 
@@ -42,19 +43,47 @@ final readonly class ToolResult
     }
 
     /**
-     * Create a JSON result from array data.
+     * Create a result from array data.
      *
-     * @param  array<mixed>  $data  The data to encode as JSON.
+     * @param  array<mixed>  $data  The structured data.
      */
     public static function json(array $data): self
     {
-        try {
-            $encoded = json_encode($data, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
-        } catch (\JsonException $e) {
-            return self::error('Failed to encode tool result as JSON: '.$e->getMessage());
+        return new self($data, false);
+    }
+
+    /**
+     * Get the result as a string.
+     *
+     * Returns the text directly if stored as string,
+     * or JSON encodes if stored as array.
+     *
+     * @throws \JsonException
+     */
+    public function toText(): string
+    {
+        if (is_array($this->data)) {
+            return json_encode($this->data, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
         }
 
-        return new self($encoded, false);
+        return $this->data;
+    }
+
+    /**
+     * Get the result as an array.
+     *
+     * Returns the array directly if stored as array,
+     * or wraps string in ['text' => $data] for consistency.
+     *
+     * @return array<mixed>
+     */
+    public function toArray(): array
+    {
+        if (is_array($this->data)) {
+            return $this->data;
+        }
+
+        return ['text' => $this->data];
     }
 
     /**
@@ -71,18 +100,5 @@ final readonly class ToolResult
     public function succeeded(): bool
     {
         return ! $this->isError;
-    }
-
-    /**
-     * Convert the result to an array.
-     *
-     * @return array{text: string, is_error: bool}
-     */
-    public function toArray(): array
-    {
-        return [
-            'text' => $this->text,
-            'is_error' => $this->isError,
-        ];
     }
 }

@@ -18,7 +18,10 @@ use Prism\Prism\Schema\StringSchema;
  * Provides a convenient API for defining tool parameters
  * that directly produce Prism-compatible schemas.
  *
- * Consumers can also use Prism Schema classes directly if preferred.
+ * By default, parameters are optional. Use required: true to mark required parameters:
+ *
+ *   ToolParameter::string('query', 'The search query', required: true)  // Required
+ *   ToolParameter::string('notes', 'Optional notes')                    // Optional
  */
 final class ToolParameter
 {
@@ -28,9 +31,9 @@ final class ToolParameter
     public static function string(
         string $name,
         string $description,
-        bool $nullable = false,
+        bool $required = false,
     ): StringSchema {
-        return new StringSchema($name, $description, $nullable);
+        return new StringSchema($name, $description, nullable: ! $required);
     }
 
     /**
@@ -39,9 +42,9 @@ final class ToolParameter
     public static function number(
         string $name,
         string $description,
-        bool $nullable = false,
+        bool $required = false,
     ): NumberSchema {
-        return new NumberSchema($name, $description, $nullable);
+        return new NumberSchema($name, $description, nullable: ! $required);
     }
 
     /**
@@ -50,9 +53,9 @@ final class ToolParameter
     public static function integer(
         string $name,
         string $description,
-        bool $nullable = false,
+        bool $required = false,
     ): NumberSchema {
-        return new NumberSchema($name, $description, $nullable);
+        return new NumberSchema($name, $description, nullable: ! $required);
     }
 
     /**
@@ -61,9 +64,9 @@ final class ToolParameter
     public static function boolean(
         string $name,
         string $description,
-        bool $nullable = false,
+        bool $required = false,
     ): BooleanSchema {
-        return new BooleanSchema($name, $description, $nullable);
+        return new BooleanSchema($name, $description, nullable: ! $required);
     }
 
     /**
@@ -75,8 +78,9 @@ final class ToolParameter
         string $name,
         string $description,
         array $options,
+        bool $required = false,
     ): EnumSchema {
-        return new EnumSchema($name, $description, $options);
+        return new EnumSchema($name, $description, $options, nullable: ! $required);
     }
 
     /**
@@ -86,8 +90,18 @@ final class ToolParameter
         string $name,
         string $description,
         Schema $items,
+        bool $required = false,
+        ?int $minItems = null,
+        ?int $maxItems = null,
     ): ArraySchema {
-        return new ArraySchema($name, $description, $items);
+        return new ArraySchema(
+            $name,
+            $description,
+            $items,
+            nullable: ! $required,
+            minItems: $minItems,
+            maxItems: $maxItems,
+        );
     }
 
     /**

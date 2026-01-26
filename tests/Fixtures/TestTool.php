@@ -27,8 +27,8 @@ class TestTool extends ToolDefinition
     public function parameters(): array
     {
         return [
-            ToolParameter::string('input', 'The input to echo back'),
-            ToolParameter::boolean('uppercase', 'Whether to uppercase the output', false, false),
+            ToolParameter::string('input', 'The input to echo back', required: true),
+            ToolParameter::boolean('uppercase', 'Whether to uppercase the output'),
         ];
     }
 

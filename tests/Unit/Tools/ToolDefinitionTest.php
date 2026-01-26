@@ -124,7 +124,7 @@ test('TestTool fixture handles input', function () {
 
     $result = $tool->handle(['input' => 'hello'], $context);
 
-    expect($result->text)->toBe('Result: hello');
+    expect($result->toText())->toBe('Result: hello');
 });
 
 test('TestTool fixture handles uppercase option', function () {
@@ -133,5 +133,5 @@ test('TestTool fixture handles uppercase option', function () {
 
     $result = $tool->handle(['input' => 'hello', 'uppercase' => true], $context);
 
-    expect($result->text)->toBe('Result: HELLO');
+    expect($result->toText())->toBe('Result: HELLO');
 });

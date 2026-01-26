@@ -230,7 +230,7 @@ test('it runs tool.before_resolve pipeline', function () {
     expect(ToolBeforeResolveCapturingHandler::$called)->toBeTrue();
     expect(ToolBeforeResolveCapturingHandler::$data['agent'])->toBe($agent);
     expect(ToolBeforeResolveCapturingHandler::$data['context'])->toBe($context);
-    expect(ToolBeforeResolveCapturingHandler::$data['tool_classes'])->toBe([TestTool::class]);
+    expect(ToolBeforeResolveCapturingHandler::$data['tools'])->toBe([TestTool::class]);
 });
 
 test('tool.before_resolve pipeline can filter tools', function () {
@@ -262,7 +262,7 @@ test('it runs tool.after_resolve pipeline', function () {
     expect(ToolAfterResolveCapturingHandler::$called)->toBeTrue();
     expect(ToolAfterResolveCapturingHandler::$data['agent'])->toBe($agent);
     expect(ToolAfterResolveCapturingHandler::$data['context'])->toBe($context);
-    expect(ToolAfterResolveCapturingHandler::$data['tool_classes'])->toBe([TestTool::class]);
+    expect(ToolAfterResolveCapturingHandler::$data['tools'])->toBe([TestTool::class]);
     expect(ToolAfterResolveCapturingHandler::$data['prism_tools'])->toHaveCount(1);
     expect(ToolAfterResolveCapturingHandler::$data['prism_tools'][0])->toBeInstanceOf(PrismTool::class);
 });
@@ -321,7 +321,7 @@ class ToolFilteringHandler implements PipelineContract
     {
         self::$called = true;
         // Filter out all tools
-        $data['tool_classes'] = [];
+        $data['tools'] = [];
 
         return $next($data);
     }

@@ -93,6 +93,7 @@ class SupportAgent extends AgentDefinition
 ```php
 use Atlasphp\Atlas\Tools\ToolDefinition;
 use Atlasphp\Atlas\Tools\Support\ToolContext;
+use Atlasphp\Atlas\Tools\Support\ToolParameter;
 use Atlasphp\Atlas\Tools\Support\ToolResult;
 
 class LookupOrderTool extends ToolDefinition
@@ -109,6 +110,13 @@ class LookupOrderTool extends ToolDefinition
     public function description(): string
     {
         return 'Look up order details by order ID';
+    }
+
+    public function parameters(): array
+    {
+        return [
+            ToolParameter::string('order_id', 'The order ID to look up', required: true),
+        ];
     }
 
     public function handle(array $args, ToolContext $context): ToolResult

@@ -80,7 +80,7 @@ class LookupOrderToolTest extends TestCase
         $result = $tool->handle(['order_id' => 'ORD-123'], $context);
 
         $this->assertTrue($result->succeeded());
-        $this->assertStringContainsString('shipped', $result->text);
+        $this->assertStringContainsString('shipped', $result->toText());
     }
 
     public function test_returns_error_when_not_found(): void
@@ -91,7 +91,7 @@ class LookupOrderToolTest extends TestCase
         $result = $tool->handle(['order_id' => 'INVALID'], $context);
 
         $this->assertTrue($result->failed());
-        $this->assertStringContainsString('not found', $result->text);
+        $this->assertStringContainsString('not found', $result->toText());
     }
 
     public function test_uses_context_metadata_for_authorization(): void

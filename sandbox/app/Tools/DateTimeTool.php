@@ -37,7 +37,7 @@ class DateTimeTool extends ToolDefinition
     /**
      * Get the tool parameters.
      *
-     * @return array<int, ToolParameter>
+     * @return array<int, \Prism\Prism\Contracts\Schema>
      */
     public function parameters(): array
     {
