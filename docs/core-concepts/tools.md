@@ -704,6 +704,9 @@ $result->failed(): bool;
 $context->getAgent(): ?AgentContract;
 $context->getMeta(string $key, mixed $default = null): mixed;
 $context->hasMeta(string $key): bool;
+$context->withMetadata(array $metadata): self;   // Replace metadata (returns new instance)
+$context->mergeMetadata(array $metadata): self;  // Merge metadata (returns new instance)
+$context->clearMetadata(): self;                 // Clear metadata (returns new instance)
 
 // ToolRegistryContract methods
 $registry->register(string $class): void;

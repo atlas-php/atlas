@@ -106,3 +106,23 @@ test('mergeMetadata preserves agent reference', function () {
     expect($newContext->metadata)->toBe(['a' => 1, 'b' => 2]);
     expect($newContext->getAgent())->toBe($agent);
 });
+
+test('clearMetadata removes all metadata', function () {
+    $context = new ToolContext(['a' => 1, 'b' => 2]);
+
+    $newContext = $context->clearMetadata();
+
+    expect($newContext)->not->toBe($context);
+    expect($newContext->metadata)->toBe([]);
+    expect($context->metadata)->toBe(['a' => 1, 'b' => 2]);
+});
+
+test('clearMetadata preserves agent reference', function () {
+    $agent = Mockery::mock(AgentContract::class);
+    $context = new ToolContext(['a' => 1], $agent);
+
+    $newContext = $context->clearMetadata();
+
+    expect($newContext->metadata)->toBe([]);
+    expect($newContext->getAgent())->toBe($agent);
+});

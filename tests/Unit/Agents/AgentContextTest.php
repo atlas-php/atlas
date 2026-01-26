@@ -318,3 +318,84 @@ test('it creates with multiple mcpTools', function () {
     expect($context->mcpTools[0])->toBe($mockTool1);
     expect($context->mcpTools[1])->toBe($mockTool2);
 });
+
+// === Variables Manipulation ===
+
+test('withVariables replaces variables and returns new instance', function () {
+    $context = new AgentContext(variables: ['a' => 1, 'b' => 2]);
+
+    $newContext = $context->withVariables(['c' => 3]);
+
+    expect($newContext)->not->toBe($context);
+    expect($newContext->variables)->toBe(['c' => 3]);
+    expect($context->variables)->toBe(['a' => 1, 'b' => 2]);
+});
+
+test('mergeVariables merges and returns new instance', function () {
+    $context = new AgentContext(variables: ['a' => 1, 'b' => 2]);
+
+    $newContext = $context->mergeVariables(['b' => 3, 'c' => 4]);
+
+    expect($newContext)->not->toBe($context);
+    expect($newContext->variables)->toBe(['a' => 1, 'b' => 3, 'c' => 4]);
+    expect($context->variables)->toBe(['a' => 1, 'b' => 2]);
+});
+
+test('clearVariables removes all variables and returns new instance', function () {
+    $context = new AgentContext(variables: ['a' => 1, 'b' => 2]);
+
+    $newContext = $context->clearVariables();
+
+    expect($newContext)->not->toBe($context);
+    expect($newContext->variables)->toBe([]);
+    expect($context->variables)->toBe(['a' => 1, 'b' => 2]);
+});
+
+// === Metadata Manipulation ===
+
+test('withMetadata replaces metadata and returns new instance', function () {
+    $context = new AgentContext(metadata: ['a' => 1, 'b' => 2]);
+
+    $newContext = $context->withMetadata(['c' => 3]);
+
+    expect($newContext)->not->toBe($context);
+    expect($newContext->metadata)->toBe(['c' => 3]);
+    expect($context->metadata)->toBe(['a' => 1, 'b' => 2]);
+});
+
+test('mergeMetadata merges and returns new instance', function () {
+    $context = new AgentContext(metadata: ['a' => 1, 'b' => 2]);
+
+    $newContext = $context->mergeMetadata(['b' => 3, 'c' => 4]);
+
+    expect($newContext)->not->toBe($context);
+    expect($newContext->metadata)->toBe(['a' => 1, 'b' => 3, 'c' => 4]);
+    expect($context->metadata)->toBe(['a' => 1, 'b' => 2]);
+});
+
+test('clearMetadata removes all metadata and returns new instance', function () {
+    $context = new AgentContext(metadata: ['a' => 1, 'b' => 2]);
+
+    $newContext = $context->clearMetadata();
+
+    expect($newContext)->not->toBe($context);
+    expect($newContext->metadata)->toBe([]);
+    expect($context->metadata)->toBe(['a' => 1, 'b' => 2]);
+});
+
+test('context manipulation preserves other properties', function () {
+    $context = new AgentContext(
+        messages: [['role' => 'user', 'content' => 'Hi']],
+        variables: ['var' => 'value'],
+        metadata: ['meta' => 'data'],
+        providerOverride: 'anthropic',
+        modelOverride: 'claude-3',
+    );
+
+    $newContext = $context->withVariables(['new' => 'var']);
+
+    expect($newContext->messages)->toBe([['role' => 'user', 'content' => 'Hi']]);
+    expect($newContext->metadata)->toBe(['meta' => 'data']);
+    expect($newContext->providerOverride)->toBe('anthropic');
+    expect($newContext->modelOverride)->toBe('claude-3');
+});

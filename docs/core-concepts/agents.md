@@ -880,6 +880,7 @@ public function systemPrompt(): ?string;
 public function key(): string;
 public function name(): string;
 public function description(): ?string;
+public function type(): AgentType;        // Execution type (AgentType::Api by default)
 public function tools(): array;
 public function providerTools(): array;
 public function mcpTools(): array;  // MCP tools from external servers
@@ -893,8 +894,12 @@ public function schema(): ?PrismSchema;
 // Agent execution fluent API (PendingAgentRequest)
 Atlas::agent(string|AgentContract $agent)
     ->withMessages(array $messages)              // Conversation history
-    ->withVariables(array $variables)            // System prompt variables
-    ->withMetadata(array $metadata)              // Pipeline metadata
+    ->withVariables(array $variables)            // Replace system prompt variables
+    ->mergeVariables(array $variables)           // Merge with existing variables
+    ->clearVariables()                           // Clear all variables
+    ->withMetadata(array $metadata)              // Replace pipeline metadata
+    ->mergeMetadata(array $metadata)             // Merge with existing metadata
+    ->clearMetadata()                            // Clear all metadata
     ->withProvider(string $provider, ?string $model = null)  // Override provider
     ->withModel(string $model)                   // Override model
     ->withMedia(Image|Document|Audio|Video|array $media)     // Attach media

@@ -70,4 +70,12 @@ final readonly class ToolContext
     {
         return new self(array_merge($this->metadata, $metadata), $this->agent);
     }
+
+    /**
+     * Create a new context with cleared metadata.
+     */
+    public function clearMetadata(): self
+    {
+        return new self([], $this->agent);
+    }
 }

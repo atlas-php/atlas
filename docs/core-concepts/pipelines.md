@@ -332,7 +332,7 @@ The `AgentContext` provides access to:
 - `tools` — Runtime Atlas tool class names (from `withTools()`)
 - `mcpTools` — Runtime MCP Tool instances (from `withMcpTools()`)
 
-See [AgentContext Reference](#executioncontext-reference) for the complete API.
+See [AgentContext Reference](#agentcontext-reference) for the complete API.
 
 ### agent.system_prompt.before_build
 
@@ -808,6 +808,14 @@ $context->hasVariable(string $key): bool;
 $context->hasMeta(string $key): bool;
 $context->getSchemaFromCalls(): ?Schema;
 $context->getPrismCallsWithoutSchema(): array;
+
+// Context manipulation (returns new instance - for pipeline modification)
+$context->withVariables(array $variables): self;   // Replace variables
+$context->mergeVariables(array $variables): self;  // Merge variables
+$context->clearVariables(): self;                  // Clear variables
+$context->withMetadata(array $metadata): self;     // Replace metadata
+$context->mergeMetadata(array $metadata): self;    // Merge metadata
+$context->clearMetadata(): self;                   // Clear metadata
 ```
 
 ### Example: Checking for Tools
