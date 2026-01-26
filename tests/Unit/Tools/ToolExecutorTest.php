@@ -24,7 +24,7 @@ test('it executes tool successfully', function () {
 
     $result = $this->executor->execute($tool, ['input' => 'hello'], $context);
 
-    expect($result->text)->toBe('Result: hello');
+    expect($result->toText())->toBe('Result: hello');
     expect($result->isError)->toBeFalse();
 });
 
@@ -56,7 +56,7 @@ test('it returns error result on exception', function () {
     $result = $this->executor->execute($tool, [], $context);
 
     expect($result->isError)->toBeTrue();
-    expect($result->text)->toContain('failed');
+    expect($result->toText())->toContain('failed');
 });
 
 test('it passes arguments to tool', function () {
@@ -69,7 +69,7 @@ test('it passes arguments to tool', function () {
         $context,
     );
 
-    expect($result->text)->toBe('Result: TEST');
+    expect($result->toText())->toBe('Result: TEST');
 });
 
 test('it passes context to tool', function () {
@@ -99,7 +99,7 @@ test('it passes context to tool', function () {
     $context = new ToolContext(['key' => 'value']);
     $result = $this->executor->execute($tool, [], $context);
 
-    expect($result->text)->toBe('Value: value');
+    expect($result->toText())->toBe('Value: value');
 });
 
 test('it handles tool exception gracefully', function () {
@@ -130,7 +130,7 @@ test('it handles tool exception gracefully', function () {
     $result = $this->executor->execute($tool, [], $context);
 
     expect($result->isError)->toBeTrue();
-    expect($result->text)->toBe('Specific error');
+    expect($result->toText())->toBe('Specific error');
 });
 
 test('it includes tool name in generic error', function () {
@@ -160,8 +160,8 @@ test('it includes tool name in generic error', function () {
     $context = new ToolContext;
     $result = $this->executor->execute($tool, [], $context);
 
-    expect($result->text)->toContain("'my_tool'");
-    expect($result->text)->toContain('Generic error');
+    expect($result->toText())->toContain("'my_tool'");
+    expect($result->toText())->toContain('Generic error');
 });
 
 test('it runs tool.on_error pipeline when tool throws generic exception', function () {
@@ -299,7 +299,7 @@ test('tool.before_execute pipeline can modify args', function () {
     $result = $executor->execute($tool, ['input' => 'original'], $context);
 
     // The handler modifies input to 'modified by pipeline'
-    expect($result->text)->toBe('Result: modified by pipeline');
+    expect($result->toText())->toBe('Result: modified by pipeline');
 });
 
 test('it runs tool.after_execute pipeline with correct data including result', function () {
@@ -324,7 +324,7 @@ test('it runs tool.after_execute pipeline with correct data including result', f
     expect(ToolAfterExecuteCapturingHandler::$data['args'])->toBe(['input' => 'hello world']);
     expect(ToolAfterExecuteCapturingHandler::$data['context'])->toBe($context);
     expect(ToolAfterExecuteCapturingHandler::$data['result'])->toBeInstanceOf(ToolResult::class);
-    expect(ToolAfterExecuteCapturingHandler::$data['result']->text)->toBe('Result: hello world');
+    expect(ToolAfterExecuteCapturingHandler::$data['result']->toText())->toBe('Result: hello world');
 });
 
 test('tool.after_execute pipeline can check result success status', function () {
@@ -405,7 +405,7 @@ test('tool.after_execute pipeline can modify the result', function () {
     $result = $executor->execute($tool, ['input' => 'original'], $context);
 
     // The handler replaces the result
-    expect($result->text)->toBe('Modified by after_execute pipeline');
+    expect($result->toText())->toBe('Modified by after_execute pipeline');
 });
 
 test('tool.before_execute and tool.after_execute pipelines run in correct order', function () {

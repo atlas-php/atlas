@@ -46,7 +46,7 @@ test('tool executor runs tool successfully', function () {
     $result = $executor->execute($tool, ['input' => 'hello world'], $context);
 
     expect($result)->toBeInstanceOf(ToolResult::class);
-    expect($result->text)->toBe('Result: hello world');
+    expect($result->toText())->toBe('Result: hello world');
     expect($result->isError)->toBeFalse();
 });
 
@@ -74,7 +74,7 @@ test('tool executor passes context metadata', function () {
     $context = new ToolContext(['key' => 'custom_value']);
     $result = $executor->execute($tool, [], $context);
 
-    expect($result->text)->toBe('Meta: custom_value');
+    expect($result->toText())->toBe('Meta: custom_value');
 });
 
 test('tool builder creates prism tools', function () {
@@ -123,5 +123,5 @@ test('tool handles errors gracefully', function () {
     $result = $executor->execute($tool, [], $context);
 
     expect($result->isError)->toBeTrue();
-    expect($result->text)->toContain('Test error');
+    expect($result->toText())->toContain('Test error');
 });

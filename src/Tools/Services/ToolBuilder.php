@@ -140,7 +140,7 @@ class ToolBuilder
         // Use variadic args since Prism unpacks tool arguments as named parameters
         $handler = fn (...$args): string => $this->executor
             ->execute($tool, $args, $context)
-            ->text;
+            ->toText();
 
         // If it's a ToolDefinition, use the built-in converter
         if ($tool instanceof ToolDefinition) {

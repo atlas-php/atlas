@@ -238,12 +238,13 @@ return ToolResult::json([
 return ToolResult::error('Failed to process: invalid input');
 ```
 
-### Checking Results
+### Accessing Results
 
 ```php
+$result->toText();    // String representation (JSON encoded if array)
+$result->toArray();   // Array data, or ['text' => $data] for text results
 $result->succeeded(); // true if not an error
 $result->failed();    // true if error
-$result->toArray();   // ['text' => '...', 'is_error' => false]
 ```
 
 ## Tool Context
@@ -686,9 +687,10 @@ ToolResult::json(array $data): ToolResult;
 ToolResult::error(string $message): ToolResult;
 
 // ToolResult instance methods
+$result->toText(): string;   // String representation (JSON encoded if array)
+$result->toArray(): array;   // Array data, or ['text' => $data] for text results
 $result->succeeded(): bool;
 $result->failed(): bool;
-$result->toArray(): array;
 
 // ToolContext methods
 $context->getMeta(string $key, mixed $default = null): mixed;
