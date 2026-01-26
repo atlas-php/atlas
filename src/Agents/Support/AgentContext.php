@@ -203,4 +203,126 @@ final readonly class AgentContext
             fn (array $call): bool => $call['method'] !== 'withSchema'
         ));
     }
+
+    /**
+     * Create a new context with the given variables (replaces existing).
+     *
+     * @param  array<string, mixed>  $variables
+     */
+    public function withVariables(array $variables): self
+    {
+        return new self(
+            $this->messages,
+            $variables,
+            $this->metadata,
+            $this->providerOverride,
+            $this->modelOverride,
+            $this->prismCalls,
+            $this->prismMedia,
+            $this->prismMessages,
+            $this->tools,
+            $this->mcpTools,
+        );
+    }
+
+    /**
+     * Create a new context with merged variables.
+     *
+     * @param  array<string, mixed>  $variables
+     */
+    public function mergeVariables(array $variables): self
+    {
+        return new self(
+            $this->messages,
+            [...$this->variables, ...$variables],
+            $this->metadata,
+            $this->providerOverride,
+            $this->modelOverride,
+            $this->prismCalls,
+            $this->prismMedia,
+            $this->prismMessages,
+            $this->tools,
+            $this->mcpTools,
+        );
+    }
+
+    /**
+     * Create a new context with cleared variables.
+     */
+    public function clearVariables(): self
+    {
+        return new self(
+            $this->messages,
+            [],
+            $this->metadata,
+            $this->providerOverride,
+            $this->modelOverride,
+            $this->prismCalls,
+            $this->prismMedia,
+            $this->prismMessages,
+            $this->tools,
+            $this->mcpTools,
+        );
+    }
+
+    /**
+     * Create a new context with the given metadata (replaces existing).
+     *
+     * @param  array<string, mixed>  $metadata
+     */
+    public function withMetadata(array $metadata): self
+    {
+        return new self(
+            $this->messages,
+            $this->variables,
+            $metadata,
+            $this->providerOverride,
+            $this->modelOverride,
+            $this->prismCalls,
+            $this->prismMedia,
+            $this->prismMessages,
+            $this->tools,
+            $this->mcpTools,
+        );
+    }
+
+    /**
+     * Create a new context with merged metadata.
+     *
+     * @param  array<string, mixed>  $metadata
+     */
+    public function mergeMetadata(array $metadata): self
+    {
+        return new self(
+            $this->messages,
+            $this->variables,
+            [...$this->metadata, ...$metadata],
+            $this->providerOverride,
+            $this->modelOverride,
+            $this->prismCalls,
+            $this->prismMedia,
+            $this->prismMessages,
+            $this->tools,
+            $this->mcpTools,
+        );
+    }
+
+    /**
+     * Create a new context with cleared metadata.
+     */
+    public function clearMetadata(): self
+    {
+        return new self(
+            $this->messages,
+            $this->variables,
+            [],
+            $this->providerOverride,
+            $this->modelOverride,
+            $this->prismCalls,
+            $this->prismMedia,
+            $this->prismMessages,
+            $this->tools,
+            $this->mcpTools,
+        );
+    }
 }

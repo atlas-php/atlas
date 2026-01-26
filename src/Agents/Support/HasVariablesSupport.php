@@ -7,9 +7,8 @@ namespace Atlasphp\Atlas\Agents\Support;
 /**
  * Trait for services that support variable configuration.
  *
- * Provides a fluent withVariables() method for passing variables to operations.
- * Variables are typically used for system prompt interpolation. Uses the clone
- * pattern for immutability.
+ * Provides fluent methods for managing variables used in system prompt interpolation.
+ * Uses the clone pattern for immutability.
  */
 trait HasVariablesSupport
 {
@@ -23,12 +22,40 @@ trait HasVariablesSupport
     /**
      * Set variables for system prompt interpolation.
      *
+     * Replaces any previously set variables entirely.
+     *
      * @param  array<string, mixed>  $variables
      */
     public function withVariables(array $variables): static
     {
         $clone = clone $this;
         $clone->variables = $variables;
+
+        return $clone;
+    }
+
+    /**
+     * Merge variables with any previously set variables.
+     *
+     * Later calls override earlier values for the same keys.
+     *
+     * @param  array<string, mixed>  $variables
+     */
+    public function mergeVariables(array $variables): static
+    {
+        $clone = clone $this;
+        $clone->variables = [...$clone->variables, ...$variables];
+
+        return $clone;
+    }
+
+    /**
+     * Clear all variables.
+     */
+    public function clearVariables(): static
+    {
+        $clone = clone $this;
+        $clone->variables = [];
 
         return $clone;
     }

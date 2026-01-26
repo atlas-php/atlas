@@ -188,6 +188,82 @@ test('withVariables includes variables in context', function () {
     expect($capturedContext->variables)->toBe(['name' => 'John', 'role' => 'admin']);
 });
 
+test('withVariables replaces previous variables', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $this->request
+        ->withVariables(['name' => 'John'])
+        ->withVariables(['role' => 'admin'])
+        ->chat('Hello');
+
+    expect($capturedContext->variables)->toBe(['role' => 'admin']);
+});
+
+test('mergeVariables accumulates across multiple calls', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $this->request
+        ->mergeVariables(['name' => 'John'])
+        ->mergeVariables(['role' => 'admin'])
+        ->chat('Hello');
+
+    expect($capturedContext->variables)->toBe(['name' => 'John', 'role' => 'admin']);
+});
+
+test('mergeVariables later calls override same keys', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $this->request
+        ->mergeVariables(['name' => 'John', 'role' => 'user'])
+        ->mergeVariables(['role' => 'admin'])
+        ->chat('Hello');
+
+    expect($capturedContext->variables)->toBe(['name' => 'John', 'role' => 'admin']);
+});
+
+test('clearVariables removes all variables', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $this->request
+        ->withVariables(['name' => 'John', 'role' => 'admin'])
+        ->clearVariables()
+        ->chat('Hello');
+
+    expect($capturedContext->variables)->toBe([]);
+});
+
 // === withMetadata ===
 
 test('withMetadata sets metadata immutably', function () {
@@ -212,6 +288,82 @@ test('withMetadata includes metadata in context', function () {
         ->chat('Hello');
 
     expect($capturedContext->metadata)->toBe(['request_id' => '123', 'user_id' => 456]);
+});
+
+test('withMetadata replaces previous metadata', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $this->request
+        ->withMetadata(['request_id' => '123'])
+        ->withMetadata(['user_id' => 456])
+        ->chat('Hello');
+
+    expect($capturedContext->metadata)->toBe(['user_id' => 456]);
+});
+
+test('mergeMetadata accumulates across multiple calls', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $this->request
+        ->mergeMetadata(['request_id' => '123'])
+        ->mergeMetadata(['user_id' => 456])
+        ->chat('Hello');
+
+    expect($capturedContext->metadata)->toBe(['request_id' => '123', 'user_id' => 456]);
+});
+
+test('mergeMetadata later calls override same keys', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $this->request
+        ->mergeMetadata(['request_id' => '123', 'trace_id' => 'abc'])
+        ->mergeMetadata(['trace_id' => 'xyz'])
+        ->chat('Hello');
+
+    expect($capturedContext->metadata)->toBe(['request_id' => '123', 'trace_id' => 'xyz']);
+});
+
+test('clearMetadata removes all metadata', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturn(makeMockPrismResponse('Response'));
+
+    $this->request
+        ->withMetadata(['request_id' => '123', 'user_id' => 456])
+        ->clearMetadata()
+        ->chat('Hello');
+
+    expect($capturedContext->metadata)->toBe([]);
 });
 
 // === withProvider / withModel ===
