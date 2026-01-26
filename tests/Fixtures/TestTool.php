@@ -32,10 +32,10 @@ class TestTool extends ToolDefinition
         ];
     }
 
-    public function handle(array $args, ToolContext $context): ToolResult
+    public function handle(array $params, ToolContext $context): ToolResult
     {
-        $input = $args['input'] ?? '';
-        $uppercase = $args['uppercase'] ?? false;
+        $input = $params['input'] ?? '';
+        $uppercase = $params['uppercase'] ?? false;
 
         $output = $uppercase ? strtoupper($input) : $input;
 

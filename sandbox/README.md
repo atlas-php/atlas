@@ -549,9 +549,9 @@ class MyCustomTool extends ToolDefinition
         ];
     }
 
-    public function handle(array $args, ToolContext $context): ToolResult
+    public function handle(array $params, ToolContext $context): ToolResult
     {
-        $result = doSomething($args['input']);
+        $result = doSomething($params['input']);
         return ToolResult::text($result);
     }
 }

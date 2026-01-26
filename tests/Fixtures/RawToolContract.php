@@ -33,10 +33,10 @@ class RawToolContract implements ToolContract
         ];
     }
 
-    public function handle(array $args, ToolContext $context): ToolResult
+    public function handle(array $params, ToolContext $context): ToolResult
     {
-        $query = $args['query'] ?? '';
-        $limit = $args['limit'] ?? 10;
+        $query = $params['query'] ?? '';
+        $limit = $params['limit'] ?? 10;
 
         return ToolResult::text("Searched for: {$query} (limit: {$limit})");
     }

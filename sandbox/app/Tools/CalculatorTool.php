@@ -59,13 +59,13 @@ class CalculatorTool extends ToolDefinition
     /**
      * Execute the tool.
      *
-     * @param  array{operation: string, a: float|int, b: float|int}  $args
+     * @param  array{operation: string, a: float|int, b: float|int}  $params
      */
-    public function handle(array $args, ToolContext $context): ToolResult
+    public function handle(array $params, ToolContext $context): ToolResult
     {
-        $operation = $args['operation'] ?? '';
-        $a = (float) ($args['a'] ?? 0);
-        $b = (float) ($args['b'] ?? 0);
+        $operation = $params['operation'] ?? '';
+        $a = (float) ($params['a'] ?? 0);
+        $b = (float) ($params['b'] ?? 0);
 
         $result = match ($operation) {
             'add' => $a + $b,

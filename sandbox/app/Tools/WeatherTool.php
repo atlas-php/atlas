@@ -55,12 +55,12 @@ class WeatherTool extends ToolDefinition
     /**
      * Execute the tool.
      *
-     * @param  array{location: string, units?: string}  $args
+     * @param  array{location: string, units?: string}  $params
      */
-    public function handle(array $args, ToolContext $context): ToolResult
+    public function handle(array $params, ToolContext $context): ToolResult
     {
-        $location = $args['location'] ?? 'Unknown';
-        $units = $args['units'] ?? 'celsius';
+        $location = $params['location'] ?? 'Unknown';
+        $units = $params['units'] ?? 'celsius';
 
         // Generate deterministic "random" weather based on location name
         $hash = crc32(strtolower($location));

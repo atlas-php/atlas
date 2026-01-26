@@ -152,11 +152,11 @@ class ToolsCommand extends Command
         foreach ($toolCalls as $i => $call) {
             $num = $i + 1;
             $name = $call['name'] ?? 'unknown';
-            $args = $call['arguments'] ?? [];
+            $params = $call['arguments'] ?? [];
             $result = $call['result'] ?? null;
 
             $this->line("Tool #{$num}: {$name}");
-            $this->line('  Arguments: '.json_encode($args));
+            $this->line('  Arguments: '.json_encode($params));
 
             if ($result !== null) {
                 $resultStr = is_string($result) ? $result : json_encode($result);

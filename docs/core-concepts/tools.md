@@ -43,9 +43,9 @@ class LookupOrderTool extends ToolDefinition
         ];
     }
 
-    public function handle(array $arguments, ToolContext $context): ToolResult
+    public function handle(array $params, ToolContext $context): ToolResult
     {
-        $order = Order::find($arguments['order_id']);
+        $order = Order::find($params['order_id']);
 
         if (! $order) {
             return ToolResult::error('Order not found');
@@ -262,7 +262,7 @@ Atlas::agent('support')->withMetadata(['user_id' => 1, 'tenant_id' => 5])->chat(
 
 ```php
 // Inside your tool
-public function handle(array $arguments, ToolContext $context): ToolResult
+public function handle(array $params, ToolContext $context): ToolResult
 {
     // Access the agent that invoked this tool
     $agent = $context->getAgent();
@@ -322,12 +322,12 @@ class DatabaseQueryTool extends ToolDefinition
         ];
     }
 
-    public function handle(array $arguments, ToolContext $context): ToolResult
+    public function handle(array $params, ToolContext $context): ToolResult
     {
         try {
             $results = $this->db
-                ->table($arguments['table'])
-                ->limit($arguments['limit'] ?? 100)
+                ->table($params['table'])
+                ->limit($params['limit'] ?? 100)
                 ->get();
 
             return ToolResult::json($results->toArray());
@@ -355,11 +355,11 @@ class LookupOrderTool extends ToolDefinition
         ];
     }
 
-    public function handle(array $arguments, ToolContext $context): ToolResult
+    public function handle(array $params, ToolContext $context): ToolResult
     {
         $userId = $context->getMeta('user_id');
 
-        $order = Order::where('id', $arguments['order_id'])
+        $order = Order::where('id', $params['order_id'])
             ->where('user_id', $userId)
             ->first();
 
@@ -398,11 +398,11 @@ class SearchKnowledgeBaseTool extends ToolDefinition
         ];
     }
 
-    public function handle(array $arguments, ToolContext $context): ToolResult
+    public function handle(array $params, ToolContext $context): ToolResult
     {
         $results = $this->kb->search(
-            query: $arguments['query'],
-            limit: $arguments['limit'] ?? 5
+            query: $params['query'],
+            limit: $params['limit'] ?? 5
         );
 
         if ($results->isEmpty()) {
@@ -438,7 +438,7 @@ class CreateTicketTool extends ToolDefinition
         ];
     }
 
-    public function handle(array $arguments, ToolContext $context): ToolResult
+    public function handle(array $params, ToolContext $context): ToolResult
     {
         $userId = $context->getMeta('user_id');
 
@@ -448,10 +448,10 @@ class CreateTicketTool extends ToolDefinition
 
         $ticket = Ticket::create([
             'user_id' => $userId,
-            'subject' => $arguments['subject'],
-            'description' => $arguments['description'],
-            'priority' => $arguments['priority'],
-            'category' => $arguments['category'] ?? 'general',
+            'subject' => $params['subject'],
+            'description' => $params['description'],
+            'priority' => $params['priority'],
+            'category' => $params['category'] ?? 'general',
             'status' => 'open',
         ]);
 
@@ -482,7 +482,7 @@ class SendNotificationTool extends ToolDefinition
         ];
     }
 
-    public function handle(array $arguments, ToolContext $context): ToolResult
+    public function handle(array $params, ToolContext $context): ToolResult
     {
         $user = User::find($context->getMeta('user_id'));
 
@@ -490,15 +490,15 @@ class SendNotificationTool extends ToolDefinition
             return ToolResult::error('User not found');
         }
 
-        match ($arguments['channel']) {
+        match ($params['channel']) {
             'email' => $user->notify(new GenericEmailNotification(
-                subject: $arguments['subject'] ?? 'Notification',
-                message: $arguments['message']
+                subject: $params['subject'] ?? 'Notification',
+                message: $params['message']
             )),
-            'sms' => $user->notify(new SmsNotification($arguments['message'])),
+            'sms' => $user->notify(new SmsNotification($params['message'])),
         };
 
-        return ToolResult::text("Notification sent via {$arguments['channel']}");
+        return ToolResult::text("Notification sent via {$params['channel']}");
     }
 }
 ```
@@ -512,7 +512,7 @@ Tools execute real operations on behalf of users. Implement proper security meas
 Always verify the user has permission:
 
 ```php
-public function handle(array $arguments, ToolContext $context): ToolResult
+public function handle(array $params, ToolContext $context): ToolResult
 {
     $userId = $context->getMeta('user_id');
 
@@ -520,7 +520,7 @@ public function handle(array $arguments, ToolContext $context): ToolResult
         return ToolResult::error('Authentication required');
     }
 
-    $order = Order::find($arguments['order_id']);
+    $order = Order::find($params['order_id']);
 
     if (! $order || $order->user_id !== $userId) {
         return ToolResult::error('Order not found');
@@ -535,15 +535,15 @@ public function handle(array $arguments, ToolContext $context): ToolResult
 Validate inputs beyond basic parameter types:
 
 ```php
-public function handle(array $arguments, ToolContext $context): ToolResult
+public function handle(array $params, ToolContext $context): ToolResult
 {
-    $orderId = $arguments['order_id'];
+    $orderId = $params['order_id'];
 
     if (! preg_match('/^[A-Z]{2}-\d{6}$/', $orderId)) {
         return ToolResult::error('Invalid order ID format');
     }
 
-    if ($arguments['quantity'] > 100) {
+    if ($params['quantity'] > 100) {
         return ToolResult::error('Quantity exceeds maximum allowed');
     }
 
@@ -556,7 +556,7 @@ public function handle(array $arguments, ToolContext $context): ToolResult
 Ensure data isolation in multi-tenant applications:
 
 ```php
-public function handle(array $arguments, ToolContext $context): ToolResult
+public function handle(array $params, ToolContext $context): ToolResult
 {
     $tenantId = $context->getMeta('tenant_id');
 
@@ -565,7 +565,7 @@ public function handle(array $arguments, ToolContext $context): ToolResult
     }
 
     $order = Order::where('tenant_id', $tenantId)
-        ->where('id', $arguments['order_id'])
+        ->where('id', $params['order_id'])
         ->first();
 
     if (! $order) {
@@ -645,7 +645,7 @@ class RiskyOperationTool extends ToolDefinition implements ConfiguresPrismTool
         ];
     }
 
-    public function handle(array $arguments, ToolContext $context): ToolResult
+    public function handle(array $params, ToolContext $context): ToolResult
     {
         // Your tool logic here
         return ToolResult::text('Operation completed');
@@ -678,7 +678,7 @@ See [Prism Tools documentation](https://prismphp.com/core-concepts/tools-functio
 public function name(): string;
 public function description(): string;
 public function parameters(): array;
-public function handle(array $arguments, ToolContext $context): ToolResult;
+public function handle(array $params, ToolContext $context): ToolResult;
 
 // ToolParameter factory methods (parameters are optional by default)
 ToolParameter::string(string $name, string $description, bool $required = false);

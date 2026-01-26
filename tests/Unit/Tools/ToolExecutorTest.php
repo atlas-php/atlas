@@ -46,7 +46,7 @@ test('it returns error result on exception', function () {
             return [];
         }
 
-        public function handle(array $args, ToolContext $context): ToolResult
+        public function handle(array $params, ToolContext $context): ToolResult
         {
             throw new \RuntimeException('Tool failed');
         }
@@ -90,7 +90,7 @@ test('it passes context to tool', function () {
             return [];
         }
 
-        public function handle(array $args, ToolContext $context): ToolResult
+        public function handle(array $params, ToolContext $context): ToolResult
         {
             return ToolResult::text('Value: '.$context->getMeta('key', 'none'));
         }
@@ -120,7 +120,7 @@ test('it handles tool exception gracefully', function () {
             return [];
         }
 
-        public function handle(array $args, ToolContext $context): ToolResult
+        public function handle(array $params, ToolContext $context): ToolResult
         {
             throw new \Atlasphp\Atlas\Tools\Exceptions\ToolException('Specific error');
         }
@@ -151,7 +151,7 @@ test('it includes tool name in generic error', function () {
             return [];
         }
 
-        public function handle(array $args, ToolContext $context): ToolResult
+        public function handle(array $params, ToolContext $context): ToolResult
         {
             throw new \Exception('Generic error');
         }
@@ -195,7 +195,7 @@ test('it runs tool.on_error pipeline when tool throws generic exception', functi
             return [];
         }
 
-        public function handle(array $args, ToolContext $context): ToolResult
+        public function handle(array $params, ToolContext $context): ToolResult
         {
             throw new \RuntimeException('Tool execution failed');
         }
@@ -207,7 +207,7 @@ test('it runs tool.on_error pipeline when tool throws generic exception', functi
     expect(ToolErrorCapturingHandler::$called)->toBeTrue();
     expect(ToolErrorCapturingHandler::$data)->not->toBeNull();
     expect(ToolErrorCapturingHandler::$data['tool'])->toBe($tool);
-    expect(ToolErrorCapturingHandler::$data['args'])->toBe(['arg1' => 'value1']);
+    expect(ToolErrorCapturingHandler::$data['params'])->toBe(['arg1' => 'value1']);
     expect(ToolErrorCapturingHandler::$data['context'])->toBe($context);
     expect(ToolErrorCapturingHandler::$data['exception'])->toBeInstanceOf(\RuntimeException::class);
     expect(ToolErrorCapturingHandler::$data['exception']->getMessage())->toBe('Tool execution failed');
@@ -244,7 +244,7 @@ test('it runs tool.on_error pipeline when tool throws ToolException', function (
             return [];
         }
 
-        public function handle(array $args, ToolContext $context): ToolResult
+        public function handle(array $params, ToolContext $context): ToolResult
         {
             throw new \Atlasphp\Atlas\Tools\Exceptions\ToolException('Specific tool error');
         }
@@ -278,7 +278,7 @@ test('it runs tool.before_execute pipeline with correct data', function () {
     expect(ToolBeforeExecuteCapturingHandler::$called)->toBeTrue();
     expect(ToolBeforeExecuteCapturingHandler::$data)->not->toBeNull();
     expect(ToolBeforeExecuteCapturingHandler::$data['tool'])->toBe($tool);
-    expect(ToolBeforeExecuteCapturingHandler::$data['args'])->toBe(['input' => 'test value']);
+    expect(ToolBeforeExecuteCapturingHandler::$data['params'])->toBe(['input' => 'test value']);
     expect(ToolBeforeExecuteCapturingHandler::$data['context'])->toBe($context);
 });
 
@@ -321,7 +321,7 @@ test('it runs tool.after_execute pipeline with correct data including result', f
     expect(ToolAfterExecuteCapturingHandler::$called)->toBeTrue();
     expect(ToolAfterExecuteCapturingHandler::$data)->not->toBeNull();
     expect(ToolAfterExecuteCapturingHandler::$data['tool'])->toBe($tool);
-    expect(ToolAfterExecuteCapturingHandler::$data['args'])->toBe(['input' => 'hello world']);
+    expect(ToolAfterExecuteCapturingHandler::$data['params'])->toBe(['input' => 'hello world']);
     expect(ToolAfterExecuteCapturingHandler::$data['context'])->toBe($context);
     expect(ToolAfterExecuteCapturingHandler::$data['result'])->toBeInstanceOf(ToolResult::class);
     expect(ToolAfterExecuteCapturingHandler::$data['result']->toText())->toBe('Result: hello world');
@@ -375,7 +375,7 @@ test('tool.after_execute pipeline can check result failure status', function () 
             return [];
         }
 
-        public function handle(array $args, ToolContext $context): ToolResult
+        public function handle(array $params, ToolContext $context): ToolResult
         {
             return ToolResult::error('Something went wrong');
         }
@@ -465,7 +465,7 @@ class ToolBeforeExecuteModifyingHandler implements \Atlasphp\Atlas\Contracts\Pip
     public function handle(mixed $data, \Closure $next): mixed
     {
         self::$called = true;
-        $data['args']['input'] = 'modified by pipeline';
+        $data['params']['input'] = 'modified by pipeline';
 
         return $next($data);
     }

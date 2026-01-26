@@ -119,9 +119,9 @@ class LookupOrderTool extends ToolDefinition
         ];
     }
 
-    public function handle(array $args, ToolContext $context): ToolResult
+    public function handle(array $params, ToolContext $context): ToolResult
     {
-        $order = $this->orders->find($args['order_id']);
+        $order = $this->orders->find($params['order_id']);
 
         if (! $order) {
             return ToolResult::error('Order not found');

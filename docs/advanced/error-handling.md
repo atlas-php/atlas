@@ -105,10 +105,10 @@ See [Prism Error Handling](https://prismphp.com/advanced/error-handling.html) fo
 In tool handlers, return errors instead of throwing exceptions:
 
 ```php
-public function handle(array $arguments, ToolContext $context): ToolResult
+public function handle(array $params, ToolContext $context): ToolResult
 {
     try {
-        $order = Order::findOrFail($arguments['order_id']);
+        $order = Order::findOrFail($params['order_id']);
         return ToolResult::json($order);
     } catch (ModelNotFoundException $e) {
         return ToolResult::error('Order not found');
@@ -131,13 +131,13 @@ Throwing exceptions stops execution entirely.
 ### Parameter Validation
 
 ```php
-public function handle(array $arguments, ToolContext $context): ToolResult
+public function handle(array $params, ToolContext $context): ToolResult
 {
-    if (empty($arguments['order_id'])) {
+    if (empty($params['order_id'])) {
         return ToolResult::error('Order ID is required');
     }
 
-    if (! preg_match('/^ORD-\d+$/', $arguments['order_id'])) {
+    if (! preg_match('/^ORD-\d+$/', $params['order_id'])) {
         return ToolResult::error('Invalid order ID format');
     }
 

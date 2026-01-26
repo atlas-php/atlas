@@ -152,7 +152,7 @@ $response = Atlas::agent('customer-support')
 Inside your tool, access this metadata:
 
 ```php
-public function handle(array $arguments, ToolContext $context): ToolResult
+public function handle(array $params, ToolContext $context): ToolResult
 {
     $userId = $context->getMeta('user_id');
     $orders = Order::where('user_id', $userId)->get();

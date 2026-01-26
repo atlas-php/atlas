@@ -57,12 +57,12 @@ class DateTimeTool extends ToolDefinition
     /**
      * Execute the tool.
      *
-     * @param  array{timezone?: string, format?: string}  $args
+     * @param  array{timezone?: string, format?: string}  $params
      */
-    public function handle(array $args, ToolContext $context): ToolResult
+    public function handle(array $params, ToolContext $context): ToolResult
     {
-        $timezone = $args['timezone'] ?? 'UTC';
-        $format = $args['format'] ?? 'full';
+        $timezone = $params['timezone'] ?? 'UTC';
+        $format = $params['format'] ?? 'full';
 
         try {
             $tz = new DateTimeZone($timezone);

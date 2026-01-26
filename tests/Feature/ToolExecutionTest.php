@@ -65,7 +65,7 @@ test('tool executor passes context metadata', function () {
             return 'Returns meta value';
         }
 
-        public function handle(array $args, ToolContext $context): ToolResult
+        public function handle(array $params, ToolContext $context): ToolResult
         {
             return ToolResult::text('Meta: '.$context->getMeta('key', 'default'));
         }
@@ -113,7 +113,7 @@ test('tool handles errors gracefully', function () {
             return 'Throws error';
         }
 
-        public function handle(array $args, ToolContext $context): ToolResult
+        public function handle(array $params, ToolContext $context): ToolResult
         {
             throw new RuntimeException('Test error');
         }

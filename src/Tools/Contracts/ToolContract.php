@@ -38,10 +38,10 @@ interface ToolContract
     public function parameters(): array;
 
     /**
-     * Execute the tool with the given arguments.
+     * Execute the tool with the given parameters.
      *
-     * @param  array<string, mixed>  $args  The arguments passed by the AI.
+     * @param  array<string, mixed>  $params  The parameter values passed by the AI.
      * @param  ToolContext  $context  The execution context.
      */
-    public function handle(array $args, ToolContext $context): ToolResult;
+    public function handle(array $params, ToolContext $context): ToolResult;
 }

@@ -33,9 +33,9 @@ class ConfigurableToolContract implements ConfiguresPrismTool, ToolContract
     }
 
     /**
-     * @param  array<string, mixed>  $args
+     * @param  array<string, mixed>  $params
      */
-    public function handle(array $args, ToolContext $context): ToolResult
+    public function handle(array $params, ToolContext $context): ToolResult
     {
         return ToolResult::text('Handled');
     }

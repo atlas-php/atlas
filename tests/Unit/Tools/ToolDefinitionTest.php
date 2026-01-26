@@ -23,7 +23,7 @@ test('it returns empty parameters by default', function () {
             return 'Test tool';
         }
 
-        public function handle(array $args, ToolContext $context): ToolResult
+        public function handle(array $params, ToolContext $context): ToolResult
         {
             return ToolResult::text('ok');
         }
@@ -34,7 +34,7 @@ test('it returns empty parameters by default', function () {
 
 test('it converts to Prism tool', function () {
     $tool = new TestTool;
-    $handler = fn (array $args) => 'result';
+    $handler = fn (array $params) => 'result';
 
     $prismTool = $tool->toPrismTool($handler);
 
@@ -62,13 +62,13 @@ test('it converts to Prism tool with parameters', function () {
             ];
         }
 
-        public function handle(array $args, ToolContext $context): ToolResult
+        public function handle(array $params, ToolContext $context): ToolResult
         {
             return ToolResult::text('ok');
         }
     };
 
-    $handler = fn (array $args) => 'result';
+    $handler = fn (array $params) => 'result';
     $prismTool = $tool->toPrismTool($handler);
 
     expect($prismTool)->toBeInstanceOf(PrismTool::class);
@@ -94,7 +94,7 @@ test('parameters returns Prism Schema objects', function () {
             ];
         }
 
-        public function handle(array $args, ToolContext $context): ToolResult
+        public function handle(array $params, ToolContext $context): ToolResult
         {
             return ToolResult::text('ok');
         }
