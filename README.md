@@ -143,7 +143,8 @@ $response = Atlas::agent(SupportAgent::class)
     ])
     ->chat('Where is my order #12345?');
 
-echo $response->text;
+echo $response->text();
+// $response->usage();
 ```
 
 ## Why Atlas?
