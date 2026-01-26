@@ -18,15 +18,15 @@
 
 Atlas is a Laravel package that brings structure to AI development. It organizes your AI logic into reusable agents, typed tools, and middleware pipelines so you can build production applications without scattering prompts and API calls throughout your codebase.
 
-Built on [Prism PHP](https://prismphp.com), Atlas adds the application layer you need: agent definitions, tool management, prompt templating, and execution pipelines. Prism handles LLM communication; Atlas handles your business logic.
+Built on [Prism PHP](https://prismphp.com), Atlas adds the application layer you need: agent definitions, tool management, prompt templating, and execution pipelines, while Prism handles your LLM communication through provider APIs.
 
 ## Features
 
-- **Reusable Agents** - Define AI configurations once, resolve by key or class anywhere
+- **Reusable Agents** - Define your AI agent configurations
 - **Typed Tools** - Connect agents to your services with validated parameters and structured results
 - **MCP Tools** - Integrate external tools from MCP servers via [Prism Relay](https://github.com/prism-php/relay)
-- **Dynamic Prompts** - Interpolate `{variables}` at runtime for personalized interactions
-- **Pipelines** - Add logging, auth, rate limiting, or metrics without touching agent code
+- **Dynamic Prompts** - Inject context `{variables}` at runtime for personalized interactions
+- **Pipelines** - Add logging, auth, rate limiting, or metrics without coupling the codebase
 - **Full Prism Access** - Use embeddings, images, speech, moderation, and structured output directly
 
 ## Quick Start
@@ -34,7 +34,11 @@ Built on [Prism PHP](https://prismphp.com), Atlas adds the application layer you
 ```bash
 composer require atlas-php/atlas
 
+# Publish Atlas configuration
 php artisan vendor:publish --tag=atlas-config
+
+# Publish Prism configuration (if not already published)
+php artisan vendor:publish --tag=prism-config
 ```
 
 ### Define an Agent
@@ -56,21 +60,42 @@ class SupportAgent extends AgentDefinition
 
     public function systemPrompt(): ?string
     {
-        return 'You are a support agent for {company}. Help {user_name} with their questions.';
+        return <<<'PROMPT'
+        You are a customer support specialist for {company_name}.
+
+        ## Customer Context
+        - **Name:** {customer_name}
+        - **Account Tier:** {account_tier}
+
+        ## Available Tools
+        - **lookup_order** - Retrieve order details by order ID
+        - **process_refund** - Process refunds for eligible orders
+
+        ## Guidelines
+        - Always greet the customer by name
+        - For order inquiries, use `lookup_order` before providing details
+        - Before processing refunds, verify eligibility using order data
+        PROMPT;
     }
 
     public function tools(): array
     {
-        return [LookupOrderTool::class, RefundTool::class];
+        return [
+            LookupOrderTool::class, 
+            RefundTool::class
+        ];
     }
 }
 ```
 
-### Use It
+### Chat with the Agent
 
 ```php
 $response = Atlas::agent(SupportAgent::class)
-    ->withVariables(['company' => 'Acme', 'user_name' => 'Sarah'])
+    ->withVariables([
+        'company' => 'Acme', 
+        'user_name' => 'Sarah'
+    ])
     ->chat('Where is my order #12345?');
 
 echo $response->text;
@@ -78,13 +103,13 @@ echo $response->text;
 
 ## Why Atlas?
 
-**The problem:** AI code gets messy fast. Prompts scattered across controllers, duplicated configurations, tools tightly coupled to features, and no consistent way to add logging or validation.
+**The problem:** Prompts scattered across controllers, duplicated configurations, tools tightly coupled to features, and no consistent way to add logging or validation.
 
-**Atlas decouples your AI logic:**
+**Atlas decouples your businesses logic:**
 
-- **Agents** - AI configurations live in dedicated classes, not inline across your codebase. Change once, updates everywhere.
+- **Agents** - AI configurations live in dedicated classes, not inline across your codebase.
 - **Tools** - Business logic stays in tool classes with typed parameters. Agents call tools; tools call your services.
-- **Pipelines** - Add logging, auth, or metrics to all AI operations without modifying agent code.
+- **Pipelines** - Add logging, auth, or metrics to all Prism/Atlas operations without modifying agent code.
 - **Testable** - Mock agents and fake tool responses with standard Laravel testing patterns.
 
 Atlas doesn't replace Prism. It organizes how you use Prism in real applications.
