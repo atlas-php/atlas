@@ -143,3 +143,39 @@ test('it creates array schema with minItems and maxItems', function () {
     expect($schema->minItems)->toBe(1);
     expect($schema->maxItems)->toBe(10);
 });
+
+test('it creates array schema with only minItems', function () {
+    $itemSchema = new StringSchema('item', 'An item');
+    $schema = ToolParameter::array('items', 'The items', $itemSchema, minItems: 1);
+
+    expect($schema)->toBeInstanceOf(ArraySchema::class);
+    expect($schema->minItems)->toBe(1);
+    expect($schema->maxItems)->toBeNull();
+});
+
+test('it creates array schema with only maxItems', function () {
+    $itemSchema = new StringSchema('item', 'An item');
+    $schema = ToolParameter::array('items', 'The items', $itemSchema, maxItems: 5);
+
+    expect($schema)->toBeInstanceOf(ArraySchema::class);
+    expect($schema->minItems)->toBeNull();
+    expect($schema->maxItems)->toBe(5);
+});
+
+test('it creates required array schema with minItems and maxItems', function () {
+    $itemSchema = new StringSchema('item', 'An item');
+    $schema = ToolParameter::array('tags', 'Tags', $itemSchema, required: true, minItems: 1, maxItems: 10);
+
+    expect($schema)->toBeInstanceOf(ArraySchema::class);
+    expect($schema->nullable)->toBeFalse();
+    expect($schema->minItems)->toBe(1);
+    expect($schema->maxItems)->toBe(10);
+});
+
+test('array schema minItems and maxItems are null by default', function () {
+    $itemSchema = new StringSchema('item', 'An item');
+    $schema = ToolParameter::array('items', 'The items', $itemSchema);
+
+    expect($schema->minItems)->toBeNull();
+    expect($schema->maxItems)->toBeNull();
+});
