@@ -110,7 +110,7 @@ echo $response->text;
 
 - **Agents** - AI configurations live in dedicated classes, not inline across your codebase.
 - **Tools** - Business logic stays in tool classes with typed parameters. Agents call tools; tools call your services.
-- **Pipelines** - Add logging, auth, or metrics to all Prism/Atlas operations without modifying agent code.
+- **Pipelines** - Add logging, auth, or metrics to all Prism/Atlas operations without coupling the codebase.
 - **Testable** - Mock agents and fake tool responses with standard Laravel testing patterns.
 
 Atlas doesn't replace Prism. It organizes how you use Prism in real applications.
@@ -127,7 +127,9 @@ Atlas doesn't replace Prism. It organizes how you use Prism in real applications
 
 ## Contributing
 
-We welcome contributions! Please see our [Contributing Guide](.github/CONTRIBUTING.md) for details.
+We welcome contributions! 
+
+Please see our [Contributing Guide](.github/CONTRIBUTING.md) for details.
 
 ## License
 
