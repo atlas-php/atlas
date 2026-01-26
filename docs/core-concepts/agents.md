@@ -122,6 +122,101 @@ $response = Atlas::agent(CustomerSupportAgent::class)->chat('Hello');
 $response = Atlas::agent(new CustomerSupportAgent())->chat('Hello');
 ```
 
+## Agent Response
+
+When you call `chat()`, Atlas returns an `AgentResponse` that wraps Prism's response with agent context. This provides access to both the AI response and the agent-specific metadata.
+
+### Backward Compatible Property Access
+
+For backward compatibility, you can access Prism response properties directly via magic `__get`:
+
+```php
+$response = Atlas::agent('customer-support')->chat('Hello');
+
+// Access AI response properties directly (backward compatible)
+echo $response->text;                    // The AI response text
+echo $response->usage->promptTokens;     // Token usage
+echo $response->finishReason;            // FinishReason enum
+```
+
+### Explicit Methods
+
+AgentResponse also provides explicit methods for IDE autocompletion:
+
+```php
+$response = Atlas::agent('customer-support')->chat('Hello');
+
+// Explicit method calls
+echo $response->text();                  // The AI response text
+echo $response->usage()->promptTokens;   // Token usage
+echo $response->finishReason();          // FinishReason enum
+$response->toolCalls();                  // Tool calls array
+$response->toolResults();                // Tool results array
+$response->steps();                      // Multi-step loop history
+$response->messages();                   // Messages collection
+```
+
+### Agent Context Access
+
+Access agent-specific information that was used during execution:
+
+```php
+$response = Atlas::agent('customer-support')
+    ->withVariables(['customer_name' => 'John'])
+    ->withMetadata(['user_id' => 123])
+    ->chat('Hello');
+
+// Agent information
+echo $response->agentKey();              // 'customer-support'
+echo $response->agentName();             // 'Customer Support'
+echo $response->agentDescription();      // Agent description
+
+// Execution context
+echo $response->systemPrompt;            // The system prompt that was used
+$response->metadata();                   // ['user_id' => 123]
+$response->variables();                  // ['customer_name' => 'John']
+
+// Full Prism response access
+$prismResponse = $response->response;    // PrismResponse|StructuredResponse
+```
+
+### Structured Output Detection
+
+```php
+$response = Atlas::agent('analyzer')
+    ->withSchema($schema)
+    ->chat('Analyze this');
+
+if ($response->isStructured()) {
+    $data = $response->structured();     // Returns the structured array
+}
+```
+
+### Streaming Response
+
+Use `stream()` for real-time token streaming. The `AgentStreamResponse` provides agent context immediately, before iteration:
+
+```php
+$stream = Atlas::agent('customer-support')
+    ->withVariables(['customer_name' => 'Sarah'])
+    ->stream('Where is my order?');
+
+// Agent context available before iteration
+echo $stream->agentKey();                // 'customer-support'
+echo $stream->metadata();                // Pipeline metadata
+
+// Iterate to receive events
+foreach ($stream as $event) {
+    if ($event instanceof TextDeltaEvent) {
+        echo $event->delta;              // Output tokens as they arrive
+    }
+}
+
+// After iteration
+$allEvents = $stream->events();          // All collected events
+$stream->isConsumed();                   // true after full iteration
+```
+
 ### Streaming Responses
 
 Use `stream()` for real-time token streaming:
@@ -909,22 +1004,44 @@ Atlas::agent(string|AgentContract $agent)
     ->usingAutoMode()                            // Auto schema mode (default)
     ->usingNativeMode()                          // Native JSON schema mode
     ->usingJsonMode()                            // JSON mode (for optional fields)
-    ->chat(string $input, array $attachments = []): PrismResponse|StructuredResponse;
-    ->stream(string $input, array $attachments = []): Generator<StreamEvent>;
+    ->chat(string $input, array $attachments = []): AgentResponse;
+    ->stream(string $input, array $attachments = []): AgentStreamResponse;
 
-// Response properties (PrismResponse)
-$response->text;          // Text response
-$response->usage;         // Token usage stats
-$response->steps;         // Multi-step agentic loop history
-$response->toolCalls;     // Tool calls as ToolCall objects
-$response->toolResults;   // Tool results
-$response->finishReason;  // FinishReason enum
-$response->meta;          // Request metadata
+// AgentResponse properties and methods
+$response->text;              // Text response (via __get magic)
+$response->usage;             // Token usage stats (via __get magic)
+$response->response;          // Full Prism response (PrismResponse|StructuredResponse)
+$response->agent;             // The agent instance
+$response->input;             // The input message
+$response->systemPrompt;      // The system prompt used
+$response->context;           // The AgentContext
 
-// Response properties (StructuredResponse - when using withSchema)
-$response->structured;    // The structured data array
-$response->text;          // Raw text (if available)
-$response->usage;         // Token usage stats
+// AgentResponse explicit methods
+$response->text();            // Text response
+$response->usage();           // Usage statistics
+$response->toolCalls();       // Tool calls array
+$response->toolResults();     // Tool results array
+$response->steps();           // Multi-step history
+$response->finishReason();    // FinishReason enum
+$response->meta();            // Response metadata
+$response->messages();        // Messages collection
+$response->isStructured();    // Check if structured response
+$response->structured();      // Get structured data (or null)
+$response->agentKey();        // Agent key
+$response->agentName();       // Agent name
+$response->agentDescription(); // Agent description
+$response->metadata();        // Pipeline metadata from context
+$response->variables();       // Variables from context
+
+// AgentStreamResponse (implements IteratorAggregate)
+$stream = Atlas::agent($agent)->stream($input);
+$stream->agentKey();          // Available before iteration
+$stream->agentName();         // Available before iteration
+$stream->metadata();          // Available before iteration
+$stream->variables();         // Available before iteration
+foreach ($stream as $event) { } // Iterate to receive events
+$stream->events();            // All events after consumption
+$stream->isConsumed();        // Check if stream is consumed
 
 // AgentRegistryContract methods
 $registry->register(string $class, bool $override = false): void;

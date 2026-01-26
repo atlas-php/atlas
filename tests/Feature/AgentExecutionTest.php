@@ -9,10 +9,10 @@ use Atlasphp\Atlas\Agents\Services\AgentRegistry;
 use Atlasphp\Atlas\Agents\Services\AgentResolver;
 use Atlasphp\Atlas\Agents\Services\SystemPromptBuilder;
 use Atlasphp\Atlas\Agents\Support\AgentContext;
+use Atlasphp\Atlas\Agents\Support\AgentResponse;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Testing\TextResponseFake;
-use Prism\Prism\Text\Response as PrismResponse;
 use Prism\Prism\ValueObjects\Usage;
 
 test('it registers agent services in container', function () {
@@ -82,6 +82,6 @@ test('agent executor integrates with Prism', function () {
 
     $response = $executor->execute($agent, 'Hello', $context);
 
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
     expect($response->text)->toBe('Mocked response');
 });

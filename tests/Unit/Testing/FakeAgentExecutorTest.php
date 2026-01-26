@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Agents\Support\AgentContext;
+use Atlasphp\Atlas\Agents\Support\AgentResponse;
 use Atlasphp\Atlas\Testing\FakeAgentExecutor;
 use Atlasphp\Atlas\Testing\Support\FakeResponseSequence;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
@@ -95,7 +96,7 @@ test('preventStrayRequests can be disabled', function () {
 
     $result = $this->executor->execute($this->agent, 'Hi', $this->context);
 
-    expect($result)->toBeInstanceOf(PrismResponse::class);
+    expect($result)->toBeInstanceOf(AgentResponse::class);
 });
 
 // === execute ===
@@ -112,7 +113,7 @@ test('execute returns configured response', function () {
 test('execute returns empty response when no configuration', function () {
     $result = $this->executor->execute($this->agent, 'Hello', $this->context);
 
-    expect($result)->toBeInstanceOf(PrismResponse::class);
+    expect($result)->toBeInstanceOf(AgentResponse::class);
     expect($result->text)->toBe('');
 });
 

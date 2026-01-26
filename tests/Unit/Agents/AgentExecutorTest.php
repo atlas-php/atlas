@@ -7,6 +7,8 @@ use Atlasphp\Atlas\Agents\Services\AgentExecutor;
 use Atlasphp\Atlas\Agents\Services\MediaConverter;
 use Atlasphp\Atlas\Agents\Services\SystemPromptBuilder;
 use Atlasphp\Atlas\Agents\Support\AgentContext;
+use Atlasphp\Atlas\Agents\Support\AgentResponse;
+use Atlasphp\Atlas\Agents\Support\AgentStreamResponse;
 use Atlasphp\Atlas\Contracts\PipelineContract;
 use Atlasphp\Atlas\Pipelines\PipelineRegistry;
 use Atlasphp\Atlas\Pipelines\PipelineRunner;
@@ -73,7 +75,7 @@ test('it executes agent and returns PrismResponse', function () {
     $context = new AgentContext;
     $response = $executor->execute($agent, 'Hello', $context);
 
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
     expect($response->text)->toBe('Hello from AI');
 });
 
@@ -98,7 +100,7 @@ test('it uses provided context with messages', function () {
     $agent = new TestAgent;
     $response = $executor->execute($agent, 'Hello', $context);
 
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
     expect($response->text)->toBe('Continuing conversation');
 });
 
@@ -123,7 +125,7 @@ test('it uses context variables for prompt interpolation', function () {
     $agent = new TestAgent;
     $response = $executor->execute($agent, 'Hello', $context);
 
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
 });
 
 test('it returns tool calls in response', function () {
@@ -226,7 +228,7 @@ test('it runs agent.after_execute pipeline', function () {
     expect(AfterExecuteCapturingHandler::$called)->toBeTrue();
     expect(AfterExecuteCapturingHandler::$data['agent'])->toBe($agent);
     expect(AfterExecuteCapturingHandler::$data['input'])->toBe('Hello');
-    expect(AfterExecuteCapturingHandler::$data['response'])->toBeInstanceOf(PrismResponse::class);
+    expect(AfterExecuteCapturingHandler::$data['response'])->toBeInstanceOf(PrismResponse::class);  // Pipeline receives raw Prism response
     expect(array_key_exists('system_prompt', AfterExecuteCapturingHandler::$data))->toBeTrue();
 });
 
@@ -259,7 +261,7 @@ test('it uses context override for provider and model', function () {
     $agent = new TestAgent;
     $response = $executor->execute($agent, 'Hello', $context);
 
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
     expect($response->text)->toBe('Response from override');
 });
 
@@ -358,7 +360,7 @@ test('it builds messages with system role', function () {
     $agent = new TestAgent;
     $response = $executor->execute($agent, 'Follow up', $context);
 
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
     expect($response->text)->toBe('Response');
 });
 
@@ -389,7 +391,7 @@ test('it handles prismMessages directly from context', function () {
     $agent = new TestAgent;
     $response = $executor->execute($agent, 'Follow up', $context);
 
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
     expect($response->text)->toBe('Continuing conversation');
 });
 
@@ -421,7 +423,7 @@ test('it prioritizes prismMessages over array messages', function () {
     $agent = new TestAgent;
     $response = $executor->execute($agent, 'Follow up', $context);
 
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
     // Response verifies execution completed; internal message handling is tested
 });
 
@@ -449,7 +451,7 @@ test('it handles prismMedia attachments directly', function () {
     $agent = new TestAgent;
     $response = $executor->execute($agent, 'What do you see?', $context);
 
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
     expect($response->text)->toBe('I see the image');
 });
 
@@ -478,11 +480,11 @@ test('it handles multiple prismMedia attachments', function () {
     $agent = new TestAgent;
     $response = $executor->execute($agent, 'What do you see?', $context);
 
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
     expect($response->text)->toBe('I see both images');
 });
 
-test('stream returns Generator', function () {
+test('stream returns AgentStreamResponse', function () {
     Prism::fake([
         TextResponseFake::make()
             ->withText('Streaming response')
@@ -500,7 +502,8 @@ test('stream returns Generator', function () {
     $context = new AgentContext;
     $stream = $executor->stream($agent, 'Hello', $context);
 
-    expect($stream)->toBeInstanceOf(Generator::class);
+    expect($stream)->toBeInstanceOf(AgentStreamResponse::class);
+    expect($stream->agentKey())->toBe($agent->key());
 
     // Consume the stream
     $events = iterator_to_array($stream);
@@ -530,7 +533,7 @@ test('it replays prism calls from context', function () {
     $agent = new TestAgent;
     $response = $executor->execute($agent, 'Hello', $context);
 
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
 });
 
 test('it handles prism media in context', function () {
@@ -556,7 +559,7 @@ test('it handles prism media in context', function () {
     $agent = new TestAgent;
     $response = $executor->execute($agent, 'What do you see?', $context);
 
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
     expect($response->text)->toBe('I see the image');
 });
 
@@ -653,7 +656,8 @@ test('it returns StructuredResponse when withSchema is in prismCalls', function 
     $agent = new TestAgent;
     $response = $executor->execute($agent, 'Extract person info', $context);
 
-    expect($response)->toBeInstanceOf(StructuredResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
+    expect($response->isStructured())->toBeTrue();
     expect($response->structured)->toBe(['name' => 'John', 'age' => 30]);
 });
 
@@ -684,7 +688,8 @@ test('it replays prism calls without schema for structured output', function () 
     $agent = new TestAgent;
     $response = $executor->execute($agent, 'Extract person info', $context);
 
-    expect($response)->toBeInstanceOf(StructuredResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
+    expect($response->isStructured())->toBeTrue();
 });
 
 test('it applies agent clientOptions to request', function () {
@@ -706,7 +711,7 @@ test('it applies agent clientOptions to request', function () {
     $response = $executor->execute($agent, 'Hello', $context);
 
     // Verify the request was executed (clientOptions are internal to Prism)
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
     expect($response->text)->toBe('Response with client options');
 
     // Verify agent has clientOptions defined
@@ -735,7 +740,7 @@ test('it applies agent providerOptions to request', function () {
     $response = $executor->execute($agent, 'Hello', $context);
 
     // Verify the request was executed (providerOptions are internal to Prism)
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
     expect($response->text)->toBe('Response with provider options');
 
     // Verify agent has providerOptions defined
@@ -764,7 +769,7 @@ test('it applies agent providerTools to request', function () {
     $response = $executor->execute($agent, 'Hello', $context);
 
     // Verify the request was executed
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
     expect($response->text)->toBe('Response with provider tools');
 
     // Verify agent has providerTools defined
@@ -795,7 +800,7 @@ test('it does not apply empty clientOptions', function () {
     $context = new AgentContext;
     $response = $executor->execute($agent, 'Hello', $context);
 
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
 });
 
 test('it does not apply empty providerOptions', function () {
@@ -819,7 +824,7 @@ test('it does not apply empty providerOptions', function () {
     $context = new AgentContext;
     $response = $executor->execute($agent, 'Hello', $context);
 
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
 });
 
 test('it does not apply empty providerTools', function () {
@@ -843,7 +848,7 @@ test('it does not apply empty providerTools', function () {
     $context = new AgentContext;
     $response = $executor->execute($agent, 'Hello', $context);
 
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
 });
 
 test('it builds provider tools from string format', function () {
@@ -887,7 +892,7 @@ test('it builds provider tools from string format', function () {
     $context = new AgentContext;
     $response = $executor->execute($agent, 'Hello', $context);
 
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
 });
 
 test('it builds provider tools from array format', function () {
@@ -934,7 +939,7 @@ test('it builds provider tools from array format', function () {
     $context = new AgentContext;
     $response = $executor->execute($agent, 'Hello', $context);
 
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
 });
 
 test('it builds provider tools from ProviderTool objects', function () {
@@ -981,7 +986,7 @@ test('it builds provider tools from ProviderTool objects', function () {
     $context = new AgentContext;
     $response = $executor->execute($agent, 'Hello', $context);
 
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
 });
 
 test('it throws for invalid provider tool format', function () {
@@ -1285,7 +1290,8 @@ test('error pipeline can provide recovery response', function () {
     // Verify recovery was used
     expect(ErrorRecoveryHandler::$called)->toBeTrue();
     expect(ErrorRecoveryHandler::$data['exception'])->toBeInstanceOf(\InvalidArgumentException::class);
-    expect($response)->toBe($recoveryResponse);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
+    expect($response->response)->toBe($recoveryResponse);
     expect($response->text)->toBe('Recovered from error');
 });
 
@@ -1474,7 +1480,8 @@ test('catch AgentException block returns recovery when provided', function () {
     $response = $executor->execute($agent, 'Hello', $context);
 
     expect(ErrorRecoveryHandler::$called)->toBeTrue();
-    expect($response)->toBe($recoveryResponse);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
+    expect($response->response)->toBe($recoveryResponse);
     expect($response->text)->toBe('Recovered from AgentException in first catch block');
 });
 
@@ -1782,7 +1789,7 @@ test('it merges native tools with agent MCP tools', function () {
     $context = new AgentContext;
     $response = $executor->execute($agent, 'Hello', $context);
 
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
     expect($response->text)->toBe('Response with MCP tools');
 });
 
@@ -1811,7 +1818,7 @@ test('it merges native tools with runtime MCP tools', function () {
 
     $response = $executor->execute($agent, 'Hello', $context);
 
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
     expect($response->text)->toBe('Response with runtime MCP tools');
 });
 
@@ -1868,7 +1875,7 @@ test('it merges all three tool sources correctly', function () {
 
     $response = $executor->execute($agent, 'Hello', $context);
 
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
     expect($response->text)->toBe('Response with all tools');
 });
 
@@ -1896,7 +1903,7 @@ test('it handles empty mcpTools gracefully', function () {
 
     $response = $executor->execute($agent, 'Hello', $context);
 
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
 });
 
 // === withTools (runtime native tools) Tests ===
@@ -1922,7 +1929,7 @@ test('it merges runtime native tools with agent tools', function () {
 
     $response = $executor->execute($agent, 'Hello', $context);
 
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
     expect($response->text)->toBe('Response with runtime tools');
 });
 
@@ -2198,7 +2205,7 @@ test('it merges all four tool sources correctly', function () {
 
     $response = $executor->execute($agent, 'Hello', $context);
 
-    expect($response)->toBeInstanceOf(PrismResponse::class);
+    expect($response)->toBeInstanceOf(AgentResponse::class);
     expect($response->text)->toBe('Response with all tool types');
 });
 
