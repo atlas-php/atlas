@@ -230,6 +230,23 @@ try {
 }
 ```
 
+## Analytics and Logging
+
+Use the `agent.stream.after` pipeline to log or analyze completed streams:
+
+```php
+$registry->register('agent.stream.after', function (mixed $data, Closure $next) {
+    Log::info('Stream completed', [
+        'agent' => $data['agent']->key(),
+        'input' => $data['input'],
+    ]);
+
+    return $next($data);
+});
+```
+
+See [Pipelines](/core-concepts/pipelines) for more pipeline hooks.
+
 ## Example: Complete Streaming Service
 
 ```php

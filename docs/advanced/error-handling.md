@@ -172,6 +172,22 @@ class ErrorLoggingMiddleware implements PipelineContract
 $registry->register('agent.before_execute', ErrorLoggingMiddleware::class, priority: 1000);
 ```
 
+### Error Recovery via Pipeline
+
+The `agent.on_error` pipeline supports returning a recovery response instead of throwing:
+
+```php
+$registry->register('agent.on_error', function (mixed $data, Closure $next) {
+    if ($data['exception'] instanceof RateLimitException) {
+        $data['recovery'] = new PrismResponse(/* fallback response */);
+    }
+
+    return $next($data);
+});
+```
+
+When a `recovery` key is set with a valid response, the exception is suppressed and the recovery response is returned. See [Pipelines](/core-concepts/pipelines#agent-on_error) for full details.
+
 ## Graceful Degradation
 
 ### Provider Fallback

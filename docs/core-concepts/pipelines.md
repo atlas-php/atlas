@@ -458,7 +458,7 @@ Fires after tools are built into Prism tool objects. Allows auditing or modifyin
 ```php
 [
     'tool' => ToolContract,
-    'args' => array,
+    'params' => array,
     'context' => ToolContext,
 ]
 ```
@@ -517,7 +517,7 @@ When a `recovery` key is set with a valid `PrismResponse` or `StructuredResponse
 ```php
 [
     'tool' => ToolContract,
-    'args' => array,
+    'params' => array,
     'context' => ToolContext,
     'exception' => Throwable,
 ]
