@@ -18,10 +18,17 @@ test('it creates string schema', function () {
     expect($schema->description)->toBe('The name');
 });
 
-test('it creates nullable string schema', function () {
-    $schema = ToolParameter::string('name', 'The name', nullable: true);
+test('it creates optional string schema by default', function () {
+    $schema = ToolParameter::string('name', 'The name');
 
     expect($schema)->toBeInstanceOf(StringSchema::class);
+    expect($schema->nullable)->toBeTrue();
+});
+
+test('it creates required string schema', function () {
+    $schema = ToolParameter::string('name', 'The name', required: true);
+
+    expect($schema->nullable)->toBeFalse();
 });
 
 test('it creates number schema', function () {
@@ -96,4 +103,43 @@ test('it creates object schema with additional properties allowed', function () 
     );
 
     expect($schema)->toBeInstanceOf(ObjectSchema::class);
+});
+
+test('it creates required enum schema', function () {
+    $schema = ToolParameter::enum('status', 'The status', ['active', 'inactive'], required: true);
+
+    expect($schema)->toBeInstanceOf(EnumSchema::class);
+    expect($schema->nullable)->toBeFalse();
+});
+
+test('it creates optional enum schema by default', function () {
+    $schema = ToolParameter::enum('status', 'The status', ['active', 'inactive']);
+
+    expect($schema)->toBeInstanceOf(EnumSchema::class);
+    expect($schema->nullable)->toBeTrue();
+});
+
+test('it creates required array schema', function () {
+    $itemSchema = new StringSchema('item', 'An item');
+    $schema = ToolParameter::array('items', 'The items', $itemSchema, required: true);
+
+    expect($schema)->toBeInstanceOf(ArraySchema::class);
+    expect($schema->nullable)->toBeFalse();
+});
+
+test('it creates optional array schema by default', function () {
+    $itemSchema = new StringSchema('item', 'An item');
+    $schema = ToolParameter::array('items', 'The items', $itemSchema);
+
+    expect($schema)->toBeInstanceOf(ArraySchema::class);
+    expect($schema->nullable)->toBeTrue();
+});
+
+test('it creates array schema with minItems and maxItems', function () {
+    $itemSchema = new StringSchema('item', 'An item');
+    $schema = ToolParameter::array('items', 'The items', $itemSchema, minItems: 1, maxItems: 10);
+
+    expect($schema)->toBeInstanceOf(ArraySchema::class);
+    expect($schema->minItems)->toBe(1);
+    expect($schema->maxItems)->toBe(10);
 });

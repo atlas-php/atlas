@@ -86,3 +86,23 @@ test('it creates with both metadata and agent', function () {
     expect($context->getMeta('user_id'))->toBe(123);
     expect($context->getAgent())->toBe($agent);
 });
+
+test('withMetadata preserves agent reference', function () {
+    $agent = Mockery::mock(AgentContract::class);
+    $context = new ToolContext(['key' => 'value'], $agent);
+
+    $newContext = $context->withMetadata(['new' => 'data']);
+
+    expect($newContext->metadata)->toBe(['new' => 'data']);
+    expect($newContext->getAgent())->toBe($agent);
+});
+
+test('mergeMetadata preserves agent reference', function () {
+    $agent = Mockery::mock(AgentContract::class);
+    $context = new ToolContext(['a' => 1], $agent);
+
+    $newContext = $context->mergeMetadata(['b' => 2]);
+
+    expect($newContext->metadata)->toBe(['a' => 1, 'b' => 2]);
+    expect($newContext->getAgent())->toBe($agent);
+});

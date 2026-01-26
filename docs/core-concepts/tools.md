@@ -39,7 +39,7 @@ class LookupOrderTool extends ToolDefinition
     public function parameters(): array
     {
         return [
-            ToolParameter::string('order_id', 'The order ID to look up'),
+            ToolParameter::string('order_id', 'The order ID to look up', required: true),
         ];
     }
 
@@ -149,22 +149,26 @@ public function parameters(): array
 
 | Method | Description |
 |--------|-------------|
-| `ToolParameter::string($name, $description, $nullable)` | Text values |
-| `ToolParameter::number($name, $description, $nullable)` | Float/decimal values |
-| `ToolParameter::integer($name, $description, $nullable)` | Integer values (alias for number) |
-| `ToolParameter::boolean($name, $description, $nullable)` | True/false values |
-| `ToolParameter::enum($name, $description, $options)` | Predefined set of options |
-| `ToolParameter::array($name, $description, $items)` | List of items (pass a Schema for item type) |
+| `ToolParameter::string($name, $description, $required)` | Text values |
+| `ToolParameter::number($name, $description, $required)` | Float/decimal values |
+| `ToolParameter::integer($name, $description, $required)` | Integer values (alias for number) |
+| `ToolParameter::boolean($name, $description, $required)` | True/false values |
+| `ToolParameter::enum($name, $description, $options, $required)` | Predefined set of options |
+| `ToolParameter::array($name, $description, $items, $required, $minItems, $maxItems)` | List of items with optional size constraints |
 | `ToolParameter::object($name, $description, $properties, $requiredFields, $allowAdditionalProperties)` | Nested object |
 
 </div>
 
-### Nullable Parameters
+### Required Parameters
 
-Mark parameters as nullable when they're optional:
+By default, parameters are optional. Use `required: true` to mark required parameters:
 
 ```php
-ToolParameter::string('notes', 'Optional notes', nullable: true);
+// Required
+ToolParameter::string('query', 'The search query', required: true),
+
+// Optional (default)
+ToolParameter::string('notes', 'Optional notes'),
 ```
 
 ### Array Parameters
@@ -314,7 +318,7 @@ class DatabaseQueryTool extends ToolDefinition
     {
         return [
             ToolParameter::string('table', 'Table name'),
-            ToolParameter::integer('limit', 'Max records', nullable: true),
+            ToolParameter::integer('limit', 'Max records', required: false),
         ];
     }
 
@@ -347,7 +351,7 @@ class LookupOrderTool extends ToolDefinition
     public function parameters(): array
     {
         return [
-            ToolParameter::string('order_id', 'The order ID to look up'),
+            ToolParameter::string('order_id', 'The order ID to look up', required: true),
         ];
     }
 
@@ -390,7 +394,7 @@ class SearchKnowledgeBaseTool extends ToolDefinition
     {
         return [
             ToolParameter::string('query', 'The search query'),
-            ToolParameter::integer('limit', 'Maximum results to return', nullable: true),
+            ToolParameter::integer('limit', 'Maximum results to return', required: false),
         ];
     }
 
@@ -430,7 +434,7 @@ class CreateTicketTool extends ToolDefinition
             ToolParameter::string('subject', 'Brief description of the issue'),
             ToolParameter::string('description', 'Detailed description of the problem'),
             ToolParameter::enum('priority', 'Ticket priority', ['low', 'medium', 'high']),
-            ToolParameter::string('category', 'Issue category', nullable: true),
+            ToolParameter::string('category', 'Issue category', required: false),
         ];
     }
 
@@ -473,7 +477,7 @@ class SendNotificationTool extends ToolDefinition
     {
         return [
             ToolParameter::enum('channel', 'Notification channel', ['email', 'sms']),
-            ToolParameter::string('subject', 'Notification subject (email only)', nullable: true),
+            ToolParameter::string('subject', 'Notification subject (email only)', required: false),
             ToolParameter::string('message', 'The notification message'),
         ];
     }
@@ -676,13 +680,13 @@ public function description(): string;
 public function parameters(): array;
 public function handle(array $arguments, ToolContext $context): ToolResult;
 
-// ToolParameter factory methods
-ToolParameter::string(string $name, string $description, bool $nullable = false);
-ToolParameter::number(string $name, string $description, bool $nullable = false);
-ToolParameter::integer(string $name, string $description, bool $nullable = false);
-ToolParameter::boolean(string $name, string $description, bool $nullable = false);
-ToolParameter::enum(string $name, string $description, array $options);
-ToolParameter::array(string $name, string $description, Schema $items);
+// ToolParameter factory methods (parameters are optional by default)
+ToolParameter::string(string $name, string $description, bool $required = false);
+ToolParameter::number(string $name, string $description, bool $required = false);
+ToolParameter::integer(string $name, string $description, bool $required = false);
+ToolParameter::boolean(string $name, string $description, bool $required = false);
+ToolParameter::enum(string $name, string $description, array $options, bool $required = false);
+ToolParameter::array(string $name, string $description, Schema $items, bool $required = false, ?int $minItems = null, ?int $maxItems = null);
 ToolParameter::object(string $name, string $description, array $properties, array $requiredFields = [], bool $allowAdditionalProperties = false);
 
 // ToolResult factory methods
