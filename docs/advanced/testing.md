@@ -336,7 +336,7 @@ $assistantRequests = Atlas::recordedFor('assistant');
 foreach ($assistantRequests as $request) {
     echo $request->agent;    // Agent key
     echo $request->input;    // User input
-    $request->context;       // ExecutionContext
+    $request->context;       // AgentContext
     $request->response;      // AgentResponse
     $request->timestamp;     // When it was called
 }
@@ -565,7 +565,7 @@ $fake->recordedFor(string $agentKey): array;        // For specific agent
 // RecordedRequest properties and methods
 $request->agent;                                    // AgentContract instance
 $request->input;                                    // User input string
-$request->context;                                  // ExecutionContext
+$request->context;                                  // AgentContext
 $request->response;                                 // PrismResponse
 $request->timestamp;                                // Unix timestamp
 $request->agentKey(): string;

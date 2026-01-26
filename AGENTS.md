@@ -38,7 +38,7 @@ Atlas is a **Prism complement** that adds application-level AI concerns. It does
 | Tool Registry | Register tools, resolve by name, attach to agents |
 | System Prompts | Variable interpolation ({var_name}), SystemPromptBuilder |
 | Pipelines | Before/after hooks for observability and extension |
-| ExecutionContext | Stateless context carrier with media support |
+| AgentContext | Stateless context carrier with media support |
 | Testing | AtlasFake for agent testing without API calls |
 
 ### Prism Handles (link, don't document)

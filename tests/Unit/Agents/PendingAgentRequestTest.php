@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
 use Atlasphp\Atlas\Agents\Services\AgentResolver;
-use Atlasphp\Atlas\Agents\Support\ExecutionContext;
+use Atlasphp\Atlas\Agents\Support\AgentContext;
 use Atlasphp\Atlas\Agents\Support\PendingAgentRequest;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
 use Illuminate\Support\Collection;
@@ -376,7 +376,7 @@ test('chat resolves agent and executes', function () {
 
     $this->executor->shouldReceive('execute')
         ->once()
-        ->with($this->agent, 'Hello', Mockery::type(ExecutionContext::class))
+        ->with($this->agent, 'Hello', Mockery::type(AgentContext::class))
         ->andReturn(makeMockPrismResponse('Hi there!'));
 
     $response = $this->request->chat('Hello');
@@ -499,7 +499,7 @@ test('stream resolves agent and returns generator', function () {
 
     $this->executor->shouldReceive('stream')
         ->once()
-        ->with($this->agent, 'Hello', Mockery::type(ExecutionContext::class))
+        ->with($this->agent, 'Hello', Mockery::type(AgentContext::class))
         ->andReturn((function () {
             yield 'chunk1';
             yield 'chunk2';

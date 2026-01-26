@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
-use Atlasphp\Atlas\Agents\Support\ExecutionContext;
+use Atlasphp\Atlas\Agents\Support\AgentContext;
 use Atlasphp\Atlas\Testing\AtlasFake;
 use Atlasphp\Atlas\Testing\FakeAgentExecutor;
 use Atlasphp\Atlas\Testing\PendingFakeRequest;
@@ -33,7 +33,7 @@ beforeEach(function () {
     $this->container = new Container;
     $this->fake = new AtlasFake($this->container);
     $this->agent = new TestAgent;
-    $this->context = new ExecutionContext;
+    $this->context = new AgentContext;
 });
 
 // === response ===

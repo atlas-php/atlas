@@ -13,7 +13,7 @@ use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 
 /**
- * Stateless execution context for agent invocation.
+ * Stateless context for agent invocation.
  *
  * Carries conversation history, variable bindings, metadata, provider
  * overrides, and captured Prism method calls without any database or
@@ -27,7 +27,7 @@ use Prism\Prism\ValueObjects\Messages\UserMessage;
  *
  * This is a read-only value object built by PendingAgentRequest.
  */
-final readonly class ExecutionContext
+final readonly class AgentContext
 {
     /**
      * @param  array<int, array{role: string, content: string, attachments?: array<int, array{type: string, source: string, data: string, mime_type?: string|null, title?: string|null, disk?: string|null}>}>  $messages  Conversation history with optional attachments (array format for serialization).

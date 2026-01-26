@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Agents\Services;
 
 use Atlasphp\Atlas\Agents\Contracts\AgentContract;
-use Atlasphp\Atlas\Agents\Support\ExecutionContext;
+use Atlasphp\Atlas\Agents\Support\AgentContext;
 use Atlasphp\Atlas\Pipelines\PipelineRunner;
 
 /**
@@ -22,7 +22,7 @@ use Atlasphp\Atlas\Pipelines\PipelineRunner;
  * Octane or queue workers, registered variables and sections will persist
  * across requests unless explicitly cleared.
  *
- * For request-scoped variables, prefer passing them via ExecutionContext::$variables
+ * For request-scoped variables, prefer passing them via AgentContext::$variables
  * rather than using registerVariable(). If you use registerVariable() in
  * long-running processes, ensure you call unregisterVariable() or create
  * a fresh instance when needed.
@@ -59,9 +59,9 @@ class SystemPromptBuilder
      * This allows the provider to use its default system prompt behavior.
      *
      * @param  AgentContract  $agent  The agent to build the prompt for.
-     * @param  ExecutionContext  $context  The execution context with variables.
+     * @param  AgentContext  $context  The execution context with variables.
      */
-    public function build(AgentContract $agent, ExecutionContext $context): ?string
+    public function build(AgentContract $agent, AgentContext $context): ?string
     {
         $basePrompt = $agent->systemPrompt();
 
@@ -77,7 +77,7 @@ class SystemPromptBuilder
             'variables' => $this->mergeVariables($context),
         ];
 
-        /** @var array{agent: AgentContract, context: ExecutionContext, variables: array<string, mixed>} $data */
+        /** @var array{agent: AgentContract, context: AgentContext, variables: array<string, mixed>} $data */
         $data = $this->pipelineRunner->runIfActive(
             'agent.system_prompt.before_build',
             $data,
@@ -223,7 +223,7 @@ class SystemPromptBuilder
      *
      * @return array<string, mixed>
      */
-    protected function mergeVariables(ExecutionContext $context): array
+    protected function mergeVariables(AgentContext $context): array
     {
         return array_merge($this->variables, $context->variables);
     }

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Agents\Support\ExecutionContext;
+use Atlasphp\Atlas\Agents\Support\AgentContext;
 
 test('it creates with default empty values', function () {
-    $context = new ExecutionContext;
+    $context = new AgentContext;
 
     expect($context->messages)->toBe([]);
     expect($context->variables)->toBe([]);
@@ -21,7 +21,7 @@ test('it creates with provided values', function () {
     $variables = ['user_name' => 'John'];
     $metadata = ['session_id' => '123'];
 
-    $context = new ExecutionContext($messages, $variables, $metadata);
+    $context = new AgentContext($messages, $variables, $metadata);
 
     expect($context->messages)->toBe($messages);
     expect($context->variables)->toBe($variables);
@@ -34,7 +34,7 @@ test('it creates with all constructor parameters', function () {
     $metadata = ['session_id' => '123'];
     $prismCalls = [['method' => 'withMaxSteps', 'args' => [10]]];
 
-    $context = new ExecutionContext(
+    $context = new AgentContext(
         messages: $messages,
         variables: $variables,
         metadata: $metadata,
@@ -52,66 +52,66 @@ test('it creates with all constructor parameters', function () {
 });
 
 test('it gets variable with default', function () {
-    $context = new ExecutionContext(variables: ['key' => 'value']);
+    $context = new AgentContext(variables: ['key' => 'value']);
 
     expect($context->getVariable('key'))->toBe('value');
     expect($context->getVariable('missing', 'default'))->toBe('default');
 });
 
 test('it gets meta with default', function () {
-    $context = new ExecutionContext(metadata: ['key' => 'value']);
+    $context = new AgentContext(metadata: ['key' => 'value']);
 
     expect($context->getMeta('key'))->toBe('value');
     expect($context->getMeta('missing', 'default'))->toBe('default');
 });
 
 test('it reports hasMessages correctly', function () {
-    $empty = new ExecutionContext;
-    $withMessages = new ExecutionContext(messages: [['role' => 'user', 'content' => 'Hi']]);
+    $empty = new AgentContext;
+    $withMessages = new AgentContext(messages: [['role' => 'user', 'content' => 'Hi']]);
 
     expect($empty->hasMessages())->toBeFalse();
     expect($withMessages->hasMessages())->toBeTrue();
 });
 
 test('it reports hasVariable correctly', function () {
-    $context = new ExecutionContext(variables: ['key' => 'value']);
+    $context = new AgentContext(variables: ['key' => 'value']);
 
     expect($context->hasVariable('key'))->toBeTrue();
     expect($context->hasVariable('missing'))->toBeFalse();
 });
 
 test('it reports hasMeta correctly', function () {
-    $context = new ExecutionContext(metadata: ['key' => 'value']);
+    $context = new AgentContext(metadata: ['key' => 'value']);
 
     expect($context->hasMeta('key'))->toBeTrue();
     expect($context->hasMeta('missing'))->toBeFalse();
 });
 
 test('it creates with provider and model overrides', function () {
-    $context = new ExecutionContext(providerOverride: 'anthropic', modelOverride: 'claude-3-opus');
+    $context = new AgentContext(providerOverride: 'anthropic', modelOverride: 'claude-3-opus');
 
     expect($context->providerOverride)->toBe('anthropic');
     expect($context->modelOverride)->toBe('claude-3-opus');
 });
 
 test('it reports hasProviderOverride correctly', function () {
-    $withoutOverride = new ExecutionContext;
-    $withOverride = new ExecutionContext(providerOverride: 'anthropic');
+    $withoutOverride = new AgentContext;
+    $withOverride = new AgentContext(providerOverride: 'anthropic');
 
     expect($withoutOverride->hasProviderOverride())->toBeFalse();
     expect($withOverride->hasProviderOverride())->toBeTrue();
 });
 
 test('it reports hasModelOverride correctly', function () {
-    $withoutOverride = new ExecutionContext;
-    $withOverride = new ExecutionContext(modelOverride: 'gpt-4-turbo');
+    $withoutOverride = new AgentContext;
+    $withOverride = new AgentContext(modelOverride: 'gpt-4-turbo');
 
     expect($withoutOverride->hasModelOverride())->toBeFalse();
     expect($withOverride->hasModelOverride())->toBeTrue();
 });
 
 test('it creates with default empty prismMedia', function () {
-    $context = new ExecutionContext;
+    $context = new AgentContext;
 
     expect($context->prismMedia)->toBe([]);
 });
@@ -119,7 +119,7 @@ test('it creates with default empty prismMedia', function () {
 test('it creates with provided prismMedia', function () {
     $mockImage = Mockery::mock(\Prism\Prism\ValueObjects\Media\Image::class);
 
-    $context = new ExecutionContext(prismMedia: [$mockImage]);
+    $context = new AgentContext(prismMedia: [$mockImage]);
 
     expect($context->prismMedia)->toBe([$mockImage]);
 });
@@ -127,8 +127,8 @@ test('it creates with provided prismMedia', function () {
 test('it reports hasAttachments correctly', function () {
     $mockImage = Mockery::mock(\Prism\Prism\ValueObjects\Media\Image::class);
 
-    $empty = new ExecutionContext;
-    $withMedia = new ExecutionContext(prismMedia: [$mockImage]);
+    $empty = new AgentContext;
+    $withMedia = new AgentContext(prismMedia: [$mockImage]);
 
     expect($empty->hasAttachments())->toBeFalse();
     expect($withMedia->hasAttachments())->toBeTrue();
@@ -140,7 +140,7 @@ test('it creates with prismCalls', function () {
         ['method' => 'withTemperature', 'args' => [0.7]],
     ];
 
-    $context = new ExecutionContext(prismCalls: $prismCalls);
+    $context = new AgentContext(prismCalls: $prismCalls);
 
     expect($context->prismCalls)->toBe($prismCalls);
 });
@@ -149,7 +149,7 @@ test('it creates with prismMessages', function () {
     $mockUserMessage = Mockery::mock(\Prism\Prism\ValueObjects\Messages\UserMessage::class);
     $mockAssistantMessage = Mockery::mock(\Prism\Prism\ValueObjects\Messages\AssistantMessage::class);
 
-    $context = new ExecutionContext(prismMessages: [$mockUserMessage, $mockAssistantMessage]);
+    $context = new AgentContext(prismMessages: [$mockUserMessage, $mockAssistantMessage]);
 
     expect($context->prismMessages)->toBe([$mockUserMessage, $mockAssistantMessage]);
 });
@@ -157,8 +157,8 @@ test('it creates with prismMessages', function () {
 test('it reports hasPrismMessages correctly', function () {
     $mockUserMessage = Mockery::mock(\Prism\Prism\ValueObjects\Messages\UserMessage::class);
 
-    $empty = new ExecutionContext;
-    $withPrismMessages = new ExecutionContext(prismMessages: [$mockUserMessage]);
+    $empty = new AgentContext;
+    $withPrismMessages = new AgentContext(prismMessages: [$mockUserMessage]);
 
     expect($empty->hasPrismMessages())->toBeFalse();
     expect($withPrismMessages->hasPrismMessages())->toBeTrue();
@@ -167,9 +167,9 @@ test('it reports hasPrismMessages correctly', function () {
 test('hasMessages returns true for either array or prism messages', function () {
     $mockUserMessage = Mockery::mock(\Prism\Prism\ValueObjects\Messages\UserMessage::class);
 
-    $empty = new ExecutionContext;
-    $withArrayMessages = new ExecutionContext(messages: [['role' => 'user', 'content' => 'Hi']]);
-    $withPrismMessages = new ExecutionContext(prismMessages: [$mockUserMessage]);
+    $empty = new AgentContext;
+    $withArrayMessages = new AgentContext(messages: [['role' => 'user', 'content' => 'Hi']]);
+    $withPrismMessages = new AgentContext(prismMessages: [$mockUserMessage]);
 
     expect($empty->hasMessages())->toBeFalse();
     expect($withArrayMessages->hasMessages())->toBeTrue();
@@ -177,8 +177,8 @@ test('hasMessages returns true for either array or prism messages', function () 
 });
 
 test('it reports hasPrismCalls correctly', function () {
-    $empty = new ExecutionContext;
-    $withCalls = new ExecutionContext(prismCalls: [
+    $empty = new AgentContext;
+    $withCalls = new AgentContext(prismCalls: [
         ['method' => 'withMaxSteps', 'args' => [10]],
     ]);
 
@@ -187,11 +187,11 @@ test('it reports hasPrismCalls correctly', function () {
 });
 
 test('it reports hasSchemaCall correctly', function () {
-    $empty = new ExecutionContext;
-    $withSchema = new ExecutionContext(prismCalls: [
+    $empty = new AgentContext;
+    $withSchema = new AgentContext(prismCalls: [
         ['method' => 'withSchema', 'args' => ['mock-schema']],
     ]);
-    $withOtherCalls = new ExecutionContext(prismCalls: [
+    $withOtherCalls = new AgentContext(prismCalls: [
         ['method' => 'withMaxSteps', 'args' => [10]],
     ]);
 
@@ -204,12 +204,12 @@ test('it gets schema from prism calls', function () {
     $mockSchema = new \stdClass;
     $mockSchema->name = 'test-schema';
 
-    $contextWithSchema = new ExecutionContext(prismCalls: [
+    $contextWithSchema = new AgentContext(prismCalls: [
         ['method' => 'withMaxSteps', 'args' => [10]],
         ['method' => 'withSchema', 'args' => [$mockSchema]],
     ]);
 
-    $contextWithoutSchema = new ExecutionContext(prismCalls: [
+    $contextWithoutSchema = new AgentContext(prismCalls: [
         ['method' => 'withMaxSteps', 'args' => [10]],
     ]);
 
@@ -220,7 +220,7 @@ test('it gets schema from prism calls', function () {
 test('it gets prism calls without schema', function () {
     $mockSchema = new \stdClass;
 
-    $context = new ExecutionContext(prismCalls: [
+    $context = new AgentContext(prismCalls: [
         ['method' => 'withMaxSteps', 'args' => [10]],
         ['method' => 'withSchema', 'args' => [$mockSchema]],
         ['method' => 'usingTemperature', 'args' => [0.7]],
@@ -234,13 +234,13 @@ test('it gets prism calls without schema', function () {
 });
 
 test('getPrismCallsWithoutSchema returns empty array when no calls', function () {
-    $context = new ExecutionContext;
+    $context = new AgentContext;
 
     expect($context->getPrismCallsWithoutSchema())->toBe([]);
 });
 
 test('getPrismCallsWithoutSchema returns all calls when no schema', function () {
-    $context = new ExecutionContext(prismCalls: [
+    $context = new AgentContext(prismCalls: [
         ['method' => 'withMaxSteps', 'args' => [10]],
         ['method' => 'usingTemperature', 'args' => [0.7]],
     ]);
@@ -255,27 +255,27 @@ test('getPrismCallsWithoutSchema returns all calls when no schema', function () 
 // === Runtime Tools Tests ===
 
 test('it creates with default empty tools', function () {
-    $context = new ExecutionContext;
+    $context = new AgentContext;
 
     expect($context->tools)->toBe([]);
 });
 
 test('it creates with provided tools', function () {
-    $context = new ExecutionContext(tools: ['App\\Tools\\MyTool']);
+    $context = new AgentContext(tools: ['App\\Tools\\MyTool']);
 
     expect($context->tools)->toBe(['App\\Tools\\MyTool']);
 });
 
 test('it reports hasTools correctly', function () {
-    $empty = new ExecutionContext;
-    $withTools = new ExecutionContext(tools: ['App\\Tools\\MyTool']);
+    $empty = new AgentContext;
+    $withTools = new AgentContext(tools: ['App\\Tools\\MyTool']);
 
     expect($empty->hasTools())->toBeFalse();
     expect($withTools->hasTools())->toBeTrue();
 });
 
 test('it creates with multiple tools', function () {
-    $context = new ExecutionContext(tools: ['App\\Tools\\ToolA', 'App\\Tools\\ToolB']);
+    $context = new AgentContext(tools: ['App\\Tools\\ToolA', 'App\\Tools\\ToolB']);
 
     expect($context->tools)->toHaveCount(2);
     expect($context->tools[0])->toBe('App\\Tools\\ToolA');
@@ -285,7 +285,7 @@ test('it creates with multiple tools', function () {
 // === MCP Tools Tests ===
 
 test('it creates with default empty mcpTools', function () {
-    $context = new ExecutionContext;
+    $context = new AgentContext;
 
     expect($context->mcpTools)->toBe([]);
 });
@@ -293,7 +293,7 @@ test('it creates with default empty mcpTools', function () {
 test('it creates with provided mcpTools', function () {
     $mockTool = Mockery::mock(\Prism\Prism\Tool::class);
 
-    $context = new ExecutionContext(mcpTools: [$mockTool]);
+    $context = new AgentContext(mcpTools: [$mockTool]);
 
     expect($context->mcpTools)->toBe([$mockTool]);
 });
@@ -301,8 +301,8 @@ test('it creates with provided mcpTools', function () {
 test('it reports hasMcpTools correctly', function () {
     $mockTool = Mockery::mock(\Prism\Prism\Tool::class);
 
-    $empty = new ExecutionContext;
-    $withMcpTools = new ExecutionContext(mcpTools: [$mockTool]);
+    $empty = new AgentContext;
+    $withMcpTools = new AgentContext(mcpTools: [$mockTool]);
 
     expect($empty->hasMcpTools())->toBeFalse();
     expect($withMcpTools->hasMcpTools())->toBeTrue();
@@ -312,7 +312,7 @@ test('it creates with multiple mcpTools', function () {
     $mockTool1 = Mockery::mock(\Prism\Prism\Tool::class);
     $mockTool2 = Mockery::mock(\Prism\Prism\Tool::class);
 
-    $context = new ExecutionContext(mcpTools: [$mockTool1, $mockTool2]);
+    $context = new AgentContext(mcpTools: [$mockTool1, $mockTool2]);
 
     expect($context->mcpTools)->toHaveCount(2);
     expect($context->mcpTools[0])->toBe($mockTool1);

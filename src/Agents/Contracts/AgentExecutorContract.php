@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Agents\Contracts;
 
-use Atlasphp\Atlas\Agents\Support\ExecutionContext;
+use Atlasphp\Atlas\Agents\Support\AgentContext;
 use Generator;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Structured\Response as StructuredResponse;
@@ -30,7 +30,7 @@ use Prism\Prism\Text\Response as PrismResponse;
  * - response->usage - Full usage stats
  *
  * All Prism-specific configuration (schema, retry, structuredMode, toolChoice, etc.)
- * is captured in the ExecutionContext's prismCalls and replayed on the request.
+ * is captured in the AgentContext's prismCalls and replayed on the request.
  */
 interface AgentExecutorContract
 {
@@ -42,12 +42,12 @@ interface AgentExecutorContract
      *
      * @param  AgentContract  $agent  The agent to execute.
      * @param  string  $input  The user input message.
-     * @param  ExecutionContext  $context  Execution context with messages, variables, and Prism calls.
+     * @param  AgentContext  $context  Execution context with messages, variables, and Prism calls.
      */
     public function execute(
         AgentContract $agent,
         string $input,
-        ExecutionContext $context,
+        AgentContext $context,
     ): PrismResponse|StructuredResponse;
 
     /**
@@ -58,12 +58,12 @@ interface AgentExecutorContract
      *
      * @param  AgentContract  $agent  The agent to execute.
      * @param  string  $input  The user input message.
-     * @param  ExecutionContext  $context  Execution context with messages, variables, and Prism calls.
+     * @param  AgentContext  $context  Execution context with messages, variables, and Prism calls.
      * @return Generator<int, StreamEvent>
      */
     public function stream(
         AgentContract $agent,
         string $input,
-        ExecutionContext $context,
+        AgentContext $context,
     ): Generator;
 }

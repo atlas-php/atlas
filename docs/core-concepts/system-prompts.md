@@ -258,9 +258,9 @@ $builder->unregisterVariable(string $name): void;
 $builder->addSection(string $name, string $content): void;
 $builder->removeSection(string $name): void;
 $builder->clearSections(): void;
-$builder->build(AgentContract $agent, ExecutionContext $context): string;
+$builder->build(AgentContract $agent, AgentContext $context): string;
 
-// ExecutionContext variable passing (via AgentExecutor)
+// AgentContext variable passing (via AgentExecutor)
 Atlas::agent('agent')
     ->withVariables(array $variables)
     ->chat(string $input);

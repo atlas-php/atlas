@@ -6,7 +6,7 @@ namespace Atlasphp\Atlas\Testing;
 
 use Atlasphp\Atlas\Agents\Contracts\AgentContract;
 use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
-use Atlasphp\Atlas\Agents\Support\ExecutionContext;
+use Atlasphp\Atlas\Agents\Support\AgentContext;
 use Atlasphp\Atlas\Testing\Support\FakeResponseSequence;
 use Atlasphp\Atlas\Testing\Support\RecordedRequest;
 use Generator;
@@ -137,7 +137,7 @@ class FakeAgentExecutor implements AgentExecutorContract
     public function execute(
         AgentContract $agent,
         string $input,
-        ExecutionContext $context,
+        AgentContext $context,
     ): PrismResponse {
         $response = $this->getResponse($agent->key());
 
@@ -158,7 +158,7 @@ class FakeAgentExecutor implements AgentExecutorContract
     public function stream(
         AgentContract $agent,
         string $input,
-        ExecutionContext $context,
+        AgentContext $context,
     ): Generator {
         $response = $this->getResponse($agent->key());
 
@@ -213,7 +213,7 @@ class FakeAgentExecutor implements AgentExecutorContract
     private function recordRequest(
         AgentContract $agent,
         string $input,
-        ExecutionContext $context,
+        AgentContext $context,
         PrismResponse $response,
     ): void {
         $this->recordedRequests[] = new RecordedRequest(

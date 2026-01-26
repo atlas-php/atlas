@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
-use Atlasphp\Atlas\Agents\Support\ExecutionContext;
+use Atlasphp\Atlas\Agents\Support\AgentContext;
 use Atlasphp\Atlas\Testing\AtlasFake;
 use Atlasphp\Atlas\Testing\Support\RecordedRequest;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
@@ -42,7 +42,7 @@ test('assertCalled passes when any agent was called', function () {
     $this->fake->sequence([$response])->activate();
 
     $executor = $this->container->make(AgentExecutorContract::class);
-    $executor->execute($this->agent, 'Hello', new ExecutionContext);
+    $executor->execute($this->agent, 'Hello', new AgentContext);
 
     $this->fake->assertCalled();
 });
@@ -58,7 +58,7 @@ test('assertCalled with agent key passes when that agent was called', function (
     $this->fake->sequence([$response])->activate();
 
     $executor = $this->container->make(AgentExecutorContract::class);
-    $executor->execute($this->agent, 'Hello', new ExecutionContext);
+    $executor->execute($this->agent, 'Hello', new AgentContext);
 
     $this->fake->assertCalled('test-agent');
 });
@@ -68,7 +68,7 @@ test('assertCalled with agent key fails when different agent was called', functi
     $this->fake->sequence([$response])->activate();
 
     $executor = $this->container->make(AgentExecutorContract::class);
-    $executor->execute($this->agent, 'Hello', new ExecutionContext);
+    $executor->execute($this->agent, 'Hello', new AgentContext);
 
     $this->fake->assertCalled('other-agent');
 })->throws(AssertionFailedError::class, "Expected agent 'other-agent' to be called");
@@ -80,8 +80,8 @@ test('assertCalledTimes passes with correct count', function () {
     $this->fake->sequence([$response, $response, $response])->activate();
 
     $executor = $this->container->make(AgentExecutorContract::class);
-    $executor->execute($this->agent, 'First', new ExecutionContext);
-    $executor->execute($this->agent, 'Second', new ExecutionContext);
+    $executor->execute($this->agent, 'First', new AgentContext);
+    $executor->execute($this->agent, 'Second', new AgentContext);
 
     $this->fake->assertCalledTimes('test-agent', 2);
 });
@@ -91,7 +91,7 @@ test('assertCalledTimes fails with wrong count', function () {
     $this->fake->sequence([$response])->activate();
 
     $executor = $this->container->make(AgentExecutorContract::class);
-    $executor->execute($this->agent, 'Hello', new ExecutionContext);
+    $executor->execute($this->agent, 'Hello', new AgentContext);
 
     $this->fake->assertCalledTimes('test-agent', 3);
 })->throws(AssertionFailedError::class, 'to be called 3 time(s), but it was called 1 time(s)');
@@ -115,7 +115,7 @@ test('assertNotCalled fails when agent was called', function () {
     $this->fake->sequence([$response])->activate();
 
     $executor = $this->container->make(AgentExecutorContract::class);
-    $executor->execute($this->agent, 'Hello', new ExecutionContext);
+    $executor->execute($this->agent, 'Hello', new AgentContext);
 
     $this->fake->assertNotCalled('test-agent');
 })->throws(AssertionFailedError::class, "Expected agent 'test-agent' not to be called");
@@ -125,7 +125,7 @@ test('assertNotCalled passes for different agent', function () {
     $this->fake->sequence([$response])->activate();
 
     $executor = $this->container->make(AgentExecutorContract::class);
-    $executor->execute($this->agent, 'Hello', new ExecutionContext);
+    $executor->execute($this->agent, 'Hello', new AgentContext);
 
     $this->fake->assertNotCalled('other-agent');
 });
@@ -143,7 +143,7 @@ test('assertNothingCalled fails when something called', function () {
     $this->fake->sequence([$response])->activate();
 
     $executor = $this->container->make(AgentExecutorContract::class);
-    $executor->execute($this->agent, 'Hello', new ExecutionContext);
+    $executor->execute($this->agent, 'Hello', new AgentContext);
 
     $this->fake->assertNothingCalled();
 })->throws(AssertionFailedError::class, 'Expected no agents to be called');
@@ -155,7 +155,7 @@ test('assertSent passes when callback returns true', function () {
     $this->fake->sequence([$response])->activate();
 
     $executor = $this->container->make(AgentExecutorContract::class);
-    $executor->execute($this->agent, 'Hello world', new ExecutionContext);
+    $executor->execute($this->agent, 'Hello world', new AgentContext);
 
     $this->fake->assertSent(function (RecordedRequest $request) {
         return $request->input === 'Hello world';
@@ -167,7 +167,7 @@ test('assertSent fails when callback never returns true', function () {
     $this->fake->sequence([$response])->activate();
 
     $executor = $this->container->make(AgentExecutorContract::class);
-    $executor->execute($this->agent, 'Hello', new ExecutionContext);
+    $executor->execute($this->agent, 'Hello', new AgentContext);
 
     $this->fake->assertSent(function (RecordedRequest $request) {
         return $request->input === 'Something else';
@@ -179,8 +179,8 @@ test('assertSent checks multiple requests', function () {
     $this->fake->sequence([$response, $response])->activate();
 
     $executor = $this->container->make(AgentExecutorContract::class);
-    $executor->execute($this->agent, 'First', new ExecutionContext);
-    $executor->execute($this->agent, 'Second', new ExecutionContext);
+    $executor->execute($this->agent, 'First', new AgentContext);
+    $executor->execute($this->agent, 'Second', new AgentContext);
 
     // Should find the second request
     $this->fake->assertSent(function (RecordedRequest $request) {
@@ -195,7 +195,7 @@ test('assertSentWithContext passes when metadata key exists', function () {
     $this->fake->sequence([$response])->activate();
 
     $executor = $this->container->make(AgentExecutorContract::class);
-    $context = new ExecutionContext(metadata: ['user_id' => 123]);
+    $context = new AgentContext(metadata: ['user_id' => 123]);
     $executor->execute($this->agent, 'Hello', $context);
 
     $this->fake->assertSentWithContext('user_id');
@@ -206,7 +206,7 @@ test('assertSentWithContext passes when metadata key and value match', function 
     $this->fake->sequence([$response])->activate();
 
     $executor = $this->container->make(AgentExecutorContract::class);
-    $context = new ExecutionContext(metadata: ['user_id' => 123]);
+    $context = new AgentContext(metadata: ['user_id' => 123]);
     $executor->execute($this->agent, 'Hello', $context);
 
     $this->fake->assertSentWithContext('user_id', 123);
@@ -217,7 +217,7 @@ test('assertSentWithContext fails when metadata key missing', function () {
     $this->fake->sequence([$response])->activate();
 
     $executor = $this->container->make(AgentExecutorContract::class);
-    $executor->execute($this->agent, 'Hello', new ExecutionContext);
+    $executor->execute($this->agent, 'Hello', new AgentContext);
 
     $this->fake->assertSentWithContext('user_id');
 })->throws(AssertionFailedError::class);
@@ -229,7 +229,7 @@ test('assertSentWithSchema passes when withSchema was called', function () {
     $this->fake->sequence([$response])->activate();
 
     $executor = $this->container->make(AgentExecutorContract::class);
-    $context = new ExecutionContext(prismCalls: [
+    $context = new AgentContext(prismCalls: [
         ['method' => 'withSchema', 'args' => ['SomeSchema']],
     ]);
     $executor->execute($this->agent, 'Hello', $context);
@@ -242,7 +242,7 @@ test('assertSentWithSchema fails when withSchema was not called', function () {
     $this->fake->sequence([$response])->activate();
 
     $executor = $this->container->make(AgentExecutorContract::class);
-    $executor->execute($this->agent, 'Hello', new ExecutionContext);
+    $executor->execute($this->agent, 'Hello', new AgentContext);
 
     $this->fake->assertSentWithSchema();
 })->throws(AssertionFailedError::class);
@@ -254,7 +254,7 @@ test('assertSentWithInput passes when input contains string', function () {
     $this->fake->sequence([$response])->activate();
 
     $executor = $this->container->make(AgentExecutorContract::class);
-    $executor->execute($this->agent, 'Hello world', new ExecutionContext);
+    $executor->execute($this->agent, 'Hello world', new AgentContext);
 
     $this->fake->assertSentWithInput('world');
 });
@@ -264,7 +264,7 @@ test('assertSentWithInput fails when input does not contain string', function ()
     $this->fake->sequence([$response])->activate();
 
     $executor = $this->container->make(AgentExecutorContract::class);
-    $executor->execute($this->agent, 'Hello', new ExecutionContext);
+    $executor->execute($this->agent, 'Hello', new AgentContext);
 
     $this->fake->assertSentWithInput('world');
 })->throws(AssertionFailedError::class);
@@ -274,7 +274,7 @@ test('assertSentWithInput is case sensitive', function () {
     $this->fake->sequence([$response])->activate();
 
     $executor = $this->container->make(AgentExecutorContract::class);
-    $executor->execute($this->agent, 'Hello World', new ExecutionContext);
+    $executor->execute($this->agent, 'Hello World', new AgentContext);
 
     $this->fake->assertSentWithInput('world');
 })->throws(AssertionFailedError::class);
@@ -286,8 +286,8 @@ test('multiple assertions can be combined', function () {
     $this->fake->sequence([$response, $response])->activate();
 
     $executor = $this->container->make(AgentExecutorContract::class);
-    $executor->execute($this->agent, 'First request', new ExecutionContext(metadata: ['trace_id' => 'abc']));
-    $executor->execute($this->agent, 'Second request', new ExecutionContext);
+    $executor->execute($this->agent, 'First request', new AgentContext(metadata: ['trace_id' => 'abc']));
+    $executor->execute($this->agent, 'Second request', new AgentContext);
 
     $this->fake->assertCalled('test-agent');
     $this->fake->assertCalledTimes('test-agent', 2);
