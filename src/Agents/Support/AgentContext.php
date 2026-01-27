@@ -325,4 +325,51 @@ final readonly class AgentContext
             $this->mcpTools,
         );
     }
+
+    /**
+     * Serialize context for queue transport.
+     *
+     * Note: Runtime-only properties (prismMedia, prismMessages, mcpTools) are
+     * not serialized as they contain Prism objects that cannot be serialized.
+     * These must be re-attached after deserialization if needed.
+     *
+     * @return array<string, mixed>
+     */
+    public function toArray(): array
+    {
+        return [
+            'messages' => $this->messages,
+            'variables' => $this->variables,
+            'metadata' => $this->metadata,
+            'provider_override' => $this->providerOverride,
+            'model_override' => $this->modelOverride,
+            'prism_calls' => $this->prismCalls,
+            'tools' => $this->tools,
+        ];
+    }
+
+    /**
+     * Restore context from serialized data.
+     *
+     * Note: Runtime-only properties (prismMedia, prismMessages, mcpTools) are
+     * set to empty arrays. Use withMedia() or other builder methods to re-attach
+     * these after deserialization if needed.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public static function fromArray(array $data): self
+    {
+        return new self(
+            messages: $data['messages'] ?? [],
+            variables: $data['variables'] ?? [],
+            metadata: $data['metadata'] ?? [],
+            providerOverride: $data['provider_override'] ?? null,
+            modelOverride: $data['model_override'] ?? null,
+            prismCalls: $data['prism_calls'] ?? [],
+            prismMedia: [],
+            prismMessages: [],
+            tools: $data['tools'] ?? [],
+            mcpTools: [],
+        );
+    }
 }

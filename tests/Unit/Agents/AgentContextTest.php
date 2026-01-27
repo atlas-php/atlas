@@ -399,3 +399,149 @@ test('context manipulation preserves other properties', function () {
     expect($newContext->providerOverride)->toBe('anthropic');
     expect($newContext->modelOverride)->toBe('claude-3');
 });
+
+// === Serialization Tests ===
+
+test('toArray serializes all serializable properties', function () {
+    $context = new AgentContext(
+        messages: [['role' => 'user', 'content' => 'Hello']],
+        variables: ['user_id' => 123],
+        metadata: ['task_id' => 'abc'],
+        providerOverride: 'anthropic',
+        modelOverride: 'claude-3-opus',
+        prismCalls: [['method' => 'withMaxSteps', 'args' => [10]]],
+        tools: ['App\\Tools\\MyTool'],
+    );
+
+    $array = $context->toArray();
+
+    expect($array)->toBe([
+        'messages' => [['role' => 'user', 'content' => 'Hello']],
+        'variables' => ['user_id' => 123],
+        'metadata' => ['task_id' => 'abc'],
+        'provider_override' => 'anthropic',
+        'model_override' => 'claude-3-opus',
+        'prism_calls' => [['method' => 'withMaxSteps', 'args' => [10]]],
+        'tools' => ['App\\Tools\\MyTool'],
+    ]);
+});
+
+test('fromArray restores context from array', function () {
+    $data = [
+        'messages' => [['role' => 'assistant', 'content' => 'Hi there']],
+        'variables' => ['name' => 'John'],
+        'metadata' => ['session' => 'xyz'],
+        'provider_override' => 'openai',
+        'model_override' => 'gpt-4o',
+        'prism_calls' => [['method' => 'usingTemperature', 'args' => [0.7]]],
+        'tools' => ['App\\Tools\\ToolA', 'App\\Tools\\ToolB'],
+    ];
+
+    $context = AgentContext::fromArray($data);
+
+    expect($context->messages)->toBe([['role' => 'assistant', 'content' => 'Hi there']]);
+    expect($context->variables)->toBe(['name' => 'John']);
+    expect($context->metadata)->toBe(['session' => 'xyz']);
+    expect($context->providerOverride)->toBe('openai');
+    expect($context->modelOverride)->toBe('gpt-4o');
+    expect($context->prismCalls)->toBe([['method' => 'usingTemperature', 'args' => [0.7]]]);
+    expect($context->tools)->toBe(['App\\Tools\\ToolA', 'App\\Tools\\ToolB']);
+});
+
+test('toArray and fromArray round-trip preserves data', function () {
+    $original = new AgentContext(
+        messages: [
+            ['role' => 'user', 'content' => 'First message'],
+            ['role' => 'assistant', 'content' => 'Response'],
+        ],
+        variables: ['company' => 'Acme', 'tier' => 'premium'],
+        metadata: ['request_id' => 'req-123', 'user_id' => 456],
+        providerOverride: 'anthropic',
+        modelOverride: 'claude-sonnet-4-20250514',
+        prismCalls: [
+            ['method' => 'withMaxSteps', 'args' => [5]],
+            ['method' => 'usingTemperature', 'args' => [0.5]],
+        ],
+        tools: ['App\\Tools\\SearchTool', 'App\\Tools\\CalculateTool'],
+    );
+
+    $restored = AgentContext::fromArray($original->toArray());
+
+    expect($restored->messages)->toBe($original->messages);
+    expect($restored->variables)->toBe($original->variables);
+    expect($restored->metadata)->toBe($original->metadata);
+    expect($restored->providerOverride)->toBe($original->providerOverride);
+    expect($restored->modelOverride)->toBe($original->modelOverride);
+    expect($restored->prismCalls)->toBe($original->prismCalls);
+    expect($restored->tools)->toBe($original->tools);
+});
+
+test('fromArray handles missing keys with defaults', function () {
+    $context = AgentContext::fromArray([]);
+
+    expect($context->messages)->toBe([]);
+    expect($context->variables)->toBe([]);
+    expect($context->metadata)->toBe([]);
+    expect($context->providerOverride)->toBeNull();
+    expect($context->modelOverride)->toBeNull();
+    expect($context->prismCalls)->toBe([]);
+    expect($context->tools)->toBe([]);
+});
+
+test('fromArray sets non-serializable properties to empty arrays', function () {
+    $data = [
+        'messages' => [['role' => 'user', 'content' => 'Test']],
+        'variables' => ['key' => 'value'],
+    ];
+
+    $context = AgentContext::fromArray($data);
+
+    expect($context->prismMedia)->toBe([]);
+    expect($context->prismMessages)->toBe([]);
+    expect($context->mcpTools)->toBe([]);
+});
+
+test('toArray excludes runtime-only properties', function () {
+    $mockImage = Mockery::mock(\Prism\Prism\ValueObjects\Media\Image::class);
+    $mockMessage = Mockery::mock(\Prism\Prism\ValueObjects\Messages\UserMessage::class);
+    $mockTool = Mockery::mock(\Prism\Prism\Tool::class);
+
+    $context = new AgentContext(
+        messages: [['role' => 'user', 'content' => 'Hello']],
+        variables: ['var' => 'value'],
+        prismMedia: [$mockImage],
+        prismMessages: [$mockMessage],
+        mcpTools: [$mockTool],
+    );
+
+    $array = $context->toArray();
+
+    expect($array)->not->toHaveKey('prism_media');
+    expect($array)->not->toHaveKey('prism_messages');
+    expect($array)->not->toHaveKey('mcp_tools');
+    expect(array_keys($array))->toBe([
+        'messages',
+        'variables',
+        'metadata',
+        'provider_override',
+        'model_override',
+        'prism_calls',
+        'tools',
+    ]);
+});
+
+test('fromArray partial data preserves specified values', function () {
+    $data = [
+        'messages' => [['role' => 'user', 'content' => 'Hello']],
+        'provider_override' => 'anthropic',
+        // Other keys intentionally missing
+    ];
+
+    $context = AgentContext::fromArray($data);
+
+    expect($context->messages)->toBe([['role' => 'user', 'content' => 'Hello']]);
+    expect($context->providerOverride)->toBe('anthropic');
+    expect($context->variables)->toBe([]);
+    expect($context->metadata)->toBe([]);
+    expect($context->modelOverride)->toBeNull();
+});

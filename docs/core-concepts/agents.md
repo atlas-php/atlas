@@ -965,6 +965,90 @@ $registry->decoratorCount();  // number of registered decorators
 $registry->clearDecorators(); // remove all decorators
 ```
 
+## Queue Processing
+
+AgentContext supports serialization for queue-based async processing. This enables dispatching agent jobs to Laravel queues while Atlas handles only the context serialization—consumers manage all persistence.
+
+### Dispatching to Queue
+
+```php
+// Build context and serialize for queue transport
+$context = new AgentContext(
+    variables: [
+        'user_name' => $user->name
+    ],
+    metadata: [
+        'task_id' => $task->id,
+        'user_id' => $user->id
+    ],
+);
+
+// You create a job that accepts AgentContext as a constructor argument
+ProcessAgentJob::dispatch(
+    agentKey: 'my-agent',
+    input: 'Generate a report',
+    context: $context->toArray(),
+);
+```
+
+### Processing in Job
+
+Create a processing job
+
+```php
+use Atlasphp\Atlas\Agents\Support\AgentContext;
+
+class ProcessAgentJob implements ShouldQueue
+{
+    public function __construct(
+        public string $agentKey,
+        public string $input,
+        public array $context,
+    ) {}
+
+    public function handle(): void
+    {
+        $context = AgentContext::fromArray($this->context);
+
+        $response = Atlas::agent($this->agentKey)
+            ->withContext($context)
+            ->chat($this->input);
+
+        // Handle response...
+    }
+}
+```
+
+### Serialization Notes
+
+The following properties are fully serialized:
+- `messages` — Conversation history in array format
+- `variables` — System prompt variable bindings
+- `metadata` — Pipeline metadata
+- `providerOverride` / `modelOverride` — Provider and model overrides
+- `prismCalls` — Captured Prism method calls
+- `tools` — Atlas tool class names
+
+Runtime-only properties (not serialized):
+- `prismMedia` — Media attachments (must be re-attached via `withMedia()`)
+- `prismMessages` — Prism message objects (rebuilt at runtime)
+- `mcpTools` — MCP tools (must be resolved at runtime)
+
+For media attachments, store the file path in metadata and re-attach in your job:
+
+```php
+public function handle(): void
+{
+    $context = AgentContext::fromArray($this->context);
+    $imagePath = $context->getMeta('image_path');
+
+    $response = Atlas::agent($this->agentKey)
+        ->withContext($context)
+        ->withMedia(Image::fromPath($imagePath))
+        ->chat($this->input);
+}
+```
+
 ## API Reference
 
 ```php
