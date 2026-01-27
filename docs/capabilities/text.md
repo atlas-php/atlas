@@ -28,7 +28,7 @@ $response = Atlas::text()
     ->withSystemPrompt('You are a technical writer.')
     ->withPrompt('Explain dependency injection in PHP.')
     ->withMaxTokens(1000)
-    ->withTemperature(0.7)
+    ->usingTemperature(0.7)
     ->asText();
 ```
 
@@ -90,9 +90,8 @@ Atlas::text()
     ->withPrompt(string $prompt)                          // User prompt
     ->withMessages(array $messages)                       // Message history
     ->withMaxTokens(int $tokens)                          // Max response tokens
-    ->withTemperature(float $temp)                        // Sampling temperature (0-2)
+    ->usingTemperature(float $temp)                       // Sampling temperature (0-2)
     ->usingTopP(float $topP)                              // Top-p sampling
-    ->usingTopK(int $topK)                                // Top-k sampling
     ->withClientRetry(int $times, int $sleepMs)           // Retry with backoff
     ->withClientOptions(array $options)                   // HTTP client options
     ->withProviderOptions(array $options)                 // Provider-specific options

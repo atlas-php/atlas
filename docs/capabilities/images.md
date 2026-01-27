@@ -16,7 +16,8 @@ $response = Atlas::image()
     ->withPrompt('A sunset over mountains')
     ->generate();
 
-$url = $response->images[0]->url;
+$image = $response->firstImage();
+$url = $image->url;
 ```
 
 ## With Options
@@ -25,8 +26,11 @@ $url = $response->images[0]->url;
 $response = Atlas::image()
     ->using('openai', 'dall-e-3')
     ->withPrompt('A photorealistic portrait of a robot')
-    ->withSize(1024, 1024)
-    ->withProviderMeta('openai', ['quality' => 'hd', 'style' => 'vivid'])
+    ->withProviderOptions([
+        'size' => '1024x1024',
+        'quality' => 'hd',
+        'style' => 'vivid',
+    ])
     ->generate();
 ```
 
@@ -38,12 +42,14 @@ $response = Atlas::image()
     ->withPrompt('A serene lake at dawn')
     ->generate();
 
+$image = $response->firstImage();
+
 // Save from URL
-$imageContent = file_get_contents($response->images[0]->url);
+$imageContent = file_get_contents($image->url);
 Storage::put('images/lake.png', $imageContent);
 
 // Or using Laravel's HTTP client
-Http::sink(storage_path('images/lake.png'))->get($response->images[0]->url);
+Http::sink(storage_path('images/lake.png'))->get($image->url);
 ```
 
 ## Example: Complete Image Generation
@@ -62,12 +68,13 @@ class ImageController extends Controller
         $response = Atlas::image()
             ->using('openai', 'dall-e-3')
             ->withPrompt($request->input('prompt'))
-            ->withSize(1024, 1024)
+            ->withProviderOptions(['size' => '1024x1024'])
             ->generate();
 
         // Save to storage
+        $image = $response->firstImage();
         $filename = 'generated/' . Str::uuid() . '.png';
-        $content = file_get_contents($response->images[0]->url);
+        $content = file_get_contents($image->url);
         Storage::put($filename, $content);
 
         return response()->json([
@@ -117,33 +124,34 @@ $registry->register('image.after_generate', LogImageGeneration::class);
 Atlas::image()
     ->using(string $provider, string $model)              // Set provider and model
     ->withPrompt(string $prompt)                          // Image description
-    ->withSize(int $width, int $height)                   // Image dimensions
-    ->withProviderMeta(string $provider, array $options)  // Provider-specific options
+    ->withProviderOptions(array $options)                 // Provider-specific options
     ->withMetadata(array $metadata)                       // Pipeline metadata
     ->generate(): ImageResponse;
 
 // Response properties (ImageResponse)
-$response->images;              // array of Image objects
-$response->images[0]->url;      // URL to generated image
-$response->images[0]->base64;   // Base64 encoded image (if requested)
-$response->images[0]->revisedPrompt;  // Revised prompt (if modified by provider)
+$response->images;                    // array of GeneratedImage objects
+$response->firstImage();              // First image (or null)
+$response->firstImage()->url;         // URL to generated image
+$response->firstImage()->base64;      // Base64 encoded image (if requested)
+$response->firstImage()->revisedPrompt;  // Revised prompt (if modified by provider)
 
-// Common provider options (via withProviderMeta)
+// Common provider options (via withProviderOptions)
 // OpenAI DALL-E 3:
-->withProviderMeta('openai', [
+->withProviderOptions([
+    'size' => '1024x1024',       // '1024x1024', '1792x1024', '1024x1792'
     'quality' => 'standard',     // 'standard' or 'hd'
     'style' => 'vivid',          // 'vivid' or 'natural'
     'response_format' => 'url',  // 'url' or 'b64_json'
 ])
 
-// Common sizes
-->withSize(1024, 1024)   // Square (DALL-E 3)
-->withSize(1792, 1024)   // Landscape (DALL-E 3)
-->withSize(1024, 1792)   // Portrait (DALL-E 3)
+// Common sizes (passed via providerOptions)
+'size' => '1024x1024'   // Square (DALL-E 3)
+'size' => '1792x1024'   // Landscape (DALL-E 3)
+'size' => '1024x1792'   // Portrait (DALL-E 3)
 ```
 
 ## Next Steps
 
 - [Prism Image Generation](https://prismphp.com/core-concepts/image-generation.html) — Complete image reference
-- [Speech](/capabilities/speech) — Text-to-speech and transcription
+- [Audio](/capabilities/audio) — Text-to-speech and transcription
 - [Pipelines](/core-concepts/pipelines) — Add observability to image generation

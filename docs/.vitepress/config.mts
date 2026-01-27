@@ -44,7 +44,7 @@ export default defineConfig({
           { text: 'Chat', link: '/capabilities/chat' },
           { text: 'Text', link: '/capabilities/text' },
           { text: 'Images', link: '/capabilities/images' },
-          { text: 'Audio', link: '/capabilities/speech' },
+          { text: 'Audio', link: '/capabilities/audio' },
           { text: 'Embeddings', link: '/capabilities/embeddings' },
           { text: 'Structured', link: '/capabilities/structured-output' },
           { text: 'Streaming', link: '/capabilities/streaming' },

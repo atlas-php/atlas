@@ -13,7 +13,7 @@ use Atlasphp\Atlas\Atlas;
 
 $response = Atlas::moderation()
     ->using('openai', 'omni-moderation-latest')
-    ->fromInput('Text to check for violations')
+    ->withInput('Text to check for violations')
     ->asModeration();
 
 if ($response->isFlagged()) {
@@ -32,7 +32,7 @@ Moderate multiple inputs in a single request:
 ```php
 $response = Atlas::moderation()
     ->using('openai', 'omni-moderation-latest')
-    ->fromInput([
+    ->withInput([
         'First piece of content',
         'Second piece of content',
         'Third piece of content',
@@ -59,7 +59,7 @@ class CommentController extends Controller
 
         $moderation = Atlas::moderation()
             ->using('openai', 'omni-moderation-latest')
-            ->fromInput($validated['body'])
+            ->withInput($validated['body'])
             ->asModeration();
 
         if ($moderation->isFlagged()) {
@@ -119,8 +119,8 @@ $registry->register('moderation.after_moderation', LogFlaggedContent::class);
 // Moderation fluent API
 Atlas::moderation()
     ->using(string $provider, string $model)              // Set provider and model
-    ->fromInput(string|array $input)                      // Content to moderate
-    ->withProviderMeta(string $provider, array $options)  // Provider-specific options
+    ->withInput(string|Image|array ...$inputs)            // Content to moderate
+    ->withProviderOptions(array $options)                 // Provider-specific options
     ->withMetadata(array $metadata)                       // Pipeline metadata
     ->asModeration(): ModerationResponse;
 
@@ -140,8 +140,8 @@ $result->categoryScores;             // array - Category scores (e.g., 'violence
 ->using('openai', 'text-moderation-stable')   // Stable text model
 
 // Single vs batch input
-->fromInput('Single text to moderate')
-->fromInput(['Text one', 'Text two', 'Text three'])  // Batch (more efficient)
+->withInput('Single text to moderate')
+->withInput(['Text one', 'Text two', 'Text three'])  // Batch (more efficient)
 
 // Common categories (OpenAI)
 // harassment, harassment/threatening, hate, hate/threatening,

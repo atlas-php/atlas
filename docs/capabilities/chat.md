@@ -13,7 +13,7 @@ use Atlasphp\Atlas\Atlas;
 
 $response = Atlas::agent('support-agent')->chat('Hello, I need help with my order');
 
-echo $response->text;
+echo $response->text();
 // "Hi! I'd be happy to help with your order. Could you provide your order number?"
 ```
 
@@ -264,7 +264,7 @@ Chat operations return an `AgentResponse` that wraps Prism's response with agent
 
 ```php
 // Text response (backward compatible property access)
-echo $response->text;
+echo $response->text();
 
 // Token usage
 echo $response->usage->promptTokens;
@@ -326,7 +326,7 @@ Atlas::agent(string|AgentContract $agent)
     ->stream(string $input, array $attachments = []): AgentStreamResponse;
 
 // AgentResponse properties (backward compatible via __get magic)
-$response->text;                    // Generated text
+$response->text();                  // Generated text
 $response->usage->promptTokens;     // Input tokens
 $response->usage->completionTokens; // Output tokens
 $response->steps;                   // Multi-step agentic loop history

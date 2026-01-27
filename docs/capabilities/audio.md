@@ -16,11 +16,11 @@ use Atlasphp\Atlas\Atlas;
 $response = Atlas::audio()
     ->using('openai', 'tts-1')
     ->withVoice('nova')
-    ->fromText('Hello, welcome to our service!')
+    ->withInput('Hello, welcome to our service!')
     ->asAudio();
 
 // Save audio file
-Storage::put('welcome.mp3', $response->audio);
+Storage::put('welcome.mp3', $response->audio->rawContent());
 ```
 
 ## Speech to Text
@@ -28,9 +28,12 @@ Storage::put('welcome.mp3', $response->audio);
 Transcribe audio to text:
 
 ```php
+use Atlasphp\Atlas\Atlas;
+use Prism\Prism\ValueObjects\Media\Audio;
+
 $response = Atlas::audio()
     ->using('openai', 'whisper-1')
-    ->fromFile('/path/to/audio.mp3')
+    ->withInput(Audio::fromLocalPath('/path/to/audio.mp3'))
     ->asText();
 
 echo $response->text;  // Transcribed text
@@ -44,7 +47,7 @@ echo $response->text;  // Transcribed text
 $response = Atlas::audio()
     ->using('openai', 'tts-1')
     ->withVoice('onyx')  // Deep, authoritative voice
-    ->fromText('Important announcement.')
+    ->withInput('Important announcement.')
     ->asAudio();
 ```
 
@@ -56,7 +59,7 @@ $response = Atlas::audio()
 $response = Atlas::audio()
     ->using('openai', 'tts-1-hd')
     ->withVoice('alloy')
-    ->fromText('High-definition audio quality.')
+    ->withInput('High-definition audio quality.')
     ->asAudio();
 ```
 
@@ -65,9 +68,11 @@ $response = Atlas::audio()
 ### Basic Transcription
 
 ```php
+use Prism\Prism\ValueObjects\Media\Audio;
+
 $response = Atlas::audio()
     ->using('openai', 'whisper-1')
-    ->fromFile($request->file('audio')->path())
+    ->withInput(Audio::fromLocalPath($request->file('audio')->path()))
     ->asText();
 
 return response()->json([
@@ -78,10 +83,12 @@ return response()->json([
 ### With Language Hint
 
 ```php
+use Prism\Prism\ValueObjects\Media\Audio;
+
 $response = Atlas::audio()
     ->using('openai', 'whisper-1')
-    ->fromFile('/path/to/audio.mp3')
-    ->withProviderMeta('openai', ['language' => 'en'])
+    ->withInput(Audio::fromLocalPath('/path/to/audio.mp3'))
+    ->withProviderOptions(['language' => 'en'])
     ->asText();
 ```
 
@@ -97,11 +104,11 @@ class NotificationService
         $response = Atlas::audio()
             ->using('openai', 'tts-1')
             ->withVoice('nova')
-            ->fromText($message)
+            ->withInput($message)
             ->asAudio();
 
         $filename = 'notifications/' . Str::uuid() . '.mp3';
-        Storage::put($filename, $response->audio);
+        Storage::put($filename, $response->audio->rawContent());
 
         $this->voiceService->call($user->phone, Storage::url($filename));
     }
@@ -111,6 +118,8 @@ class NotificationService
 ### Example: Meeting Transcription
 
 ```php
+use Prism\Prism\ValueObjects\Media\Audio;
+
 class MeetingService
 {
     public function processRecording(string $audioPath): array
@@ -118,7 +127,7 @@ class MeetingService
         // Transcribe
         $transcription = Atlas::audio()
             ->using('openai', 'whisper-1')
-            ->fromFile($audioPath)
+            ->withInput(Audio::fromLocalPath($audioPath))
             ->asText();
 
         // Summarize with AI
@@ -190,24 +199,26 @@ $registry->register('audio.after_audio', LogAudioGeneration::class);
 Atlas::audio()
     ->using(string $provider, string $model)              // Set provider and model
     ->withVoice(string $voice)                            // Voice selection
-    ->fromText(string $text)                              // Text to convert
-    ->withProviderMeta(string $provider, array $options)  // Provider-specific options
+    ->withInput(string $text)                             // Text to convert
+    ->withProviderOptions(array $options)                 // Provider-specific options
     ->withMetadata(array $metadata)                       // Pipeline metadata
     ->asAudio(): AudioResponse;
 
 // Speech-to-Text fluent API
+use Prism\Prism\ValueObjects\Media\Audio;
+
 Atlas::audio()
     ->using(string $provider, string $model)              // Set provider and model
-    ->fromFile(string $path)                              // Audio file path
-    ->withProviderMeta(string $provider, array $options)  // Provider-specific options
+    ->withInput(Audio::fromLocalPath(string $path))            // Audio file to transcribe
+    ->withProviderOptions(array $options)                 // Provider-specific options
     ->withMetadata(array $metadata)                       // Pipeline metadata
-    ->asText(): TranscriptionResponse;
+    ->asText(): TextResponse;
 
 // Text-to-Speech response (AudioResponse)
-$response->audio;    // Raw audio bytes (save directly to file)
+$response->audio->rawContent();  // Raw audio bytes (save directly to file)
 
-// Speech-to-Text response (TranscriptionResponse)
-$response->text;     // Transcribed text
+// Speech-to-Text response (TextResponse)
+$response->text;                 // Transcribed text
 
 // OpenAI TTS models
 ->using('openai', 'tts-1')      // Standard quality
@@ -224,15 +235,15 @@ $response->text;     // Transcribed text
 ->withVoice('nova')     // Friendly, natural
 ->withVoice('shimmer')  // Clear, energetic
 
-// Common provider options (via withProviderMeta)
+// Common provider options (via withProviderOptions)
 // OpenAI TTS:
-->withProviderMeta('openai', [
+->withProviderOptions([
     'speed' => 1.0,              // 0.25 to 4.0
     'response_format' => 'mp3',  // 'mp3', 'opus', 'aac', 'flac'
 ])
 
 // OpenAI STT:
-->withProviderMeta('openai', [
+->withProviderOptions([
     'language' => 'en',          // ISO-639-1 language code
     'temperature' => 0,          // 0 to 1
 ])

@@ -26,7 +26,7 @@ Process multiple texts in a single request:
 ```php
 $response = Atlas::embeddings()
     ->using('openai', 'text-embedding-3-small')
-    ->fromInput([
+    ->fromArray([
         'How do I return an item?',
         'What is your shipping policy?',
         'Do you offer refunds?',
@@ -98,7 +98,7 @@ class RagService
             ->withVariables(['context' => $context])
             ->chat($question);
 
-        return $response->text;
+        return $response->text();
     }
 }
 ```
@@ -137,7 +137,7 @@ CREATE TABLE documents (
 // Good - single request for multiple texts
 $response = Atlas::embeddings()
     ->using('openai', 'text-embedding-3-small')
-    ->fromInput($texts)
+    ->fromArray($texts)
     ->asEmbeddings();
 
 // Less efficient - multiple requests
@@ -203,8 +203,12 @@ $registry->register('embeddings.after_embeddings', LogEmbeddings::class);
 // Embeddings fluent API
 Atlas::embeddings()
     ->using(string $provider, string $model)              // Set provider and model
-    ->fromInput(string|array $input)                      // Text(s) to embed
-    ->withProviderMeta(string $provider, array $options)  // Provider-specific options
+    ->fromInput(string $input)                            // Single text to embed
+    ->fromArray(array $inputs)                            // Batch texts to embed
+    ->fromFile(string $path)                              // Embed file contents
+    ->fromImage(Image $image)                             // Image embedding (if supported)
+    ->fromImages(array $images)                           // Batch image embeddings
+    ->withProviderOptions(array $options)                 // Provider-specific options
     ->withMetadata(array $metadata)                       // Pipeline metadata
     ->asEmbeddings(): EmbeddingsResponse;
 
@@ -220,10 +224,10 @@ $response->usage->tokens;        // Tokens used
 
 // Single vs batch input
 ->fromInput('Single text to embed')
-->fromInput(['Text one', 'Text two', 'Text three'])  // Batch (more efficient)
+->fromArray(['Text one', 'Text two', 'Text three'])  // Batch (more efficient)
 
-// Provider options (via withProviderMeta)
-->withProviderMeta('openai', [
+// Provider options (via withProviderOptions)
+->withProviderOptions([
     'dimensions' => 512,         // Reduce dimensions (text-embedding-3-* only)
     'encoding_format' => 'float' // 'float' or 'base64'
 ])
