@@ -11,7 +11,7 @@
     <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License">
 </p>
 <p align="center">
-    📚 <a href="https://atlasphp.org"><strong>Official Documentation</strong></a> | 🚀 <a href="#examples"><strong>See Examples (31)</strong></a>
+    📚 <a href="https://atlasphp.org"><strong>Official Documentation</strong></a> | 🚀 <a href="#-examples"><strong>See Examples (31)</strong></a>
 </p>
 
 # 🪐 Atlas
