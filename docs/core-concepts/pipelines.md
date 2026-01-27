@@ -266,7 +266,7 @@ Each pipeline receives specific data:
 
 ### agent.context.validate
 
-Runs after `agent.before_execute` but before building the system prompt or request. Useful for validating or modifying the execution context.
+Runs after `agent.before_execute` but before building the system prompt or request. Use this pipeline specifically for validation and context requirements.
 
 ```php
 [
@@ -274,6 +274,69 @@ Runs after `agent.before_execute` but before building the system prompt or reque
     'input' => string,
     'context' => AgentContext,
 ]
+```
+
+**When to use `agent.context.validate` vs `agent.before_execute`:**
+
+| Pipeline | Purpose | Examples |
+|----------|---------|----------|
+| `agent.before_execute` | General setup, observability, authentication | Logging, auth checks, rate limiting, metrics |
+| `agent.context.validate` | Validation, ensure required data exists | Require user_id, validate variables, inject defaults |
+
+Use `agent.context.validate` when you need to:
+- Validate that required metadata exists (e.g., user_id, session_id)
+- Ensure system prompt variables are present before interpolation
+- Inject default values that later handlers depend on
+- Throw early if the context is misconfigured
+
+**Example: Require User ID**
+
+```php
+class RequireUserIdHandler implements PipelineContract
+{
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        $userId = $data['context']->getMeta('user_id');
+
+        if ($userId === null) {
+            throw new InvalidArgumentException(
+                'AgentContext must include user_id in metadata.'
+            );
+        }
+
+        return $next($data);
+    }
+}
+
+$registry->register('agent.context.validate', RequireUserIdHandler::class, priority: 100);
+```
+
+**Example: Inject Default Variables**
+
+```php
+class InjectDefaultsHandler implements PipelineContract
+{
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        $context = $data['context'];
+
+        // Ensure timezone variable exists for system prompt
+        if (! $context->hasVariable('timezone')) {
+            $data['context'] = $context->mergeVariables([
+                'timezone' => 'UTC',
+            ]);
+        }
+
+        // Add validation timestamp to metadata
+        $data['context'] = $data['context']->mergeMetadata([
+            'validated_at' => now()->toIso8601String(),
+        ]);
+
+        return $next($data);
+    }
+}
+
+$registry->register('agent.context.validate', InjectDefaultsHandler::class, priority: 50);
 ```
 
 You can modify the context by replacing it in the data array:
@@ -453,6 +516,12 @@ Fires after tools are built into Prism tool objects. Allows auditing or modifyin
 ]
 ```
 
+::: warning Tool Pipeline Scope
+The `tool.before_resolve` and `tool.after_resolve` pipelines only run for tools defined in the agent's `tools()` method. Runtime tools added via `withTools()` or `withMcpTools()` are **not** processed by these pipelines.
+
+To intercept **all** tools (including runtime tools), use the `agent.tools.merged` pipeline instead, which fires after all tools from all sources are combined.
+:::
+
 ### tool.before_execute / tool.after_execute
 
 ```php
@@ -511,6 +580,10 @@ class ErrorRecoveryHandler implements PipelineContract
 ```
 
 When a `recovery` key is set with a valid `PrismResponse` or `StructuredResponse`, the exception will not be thrown and the recovery response will be returned instead.
+
+::: tip Recovery Response Types
+Only `PrismResponse` (from `Prism\Prism\Text\Response`) and `StructuredResponse` (from `Prism\Prism\Structured\Response`) are accepted as recovery values. Other types will be silently ignored and the exception will be rethrown.
+:::
 
 ### tool.on_error
 

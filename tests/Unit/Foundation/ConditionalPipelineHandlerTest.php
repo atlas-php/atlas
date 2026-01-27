@@ -91,18 +91,16 @@ test('it resolves class string handler from container', function () {
     expect($result['count'])->toBe(1);
 });
 
-test('it resolves class string handler without container', function () {
-    // ConditionalTestHandler has no dependencies, should work without container
+test('it throws RuntimeException when resolving class string without container', function () {
+    // Container is required to resolve class string handlers
     $condition = fn ($data) => true;
     $conditional = new ConditionalPipelineHandler(
         ConditionalTestHandler::class,
         $condition,
     );
 
-    $result = $conditional->handle(['count' => 0], fn ($data) => $data);
-
-    expect($result['count'])->toBe(1);
-});
+    $conditional->handle(['count' => 0], fn ($data) => $data);
+})->throws(RuntimeException::class, 'Container is required to resolve conditional pipeline handler class');
 
 test('condition receives pipeline data', function () {
     $receivedData = null;
@@ -127,10 +125,14 @@ test('condition receives pipeline data', function () {
 });
 
 test('it throws when class string handler does not implement contract', function () {
+    $container = new Container;
+    $container->bind(NotAPipelineHandler::class, fn () => new NotAPipelineHandler);
+
     $condition = fn ($data) => true;
     $conditional = new ConditionalPipelineHandler(
         NotAPipelineHandler::class,
         $condition,
+        $container
     );
 
     $conditional->handle(['test' => 'data'], fn ($data) => $data);

@@ -39,7 +39,7 @@ class PipelineRunner
 
         $pipeline = array_reduce(
             array_reverse($handlers),
-            fn (Closure $next, string|PipelineContract $handler) => $this->createPipelineStep($handler, $next),
+            fn (Closure $next, string|PipelineContract $handler) => $this->createPipelineStep($name, $handler, $next),
             $destination ?? fn (mixed $passable) => $passable,
         );
 
@@ -66,11 +66,12 @@ class PipelineRunner
     /**
      * Create a pipeline step closure for a handler.
      *
+     * @param  string  $pipelineName  The pipeline name (for error messages).
      * @param  class-string<PipelineContract>|PipelineContract  $handler
      */
-    protected function createPipelineStep(string|PipelineContract $handler, Closure $next): Closure
+    protected function createPipelineStep(string $pipelineName, string|PipelineContract $handler, Closure $next): Closure
     {
-        return function (mixed $passable) use ($handler, $next): mixed {
+        return function (mixed $passable) use ($pipelineName, $handler, $next): mixed {
             $instance = is_string($handler)
                 ? $this->container->make($handler)
                 : $handler;
@@ -78,7 +79,8 @@ class PipelineRunner
             if (! $instance instanceof PipelineContract) {
                 throw new \InvalidArgumentException(
                     sprintf(
-                        'Pipeline handler must implement %s, got %s.',
+                        'Pipeline handler for "%s" must implement %s, got %s.',
+                        $pipelineName,
                         PipelineContract::class,
                         is_object($instance) ? get_class($instance) : gettype($instance)
                     )

@@ -53,14 +53,23 @@ class ConditionalPipelineHandler implements PipelineContract
      * Resolve a handler class to an instance.
      *
      * @param  class-string<PipelineContract>  $handlerClass
+     *
+     * @throws \RuntimeException If container is not set.
+     * @throws \InvalidArgumentException If handler doesn't implement PipelineContract.
      */
     protected function resolveHandler(string $handlerClass): PipelineContract
     {
-        if ($this->container !== null) {
-            $instance = $this->container->make($handlerClass);
-        } else {
-            $instance = new $handlerClass;
+        if ($this->container === null) {
+            throw new \RuntimeException(
+                sprintf(
+                    'Container is required to resolve conditional pipeline handler class %s. '
+                    .'Ensure PipelineRegistry::setContainer() is called during application bootstrap.',
+                    $handlerClass
+                )
+            );
         }
+
+        $instance = $this->container->make($handlerClass);
 
         if (! $instance instanceof PipelineContract) {
             throw new \InvalidArgumentException(
