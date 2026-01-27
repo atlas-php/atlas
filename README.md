@@ -11,7 +11,7 @@
     <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License">
 </p>
 <p align="center">
-    📚 <a href="https://atlasphp.org"><strong>Official Documentation</strong></a> | 🚀 <a href="#examples"><strong>See Examples (28)</strong></a>
+    📚 <a href="https://atlasphp.org"><strong>Official Documentation</strong></a> | 🚀 <a href="#examples"><strong>See Examples (31)</strong></a>
 </p>
 
 # 🪐 Atlas
@@ -172,13 +172,44 @@ Atlas doesn't replace Prism. It organizes how you use Prism in real applications
 
 ## Examples
 
-**Agents** — [Customer Support](https://atlasphp.org/core-concepts/agents.html#example-basic-agent) · [Sales Support](https://atlasphp.org/core-concepts/agents.html#example-sales-support-agent) · [Customer Service](https://atlasphp.org/core-concepts/agents.html#example-customer-service-agent) · [Code Review](https://atlasphp.org/core-concepts/agents.html#example-code-review-agent) · [Content Writer](https://atlasphp.org/core-concepts/agents.html#example-content-writer-agent) · [Data Analyst](https://atlasphp.org/core-concepts/agents.html#example-data-analyst-agent) · [HR Assistant](https://atlasphp.org/core-concepts/agents.html#example-hr-assistant-agent) · [IT Helpdesk (MCP)](https://atlasphp.org/core-concepts/agents.html#example-it-helpdesk-agent-with-mcp-tools) · [Orchestrator](https://atlasphp.org/core-concepts/tools.html#example-agent-delegation-tools)
+**Agents** — Reusable AI configurations for different roles and tasks.
+- [Customer Support](https://atlasphp.org/core-concepts/agents.html#example-basic-agent)
+- [Sales Support](https://atlasphp.org/core-concepts/agents.html#example-sales-support-agent)
+- [Customer Service](https://atlasphp.org/core-concepts/agents.html#example-customer-service-agent)
+- [Code Review](https://atlasphp.org/core-concepts/agents.html#example-code-review-agent)
+- [Content Writer](https://atlasphp.org/core-concepts/agents.html#example-content-writer-agent)
+- [Data Analyst](https://atlasphp.org/core-concepts/agents.html#example-data-analyst-agent)
+- [HR Assistant](https://atlasphp.org/core-concepts/agents.html#example-hr-assistant-agent)
+- [IT Helpdesk (MCP)](https://atlasphp.org/core-concepts/agents.html#example-it-helpdesk-agent-with-mcp-tools)
+- [Orchestrator](https://atlasphp.org/core-concepts/tools.html#example-agent-delegation-tools)
 
-**Tools** — [Order Lookup](https://atlasphp.org/core-concepts/tools.html#example-order-lookup-tool) · [Knowledge Base Search](https://atlasphp.org/core-concepts/tools.html#example-search-knowledge-base-tool) · [Create Ticket](https://atlasphp.org/core-concepts/tools.html#example-create-support-ticket-tool) · [Send Notification](https://atlasphp.org/core-concepts/tools.html#example-send-notification-tool) · [Database Query](https://atlasphp.org/core-concepts/tools.html#example-tool-with-dependencies) · [Agent Delegation](https://atlasphp.org/core-concepts/tools.html#example-agent-delegation-tools)
+**Tools** — Connect agents to your application logic and external services.
+- [Order Lookup](https://atlasphp.org/core-concepts/tools.html#example-order-lookup-tool)
+- [Knowledge Base Search](https://atlasphp.org/core-concepts/tools.html#example-search-knowledge-base-tool)
+- [Create Ticket](https://atlasphp.org/core-concepts/tools.html#example-create-support-ticket-tool)
+- [Send Notification](https://atlasphp.org/core-concepts/tools.html#example-send-notification-tool)
+- [Database Query](https://atlasphp.org/core-concepts/tools.html#example-tool-with-dependencies)
+- [Agent Delegation](https://atlasphp.org/core-concepts/tools.html#example-agent-delegation-tools)
 
-**Pipelines** — [Audit Logging](https://atlasphp.org/core-concepts/pipelines.html#example-audit-logging) · [Authentication](https://atlasphp.org/core-concepts/pipelines.html#example-authentication-check) · [Rate Limiting](https://atlasphp.org/core-concepts/pipelines.html#example-tool-rate-limiting) · [Token Usage](https://atlasphp.org/core-concepts/pipelines.html#example-token-usage-logging) · [Cache Embeddings](https://atlasphp.org/core-concepts/pipelines.html#example-caching-embeddings) · [Error Recovery](https://atlasphp.org/core-concepts/pipelines.html#agent-on-error)
+**Pipelines** — Middleware for logging, auth, caching, and error handling.
+- [Audit Logging](https://atlasphp.org/core-concepts/pipelines.html#example-audit-logging)
+- [Authentication](https://atlasphp.org/core-concepts/pipelines.html#example-authentication-check)
+- [Rate Limiting](https://atlasphp.org/core-concepts/pipelines.html#example-tool-rate-limiting)
+- [Token Usage](https://atlasphp.org/core-concepts/pipelines.html#example-token-usage-logging)
+- [Cache Embeddings](https://atlasphp.org/core-concepts/pipelines.html#example-caching-embeddings)
+- [Error Recovery](https://atlasphp.org/core-concepts/pipelines.html#agent-on-error)
 
-**Capabilities** — [Semantic Search](https://atlasphp.org/capabilities/embeddings.html#example-semantic-search) · [RAG](https://atlasphp.org/capabilities/embeddings.html#example-rag-implementation) · [Vision](https://atlasphp.org/capabilities/chat.html#attachments) · [Text-to-Speech](https://atlasphp.org/capabilities/audio.html#text-to-speech-examples) · [Speech-to-Text](https://atlasphp.org/capabilities/audio.html#speech-to-text-examples) · [Content Moderation](https://atlasphp.org/capabilities/moderation.html#example-comment-moderation) · [Image Generation](https://atlasphp.org/capabilities/images.html#example-complete-image-generation)
+**Capabilities** — Streaming, structured output, vision, audio, and more.
+- [Streaming](https://atlasphp.org/capabilities/streaming.html#example-complete-streaming-service)
+- [Structured Output](https://atlasphp.org/capabilities/structured-output.html#examples)
+- [Multi-Turn Chat](https://atlasphp.org/capabilities/chat.html#multi-turn-conversations)
+- [Semantic Search](https://atlasphp.org/capabilities/embeddings.html#example-semantic-search)
+- [RAG](https://atlasphp.org/capabilities/embeddings.html#example-rag-implementation)
+- [Vision](https://atlasphp.org/capabilities/chat.html#attachments)
+- [Text-to-Speech](https://atlasphp.org/capabilities/audio.html#text-to-speech-examples)
+- [Speech-to-Text](https://atlasphp.org/capabilities/audio.html#speech-to-text-examples)
+- [Content Moderation](https://atlasphp.org/capabilities/moderation.html#example-comment-moderation)
+- [Image Generation](https://atlasphp.org/capabilities/images.html#example-complete-image-generation)
 
 ## Testing and Code Quality
 
