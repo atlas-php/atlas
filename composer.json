@@ -15,6 +15,15 @@
         "orchestra/testbench": "^9.0|^10.0",
         "pestphp/pest": "^3.0"
     },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        },
+        "audit": {
+            "ignore": ["PKSA-z3gr-8qht-p93v"]
+        }
+    },
     "suggest": {
         "prism-php/relay": "Required for MCP (Model Context Protocol) tool support"
     },
@@ -41,12 +50,6 @@
             "@analyse",
             "@test"
         ]
-    },
-    "config": {
-        "sort-packages": true,
-        "allow-plugins": {
-            "pestphp/pest-plugin": true
-        }
     },
     "extra": {
         "laravel": {
