@@ -22,18 +22,21 @@ Built on [Prism PHP](https://prismphp.com), Atlas adds the application layer you
 
 ## ✨ Features
 
-- **Reusable Agents** – Define your AI agent behavior and configurations
-- **Typed Tools** – Connect agents to your services with validated parameters and structured results
+- **Agents** – Define your AI agent behavior and configurations
+- **Tools** – Connect agents to your services with validated parameters and structured results
 - **MCP Tools** – Integrate external tools from MCP servers via [Prism Relay](https://github.com/prism-php/relay)
 - **Dynamic Prompts** – Inject context `{variables}` into system prompts at runtime for personalized interactions
 - **Pipelines** – Add logging, auth, rate limiting, or metrics without coupling the codebase
 - **Full Prism Access** – Use embeddings, images, speech, moderation, and structured output without limits
+- **All Providers**: Anthropic, OpenAI, Gemini, Mistral, Ollama, Groq, DeepSeek, xAI, OpenRouter, ElevenLabs (audio), VoyageAI (embeddings), Local LLMs, and Custom LLMs
 
 ## Quick Start
 
 ```bash
 composer require atlas-php/atlas
+```
 
+```bash
 # Publish Atlas configuration
 php artisan vendor:publish --tag=atlas-config
 
@@ -145,6 +148,7 @@ $response = Atlas::agent(SupportAgent::class)
 
 echo $response->text();
 // $response->usage();
+// Hello Sarah, your order is out for delivery. Anything else I can help with?
 ```
 
 ## Why Atlas?
