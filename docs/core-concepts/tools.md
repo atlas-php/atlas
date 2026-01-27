@@ -503,6 +503,236 @@ class SendNotificationTool extends ToolDefinition
 }
 ```
 
+## Example: Agent Delegation Tools
+
+Build a delegation system where an orchestrator agent can list available agents and delegate tasks to specialized agents. This pattern is useful for building multi-agent systems where a coordinator routes requests to the most appropriate specialist.
+
+### ListAgentsTool
+
+Lists all registered agents so the AI can decide which agent to delegate to:
+
+```php
+use Atlasphp\Atlas\Agents\Contracts\AgentRegistryContract;
+use Atlasphp\Atlas\Tools\ToolDefinition;
+use Atlasphp\Atlas\Tools\Support\ToolContext;
+use Atlasphp\Atlas\Tools\Support\ToolResult;
+
+class ListAgentsTool extends ToolDefinition
+{
+    public function __construct(
+        private AgentRegistryContract $agentRegistry,
+    ) {}
+
+    public function name(): string
+    {
+        return 'list_agents';
+    }
+
+    public function description(): string
+    {
+        return 'List all available agents that can be delegated to. Returns agent keys, names, and descriptions.';
+    }
+
+    public function parameters(): array
+    {
+        return [];
+    }
+
+    public function handle(array $params, ToolContext $context): ToolResult
+    {
+        $currentAgentKey = $context->getAgent()?->key();
+
+        $agents = collect($this->agentRegistry->all())
+            ->filter(fn ($agent) => $agent->key() !== $currentAgentKey) // Exclude self
+            ->map(fn ($agent) => [
+                'key' => $agent->key(),
+                'name' => $agent->name(),
+                'description' => $agent->description(),
+            ])
+            ->values()
+            ->toArray();
+
+        if (empty($agents)) {
+            return ToolResult::text('No other agents available for delegation.');
+        }
+
+        return ToolResult::json([
+            'agents' => $agents,
+            'count' => count($agents),
+        ]);
+    }
+}
+```
+
+### DelegateToAgentTool
+
+Delegates a task to another agent and returns its response:
+
+```php
+use Atlasphp\Atlas\Atlas;
+use Atlasphp\Atlas\Agents\Contracts\AgentRegistryContract;
+use Atlasphp\Atlas\Tools\ToolDefinition;
+use Atlasphp\Atlas\Tools\Support\ToolContext;
+use Atlasphp\Atlas\Tools\Support\ToolParameter;
+use Atlasphp\Atlas\Tools\Support\ToolResult;
+
+class DelegateToAgentTool extends ToolDefinition
+{
+    public function __construct(
+        private AgentRegistryContract $agentRegistry,
+    ) {}
+
+    public function name(): string
+    {
+        return 'delegate_to_agent';
+    }
+
+    public function description(): string
+    {
+        return 'Delegate a task to a specialized agent. Use list_agents first to see available agents.';
+    }
+
+    public function parameters(): array
+    {
+        return [
+            ToolParameter::string('agent_key', 'The key of the agent to delegate to', required: true),
+            ToolParameter::string('task', 'The task or question to send to the agent', required: true),
+        ];
+    }
+
+    public function handle(array $params, ToolContext $context): ToolResult
+    {
+        $agentKey = $params['agent_key'];
+        $task = $params['task'];
+
+        // Verify agent exists
+        if (! $this->agentRegistry->has($agentKey)) {
+            return ToolResult::error("Agent '{$agentKey}' not found. Use list_agents to see available agents.");
+        }
+
+        // Prevent self-delegation
+        $currentAgentKey = $context->getAgent()?->key();
+        if ($agentKey === $currentAgentKey) {
+            return ToolResult::error('Cannot delegate to self. Choose a different agent.');
+        }
+
+        try {
+            // Delegate to the target agent, passing through relevant metadata
+            $response = Atlas::agent($agentKey)
+                ->withMetadata([
+                    'delegated_from' => $currentAgentKey,
+                    'user_id' => $context->getMeta('user_id'),
+                    'session_id' => $context->getMeta('session_id'),
+                ])
+                ->chat($task);
+
+            return ToolResult::json([
+                'agent' => $agentKey,
+                'response' => $response->text(),
+            ]);
+        } catch (\Exception $e) {
+            return ToolResult::error("Delegation failed: {$e->getMessage()}");
+        }
+    }
+}
+```
+
+### Orchestrator Agent
+
+Create an orchestrator agent that uses delegation tools:
+
+```php
+use Atlasphp\Atlas\Agents\AgentDefinition;
+
+class OrchestratorAgent extends AgentDefinition
+{
+    public function key(): string
+    {
+        return 'orchestrator';
+    }
+
+    public function name(): string
+    {
+        return 'Orchestrator';
+    }
+
+    public function description(): string
+    {
+        return 'Coordinates tasks by delegating to specialized agents';
+    }
+
+    public function systemPrompt(): string
+    {
+        return <<<'PROMPT'
+            You are an orchestrator that routes requests to specialized agents.
+
+            When a user asks a question:
+            1. Use list_agents to see what specialists are available
+            2. Determine which agent is best suited for the task
+            3. Use delegate_to_agent to send the task to that agent
+            4. Return the specialist's response to the user
+
+            If no suitable agent exists, handle the request yourself.
+            PROMPT;
+    }
+
+    public function tools(): array
+    {
+        return [
+            ListAgentsTool::class,
+            DelegateToAgentTool::class,
+        ];
+    }
+}
+```
+
+### Usage
+
+```php
+// The orchestrator will automatically route to the best agent
+$response = Atlas::agent('orchestrator')
+    ->withMetadata(['user_id' => auth()->id()])
+    ->chat('What is the status of order #12345?');
+
+// Orchestrator flow:
+// 1. Calls list_agents -> sees 'support-agent', 'sales-agent', etc.
+// 2. Determines 'support-agent' handles order inquiries
+// 3. Calls delegate_to_agent(agent_key: 'support-agent', task: '...')
+// 4. Returns the support agent's response
+```
+
+### Advanced: Filtered Agent List
+
+You can filter which agents are available for delegation based on context:
+
+```php
+public function handle(array $params, ToolContext $context): ToolResult
+{
+    $userTier = $context->getMeta('user_tier', 'basic');
+    $currentAgentKey = $context->getAgent()?->key();
+
+    $agents = collect($this->agentRegistry->all())
+        ->filter(fn ($agent) => $agent->key() !== $currentAgentKey)
+        ->filter(function ($agent) use ($userTier) {
+            // Only show premium agents to premium users
+            $premiumAgents = ['advanced-analyst', 'priority-support'];
+            if (in_array($agent->key(), $premiumAgents)) {
+                return $userTier === 'premium';
+            }
+            return true;
+        })
+        ->map(fn ($agent) => [
+            'key' => $agent->key(),
+            'name' => $agent->name(),
+            'description' => $agent->description(),
+        ])
+        ->values()
+        ->toArray();
+
+    return ToolResult::json(['agents' => $agents]);
+}
+```
+
 ## Security
 
 Tools execute real operations on behalf of users. Implement proper security measures.
