@@ -16,9 +16,10 @@
 
 # 🪐 Atlas
 
-Atlas is a thin Laravel package that brings structure to AI development. It organizes your AI logic into reusable agents, typed tools, and middleware pipelines so you can build production applications without scattering prompts and API calls throughout your codebase.
+Atlas is a Laravel package for orchestrating AI agents, tools, and execution pipelines.
+It provides structure and best practices for building maintainable, testable AI features at the application level.
 
-Built on [Prism PHP](https://prismphp.com), Atlas adds the application layer you need: agent definitions, tool management, prompt templating, and execution pipelines, while Prism handles your LLM communication through provider APIs.
+Built on [Prism PHP](https://prismphp.com), Atlas stays intentionally lightweight by focusing on application-level concerns such as agent definitions, tool orchestration, prompt templates, and execution pipelines. Prism is responsible for all LLM communication and provider APIs.
 
 ## ✨ Features
 
