@@ -170,7 +170,7 @@ Atlas doesn't replace Prism. It organizes how you use Prism in real applications
 - [MCP Integration](https://atlasphp.org/capabilities/mcp.html) - External tools from MCP servers
 - [Pipelines](https://atlasphp.org/core-concepts/pipelines.html) - Extend with middleware
 
-## Examples
+## 🚀 Examples
 
 **Agents** — Reusable AI configurations for different roles and tasks.
 - [Customer Support](https://atlasphp.org/core-concepts/agents.html#example-basic-agent)
