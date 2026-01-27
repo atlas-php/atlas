@@ -1,0 +1,15 @@
+/vendor/
+/node_modules/
+/public/build/
+/public/atlas-logo.png
+/database/database.sqlite
+.env
+
+# Storage - ignore contents but keep .gitkeep
+/storage/framework/cache/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+/storage/logs/*
+/storage/outputs/*
+/storage/threads/*
+!storage/**/.gitkeep

@@ -1,6 +1,6 @@
 # Atlas Sandbox
 
-The sandbox provides a testing environment for validating Atlas API functionality against real AI providers. It uses file-based storage (no database required) and provides artisan commands that serve as both testing utilities and implementation examples.
+The sandbox provides a testing environment for validating Atlas API functionality against real AI providers. It includes both CLI commands and a web-based chat interface for testing and demonstration purposes.
 
 ## Setup
 
@@ -22,6 +22,85 @@ cp .env.example .env
 
 ```bash
 php artisan atlas:chat
+```
+
+## Web Chat Demo
+
+A web-based chat interface for interacting with Atlas agents in the browser.
+
+### Quick Start
+
+```bash
+cd sandbox
+
+# Install frontend dependencies
+npm install
+
+# Run database migrations (creates SQLite database)
+php artisan migrate
+
+# Start Vite dev server (in one terminal)
+npm run dev
+
+# Start PHP server (in another terminal)
+php artisan serve
+
+# Visit http://localhost:8000/sandbox/chat
+```
+
+### URL Structure
+
+The chat interface uses URL-based routing for shareable links:
+
+```
+/sandbox/chat                           → Default agent selection
+/sandbox/chat/{agent_key}               → Chat with specific agent
+/sandbox/chat/{agent_key}/{thread_id}   → Resume specific conversation
+```
+
+**Examples:**
+```
+/sandbox/chat/general-assistant         → Chat with general assistant
+/sandbox/chat/tool-demo/42              → Resume thread #42 with tool-demo agent
+```
+
+### Features
+
+- **URL-based Routing**: Shareable links to agents and conversations
+- **Agent Selection**: Choose from any registered agent
+- **Thread Management**: Create, switch between, and delete conversations
+- **Real-time Chat**: Send messages and receive AI responses
+- **Markdown Rendering**: Assistant responses are rendered as formatted markdown
+- **Thinking Indicator**: Visual feedback while waiting for AI responses
+- **Persistent Storage**: Conversations are saved to SQLite database
+
+### Architecture
+
+```
+Browser (Vue 3 SPA)  ←→  Laravel JSON API  ←→  SQLite Database
+                              ↓
+                         Atlas Agents
+```
+
+### API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/sandbox/chat/{agent?}/{thread?}` | Chat SPA page |
+| GET | `/api/chat/agents` | List available agents |
+| GET | `/api/chat/threads` | List all threads |
+| POST | `/api/chat/threads` | Create new thread |
+| GET | `/api/chat/threads/{id}` | Get thread with messages |
+| DELETE | `/api/chat/threads/{id}` | Delete thread |
+| POST | `/api/chat/threads/{id}/messages` | Send message |
+
+### Production Build
+
+```bash
+# Build optimized frontend assets
+npm run build
+
+# Assets are compiled to public/build/
 ```
 
 ## Available Commands
@@ -590,6 +669,8 @@ sandbox/
 ├── bootstrap.php               # Laravel bootstrap
 ├── .env.example               # Environment template
 ├── README.md                  # This file
+├── package.json               # NPM dependencies (Vue, Vite, Tailwind)
+├── vite.config.js             # Vite build configuration
 ├── app/
 │   ├── Agents/
 │   │   ├── ComprehensiveToolAgent.php
@@ -611,6 +692,13 @@ sandbox/
 │   │       ├── StructuredCommand.php
 │   │       ├── ToolsCommand.php
 │   │       └── VisionCommand.php
+│   ├── Http/
+│   │   └── Controllers/
+│   │       └── Api/
+│   │           └── ChatController.php  # Web chat JSON API
+│   ├── Models/
+│   │   ├── Thread.php         # Chat thread model
+│   │   └── Message.php        # Chat message model
 │   ├── Pipelines/
 │   │   ├── FilterToolsHandler.php
 │   │   ├── InjectMetadataHandler.php
@@ -623,9 +711,25 @@ sandbox/
 │       ├── CalculatorTool.php
 │       ├── DateTimeTool.php
 │       └── WeatherTool.php
+├── config/
+│   └── database.php           # SQLite configuration
+├── database/
+│   └── migrations/            # Thread and message tables
+├── public/
+│   └── index.php              # Web entry point
+├── resources/
+│   ├── css/
+│   │   └── app.css            # Tailwind CSS
+│   ├── js/
+│   │   ├── app.js             # Vue app entry
+│   │   └── App.vue            # Chat UI component
+│   └── views/
+│       └── chat.blade.php     # Blade wrapper
+├── routes/
+│   └── web.php                # Web routes
 └── storage/
     ├── outputs/               # Generated files
-    └── threads/               # Chat thread JSON files
+    └── threads/               # Chat thread JSON files (CLI)
 ```
 
 ## Creating Custom Agents

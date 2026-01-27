@@ -21,6 +21,7 @@ use App\Console\Commands\ToolsCommand;
 use App\Console\Commands\VisionCommand;
 use App\Console\Commands\WhenProviderCommand;
 use App\Services\ThreadStorageService;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
 /**
@@ -52,6 +53,31 @@ class SandboxServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->registerCommands();
+        $this->registerRoutes();
+        $this->registerViews();
+    }
+
+    /**
+     * Register web routes.
+     */
+    protected function registerRoutes(): void
+    {
+        $routesPath = dirname(__DIR__, 2).'/routes/web.php';
+
+        if (file_exists($routesPath)) {
+            Route::middleware('web')->group($routesPath);
+        }
+    }
+
+    /**
+     * Register view paths.
+     */
+    protected function registerViews(): void
+    {
+        $this->loadViewsFrom(dirname(__DIR__, 2).'/resources/views', 'sandbox');
+
+        // Also register as default view path
+        $this->app['view']->addLocation(dirname(__DIR__, 2).'/resources/views');
     }
 
     /**

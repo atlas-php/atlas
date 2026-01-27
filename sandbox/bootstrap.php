@@ -57,7 +57,10 @@ if (class_exists(\Prism\Relay\RelayServiceProvider::class)) {
 // Boot the application
 $app->boot();
 
-// Load Atlas configuration from sandbox config directory
+// Load configuration from sandbox config directory
+$app['config']->set('app', require $sandboxPath.'/config/app.php');
+$app['config']->set('session', require $sandboxPath.'/config/session.php');
+$app['config']->set('database', require $sandboxPath.'/config/database.php');
 $app['config']->set('atlas', require $sandboxPath.'/config/atlas.php');
 $app['config']->set('prism', require $sandboxPath.'/config/prism.php');
 

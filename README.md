@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://atlasphp.org">
-    <img src="./atlas-logo-3.png" alt="Atlas logo" height="180">
+    <img src="./images/atlas-logo-3.png" alt="Atlas logo" height="180">
   </a>
 </p>
 <p align="center">
@@ -210,6 +210,16 @@ Atlas doesn't replace Prism. It organizes how you use Prism in real applications
 - [Speech-to-Text](https://atlasphp.org/capabilities/audio.html#speech-to-text-examples)
 - [Content Moderation](https://atlasphp.org/capabilities/moderation.html#example-comment-moderation)
 - [Image Generation](https://atlasphp.org/capabilities/images.html#example-complete-image-generation)
+
+## 💬 Sandbox - Atlas Chat Example
+
+A fully functional chat interface demonstrating Atlas agents in action. Built with Vue 3, Tailwind CSS, and a Laravel JSON API.
+
+<p align="left">
+  <img src="./images/atlas-sandbox-chat.png" alt="Atlas Sandbox Chat" width="800">
+</p>
+
+👉 **[See the Sandbox README](./sandbox/README.md)** for setup instructions and details.
 
 ## Testing and Code Quality
 
