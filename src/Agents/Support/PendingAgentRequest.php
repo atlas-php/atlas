@@ -241,6 +241,44 @@ final class PendingAgentRequest
     }
 
     /**
+     * Apply a deserialized AgentContext to this request.
+     *
+     * Useful for queue processing where context was serialized with toArray()
+     * and restored with fromArray(). Applies all serializable properties:
+     * messages, variables, metadata, provider/model overrides, prism calls, and tools.
+     *
+     * Runtime-only properties (prismMedia, prismMessages, mcpTools) are not applied
+     * as they cannot be serialized. Use withMedia() or withMcpTools() to re-attach
+     * these after applying the context.
+     *
+     * ```php
+     * $context = AgentContext::fromArray($serializedContext);
+     * $response = Atlas::agent('my-agent')
+     *     ->withContext($context)
+     *     ->withMedia($image) // Re-attach media if needed
+     *     ->chat($input);
+     * ```
+     */
+    public function withContext(AgentContext $context): static
+    {
+        $clone = clone $this;
+
+        // Apply serializable properties
+        $clone->messages = $context->messages;
+        $clone->prismMessages = $context->prismMessages;
+        $clone->variables = $context->variables;
+        $clone->metadata = $context->metadata;
+        $clone->providerOverride = $context->providerOverride;
+        $clone->modelOverride = $context->modelOverride;
+        $clone->prismCalls = $context->prismCalls;
+        $clone->tools = $context->tools;
+        $clone->mcpTools = $context->mcpTools;
+        $clone->prismMedia = $context->prismMedia;
+
+        return $clone;
+    }
+
+    /**
      * Execute a blocking chat with the configured agent.
      *
      * Supports two styles for attachments (Prism-consistent):
