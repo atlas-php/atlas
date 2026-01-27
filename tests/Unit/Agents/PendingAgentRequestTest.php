@@ -1075,3 +1075,209 @@ test('withMcpTools can be combined with other methods', function () {
     expect($capturedContext->variables)->toBe(['name' => 'John']);
     expect($capturedContext->metadata)->toBe(['id' => '123']);
 });
+
+// === withContext Tests ===
+
+test('withContext applies context immutably', function () {
+    $context = new AgentContext(
+        messages: [['role' => 'user', 'content' => 'Hello']],
+        variables: ['name' => 'John'],
+    );
+
+    $request2 = $this->request->withContext($context);
+
+    expect($request2)->not->toBe($this->request);
+    expect($request2)->toBeInstanceOf(PendingAgentRequest::class);
+});
+
+test('withContext applies all serializable properties', function () {
+    $context = new AgentContext(
+        messages: [['role' => 'user', 'content' => 'Previous']],
+        variables: ['name' => 'John', 'role' => 'admin'],
+        metadata: ['request_id' => '123', 'user_id' => 456],
+        providerOverride: 'anthropic',
+        modelOverride: 'claude-3-opus',
+        prismCalls: [['method' => 'usingTemperature', 'args' => [0.7]]],
+        tools: ['App\\Tools\\MyTool'],
+    );
+
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $ctx) use (&$capturedContext) {
+            $capturedContext = $ctx;
+
+            return true;
+        })
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
+
+    $this->request
+        ->withContext($context)
+        ->chat('New message');
+
+    expect($capturedContext->messages)->toBe([['role' => 'user', 'content' => 'Previous']]);
+    expect($capturedContext->variables)->toBe(['name' => 'John', 'role' => 'admin']);
+    expect($capturedContext->metadata)->toBe(['request_id' => '123', 'user_id' => 456]);
+    expect($capturedContext->providerOverride)->toBe('anthropic');
+    expect($capturedContext->modelOverride)->toBe('claude-3-opus');
+    expect($capturedContext->prismCalls)->toBe([['method' => 'usingTemperature', 'args' => [0.7]]]);
+    expect($capturedContext->tools)->toBe(['App\\Tools\\MyTool']);
+});
+
+test('withContext applies prismMessages from context', function () {
+    $prismMessages = [
+        new \Prism\Prism\ValueObjects\Messages\UserMessage('Previous message'),
+    ];
+
+    $context = new AgentContext(
+        prismMessages: $prismMessages,
+    );
+
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $ctx) use (&$capturedContext) {
+            $capturedContext = $ctx;
+
+            return true;
+        })
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
+
+    $this->request
+        ->withContext($context)
+        ->chat('New message');
+
+    expect($capturedContext->prismMessages)->toBe($prismMessages);
+});
+
+test('withContext applies mcpTools from context', function () {
+    $mockTool = Mockery::mock(\Prism\Prism\Tool::class);
+
+    $context = new AgentContext(
+        mcpTools: [$mockTool],
+    );
+
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $ctx) use (&$capturedContext) {
+            $capturedContext = $ctx;
+
+            return true;
+        })
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
+
+    $this->request
+        ->withContext($context)
+        ->chat('Hello');
+
+    expect($capturedContext->mcpTools)->toHaveCount(1);
+    expect($capturedContext->mcpTools[0])->toBe($mockTool);
+});
+
+test('withContext applies prismMedia from context', function () {
+    $image = Image::fromUrl('https://example.com/image.png');
+
+    $context = new AgentContext(
+        prismMedia: [$image],
+    );
+
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $ctx) use (&$capturedContext) {
+            $capturedContext = $ctx;
+
+            return true;
+        })
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
+
+    $this->request
+        ->withContext($context)
+        ->chat('Describe this');
+
+    expect($capturedContext->prismMedia)->toHaveCount(1);
+    expect($capturedContext->prismMedia[0])->toBe($image);
+});
+
+test('withContext can be chained with additional methods', function () {
+    $context = new AgentContext(
+        variables: ['name' => 'John'],
+        metadata: ['request_id' => '123'],
+    );
+
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $ctx) use (&$capturedContext) {
+            $capturedContext = $ctx;
+
+            return true;
+        })
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
+
+    $image = Image::fromUrl('https://example.com/new-image.png');
+
+    $this->request
+        ->withContext($context)
+        ->withMedia($image)
+        ->mergeVariables(['role' => 'admin'])
+        ->chat('Hello');
+
+    // Original context values preserved
+    expect($capturedContext->variables)->toBe(['name' => 'John', 'role' => 'admin']);
+    expect($capturedContext->metadata)->toBe(['request_id' => '123']);
+    // New media added after context
+    expect($capturedContext->prismMedia)->toHaveCount(1);
+});
+
+test('withContext works with fromArray for queue round-trip', function () {
+    // Simulate queue serialization round-trip
+    $originalContext = new AgentContext(
+        messages: [['role' => 'user', 'content' => 'Hello']],
+        variables: ['user_id' => 123],
+        metadata: ['task_id' => 'abc'],
+        providerOverride: 'anthropic',
+        modelOverride: 'claude-3-opus',
+        prismCalls: [['method' => 'withMaxSteps', 'args' => [5]]],
+        tools: ['App\\Tools\\SearchTool'],
+    );
+
+    // Serialize and deserialize (simulating queue transport)
+    $serialized = $originalContext->toArray();
+    $restoredContext = AgentContext::fromArray($serialized);
+
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $ctx) use (&$capturedContext) {
+            $capturedContext = $ctx;
+
+            return true;
+        })
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
+
+    $this->request
+        ->withContext($restoredContext)
+        ->chat('Continue conversation');
+
+    expect($capturedContext->messages)->toBe([['role' => 'user', 'content' => 'Hello']]);
+    expect($capturedContext->variables)->toBe(['user_id' => 123]);
+    expect($capturedContext->metadata)->toBe(['task_id' => 'abc']);
+    expect($capturedContext->providerOverride)->toBe('anthropic');
+    expect($capturedContext->modelOverride)->toBe('claude-3-opus');
+    expect($capturedContext->prismCalls)->toBe([['method' => 'withMaxSteps', 'args' => [5]]]);
+    expect($capturedContext->tools)->toBe(['App\\Tools\\SearchTool']);
+});
