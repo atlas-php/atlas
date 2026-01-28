@@ -195,7 +195,7 @@ class MiddlewareCommand extends Command
 
         $this->line('=== Middleware Log ===');
         foreach ($this->middlewareLog as $entry) {
-            $this->line("[{$entry['event']}] at " . number_format($entry['timestamp'], 4));
+            $this->line("[{$entry['event']}] at ".number_format($entry['timestamp'], 4));
             foreach ($entry['data'] as $key => $value) {
                 $valueStr = is_bool($value) ? ($value ? 'true' : 'false') : (string) $value;
                 $this->line("    {$key}: {$valueStr}");
@@ -335,7 +335,7 @@ class MiddlewareCommand extends Command
         $this->line('');
 
         $this->line('=== Execution Order ===');
-        $this->line('  ' . implode(' -> ', $order));
+        $this->line('  '.implode(' -> ', $order));
         $this->line('');
 
         $expectedOrder = ['first', 'second', 'third'];
@@ -343,8 +343,8 @@ class MiddlewareCommand extends Command
             $this->info('[PASS] Middleware executed in correct order');
         } else {
             $this->error('[FAIL] Middleware order incorrect');
-            $this->line('  Expected: ' . implode(' -> ', $expectedOrder));
-            $this->line('  Actual: ' . implode(' -> ', $order));
+            $this->line('  Expected: '.implode(' -> ', $expectedOrder));
+            $this->line('  Actual: '.implode(' -> ', $order));
 
             return self::FAILURE;
         }
