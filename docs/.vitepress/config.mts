@@ -9,6 +9,8 @@ export default defineConfig({
     ['meta', { property: 'og:title', content: 'Atlas - AI Agents for Laravel' }],
     ['meta', { property: 'og:description', content: 'Build AI-powered applications with structure and scale' }],
     ['meta', { property: 'og:image', content: '/og-image.png' }],
+    // Cloudflare Web Analytics
+    ['script', { defer: '', src: 'https://static.cloudflareinsights.com/beacon.min.js', 'data-cf-beacon': '{"token": "745294f0eaa04748bca79beeb599f6bc"}' }],
   ],
 
   themeConfig: {
