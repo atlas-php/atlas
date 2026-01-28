@@ -154,9 +154,9 @@ echo $response->text();
 
 ## Why Atlas?
 
-**The problem:** Prompts scattered across controllers, duplicated configurations, businesses logic tightly coupled with tools, and no consistent way to add logging, validation or even proper error handling.
+**The problem:** Prompts scattered across controllers, duplicated configurations, business logic tightly coupled with tools, and no consistent way to add logging, validation or even proper error handling.
 
-**Atlas decouples your businesses logic:**
+**Atlas decouples your business logic:**
 
 - **Agents** - AI configurations live in dedicated classes, not inline across your codebase.
 - **Tools** - Business logic stays in tool classes with typed parameters. Agents call tools; tools call your services.

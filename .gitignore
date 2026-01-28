@@ -66,6 +66,4 @@ sandbox/storage/logs/*
 # VitePress
 docs/.vitepress/cache
 docs/.vitepress/dist
-
-# Package-specific ignores
 composer.lock

@@ -135,6 +135,28 @@ class PipelineRegistry
     }
 
     /**
+     * Get handlers with priority info for merging with runtime handlers.
+     *
+     * Returns handlers sorted by priority (highest first), including
+     * the priority value for each handler.
+     *
+     * @param  string  $name  The pipeline name.
+     * @return array<int, array{handler: class-string<PipelineContract>|PipelineContract, priority: int}>
+     */
+    public function getWithPriority(string $name): array
+    {
+        if (! isset($this->handlers[$name])) {
+            return [];
+        }
+
+        $handlers = $this->handlers[$name];
+
+        usort($handlers, fn (array $a, array $b) => $b['priority'] <=> $a['priority']);
+
+        return $handlers;
+    }
+
+    /**
      * Check if a pipeline has any registered handlers.
      *
      * @param  string  $name  The pipeline name.

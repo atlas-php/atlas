@@ -399,3 +399,335 @@ test('context manipulation preserves other properties', function () {
     expect($newContext->providerOverride)->toBe('anthropic');
     expect($newContext->modelOverride)->toBe('claude-3');
 });
+
+// === Serialization Tests ===
+
+test('toArray serializes all serializable properties', function () {
+    $context = new AgentContext(
+        messages: [['role' => 'user', 'content' => 'Hello']],
+        variables: ['user_id' => 123],
+        metadata: ['task_id' => 'abc'],
+        providerOverride: 'anthropic',
+        modelOverride: 'claude-3-opus',
+        prismCalls: [['method' => 'withMaxSteps', 'args' => [10]]],
+        tools: ['App\\Tools\\MyTool'],
+    );
+
+    $array = $context->toArray();
+
+    expect($array)->toBe([
+        'messages' => [['role' => 'user', 'content' => 'Hello']],
+        'variables' => ['user_id' => 123],
+        'metadata' => ['task_id' => 'abc'],
+        'provider_override' => 'anthropic',
+        'model_override' => 'claude-3-opus',
+        'prism_calls' => [['method' => 'withMaxSteps', 'args' => [10]]],
+        'tools' => ['App\\Tools\\MyTool'],
+        'middleware' => [],
+    ]);
+});
+
+test('fromArray restores context from array', function () {
+    $data = [
+        'messages' => [['role' => 'assistant', 'content' => 'Hi there']],
+        'variables' => ['name' => 'John'],
+        'metadata' => ['session' => 'xyz'],
+        'provider_override' => 'openai',
+        'model_override' => 'gpt-4o',
+        'prism_calls' => [['method' => 'usingTemperature', 'args' => [0.7]]],
+        'tools' => ['App\\Tools\\ToolA', 'App\\Tools\\ToolB'],
+    ];
+
+    $context = AgentContext::fromArray($data);
+
+    expect($context->messages)->toBe([['role' => 'assistant', 'content' => 'Hi there']]);
+    expect($context->variables)->toBe(['name' => 'John']);
+    expect($context->metadata)->toBe(['session' => 'xyz']);
+    expect($context->providerOverride)->toBe('openai');
+    expect($context->modelOverride)->toBe('gpt-4o');
+    expect($context->prismCalls)->toBe([['method' => 'usingTemperature', 'args' => [0.7]]]);
+    expect($context->tools)->toBe(['App\\Tools\\ToolA', 'App\\Tools\\ToolB']);
+});
+
+test('toArray and fromArray round-trip preserves data', function () {
+    $original = new AgentContext(
+        messages: [
+            ['role' => 'user', 'content' => 'First message'],
+            ['role' => 'assistant', 'content' => 'Response'],
+        ],
+        variables: ['company' => 'Acme', 'tier' => 'premium'],
+        metadata: ['request_id' => 'req-123', 'user_id' => 456],
+        providerOverride: 'anthropic',
+        modelOverride: 'claude-sonnet-4-20250514',
+        prismCalls: [
+            ['method' => 'withMaxSteps', 'args' => [5]],
+            ['method' => 'usingTemperature', 'args' => [0.5]],
+        ],
+        tools: ['App\\Tools\\SearchTool', 'App\\Tools\\CalculateTool'],
+    );
+
+    $restored = AgentContext::fromArray($original->toArray());
+
+    expect($restored->messages)->toBe($original->messages);
+    expect($restored->variables)->toBe($original->variables);
+    expect($restored->metadata)->toBe($original->metadata);
+    expect($restored->providerOverride)->toBe($original->providerOverride);
+    expect($restored->modelOverride)->toBe($original->modelOverride);
+    expect($restored->prismCalls)->toBe($original->prismCalls);
+    expect($restored->tools)->toBe($original->tools);
+});
+
+test('fromArray handles missing keys with defaults', function () {
+    $context = AgentContext::fromArray([]);
+
+    expect($context->messages)->toBe([]);
+    expect($context->variables)->toBe([]);
+    expect($context->metadata)->toBe([]);
+    expect($context->providerOverride)->toBeNull();
+    expect($context->modelOverride)->toBeNull();
+    expect($context->prismCalls)->toBe([]);
+    expect($context->tools)->toBe([]);
+});
+
+test('fromArray sets non-serializable properties to empty arrays', function () {
+    $data = [
+        'messages' => [['role' => 'user', 'content' => 'Test']],
+        'variables' => ['key' => 'value'],
+    ];
+
+    $context = AgentContext::fromArray($data);
+
+    expect($context->prismMedia)->toBe([]);
+    expect($context->prismMessages)->toBe([]);
+    expect($context->mcpTools)->toBe([]);
+});
+
+test('toArray excludes runtime-only properties', function () {
+    $mockImage = Mockery::mock(\Prism\Prism\ValueObjects\Media\Image::class);
+    $mockMessage = Mockery::mock(\Prism\Prism\ValueObjects\Messages\UserMessage::class);
+    $mockTool = Mockery::mock(\Prism\Prism\Tool::class);
+
+    $context = new AgentContext(
+        messages: [['role' => 'user', 'content' => 'Hello']],
+        variables: ['var' => 'value'],
+        prismMedia: [$mockImage],
+        prismMessages: [$mockMessage],
+        mcpTools: [$mockTool],
+    );
+
+    $array = $context->toArray();
+
+    expect($array)->not->toHaveKey('prism_media');
+    expect($array)->not->toHaveKey('prism_messages');
+    expect($array)->not->toHaveKey('mcp_tools');
+    expect(array_keys($array))->toBe([
+        'messages',
+        'variables',
+        'metadata',
+        'provider_override',
+        'model_override',
+        'prism_calls',
+        'tools',
+        'middleware',
+    ]);
+});
+
+test('fromArray partial data preserves specified values', function () {
+    $data = [
+        'messages' => [['role' => 'user', 'content' => 'Hello']],
+        'provider_override' => 'anthropic',
+        // Other keys intentionally missing
+    ];
+
+    $context = AgentContext::fromArray($data);
+
+    expect($context->messages)->toBe([['role' => 'user', 'content' => 'Hello']]);
+    expect($context->providerOverride)->toBe('anthropic');
+    expect($context->variables)->toBe([]);
+    expect($context->metadata)->toBe([]);
+    expect($context->modelOverride)->toBeNull();
+});
+
+// === Middleware Tests ===
+
+test('it creates with default empty middleware', function () {
+    $context = new AgentContext;
+
+    expect($context->middleware)->toBe([]);
+});
+
+test('it creates with provided middleware', function () {
+    $middleware = [
+        'agent.before_execute' => [
+            ['handler' => 'App\\Middleware\\TestMiddleware', 'priority' => 0],
+        ],
+    ];
+
+    $context = new AgentContext(middleware: $middleware);
+
+    expect($context->middleware)->toBe($middleware);
+});
+
+test('it reports hasMiddleware correctly', function () {
+    $empty = new AgentContext;
+    $withMiddleware = new AgentContext(middleware: [
+        'agent.before_execute' => [
+            ['handler' => 'App\\Middleware\\TestMiddleware', 'priority' => 0],
+        ],
+    ]);
+
+    expect($empty->hasMiddleware())->toBeFalse();
+    expect($withMiddleware->hasMiddleware())->toBeTrue();
+});
+
+test('getMiddlewareFor returns handlers for event', function () {
+    $context = new AgentContext(middleware: [
+        'agent.before_execute' => [
+            ['handler' => 'App\\Middleware\\FirstMiddleware', 'priority' => 0],
+            ['handler' => 'App\\Middleware\\SecondMiddleware', 'priority' => 0],
+        ],
+        'agent.after_execute' => [
+            ['handler' => 'App\\Middleware\\LogMiddleware', 'priority' => 0],
+        ],
+    ]);
+
+    $beforeHandlers = $context->getMiddlewareFor('agent.before_execute');
+    $afterHandlers = $context->getMiddlewareFor('agent.after_execute');
+
+    expect($beforeHandlers)->toHaveCount(2);
+    expect($beforeHandlers[0]['handler'])->toBe('App\\Middleware\\FirstMiddleware');
+    expect($beforeHandlers[1]['handler'])->toBe('App\\Middleware\\SecondMiddleware');
+    expect($afterHandlers)->toHaveCount(1);
+    expect($afterHandlers[0]['handler'])->toBe('App\\Middleware\\LogMiddleware');
+});
+
+test('getMiddlewareFor returns empty array for unknown event', function () {
+    $context = new AgentContext(middleware: [
+        'agent.before_execute' => [
+            ['handler' => 'App\\Middleware\\TestMiddleware', 'priority' => 0],
+        ],
+    ]);
+
+    expect($context->getMiddlewareFor('agent.unknown'))->toBe([]);
+    expect($context->getMiddlewareFor('nonexistent.event'))->toBe([]);
+});
+
+test('toArray serializes class-string middleware only', function () {
+    $mockHandler = Mockery::mock(\Atlasphp\Atlas\Contracts\PipelineContract::class);
+
+    $context = new AgentContext(middleware: [
+        'agent.before_execute' => [
+            ['handler' => 'App\\Middleware\\TestMiddleware', 'priority' => 0],
+            ['handler' => $mockHandler, 'priority' => 0],  // Instance - should be excluded
+        ],
+        'agent.after_execute' => [
+            ['handler' => $mockHandler, 'priority' => 0],  // Instance only - event should be excluded
+        ],
+    ]);
+
+    $array = $context->toArray();
+
+    expect($array['middleware'])->toHaveKey('agent.before_execute');
+    expect($array['middleware'])->not->toHaveKey('agent.after_execute');
+    expect($array['middleware']['agent.before_execute'])->toHaveCount(1);
+    expect($array['middleware']['agent.before_execute'][0]['handler'])->toBe('App\\Middleware\\TestMiddleware');
+});
+
+test('toArray includes empty middleware when no handlers', function () {
+    $context = new AgentContext;
+
+    $array = $context->toArray();
+
+    expect($array['middleware'])->toBe([]);
+});
+
+test('fromArray restores middleware', function () {
+    $data = [
+        'middleware' => [
+            'agent.before_execute' => [
+                ['handler' => 'App\\Middleware\\AuthMiddleware', 'priority' => 0],
+            ],
+            'agent.after_execute' => [
+                ['handler' => 'App\\Middleware\\LogMiddleware', 'priority' => 0],
+            ],
+        ],
+    ];
+
+    $context = AgentContext::fromArray($data);
+
+    expect($context->middleware)->toBe($data['middleware']);
+    expect($context->hasMiddleware())->toBeTrue();
+    expect($context->getMiddlewareFor('agent.before_execute'))->toHaveCount(1);
+    expect($context->getMiddlewareFor('agent.after_execute'))->toHaveCount(1);
+});
+
+test('fromArray handles missing middleware key', function () {
+    $context = AgentContext::fromArray([]);
+
+    expect($context->middleware)->toBe([]);
+    expect($context->hasMiddleware())->toBeFalse();
+});
+
+test('toArray and fromArray round-trip preserves class-string middleware', function () {
+    $original = new AgentContext(
+        middleware: [
+            'agent.before_execute' => [
+                ['handler' => 'App\\Middleware\\AuthMiddleware', 'priority' => 0],
+                ['handler' => 'App\\Middleware\\RateLimitMiddleware', 'priority' => 0],
+            ],
+            'agent.after_execute' => [
+                ['handler' => 'App\\Middleware\\LogMiddleware', 'priority' => 0],
+            ],
+        ],
+    );
+
+    $restored = AgentContext::fromArray($original->toArray());
+
+    expect($restored->middleware)->toBe($original->middleware);
+});
+
+test('context manipulation preserves middleware', function () {
+    $context = new AgentContext(
+        variables: ['var' => 'value'],
+        middleware: [
+            'agent.before_execute' => [
+                ['handler' => 'App\\Middleware\\TestMiddleware', 'priority' => 0],
+            ],
+        ],
+    );
+
+    $newContext = $context->withVariables(['new' => 'var']);
+
+    expect($newContext->middleware)->toBe($context->middleware);
+    expect($newContext->hasMiddleware())->toBeTrue();
+});
+
+test('mergeVariables preserves middleware', function () {
+    $context = new AgentContext(
+        variables: ['a' => 1],
+        middleware: [
+            'agent.before_execute' => [
+                ['handler' => 'App\\Middleware\\TestMiddleware', 'priority' => 0],
+            ],
+        ],
+    );
+
+    $newContext = $context->mergeVariables(['b' => 2]);
+
+    expect($newContext->middleware)->toBe($context->middleware);
+});
+
+test('mergeMetadata preserves middleware', function () {
+    $context = new AgentContext(
+        metadata: ['a' => 1],
+        middleware: [
+            'agent.before_execute' => [
+                ['handler' => 'App\\Middleware\\TestMiddleware', 'priority' => 0],
+            ],
+        ],
+    );
+
+    $newContext = $context->mergeMetadata(['b' => 2]);
+
+    expect($newContext->middleware)->toBe($context->middleware);
+});
