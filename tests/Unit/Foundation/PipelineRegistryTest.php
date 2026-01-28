@@ -166,6 +166,37 @@ test('setContainer returns self for chaining', function () {
     expect($result)->toBe($this->registry);
 });
 
+// === getWithPriority Tests ===
+
+test('getWithPriority returns empty array for undefined pipeline', function () {
+    expect($this->registry->getWithPriority('nonexistent.pipeline'))->toBe([]);
+});
+
+test('getWithPriority returns handlers with priority info', function () {
+    $this->registry->register('test.pipeline', LowPriorityHandler::class, priority: 10);
+    $this->registry->register('test.pipeline', HighPriorityHandler::class, priority: 100);
+
+    $handlers = $this->registry->getWithPriority('test.pipeline');
+
+    expect($handlers)->toHaveCount(2);
+    // Sorted by priority (highest first)
+    expect($handlers[0]['handler'])->toBe(HighPriorityHandler::class);
+    expect($handlers[0]['priority'])->toBe(100);
+    expect($handlers[1]['handler'])->toBe(LowPriorityHandler::class);
+    expect($handlers[1]['priority'])->toBe(10);
+});
+
+test('getWithPriority returns handler instances with priority', function () {
+    $handler = new TestPipelineHandler;
+    $this->registry->register('test.pipeline', $handler, priority: 50);
+
+    $handlers = $this->registry->getWithPriority('test.pipeline');
+
+    expect($handlers)->toHaveCount(1);
+    expect($handlers[0]['handler'])->toBe($handler);
+    expect($handlers[0]['priority'])->toBe(50);
+});
+
 // Test Handler Classes
 
 class TestPipelineHandler implements PipelineContract

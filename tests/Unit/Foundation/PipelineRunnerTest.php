@@ -286,3 +286,123 @@ test('conditional handler passes data to next handler unchanged when skipped', f
     expect($result['order'])->toBe(['A']); // AppendingHandlerA ran
     expect($result['custom_key'])->toBe('preserved'); // Data passed through
 });
+
+// === runWithRuntime Tests ===
+
+test('runWithRuntime returns data unchanged when pipeline inactive', function () {
+    $this->registry->define('test.pipeline', 'Description', active: false);
+
+    $data = ['key' => 'value'];
+    $result = $this->runner->runWithRuntime('test.pipeline', $data);
+
+    expect($result)->toBe($data);
+});
+
+test('runWithRuntime calls destination when pipeline inactive', function () {
+    $this->registry->define('test.pipeline', 'Description', active: false);
+
+    $data = ['key' => 'value'];
+    $destination = fn ($d) => array_merge($d, ['destination' => true]);
+
+    $result = $this->runner->runWithRuntime('test.pipeline', $data, [], $destination);
+
+    expect($result)->toBe(['key' => 'value', 'destination' => true]);
+});
+
+test('runWithRuntime delegates to run when no runtime handlers', function () {
+    $this->registry->register('test.pipeline', CountingHandler::class);
+
+    $result = $this->runner->runWithRuntime('test.pipeline', ['count' => 0]);
+
+    expect($result['count'])->toBe(1);
+});
+
+test('runWithRuntime merges runtime handlers with global handlers', function () {
+    // Global handler with priority 50
+    $this->registry->register('test.pipeline', AppendingHandlerA::class, priority: 50);
+
+    // Runtime handler with priority 0
+    $runtimeHandler = new AppendingHandlerB;
+    $runtimeHandlers = [
+        ['handler' => $runtimeHandler, 'priority' => 0],
+    ];
+
+    $result = $this->runner->runWithRuntime('test.pipeline', ['order' => []], $runtimeHandlers);
+
+    // Global (priority 50) runs before runtime (priority 0)
+    expect($result['order'])->toBe(['A', 'B']);
+});
+
+test('runWithRuntime sorts merged handlers by priority', function () {
+    // Global handler with priority 10
+    $this->registry->register('test.pipeline', AppendingHandlerA::class, priority: 10);
+
+    // Runtime handler with priority 100 (higher than global)
+    $runtimeHandler = new AppendingHandlerB;
+    $runtimeHandlers = [
+        ['handler' => $runtimeHandler, 'priority' => 100],
+    ];
+
+    $result = $this->runner->runWithRuntime('test.pipeline', ['order' => []], $runtimeHandlers);
+
+    // Runtime (priority 100) runs before global (priority 10)
+    expect($result['order'])->toBe(['B', 'A']);
+});
+
+test('runWithRuntime executes runtime handlers only when no global handlers', function () {
+    // No global handlers registered
+
+    $runtimeHandler = new CountingHandler;
+    $runtimeHandlers = [
+        ['handler' => $runtimeHandler, 'priority' => 0],
+    ];
+
+    $result = $this->runner->runWithRuntime('test.pipeline', ['count' => 0], $runtimeHandlers);
+
+    expect($result['count'])->toBe(1);
+});
+
+test('runWithRuntime preserves runtime handler registration order at same priority', function () {
+    // Two runtime handlers with same priority
+    $runtimeHandlers = [
+        ['handler' => AppendingHandlerA::class, 'priority' => 0],
+        ['handler' => AppendingHandlerB::class, 'priority' => 0],
+    ];
+
+    $result = $this->runner->runWithRuntime('test.pipeline', ['order' => []], $runtimeHandlers);
+
+    // Same priority, so order preserved
+    expect($result['order'])->toBe(['A', 'B']);
+});
+
+test('runWithRuntime calls destination after all handlers', function () {
+    $this->registry->register('test.pipeline', CountingHandler::class, priority: 50);
+
+    $runtimeHandler = new AppendingHandlerA;
+    $runtimeHandlers = [
+        ['handler' => $runtimeHandler, 'priority' => 0],
+    ];
+
+    $destination = fn ($d) => array_merge($d, ['destination' => true]);
+
+    $result = $this->runner->runWithRuntime(
+        'test.pipeline',
+        ['count' => 0, 'order' => []],
+        $runtimeHandlers,
+        $destination
+    );
+
+    expect($result['count'])->toBe(1);
+    expect($result['order'])->toBe(['A']);
+    expect($result['destination'])->toBeTrue();
+});
+
+test('runWithRuntime works with handler class strings', function () {
+    $runtimeHandlers = [
+        ['handler' => CountingHandler::class, 'priority' => 0],
+    ];
+
+    $result = $this->runner->runWithRuntime('test.pipeline', ['count' => 0], $runtimeHandlers);
+
+    expect($result['count'])->toBe(1);
+});
