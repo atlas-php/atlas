@@ -846,6 +846,167 @@ $response = Atlas::agent('agent')->chat('input');
 $registry->setActive('agent.before_execute', true);
 ```
 
+## Runtime Middleware
+
+Attach middleware to a single request without global registration. Runtime middleware is perfect for request-specific concerns like per-user validation, conditional logging, or on-demand auditing.
+
+### Basic Usage
+
+```php
+Atlas::agent('my-agent')
+    ->middleware([
+        'agent.before_execute' => ValidateInputMiddleware::class,
+        'agent.after_execute' => LogResponseMiddleware::class,
+    ])
+    ->chat($input);
+```
+
+### Multiple Handlers Per Event
+
+```php
+->middleware([
+    'agent.before_execute' => [
+        AuthMiddleware::class,
+        RateLimitMiddleware::class,
+    ],
+    'agent.after_execute' => AuditMiddleware::class,
+])
+```
+
+### Handler Instances
+
+Pass configured instances instead of class names for runtime configuration:
+
+```php
+->middleware([
+    'agent.after_execute' => new MetricsMiddleware($statsd),
+])
+```
+
+### Accumulating Middleware
+
+Multiple `middleware()` calls merge handlers:
+
+```php
+->middleware(['agent.before_execute' => AuthMiddleware::class])
+->middleware(['agent.after_execute' => LogMiddleware::class])
+// Both middleware are applied
+```
+
+You can also accumulate handlers for the same event:
+
+```php
+->middleware(['agent.before_execute' => FirstHandler::class])
+->middleware(['agent.before_execute' => SecondHandler::class])
+// Both handlers run for agent.before_execute
+```
+
+### Removing Middleware
+
+Clear all runtime middleware:
+
+```php
+->withoutMiddleware()
+```
+
+### Available Events
+
+Runtime middleware can be attached to any agent pipeline event:
+
+- `agent.before_execute` — Before agent execution
+- `agent.context.validate` — Context validation
+- `agent.tools.merged` — After tools merged
+- `agent.after_execute` — After execution completes
+- `agent.stream.after` — After streaming completes
+- `agent.on_error` — Error handling (supports recovery responses)
+
+### Execution Order
+
+Runtime middleware merges with global handlers by priority:
+
+1. Global handlers run first (sorted by their registered priority)
+2. Runtime handlers run after globals (in registration order, all with priority 0)
+
+```
+Global: HandlerA (priority: 50), HandlerB (priority: 10)
+Runtime: HandlerC, HandlerD (both priority: 0)
+
+Execution order: HandlerA(50) → HandlerB(10) → HandlerC(0) → HandlerD(0)
+```
+
+This ensures global middleware (auth, rate limiting) runs before request-specific middleware.
+
+### Example: Per-Request Validation
+
+```php
+class RequireUserIdMiddleware implements PipelineContract
+{
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        if ($data['context']->getMeta('user_id') === null) {
+            throw new InvalidArgumentException('user_id is required');
+        }
+
+        return $next($data);
+    }
+}
+
+// Only apply validation to specific requests
+Atlas::agent('sensitive-agent')
+    ->middleware([
+        'agent.context.validate' => new RequireUserIdMiddleware(),
+    ])
+    ->withMetadata(['user_id' => auth()->id()])
+    ->chat($input);
+```
+
+### Example: Runtime Error Recovery
+
+```php
+class FallbackRecoveryMiddleware implements PipelineContract
+{
+    public function handle(mixed $data, Closure $next): mixed
+    {
+        // Provide a recovery response for this specific request
+        $data['recovery'] = new PrismResponse(
+            steps: collect([]),
+            text: 'Service temporarily unavailable. Please try again.',
+            finishReason: FinishReason::Stop,
+            toolCalls: [],
+            toolResults: [],
+            usage: new Usage(0, 0),
+            meta: new Meta('fallback', 'fallback'),
+            messages: collect([]),
+            additionalContent: [],
+        );
+
+        return $next($data);
+    }
+}
+
+Atlas::agent('my-agent')
+    ->middleware([
+        'agent.on_error' => new FallbackRecoveryMiddleware(),
+    ])
+    ->chat($input);
+```
+
+### Serialization
+
+When using `AgentContext::toArray()` for queue transport, only class-string handlers are serialized. Handler instances are excluded since they cannot be serialized:
+
+```php
+$context = new AgentContext(middleware: [
+    'agent.before_execute' => [
+        ['handler' => AuthMiddleware::class, 'priority' => 0],           // Serialized
+        ['handler' => new LoggingMiddleware($logger), 'priority' => 0], // Excluded
+    ],
+]);
+
+$serialized = $context->toArray();
+// Only AuthMiddleware is included in serialized middleware
+```
+
 ## AgentContext Reference
 
 The `AgentContext` object is available in most agent pipelines and provides access to the full request configuration:
@@ -862,6 +1023,7 @@ $context->prismCalls;        // array - Captured Prism method calls
 $context->prismMedia;        // array - Prism media objects (Image, Document, Audio, Video)
 $context->tools;             // array - Runtime Atlas tool class names (from withTools())
 $context->mcpTools;          // array - Runtime MCP Tool instances (from withMcpTools())
+$context->middleware;        // array - Runtime middleware handlers (from middleware())
 
 // Helper methods
 $context->hasMessages(): bool;         // Has conversation history (either format)
@@ -869,6 +1031,7 @@ $context->hasPrismMessages(): bool;    // Has Prism message objects specifically
 $context->hasAttachments(): bool;      // Has media attachments for current input
 $context->hasTools(): bool;            // Has runtime Atlas tools
 $context->hasMcpTools(): bool;         // Has runtime MCP tools
+$context->hasMiddleware(): bool;       // Has runtime middleware
 $context->hasProviderOverride(): bool; // Has provider override
 $context->hasModelOverride(): bool;    // Has model override
 $context->hasPrismCalls(): bool;       // Has captured Prism calls
@@ -881,6 +1044,7 @@ $context->hasVariable(string $key): bool;
 $context->hasMeta(string $key): bool;
 $context->getSchemaFromCalls(): ?Schema;
 $context->getPrismCallsWithoutSchema(): array;
+$context->getMiddlewareFor(string $event): array;   // Get middleware for pipeline event
 
 // Context manipulation (returns new instance - for pipeline modification)
 $context->withVariables(array $variables): self;   // Replace variables

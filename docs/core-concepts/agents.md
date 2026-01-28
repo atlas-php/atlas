@@ -965,6 +965,62 @@ $registry->decoratorCount();  // number of registered decorators
 $registry->clearDecorators(); // remove all decorators
 ```
 
+## Runtime Middleware
+
+Attach per-request middleware to agent executions without global registration. This is useful for request-specific validation, logging, or error recovery.
+
+```php
+use Atlasphp\Atlas\Atlas;
+
+$response = Atlas::agent('my-agent')
+    ->middleware([
+        'agent.before_execute' => ValidateInputMiddleware::class,
+        'agent.after_execute' => LogResponseMiddleware::class,
+    ])
+    ->chat($input);
+```
+
+### Multiple Handlers
+
+```php
+->middleware([
+    'agent.before_execute' => [
+        AuthMiddleware::class,
+        RateLimitMiddleware::class,
+    ],
+])
+```
+
+### Handler Instances
+
+Pass configured instances for runtime configuration:
+
+```php
+->middleware([
+    'agent.after_execute' => new MetricsMiddleware($statsd),
+])
+```
+
+### Accumulating Middleware
+
+Multiple calls merge handlers:
+
+```php
+->middleware(['agent.before_execute' => AuthMiddleware::class])
+->middleware(['agent.after_execute' => LogMiddleware::class])
+// Both middleware are applied
+```
+
+### Clearing Middleware
+
+```php
+->withoutMiddleware()
+```
+
+Runtime middleware merges with global handlers by priority. Global handlers run first (sorted by their registered priority), followed by runtime handlers (in registration order).
+
+See [Runtime Middleware](/core-concepts/pipelines#runtime-middleware) for complete documentation including available events, execution order, and examples.
+
 ## Queue Processing
 
 AgentContext supports serialization for queue-based async processing. This enables dispatching agent jobs to Laravel queues while Atlas handles only the context serialization—consumers manage all persistence.
@@ -1028,11 +1084,13 @@ The following properties are fully serialized:
 - `providerOverride` / `modelOverride` — Provider and model overrides
 - `prismCalls` — Captured Prism method calls
 - `tools` — Atlas tool class names
+- `middleware` — Runtime middleware (class-strings only; handler instances are excluded)
 
 Runtime-only properties (not serialized):
 - `prismMedia` — Media attachments (must be re-attached via `withMedia()`)
 - `prismMessages` — Prism message objects (rebuilt at runtime)
 - `mcpTools` — MCP tools (must be resolved at runtime)
+- Middleware handler instances — Only class-string handlers are serialized
 
 For media attachments, store the file path in metadata and re-attach in your job:
 
@@ -1084,6 +1142,8 @@ Atlas::agent(string|AgentContract $agent)
     ->withMedia(Image|Document|Audio|Video|array $media)     // Attach media
     ->withTools(array $tools)                    // Add Atlas tools at runtime
     ->withMcpTools(array $tools)                 // Add MCP tools at runtime
+    ->middleware(array $handlers)                // Attach per-request pipeline handlers
+    ->withoutMiddleware()                        // Remove all runtime middleware
     ->withSchema(SchemaBuilder|ObjectSchema $schema)         // Structured output
     ->usingAutoMode()                            // Auto schema mode (default)
     ->usingNativeMode()                          // Native JSON schema mode
@@ -1147,4 +1207,4 @@ $registry->clearDecorators(): void;
 - [System Prompts](/core-concepts/system-prompts) — Variable interpolation in prompts
 - [Tools](/core-concepts/tools) — Add callable tools to agents
 - [MCP](/capabilities/mcp) — External tools from MCP servers
-- [Pipelines](/core-concepts/pipelines) — Add middleware for agent execution
+- [Pipelines](/core-concepts/pipelines) — Global and per-request middleware for agent execution

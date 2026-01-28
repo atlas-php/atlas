@@ -67,11 +67,15 @@ class AgentExecutor implements AgentExecutorContract
 
         try {
             // Run before_execute pipeline
-            $beforeData = $this->pipelineRunner->runIfActive('agent.before_execute', [
-                'agent' => $agent,
-                'input' => $input,
-                'context' => $context,
-            ]);
+            $beforeData = $this->pipelineRunner->runWithRuntime(
+                'agent.before_execute',
+                [
+                    'agent' => $agent,
+                    'input' => $input,
+                    'context' => $context,
+                ],
+                $context->getMiddlewareFor('agent.before_execute'),
+            );
 
             /** @var AgentContract $agent */
             $agent = $beforeData['agent'];
@@ -81,11 +85,15 @@ class AgentExecutor implements AgentExecutorContract
             $context = $beforeData['context'];
 
             // Run context.validate pipeline for context-specific validation and transformation
-            $contextData = $this->pipelineRunner->runIfActive('agent.context.validate', [
-                'agent' => $agent,
-                'input' => $input,
-                'context' => $context,
-            ]);
+            $contextData = $this->pipelineRunner->runWithRuntime(
+                'agent.context.validate',
+                [
+                    'agent' => $agent,
+                    'input' => $input,
+                    'context' => $context,
+                ],
+                $context->getMiddlewareFor('agent.context.validate'),
+            );
 
             /** @var AgentContext $context */
             $context = $contextData['context'];
@@ -102,13 +110,17 @@ class AgentExecutor implements AgentExecutorContract
                 : $request->asText();
 
             // Run after_execute pipeline with Prism response directly
-            $afterData = $this->pipelineRunner->runIfActive('agent.after_execute', [
-                'agent' => $agent,
-                'input' => $input,
-                'context' => $context,
-                'response' => $prismResponse,
-                'system_prompt' => $systemPrompt,
-            ]);
+            $afterData = $this->pipelineRunner->runWithRuntime(
+                'agent.after_execute',
+                [
+                    'agent' => $agent,
+                    'input' => $input,
+                    'context' => $context,
+                    'response' => $prismResponse,
+                    'system_prompt' => $systemPrompt,
+                ],
+                $context->getMiddlewareFor('agent.after_execute'),
+            );
 
             /** @var PrismResponse|StructuredResponse $prismResponse */
             $prismResponse = $afterData['response'];
@@ -148,11 +160,15 @@ class AgentExecutor implements AgentExecutorContract
         AgentContext $context,
     ): AgentStreamResponse {
         // Run before_execute pipeline
-        $beforeData = $this->pipelineRunner->runIfActive('agent.before_execute', [
-            'agent' => $agent,
-            'input' => $input,
-            'context' => $context,
-        ]);
+        $beforeData = $this->pipelineRunner->runWithRuntime(
+            'agent.before_execute',
+            [
+                'agent' => $agent,
+                'input' => $input,
+                'context' => $context,
+            ],
+            $context->getMiddlewareFor('agent.before_execute'),
+        );
 
         /** @var AgentContract $agent */
         $agent = $beforeData['agent'];
@@ -162,11 +178,15 @@ class AgentExecutor implements AgentExecutorContract
         $context = $beforeData['context'];
 
         // Run context.validate pipeline for context-specific validation and transformation
-        $contextData = $this->pipelineRunner->runIfActive('agent.context.validate', [
-            'agent' => $agent,
-            'input' => $input,
-            'context' => $context,
-        ]);
+        $contextData = $this->pipelineRunner->runWithRuntime(
+            'agent.context.validate',
+            [
+                'agent' => $agent,
+                'input' => $input,
+                'context' => $context,
+            ],
+            $context->getMiddlewareFor('agent.context.validate'),
+        );
 
         /** @var AgentContext $context */
         $context = $contextData['context'];
@@ -222,14 +242,18 @@ class AgentExecutor implements AgentExecutorContract
             throw $e;
         } finally {
             // Run after_stream pipeline when streaming completes (success or error)
-            $this->pipelineRunner->runIfActive('agent.stream.after', [
-                'agent' => $agent,
-                'input' => $input,
-                'context' => $context,
-                'system_prompt' => $systemPrompt,
-                'events' => $events,
-                'error' => $error,
-            ]);
+            $this->pipelineRunner->runWithRuntime(
+                'agent.stream.after',
+                [
+                    'agent' => $agent,
+                    'input' => $input,
+                    'context' => $context,
+                    'system_prompt' => $systemPrompt,
+                    'events' => $events,
+                    'error' => $error,
+                ],
+                $context->getMiddlewareFor('agent.stream.after'),
+            );
         }
     }
 
@@ -248,13 +272,17 @@ class AgentExecutor implements AgentExecutorContract
         ?string $systemPrompt,
         Throwable $exception,
     ): ?AgentResponse {
-        $result = $this->pipelineRunner->runIfActive('agent.on_error', [
-            'agent' => $agent,
-            'input' => $input,
-            'context' => $context,
-            'system_prompt' => $systemPrompt,
-            'exception' => $exception,
-        ]);
+        $result = $this->pipelineRunner->runWithRuntime(
+            'agent.on_error',
+            [
+                'agent' => $agent,
+                'input' => $input,
+                'context' => $context,
+                'system_prompt' => $systemPrompt,
+                'exception' => $exception,
+            ],
+            $context->getMiddlewareFor('agent.on_error'),
+        );
 
         // Check if pipeline provided a recovery response
         if (isset($result['recovery']) && ($result['recovery'] instanceof PrismResponse || $result['recovery'] instanceof StructuredResponse)) {
@@ -463,14 +491,18 @@ class AgentExecutor implements AgentExecutorContract
         $allTools = [...$allNativeTools, ...$allMcpTools];
 
         // Run agent.tools.merged pipeline - allows auditing, filtering, or injecting tools
-        $mergedData = $this->pipelineRunner->runIfActive('agent.tools.merged', [
-            'agent' => $agent,
-            'context' => $context,
-            'tool_context' => $toolContext,
-            'agent_tools' => $allNativeTools,
-            'agent_mcp_tools' => $allMcpTools,
-            'tools' => $allTools,
-        ]);
+        $mergedData = $this->pipelineRunner->runWithRuntime(
+            'agent.tools.merged',
+            [
+                'agent' => $agent,
+                'context' => $context,
+                'tool_context' => $toolContext,
+                'agent_tools' => $allNativeTools,
+                'agent_mcp_tools' => $allMcpTools,
+                'tools' => $allTools,
+            ],
+            $context->getMiddlewareFor('agent.tools.merged'),
+        );
 
         return $mergedData['tools'];
     }

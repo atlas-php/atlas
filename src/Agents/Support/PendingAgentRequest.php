@@ -31,6 +31,7 @@ final class PendingAgentRequest
 {
     use HasMediaSupport;
     use HasMetadataSupport;
+    use HasMiddlewareSupport;
     use HasVariablesSupport;
 
     /**
@@ -274,6 +275,7 @@ final class PendingAgentRequest
         $clone->tools = $context->tools;
         $clone->mcpTools = $context->mcpTools;
         $clone->prismMedia = $context->prismMedia;
+        $clone->middleware = $context->middleware;
 
         return $clone;
     }
@@ -363,6 +365,7 @@ final class PendingAgentRequest
             prismMessages: $this->prismMessages,
             tools: $this->tools,
             mcpTools: $this->mcpTools,
+            middleware: $this->getMiddleware(),
         );
     }
 }

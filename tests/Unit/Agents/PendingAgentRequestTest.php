@@ -1281,3 +1281,218 @@ test('withContext works with fromArray for queue round-trip', function () {
     expect($capturedContext->prismCalls)->toBe([['method' => 'withMaxSteps', 'args' => [5]]]);
     expect($capturedContext->tools)->toBe(['App\\Tools\\SearchTool']);
 });
+
+// === middleware Tests ===
+
+test('middleware adds handlers immutably', function () {
+    $request2 = $this->request->middleware([
+        'agent.before_execute' => 'App\\Middleware\\TestMiddleware',
+    ]);
+
+    expect($request2)->not->toBe($this->request);
+    expect($request2)->toBeInstanceOf(PendingAgentRequest::class);
+});
+
+test('middleware includes handlers in context', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
+
+    $this->request
+        ->middleware([
+            'agent.before_execute' => 'App\\Middleware\\TestMiddleware',
+        ])
+        ->chat('Hello');
+
+    expect($capturedContext->middleware)->toHaveKey('agent.before_execute');
+    expect($capturedContext->middleware['agent.before_execute'])->toHaveCount(1);
+    expect($capturedContext->middleware['agent.before_execute'][0]['handler'])->toBe('App\\Middleware\\TestMiddleware');
+    expect($capturedContext->middleware['agent.before_execute'][0]['priority'])->toBe(0);
+});
+
+test('middleware accepts single handler per event', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
+
+    $this->request
+        ->middleware([
+            'agent.before_execute' => 'App\\Middleware\\FirstMiddleware',
+            'agent.after_execute' => 'App\\Middleware\\SecondMiddleware',
+        ])
+        ->chat('Hello');
+
+    expect($capturedContext->middleware)->toHaveKey('agent.before_execute');
+    expect($capturedContext->middleware)->toHaveKey('agent.after_execute');
+    expect($capturedContext->middleware['agent.before_execute'][0]['handler'])->toBe('App\\Middleware\\FirstMiddleware');
+    expect($capturedContext->middleware['agent.after_execute'][0]['handler'])->toBe('App\\Middleware\\SecondMiddleware');
+});
+
+test('middleware accepts array of handlers per event', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
+
+    $this->request
+        ->middleware([
+            'agent.before_execute' => [
+                'App\\Middleware\\FirstMiddleware',
+                'App\\Middleware\\SecondMiddleware',
+            ],
+        ])
+        ->chat('Hello');
+
+    expect($capturedContext->middleware['agent.before_execute'])->toHaveCount(2);
+    expect($capturedContext->middleware['agent.before_execute'][0]['handler'])->toBe('App\\Middleware\\FirstMiddleware');
+    expect($capturedContext->middleware['agent.before_execute'][1]['handler'])->toBe('App\\Middleware\\SecondMiddleware');
+});
+
+test('middleware accepts handler instances', function () {
+    $mockHandler = Mockery::mock(\Atlasphp\Atlas\Contracts\PipelineContract::class);
+
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
+
+    $this->request
+        ->middleware([
+            'agent.after_execute' => $mockHandler,
+        ])
+        ->chat('Hello');
+
+    expect($capturedContext->middleware['agent.after_execute'][0]['handler'])->toBe($mockHandler);
+});
+
+test('middleware accumulates across multiple calls', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
+
+    $this->request
+        ->middleware(['agent.before_execute' => 'App\\Middleware\\AuthMiddleware'])
+        ->middleware(['agent.after_execute' => 'App\\Middleware\\LogMiddleware'])
+        ->chat('Hello');
+
+    expect($capturedContext->middleware)->toHaveKey('agent.before_execute');
+    expect($capturedContext->middleware)->toHaveKey('agent.after_execute');
+    expect($capturedContext->middleware['agent.before_execute'][0]['handler'])->toBe('App\\Middleware\\AuthMiddleware');
+    expect($capturedContext->middleware['agent.after_execute'][0]['handler'])->toBe('App\\Middleware\\LogMiddleware');
+});
+
+test('middleware accumulates handlers for same event across calls', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
+
+    $this->request
+        ->middleware(['agent.before_execute' => 'App\\Middleware\\FirstMiddleware'])
+        ->middleware(['agent.before_execute' => 'App\\Middleware\\SecondMiddleware'])
+        ->chat('Hello');
+
+    expect($capturedContext->middleware['agent.before_execute'])->toHaveCount(2);
+    expect($capturedContext->middleware['agent.before_execute'][0]['handler'])->toBe('App\\Middleware\\FirstMiddleware');
+    expect($capturedContext->middleware['agent.before_execute'][1]['handler'])->toBe('App\\Middleware\\SecondMiddleware');
+});
+
+test('withoutMiddleware removes all middleware', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
+
+    $this->request
+        ->middleware(['agent.before_execute' => 'App\\Middleware\\TestMiddleware'])
+        ->middleware(['agent.after_execute' => 'App\\Middleware\\LogMiddleware'])
+        ->withoutMiddleware()
+        ->chat('Hello');
+
+    expect($capturedContext->middleware)->toBe([]);
+});
+
+test('withoutMiddleware is immutable', function () {
+    $request2 = $this->request
+        ->middleware(['agent.before_execute' => 'App\\Middleware\\TestMiddleware'])
+        ->withoutMiddleware();
+
+    expect($request2)->not->toBe($this->request);
+    expect($request2)->toBeInstanceOf(PendingAgentRequest::class);
+});
+
+test('middleware can be combined with other methods', function () {
+    $capturedContext = null;
+    $this->executor->shouldReceive('execute')
+        ->once()
+        ->withArgs(function ($agent, $input, $context) use (&$capturedContext) {
+            $capturedContext = $context;
+
+            return true;
+        })
+        ->andReturnUsing(function ($agent, $input, $context) {
+            return makeMockAgentResponse('Response', $agent, $input, $context);
+        });
+
+    $this->request
+        ->withVariables(['name' => 'John'])
+        ->middleware(['agent.before_execute' => 'App\\Middleware\\AuthMiddleware'])
+        ->withMetadata(['id' => '123'])
+        ->chat('Hello');
+
+    expect($capturedContext->variables)->toBe(['name' => 'John']);
+    expect($capturedContext->metadata)->toBe(['id' => '123']);
+    expect($capturedContext->middleware)->toHaveKey('agent.before_execute');
+});

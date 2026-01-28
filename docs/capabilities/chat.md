@@ -220,6 +220,7 @@ $response = Atlas::agent('support-agent')
 | `withMedia(array $media)` | Attach Prism media objects via builder pattern |
 | `withTools(array $tools)` | Add Atlas tools at runtime (accumulates) |
 | `withMcpTools(array $tools)` | Add MCP tools at runtime ([details](/capabilities/mcp)) |
+| `middleware(array $handlers)` | Attach per-request pipeline handlers ([details](/core-concepts/pipelines#runtime-middleware)) |
 
 </div>
 
@@ -305,6 +306,10 @@ Atlas::agent(string|AgentContract $agent)
     ->withTools(array $tools)                             // Add Atlas tools at runtime
     ->withMcpTools(array $tools)                          // Add MCP tools at runtime
 
+    // Middleware
+    ->middleware(array $handlers)                         // Attach per-request pipeline handlers
+    ->withoutMiddleware()                                 // Remove all runtime middleware
+
     // Structured output
     ->withSchema(SchemaBuilder|ObjectSchema $schema)      // Schema for structured response
     ->usingAutoMode()                                     // Auto schema mode (default)
@@ -374,3 +379,4 @@ Image::fromFileId(string $fileId): Image;
 - [Streaming](/capabilities/streaming) — Real-time streaming responses
 - [Structured](/capabilities/structured-output) — Schema-based responses
 - [MCP](/capabilities/mcp) — External tools from MCP servers
+- [Pipelines](/core-concepts/pipelines#runtime-middleware) — Per-request middleware for validation, logging, and error recovery

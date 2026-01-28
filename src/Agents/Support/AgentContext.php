@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Agents\Support;
 
+use Atlasphp\Atlas\Contracts\PipelineContract;
 use Prism\Prism\ValueObjects\Media\Audio;
 use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Media\Image;
@@ -40,6 +41,7 @@ final readonly class AgentContext
      * @param  array<int, UserMessage|AssistantMessage|SystemMessage>  $prismMessages  Prism message objects for conversation history (direct Prism compatibility).
      * @param  array<int, class-string<\Atlasphp\Atlas\Tools\Contracts\ToolContract>>  $tools  Runtime Atlas tool classes.
      * @param  array<int, \Prism\Prism\Tool>  $mcpTools  MCP tools from prism-php/relay for runtime tool injection.
+     * @param  array<string, array<int, array{handler: class-string<PipelineContract>|PipelineContract, priority: int}>>  $middleware  Runtime middleware handlers keyed by pipeline event.
      */
     public function __construct(
         public array $messages = [],
@@ -52,6 +54,7 @@ final readonly class AgentContext
         public array $prismMessages = [],
         public array $tools = [],
         public array $mcpTools = [],
+        public array $middleware = [],
     ) {}
 
     /**
@@ -159,6 +162,24 @@ final readonly class AgentContext
     }
 
     /**
+     * Check if runtime middleware is present.
+     */
+    public function hasMiddleware(): bool
+    {
+        return $this->middleware !== [];
+    }
+
+    /**
+     * Get middleware handlers for a specific pipeline event.
+     *
+     * @return array<int, array{handler: class-string<PipelineContract>|PipelineContract, priority: int}>
+     */
+    public function getMiddlewareFor(string $event): array
+    {
+        return $this->middleware[$event] ?? [];
+    }
+
+    /**
      * Check if a schema call is present in prism calls.
      *
      * When true, the executor should use Prism's Structured module
@@ -222,6 +243,7 @@ final readonly class AgentContext
             $this->prismMessages,
             $this->tools,
             $this->mcpTools,
+            $this->middleware,
         );
     }
 
@@ -243,6 +265,7 @@ final readonly class AgentContext
             $this->prismMessages,
             $this->tools,
             $this->mcpTools,
+            $this->middleware,
         );
     }
 
@@ -262,6 +285,7 @@ final readonly class AgentContext
             $this->prismMessages,
             $this->tools,
             $this->mcpTools,
+            $this->middleware,
         );
     }
 
@@ -283,6 +307,7 @@ final readonly class AgentContext
             $this->prismMessages,
             $this->tools,
             $this->mcpTools,
+            $this->middleware,
         );
     }
 
@@ -304,6 +329,7 @@ final readonly class AgentContext
             $this->prismMessages,
             $this->tools,
             $this->mcpTools,
+            $this->middleware,
         );
     }
 
@@ -323,6 +349,7 @@ final readonly class AgentContext
             $this->prismMessages,
             $this->tools,
             $this->mcpTools,
+            $this->middleware,
         );
     }
 
@@ -333,10 +360,25 @@ final readonly class AgentContext
      * not serialized as they contain Prism objects that cannot be serialized.
      * These must be re-attached after deserialization if needed.
      *
+     * Middleware handlers that are instances (not class-strings) are excluded
+     * from serialization.
+     *
      * @return array<string, mixed>
      */
     public function toArray(): array
     {
+        // Only serialize class-string middleware handlers (not instances)
+        $serializableMiddleware = [];
+        foreach ($this->middleware as $event => $handlers) {
+            $filtered = array_filter(
+                $handlers,
+                fn (array $h): bool => is_string($h['handler'])
+            );
+            if ($filtered !== []) {
+                $serializableMiddleware[$event] = array_values($filtered);
+            }
+        }
+
         return [
             'messages' => $this->messages,
             'variables' => $this->variables,
@@ -345,6 +387,7 @@ final readonly class AgentContext
             'model_override' => $this->modelOverride,
             'prism_calls' => $this->prismCalls,
             'tools' => $this->tools,
+            'middleware' => $serializableMiddleware,
         ];
     }
 
@@ -370,6 +413,7 @@ final readonly class AgentContext
             prismMessages: [],
             tools: $data['tools'] ?? [],
             mcpTools: [],
+            middleware: $data['middleware'] ?? [],
         );
     }
 }
