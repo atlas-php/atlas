@@ -1,243 +1,241 @@
 :root {
-  --atlas-indigo: #3730a3;
-  --atlas-indigo-light: #4f46e5;
-  --atlas-indigo-dark: #1e1b4b;
-  --atlas-indigo-accent: #818cf8;
-
-  --vp-c-brand-1: var(--atlas-indigo);
-  --vp-c-brand-2: var(--atlas-indigo-light);
-  --vp-c-brand-3: var(--atlas-indigo-dark);
-  --vp-c-brand-soft: rgba(55, 48, 163, 0.14);
-
-  --vp-button-brand-bg: #4f46e5;
-  --vp-button-brand-hover-bg: #6366f1;
-  --vp-button-brand-active-bg: #4338ca;
-
-  --vp-home-hero-name-color: var(--atlas-indigo);
-  --vp-home-hero-name-background: none;
-  --vp-home-hero-image-background-image: linear-gradient(-45deg, rgba(55,48,163,0.4) 30%, rgba(129,140,248,0.3) 70%);
-  --vp-home-hero-image-filter: blur(40px);
-  --vp-home-hero-image-opacity: 0.6;
+    --atlas-indigo: #3730a3;
+    --atlas-indigo-light: #4f46e5;
+    --atlas-indigo-dark: #1e1b4b;
+    --atlas-indigo-accent: #818cf8;
+    --vp-c-brand-1: var(--atlas-indigo);
+    --vp-c-brand-2: var(--atlas-indigo-light);
+    --vp-c-brand-3: var(--atlas-indigo-dark);
+    --vp-c-brand-soft: rgba(55, 48, 163, 0.14);
+    --vp-button-brand-bg: #4f46e5;
+    --vp-button-brand-hover-bg: #6366f1;
+    --vp-button-brand-active-bg: #4338ca;
+    --vp-home-hero-name-color: var(--atlas-indigo);
+    --vp-home-hero-name-background: none;
+    --vp-home-hero-image-background-image: linear-gradient(-45deg, rgba(55, 48, 163, 0.4) 30%, rgba(129, 140, 248, 0.3) 70%);
+    --vp-home-hero-image-filter: blur(40px);
+    --vp-home-hero-image-opacity: 0.6;
 }
 
 .dark {
-  --vp-c-brand-1: var(--atlas-indigo-accent);
-  --vp-c-brand-2: var(--atlas-indigo-light);
-  --vp-button-brand-bg: #6366f1;
-  --vp-button-brand-hover-bg: #818cf8;
+    --vp-c-brand-1: var(--atlas-indigo-accent);
+    --vp-c-brand-2: var(--atlas-indigo-light);
+    --vp-button-brand-bg: #6366f1;
+    --vp-button-brand-hover-bg: #818cf8;
 }
 
 /* Brand button pop effect */
 .VPButton.brand {
-  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4);
-  transition: all 0.3s ease;
+    box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4);
+    transition: all 0.3s ease;
 }
 
 .VPButton.brand:hover {
-  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
-  transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+    transform: translateY(-2px);
 }
 
 .dark .VPButton.brand {
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
+    box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
 }
 
 .dark .VPButton.brand:hover {
-  box-shadow: 0 6px 20px rgba(129, 140, 248, 0.4);
+    box-shadow: 0 6px 20px rgba(129, 140, 248, 0.4);
 }
 
 /* Feature boxes with subtle glow and border */
 .VPFeature {
-  border: 1px solid rgba(55, 48, 163, 0.25) !important;
-  background: var(--vp-c-bg);
-  box-shadow: 0 2px 12px rgba(55, 48, 163, 0.1);
-  transition: all 0.3s ease;
+    border: 1px solid rgba(55, 48, 163, 0.25) !important;
+    background: var(--vp-c-bg);
+    box-shadow: 0 2px 12px rgba(55, 48, 163, 0.1);
+    transition: all 0.3s ease;
 }
 
 .VPFeature:hover {
-  transform: translateY(-2px);
-  border-color: rgba(55, 48, 163, 0.4) !important;
-  box-shadow: 0 8px 30px rgba(55, 48, 163, 0.25), 0 4px 15px rgba(55, 48, 163, 0.15);
+    transform: translateY(-2px);
+    border-color: rgba(55, 48, 163, 0.4) !important;
+    box-shadow: 0 8px 30px rgba(55, 48, 163, 0.25), 0 4px 15px rgba(55, 48, 163, 0.15);
 }
 
 .dark .VPFeature {
-  border-color: rgba(129, 140, 248, 0.15) !important;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+    border-color: rgba(129, 140, 248, 0.15) !important;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
 }
 
 .dark .VPFeature:hover {
-  border-color: rgba(129, 140, 248, 0.4) !important;
-  box-shadow: 0 4px 20px rgba(129, 140, 248, 0.2);
+    border-color: rgba(129, 140, 248, 0.4) !important;
+    box-shadow: 0 4px 20px rgba(129, 140, 248, 0.2);
 }
 
 /* Feature title indigo color */
 .VPFeature .title {
-  color: var(--atlas-indigo) !important;
-  font-weight: 600;
+    color: var(--atlas-indigo) !important;
+    font-weight: 600;
 }
 
 .dark .VPFeature .title {
-  color: #ffffff !important;
+    color: #fff !important;
 }
 
 /* Code blocks with subtle indigo glow */
 .vp-doc [class*='language-'] {
-  border-left: none;
-  box-shadow:
-    0 0 10px rgba(55, 48, 163, 0.15),
-    0 0 20px rgba(55, 48, 163, 0.08);
-  transition: box-shadow 0.3s ease;
+    border-left: none;
+    box-shadow:
+        0 0 10px rgba(55, 48, 163, 0.15),
+        0 0 20px rgba(55, 48, 163, 0.08);
+    transition: box-shadow 0.3s ease;
 }
 
 .vp-doc [class*='language-']:hover {
-  box-shadow:
-    0 0 15px rgba(55, 48, 163, 0.25),
-    0 0 30px rgba(129, 140, 248, 0.15);
+    box-shadow:
+        0 0 15px rgba(55, 48, 163, 0.25),
+        0 0 30px rgba(129, 140, 248, 0.15);
 }
 
 .dark .vp-doc [class*='language-'] {
-  box-shadow:
-    0 0 10px rgba(129, 140, 248, 0.1),
-    0 0 20px rgba(129, 140, 248, 0.05);
-  transition: box-shadow 0.3s ease;
+    box-shadow:
+        0 0 10px rgba(129, 140, 248, 0.1),
+        0 0 20px rgba(129, 140, 248, 0.05);
+    transition: box-shadow 0.3s ease;
 }
 
 .dark .vp-doc [class*='language-']:hover {
-  box-shadow:
-    0 0 15px rgba(129, 140, 248, 0.2),
-    0 0 30px rgba(129, 140, 248, 0.1);
+    box-shadow:
+        0 0 15px rgba(129, 140, 248, 0.2),
+        0 0 30px rgba(129, 140, 248, 0.1);
 }
 
 /* Hero text colors */
 .VPHero .text {
-  color: #000000 !important;
+    color: #000 !important;
 }
 
 .dark .VPHero .text {
-  color: #ffffff !important;
+    color: #fff !important;
 }
 
 /* Hero text - Laravel in indigo */
 .VPHero .text-laravel {
-  color: var(--atlas-indigo-accent) !important;
+    color: var(--atlas-indigo-accent) !important;
 }
 
 .dark .VPHero .text-laravel {
-  color: var(--atlas-indigo-accent) !important;
+    color: var(--atlas-indigo-accent) !important;
 }
 
 /* Hero title - gradient effect */
 .VPHero .name {
-  background: linear-gradient(135deg, var(--atlas-indigo) 0%, var(--atlas-indigo-accent) 50%, var(--atlas-indigo-light) 100%) !important;
-  -webkit-background-clip: text !important;
-  background-clip: text !important;
-  -webkit-text-fill-color: transparent !important;
+    background: linear-gradient(135deg, var(--atlas-indigo) 0%, var(--atlas-indigo-accent) 50%, var(--atlas-indigo-light) 100%) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
 }
 
 .dark .VPHero .name {
-  background: linear-gradient(135deg, var(--atlas-indigo-accent) 0%, #a5b4fc 50%, var(--atlas-indigo-light) 100%) !important;
-  -webkit-background-clip: text !important;
-  background-clip: text !important;
-  -webkit-text-fill-color: transparent !important;
+    background: linear-gradient(135deg, var(--atlas-indigo-accent) 0%, #a5b4fc 50%, var(--atlas-indigo-light) 100%) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
 }
 
 /* Hero image background glow */
 .VPHero .image-bg {
-  display: none;
+    display: none;
 }
 
 .dark .VPHero .image-bg {
-  display: block;
-  opacity: 0.4;
-  filter: blur(40px);
+    display: block;
+    opacity: 0.4;
+    filter: blur(40px);
 }
 
 /* Hero logo glow animation on load - uses wrapper */
 .VPHero .image-container {
-  animation: none;
+    animation: none;
 }
 
 .dark .VPHero .image-container {
-  animation: logoGlowFadeDark 4s ease-out forwards;
+    animation: logoGlowFadeDark 4s ease-out forwards;
 }
 
 @keyframes logoGlowFadeDark {
-  0% {
-    filter:
-      drop-shadow(0 0 20px rgba(129, 140, 248, 0.8))
-      drop-shadow(0 0 40px rgba(129, 140, 248, 0.5))
-      drop-shadow(0 0 60px rgba(165, 180, 252, 0.3));
-  }
-  100% {
-    filter: drop-shadow(0 0 0 transparent);
-  }
+    0% {
+        filter:
+            drop-shadow(0 0 20px rgba(129, 140, 248, 0.8))
+            drop-shadow(0 0 40px rgba(129, 140, 248, 0.5))
+            drop-shadow(0 0 60px rgba(165, 180, 252, 0.3));
+    }
+
+    100% {
+        filter: drop-shadow(0 0 0 transparent);
+    }
 }
 
 /* Hero logo hover effect */
 .VPHero .VPImage {
-  transition: filter 0.8s ease;
-  filter: drop-shadow(0 0 0 transparent);
+    transition: filter 0.8s ease;
+    filter: drop-shadow(0 0 0 transparent);
 }
 
 .VPHero .VPImage:hover {
-  filter: none;
+    filter: none;
 }
 
 .dark .VPHero .VPImage:hover {
-  filter:
-    drop-shadow(0 0 20px rgba(129, 140, 248, 0.8))
-    drop-shadow(0 0 40px rgba(129, 140, 248, 0.5))
-    drop-shadow(0 0 60px rgba(165, 180, 252, 0.3));
+    filter:
+        drop-shadow(0 0 20px rgba(129, 140, 248, 0.8))
+        drop-shadow(0 0 40px rgba(129, 140, 248, 0.5))
+        drop-shadow(0 0 60px rgba(165, 180, 252, 0.3));
 }
 
 /* Glass effect header */
 .VPNav {
-  background: rgba(255, 255, 255, 0.85) !important;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-bottom: 1px solid transparent !important;
-  box-shadow: none !important;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    background: rgba(255, 255, 255, 0.85) !important;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid transparent !important;
+    box-shadow: none !important;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .dark .VPNav {
-  background: rgba(27, 27, 31, 0.9) !important;
+    background: rgba(27, 27, 31, 0.9) !important;
 }
 
 /* Show border and glow shadow when scrolled */
 .VPNav.has-sidebar.top-arrived {
-  border-bottom-color: transparent !important;
-  box-shadow: none !important;
+    border-bottom-color: transparent !important;
+    box-shadow: none !important;
 }
 
 .VPNav.has-sidebar:not(.top-arrived) {
-  border-bottom-color: rgba(55, 48, 163, 0.1) !important;
-  box-shadow: 0 4px 20px rgba(55, 48, 163, 0.15), 0 0 40px rgba(129, 140, 248, 0.1) !important;
+    border-bottom-color: rgba(55, 48, 163, 0.1) !important;
+    box-shadow: 0 4px 20px rgba(55, 48, 163, 0.15), 0 0 40px rgba(129, 140, 248, 0.1) !important;
 }
 
 .dark .VPNav.has-sidebar:not(.top-arrived) {
-  border-bottom-color: rgba(129, 140, 248, 0.1) !important;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 0 40px rgba(129, 140, 248, 0.15) !important;
+    border-bottom-color: rgba(129, 140, 248, 0.1) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 0 40px rgba(129, 140, 248, 0.15) !important;
 }
 
 .VPNavBar {
-  background: transparent !important;
-  backdrop-filter: none !important;
-  border: none !important;
-  box-shadow: none !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    border: none !important;
+    box-shadow: none !important;
 }
 
 .VPNavBar .container {
-  background: transparent !important;
+    background: transparent !important;
 }
 
 .VPNavBar .divider,
 .VPNavBar .divider-line {
-  display: none !important;
+    display: none !important;
 }
 
 .VPNavBar .content-body {
-  background: transparent !important;
+    background: transparent !important;
 }
 
 /* Remove backgrounds from all nav elements */
@@ -249,36 +247,36 @@
 .VPNavBarSearch,
 .VPNavBarMenuLink,
 .VPNavBarMenu {
-  background: transparent !important;
+    background: transparent !important;
 }
 
 /* Fix the sidebar header area */
 .VPSidebar {
-  background: transparent !important;
+    background: transparent !important;
 }
 
 .has-sidebar .VPNavBar .curtain {
-  background: transparent !important;
+    background: transparent !important;
 }
 
 .has-sidebar .VPNavBar::before,
 .has-sidebar .VPNavBar::after {
-  display: none !important;
+    display: none !important;
 }
 
 /* Logo/title container */
 .VPNavBarTitle {
-  background: transparent !important;
+    background: transparent !important;
 }
 
 .VPNavBarTitle::before,
 .VPNavBarTitle::after {
-  display: none !important;
+    display: none !important;
 }
 
 .VPNavBar .title,
 .VPNavBar .logo {
-  background: transparent !important;
+    background: transparent !important;
 }
 
 /* Target all possible wrapper elements */
@@ -288,47 +286,47 @@
 .VPNavBar [class*="title"],
 .VPNavBar [class*="logo"],
 .VPNavBar [class*="brand"] {
-  background: transparent !important;
+    background: transparent !important;
 }
 
 /* Header site title */
 .VPNavBarTitle .title {
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  color: #000000 !important;
-  text-shadow: none;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: #000 !important;
+    text-shadow: none;
 }
 
 .dark .VPNavBarTitle .title {
-  color: #ffffff !important;
-  text-shadow:
-    0 0 10px rgba(129, 140, 248, 0.7),
-    0 0 25px rgba(129, 140, 248, 0.5),
-    0 0 50px rgba(129, 140, 248, 0.25);
+    color: #fff !important;
+    text-shadow:
+        0 0 10px rgba(129, 140, 248, 0.7),
+        0 0 25px rgba(129, 140, 248, 0.5),
+        0 0 50px rgba(129, 140, 248, 0.25);
 }
 
 .dark .VPNavBarTitle .title:hover {
-  text-shadow:
-    0 0 15px rgba(129, 140, 248, 0.9),
-    0 0 35px rgba(129, 140, 248, 0.6),
-    0 0 60px rgba(129, 140, 248, 0.35);
+    text-shadow:
+        0 0 15px rgba(129, 140, 248, 0.9),
+        0 0 35px rgba(129, 140, 248, 0.6),
+        0 0 60px rgba(129, 140, 248, 0.35);
 }
 
 /* Sidebar active link - indigo in light mode */
 .VPSidebarItem.is-active > .item > .link > .text {
-  color: var(--atlas-indigo-accent) !important;
+    color: var(--atlas-indigo-accent) !important;
 }
 
 .VPSidebarItem.is-active > .item > .indicator {
-  background-color: var(--atlas-indigo-accent) !important;
+    background-color: var(--atlas-indigo-accent) !important;
 }
 
 .dark .VPSidebarItem.is-active > .item > .link > .text {
-  color: var(--atlas-indigo-accent) !important;
+    color: var(--atlas-indigo-accent) !important;
 }
 
 .dark .VPSidebarItem.is-active > .item > .indicator {
-  background-color: var(--atlas-indigo-accent) !important;
+    background-color: var(--atlas-indigo-accent) !important;
 }
 
 /* =========================================
@@ -337,180 +335,180 @@
 
 /* Container for nested sidebar items - add left border line */
 .VPSidebarItem .items {
-  position: relative;
-  padding-left: 16px;
-  margin-left: 7px;
-  border-left: 1px solid var(--vp-c-divider);
+    position: relative;
+    padding-left: 16px;
+    margin-left: 7px;
+    border-left: 1px solid var(--vp-c-divider);
 }
 
 .dark .VPSidebarItem .items {
-  border-left-color: var(--vp-c-divider);
+    border-left-color: var(--vp-c-divider);
 }
 
 /* Remove default padding from nested links to control spacing */
 .VPSidebarItem .items .VPSidebarItem .item {
-  padding-left: 0;
-  margin: 0;
+    padding-left: 0;
+    margin: 0;
 }
 
 /* Tighter spacing for nested items */
 .VPSidebarItem .items .VPSidebarItem {
-  margin: 0 !important;
-  padding: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
 /* Nested link text styling - compact */
 .VPSidebarItem .items .link {
-  padding: 1px 0 !important;
-  line-height: 1.25;
-  font-size: 0.9em;
+    padding: 1px 0 !important;
+    line-height: 1.25;
+    font-size: 0.9em;
 }
 
 /* Override any default item spacing */
 .VPSidebarItem .items .item {
-  margin-top: 0 !important;
-  margin-bottom: 0 !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
 }
 
 /* Active item indicator positioning - align with border */
 .VPSidebarItem .items .VPSidebarItem.is-active > .item {
-  position: relative;
+    position: relative;
 }
 
 /* Active indicator overlays the border line */
 .VPSidebarItem .items .VPSidebarItem.is-active > .item::before {
-  content: '';
-  position: absolute;
-  left: -17px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 2px;
-  height: 20px;
-  background-color: var(--atlas-indigo-accent);
-  border-radius: 1px;
+    content: '';
+    position: absolute;
+    left: -17px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 2px;
+    height: 20px;
+    background-color: var(--atlas-indigo-accent);
+    border-radius: 1px;
 }
 
 /* Hide the default indicator for nested items since we use custom one */
 .VPSidebarItem .items .VPSidebarItem > .item > .indicator {
-  display: none;
+    display: none;
 }
 
 /* Section headers (level 0) - group titles */
 .VPSidebarItem.level-0 > .item > .text {
-  font-weight: 600;
-  font-size: 0.9rem;
-  color: var(--vp-c-text-1);
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--vp-c-text-1);
 }
 
 /* Hover effect for sidebar links */
 .VPSidebarItem .items .link:hover .text {
-  color: var(--atlas-indigo-accent);
+    color: var(--atlas-indigo-accent);
 }
 
 /* Smooth transition for hover states */
 .VPSidebarItem .link .text {
-  transition: color 0.2s ease;
+    transition: color 0.2s ease;
 }
 
 /* Collapsed section caret styling */
 .VPSidebarItem.collapsible > .item .caret {
-  transition: transform 0.25s ease;
+    transition: transform 0.25s ease;
 }
 
 /* Adjust spacing between sidebar groups */
 .VPSidebarItem.level-0 {
-  padding-bottom: 8px;
+    padding-bottom: 8px;
 }
 
 .VPSidebarItem.level-0 + .VPSidebarItem.level-0 {
-  padding-top: 8px;
-  border-top: 1px solid var(--vp-c-divider);
-  margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--vp-c-divider);
+    margin-top: 8px;
 }
 
 /* Search bar min width */
 .VPNavBarSearch .DocSearch-Button,
 .VPNavBarSearch button,
 .VPNavBarSearch .VPLocalSearchBox button {
-  min-width: 300px !important;
+    min-width: 300px !important;
 }
 
 /* Narrow header on home page to match home content width */
 body:has(.VPHome) .VPNavBar .container {
-  max-width: 1152px !important;
-  margin: 0 auto !important;
+    max-width: 1152px !important;
+    margin: 0 auto !important;
 }
 
 body:has(.VPHome) .VPNavBar .content {
-  max-width: 1152px !important;
-  margin: 0 auto !important;
-  padding: 0 24px !important;
+    max-width: 1152px !important;
+    margin: 0 auto !important;
+    padding: 0 24px !important;
 }
 
 /* Prism feature box - vaporwave effect */
 .VPFeatures .items > .item:nth-child(3) .VPFeature {
-  border-color: rgba(185, 103, 255, 0.2) !important;
-  box-shadow:
-    0 2px 10px rgba(255, 113, 206, 0.1),
-    0 0 15px rgba(185, 103, 255, 0.08) !important;
+    border-color: rgba(185, 103, 255, 0.2) !important;
+    box-shadow:
+        0 2px 10px rgba(255, 113, 206, 0.1),
+        0 0 15px rgba(185, 103, 255, 0.08) !important;
 }
 
 .VPFeatures .items > .item:nth-child(3) .VPFeature:hover {
-  border-color: rgba(185, 103, 255, 0.5) !important;
-  box-shadow:
-    0 4px 20px rgba(255, 113, 206, 0.25),
-    0 0 30px rgba(185, 103, 255, 0.15),
-    0 0 40px rgba(1, 205, 254, 0.1) !important;
+    border-color: rgba(185, 103, 255, 0.5) !important;
+    box-shadow:
+        0 4px 20px rgba(255, 113, 206, 0.25),
+        0 0 30px rgba(185, 103, 255, 0.15),
+        0 0 40px rgba(1, 205, 254, 0.1) !important;
 }
 
 .dark .VPFeatures .items > .item:nth-child(3) .VPFeature {
-  border-color: rgba(185, 103, 255, 0.15) !important;
-  box-shadow:
-    0 2px 10px rgba(255, 113, 206, 0.12),
-    0 0 15px rgba(185, 103, 255, 0.1) !important;
+    border-color: rgba(185, 103, 255, 0.15) !important;
+    box-shadow:
+        0 2px 10px rgba(255, 113, 206, 0.12),
+        0 0 15px rgba(185, 103, 255, 0.1) !important;
 }
 
 .dark .VPFeatures .items > .item:nth-child(3) .VPFeature:hover {
-  border-color: rgba(255, 113, 206, 0.5) !important;
-  box-shadow:
-    0 4px 20px rgba(255, 113, 206, 0.3),
-    0 0 30px rgba(185, 103, 255, 0.25),
-    0 0 40px rgba(1, 205, 254, 0.15) !important;
+    border-color: rgba(255, 113, 206, 0.5) !important;
+    box-shadow:
+        0 4px 20px rgba(255, 113, 206, 0.3),
+        0 0 30px rgba(185, 103, 255, 0.25),
+        0 0 40px rgba(1, 205, 254, 0.15) !important;
 }
 
 /* Feature icon images - ensure consistent height for title alignment */
 .VPFeatures .VPFeature .VPImage,
 .VPFeature .icon img,
 .VPFeature .icon .VPImage {
-  height: 48px !important;
-  width: auto !important;
-  max-width: 100px !important;
-  object-fit: contain !important;
+    height: 48px !important;
+    width: auto !important;
+    max-width: 100px !important;
+    object-fit: contain !important;
 }
 
 /* Darken icons in light mode to match title color */
 .VPFeature .icon img,
 .VPFeature .icon .VPImage {
-  filter: brightness(0.6) saturate(1.5);
+    filter: brightness(0.6) saturate(1.5);
 }
 
 /* Full-width tables */
 .full-width-table table {
-  width: 100%;
-  display: table;
+    width: 100%;
+    display: table;
 }
 
 .full-width-table th,
 .full-width-table td {
-  width: auto;
+    width: auto;
 }
 
 .full-width-table th:first-child,
 .full-width-table td:first-child {
-  width: 30%;
+    width: 30%;
 }
 
 .full-width-table th:last-child,
 .full-width-table td:last-child {
-  width: 70%;
+    width: 70%;
 }
