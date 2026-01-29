@@ -38,3 +38,13 @@
 - May mask dependency resolution issues until intentional updates
 
 **Decision:** TBD
+
+---
+
+## Prism Compatibility Tracking
+
+Track Prism releases and their impact on Atlas. See `AGENTS.md` "Prism Compatibility" section for the review process.
+
+| Date | Prism Versions | Status | Notes |
+|------|----------------|--------|-------|
+| 2026-01-29 | v0.99.16 - v0.99.19 | ✅ Compatible | No changes needed. Atlas unaffected by: streaming artifact key change, ResponseBuilder refactor, Skills support, provider fixes. |
