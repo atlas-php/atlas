@@ -1,0 +1,20 @@
+{
+    "extends": ["stylelint-config-standard"],
+    "plugins": ["@stylistic/stylelint-plugin"],
+    "ignoreFiles": [
+        "node_modules/**",
+        ".vitepress/cache/**",
+        ".vitepress/dist/**"
+    ],
+    "rules": {
+        "@stylistic/indentation": 4,
+        "selector-class-pattern": null,
+        "custom-property-pattern": null,
+        "keyframes-name-pattern": null,
+        "no-descending-specificity": null,
+        "declaration-block-no-redundant-longhand-properties": null,
+        "color-function-notation": null,
+        "alpha-value-notation": null,
+        "property-no-vendor-prefix": null
+    }
+}

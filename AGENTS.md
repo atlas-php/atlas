@@ -53,6 +53,43 @@ Atlas is a **Prism complement** that adds application-level AI concerns. It does
 
 ---
 
+## Prism Compatibility
+
+Atlas depends on Prism (`prism-php/prism`). Periodically review Prism releases for breaking changes.
+
+### Review Process
+
+1. **Check releases**: https://github.com/prism-php/prism/releases
+2. **Check last review**: See `NOTES.md` "Prism Compatibility Tracking" for last reviewed version
+3. **Assess impact**: Focus on changes to:
+   - Terminal methods (`asText()`, `asStructured()`, `asStream()`)
+   - Tool API (`Tool::as()`, tool handlers)
+   - Response/Request object structure
+   - Streaming event format
+4. **Update NOTES.md**: Record the review date, versions, and findings
+5. **If changes needed**: Create tasks for code updates
+
+### Why Atlas is Resilient
+
+Atlas uses a thin proxy pattern:
+- Captures Prism method calls via `__call()` for later replay
+- Wraps terminal methods with pipeline hooks
+- Converts Atlas tools to Prism tools
+- Never re-implements Prism internals
+
+Most Prism changes are transparent to Atlas.
+
+### Key Integration Files
+
+| File                                         | Purpose                                |
+|----------------------------------------------|----------------------------------------|
+| `src/Agents/Services/AgentExecutor.php`      | Calls terminal methods                 |
+| `src/Tools/Services/ToolBuilder.php`         | Converts Atlas tools to Prism tools    |
+| `src/PrismProxy.php`                         | Pipeline hooks around terminal methods |
+| `src/Agents/Support/PendingAgentRequest.php` | Captures Prism method calls            |
+
+---
+
 ## Documentation
 
 **Public documentation:** VitePress site at [atlasphp.io](https://atlasphp.io)

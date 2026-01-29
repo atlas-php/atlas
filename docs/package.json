@@ -1,13 +1,26 @@
 {
   "name": "atlas-docs",
   "version": "1.0.0",
+  "type": "module",
   "description": "Atlas PHP Documentation",
   "scripts": {
     "dev": "vitepress dev",
     "build": "vitepress build",
-    "preview": "vitepress preview"
+    "preview": "vitepress preview",
+    "lint": "npm run lint:js && npm run lint:css",
+    "lint:js": "eslint . --fix",
+    "lint:css": "stylelint \".vitepress/theme/**/*.css\" --fix",
+    "lint:check": "npm run lint:js:check && npm run lint:css:check",
+    "lint:js:check": "eslint .",
+    "lint:css:check": "stylelint \".vitepress/theme/**/*.css\""
   },
   "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "@stylistic/stylelint-plugin": "^3.1.0",
+    "eslint": "^9.18.0",
+    "stylelint": "^16.12.0",
+    "stylelint-config-standard": "^37.0.0",
+    "typescript-eslint": "^8.21.0",
     "vitepress": "^1.5.0",
     "vue": "^3.5.0"
   }
