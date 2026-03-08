@@ -58,6 +58,7 @@ export default defineConfig({
                 text: 'Advanced',
                 collapsed: true,
                 items: [
+                    { text: 'Events', link: '/advanced/events' },
                     { text: 'Testing', link: '/advanced/testing' },
                     { text: 'Custom Providers', link: '/advanced/custom-providers' },
                     { text: 'Error Handling', link: '/advanced/error-handling' },

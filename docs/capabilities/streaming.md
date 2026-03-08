@@ -114,68 +114,141 @@ Message::create([
 ]);
 ```
 
-## SSE Response (HTTP Endpoints)
+## HTTP Streaming (SSE)
 
-For Server-Sent Events in HTTP controllers:
+`AgentStreamResponse` implements Laravel's `Responsable` interface — return it directly from controllers for Server-Sent Events:
 
 ```php
 use Atlasphp\Atlas\Atlas;
-use Prism\Prism\Streaming\Events\TextDeltaEvent;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ChatController extends Controller
 {
     public function stream(Request $request)
     {
-        return new StreamedResponse(function () use ($request) {
-            $stream = Atlas::agent('support-agent')
-                ->withMessages($request->messages ?? [])
-                ->stream($request->input('message'));
-
-            foreach ($stream as $event) {
-                if ($event instanceof TextDeltaEvent) {
-                    echo "data: " . json_encode(['text' => $event->text]) . "\n\n";
-                    ob_flush();
-                    flush();
-                }
-            }
-        }, 200, [
-            'Content-Type' => 'text/event-stream',
-            'Cache-Control' => 'no-cache',
-            'Connection' => 'keep-alive',
-        ]);
+        return Atlas::agent('support-agent')
+            ->withMessages($request->messages ?? [])
+            ->stream($request->input('message'));
     }
 }
+```
+
+The response automatically sets SSE headers (`Content-Type: text/event-stream`, `Cache-Control: no-cache`, `Connection: keep-alive`) and streams text delta events to the client.
+
+## Vercel AI SDK Protocol
+
+For frontends using the [Vercel AI SDK](https://sdk.vercel.ai), switch to the Data Stream Protocol:
+
+```php
+class ChatController extends Controller
+{
+    public function stream(Request $request)
+    {
+        return Atlas::agent('support-agent')
+            ->stream($request->input('message'))
+            ->asVercelStream();
+    }
+}
+```
+
+This formats events according to the Vercel AI SDK Data Stream Protocol, compatible with the `useChat` and `useCompletion` hooks.
+
+## Convenience Methods
+
+### Collecting Text
+
+Use `text()` to collect the full response text after consuming the stream:
+
+```php
+$stream = Atlas::agent('support-agent')->stream('Hello!');
+
+foreach ($stream as $event) {
+    // Process events in real-time...
+}
+
+// Get the complete text after the stream is consumed
+$fullText = $stream->text();
+```
+
+### Post-Stream Callbacks
+
+Use `then()` to register a callback that runs after the stream is fully consumed:
+
+```php
+$stream = Atlas::agent('support-agent')->stream($input);
+
+$stream->then(function () use ($conversation, $stream) {
+    $conversation->messages()->create([
+        'role' => 'assistant',
+        'content' => $stream->text(),
+    ]);
+});
+
+return $stream; // Callback fires after response is sent
 ```
 
 ## Broadcasting to WebSockets
 
-Combine with Laravel broadcasting for real-time chat:
+Atlas includes a built-in `AgentStreamChunk` broadcast event for real-time WebSocket delivery:
 
 ```php
-use Prism\Prism\Streaming\Events\TextDeltaEvent;
-use Prism\Prism\Streaming\Events\StreamEndEvent;
+use Atlasphp\Atlas\Atlas;
 
-$fullText = '';
-
-foreach ($stream as $event) {
-    if ($event instanceof TextDeltaEvent) {
-        $fullText .= $event->text;
-
-        broadcast(new ChatChunk(
-            conversationId: $conversationId,
-            text: $event->text,
-        ))->toOthers();
-    }
-
-    if ($event instanceof StreamEndEvent) {
-        broadcast(new ChatComplete(
-            conversationId: $conversationId,
-            fullText: $fullText,
-        ))->toOthers();
-    }
-}
+Atlas::agent('support-agent')
+    ->withVariables(['user' => $user->name])
+    ->broadcast($input, $requestId);
 ```
+
+Each stream chunk is broadcast on a private channel following the convention:
+
+```
+atlas.agent.{agentKey}.{requestId}
+```
+
+The broadcast event name is `atlas.stream.chunk` and includes `type`, `delta`, and `metadata` properties.
+
+### Frontend Listener
+
+Listen for chunks with Laravel Echo:
+
+```javascript
+Echo.private(`atlas.agent.support-agent.${requestId}`)
+    .listen('.atlas.stream.chunk', (event) => {
+        if (event.delta) {
+            document.getElementById('response').textContent += event.delta;
+        }
+    });
+```
+
+## Queued Execution
+
+Run agents in the background using Laravel queues:
+
+```php
+use Atlasphp\Atlas\Atlas;
+use Atlasphp\Atlas\Agents\Support\AgentResponse;
+
+Atlas::agent('support-agent')
+    ->queue($input)
+    ->onQueue('ai')
+    ->onConnection('redis')
+    ->then(fn (AgentResponse $response) => $conversation->messages()->create([
+        'role' => 'assistant',
+        'content' => $response->text(),
+    ]))
+    ->catch(fn (Throwable $e) => Log::error('Agent failed', [
+        'error' => $e->getMessage(),
+    ]));
+```
+
+The `queue()` method returns a `QueuedAgentResponse` with a fluent API:
+
+- `onQueue(string $queue)` — Set the queue name
+- `onConnection(string $connection)` — Set the queue connection
+- `delay(DateTimeInterface|DateInterval|int $delay)` — Delay execution
+- `then(Closure $callback)` — Success callback receiving `AgentResponse`
+- `catch(Closure $callback)` — Failure callback receiving `Throwable`
+
+The job is dispatched automatically. For queued broadcasting that streams to WebSockets, use `broadcast()` instead.
 
 ## Frontend Integration
 
@@ -247,21 +320,19 @@ $registry->register('agent.stream.after', function (mixed $data, Closure $next) 
 
 See [Pipelines](/core-concepts/pipelines) for more pipeline hooks.
 
-## Example: Complete Streaming Service
+## Example: Complete Streaming Controller
 
 ```php
 use Atlasphp\Atlas\Atlas;
-use Prism\Prism\Streaming\Events\TextDeltaEvent;
-use Prism\Prism\Streaming\Events\StreamEndEvent;
 
-class ChatService
+class ChatController extends Controller
 {
-    public function streamResponse(Conversation $conversation, string $userMessage): string
+    public function stream(Request $request, Conversation $conversation)
     {
         // Save user message
         $conversation->messages()->create([
             'role' => 'user',
-            'content' => $userMessage,
+            'content' => $request->input('message'),
         ]);
 
         // Get history
@@ -271,30 +342,20 @@ class ChatService
             ->map(fn ($m) => ['role' => $m->role, 'content' => $m->content])
             ->toArray();
 
-        // Stream response
+        // Stream response with post-stream save
         $stream = Atlas::agent('support-agent')
             ->withMessages($messages)
             ->withMetadata(['conversation_id' => $conversation->id])
-            ->stream($userMessage);
+            ->stream($request->input('message'));
 
-        $fullText = '';
+        $stream->then(function () use ($conversation, $stream) {
+            $conversation->messages()->create([
+                'role' => 'assistant',
+                'content' => $stream->text(),
+            ]);
+        });
 
-        foreach ($stream as $event) {
-            if ($event instanceof TextDeltaEvent) {
-                $fullText .= $event->text;
-
-                // Broadcast chunk
-                broadcast(new ChatChunk($conversation->id, $event->text))->toOthers();
-            }
-        }
-
-        // Save assistant response
-        $conversation->messages()->create([
-            'role' => 'assistant',
-            'content' => $fullText,
-        ]);
-
-        return $fullText;
+        return $stream;
     }
 }
 ```
@@ -325,7 +386,29 @@ Atlas::agent(string|AgentContract $agent)
     ->withProviderOptions(array $options)                 // Provider-specific options
 
     // Execution
-    ->stream(string $input, array $attachments = []): AgentStreamResponse;
+    ->stream(string $input, array $attachments = []): AgentStreamResponse
+    ->queue(string $input): QueuedAgentResponse           // Background execution
+    ->broadcast(string $input, ?string $requestId): PendingDispatch;  // WebSocket streaming
+
+// AgentStreamResponse (implements IteratorAggregate, Responsable)
+$stream = Atlas::agent('agent')->stream('Hello');
+
+$stream->toResponse($request);       // Laravel Responsable — SSE format (automatic)
+$stream->asVercelStream();           // Switch to Vercel AI SDK Data Stream Protocol
+$stream->text(): string;             // Collect full text after stream consumption
+$stream->then(Closure $callback);    // Register post-stream callback
+$stream->events(): array;            // Get collected stream events
+$stream->isConsumed(): bool;         // Check if stream is fully consumed
+
+// QueuedAgentResponse
+$queued = Atlas::agent('agent')->queue('Hello');
+
+$queued->onQueue(string $queue);                   // Set queue name
+$queued->onConnection(string $connection);         // Set queue connection
+$queued->delay(DateTimeInterface|DateInterval|int); // Delay execution
+$queued->then(Closure $callback);                  // Success callback (AgentResponse)
+$queued->catch(Closure $callback);                 // Failure callback (Throwable)
+$queued->dispatch();                               // Explicit dispatch (auto on destruct)
 
 // Direct text streaming (without agents)
 Atlas::text()
@@ -345,20 +428,10 @@ use Prism\Prism\Streaming\Events\ToolCallDeltaEvent; // Tool call argument chunk
 use Prism\Prism\Streaming\Events\ToolResultEvent;    // Tool execution result
 use Prism\Prism\Streaming\Events\ThinkingEvent;      // Model thinking (Claude)
 
-// Event properties
-$event instanceof TextDeltaEvent;
-$event->text;           // The text chunk
-
-$event instanceof StreamEndEvent;
-$event->response;       // Full PrismResponse object (when available)
-
-$event instanceof ToolCallStartEvent;
-$event->name;           // Tool name
-$event->id;             // Tool call ID
-
-$event instanceof ToolResultEvent;
-$event->toolCallId;     // Tool call ID
-$event->result;         // Tool result
+// AgentStreamChunk broadcast event
+// Channel: atlas.agent.{agentKey}.{requestId}
+// Event name: atlas.stream.chunk
+// Properties: $type, $delta, $metadata
 ```
 
 ## Next Steps

@@ -287,6 +287,23 @@ Atlas::fake()
     );
 ```
 
+### Dynamic Response Factories
+
+Use `respondUsing()` for closure-based response generation. The closure receives a `RecordedRequest` and should return a response text string or a `PrismResponse`:
+
+```php
+use Atlasphp\Atlas\Testing\Support\RecordedRequest;
+
+Atlas::fake()->respondUsing('support-agent', function (RecordedRequest $request) {
+    return "Echo: {$request->input}";
+});
+
+$response = Atlas::agent('support-agent')->chat('Hello');
+$this->assertEquals('Echo: Hello', $response->text());
+```
+
+This is useful when fake responses need to vary based on the input or context of each request.
+
 ### Testing Exceptions
 
 Test error handling by throwing exceptions:
@@ -349,6 +366,16 @@ Atlas::assertSentWithContext('support-agent', fn($context) =>
 Atlas::assertSentWithSchema('analyzer', fn($schema) =>
     $schema->name === 'sentiment'
 );
+
+// Assert streaming was used
+Atlas::assertStreamed('support-agent');
+Atlas::assertNotStreamed('support-agent');
+
+// Assert context details
+Atlas::assertCalledWithVariables('support-agent', ['user' => 'John']);
+Atlas::assertCalledWithProvider('support-agent', 'openai');
+Atlas::assertCalledWithModel('support-agent', 'gpt-4o');
+Atlas::assertCalledWithTools('support-agent', [LookupOrderTool::class]);
 ```
 
 ### Accessing Recorded Requests
@@ -588,6 +615,7 @@ $fake = Atlas::fake([PrismResponse $response]);     // With default response
 // Configuring fake responses
 $fake->response(string $agentKey): PendingFakeRequest;
 $fake->response(string $agentKey, PrismResponse $response): AtlasFake;
+$fake->respondUsing(string $agentKey, Closure $factory): AtlasFake;  // Dynamic responses
 $fake->sequence(array $responses): AtlasFake;       // Default sequence for any agent
 $fake->preventStrayRequests(): AtlasFake;           // Fail on unconfigured agents
 $fake->allowStrayRequests(): AtlasFake;             // Allow unconfigured agents
@@ -622,6 +650,12 @@ $fake->assertSent(Closure $callback): void;         // Custom assertion
 $fake->assertSentWithContext(string $key, mixed $value = null): void;
 $fake->assertSentWithSchema(): void;
 $fake->assertSentWithInput(string $needle): void;
+$fake->assertStreamed(?string $agentKey): void;     // Streaming was used
+$fake->assertNotStreamed(string $agentKey): void;   // Streaming was NOT used
+$fake->assertCalledWithVariables(string $agentKey, array $variables): void;
+$fake->assertCalledWithProvider(string $agentKey, string $provider): void;
+$fake->assertCalledWithModel(string $agentKey, string $model): void;
+$fake->assertCalledWithTools(string $agentKey, array $toolClasses): void;
 
 // Accessing recorded requests
 $fake->recorded(): array;                           // All RecordedRequest objects
@@ -633,6 +667,7 @@ $request->input;                                    // User input string
 $request->context;                                  // AgentContext
 $request->response;                                 // AgentResponse (wraps PrismResponse)
 $request->timestamp;                                // Unix timestamp
+$request->wasStreamed;                              // bool — whether streaming was used
 $request->agentKey(): string;
 $request->inputContains(string $needle): bool;
 $request->hasMetadata(string $key, mixed $value = null): bool;
