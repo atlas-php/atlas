@@ -1,0 +1,42 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use Atlasphp\Atlas\Tools\ToolDefinition;
+use Atlasphp\Atlas\Tools\Support\ToolContext;
+use Atlasphp\Atlas\Tools\Support\ToolParameter;
+use Atlasphp\Atlas\Tools\Support\ToolResult;
+
+/**
+ * {{ class }} tool.
+ *
+ * Describe what this tool does for the AI agent.
+ */
+class {{ class }} extends ToolDefinition
+{
+    public function name(): string
+    {
+        return '{{ tool_name }}';
+    }
+
+    public function description(): string
+    {
+        return 'A description of what this tool does.';
+    }
+
+    public function parameters(): array
+    {
+        return [
+            ToolParameter::string('query', 'The input query', required: true),
+        ];
+    }
+
+    public function handle(array $params, ToolContext $context): ToolResult
+    {
+        // Implement your tool logic here
+
+        return ToolResult::text('Result');
+    }
+}

@@ -99,6 +99,48 @@ test('it executes chat with metadata', function () {
     expect($response->text)->toBe('Response with metadata');
 });
 
+test('make returns pending agent request for anonymous agent', function () {
+    expect(Atlas::make('You are a test assistant.'))
+        ->toBeInstanceOf(PendingAgentRequest::class);
+});
+
+test('make executes chat with anonymous agent', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Anonymous response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $response = Atlas::make(
+        systemPrompt: 'You are a test assistant.',
+        provider: 'openai',
+        model: 'gpt-4o',
+    )->chat('Hello');
+
+    expect($response)->toBeInstanceOf(AgentResponse::class);
+    expect($response->text)->toBe('Anonymous response');
+    expect($response->agentKey())->toBe('anonymous');
+});
+
+test('make passes provider and model to anonymous agent', function () {
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Configured response')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    $response = Atlas::make(
+        systemPrompt: 'You summarize text.',
+        provider: 'openai',
+        model: 'gpt-4o',
+        key: 'summarizer',
+    )->chat('Summarize this');
+
+    expect($response)->toBeInstanceOf(AgentResponse::class);
+    expect($response->text)->toBe('Configured response');
+    expect($response->agentKey())->toBe('summarizer');
+});
+
 test('prism methods are proxied via PrismProxy', function () {
     // Atlas proxies unknown methods to Prism via PrismProxy
     $textProxy = Atlas::text();

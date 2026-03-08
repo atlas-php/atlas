@@ -1,0 +1,25 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use Atlasphp\Atlas\Agents\AgentDefinition;
+
+/**
+ * {{ class }} agent.
+ *
+ * Describe this agent's purpose and capabilities.
+ */
+class {{ class }} extends AgentDefinition
+{
+    public function systemPrompt(): ?string
+    {
+        return 'You are a helpful assistant.';
+    }
+
+    public function tools(): array
+    {
+        return [];
+    }
+}

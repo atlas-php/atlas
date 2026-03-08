@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas;
 
+use Atlasphp\Atlas\Agents\AnonymousAgent;
 use Atlasphp\Atlas\Agents\Contracts\AgentContract;
 use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
 use Atlasphp\Atlas\Agents\Services\AgentResolver;
@@ -34,6 +35,37 @@ class AtlasManager
      */
     public function agent(string|AgentContract $agent): PendingAgentRequest
     {
+        return new PendingAgentRequest(
+            $this->agentResolver,
+            $this->agentExecutor,
+            $agent,
+        );
+    }
+
+    /**
+     * Create an anonymous agent with inline configuration.
+     *
+     * @param  string  $systemPrompt  The system prompt for the agent.
+     * @param  string|null  $provider  AI provider name.
+     * @param  string|null  $model  Model identifier.
+     * @param  array<int, class-string>  $tools  Tool class names.
+     * @param  string|null  $key  Optional unique key for the agent.
+     */
+    public function make(
+        string $systemPrompt,
+        ?string $provider = null,
+        ?string $model = null,
+        array $tools = [],
+        ?string $key = null,
+    ): PendingAgentRequest {
+        $agent = new AnonymousAgent(
+            agentKey: $key ?? 'anonymous',
+            systemPromptText: $systemPrompt,
+            agentProvider: $provider,
+            agentModel: $model,
+            agentTools: $tools,
+        );
+
         return new PendingAgentRequest(
             $this->agentResolver,
             $this->agentExecutor,

@@ -29,3 +29,25 @@ test('it registers PipelineRunner as singleton', function () {
     expect($instance1)->toBeInstanceOf(PipelineRunner::class);
     expect($instance1)->toBe($instance2);
 });
+
+test('it registers make:tool artisan command', function () {
+    $this->artisan('make:tool', ['name' => 'TestProbe'])
+        ->assertExitCode(0);
+
+    // Clean up
+    $path = app_path('Tools/TestProbe.php');
+    if (file_exists($path)) {
+        unlink($path);
+    }
+});
+
+test('it registers make:agent artisan command', function () {
+    $this->artisan('make:agent', ['name' => 'TestProbe'])
+        ->assertExitCode(0);
+
+    // Clean up
+    $path = app_path('Agents/TestProbe.php');
+    if (file_exists($path)) {
+        unlink($path);
+    }
+});
