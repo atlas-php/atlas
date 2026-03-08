@@ -92,6 +92,10 @@ See [Prism Streaming Event Types](https://prismphp.com/core-concepts/streaming-o
 
 ## Building Complete Text
 
+::: tip
+For most cases, use the [`text()` convenience method](#collecting-text) instead of manual accumulation.
+:::
+
 Accumulate text chunks as they arrive:
 
 ```php
@@ -132,7 +136,7 @@ class ChatController extends Controller
 }
 ```
 
-The response automatically sets SSE headers (`Content-Type: text/event-stream`, `Cache-Control: no-cache`, `Connection: keep-alive`) and streams text delta events to the client.
+The response automatically sets SSE headers (`Content-Type: text/event-stream`, `Cache-Control: no-cache`, `Connection: keep-alive`, `X-Accel-Buffering: no`) and streams text delta events to the client.
 
 ## Vercel AI SDK Protocol
 
@@ -174,9 +178,11 @@ $fullText = $stream->text();
 Use `then()` to register a callback that runs after the stream is fully consumed:
 
 ```php
+use Atlasphp\Atlas\Agents\Support\AgentStreamResponse;
+
 $stream = Atlas::agent('support-agent')->stream($input);
 
-$stream->then(function () use ($conversation, $stream) {
+$stream->then(function (AgentStreamResponse $stream) use ($conversation) {
     $conversation->messages()->create([
         'role' => 'assistant',
         'content' => $stream->text(),
@@ -348,10 +354,10 @@ class ChatController extends Controller
             ->withMetadata(['conversation_id' => $conversation->id])
             ->stream($request->input('message'));
 
-        $stream->then(function () use ($conversation, $stream) {
+        $stream->then(function (AgentStreamResponse $s) use ($conversation) {
             $conversation->messages()->create([
                 'role' => 'assistant',
-                'content' => $stream->text(),
+                'content' => $s->text(),
             ]);
         });
 

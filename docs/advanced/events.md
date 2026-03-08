@@ -38,7 +38,7 @@ See [Configuration](/getting-started/configuration) for the full config referenc
 
 </div>
 
-All agent events live in `Atlasphp\Atlas\Agents\Events`.
+All agent events live in `Atlasphp\Atlas\Agents\Events`. The `AgentStreamChunk` broadcast event (also in this namespace) is used for WebSocket delivery — see [Broadcasting to WebSockets](/capabilities/streaming#broadcasting-to-websockets).
 
 ::: info AgentFailed
 `AgentFailed` only fires when the error recovery pipeline returns `null` (unrecoverable). If the pipeline recovers the error, the event is not dispatched.

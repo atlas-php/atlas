@@ -43,6 +43,33 @@ function createTestStream(string $text = 'Hello world'): Generator
     );
 }
 
+/**
+ * Capture output from a StreamedResponse callback.
+ *
+ * Uses nested output buffering to prevent internal ob_flush()
+ * calls from flushing our capture buffer.
+ */
+function captureStreamedOutput(StreamedResponse $response): string
+{
+    $captured = '';
+
+    // Outer buffer catches content flushed from inner buffer
+    ob_start(function (string $chunk) use (&$captured): string {
+        $captured .= $chunk;
+
+        return '';
+    });
+
+    // Inner buffer — the response's ob_flush() flushes into our outer callback
+    ob_start();
+    $response->sendContent();
+    ob_end_flush(); // flush inner into outer's callback
+
+    ob_end_clean(); // close outer
+
+    return $captured;
+}
+
 test('AgentStreamResponse implements Responsable', function () {
     $response = new AgentStreamResponse(
         stream: createTestStream(),
@@ -120,6 +147,142 @@ test('then() callback is called after stream consumption', function () {
     }
 
     expect($callbackCalled)->toBeTrue();
+});
+
+test('SSE response body contains formatted stream events', function () {
+    $response = new AgentStreamResponse(
+        stream: createTestStream('Hello'),
+        agent: new TestAgent,
+        input: 'Hello',
+        systemPrompt: null,
+        context: new AgentContext,
+    );
+
+    $httpResponse = $response->toResponse(request());
+    $output = captureStreamedOutput($httpResponse);
+
+    // Verify SSE format: event type + JSON data
+    expect($output)->toContain('event: stream-start');
+    expect($output)->toContain('event: text-delta');
+    expect($output)->toContain('"delta":"Hello"');
+    expect($output)->toContain('event: stream-end');
+    expect($output)->toContain('event: done');
+    expect($output)->toContain('[DONE]');
+});
+
+test('SSE response marks stream as consumed and fires then callback', function () {
+    $callbackFired = false;
+
+    $response = new AgentStreamResponse(
+        stream: createTestStream('Test'),
+        agent: new TestAgent,
+        input: 'Hello',
+        systemPrompt: null,
+        context: new AgentContext,
+    );
+
+    $response->then(function () use (&$callbackFired) {
+        $callbackFired = true;
+    });
+
+    $httpResponse = $response->toResponse(request());
+    captureStreamedOutput($httpResponse);
+
+    expect($response->isConsumed())->toBeTrue();
+    expect($callbackFired)->toBeTrue();
+});
+
+test('SSE response collects events during streaming', function () {
+    $response = new AgentStreamResponse(
+        stream: createTestStream('Hi'),
+        agent: new TestAgent,
+        input: 'Hello',
+        systemPrompt: null,
+        context: new AgentContext,
+    );
+
+    $httpResponse = $response->toResponse(request());
+    captureStreamedOutput($httpResponse);
+
+    $events = $response->events();
+    expect($events)->not->toBeEmpty();
+    expect($events[0])->toBeInstanceOf(StreamStartEvent::class);
+});
+
+test('Vercel response body contains Vercel AI SDK wire format', function () {
+    $response = new AgentStreamResponse(
+        stream: createTestStream('Hello'),
+        agent: new TestAgent,
+        input: 'Hello',
+        systemPrompt: null,
+        context: new AgentContext,
+    );
+
+    $httpResponse = $response->asVercelStream()->toResponse(request());
+    $output = captureStreamedOutput($httpResponse);
+
+    // Vercel text delta format: 0:"text"\n
+    expect($output)->toContain('0:"Hello"');
+    // Vercel finish format: d:{"finishReason":"stop",...}\n
+    expect($output)->toContain('d:{"finishReason":"stop"');
+    expect($output)->toContain('"promptTokens":10');
+    expect($output)->toContain('"completionTokens":5');
+});
+
+test('Vercel response marks stream as consumed and fires then callback', function () {
+    $callbackFired = false;
+
+    $response = new AgentStreamResponse(
+        stream: createTestStream('Test'),
+        agent: new TestAgent,
+        input: 'Hello',
+        systemPrompt: null,
+        context: new AgentContext,
+    );
+
+    $response->then(function () use (&$callbackFired) {
+        $callbackFired = true;
+    });
+
+    $httpResponse = $response->asVercelStream()->toResponse(request());
+    captureStreamedOutput($httpResponse);
+
+    expect($response->isConsumed())->toBeTrue();
+    expect($callbackFired)->toBeTrue();
+});
+
+test('Vercel response collects events during streaming', function () {
+    $response = new AgentStreamResponse(
+        stream: createTestStream('Hi'),
+        agent: new TestAgent,
+        input: 'Hello',
+        systemPrompt: null,
+        context: new AgentContext,
+    );
+
+    $httpResponse = $response->asVercelStream()->toResponse(request());
+    captureStreamedOutput($httpResponse);
+
+    $events = $response->events();
+    expect($events)->not->toBeEmpty();
+    expect($events)->toHaveCount(3); // start + 1 text delta + end
+});
+
+test('Vercel response does not include stream-start events in output', function () {
+    $response = new AgentStreamResponse(
+        stream: createTestStream('Test'),
+        agent: new TestAgent,
+        input: 'Hello',
+        systemPrompt: null,
+        context: new AgentContext,
+    );
+
+    $httpResponse = $response->asVercelStream()->toResponse(request());
+    $output = captureStreamedOutput($httpResponse);
+
+    // StreamStartEvent should not appear in Vercel format (returns null)
+    expect($output)->not->toContain('stream-start');
+    expect($output)->not->toContain('openai');
 });
 
 test('text() is idempotent after consumption', function () {

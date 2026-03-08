@@ -46,6 +46,25 @@ test('QueuedAgentResponse catch() configures failure callback', function () {
     expect($job->catchCallback)->not->toBeNull();
 });
 
+test('QueuedAgentResponse delay() configures job delay', function () {
+    $job = new InvokeAgent('test-agent', 'Hello', []);
+    $queued = new QueuedAgentResponse($job);
+
+    $result = $queued->delay(30);
+    expect($result)->toBe($queued);
+    expect($job->delay)->toBe(30);
+});
+
+test('QueuedAgentResponse delay() accepts DateInterval', function () {
+    $job = new InvokeAgent('test-agent', 'Hello', []);
+    $queued = new QueuedAgentResponse($job);
+
+    $interval = new DateInterval('PT5M');
+    $result = $queued->delay($interval);
+    expect($result)->toBe($queued);
+    expect($job->delay)->toBe($interval);
+});
+
 test('QueuedAgentResponse getJob() returns underlying job', function () {
     $job = new InvokeAgent('test-agent', 'Hello', []);
     $queued = new QueuedAgentResponse($job);

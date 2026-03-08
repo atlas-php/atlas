@@ -398,6 +398,7 @@ foreach ($assistantRequests as $request) {
     $request->context;           // AgentContext
     $request->response;          // AgentResponse (wraps PrismResponse)
     $request->timestamp;         // When it was called
+    $request->wasStreamed;       // Whether streaming was used
 }
 ```
 
