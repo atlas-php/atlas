@@ -192,7 +192,7 @@ class PipelineCommand extends Command
             if (property_exists($step, 'toolCalls') && is_array($step->toolCalls)) {
                 foreach ($step->toolCalls as $call) {
                     $calledTools[] = $call->name;
-                    $args = json_decode($call->arguments, true);
+                    $args = is_array($call->arguments) ? $call->arguments : json_decode($call->arguments, true);
                     $this->line("  - {$call->name}: ".json_encode($args));
                 }
             }

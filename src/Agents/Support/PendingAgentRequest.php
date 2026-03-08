@@ -6,7 +6,10 @@ namespace Atlasphp\Atlas\Agents\Support;
 
 use Atlasphp\Atlas\Agents\Contracts\AgentContract;
 use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
+use Atlasphp\Atlas\Agents\Jobs\BroadcastAgent;
+use Atlasphp\Atlas\Agents\Jobs\InvokeAgent;
 use Atlasphp\Atlas\Agents\Services\AgentResolver;
+use Illuminate\Foundation\Bus\PendingDispatch;
 use Prism\Prism\ValueObjects\Media\Audio;
 use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Media\Image;
@@ -342,6 +345,67 @@ final class PendingAgentRequest
         $context = $this->buildContext($attachments);
 
         return $this->agentExecutor->stream($resolvedAgent, $input, $context);
+    }
+
+    /**
+     * Queue the agent for asynchronous execution.
+     *
+     * Serializes the current context and dispatches an InvokeAgent job.
+     * Returns a QueuedAgentResponse for configuring callbacks and queue options.
+     *
+     * ```php
+     * Atlas::agent('my-agent')
+     *     ->withVariables(['user' => $user->name])
+     *     ->queue('Summarize this')
+     *     ->onQueue('ai')
+     *     ->then(fn(AgentResponse $r) => /* handle *​/)
+     *     ->catch(fn(Throwable $e) => /* handle *​/);
+     * ```
+     *
+     * @param  string  $input  The user input message.
+     */
+    public function queue(string $input): QueuedAgentResponse
+    {
+        $resolvedAgent = $this->agentResolver->resolve($this->agent);
+        $context = $this->buildContext();
+
+        $job = new InvokeAgent(
+            agentKey: $resolvedAgent->key(),
+            input: $input,
+            serializedContext: $context->toArray(),
+        );
+
+        return new QueuedAgentResponse($job);
+    }
+
+    /**
+     * Dispatch a broadcast streaming job for the agent.
+     *
+     * Queues a job that streams the agent response and broadcasts each chunk
+     * via WebSocket to the channel: atlas.agent.{agentKey}.{requestId}
+     *
+     * ```php
+     * $requestId = Str::uuid()->toString();
+     * Atlas::agent('my-agent')
+     *     ->withVariables(['user' => $user->name])
+     *     ->broadcast('Summarize this', $requestId);
+     * ```
+     *
+     * @param  string  $input  The user input message.
+     * @param  string|null  $requestId  Unique request ID for channel scoping. Auto-generated if null.
+     */
+    public function broadcast(string $input, ?string $requestId = null): PendingDispatch
+    {
+        $resolvedAgent = $this->agentResolver->resolve($this->agent);
+        $context = $this->buildContext();
+        $requestId ??= bin2hex(random_bytes(16));
+
+        return BroadcastAgent::dispatch(
+            agentKey: $resolvedAgent->key(),
+            input: $input,
+            serializedContext: $context->toArray(),
+            requestId: $requestId,
+        );
     }
 
     /**

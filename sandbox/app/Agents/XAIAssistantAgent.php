@@ -26,7 +26,7 @@ class XAIAssistantAgent extends AgentDefinition
      */
     public function model(): ?string
     {
-        return 'grok-2-latest';
+        return 'grok-4-0709';
     }
 
     /**

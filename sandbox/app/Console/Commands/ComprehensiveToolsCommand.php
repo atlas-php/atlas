@@ -214,7 +214,8 @@ class ComprehensiveToolsCommand extends Command
             foreach ($step->toolCalls as $toolCall) {
                 $stepNumber++;
                 $this->line("Step {$stepNumber}: {$toolCall->name}");
-                $this->line('  Args: '.json_encode(json_decode($toolCall->arguments, true), JSON_UNESCAPED_SLASHES));
+                $args = is_array($toolCall->arguments) ? $toolCall->arguments : json_decode($toolCall->arguments, true);
+                $this->line('  Args: '.json_encode($args, JSON_UNESCAPED_SLASHES));
 
                 // Find the result for this tool call in the same step
                 $result = $this->findToolResultInStep($step, $toolCall->id);

@@ -6,6 +6,8 @@ namespace Atlasphp\Atlas\Tools\Services;
 
 use Atlasphp\Atlas\Pipelines\PipelineRunner;
 use Atlasphp\Atlas\Tools\Contracts\ToolContract;
+use Atlasphp\Atlas\Tools\Events\ToolExecuted;
+use Atlasphp\Atlas\Tools\Events\ToolExecuting;
 use Atlasphp\Atlas\Tools\Exceptions\ToolException;
 use Atlasphp\Atlas\Tools\Support\ToolContext;
 use Atlasphp\Atlas\Tools\Support\ToolResult;
@@ -46,8 +48,17 @@ class ToolExecutor
                 $pipelineData,
             );
 
-            // Execute the tool
+            // Dispatch executing event (after pipeline)
+            $this->dispatchEvent(new ToolExecuting(
+                $pipelineData['tool'],
+                $pipelineData['params'],
+                $pipelineData['context'],
+            ));
+
+            // Execute the tool with timing
+            $startTime = microtime(true);
             $result = $tool->handle($pipelineData['params'], $pipelineData['context']);
+            $duration = (microtime(true) - $startTime) * 1000;
 
             // Run after_execute pipeline
             $afterData = [
@@ -63,6 +74,15 @@ class ToolExecutor
                 $afterData,
             );
 
+            // Dispatch executed event (after pipeline, with duration)
+            $this->dispatchEvent(new ToolExecuted(
+                $pipelineData['tool'],
+                $pipelineData['params'],
+                $pipelineData['context'],
+                $afterData['result'],
+                $duration,
+            ));
+
             return $afterData['result'];
         } catch (ToolException $e) {
             $this->handleToolError($tool, $params, $context, $e);
@@ -75,6 +95,18 @@ class ToolExecutor
                 "Tool '{$tool->name()}' failed: {$e->getMessage()}",
             );
         }
+    }
+
+    /**
+     * Dispatch an event if events are enabled.
+     */
+    protected function dispatchEvent(object $event): void
+    {
+        if (config('atlas.events.enabled', true) === false) {
+            return;
+        }
+
+        event($event);
     }
 
     /**

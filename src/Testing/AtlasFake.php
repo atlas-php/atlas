@@ -8,6 +8,7 @@ use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
 use Atlasphp\Atlas\Testing\Concerns\HasFakeAssertions;
 use Atlasphp\Atlas\Testing\Support\FakeResponseSequence;
 use Atlasphp\Atlas\Testing\Support\RecordedRequest;
+use Closure;
 use Illuminate\Contracts\Container\Container;
 use Prism\Prism\Text\Response as PrismResponse;
 
@@ -62,6 +63,25 @@ class AtlasFake
         }
 
         $this->fakeExecutor->setDefaultSequence($sequence);
+
+        return $this;
+    }
+
+    /**
+     * Register a closure-based response factory for an agent.
+     *
+     * The closure receives a RecordedRequest and should return a PrismResponse or string.
+     *
+     * ```php
+     * Atlas::fake()->respondUsing('agent-key', fn(RecordedRequest $r) => 'dynamic response');
+     * ```
+     *
+     * @param  string  $agentKey  The agent key.
+     * @param  Closure(RecordedRequest): (PrismResponse|string)  $factory  The response factory.
+     */
+    public function respondUsing(string $agentKey, Closure $factory): self
+    {
+        $this->fakeExecutor->respondUsing($agentKey, $factory);
 
         return $this;
     }

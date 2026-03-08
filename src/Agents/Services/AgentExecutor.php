@@ -6,6 +6,11 @@ namespace Atlasphp\Atlas\Agents\Services;
 
 use Atlasphp\Atlas\Agents\Contracts\AgentContract;
 use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
+use Atlasphp\Atlas\Agents\Events\AgentExecuted;
+use Atlasphp\Atlas\Agents\Events\AgentExecuting;
+use Atlasphp\Atlas\Agents\Events\AgentFailed;
+use Atlasphp\Atlas\Agents\Events\AgentStreamed;
+use Atlasphp\Atlas\Agents\Events\AgentStreaming;
 use Atlasphp\Atlas\Agents\Exceptions\AgentException;
 use Atlasphp\Atlas\Agents\Support\AgentContext;
 use Atlasphp\Atlas\Agents\Support\AgentResponse;
@@ -104,6 +109,9 @@ class AgentExecutor implements AgentExecutorContract
             // Build request (text or structured based on schema presence)
             $request = $this->buildRequest($agent, $input, $context, $systemPrompt);
 
+            // Dispatch executing event (after pipelines, before Prism API call)
+            $this->dispatchEvent(new AgentExecuting($agent, $input, $context));
+
             // Execute appropriate terminal method
             $prismResponse = $request instanceof StructuredPendingRequest
                 ? $request->asStructured()
@@ -125,24 +133,31 @@ class AgentExecutor implements AgentExecutorContract
             /** @var PrismResponse|StructuredResponse $prismResponse */
             $prismResponse = $afterData['response'];
 
-            return new AgentResponse(
+            $agentResponse = new AgentResponse(
                 response: $prismResponse,
                 agent: $agent,
                 input: $input,
                 systemPrompt: $systemPrompt,
                 context: $context,
             );
+
+            // Dispatch executed event (after pipelines, with full response)
+            $this->dispatchEvent(new AgentExecuted($agent, $input, $context, $agentResponse));
+
+            return $agentResponse;
         } catch (AgentException $e) {
             $recovery = $this->handleError($agent, $input, $context, $systemPrompt, $e);
             if ($recovery !== null) {
                 return $recovery;
             }
+            $this->dispatchEvent(new AgentFailed($agent, $input, $context, $e));
             throw $e;
         } catch (Throwable $e) {
             $recovery = $this->handleError($agent, $input, $context, $systemPrompt, $e);
             if ($recovery !== null) {
                 return $recovery;
             }
+            $this->dispatchEvent(new AgentFailed($agent, $input, $context, $e));
             throw AgentException::executionFailed($agent->key(), $e->getMessage(), $e);
         }
     }
@@ -197,6 +212,9 @@ class AgentExecutor implements AgentExecutorContract
         // Build request
         $request = $this->buildRequest($agent, $input, $context, $systemPrompt);
 
+        // Dispatch streaming event (after pipelines, before stream starts)
+        $this->dispatchEvent(new AgentStreaming($agent, $input, $context));
+
         // Wrap generator to fire after pipeline on completion
         $wrappedStream = $this->wrapStreamWithAfterPipeline(
             $request->asStream(),
@@ -239,6 +257,7 @@ class AgentExecutor implements AgentExecutorContract
         } catch (Throwable $e) {
             $error = $e;
             $this->handleError($agent, $input, $context, $systemPrompt, $e);
+            $this->dispatchEvent(new AgentFailed($agent, $input, $context, $e));
             throw $e;
         } finally {
             // Run after_stream pipeline when streaming completes (success or error)
@@ -254,6 +273,11 @@ class AgentExecutor implements AgentExecutorContract
                 ],
                 $context->getMiddlewareFor('agent.stream.after'),
             );
+
+            // Dispatch streamed event (after pipelines, with collected events)
+            if ($error === null) {
+                $this->dispatchEvent(new AgentStreamed($agent, $input, $context, $events));
+            }
         }
     }
 
@@ -505,6 +529,18 @@ class AgentExecutor implements AgentExecutorContract
         );
 
         return $mergedData['tools'];
+    }
+
+    /**
+     * Dispatch an event if events are enabled.
+     */
+    protected function dispatchEvent(object $event): void
+    {
+        if (config('atlas.events.enabled', true) === false) {
+            return;
+        }
+
+        event($event);
     }
 
     /**

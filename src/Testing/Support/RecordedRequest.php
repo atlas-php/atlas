@@ -22,6 +22,7 @@ final readonly class RecordedRequest
      * @param  AgentContext  $context  The execution context.
      * @param  AgentResponse  $response  The AgentResponse that was returned.
      * @param  int  $timestamp  Unix timestamp when the request was made.
+     * @param  bool  $wasStreamed  Whether the request used streaming.
      */
     public function __construct(
         public AgentContract $agent,
@@ -29,6 +30,7 @@ final readonly class RecordedRequest
         public AgentContext $context,
         public AgentResponse $response,
         public int $timestamp,
+        public bool $wasStreamed = false,
     ) {}
 
     /**
