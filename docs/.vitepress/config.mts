@@ -55,6 +55,13 @@ export default defineConfig({
                 ]
             },
             {
+                text: 'Guides',
+                collapsed: true,
+                items: [
+                    { text: 'Artisan Commands', link: '/guides/artisan-commands' },
+                ]
+            },
+            {
                 text: 'Advanced',
                 collapsed: true,
                 items: [

@@ -122,6 +122,51 @@ $response = Atlas::agent(CustomerSupportAgent::class)->chat('Hello');
 $response = Atlas::agent(new CustomerSupportAgent())->chat('Hello');
 ```
 
+## Anonymous Agents
+
+For quick one-off agents that don't need a dedicated class, use `Atlas::make()`:
+
+```php
+use Atlasphp\Atlas\Atlas;
+
+// Quick inline agent
+$response = Atlas::make('You are a helpful assistant.')
+    ->chat('Hello');
+
+// With provider, model, and tools
+$response = Atlas::make(
+    systemPrompt: 'You summarize text concisely.',
+    provider: 'anthropic',
+    model: 'claude-sonnet-4-20250514',
+    tools: [SearchTool::class],
+)->chat('Summarize this article...');
+
+// Full fluent API works too
+$response = Atlas::make('Analyze sentiment of text.')
+    ->withSchema($sentimentSchema)
+    ->chat('I love this product!');
+```
+
+For more control, instantiate `AnonymousAgent` directly:
+
+```php
+use Atlasphp\Atlas\Agents\AnonymousAgent;
+
+$agent = new AnonymousAgent(
+    agentKey: 'temp-analyzer',
+    systemPromptText: 'You analyze data.',
+    agentProvider: 'openai',
+    agentModel: 'gpt-4o',
+    agentTools: [QueryDatabaseTool::class],
+    agentTemperature: 0.2,
+    agentMaxSteps: 5,
+);
+
+$response = Atlas::agent($agent)->chat('Show revenue trends');
+```
+
+Anonymous agents implement `AgentContract` and work with all Atlas features — streaming, queuing, pipelines, and middleware.
+
 ## Agent Response
 
 When you call `chat()`, Atlas returns an `AgentResponse` that wraps Prism's response with agent context. This provides access to both the AI response and the agent-specific metadata.
@@ -1127,6 +1172,10 @@ public function maxSteps(): ?int;
 public function clientOptions(): array;
 public function providerOptions(): array;
 public function schema(): ?PrismSchema;
+
+// Anonymous agent creation
+Atlas::make(string $systemPrompt, ?string $provider = null, ?string $model = null, array $tools = [], ?string $key = null)
+    ->chat(string $input): AgentResponse;
 
 // Agent execution fluent API (PendingAgentRequest)
 Atlas::agent(string|AgentContract $agent)

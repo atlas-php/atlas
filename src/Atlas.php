@@ -14,6 +14,7 @@ use Prism\Prism\Text\Response as PrismResponse;
  * Facade for Atlas functionality.
  *
  * @method static PendingAgentRequest agent(string|AgentContract $agent)
+ * @method static PendingAgentRequest make(string $systemPrompt, ?string $provider = null, ?string $model = null, array<int, class-string> $tools = [], ?string $key = null)
  *
  * @mixin \Atlasphp\Atlas\AtlasManager
  *
