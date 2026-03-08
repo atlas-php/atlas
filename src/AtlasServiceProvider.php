@@ -179,10 +179,6 @@ class AtlasServiceProvider extends ServiceProvider
                 __DIR__.'/../config/atlas.php' => config_path('atlas.php'),
             ], 'atlas-config');
 
-            $this->publishes([
-                __DIR__.'/../stubs/tool.stub' => $this->app->basePath('stubs/atlas/tool.stub'),
-                __DIR__.'/../stubs/agent.stub' => $this->app->basePath('stubs/atlas/agent.stub'),
-            ], 'atlas-stubs');
         }
     }
 

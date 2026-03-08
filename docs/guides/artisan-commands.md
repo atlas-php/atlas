@@ -118,28 +118,3 @@ Configure discovery paths in `config/atlas.php`:
 ],
 ```
 
-## Customizing Stubs
-
-Publish the stubs to customize the generated code:
-
-```bash
-php artisan vendor:publish --tag=atlas-stubs
-```
-
-This copies the stubs to your project:
-
-```
-stubs/atlas/
-├── tool.stub
-└── agent.stub
-```
-
-Edit these files to match your project's conventions. Atlas will use your custom stubs instead of the package defaults.
-
-### Available Placeholders
-
-| Placeholder | Description |
-|---|---|
-| `{{ namespace }}` | The class namespace |
-| `{{ class }}` | The class name |
-| `{{ tool_name }}` | Snake_case tool name (tool stub only) |

@@ -43,11 +43,7 @@ class MakeAgentCommand extends GeneratorCommand
      */
     protected function getStub(): string
     {
-        $customStub = $this->laravel->basePath('stubs/atlas/agent.stub');
-
-        return file_exists($customStub)
-            ? $customStub
-            : __DIR__.'/../../../stubs/agent.stub';
+        return __DIR__.'/../../../stubs/agent.stub';
     }
 
     /**
