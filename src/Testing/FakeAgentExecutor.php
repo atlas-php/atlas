@@ -11,6 +11,7 @@ use Atlasphp\Atlas\Agents\Support\AgentResponse;
 use Atlasphp\Atlas\Agents\Support\AgentStreamResponse;
 use Atlasphp\Atlas\Testing\Support\FakeResponseSequence;
 use Atlasphp\Atlas\Testing\Support\RecordedRequest;
+use Closure;
 use Generator;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
@@ -55,6 +56,13 @@ class FakeAgentExecutor implements AgentExecutorContract
     private ?AgentExecutorContract $realExecutor = null;
 
     /**
+     * Closure-based response factories keyed by agent key.
+     *
+     * @var array<string, Closure(RecordedRequest): (PrismResponse|string)>
+     */
+    private array $responseFactories = [];
+
+    /**
      * Configure a response sequence for a specific agent.
      *
      * @param  string  $agentKey  The agent key.
@@ -83,6 +91,21 @@ class FakeAgentExecutor implements AgentExecutorContract
     public function preventStrayRequests(bool $prevent = true): self
     {
         $this->preventStrayRequests = $prevent;
+
+        return $this;
+    }
+
+    /**
+     * Register a closure-based response factory for an agent.
+     *
+     * The closure receives a RecordedRequest and should return a PrismResponse or string.
+     *
+     * @param  string  $agentKey  The agent key.
+     * @param  Closure(RecordedRequest): (PrismResponse|string)  $factory  The response factory.
+     */
+    public function respondUsing(string $agentKey, Closure $factory): self
+    {
+        $this->responseFactories[$agentKey] = $factory;
 
         return $this;
     }
@@ -141,6 +164,11 @@ class FakeAgentExecutor implements AgentExecutorContract
         string $input,
         AgentContext $context,
     ): AgentResponse {
+        // Check for closure-based response factory first
+        if (isset($this->responseFactories[$agent->key()])) {
+            return $this->executeWithFactory($agent, $input, $context);
+        }
+
         $prismResponse = $this->getResponse($agent->key());
 
         // Handle throwables
@@ -152,7 +180,7 @@ class FakeAgentExecutor implements AgentExecutorContract
                 systemPrompt: null,
                 context: $context,
             );
-            $this->recordRequest($agent, $input, $context, $emptyAgentResponse);
+            $this->recordRequest($agent, $input, $context, $emptyAgentResponse, wasStreamed: false);
             throw $prismResponse;
         }
 
@@ -164,7 +192,7 @@ class FakeAgentExecutor implements AgentExecutorContract
             context: $context,
         );
 
-        $this->recordRequest($agent, $input, $context, $agentResponse);
+        $this->recordRequest($agent, $input, $context, $agentResponse, wasStreamed: false);
 
         return $agentResponse;
     }
@@ -174,6 +202,11 @@ class FakeAgentExecutor implements AgentExecutorContract
         string $input,
         AgentContext $context,
     ): AgentStreamResponse {
+        // Check for closure-based response factory first
+        if (isset($this->responseFactories[$agent->key()])) {
+            return $this->streamWithFactory($agent, $input, $context);
+        }
+
         $prismResponse = $this->getResponse($agent->key());
 
         // Handle throwables
@@ -185,7 +218,7 @@ class FakeAgentExecutor implements AgentExecutorContract
                 systemPrompt: null,
                 context: $context,
             );
-            $this->recordRequest($agent, $input, $context, $emptyResponse);
+            $this->recordRequest($agent, $input, $context, $emptyResponse, wasStreamed: true);
             throw $prismResponse;
         }
 
@@ -197,7 +230,7 @@ class FakeAgentExecutor implements AgentExecutorContract
             context: $context,
         );
 
-        $this->recordRequest($agent, $input, $context, $agentResponse);
+        $this->recordRequest($agent, $input, $context, $agentResponse, wasStreamed: true);
 
         // Convert PrismResponse to stream events wrapped in AgentStreamResponse
         return new AgentStreamResponse(
@@ -243,6 +276,117 @@ class FakeAgentExecutor implements AgentExecutorContract
     }
 
     /**
+     * Execute using a closure-based response factory.
+     */
+    private function executeWithFactory(
+        AgentContract $agent,
+        string $input,
+        AgentContext $context,
+    ): AgentResponse {
+        $tempRequest = new RecordedRequest(
+            agent: $agent,
+            input: $input,
+            context: $context,
+            response: new AgentResponse(
+                response: FakeResponseSequence::emptyResponse(),
+                agent: $agent,
+                input: $input,
+                systemPrompt: null,
+                context: $context,
+            ),
+            timestamp: time(),
+            wasStreamed: false,
+        );
+
+        $result = ($this->responseFactories[$agent->key()])($tempRequest);
+        $prismResponse = $this->resolveFactoryResult($result);
+
+        $agentResponse = new AgentResponse(
+            response: $prismResponse,
+            agent: $agent,
+            input: $input,
+            systemPrompt: null,
+            context: $context,
+        );
+
+        $this->recordRequest($agent, $input, $context, $agentResponse, wasStreamed: false);
+
+        return $agentResponse;
+    }
+
+    /**
+     * Stream using a closure-based response factory.
+     */
+    private function streamWithFactory(
+        AgentContract $agent,
+        string $input,
+        AgentContext $context,
+    ): AgentStreamResponse {
+        $tempRequest = new RecordedRequest(
+            agent: $agent,
+            input: $input,
+            context: $context,
+            response: new AgentResponse(
+                response: FakeResponseSequence::emptyResponse(),
+                agent: $agent,
+                input: $input,
+                systemPrompt: null,
+                context: $context,
+            ),
+            timestamp: time(),
+            wasStreamed: true,
+        );
+
+        $result = ($this->responseFactories[$agent->key()])($tempRequest);
+        $prismResponse = $this->resolveFactoryResult($result);
+
+        $agentResponse = new AgentResponse(
+            response: $prismResponse,
+            agent: $agent,
+            input: $input,
+            systemPrompt: null,
+            context: $context,
+        );
+
+        $this->recordRequest($agent, $input, $context, $agentResponse, wasStreamed: true);
+
+        return new AgentStreamResponse(
+            stream: $this->createFakeStreamGenerator($prismResponse->text),
+            agent: $agent,
+            input: $input,
+            systemPrompt: null,
+            context: $context,
+        );
+    }
+
+    /**
+     * Resolve a factory result to a PrismResponse.
+     */
+    private function resolveFactoryResult(mixed $result): PrismResponse
+    {
+        if ($result instanceof PrismResponse) {
+            return $result;
+        }
+
+        if (is_string($result)) {
+            $empty = FakeResponseSequence::emptyResponse();
+
+            return new PrismResponse(
+                steps: $empty->steps,
+                text: $result,
+                finishReason: $empty->finishReason,
+                toolCalls: $empty->toolCalls,
+                toolResults: $empty->toolResults,
+                usage: $empty->usage,
+                meta: $empty->meta,
+                messages: $empty->messages,
+            );
+        }
+
+        throw new RuntimeException('respondUsing factory must return a PrismResponse or string.');
+    }
+
+    /**
      * Record an agent request.
      */
     private function recordRequest(
@@ -250,6 +394,7 @@ class FakeAgentExecutor implements AgentExecutorContract
         string $input,
         AgentContext $context,
         AgentResponse $response,
+        bool $wasStreamed = false,
     ): void {
         $this->recordedRequests[] = new RecordedRequest(
             agent: $agent,
@@ -257,6 +402,7 @@ class FakeAgentExecutor implements AgentExecutorContract
             context: $context,
             response: $response,
             timestamp: time(),
+            wasStreamed: $wasStreamed,
         );
     }
 

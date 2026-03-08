@@ -1,12 +1,12 @@
-# Agents
+# AGENTS
 
-> **For AI Agents and Contributors:** This guide defines the mandatory conventions and coding standards for all work on this Laravel package repository.
+This document defines the coding conventions, architecture standards, and quality rules for this Laravel package. All agents (human or AI) must follow these rules — non-compliant contributions will be rejected.
+
+For workflow, task management, and Claude Code-specific behavioral rules, see `CLAUDE.md`.
 
 ---
 
 ## Critical Rules
-
-**These rules are non-negotiable. Violations will result in rejected work.**
 
 1. **Read documentation first** – Before working on any module, read the relevant documentation
 2. **Documentation is the source of truth** – Documentation overrides all assumptions
@@ -37,7 +37,7 @@ Atlas is a **Prism complement** that adds application-level AI concerns. It does
 | Agent Registry | Define agents once, resolve by key/class/instance        |
 | Tool Registry  | Register tools, resolve by name, attach to agents        |
 | System Prompts | Variable interpolation ({var_name}), SystemPromptBuilder |
-| Pipelines      | Before/after hooks for observability and extension       |
+| Pipelines      | Before/after hooks for observability and extension        |
 | AgentContext   | Stateless context carrier with media support             |
 | Testing        | AtlasFake for agent testing without API calls            |
 
@@ -61,23 +61,13 @@ Atlas depends on Prism (`prism-php/prism`). Periodically review Prism releases f
 
 1. **Check releases**: https://github.com/prism-php/prism/releases
 2. **Check last review**: See `NOTES.md` "Prism Compatibility Tracking" for last reviewed version
-3. **Assess impact**: Focus on changes to:
-   - Terminal methods (`asText()`, `asStructured()`, `asStream()`)
-   - Tool API (`Tool::as()`, tool handlers)
-   - Response/Request object structure
-   - Streaming event format
+3. **Assess impact**: Focus on changes to terminal methods, Tool API, Response/Request structure, streaming events
 4. **Update NOTES.md**: Record the review date, versions, and findings
 5. **If changes needed**: Create tasks for code updates
 
 ### Why Atlas is Resilient
 
-Atlas uses a thin proxy pattern:
-- Captures Prism method calls via `__call()` for later replay
-- Wraps terminal methods with pipeline hooks
-- Converts Atlas tools to Prism tools
-- Never re-implements Prism internals
-
-Most Prism changes are transparent to Atlas.
+Atlas uses a thin proxy pattern — captures Prism method calls via `__call()` for later replay, wraps terminal methods with pipeline hooks, converts Atlas tools to Prism tools. Never re-implements Prism internals. Most Prism changes are transparent to Atlas.
 
 ### Key Integration Files
 
@@ -87,19 +77,6 @@ Most Prism changes are transparent to Atlas.
 | `src/Tools/Services/ToolBuilder.php`         | Converts Atlas tools to Prism tools    |
 | `src/PrismProxy.php`                         | Pipeline hooks around terminal methods |
 | `src/Agents/Support/PendingAgentRequest.php` | Captures Prism method calls            |
-
----
-
-## Documentation
-
-**Public documentation:** VitePress site at [atlasphp.io](https://atlasphp.io)
-
-**Key documentation files:**
-- `docs/getting-started/` — Installation and configuration
-- `docs/core-concepts/` — Agents, Tools, Pipelines, System Prompts
-- `docs/capabilities/` — Chat, Streaming, Embeddings, etc.
-- `docs/guides/` — How-to guides
-- `docs/api-reference/` — Full API documentation
 
 ---
 
@@ -169,9 +146,7 @@ package-root/
 
 ## Module Organization
 
-**Each domain module is self-contained with its own enums, models, and services.**
-
-Domain modules encapsulate all related code within their directory. This follows domain-driven design principles for better code isolation, discoverability, and maintainability.
+Each domain module is self-contained with its own enums, models, and services.
 
 ### Module Structure
 
@@ -196,14 +171,12 @@ src/
 
 1. **Self-contained modules** – Each module contains its own `Enums/`, `Models/`, `Services/`, `Events/`, `Jobs/`, and `Exceptions/` subdirectories as needed
 2. **No top-level shared directories** – Do NOT create `src/Enums/`, `src/Models/`, or `src/Services/` directories; these belong inside their respective modules
-3. **Namespacing follows structure** – e.g., `Vendor\Package\Processes\Models\Process`, `Vendor\Package\Conversations\Enums\MessageRole`
+3. **Namespacing follows structure** – e.g., `Vendor\Package\Processes\Models\Process`
 4. **Cross-module references are allowed** – Modules may reference models/enums from other modules where needed
 5. **Contracts remain centralized** – Interfaces that span modules live in `src/Contracts/`
 6. **Foundation is infrastructure** – Service providers, configuration, and package setup live in `src/Foundation/`
 
 ### Adding to a Module
-
-When adding new code:
 
 | Adding...                | Location                 |
 |--------------------------|--------------------------|
@@ -215,55 +188,11 @@ When adding new code:
 
 ### Creating a New Module
 
-When creating a new domain module:
-
-1. Create the module directory under `src/` (e.g., `src/Memory/`)
+1. Create the module directory under `src/`
 2. Add subdirectories as needed: `Enums/`, `Models/`, `Services/`, `Events/`, etc.
 3. Register services in the package service provider
 4. Create corresponding test directories under `tests/Unit/{Module}/` and `tests/Feature/`
 5. Document the module in the appropriate VitePress docs section
-
----
-
-## Sandbox Testing
-
-The sandbox provides real API testing for validating package features against actual providers.
-
-**See `sandbox/README.md` for:**
-- Real API use-case testing with acceptance criteria
-- Database verification guidelines
-- Instructions for creating new test commands
-
-**When to use sandbox:**
-- Verifying API/provider integration works correctly
-- Testing real database persistence and retrieval
-- Validating end-to-end feature behavior before deployment
-- Understanding expected behavior when implementing new features
-
-**CRITICAL: Running Horizon for Queue Processing**
-
-Many features (delegation, async processing) use Laravel queues. **Horizon MUST be running** for queue jobs to process:
-
-```bash
-cd sandbox
-php artisan horizon              # Start Horizon (blocks terminal)
-# OR run in background:
-php artisan horizon &            # Start in background
-```
-
-**Important:**
-- Horizon must be **restarted after code changes** to pick up new code
-- If tests seem to hang or return empty responses, check if Horizon is running
-- Use `php artisan horizon:terminate` to stop Horizon gracefully
-
-**Quick commands:**
-```bash
-cd sandbox
-php artisan migrate:fresh          # Clean database for fresh testing
-php artisan horizon &              # Start queue worker (REQUIRED for delegation)
-php artisan test:custom-tools      # Test custom tool execution
-php artisan package:chat           # Interactive agent conversation (if provided)
-```
 
 ---
 
@@ -293,23 +222,14 @@ Controllers / Commands
 
 **Purpose:** Single point of truth for all persistence operations on a model.
 
-**Allowed:**
-- Create, update, delete operations
-- Model-specific query helpers
-- Data normalization pre-persistence
-- Returning models or collections
+**Allowed:** Create, update, delete operations. Model-specific query helpers. Data normalization pre-persistence. Returning models or collections.
 
-**Forbidden:**
-- Orchestrating multi-step workflows
-- Calling other domain services
-- Calling integrations directly
-- Cross-domain logic
-- Event dispatching (leave to domain layer)
+**Forbidden:** Orchestrating workflows. Calling other domain services. Calling integrations directly. Cross-domain logic. Event dispatching.
 
-**Naming:** `{Model}ModelService` (e.g., `ContactModelService`, `TaskModelService`)
+**Naming:** `{Model}ModelService` (e.g., `AgentModelService`)
 
-**Example – Correct:**
 ```php
+// ✅ Correct
 class AgentModelService
 {
     public function create(array $data): Agent
@@ -324,16 +244,15 @@ class AgentModelService
 }
 ```
 
-**Example – Violation:**
 ```php
+// ❌ Violation — orchestrating workflow in model layer
 class AgentModelService
 {
-    // ❌ VIOLATION: Orchestrating workflow
     public function createAndNotify(array $data): Agent
     {
         $agent = Agent::create($data);
-        $this->notificationService->send($agent); // ❌ Cross-domain
-        event(new AgentCreated($agent)); // ❌ Event dispatching
+        $this->notificationService->send($agent);
+        event(new AgentCreated($agent));
         return $agent;
     }
 }
@@ -341,27 +260,18 @@ class AgentModelService
 
 ---
 
-### Services/<Domain> (Business Layer)
+### Services/Domain (Business Layer)
 
 **Purpose:** Implements business logic and orchestrates workflows.
 
-**Allowed:**
-- Implementing documented use cases
-- Orchestrating multiple model services
-- Managing database transactions
-- Dispatching events and jobs
-- Calling integrations through contracts
-- Cross-domain coordination
+**Allowed:** Orchestrating multiple model services. Managing transactions. Dispatching events and jobs. Calling integrations through contracts. Cross-domain coordination.
 
-**Forbidden:**
-- Direct Eloquent queries (use model services)
-- Direct model creation/updates (use model services)
-- Containing integration implementation details
+**Forbidden:** Direct Eloquent queries (use model services). Direct model creation/updates. Containing integration implementation details.
 
 **Naming:** Named by intent (e.g., `CreateAgentService`, `ProcessToolCallService`)
 
-**Example – Correct:**
 ```php
+// ✅ Correct
 class CreateAgentService
 {
     public function __construct(
@@ -381,19 +291,15 @@ class CreateAgentService
 }
 ```
 
-**Example – Violation:**
 ```php
+// ❌ Violation — direct Eloquent and direct instantiation
 class CreateAgentService
 {
     public function execute(array $data): Agent
     {
-        // ❌ VIOLATION: Direct Eloquent query
         $agent = Agent::create($data);
-
-        // ❌ VIOLATION: Direct integration instantiation
         $logger = new AuditLogger();
         $logger->log('agent.created', $agent);
-
         return $agent;
     }
 }
@@ -405,23 +311,14 @@ class CreateAgentService
 
 **Purpose:** Low-level clients for external APIs and services.
 
-**Allowed:**
-- API/SDK calls
-- Authentication handling
-- Request/response transformation
-- Retry logic and error handling
-- Returning DTOs or primitives
+**Allowed:** API/SDK calls. Authentication handling. Request/response transformation. Retry logic and error handling. Returning DTOs or primitives.
 
-**Forbidden:**
-- Business logic or decisions
-- Database access
-- Workflow orchestration
-- Depending on domain services
+**Forbidden:** Business logic or decisions. Database access. Workflow orchestration. Depending on domain services.
 
-**Naming:** `{Vendor}Client` (e.g., `OpenAiClient`, `AnthropicClient`)
+**Naming:** `{Vendor}Client` (e.g., `OpenAiClient`)
 
-**Example – Correct:**
 ```php
+// ✅ Correct
 class OpenAiClient implements LlmClientContract
 {
     public function complete(array $messages): CompletionResponse
@@ -435,20 +332,14 @@ class OpenAiClient implements LlmClientContract
 }
 ```
 
-**Example – Violation:**
 ```php
+// ❌ Violation — business logic and database access in integration
 class OpenAiClient
 {
-    // ❌ VIOLATION: Business logic in integration
     public function completeAndSave(Agent $agent, array $messages): CompletionResponse
     {
         $response = $this->complete($messages);
-
-        // ❌ VIOLATION: Database access
-        $agent->conversations()->create([
-            'response' => $response->content,
-        ]);
-
+        $agent->conversations()->create(['response' => $response->content]);
         return $response;
     }
 }
@@ -460,42 +351,29 @@ class OpenAiClient
 
 **Purpose:** Pure utilities with no side effects.
 
-**Allowed:**
-- Helper functions
-- Traits
-- Value objects
-- Data transformers
-- Pure functions
+**Allowed:** Helper functions, traits, value objects, data transformers, pure functions.
 
-**Forbidden:**
-- Database access
-- External API calls
-- Service dependencies
-- Side effects of any kind
-- State mutation
+**Forbidden:** Database access, external API calls, service dependencies, side effects, state mutation.
 
-**Example – Correct:**
 ```php
+// ✅ Correct
 class TokenCounter
 {
     public static function count(string $text): int
     {
-        // Pure function – no side effects
         return (int) ceil(strlen($text) / 4);
     }
 }
 ```
 
-**Example – Violation:**
 ```php
+// ❌ Violation — side effect via caching
 class TokenCounter
 {
-    // ❌ VIOLATION: External dependency
     public function __construct(private CacheContract $cache) {}
 
     public function count(string $text): int
     {
-        // ❌ VIOLATION: Side effect (caching)
         return $this->cache->remember("tokens:$text", fn() => ceil(strlen($text) / 4));
     }
 }
@@ -507,28 +385,21 @@ class TokenCounter
 
 ### When to Create a Contract
 
-**Create a contract when:**
-- Multiple implementations exist or are planned (e.g., provider clients)
-- Testing requires substituting a mock or fake
-- The dependency crosses a package/module boundary
-- Requirements explicitly specify extensibility
+**Create a contract when:** Multiple implementations exist or are planned. Testing requires substituting a mock or fake. The dependency crosses a package/module boundary. Requirements explicitly specify extensibility.
 
-**Don’t create a contract when:**
-- Only one implementation exists and none are planned
-- The class is internal to a module and not a testing boundary
-- Direct instantiation is simpler and testing is not impacted
+**Don't create a contract when:** Only one implementation exists and none are planned. The class is internal to a module and not a testing boundary. Direct instantiation is simpler and testing is not impacted.
 
 ### Injection Rules
 
-| Do                                 | Don’t                                                 |
+| Do                                 | Don't                                                 |
 |------------------------------------|-------------------------------------------------------|
 | Inject contracts in constructor    | Instantiate services with `new`                       |
-| Use Laravel’s container            | Use static service locators                           |
-| Type-hint interfaces               | Type-hint concrete classes (when an interface exists) |
+| Use Laravel's container            | Use static service locators                           |
+| Type-hint interfaces               | Type-hint concrete classes (when an interface exists)  |
 | Let container resolve dependencies | Manually wire dependencies                            |
 
-**Example – Correct (with contract):**
 ```php
+// ✅ Correct
 class ProcessAgentResponseService
 {
     public function __construct(
@@ -538,36 +409,14 @@ class ProcessAgentResponseService
 }
 ```
 
-**Example – Over-Engineered:**
 ```php
-// ❌ Unnecessary: Interface for single implementation with no test benefit
-interface AgentModelServiceContract
-{
-    public function create(array $data): Agent;
-}
-
-class AgentModelService implements AgentModelServiceContract
-{
-    public function create(array $data): Agent
-    {
-        return Agent::create($data);
-    }
-}
-```
-
-**Example – Violation:**
-```php
+// ❌ Violation — direct instantiation, service locator, static call
 class ProcessAgentResponseService
 {
     public function execute(): void
     {
-        // ❌ VIOLATION: Direct instantiation
         $agentService = new AgentModelService();
-
-        // ❌ VIOLATION: Service locator pattern
         $toolExecutor = app(ToolExecutor::class);
-
-        // ❌ VIOLATION: Static call to service
         AgentModelService::create($data);
     }
 }
@@ -584,7 +433,7 @@ class ProcessAgentResponseService
 | Providers       | `*ServiceProvider`        | `PackageServiceProvider`        |
 | Model Services  | `{Model}ModelService`     | `AgentModelService`             |
 | Domain Services | `{Action}{Domain}Service` | `CreateAgentService`            |
-| Contracts       | `*Contract`               | `LlmClientContract`             |
+| Contracts       | `*Contract`               | `LlmClientContract`            |
 | Models          | Singular                  | `Agent`, `Tool`, `Conversation` |
 | Exceptions      | `*Exception`              | `AgentNotFoundException`        |
 | DTOs            | `*Data` or `*Dto`         | `CompletionResponseData`        |
@@ -601,7 +450,7 @@ class ProcessAgentResponseService
 
 ## Code Practices
 
-### Required Practices
+### Required
 
 1. Business logic lives in `Services/<Domain>/`
 2. Use `Services/Models/` for all persistence
@@ -614,7 +463,7 @@ class ProcessAgentResponseService
 9. Include PHPDoc block on every class
 10. **Never use function-level namespace imports** (`use function ...`)
 
-### Forbidden Practices
+### Forbidden
 
 1. Direct instantiation of services in methods (`new ServiceName()`)
 2. Static service calls (`ServiceName::method()`)
@@ -623,11 +472,11 @@ class ProcessAgentResponseService
 5. Database queries in controllers
 6. Upward layer dependencies
 7. Circular dependencies between services
-8. **Interfaces without purpose** – Don’t create contracts for single-implementation classes unless testing requires it
-9. **Speculative generalization** – Don’t build extensibility for requirements that don’t exist
-10. **Proxy services** – Don’t create services that just pass through to another service
-11. **Wrapper classes** – Don’t wrap a class just to rename methods or add no behavior
-12. **DTOs that mirror models** – Don’t create DTOs that are 1:1 copies of Eloquent models
+8. **Interfaces without purpose** – Don't create contracts for single-implementation classes unless testing requires it
+9. **Speculative generalization** – Don't build extensibility for requirements that don't exist
+10. **Proxy services** – Don't create services that just pass through to another service
+11. **Wrapper classes** – Don't wrap a class just to rename methods or add no behavior
+12. **DTOs that mirror models** – Don't create DTOs that are 1:1 copies of Eloquent models
 
 ---
 
@@ -635,50 +484,14 @@ class ProcessAgentResponseService
 
 ### Testability
 
-Write code that can be tested with minimal setup and mocking.
-
-**Guidelines:**
 - Keep methods focused enough to test with a single assertion or small group of related assertions
-- Avoid hidden dependencies—if a method needs something, inject it via the constructor
-- If testing requires mocking 5+ dependencies, the class is doing too much—split it
-- Don’t bury logic in private methods that can’t be tested; extract to a separate testable class if complex
-- Avoid global state and singletons that make tests unreliable
-
-**Example – Testable:**
-```php
-class CalculateTokenUsageService
-{
-    public function __construct(
-        private TokenCounterContract $tokenCounter,
-    ) {}
-
-    public function execute(string $prompt, string $response): int
-    {
-        return $this->tokenCounter->count($prompt) + $this->tokenCounter->count($response);
-    }
-}
-```
-
-**Example – Hard to Test:**
-```php
-class CalculateTokenUsageService
-{
-    public function execute(string $prompt, string $response): int
-    {
-        // ❌ Hidden dependency – can’t mock TokenCounter
-        $counter = new TokenCounter();
-
-        // ❌ Or worse, static call
-        return TokenCounter::count($prompt) + TokenCounter::count($response);
-    }
-}
-```
+- Avoid hidden dependencies — if a method needs something, inject it via the constructor
+- If testing requires mocking 5+ dependencies, the class is doing too much — split it
+- Don't bury logic in untestable private methods; extract to a separate class if complex
+- Avoid global state and singletons
 
 ### Complexity
 
-Keep code simple and readable. Complex code hides bugs and slows development.
-
-**Guidelines:**
 - Keep methods under 20–30 lines; extract smaller methods if larger
 - Avoid nesting deeper than 3 levels (use early returns, extract methods)
 - If a class has 10+ public methods, consider splitting by responsibility
@@ -687,127 +500,76 @@ Keep code simple and readable. Complex code hides bugs and slows development.
 
 ### Performance
 
-Write efficient code that doesn’t create unnecessary bottlenecks.
-
-**Guidelines:**
 - Use eager loading (`with()`) for relationships accessed in loops
-- Never run queries inside loops—batch or pre-fetch
+- Never run queries inside loops — batch or pre-fetch
 - Consider query count when adding features; use `DB::enableQueryLog()` during development
 - Use chunking (`chunk()`, `chunkById()`) for large dataset operations
 - Cache expensive computations only when measured as slow, not preemptively
 
 ### Redundancy
 
-Avoid duplication that leads to inconsistent behavior, but don’t over-DRY.
-
-**Guidelines:**
 - Extract repeated logic into model service methods or Support utilities
 - If the same validation or transformation appears in 3+ places, consolidate it
 - Duplication is acceptable when isolation or clarity benefits outweigh DRY
 - If you intentionally duplicate, add a brief comment explaining why
-- Watch for “almost identical” code—subtle differences often indicate bugs
+- Watch for "almost identical" code — subtle differences often indicate bugs
 
 ---
 
 ## Quality Checks
 
-**Run all quality checks with a single command:**
 ```bash
-composer check
+composer check       # Run all checks (Pint, PHPStan, Pest) in sequence
+composer lint        # Fix code style with Pint
+composer lint:test   # Check code style without fixing
+composer analyse     # Run PHPStan static analysis
+composer test        # Run Pest tests
 ```
 
-This runs Pint, PHPStan, and Pest in sequence. If any check fails, the command stops.
-
-**Individual commands:**
-
-| Command              | Purpose                         |
-|----------------------|---------------------------------|
-| `composer lint`      | Fix code style with Pint        |
-| `composer lint:test` | Check code style without fixing |
-| `composer analyse`   | Run PHPStan static analysis     |
-| `composer test`      | Run Pest tests                  |
-| `composer check`     | Run all checks in sequence      |
+All checks must pass before submitting code changes. Not required for documentation-only changes.
 
 ---
 
-## Before Submitting
+## Sandbox Testing
 
-**For code changes:**
-1. Run `composer check` – all checks must pass
-2. Confirm documentation alignment
-3. Remove debugging and unused imports
-4. Verify all classes include required PHPDoc
-5. Update documentation if behavior changed
-6. **Verify layer boundaries are respected**
-7. **Confirm dependencies are injected, not instantiated**
-8. **Check that abstractions are justified** – no speculative interfaces or unnecessary indirection
-9. **Verify code is testable** – no hidden dependencies or excessive mocking required
-10. **Check for N+1 queries** – use eager loading where appropriate
+The sandbox provides real API testing for validating package features against actual providers. See `sandbox/README.md` for full details.
 
-**For documentation-only changes:** `composer check` is not required. Simply ensure the documentation is accurate and links are valid.
+**When to use:** Verifying API/provider integration. Testing real database persistence. Validating end-to-end behavior before deployment.
+
+**CRITICAL:** Many features use Laravel queues. **Horizon MUST be running** for queue jobs to process:
+
+```bash
+cd sandbox
+php artisan horizon              # Start Horizon (blocks terminal)
+php artisan horizon &            # Or run in background
+```
+
+Horizon must be **restarted after code changes** to pick up new code. If tests seem to hang or return empty responses, check if Horizon is running.
 
 ---
 
-## Documentation Maintenance
+## Documentation
+
+**Public documentation:** VitePress site at [atlasphp.io](https://atlasphp.io)
+
+**Key directories:** `docs/getting-started/`, `docs/core-concepts/`, `docs/capabilities/`, `docs/guides/`, `docs/api-reference/`
+
+### Maintenance Rules
 
 | Code Change         | Documentation Update                                 |
 |---------------------|------------------------------------------------------|
 | Adding a feature    | Update relevant VitePress docs                       |
 | Changing behavior   | Update docs immediately                              |
-| Adding a new module | Add documentation to appropriate section             |
+| Adding a new module | Add documentation to appropriate section              |
 | Fixing a bug        | No docs update unless behavior was misdocumented     |
-| Deprecating         | Mark as deprecated in docs, add migration notes      |
-| Removing            | Remove from docs completely (no "removed" comments)  |
-
-### Documentation Quality
+| Deprecating         | Mark as deprecated in docs, add migration notes       |
+| Removing            | Remove from docs completely (no "removed" comments)   |
 
 - All code examples must be syntactically correct and runnable
 - Cross-references must use relative links
 - No duplicate content across files
-- Keep documentation in sync with implementation
 - For Prism-level features, link to Prism documentation instead of duplicating
 
 ---
 
-## Code Reviews
-
-**Code reviews are only performed when explicitly requested by the user.**
-
-### Review Types
-
-| Type         | Focus                             | Trigger                                      |
-|--------------|-----------------------------------|----------------------------------------------|
-| Performance  | User-visible slowness             | “performance review”, “why is this slow”     |
-| Quality      | Maintainability, testability      | “code quality”, “review for maintainability” |
-| Bugs         | Crashes, wrong results            | “check for bugs”, “find issues”              |
-| Redundancy   | Duplication                       | “find duplication”, “redundancy check”       |
-| Architecture | Coupling, boundaries, abstraction | “architecture review”, “check decoupling”    |
-
-### Key Principles
-
-- **Only flag real issues** – No hypotheticals or “could fail if” scenarios
-- **Bugs are broken code** – Will crash or produce wrong results, not security/validation
-- **Focus on user impact** – If users are not affected, it is Low severity at most
-- **Provide actionable feedback** – Include specific files, problems, and fixes
-- **Balance is key** – Flag both under-engineering (too coupled) and over-engineering (too abstract)
-
----
-
-## Enforcement
-
-**All agents and contributors must:**
-
-1. Follow this guide precisely
-2. Read relevant module documentation before coding
-3. Use documentation as the source of truth
-4. Complete all quality checks
-5. Update documentation when code changes
-6. Request clarification when documentation is incomplete
-9. Avoid any direct vendor edits
-10. **Respect all layer boundaries without exception**
-11. **Use dependency injection for all service dependencies**
-12. **Justify every abstraction** – If you cannot explain why an interface or layer exists, remove it
-13. **Write testable code** – No hidden dependencies or methods requiring excessive mocking
-14. **Avoid N+1 queries** – Use eager loading for relationships accessed in loops
-
-**Tasks violating these rules will be rejected.**
+All agents must follow this document and the referenced guides. Non-compliant contributions will be rejected.

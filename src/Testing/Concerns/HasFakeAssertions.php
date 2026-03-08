@@ -146,6 +146,125 @@ trait HasFakeAssertions
     }
 
     /**
+     * Assert that streaming was used for an agent.
+     *
+     * @param  string|null  $agentKey  Optional agent key to check.
+     */
+    public function assertStreamed(?string $agentKey = null): void
+    {
+        $recorded = $this->getRecordedRequests();
+        $filtered = $agentKey !== null
+            ? $this->filterByAgent($recorded, $agentKey)
+            : $recorded;
+
+        $streamed = array_filter($filtered, fn (RecordedRequest $r): bool => $r->wasStreamed);
+
+        Assert::assertNotEmpty(
+            $streamed,
+            $agentKey !== null
+                ? "Expected agent '{$agentKey}' to use streaming, but it did not."
+                : 'Expected at least one agent to use streaming, but none did.'
+        );
+    }
+
+    /**
+     * Assert that streaming was NOT used for an agent.
+     *
+     * @param  string  $agentKey  The agent key to check.
+     */
+    public function assertNotStreamed(string $agentKey): void
+    {
+        $recorded = $this->getRecordedRequests();
+        $matching = $this->filterByAgent($recorded, $agentKey);
+
+        Assert::assertNotEmpty(
+            $matching,
+            "Expected agent '{$agentKey}' to be called, but it was not."
+        );
+
+        $streamed = array_filter($matching, fn (RecordedRequest $r): bool => $r->wasStreamed);
+
+        Assert::assertEmpty(
+            $streamed,
+            "Expected agent '{$agentKey}' not to use streaming, but it did."
+        );
+    }
+
+    /**
+     * Assert that an agent was called with specific variables.
+     *
+     * @param  string  $agentKey  The agent key to check.
+     * @param  array<string, mixed>  $variables  The expected variables (subset match).
+     */
+    public function assertCalledWithVariables(string $agentKey, array $variables): void
+    {
+        $this->assertSent(function (RecordedRequest $request) use ($agentKey, $variables): bool {
+            if ($request->agentKey() !== $agentKey) {
+                return false;
+            }
+
+            foreach ($variables as $key => $value) {
+                if (! $request->context->hasVariable($key) || $request->context->getVariable($key) !== $value) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+    }
+
+    /**
+     * Assert that an agent was called with a specific provider override.
+     *
+     * @param  string  $agentKey  The agent key to check.
+     * @param  string  $provider  The expected provider name.
+     */
+    public function assertCalledWithProvider(string $agentKey, string $provider): void
+    {
+        $this->assertSent(function (RecordedRequest $request) use ($agentKey, $provider): bool {
+            return $request->agentKey() === $agentKey
+                && $request->context->providerOverride === $provider;
+        });
+    }
+
+    /**
+     * Assert that an agent was called with a specific model override.
+     *
+     * @param  string  $agentKey  The agent key to check.
+     * @param  string  $model  The expected model name.
+     */
+    public function assertCalledWithModel(string $agentKey, string $model): void
+    {
+        $this->assertSent(function (RecordedRequest $request) use ($agentKey, $model): bool {
+            return $request->agentKey() === $agentKey
+                && $request->context->modelOverride === $model;
+        });
+    }
+
+    /**
+     * Assert that an agent was called with specific tool classes.
+     *
+     * @param  string  $agentKey  The agent key to check.
+     * @param  array<int, class-string>  $toolClasses  The expected tool class names.
+     */
+    public function assertCalledWithTools(string $agentKey, array $toolClasses): void
+    {
+        $this->assertSent(function (RecordedRequest $request) use ($agentKey, $toolClasses): bool {
+            if ($request->agentKey() !== $agentKey) {
+                return false;
+            }
+
+            foreach ($toolClasses as $toolClass) {
+                if (! in_array($toolClass, $request->context->tools, true)) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+    }
+
+    /**
      * Get all recorded requests.
      *
      * @return array<int, RecordedRequest>

@@ -223,7 +223,7 @@ class McpCommand extends Command
 
             foreach ($step->toolCalls as $call) {
                 $toolCallCount++;
-                $args = json_decode($call->arguments, true);
+                $args = is_array($call->arguments) ? $call->arguments : json_decode($call->arguments, true);
 
                 $this->info("[{$toolCallCount}] {$call->name}");
                 $this->line('    Args: '.json_encode($args, JSON_UNESCAPED_SLASHES));

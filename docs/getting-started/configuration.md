@@ -30,6 +30,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Events Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Control whether Atlas dispatches Laravel events at lifecycle points.
+    | Events are informational (observe-only) and fire AFTER pipelines.
+    | Disable to eliminate event overhead when not using listeners.
+    |
+    */
+
+    'events' => [
+        'enabled' => env('ATLAS_EVENTS_ENABLED', true),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Agents Configuration (auto-discovery) *optional
     |--------------------------------------------------------------------------
     |
@@ -78,6 +93,18 @@ When enabled, pipelines provide hooks for:
 - Custom pre/post processing
 
 See [Pipelines](/core-concepts/pipelines) for available hooks.
+
+### Events
+
+Control whether Atlas dispatches Laravel events at agent and tool lifecycle points:
+
+```env
+ATLAS_EVENTS_ENABLED=true
+```
+
+Events are informational — they observe execution but cannot modify it. They fire after pipelines have processed. Disable to eliminate event dispatch overhead when you have no listeners.
+
+See [Events](/advanced/events) for available events and listener examples.
 
 ### Agent Auto-Discovery
 
