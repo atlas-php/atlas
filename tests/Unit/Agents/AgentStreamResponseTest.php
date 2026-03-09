@@ -2,17 +2,22 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Agents\Events\AgentStreamChunk;
 use Atlasphp\Atlas\Agents\Support\AgentContext;
 use Atlasphp\Atlas\Agents\Support\AgentStreamResponse;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
+use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Event;
 use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
+use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\ValueObjects\Usage;
 
 /**
- * @return Generator<int, \Prism\Prism\Streaming\Events\StreamEvent>
+ * @return Generator<int, StreamEvent>
  */
 function createTestStreamGenerator(string $text = 'Hello World'): Generator
 {
@@ -329,6 +334,292 @@ test('isConsumed() returns true after foreach completes', function () {
     }
 
     expect($response->isConsumed())->toBeTrue();
+});
+
+// === each() Callback ===
+
+test('each() fires callback on every event during iteration', function () {
+    $stream = createTestStreamGenerator('Hi');
+    $receivedEvents = [];
+
+    $response = new AgentStreamResponse(
+        stream: $stream,
+        agent: new TestAgent,
+        input: 'Hello',
+        systemPrompt: null,
+        context: new AgentContext,
+    );
+
+    $response->each(function (StreamEvent $event) use (&$receivedEvents) {
+        $receivedEvents[] = $event;
+    });
+
+    iterator_to_array($response);
+
+    expect($receivedEvents)->toHaveCount(3); // start, delta, end
+});
+
+test('each() receives the response as second argument', function () {
+    $stream = createTestStreamGenerator('Hi');
+    $receivedResponse = null;
+
+    $response = new AgentStreamResponse(
+        stream: $stream,
+        agent: new TestAgent,
+        input: 'Hello',
+        systemPrompt: null,
+        context: new AgentContext,
+    );
+
+    $response->each(function (StreamEvent $event, AgentStreamResponse $r) use (&$receivedResponse) {
+        $receivedResponse = $r;
+    });
+
+    iterator_to_array($response);
+
+    expect($receivedResponse)->toBe($response);
+});
+
+test('each() does NOT fire on replay', function () {
+    $stream = createTestStreamGenerator('Hi');
+    $callCount = 0;
+
+    $response = new AgentStreamResponse(
+        stream: $stream,
+        agent: new TestAgent,
+        input: 'Hello',
+        systemPrompt: null,
+        context: new AgentContext,
+    );
+
+    $response->each(function () use (&$callCount) {
+        $callCount++;
+    });
+
+    // First iteration
+    iterator_to_array($response);
+    $firstCount = $callCount;
+
+    // Replay
+    iterator_to_array($response);
+
+    expect($callCount)->toBe($firstCount);
+});
+
+// === Stream Replay ===
+
+test('replay yields same events after consumption', function () {
+    $stream = createTestStreamGenerator('Hi');
+
+    $response = new AgentStreamResponse(
+        stream: $stream,
+        agent: new TestAgent,
+        input: 'Hello',
+        systemPrompt: null,
+        context: new AgentContext,
+    );
+
+    $firstEvents = iterator_to_array($response);
+    $replayEvents = iterator_to_array($response);
+
+    expect($replayEvents)->toHaveCount(count($firstEvents));
+    expect($replayEvents[0])->toBeInstanceOf(StreamStartEvent::class);
+    expect($replayEvents[1])->toBeInstanceOf(TextDeltaEvent::class);
+    expect($replayEvents[2])->toBeInstanceOf(StreamEndEvent::class);
+});
+
+test('then() does NOT fire on replay', function () {
+    $stream = createTestStreamGenerator('Hi');
+    $thenCount = 0;
+
+    $response = new AgentStreamResponse(
+        stream: $stream,
+        agent: new TestAgent,
+        input: 'Hello',
+        systemPrompt: null,
+        context: new AgentContext,
+    );
+
+    $response->then(function () use (&$thenCount) {
+        $thenCount++;
+    });
+
+    // First iteration
+    iterator_to_array($response);
+    expect($thenCount)->toBe(1);
+
+    // Replay
+    iterator_to_array($response);
+    expect($thenCount)->toBe(1);
+});
+
+// === onError() ===
+
+test('onError() fires callback for ErrorEvent', function () {
+    $generator = (function (): Generator {
+        yield new StreamStartEvent('evt_0', time(), 'test-model', 'test');
+        yield new ErrorEvent('evt_1', time(), 'rate_limit', 'Too many requests', true);
+        yield new StreamEndEvent('evt_final', time(), FinishReason::Stop, new Usage(0, 0));
+    })();
+
+    $receivedError = null;
+
+    $response = new AgentStreamResponse(
+        stream: $generator,
+        agent: new TestAgent,
+        input: 'Hello',
+        systemPrompt: null,
+        context: new AgentContext,
+    );
+
+    $response->onError(function (ErrorEvent $error) use (&$receivedError) {
+        $receivedError = $error;
+    });
+
+    iterator_to_array($response);
+
+    expect($receivedError)->toBeInstanceOf(ErrorEvent::class);
+    expect($receivedError->errorType)->toBe('rate_limit');
+    expect($receivedError->message)->toBe('Too many requests');
+    expect($receivedError->recoverable)->toBeTrue();
+});
+
+test('onError() does not fire for non-error events', function () {
+    $stream = createTestStreamGenerator('Hi');
+    $errorCalled = false;
+
+    $response = new AgentStreamResponse(
+        stream: $stream,
+        agent: new TestAgent,
+        input: 'Hello',
+        systemPrompt: null,
+        context: new AgentContext,
+    );
+
+    $response->onError(function () use (&$errorCalled) {
+        $errorCalled = true;
+    });
+
+    iterator_to_array($response);
+
+    expect($errorCalled)->toBeFalse();
+});
+
+test('onError() does NOT fire on replay', function () {
+    $generator = (function (): Generator {
+        yield new ErrorEvent('evt_1', time(), 'rate_limit', 'Error', true);
+    })();
+
+    $errorCount = 0;
+
+    $response = new AgentStreamResponse(
+        stream: $generator,
+        agent: new TestAgent,
+        input: 'Hello',
+        systemPrompt: null,
+        context: new AgentContext,
+    );
+
+    $response->onError(function () use (&$errorCount) {
+        $errorCount++;
+    });
+
+    iterator_to_array($response);
+    $firstCount = $errorCount;
+
+    iterator_to_array($response);
+    expect($errorCount)->toBe($firstCount);
+});
+
+// === broadcast() / broadcastNow() ===
+
+test('broadcast() sets request ID and returns self', function () {
+    $stream = createTestStreamGenerator('Hi');
+
+    $response = new AgentStreamResponse(
+        stream: $stream,
+        agent: new TestAgent,
+        input: 'Hello',
+        systemPrompt: null,
+        context: new AgentContext,
+    );
+
+    $result = $response->broadcast('req-123');
+
+    expect($result)->toBe($response);
+    expect($response->broadcastRequestId())->toBe('req-123');
+});
+
+test('broadcast() auto-generates request ID when null', function () {
+    $stream = createTestStreamGenerator('Hi');
+
+    $response = new AgentStreamResponse(
+        stream: $stream,
+        agent: new TestAgent,
+        input: 'Hello',
+        systemPrompt: null,
+        context: new AgentContext,
+    );
+
+    $response->broadcast();
+
+    expect($response->broadcastRequestId())->not->toBeNull();
+    expect(strlen($response->broadcastRequestId()))->toBe(32);
+});
+
+test('broadcastRequestId() returns null when broadcasting not enabled', function () {
+    $stream = createTestStreamGenerator('Hi');
+
+    $response = new AgentStreamResponse(
+        stream: $stream,
+        agent: new TestAgent,
+        input: 'Hello',
+        systemPrompt: null,
+        context: new AgentContext,
+    );
+
+    expect($response->broadcastRequestId())->toBeNull();
+});
+
+test('broadcast() dispatches AgentStreamChunk events during iteration', function () {
+    Event::fake();
+
+    $stream = createTestStreamGenerator('Hi');
+
+    $response = new AgentStreamResponse(
+        stream: $stream,
+        agent: new TestAgent,
+        input: 'Hello',
+        systemPrompt: null,
+        context: new AgentContext,
+    );
+
+    $response->broadcast('req-123');
+    iterator_to_array($response);
+
+    Event::assertDispatched(AgentStreamChunk::class, 3); // start, delta, end
+    Event::assertDispatched(AgentStreamChunk::class, function (AgentStreamChunk $chunk) {
+        return $chunk->requestId === 'req-123';
+    });
+});
+
+test('broadcastNow() dispatches BroadcastEvent synchronously via Bus', function () {
+    Bus::fake();
+
+    $stream = createTestStreamGenerator('Hi');
+
+    $response = new AgentStreamResponse(
+        stream: $stream,
+        agent: new TestAgent,
+        input: 'Hello',
+        systemPrompt: null,
+        context: new AgentContext,
+    );
+
+    $response->broadcastNow('req-456');
+    iterator_to_array($response);
+
+    Bus::assertDispatchedSync(\Illuminate\Broadcasting\BroadcastEvent::class, 3);
 });
 
 // === Combined Usage ===

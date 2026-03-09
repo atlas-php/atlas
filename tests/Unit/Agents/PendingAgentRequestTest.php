@@ -720,8 +720,18 @@ test('stream resolves agent and returns AgentStreamResponse', function () {
         ->andReturnUsing(function ($agent, $input, $context) {
             return new AgentStreamResponse(
                 stream: (function () {
-                    yield 'chunk1';
-                    yield 'chunk2';
+                    yield new \Prism\Prism\Streaming\Events\TextDeltaEvent(
+                        id: 'evt_1',
+                        timestamp: time(),
+                        delta: 'chunk1',
+                        messageId: 'msg_1',
+                    );
+                    yield new \Prism\Prism\Streaming\Events\TextDeltaEvent(
+                        id: 'evt_2',
+                        timestamp: time(),
+                        delta: 'chunk2',
+                        messageId: 'msg_1',
+                    );
                 })(),
                 agent: $agent,
                 input: $input,
@@ -735,7 +745,9 @@ test('stream resolves agent and returns AgentStreamResponse', function () {
     expect($result)->toBeInstanceOf(AgentStreamResponse::class);
 
     $chunks = iterator_to_array($result);
-    expect($chunks)->toBe(['chunk1', 'chunk2']);
+    expect($chunks)->toHaveCount(2);
+    expect($chunks[0])->toBeInstanceOf(\Prism\Prism\Streaming\Events\TextDeltaEvent::class);
+    expect($chunks[0]->delta)->toBe('chunk1');
 });
 
 test('stream accepts inline attachments (Prism-style)', function () {
@@ -750,7 +762,12 @@ test('stream accepts inline attachments (Prism-style)', function () {
         ->andReturnUsing(function ($agent, $input, $context) {
             return new AgentStreamResponse(
                 stream: (function () {
-                    yield 'chunk';
+                    yield new \Prism\Prism\Streaming\Events\TextDeltaEvent(
+                        id: 'evt_1',
+                        timestamp: time(),
+                        delta: 'chunk',
+                        messageId: 'msg_1',
+                    );
                 })(),
                 agent: $agent,
                 input: $input,

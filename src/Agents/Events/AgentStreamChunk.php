@@ -14,6 +14,7 @@ use Illuminate\Foundation\Events\Dispatchable;
  *
  * Implements ShouldBroadcast for real-time WebSocket delivery
  * of streaming AI responses to frontend clients.
+ * The metadata field carries full event data from Prism's toArray().
  *
  * Channel convention: atlas.agent.{agentKey}.{requestId}
  */
@@ -24,9 +25,9 @@ class AgentStreamChunk implements ShouldBroadcast
     /**
      * @param  string  $agentKey  The agent registry key.
      * @param  string  $requestId  Unique request identifier for channel scoping.
-     * @param  string  $type  The event type (e.g., 'text-delta', 'stream-start', 'stream-end').
-     * @param  string|null  $delta  The text delta content (for text-delta events).
-     * @param  array<string, mixed>  $metadata  Additional event metadata.
+     * @param  string  $type  The event type from Prism's eventKey() (e.g., 'text_delta', 'stream_start').
+     * @param  string|null  $delta  The text delta content (for text_delta and thinking_delta events).
+     * @param  array<string, mixed>  $metadata  Full event data from Prism's toArray().
      */
     public function __construct(
         public readonly string $agentKey,
