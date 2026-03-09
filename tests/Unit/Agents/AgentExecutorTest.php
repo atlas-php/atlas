@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Agents\Contracts\AgentContract;
+use Atlasphp\Atlas\Agents\Events\AgentFailed;
+use Atlasphp\Atlas\Agents\Events\AgentStreamed;
 use Atlasphp\Atlas\Agents\Exceptions\AgentException;
 use Atlasphp\Atlas\Agents\Services\AgentExecutor;
 use Atlasphp\Atlas\Agents\Services\MediaConverter;
@@ -17,8 +20,11 @@ use Atlasphp\Atlas\Tools\Services\ToolBuilder;
 use Atlasphp\Atlas\Tools\Services\ToolExecutor;
 use Atlasphp\Atlas\Tools\Services\ToolRegistry;
 use Illuminate\Container\Container;
+use Illuminate\Support\Facades\Event;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Facades\Prism;
+use Prism\Prism\Streaming\Events\StreamStartEvent;
+use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Testing\StructuredResponseFake;
 use Prism\Prism\Testing\TextResponseFake;
@@ -1552,6 +1558,123 @@ test('execute recovers from Throwable when recovery provided', function () {
     expect($response->text)->toBe('Recovered from Throwable');
 });
 
+// === Stream Error Handling (wrapStreamWithAfterPipeline catch/finally) ===
+
+test('stream error calls handleError and dispatches AgentFailed', function () {
+    ErrorCapturingHandler::reset();
+    StreamAfterCapturingHandler::reset();
+
+    $this->pipelineRegistry->define('agent.on_error');
+    $this->pipelineRegistry->register('agent.on_error', ErrorCapturingHandler::class);
+
+    $this->pipelineRegistry->define('agent.stream.after');
+    $this->pipelineRegistry->register('agent.stream.after', StreamAfterCapturingHandler::class);
+
+    // Use a custom executor that injects a throwing generator
+    $executor = new ThrowingStreamExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $agent = new TestAgent;
+    $context = new AgentContext;
+    $stream = $executor->stream($agent, 'Hello', $context);
+
+    try {
+        iterator_to_array($stream);
+        test()->fail('Expected RuntimeException');
+    } catch (RuntimeException $e) {
+        expect($e->getMessage())->toBe('Stream exploded');
+    }
+
+    // on_error pipeline should be called
+    expect(ErrorCapturingHandler::$called)->toBeTrue();
+    expect(ErrorCapturingHandler::$data['exception'])->toBeInstanceOf(RuntimeException::class);
+    expect(ErrorCapturingHandler::$data['exception']->getMessage())->toBe('Stream exploded');
+});
+
+test('stream error still runs agent.stream.after pipeline in finally block', function () {
+    StreamAfterCapturingHandler::reset();
+
+    $this->pipelineRegistry->define('agent.stream.after');
+    $this->pipelineRegistry->register('agent.stream.after', StreamAfterCapturingHandler::class);
+
+    $executor = new ThrowingStreamExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $agent = new TestAgent;
+    $context = new AgentContext;
+    $stream = $executor->stream($agent, 'Hello', $context);
+
+    try {
+        iterator_to_array($stream);
+    } catch (RuntimeException) {
+        // Expected
+    }
+
+    // stream.after pipeline should still run (finally block)
+    expect(StreamAfterCapturingHandler::$called)->toBeTrue();
+    expect(StreamAfterCapturingHandler::$data['error'])->toBeInstanceOf(RuntimeException::class);
+    expect(StreamAfterCapturingHandler::$data['error']->getMessage())->toBe('Stream exploded');
+});
+
+test('stream error collects events yielded before the error', function () {
+    StreamAfterCapturingHandler::reset();
+
+    $this->pipelineRegistry->define('agent.stream.after');
+    $this->pipelineRegistry->register('agent.stream.after', StreamAfterCapturingHandler::class);
+
+    $executor = new ThrowingStreamExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+        throwAfterEvents: 2,
+    );
+
+    $agent = new TestAgent;
+    $context = new AgentContext;
+    $stream = $executor->stream($agent, 'Hello', $context);
+
+    try {
+        iterator_to_array($stream);
+    } catch (RuntimeException) {
+        // Expected
+    }
+
+    // Events yielded before the throw should be captured
+    expect(StreamAfterCapturingHandler::$data['events'])->toHaveCount(2);
+});
+
+test('stream error does not dispatch AgentStreamed event', function () {
+    Event::fake([AgentStreamed::class, AgentFailed::class]);
+
+    $executor = new ThrowingStreamExecutor(
+        $this->toolBuilder,
+        $this->systemPromptBuilder,
+        $this->runner,
+        $this->mediaConverter,
+    );
+
+    $agent = new TestAgent;
+    $context = new AgentContext;
+    $stream = $executor->stream($agent, 'Hello', $context);
+
+    try {
+        iterator_to_array($stream);
+    } catch (RuntimeException) {
+        // Expected
+    }
+
+    Event::assertNotDispatched(AgentStreamed::class);
+});
+
 // Pipeline Handler Classes for Tests
 
 class BeforeExecuteCapturingHandler implements PipelineContract
@@ -2410,5 +2533,61 @@ class ToolsFilteringHandler implements PipelineContract
         self::$filteredCount = count($data['tools']);
 
         return $next($data);
+    }
+}
+
+/**
+ * AgentExecutor subclass that injects a throwing generator for stream error testing.
+ */
+class ThrowingStreamExecutor extends AgentExecutor
+{
+    public function __construct(
+        ToolBuilder $toolBuilder,
+        SystemPromptBuilder $systemPromptBuilder,
+        PipelineRunner $pipelineRunner,
+        MediaConverter $mediaConverter,
+        private int $throwAfterEvents = 0,
+    ) {
+        parent::__construct($toolBuilder, $systemPromptBuilder, $pipelineRunner, $mediaConverter);
+    }
+
+    public function stream(
+        AgentContract $agent,
+        string $input,
+        AgentContext $context,
+    ): AgentStreamResponse {
+        $throwAfter = $this->throwAfterEvents;
+
+        $throwingGenerator = (function () use ($throwAfter): Generator {
+            $yielded = 0;
+
+            if ($throwAfter > 0) {
+                yield new StreamStartEvent('evt_0', time(), 'test-model', 'test');
+                $yielded++;
+
+                while ($yielded < $throwAfter) {
+                    yield new TextDeltaEvent('evt_'.$yielded, time(), 'chunk', 'msg_1');
+                    $yielded++;
+                }
+            }
+
+            throw new RuntimeException('Stream exploded');
+        })();
+
+        $wrappedStream = $this->wrapStreamWithAfterPipeline(
+            $throwingGenerator,
+            $agent,
+            $input,
+            $context,
+            'Test system prompt',
+        );
+
+        return new AgentStreamResponse(
+            stream: $wrappedStream,
+            agent: $agent,
+            input: $input,
+            systemPrompt: 'Test system prompt',
+            context: $context,
+        );
     }
 }

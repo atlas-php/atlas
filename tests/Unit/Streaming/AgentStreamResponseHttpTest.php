@@ -2,11 +2,15 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Agents\Events\AgentStreamChunk;
 use Atlasphp\Atlas\Agents\Support\AgentContext;
 use Atlasphp\Atlas\Agents\Support\AgentStreamResponse;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
 use Illuminate\Contracts\Support\Responsable;
+use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Event;
 use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
@@ -342,4 +346,193 @@ test('Vercel response fires each() callback on events', function () {
     captureStreamedOutput($httpResponse);
 
     expect($eachCount)->toBe(3); // start, delta, end
+});
+
+// === SSE Error Callback ===
+
+test('SSE response fires onError() callback for ErrorEvent', function () {
+    $generator = (function (): Generator {
+        yield new StreamStartEvent('evt_0', time(), 'test-model', 'test');
+        yield new ErrorEvent('evt_1', time(), 'rate_limit', 'Too many requests', true);
+        yield new StreamEndEvent('evt_final', time(), FinishReason::Stop, new Usage(0, 0));
+    })();
+
+    $receivedError = null;
+
+    $response = new AgentStreamResponse(
+        stream: $generator,
+        agent: new TestAgent,
+        input: 'Hello',
+        systemPrompt: null,
+        context: new AgentContext,
+    );
+
+    $response->onError(function (ErrorEvent $error) use (&$receivedError) {
+        $receivedError = $error;
+    });
+
+    $httpResponse = $response->toResponse(request());
+    captureStreamedOutput($httpResponse);
+
+    expect($receivedError)->toBeInstanceOf(ErrorEvent::class);
+    expect($receivedError->errorType)->toBe('rate_limit');
+});
+
+test('Vercel response fires onError() callback for ErrorEvent', function () {
+    $generator = (function (): Generator {
+        yield new StreamStartEvent('evt_0', time(), 'test-model', 'test');
+        yield new ErrorEvent('evt_1', time(), 'server_error', 'Internal error', false);
+        yield new StreamEndEvent('evt_final', time(), FinishReason::Stop, new Usage(0, 0));
+    })();
+
+    $receivedError = null;
+
+    $response = new AgentStreamResponse(
+        stream: $generator,
+        agent: new TestAgent,
+        input: 'Hello',
+        systemPrompt: null,
+        context: new AgentContext,
+    );
+
+    $response->onError(function (ErrorEvent $error) use (&$receivedError) {
+        $receivedError = $error;
+    });
+
+    $httpResponse = $response->asVercelStream()->toResponse(request());
+    captureStreamedOutput($httpResponse);
+
+    expect($receivedError)->toBeInstanceOf(ErrorEvent::class);
+    expect($receivedError->message)->toBe('Internal error');
+});
+
+// === SSE/Vercel Broadcast During HTTP Streaming ===
+
+test('SSE response fires broadcast() during streaming', function () {
+    Event::fake();
+
+    $response = new AgentStreamResponse(
+        stream: createTestStream('Hi'),
+        agent: new TestAgent,
+        input: 'Hello',
+        systemPrompt: null,
+        context: new AgentContext,
+    );
+
+    $response->broadcast('req-sse-123');
+
+    $httpResponse = $response->toResponse(request());
+    captureStreamedOutput($httpResponse);
+
+    Event::assertDispatched(AgentStreamChunk::class, 3);
+    Event::assertDispatched(AgentStreamChunk::class, function (AgentStreamChunk $chunk) {
+        return $chunk->requestId === 'req-sse-123';
+    });
+});
+
+test('SSE response fires broadcastNow() during streaming', function () {
+    Bus::fake();
+
+    $response = new AgentStreamResponse(
+        stream: createTestStream('Hi'),
+        agent: new TestAgent,
+        input: 'Hello',
+        systemPrompt: null,
+        context: new AgentContext,
+    );
+
+    $response->broadcastNow('req-sse-sync');
+
+    $httpResponse = $response->toResponse(request());
+    captureStreamedOutput($httpResponse);
+
+    Bus::assertDispatchedSync(\Illuminate\Broadcasting\BroadcastEvent::class, 3);
+});
+
+test('Vercel response fires broadcast() during streaming', function () {
+    Event::fake();
+
+    $response = new AgentStreamResponse(
+        stream: createTestStream('Hi'),
+        agent: new TestAgent,
+        input: 'Hello',
+        systemPrompt: null,
+        context: new AgentContext,
+    );
+
+    $response->broadcast('req-vercel-123');
+
+    $httpResponse = $response->asVercelStream()->toResponse(request());
+    captureStreamedOutput($httpResponse);
+
+    Event::assertDispatched(AgentStreamChunk::class, 3);
+    Event::assertDispatched(AgentStreamChunk::class, function (AgentStreamChunk $chunk) {
+        return $chunk->requestId === 'req-vercel-123';
+    });
+});
+
+test('Vercel response fires broadcastNow() during streaming', function () {
+    Bus::fake();
+
+    $response = new AgentStreamResponse(
+        stream: createTestStream('Hi'),
+        agent: new TestAgent,
+        input: 'Hello',
+        systemPrompt: null,
+        context: new AgentContext,
+    );
+
+    $response->broadcastNow('req-vercel-sync');
+
+    $httpResponse = $response->asVercelStream()->toResponse(request());
+    captureStreamedOutput($httpResponse);
+
+    Bus::assertDispatchedSync(\Illuminate\Broadcasting\BroadcastEvent::class, 3);
+});
+
+// === SSE collects events even with error ===
+
+test('SSE response collects ErrorEvent in events()', function () {
+    $generator = (function (): Generator {
+        yield new StreamStartEvent('evt_0', time(), 'test-model', 'test');
+        yield new ErrorEvent('evt_1', time(), 'rate_limit', 'Too many requests', true);
+        yield new StreamEndEvent('evt_final', time(), FinishReason::Stop, new Usage(0, 0));
+    })();
+
+    $response = new AgentStreamResponse(
+        stream: $generator,
+        agent: new TestAgent,
+        input: 'Hello',
+        systemPrompt: null,
+        context: new AgentContext,
+    );
+
+    $httpResponse = $response->toResponse(request());
+    captureStreamedOutput($httpResponse);
+
+    $events = $response->events();
+    expect($events)->toHaveCount(3);
+    expect($events[1])->toBeInstanceOf(ErrorEvent::class);
+});
+
+// === SSE broadcast respects events.enabled config ===
+
+test('SSE broadcast respects atlas.events.enabled config', function () {
+    Event::fake();
+    config(['atlas.events.enabled' => false]);
+
+    $response = new AgentStreamResponse(
+        stream: createTestStream('Hi'),
+        agent: new TestAgent,
+        input: 'Hello',
+        systemPrompt: null,
+        context: new AgentContext,
+    );
+
+    $response->broadcast('req-disabled');
+
+    $httpResponse = $response->toResponse(request());
+    captureStreamedOutput($httpResponse);
+
+    Event::assertNotDispatched(AgentStreamChunk::class);
 });

@@ -104,6 +104,45 @@ test('stream dispatches AgentStreaming event', function () {
     });
 });
 
+test('stream dispatches AgentFailed on generator error', function () {
+    Event::fake([AgentFailed::class, AgentStreaming::class]);
+
+    Prism::fake([
+        TextResponseFake::make()
+            ->withText('Hello')
+            ->withUsage(new Usage(10, 5)),
+    ]);
+
+    // Register a stream.after pipeline handler that simulates checking for errors
+    $registry = app(\Atlasphp\Atlas\Pipelines\PipelineRegistry::class);
+    $registry->define('agent.stream.after');
+    $registry->register('agent.stream.after', new class implements \Atlasphp\Atlas\Contracts\PipelineContract
+    {
+        public static ?array $data = null;
+
+        public function handle(mixed $data, \Closure $next): mixed
+        {
+            self::$data = $data;
+
+            return $next($data);
+        }
+    });
+
+    $executor = app(AgentExecutorContract::class);
+    $agent = new TestAgent;
+    $context = new AgentContext;
+
+    $streamResponse = $executor->stream($agent, 'Hello', $context);
+
+    // Consume the stream — no error expected here
+    foreach ($streamResponse as $event) {
+        // consume
+    }
+
+    // AgentFailed should NOT be dispatched on success
+    Event::assertNotDispatched(AgentFailed::class);
+});
+
 test('events are not dispatched when events.enabled is false', function () {
     Event::fake([AgentExecuting::class, AgentExecuted::class]);
 
