@@ -11,6 +11,7 @@ use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
+use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\Streaming\Events\ToolCallEvent;
 
 /**
@@ -120,10 +121,11 @@ class StreamCommand extends Command
     protected function displayEvent(mixed $event): void
     {
         match (true) {
-            $event instanceof StreamStartEvent => $this->info("\n[Stream started]"),
+            $event instanceof StreamStartEvent => $this->info("\n[Stream started: {$event->model}]"),
+            $event instanceof ThinkingEvent => $this->output->write("<fg=gray>{$event->delta}</>"),
             $event instanceof ToolCallEvent => $this->displayToolCall($event),
             $event instanceof ErrorEvent => $this->error("\n[Error: {$event->message}]"),
-            default => null,
+            default => $this->line("\n[{$event->eventKey()}]"),
         };
     }
 
@@ -134,8 +136,8 @@ class StreamCommand extends Command
     {
         $this->newLine();
         $this->warn('[TOOL CALL]');
-        $this->line("  Tool Name: {$event->name}");
-        $this->line("  Tool ID: {$event->id}");
-        $this->line('  Arguments: '.json_encode($event->arguments));
+        $this->line("  Tool Name: {$event->toolCall->name}");
+        $this->line("  Tool ID: {$event->toolCall->id}");
+        $this->line('  Arguments: '.json_encode($event->toolCall->arguments()));
     }
 }

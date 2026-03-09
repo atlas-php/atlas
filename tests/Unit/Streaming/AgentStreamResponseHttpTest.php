@@ -98,7 +98,7 @@ test('toResponse returns StreamedResponse with SSE headers', function () {
     expect($httpResponse->headers->get('Cache-Control'))->toContain('no-cache');
 });
 
-test('asVercelStream returns StreamedResponse with text/plain headers', function () {
+test('asVercelStream returns StreamedResponse with Vercel headers', function () {
     $response = new AgentStreamResponse(
         stream: createTestStream(),
         agent: new TestAgent,
@@ -111,6 +111,7 @@ test('asVercelStream returns StreamedResponse with text/plain headers', function
 
     expect($httpResponse)->toBeInstanceOf(StreamedResponse::class);
     expect($httpResponse->headers->get('Content-Type'))->toBe('text/plain; charset=utf-8');
+    expect($httpResponse->headers->get('x-vercel-ai-ui-message-stream'))->toBe('v1');
 });
 
 test('text() collects and returns full text from stream', function () {
@@ -149,7 +150,7 @@ test('then() callback is called after stream consumption', function () {
     expect($callbackCalled)->toBeTrue();
 });
 
-test('SSE response body contains formatted stream events', function () {
+test('SSE response body contains formatted stream events with eventKey', function () {
     $response = new AgentStreamResponse(
         stream: createTestStream('Hello'),
         agent: new TestAgent,
@@ -161,13 +162,34 @@ test('SSE response body contains formatted stream events', function () {
     $httpResponse = $response->toResponse(request());
     $output = captureStreamedOutput($httpResponse);
 
-    // Verify SSE format: event type + JSON data
-    expect($output)->toContain('event: stream-start');
-    expect($output)->toContain('event: text-delta');
+    // Verify SSE format uses eventKey (underscored)
+    expect($output)->toContain('event: stream_start');
+    expect($output)->toContain('event: text_delta');
     expect($output)->toContain('"delta":"Hello"');
-    expect($output)->toContain('event: stream-end');
+    expect($output)->toContain('event: stream_end');
     expect($output)->toContain('event: done');
     expect($output)->toContain('[DONE]');
+});
+
+test('SSE response fires each() callback on every event', function () {
+    $eachCount = 0;
+
+    $response = new AgentStreamResponse(
+        stream: createTestStream('Hi'),
+        agent: new TestAgent,
+        input: 'Hello',
+        systemPrompt: null,
+        context: new AgentContext,
+    );
+
+    $response->each(function () use (&$eachCount) {
+        $eachCount++;
+    });
+
+    $httpResponse = $response->toResponse(request());
+    captureStreamedOutput($httpResponse);
+
+    expect($eachCount)->toBe(3); // start, delta, end
 });
 
 test('SSE response marks stream as consumed and fires then callback', function () {
@@ -268,7 +290,7 @@ test('Vercel response collects events during streaming', function () {
     expect($events)->toHaveCount(3); // start + 1 text delta + end
 });
 
-test('Vercel response does not include stream-start events in output', function () {
+test('Vercel response does not include stream_start events in output', function () {
     $response = new AgentStreamResponse(
         stream: createTestStream('Test'),
         agent: new TestAgent,
@@ -281,7 +303,7 @@ test('Vercel response does not include stream-start events in output', function 
     $output = captureStreamedOutput($httpResponse);
 
     // StreamStartEvent should not appear in Vercel format (returns null)
-    expect($output)->not->toContain('stream-start');
+    expect($output)->not->toContain('stream_start');
     expect($output)->not->toContain('openai');
 });
 
@@ -299,4 +321,25 @@ test('text() is idempotent after consumption', function () {
 
     expect($first)->toBe('Test data');
     expect($second)->toBe('Test data');
+});
+
+test('Vercel response fires each() callback on events', function () {
+    $eachCount = 0;
+
+    $response = new AgentStreamResponse(
+        stream: createTestStream('Hi'),
+        agent: new TestAgent,
+        input: 'Hello',
+        systemPrompt: null,
+        context: new AgentContext,
+    );
+
+    $response->each(function () use (&$eachCount) {
+        $eachCount++;
+    });
+
+    $httpResponse = $response->asVercelStream()->toResponse(request());
+    captureStreamedOutput($httpResponse);
+
+    expect($eachCount)->toBe(3); // start, delta, end
 });

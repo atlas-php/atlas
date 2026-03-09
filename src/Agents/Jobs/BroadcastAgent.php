@@ -8,20 +8,20 @@ use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
 use Atlasphp\Atlas\Agents\Events\AgentStreamChunk;
 use Atlasphp\Atlas\Agents\Services\AgentResolver;
 use Atlasphp\Atlas\Agents\Support\AgentContext;
+use Atlasphp\Atlas\Streaming\StreamEventHelper;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Prism\Prism\Streaming\Events\StreamEndEvent;
-use Prism\Prism\Streaming\Events\StreamStartEvent;
-use Prism\Prism\Streaming\Events\TextDeltaEvent;
+use Prism\Prism\Streaming\Events\StreamEvent;
 
 /**
  * Queueable job that streams an agent response and broadcasts each chunk.
  *
  * Resolves the agent, executes via streaming, and broadcasts each stream event
  * as an AgentStreamChunk to the configured WebSocket channel.
+ * Supports all Prism event types via generic eventKey()/toArray() mapping.
  */
 class BroadcastAgent implements ShouldQueue
 {
@@ -54,38 +54,23 @@ class BroadcastAgent implements ShouldQueue
         $streamResponse = $executor->stream($agent, $this->input, $context);
 
         foreach ($streamResponse as $event) {
-            $chunk = match (true) {
-                $event instanceof StreamStartEvent => new AgentStreamChunk(
-                    agentKey: $this->agentKey,
-                    requestId: $this->requestId,
-                    type: 'stream-start',
-                    metadata: ['model' => $event->model, 'provider' => $event->provider],
-                ),
-                $event instanceof TextDeltaEvent => new AgentStreamChunk(
-                    agentKey: $this->agentKey,
-                    requestId: $this->requestId,
-                    type: 'text-delta',
-                    delta: $event->delta,
-                ),
-                $event instanceof StreamEndEvent => new AgentStreamChunk(
-                    agentKey: $this->agentKey,
-                    requestId: $this->requestId,
-                    type: 'stream-end',
-                    metadata: [
-                        'finish_reason' => $event->finishReason->value,
-                        'usage' => [
-                            'prompt_tokens' => $event->usage->promptTokens,
-                            'completion_tokens' => $event->usage->completionTokens,
-                        ],
-                    ],
-                ),
-                default => null,
-            };
-
-            if ($chunk !== null) {
-                $this->dispatchEvent($chunk);
-            }
+            $chunk = $this->eventToChunk($event);
+            $this->dispatchEvent($chunk);
         }
+    }
+
+    /**
+     * Convert a stream event to a broadcast chunk.
+     */
+    private function eventToChunk(StreamEvent $event): AgentStreamChunk
+    {
+        return new AgentStreamChunk(
+            agentKey: $this->agentKey,
+            requestId: $this->requestId,
+            type: $event->eventKey(),
+            delta: StreamEventHelper::extractDelta($event),
+            metadata: $event->toArray(),
+        );
     }
 
     /**

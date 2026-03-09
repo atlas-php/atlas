@@ -13,6 +13,8 @@ use Atlasphp\Atlas\Streaming\VercelStreamProtocol;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
+use Prism\Prism\Streaming\Events\ErrorEvent;
+use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Throwable;
 
@@ -35,7 +37,7 @@ class BroadcastStreamCommand extends Command
     protected $signature = 'atlas:broadcast-stream
                             {prompt : The message to send}
                             {--agent=general-assistant : Agent to use}
-                            {--mode=stream : Output mode: stream, sse, vercel, broadcast}
+                            {--mode=stream : Output mode: stream, sse, vercel, broadcast, inline-broadcast}
                             {--request-id= : Custom request ID for broadcast mode}';
 
     /**
@@ -82,6 +84,7 @@ class BroadcastStreamCommand extends Command
                 'sse' => $this->runSseDemo($agentKey, $prompt),
                 'vercel' => $this->runVercelDemo($agentKey, $prompt),
                 'broadcast' => $this->runBroadcastDemo($agentKey, $prompt),
+                'inline-broadcast' => $this->runInlineBroadcastDemo($agentKey, $prompt),
                 default => $this->invalidMode($mode),
             };
         } catch (Throwable $e) {
@@ -92,16 +95,23 @@ class BroadcastStreamCommand extends Command
     }
 
     /**
-     * Demo: Direct stream iteration — the simplest consumer pattern.
+     * Demo: Direct stream iteration with each() and onError() callbacks.
      */
     private function runStreamDemo(string $agentKey, string $prompt): int
     {
-        $this->info('Direct stream iteration (simplest consumer pattern)...');
+        $this->info('Direct stream iteration with each() and onError()...');
         $this->line('');
 
-        $stream = Atlas::agent($agentKey)->stream($prompt);
+        $eventLog = [];
 
-        // Just iterate — this is how consumers use it
+        $stream = Atlas::agent($agentKey)->stream($prompt)
+            ->each(function (StreamEvent $event) use (&$eventLog) {
+                $eventLog[] = $event->eventKey();
+            })
+            ->onError(function (ErrorEvent $error) {
+                $this->error("[Error: {$error->errorType}] {$error->message}");
+            });
+
         foreach ($stream as $event) {
             if ($event instanceof TextDeltaEvent) {
                 $this->output->write($event->delta);
@@ -109,7 +119,16 @@ class BroadcastStreamCommand extends Command
         }
 
         $this->newLine(2);
+        $this->info('Event log from each(): '.implode(', ', $eventLog));
         $this->displayStreamStats($stream);
+
+        // Demonstrate replay
+        $this->info('Replaying stream from cache...');
+        $replayCount = 0;
+        foreach ($stream as $event) {
+            $replayCount++;
+        }
+        $this->line("Replayed {$replayCount} events.");
 
         return self::SUCCESS;
     }
@@ -213,6 +232,50 @@ class BroadcastStreamCommand extends Command
     }
 
     /**
+     * Demo: Inline broadcast — broadcastNow() during stream iteration.
+     */
+    private function runInlineBroadcastDemo(string $agentKey, string $prompt): int
+    {
+        $requestId = $this->option('request-id') ?? Str::random(32);
+
+        $this->info('Inline broadcast (broadcastNow) — no queue required...');
+        $this->line('');
+        $this->line("Request ID: {$requestId}");
+        $this->line("Channel: atlas.agent.{$agentKey}.{$requestId}");
+        $this->line('');
+
+        // Listen for broadcast events locally
+        $chunks = [];
+        Event::listen(AgentStreamChunk::class, function (AgentStreamChunk $chunk) use (&$chunks) {
+            $chunks[] = $chunk;
+        });
+
+        $stream = Atlas::agent($agentKey)->stream($prompt)
+            ->broadcastNow($requestId)
+            ->each(function (StreamEvent $event) {
+                if ($event instanceof TextDeltaEvent) {
+                    $this->output->write($event->delta);
+                }
+            });
+
+        // Consume the stream — events are broadcast synchronously during iteration
+        iterator_to_array($stream);
+
+        $this->newLine(2);
+
+        if ($chunks !== []) {
+            $this->info('Broadcast '.count($chunks).' events captured:');
+            foreach ($chunks as $chunk) {
+                $this->line("  [{$chunk->type}] ".($chunk->delta ?? '(no delta)'));
+            }
+        }
+
+        $this->displayStreamStats($stream);
+
+        return self::SUCCESS;
+    }
+
+    /**
      * Display stream statistics after consumption.
      */
     private function displayStreamStats(AgentStreamResponse $stream): void
@@ -231,7 +294,7 @@ class BroadcastStreamCommand extends Command
     private function invalidMode(string $mode): int
     {
         $this->error("Invalid mode: {$mode}");
-        $this->line('Valid modes: stream, sse, vercel, broadcast');
+        $this->line('Valid modes: stream, sse, vercel, broadcast, inline-broadcast');
 
         return self::FAILURE;
     }

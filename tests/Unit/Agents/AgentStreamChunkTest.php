@@ -10,7 +10,7 @@ test('AgentStreamChunk implements ShouldBroadcast', function () {
     $event = new AgentStreamChunk(
         agentKey: 'test-agent',
         requestId: 'req-123',
-        type: 'text-delta',
+        type: 'text_delta',
         delta: 'Hello',
     );
 
@@ -21,7 +21,7 @@ test('AgentStreamChunk broadcasts on private channel', function () {
     $event = new AgentStreamChunk(
         agentKey: 'test-agent',
         requestId: 'req-123',
-        type: 'text-delta',
+        type: 'text_delta',
         delta: 'Hello',
     );
 
@@ -36,40 +36,50 @@ test('AgentStreamChunk broadcasts as atlas.stream.chunk', function () {
     $event = new AgentStreamChunk(
         agentKey: 'test-agent',
         requestId: 'req-123',
-        type: 'text-delta',
+        type: 'text_delta',
     );
 
     expect($event->broadcastAs())->toBe('atlas.stream.chunk');
 });
 
-test('AgentStreamChunk broadcastWith includes type and delta', function () {
+test('AgentStreamChunk broadcastWith includes type, delta, and metadata', function () {
     $event = new AgentStreamChunk(
         agentKey: 'test-agent',
         requestId: 'req-123',
-        type: 'text-delta',
+        type: 'text_delta',
         delta: 'Hello world',
-        metadata: ['model' => 'gpt-4'],
+        metadata: ['id' => 'evt_1', 'delta' => 'Hello world', 'message_id' => 'msg_1'],
     );
 
     $data = $event->broadcastWith();
 
-    expect($data['type'])->toBe('text-delta');
+    expect($data['type'])->toBe('text_delta');
     expect($data['delta'])->toBe('Hello world');
-    expect($data['metadata'])->toBe(['model' => 'gpt-4']);
+    expect($data['metadata'])->toBe(['id' => 'evt_1', 'delta' => 'Hello world', 'message_id' => 'msg_1']);
 });
 
 test('AgentStreamChunk holds all properties', function () {
     $event = new AgentStreamChunk(
         agentKey: 'my-agent',
         requestId: 'req-456',
-        type: 'stream-end',
+        type: 'stream_end',
         delta: null,
-        metadata: ['finish_reason' => 'stop'],
+        metadata: ['finish_reason' => 'Stop', 'usage' => ['prompt_tokens' => 10]],
     );
 
     expect($event->agentKey)->toBe('my-agent');
     expect($event->requestId)->toBe('req-456');
-    expect($event->type)->toBe('stream-end');
+    expect($event->type)->toBe('stream_end');
     expect($event->delta)->toBeNull();
-    expect($event->metadata)->toBe(['finish_reason' => 'stop']);
+    expect($event->metadata)->toBe(['finish_reason' => 'Stop', 'usage' => ['prompt_tokens' => 10]]);
+});
+
+test('AgentStreamChunk defaults metadata to empty array', function () {
+    $event = new AgentStreamChunk(
+        agentKey: 'test-agent',
+        requestId: 'req-123',
+        type: 'text_delta',
+    );
+
+    expect($event->metadata)->toBe([]);
 });

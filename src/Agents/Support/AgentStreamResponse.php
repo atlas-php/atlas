@@ -5,13 +5,18 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Agents\Support;
 
 use Atlasphp\Atlas\Agents\Contracts\AgentContract;
+use Atlasphp\Atlas\Agents\Events\AgentStreamChunk;
 use Atlasphp\Atlas\Streaming\SseStreamFormatter;
+use Atlasphp\Atlas\Streaming\StreamEventHelper;
 use Atlasphp\Atlas\Streaming\VercelStreamProtocol;
 use Closure;
 use Generator;
+use Illuminate\Broadcasting\BroadcastEvent;
 use Illuminate\Contracts\Support\Responsable;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Bus;
 use IteratorAggregate;
+use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -23,6 +28,10 @@ use Traversable;
  * Provides agent context alongside stream events. Implements
  * IteratorAggregate for seamless foreach iteration and Responsable
  * for direct return from Laravel controllers as SSE.
+ *
+ * Supports per-event callbacks via each(), post-stream callbacks via then(),
+ * error handling via onError(), stream replay after consumption, and
+ * inline broadcasting via broadcast()/broadcastNow().
  *
  * @implements IteratorAggregate<int, StreamEvent>
  */
@@ -47,6 +56,35 @@ final class AgentStreamResponse implements IteratorAggregate, Responsable
     private ?Closure $thenCallback = null;
 
     /**
+     * Per-event callback.
+     *
+     * @var Closure(StreamEvent, self): void|null
+     */
+    private ?Closure $eachCallback = null;
+
+    /**
+     * Error event callback.
+     *
+     * @var Closure(ErrorEvent, self): void|null
+     */
+    private ?Closure $errorCallback = null;
+
+    /**
+     * Broadcast request ID for inline broadcasting.
+     */
+    private ?string $broadcastRequestId = null;
+
+    /**
+     * Whether to broadcast synchronously (broadcastNow) or via queue.
+     */
+    private bool $broadcastSync = false;
+
+    /**
+     * Whether inline broadcasting is enabled.
+     */
+    private bool $broadcastEnabled = false;
+
+    /**
      * @param  Generator<int, StreamEvent>  $stream
      */
     public function __construct(
@@ -61,13 +99,24 @@ final class AgentStreamResponse implements IteratorAggregate, Responsable
      * Get the iterator for foreach iteration.
      *
      * Yields stream events while collecting them for post-iteration access.
+     * On replay (after consumption), yields from collected events without
+     * firing each(), then(), or onError() callbacks.
      *
      * @return Traversable<int, StreamEvent>
      */
     public function getIterator(): Traversable
     {
+        if ($this->consumed) {
+            yield from $this->collectedEvents;
+
+            return;
+        }
+
         foreach ($this->stream as $event) {
             $this->collectedEvents[] = $event;
+            $this->fireEachCallback($event);
+            $this->fireErrorCallback($event);
+            $this->fireBroadcastCallback($event);
             yield $event;
         }
         $this->consumed = true;
@@ -109,6 +158,83 @@ final class AgentStreamResponse implements IteratorAggregate, Responsable
     }
 
     /**
+     * Register a callback to execute on each stream event.
+     *
+     * Callback is NOT fired on replay.
+     *
+     * ```php
+     * return Atlas::agent('writer')->stream($input)
+     *     ->each(fn(StreamEvent $e) => Log::info($e->eventKey()));
+     * ```
+     *
+     * @param  Closure(StreamEvent, self): void  $callback
+     */
+    public function each(Closure $callback): self
+    {
+        $this->eachCallback = $callback;
+
+        return $this;
+    }
+
+    /**
+     * Register a callback for error events.
+     *
+     * Callback is NOT fired on replay.
+     *
+     * @param  Closure(ErrorEvent, self): void  $callback
+     */
+    public function onError(Closure $callback): self
+    {
+        $this->errorCallback = $callback;
+
+        return $this;
+    }
+
+    /**
+     * Enable queued broadcasting during stream iteration.
+     *
+     * Broadcasts each stream event as an AgentStreamChunk via the queue.
+     *
+     * ```php
+     * return Atlas::agent('writer')->stream($input)->broadcast($requestId);
+     * ```
+     */
+    public function broadcast(?string $requestId = null): self
+    {
+        $this->broadcastEnabled = true;
+        $this->broadcastSync = false;
+        $this->broadcastRequestId = $requestId ?? bin2hex(random_bytes(16));
+
+        return $this;
+    }
+
+    /**
+     * Enable synchronous broadcasting during stream iteration.
+     *
+     * Broadcasts each stream event as an AgentStreamChunk immediately (no queue).
+     *
+     * ```php
+     * return Atlas::agent('writer')->stream($input)->broadcastNow($requestId);
+     * ```
+     */
+    public function broadcastNow(?string $requestId = null): self
+    {
+        $this->broadcastEnabled = true;
+        $this->broadcastSync = true;
+        $this->broadcastRequestId = $requestId ?? bin2hex(random_bytes(16));
+
+        return $this;
+    }
+
+    /**
+     * Get the broadcast request ID.
+     */
+    public function broadcastRequestId(): ?string
+    {
+        return $this->broadcastRequestId;
+    }
+
+    /**
      * Collect and return the full text after consuming the stream.
      *
      * If the stream hasn't been consumed yet, consumes it first.
@@ -134,6 +260,8 @@ final class AgentStreamResponse implements IteratorAggregate, Responsable
 
     /**
      * Register a callback to execute after the stream is consumed.
+     *
+     * Callback is NOT fired on replay.
      *
      * @param  Closure(self): void  $callback
      */
@@ -207,6 +335,54 @@ final class AgentStreamResponse implements IteratorAggregate, Responsable
     }
 
     /**
+     * Fire the each callback if set.
+     */
+    private function fireEachCallback(StreamEvent $event): void
+    {
+        if ($this->eachCallback !== null) {
+            ($this->eachCallback)($event, $this);
+        }
+    }
+
+    /**
+     * Fire the error callback if the event is an ErrorEvent.
+     */
+    private function fireErrorCallback(StreamEvent $event): void
+    {
+        if ($this->errorCallback !== null && $event instanceof ErrorEvent) {
+            ($this->errorCallback)($event, $this);
+        }
+    }
+
+    /**
+     * Broadcast the event if inline broadcasting is enabled.
+     */
+    private function fireBroadcastCallback(StreamEvent $event): void
+    {
+        if (! $this->broadcastEnabled) {
+            return;
+        }
+
+        if (config('atlas.events.enabled', true) === false) {
+            return;
+        }
+
+        $chunk = new AgentStreamChunk(
+            agentKey: $this->agentKey(),
+            requestId: $this->broadcastRequestId ?? '',
+            type: $event->eventKey(),
+            delta: StreamEventHelper::extractDelta($event),
+            metadata: $event->toArray(),
+        );
+
+        if ($this->broadcastSync) {
+            Bus::dispatchSync(new BroadcastEvent(clone $chunk));
+        } else {
+            event($chunk);
+        }
+    }
+
+    /**
      * Fire the then callback once, guarding against double invocation.
      */
     private function fireThenCallback(): void
@@ -225,8 +401,20 @@ final class AgentStreamResponse implements IteratorAggregate, Responsable
         $formatter = new SseStreamFormatter;
 
         return new StreamedResponse(function () use ($formatter): void {
+            $aborted = false;
+
             foreach ($this->stream as $event) {
                 $this->collectedEvents[] = $event;
+                $this->fireEachCallback($event);
+                $this->fireErrorCallback($event);
+                $this->fireBroadcastCallback($event);
+
+                if (connection_aborted()) {
+                    $aborted = true;
+
+                    break;
+                }
+
                 echo $formatter->format($event);
 
                 if (ob_get_level() > 0) {
@@ -235,12 +423,14 @@ final class AgentStreamResponse implements IteratorAggregate, Responsable
                 flush();
             }
 
-            echo $formatter->done();
+            if (! $aborted) {
+                echo $formatter->done();
 
-            if (ob_get_level() > 0) {
-                ob_flush();
+                if (ob_get_level() > 0) {
+                    ob_flush();
+                }
+                flush();
             }
-            flush();
 
             $this->consumed = true;
 
@@ -263,6 +453,14 @@ final class AgentStreamResponse implements IteratorAggregate, Responsable
         return new StreamedResponse(function () use ($protocol): void {
             foreach ($this->stream as $event) {
                 $this->collectedEvents[] = $event;
+                $this->fireEachCallback($event);
+                $this->fireErrorCallback($event);
+                $this->fireBroadcastCallback($event);
+
+                if (connection_aborted()) {
+                    break;
+                }
+
                 $formatted = $protocol->format($event);
 
                 if ($formatted !== null) {
@@ -278,11 +476,6 @@ final class AgentStreamResponse implements IteratorAggregate, Responsable
             $this->consumed = true;
 
             $this->fireThenCallback();
-        }, 200, [
-            'Content-Type' => 'text/plain; charset=utf-8',
-            'Cache-Control' => 'no-cache',
-            'Connection' => 'keep-alive',
-            'X-Accel-Buffering' => 'no',
-        ]);
+        }, 200, VercelStreamProtocol::headers());
     }
 }

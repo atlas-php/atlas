@@ -12,9 +12,11 @@ use Atlasphp\Atlas\Agents\Support\AgentStreamResponse;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
 use Illuminate\Support\Facades\Event;
 use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
+use Prism\Prism\Streaming\Events\ThinkingEvent;
 use Prism\Prism\ValueObjects\Usage;
 
 test('BroadcastAgent stores agent key, input, context, and request ID', function () {
@@ -64,7 +66,7 @@ test('handle() resolves agent and streams via executor', function () {
     Event::assertDispatched(AgentStreamChunk::class);
 });
 
-test('handle() broadcasts stream-start chunk for StreamStartEvent', function () {
+test('handle() broadcasts stream_start chunk with eventKey for StreamStartEvent', function () {
     Event::fake();
 
     $agent = new TestAgent;
@@ -85,7 +87,7 @@ test('handle() broadcasts stream-start chunk for StreamStartEvent', function () 
     $job->handle($resolver, $executor);
 
     Event::assertDispatched(AgentStreamChunk::class, function (AgentStreamChunk $chunk) {
-        return $chunk->type === 'stream-start'
+        return $chunk->type === 'stream_start'
             && $chunk->agentKey === 'test-agent'
             && $chunk->requestId === 'req-1'
             && $chunk->metadata['model'] === 'gpt-4'
@@ -93,7 +95,7 @@ test('handle() broadcasts stream-start chunk for StreamStartEvent', function () 
     });
 });
 
-test('handle() broadcasts text-delta chunks for TextDeltaEvent', function () {
+test('handle() broadcasts text_delta chunks with delta extracted', function () {
     Event::fake();
 
     $agent = new TestAgent;
@@ -115,14 +117,14 @@ test('handle() broadcasts text-delta chunks for TextDeltaEvent', function () {
     $job->handle($resolver, $executor);
 
     Event::assertDispatched(AgentStreamChunk::class, function (AgentStreamChunk $chunk) {
-        return $chunk->type === 'text-delta' && $chunk->delta === 'Hello';
+        return $chunk->type === 'text_delta' && $chunk->delta === 'Hello';
     });
     Event::assertDispatched(AgentStreamChunk::class, function (AgentStreamChunk $chunk) {
-        return $chunk->type === 'text-delta' && $chunk->delta === ' world';
+        return $chunk->type === 'text_delta' && $chunk->delta === ' world';
     });
 });
 
-test('handle() broadcasts stream-end chunk for StreamEndEvent', function () {
+test('handle() broadcasts stream_end chunk with full toArray data', function () {
     Event::fake();
 
     $agent = new TestAgent;
@@ -148,10 +150,63 @@ test('handle() broadcasts stream-end chunk for StreamEndEvent', function () {
     $job->handle($resolver, $executor);
 
     Event::assertDispatched(AgentStreamChunk::class, function (AgentStreamChunk $chunk) {
-        return $chunk->type === 'stream-end'
-            && $chunk->metadata['finish_reason'] === 'stop'
+        return $chunk->type === 'stream_end'
             && $chunk->metadata['usage']['prompt_tokens'] === 10
             && $chunk->metadata['usage']['completion_tokens'] === 20;
+    });
+});
+
+test('handle() broadcasts thinking_delta chunks with delta extracted', function () {
+    Event::fake();
+
+    $agent = new TestAgent;
+    $context = new AgentContext;
+
+    $streamEvents = [
+        new ThinkingEvent('id-1', time(), 'Let me think...', 'reason_1'),
+    ];
+    $streamResponse = createStreamResponse($streamEvents, $agent, $context);
+
+    $resolver = Mockery::mock(AgentResolver::class);
+    $resolver->shouldReceive('resolve')->andReturn($agent);
+
+    $executor = Mockery::mock(AgentExecutorContract::class);
+    $executor->shouldReceive('stream')->andReturn($streamResponse);
+
+    $job = new BroadcastAgent('test-agent', 'Hello', $context->toArray(), 'req-think');
+    $job->handle($resolver, $executor);
+
+    Event::assertDispatched(AgentStreamChunk::class, function (AgentStreamChunk $chunk) {
+        return $chunk->type === 'thinking_delta'
+            && $chunk->delta === 'Let me think...'
+            && $chunk->metadata['reasoning_id'] === 'reason_1';
+    });
+});
+
+test('handle() broadcasts error chunks for ErrorEvent', function () {
+    Event::fake();
+
+    $agent = new TestAgent;
+    $context = new AgentContext;
+
+    $streamEvents = [
+        new ErrorEvent('id-1', time(), 'rate_limit', 'Too many requests', true),
+    ];
+    $streamResponse = createStreamResponse($streamEvents, $agent, $context);
+
+    $resolver = Mockery::mock(AgentResolver::class);
+    $resolver->shouldReceive('resolve')->andReturn($agent);
+
+    $executor = Mockery::mock(AgentExecutorContract::class);
+    $executor->shouldReceive('stream')->andReturn($streamResponse);
+
+    $job = new BroadcastAgent('test-agent', 'Hello', $context->toArray(), 'req-err');
+    $job->handle($resolver, $executor);
+
+    Event::assertDispatched(AgentStreamChunk::class, function (AgentStreamChunk $chunk) {
+        return $chunk->type === 'error'
+            && $chunk->delta === null
+            && $chunk->metadata['error_type'] === 'rate_limit';
     });
 });
 

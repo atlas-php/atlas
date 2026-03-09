@@ -18,7 +18,7 @@ $stream = Atlas::agent('support-agent')->stream('Hello!');
 
 foreach ($stream as $event) {
     if ($event instanceof TextDeltaEvent) {
-        echo $event->text;
+        echo $event->delta;
         flush();
     }
 }
@@ -54,24 +54,29 @@ $stream = Atlas::agent('support-agent')
 
 foreach ($stream as $event) {
     if ($event instanceof TextDeltaEvent) {
-        echo $event->text;
+        echo $event->delta;
     }
 }
 ```
 
 ## Common Event Types
 
-Atlas yields Prism streaming events. The most common:
+Atlas yields all Prism streaming events automatically. The most common:
 
 ```php
 use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
+use Prism\Prism\Streaming\Events\ThinkingEvent;
+use Prism\Prism\Streaming\Events\ToolCallEvent;
+use Prism\Prism\Streaming\Events\ErrorEvent;
 
 foreach ($stream as $event) {
     match (true) {
-        $event instanceof StreamStartEvent => handleStart($event),
-        $event instanceof TextDeltaEvent => echo $event->text,
+        $event instanceof TextDeltaEvent => echo $event->delta,
+        $event instanceof ThinkingEvent => handleThinking($event),
+        $event instanceof ToolCallEvent => handleToolCall($event),
+        $event instanceof ErrorEvent => handleError($event),
         $event instanceof StreamEndEvent => handleEnd($event),
         default => null,
     };
@@ -82,13 +87,19 @@ foreach ($stream as $event) {
 
 | Event | Description |
 |-------|-------------|
-| `StreamStartEvent` | Stream initialized |
-| `TextDeltaEvent` | Text chunk received |
-| `StreamEndEvent` | Stream completed |
+| `StreamStartEvent` | Stream initialized with model/provider info |
+| `TextDeltaEvent` | Text chunk received (`$event->delta`) |
+| `ThinkingStartEvent` | Reasoning/thinking began |
+| `ThinkingEvent` | Thinking chunk received (`$event->delta`) |
+| `ThinkingCompleteEvent` | Reasoning/thinking finished |
+| `ToolCallEvent` | Tool call with arguments |
+| `ToolResultEvent` | Tool execution result |
+| `ErrorEvent` | Error occurred (may be recoverable) |
+| `StreamEndEvent` | Stream completed with usage stats |
 
 </div>
 
-See [Prism Streaming Event Types](https://prismphp.com/core-concepts/streaming-output.html#event-types) for the complete list including tool calls, thinking events, and more.
+See [Prism Streaming Event Types](https://prismphp.com/core-concepts/streaming-output.html#event-types) for the complete list including citations, artifacts, steps, and more.
 
 ## Building Complete Text
 
@@ -103,10 +114,10 @@ $fullText = '';
 
 foreach ($stream as $event) {
     if ($event instanceof TextDeltaEvent) {
-        $fullText .= $event->text;
+        $fullText .= $event->delta;
 
         // Real-time output
-        echo $event->text;
+        echo $event->delta;
         flush();
     }
 }
@@ -136,7 +147,7 @@ class ChatController extends Controller
 }
 ```
 
-The response automatically sets SSE headers (`Content-Type: text/event-stream`, `Cache-Control: no-cache`, `Connection: keep-alive`, `X-Accel-Buffering: no`) and streams text delta events to the client.
+The response automatically sets SSE headers (`Content-Type: text/event-stream`, `Cache-Control: no-cache`, `Connection: keep-alive`, `X-Accel-Buffering: no`) and streams all event types using Prism's `eventKey()` as the SSE event name (e.g., `stream_start`, `text_delta`, `thinking_delta`, `tool_call`, `stream_end`).
 
 ## Vercel AI SDK Protocol
 
@@ -154,7 +165,18 @@ class ChatController extends Controller
 }
 ```
 
-This formats events according to the Vercel AI SDK Data Stream Protocol, compatible with the `useChat` and `useCompletion` hooks.
+This formats events according to the Vercel AI SDK Data Stream Protocol, compatible with the `useChat` and `useCompletion` hooks. Supported Vercel format codes:
+
+| Code | Event | Description |
+|------|-------|-------------|
+| `0:` | Text delta | Text content chunk |
+| `g:` | Thinking | Reasoning start/delta/complete |
+| `9:` | Tool call | Tool invocation with arguments |
+| `a:` | Tool result | Tool execution result |
+| `3:` | Error | Error message |
+| `d:` | Finish | Stream end with usage stats |
+
+The response includes the `x-vercel-ai-ui-message-stream: v1` header.
 
 ## Convenience Methods
 
@@ -192,9 +214,67 @@ $stream->then(function (AgentStreamResponse $stream) use ($conversation) {
 return $stream; // Callback fires after response is sent
 ```
 
+### Per-Event Callbacks
+
+Use `each()` to fire a callback on every stream event:
+
+```php
+use Prism\Prism\Streaming\Events\StreamEvent;
+
+$stream = Atlas::agent('support-agent')->stream($input)
+    ->each(function (StreamEvent $event, AgentStreamResponse $response) {
+        Log::info('Stream event', ['type' => $event->eventKey()]);
+    });
+
+return $stream;
+```
+
+The `each()` callback receives the event and the stream response. It fires during initial iteration only — not on [replay](#stream-replay).
+
+### Error Handling
+
+Use `onError()` to handle `ErrorEvent` instances during streaming:
+
+```php
+use Prism\Prism\Streaming\Events\ErrorEvent;
+
+$stream = Atlas::agent('support-agent')->stream($input)
+    ->onError(function (ErrorEvent $error, AgentStreamResponse $response) {
+        Log::error('Stream error', [
+            'type' => $error->errorType,
+            'message' => $error->message,
+            'recoverable' => $error->recoverable,
+        ]);
+    });
+```
+
+The callback fires only for `ErrorEvent` events. Prism controls whether the stream continues after an error based on the `recoverable` flag.
+
+### Stream Replay
+
+Consumed streams can be re-iterated from cached events:
+
+```php
+$stream = Atlas::agent('support-agent')->stream($input);
+
+// First iteration — consumes the stream
+foreach ($stream as $event) {
+    // Process events
+}
+
+// Replay — yields from cached events
+foreach ($stream as $event) {
+    // Same events, no API call
+}
+```
+
+Callbacks (`each()`, `then()`, `onError()`) do **not** fire on replay.
+
 ## Broadcasting to WebSockets
 
-Atlas includes a built-in `AgentStreamChunk` broadcast event for real-time WebSocket delivery:
+### Queued Broadcasting
+
+Atlas includes a built-in `BroadcastAgent` job for broadcasting via queue:
 
 ```php
 use Atlasphp\Atlas\Atlas;
@@ -204,7 +284,45 @@ Atlas::agent('support-agent')
     ->broadcast($input, $requestId);
 ```
 
-Each stream chunk is broadcast on a private channel following the convention:
+This dispatches a queue job that streams the agent response and broadcasts each chunk as an `AgentStreamChunk` event.
+
+### Inline Broadcasting
+
+Broadcast stream events directly during iteration — no queue job required:
+
+```php
+// Queued broadcast during iteration (via Laravel events)
+return Atlas::agent('support-agent')
+    ->stream($input)
+    ->broadcast($requestId);
+
+// Synchronous broadcast during iteration (no queue required)
+return Atlas::agent('support-agent')
+    ->stream($input)
+    ->broadcastNow($requestId);
+```
+
+Inline broadcasting is useful when you want to stream SSE to HTTP **and** broadcast to WebSocket simultaneously from a controller:
+
+```php
+class ChatController extends Controller
+{
+    public function stream(Request $request)
+    {
+        $requestId = $request->input('request_id', bin2hex(random_bytes(16)));
+
+        return Atlas::agent('support-agent')
+            ->stream($request->input('message'))
+            ->broadcastNow($requestId);
+    }
+}
+```
+
+The `$requestId` is auto-generated if not provided. Access it via `$stream->broadcastRequestId()`.
+
+### Channel Convention
+
+Each stream chunk is broadcast on a private channel:
 
 ```
 atlas.agent.{agentKey}.{requestId}
@@ -263,10 +381,14 @@ The job is dispatched automatically. For queued broadcasting that streams to Web
 ```javascript
 const eventSource = new EventSource('/api/chat/stream');
 
-eventSource.onmessage = (event) => {
+eventSource.addEventListener('text_delta', (event) => {
     const data = JSON.parse(event.data);
-    document.getElementById('response').textContent += data.text;
-};
+    document.getElementById('response').textContent += data.delta;
+});
+
+eventSource.addEventListener('stream_end', () => {
+    eventSource.close();
+});
 
 eventSource.onerror = () => {
     eventSource.close();
@@ -290,22 +412,6 @@ while (true) {
 
     const text = decoder.decode(value);
     document.getElementById('response').textContent += text;
-}
-```
-
-## Error Handling
-
-```php
-use Prism\Prism\Streaming\Events\TextDeltaEvent;
-
-try {
-    foreach ($stream as $event) {
-        if ($event instanceof TextDeltaEvent) {
-            echo $event->text;
-        }
-    }
-} catch (\Exception $e) {
-    Log::error('Stream failed', ['error' => $e->getMessage()]);
 }
 ```
 
@@ -348,20 +454,19 @@ class ChatController extends Controller
             ->map(fn ($m) => ['role' => $m->role, 'content' => $m->content])
             ->toArray();
 
-        // Stream response with post-stream save
-        $stream = Atlas::agent('support-agent')
+        // Stream response with post-stream save and error handling
+        return Atlas::agent('support-agent')
             ->withMessages($messages)
             ->withMetadata(['conversation_id' => $conversation->id])
-            ->stream($request->input('message'));
-
-        $stream->then(function (AgentStreamResponse $s) use ($conversation) {
-            $conversation->messages()->create([
-                'role' => 'assistant',
-                'content' => $s->text(),
-            ]);
-        });
-
-        return $stream;
+            ->stream($request->input('message'))
+            ->each(fn (StreamEvent $event) => Log::debug('stream', ['type' => $event->eventKey()]))
+            ->onError(fn (ErrorEvent $error) => Log::error('stream error', ['message' => $error->message]))
+            ->then(function (AgentStreamResponse $s) use ($conversation) {
+                $conversation->messages()->create([
+                    'role' => 'assistant',
+                    'content' => $s->text(),
+                ]);
+            });
     }
 }
 ```
@@ -399,12 +504,17 @@ Atlas::agent(string|AgentContract $agent)
 // AgentStreamResponse (implements IteratorAggregate, Responsable)
 $stream = Atlas::agent('agent')->stream('Hello');
 
-$stream->toResponse($request);       // Laravel Responsable — SSE format (automatic)
-$stream->asVercelStream();           // Switch to Vercel AI SDK Data Stream Protocol
-$stream->text(): string;             // Collect full text after stream consumption
-$stream->then(Closure $callback);    // Register post-stream callback
-$stream->events(): array;            // Get collected stream events
-$stream->isConsumed(): bool;         // Check if stream is fully consumed
+$stream->toResponse($request);                // Laravel Responsable — SSE format (automatic)
+$stream->asVercelStream();                    // Switch to Vercel AI SDK Data Stream Protocol
+$stream->text(): string;                      // Collect full text after stream consumption
+$stream->then(Closure $callback);             // Register post-stream callback
+$stream->each(Closure $callback);             // Register per-event callback
+$stream->onError(Closure $callback);          // Register error event callback
+$stream->broadcast(?string $requestId);       // Enable queued inline broadcasting
+$stream->broadcastNow(?string $requestId);    // Enable synchronous inline broadcasting
+$stream->broadcastRequestId(): ?string;       // Get the broadcast request ID
+$stream->events(): array;                     // Get collected stream events
+$stream->isConsumed(): bool;                  // Check if stream is fully consumed
 
 // QueuedAgentResponse
 $queued = Atlas::agent('agent')->queue('Hello');
@@ -426,13 +536,16 @@ Atlas::text()
     ->asStream(): Generator<StreamEvent>;
 
 // Common Prism stream events
-use Prism\Prism\Streaming\Events\StreamStartEvent;   // Stream initialized
-use Prism\Prism\Streaming\Events\TextDeltaEvent;     // Text chunk received
-use Prism\Prism\Streaming\Events\StreamEndEvent;     // Stream completed
-use Prism\Prism\Streaming\Events\ToolCallStartEvent; // Tool call starting
-use Prism\Prism\Streaming\Events\ToolCallDeltaEvent; // Tool call argument chunk
-use Prism\Prism\Streaming\Events\ToolResultEvent;    // Tool execution result
-use Prism\Prism\Streaming\Events\ThinkingEvent;      // Model thinking (Claude)
+use Prism\Prism\Streaming\Events\StreamStartEvent;      // Stream initialized
+use Prism\Prism\Streaming\Events\TextDeltaEvent;        // Text chunk ($event->delta)
+use Prism\Prism\Streaming\Events\StreamEndEvent;        // Stream completed
+use Prism\Prism\Streaming\Events\ThinkingStartEvent;    // Reasoning started
+use Prism\Prism\Streaming\Events\ThinkingEvent;         // Thinking chunk ($event->delta)
+use Prism\Prism\Streaming\Events\ThinkingCompleteEvent; // Reasoning finished
+use Prism\Prism\Streaming\Events\ToolCallEvent;         // Tool call with arguments
+use Prism\Prism\Streaming\Events\ToolCallDeltaEvent;    // Tool call argument chunk
+use Prism\Prism\Streaming\Events\ToolResultEvent;       // Tool execution result
+use Prism\Prism\Streaming\Events\ErrorEvent;            // Error (may be recoverable)
 
 // AgentStreamChunk broadcast event
 // Channel: atlas.agent.{agentKey}.{requestId}
