@@ -45,7 +45,7 @@
 
 Track Prism releases and their impact on Atlas. See `AGENTS.md` "Prism Compatibility" section for the review process.
 
-| Date | Prism Versions | Status | Notes |
-|------|----------------|--------|-------|
-| 2026-01-29 | v0.99.16 - v0.99.19 | ✅ Compatible | No changes needed. Atlas unaffected by: streaming artifact key change, ResponseBuilder refactor, Skills support, provider fixes. |
+| Date       | Prism Versions      | Status       | Notes                                                                                                                                                           |
+|------------|---------------------|--------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 2026-01-29 | v0.99.16 - v0.99.19 | ✅ Compatible | No changes needed. Atlas unaffected by: streaming artifact key change, ResponseBuilder refactor, Skills support, provider fixes.                                |
 | 2026-03-08 | v0.99.20 - v0.99.21 | ✅ Compatible | All 957 Atlas tests pass against v0.99.21. No breaking changes observed. Release notes not individually reviewed — compatibility confirmed via full test suite. |

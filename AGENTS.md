@@ -433,7 +433,7 @@ class ProcessAgentResponseService
 | Providers       | `*ServiceProvider`        | `PackageServiceProvider`        |
 | Model Services  | `{Model}ModelService`     | `AgentModelService`             |
 | Domain Services | `{Action}{Domain}Service` | `CreateAgentService`            |
-| Contracts       | `*Contract`               | `LlmClientContract`            |
+| Contracts       | `*Contract`               | `LlmClientContract`             |
 | Models          | Singular                  | `Agent`, `Tool`, `Conversation` |
 | Exceptions      | `*Exception`              | `AgentNotFoundException`        |
 | DTOs            | `*Data` or `*Dto`         | `CompletionResponseData`        |
@@ -550,20 +550,20 @@ Horizon must be **restarted after code changes** to pick up new code. If tests s
 
 ## Documentation
 
-**Public documentation:** VitePress site at [atlasphp.io](https://atlasphp.io)
+**Public documentation:** VitePress site at [atlasphp.org](https://atlasphp.org)
 
 **Key directories:** `docs/getting-started/`, `docs/core-concepts/`, `docs/capabilities/`, `docs/guides/`, `docs/api-reference/`
 
 ### Maintenance Rules
 
-| Code Change         | Documentation Update                                 |
-|---------------------|------------------------------------------------------|
-| Adding a feature    | Update relevant VitePress docs                       |
-| Changing behavior   | Update docs immediately                              |
-| Adding a new module | Add documentation to appropriate section              |
-| Fixing a bug        | No docs update unless behavior was misdocumented     |
-| Deprecating         | Mark as deprecated in docs, add migration notes       |
-| Removing            | Remove from docs completely (no "removed" comments)   |
+| Code Change         | Documentation Update                                |
+|---------------------|-----------------------------------------------------|
+| Adding a feature    | Update relevant VitePress docs                      |
+| Changing behavior   | Update docs immediately                             |
+| Adding a new module | Add documentation to appropriate section            |
+| Fixing a bug        | No docs update unless behavior was misdocumented    |
+| Deprecating         | Mark as deprecated in docs, add migration notes     |
+| Removing            | Remove from docs completely (no "removed" comments) |
 
 - All code examples must be syntactically correct and runnable
 - Cross-references must use relative links
