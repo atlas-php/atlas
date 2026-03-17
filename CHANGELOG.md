@@ -10,24 +10,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 ## [v2.5.0](https://github.com/atlas-php/atlas/releases/tag/v2.5.0) - 2026-03-16
 
-### Added
+### Provider Model Listing
 
-- Built-in `CacheEmbeddings` pipeline middleware with global config and per-request overrides via metadata (`cache`, `cache_store`, `cache_ttl`, `cache_key`)
-- Default embedding provider/model config (`atlas.embeddings.provider`, `atlas.embeddings.model`) — `->using()` no longer required on every call
-- `env()` helpers for all embedding config values (`ATLAS_EMBEDDING_PROVIDER`, `ATLAS_EMBEDDING_MODEL`, `ATLAS_EMBEDDING_CACHE_ENABLED`, `ATLAS_EMBEDDING_CACHE_STORE`, `ATLAS_EMBEDDING_CACHE_TTL`)
-- Explicit `AtlasManager::embeddings()` method that applies config defaults before delegating to Prism
-- Auto-registration of `CacheEmbeddings` middleware in `AtlasServiceProvider` when `embeddings.cache.enabled` is true (priority 100)
-- Sandbox `--cache` and `--cache-demo` flags on `atlas:embed` command
-- 31 new tests: `CacheEmbeddings`, `AtlasManager::embeddings()`, service provider cache registration, `Atlas::fake()`/`unfake()`/`getFake()`/`isFaked()`, `FakeAgentExecutor::setRealExecutor()`/`respondUsing()`, `AbstractExtensionRegistry`
+List available models from any AI provider — the first PHP AI SDK to ship this.
 
-### Changed
+```php
+Atlas::models('openai')->all();       // cached list of models
+Atlas::models('openai')->refresh();   // force fresh from API
+Atlas::models('openai')->clear();     // clear cache
+Atlas::models('openai')->has();       // check if provider supports listing
+```
 
-- Updated Prism from v0.99.21 to v0.99.22 (Perplexity, Z.AI providers, GPT-5 reasoning, multimodal embeddings for VoyageAI/Gemini, tool/OpenRouter fixes)
-- Updated Laravel Pint from v1.27.0 to v1.29.0 and applied formatting across codebase
-- Added `--memory-limit=512M` to PHPStan composer script
-- Sandbox `atlas:embed` now uses config defaults instead of hardcoded `->using()` calls
-- Updated embeddings and pipelines documentation to reflect built-in caching
+- 10 of 13 Prism providers supported (Perplexity, VoyageAI, Z have no models endpoint)
+- Automatic caching with configurable TTL, store, and enable/disable
+- Ollama fallback from `/v1/models` to native `/api/tags`
+- Sandbox `atlas:models` command with `--all`, `--refresh`, `--clear` flags
+
+### Embedding Defaults & Caching
+
+- Default provider/model config — `->using()` no longer required on every call
+- Built-in `CacheEmbeddings` pipeline middleware with per-request overrides
+- Sandbox `--cache` and `--cache-demo` flags on `atlas:embed`
+
+### Other
+
+- Updated Prism to v0.99.22 (new providers, GPT-5 reasoning, multimodal embeddings)
+- Updated Laravel Pint to v1.29.0
+- 66 new tests
 
 ### Breaking Changes
 
-None. All changes are additive.
+None.
