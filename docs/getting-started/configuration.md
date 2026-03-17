@@ -73,6 +73,46 @@ return [
         'namespace' => 'App\\Tools',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Models Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configure caching for the provider model listing service. When enabled,
+    | fetched model lists are cached to minimize API calls. Models don't
+    | change frequently, so a longer TTL is recommended.
+    |
+    */
+
+    'models' => [
+        'cache' => [
+            'enabled' => env('ATLAS_MODELS_CACHE_ENABLED', true),
+            'store' => env('ATLAS_MODELS_CACHE_STORE'),
+            'ttl' => (int) env('ATLAS_MODELS_CACHE_TTL', 3600),
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Embeddings Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configure default provider/model for embeddings and optional caching.
+    | When provider and model are set, Atlas::embeddings() uses them
+    | automatically. Users can still override with ->using().
+    |
+    */
+
+    'embeddings' => [
+        'provider' => env('ATLAS_EMBEDDING_PROVIDER'),
+        'model' => env('ATLAS_EMBEDDING_MODEL'),
+        'cache' => [
+            'enabled' => env('ATLAS_EMBEDDING_CACHE_ENABLED', false),
+            'store' => env('ATLAS_EMBEDDING_CACHE_STORE'),
+            'ttl' => (int) env('ATLAS_EMBEDDING_CACHE_TTL', 3600),
+        ],
+    ],
+
 ];
 ```
 
@@ -131,6 +171,36 @@ Similarly, tools can be auto-discovered:
 ```
 
 Place your tool classes in `app/Tools/` and they'll be registered automatically. Set `path` to `null` to disable auto-discovery.
+
+### Models Cache
+
+Cache provider model listings to reduce API calls:
+
+```env
+ATLAS_MODELS_CACHE_ENABLED=true
+ATLAS_MODELS_CACHE_STORE=        # Cache store (default: app default)
+ATLAS_MODELS_CACHE_TTL=3600      # TTL in seconds (default: 1 hour)
+```
+
+When enabled, calls to list available models from providers are cached. Models don't change frequently, so a longer TTL is recommended.
+
+See [Models](/capabilities/models) for usage details.
+
+### Embeddings
+
+Configure default provider and model for embeddings, with optional caching:
+
+```env
+ATLAS_EMBEDDING_PROVIDER=        # Default provider (e.g. openai)
+ATLAS_EMBEDDING_MODEL=           # Default model (e.g. text-embedding-3-small)
+ATLAS_EMBEDDING_CACHE_ENABLED=false
+ATLAS_EMBEDDING_CACHE_STORE=     # Cache store (default: app default)
+ATLAS_EMBEDDING_CACHE_TTL=3600   # TTL in seconds (default: 1 hour)
+```
+
+When `provider` and `model` are set, `Atlas::embeddings()` uses them automatically. You can still override per-call with `->using()`.
+
+See [Embeddings](/capabilities/embeddings) for usage details.
 
 ## Prism Configuration
 
