@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Event;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Streaming\Events\ErrorEvent;
 use Prism\Prism\Streaming\Events\StreamEndEvent;
+use Prism\Prism\Streaming\Events\StreamEvent;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
 use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Streaming\Events\ThinkingEvent;
@@ -292,7 +293,7 @@ test('handle() restores context from serialized data', function () {
 /**
  * Create a set of stream events for a complete stream.
  *
- * @return array<int, \Prism\Prism\Streaming\Events\StreamEvent>
+ * @return array<int, StreamEvent>
  */
 function createStreamEvents(): array
 {
@@ -309,7 +310,7 @@ function createStreamEvents(): array
 /**
  * Create an AgentStreamResponse from an array of events.
  *
- * @param  array<int, \Prism\Prism\Streaming\Events\StreamEvent>  $events
+ * @param  array<int, StreamEvent>  $events
  */
 function createStreamResponse(array $events, AgentContract $agent, AgentContext $context): AgentStreamResponse
 {

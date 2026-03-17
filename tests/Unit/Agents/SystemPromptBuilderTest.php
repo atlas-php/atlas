@@ -2,11 +2,14 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Agents\AgentDefinition;
 use Atlasphp\Atlas\Agents\Services\SystemPromptBuilder;
 use Atlasphp\Atlas\Agents\Support\AgentContext;
+use Atlasphp\Atlas\Contracts\PipelineContract;
 use Atlasphp\Atlas\Pipelines\PipelineRegistry;
 use Atlasphp\Atlas\Pipelines\PipelineRunner;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
+use Atlasphp\Atlas\Tests\Fixtures\TestAgentNoSystemPrompt;
 use Illuminate\Container\Container;
 
 beforeEach(function () {
@@ -114,7 +117,7 @@ test('it clears all sections', function () {
 });
 
 test('it handles boolean variables', function () {
-    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class extends AgentDefinition
     {
         public function key(): string
         {
@@ -144,7 +147,7 @@ test('it handles boolean variables', function () {
 });
 
 test('it handles array variables as JSON', function () {
-    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class extends AgentDefinition
     {
         public function key(): string
         {
@@ -178,7 +181,7 @@ test('it handles array variables as JSON', function () {
 // ============================================================================
 
 test('it handles integer variables', function () {
-    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class extends AgentDefinition
     {
         public function key(): string
         {
@@ -208,7 +211,7 @@ test('it handles integer variables', function () {
 });
 
 test('it handles float variables', function () {
-    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class extends AgentDefinition
     {
         public function key(): string
         {
@@ -238,7 +241,7 @@ test('it handles float variables', function () {
 });
 
 test('it handles null variables as empty string', function () {
-    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class extends AgentDefinition
     {
         public function key(): string
         {
@@ -268,7 +271,7 @@ test('it handles null variables as empty string', function () {
 });
 
 test('it handles boolean false as string false', function () {
-    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class extends AgentDefinition
     {
         public function key(): string
         {
@@ -298,7 +301,7 @@ test('it handles boolean false as string false', function () {
 });
 
 test('it handles nested arrays as JSON', function () {
-    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class extends AgentDefinition
     {
         public function key(): string
         {
@@ -385,7 +388,7 @@ test('it supports method chaining on unregisterVariable', function () {
 });
 
 test('it handles prompt with no placeholders', function () {
-    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class extends AgentDefinition
     {
         public function key(): string
         {
@@ -415,7 +418,7 @@ test('it handles prompt with no placeholders', function () {
 });
 
 test('it handles empty prompt', function () {
-    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class extends AgentDefinition
     {
         public function key(): string
         {
@@ -445,7 +448,7 @@ test('it handles empty prompt', function () {
 });
 
 test('it handles multiple variables in single prompt', function () {
-    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class extends AgentDefinition
     {
         public function key(): string
         {
@@ -483,7 +486,7 @@ test('it handles multiple variables in single prompt', function () {
 // ============================================================================
 
 test('it leaves unmatched placeholders intact', function () {
-    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class extends AgentDefinition
     {
         public function key(): string
         {
@@ -513,7 +516,7 @@ test('it leaves unmatched placeholders intact', function () {
 });
 
 test('it ignores invalid placeholder formats', function () {
-    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class extends AgentDefinition
     {
         public function key(): string
         {
@@ -573,7 +576,7 @@ test('it unregisters nonexistent variable gracefully', function () {
 });
 
 test('it handles empty string variable', function () {
-    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class extends AgentDefinition
     {
         public function key(): string
         {
@@ -603,7 +606,7 @@ test('it handles empty string variable', function () {
 });
 
 test('it handles camelCase variable names', function () {
-    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class extends AgentDefinition
     {
         public function key(): string
         {
@@ -636,7 +639,7 @@ test('it handles camelCase variable names', function () {
 });
 
 test('it handles underscore prefixed variable names', function () {
-    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class extends AgentDefinition
     {
         public function key(): string
         {
@@ -666,7 +669,7 @@ test('it handles underscore prefixed variable names', function () {
 });
 
 test('it handles same variable used multiple times', function () {
-    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class extends AgentDefinition
     {
         public function key(): string
         {
@@ -709,7 +712,7 @@ test('it replaces section with same key', function () {
 });
 
 test('it handles special characters in variable values', function () {
-    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class extends AgentDefinition
     {
         public function key(): string
         {
@@ -747,9 +750,9 @@ test('it runs before_build pipeline', function () {
     // Register a handler that modifies variables
     $registry->define('agent.system_prompt.before_build');
 
-    $handler = new class implements \Atlasphp\Atlas\Contracts\PipelineContract
+    $handler = new class implements PipelineContract
     {
-        public function handle(mixed $data, \Closure $next): mixed
+        public function handle(mixed $data, Closure $next): mixed
         {
             $data['variables']['injected'] = 'pipeline_value';
 
@@ -762,7 +765,7 @@ test('it runs before_build pipeline', function () {
     $runner = new PipelineRunner($registry, $container);
     $builder = new SystemPromptBuilder($runner);
 
-    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class extends AgentDefinition
     {
         public function key(): string
         {
@@ -796,7 +799,7 @@ test('it runs before_build pipeline', function () {
 // ============================================================================
 
 test('it returns null when agent has no system prompt and no sections', function () {
-    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class extends AgentDefinition
     {
         public function key(): string
         {
@@ -818,7 +821,7 @@ test('it returns null when agent has no system prompt and no sections', function
 test('it builds sections only when agent has null system prompt but sections exist', function () {
     $this->builder->addSection('rules', '## Rules\nFollow these rules.');
 
-    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class extends AgentDefinition
     {
         public function key(): string
         {
@@ -838,7 +841,7 @@ test('it builds sections only when agent has null system prompt but sections exi
 });
 
 test('it handles agent with null system prompt using fixture', function () {
-    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentNoSystemPrompt;
+    $agent = new TestAgentNoSystemPrompt;
     $context = new AgentContext;
 
     $prompt = $this->builder->build($agent, $context);
@@ -853,9 +856,9 @@ test('it runs after_build pipeline', function () {
     // Register a handler that modifies the final prompt
     $registry->define('agent.system_prompt.after_build');
 
-    $handler = new class implements \Atlasphp\Atlas\Contracts\PipelineContract
+    $handler = new class implements PipelineContract
     {
-        public function handle(mixed $data, \Closure $next): mixed
+        public function handle(mixed $data, Closure $next): mixed
         {
             $data['prompt'] .= "\n\n[Modified by pipeline]";
 

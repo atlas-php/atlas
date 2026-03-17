@@ -2,12 +2,14 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Agents\AgentDefinition;
 use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
 use Atlasphp\Atlas\Agents\Support\AgentContext;
 use Atlasphp\Atlas\Agents\Support\AgentResponse;
 use Atlasphp\Atlas\Testing\AtlasFake;
 use Atlasphp\Atlas\Testing\FakeAgentExecutor;
 use Atlasphp\Atlas\Testing\PendingFakeRequest;
+use Atlasphp\Atlas\Testing\Support\FakeResponseSequence;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
 use Illuminate\Container\Container;
 use Illuminate\Support\Collection;
@@ -147,7 +149,7 @@ test('recordedFor filters by agent key', function () {
     $executor = $this->container->make(AgentExecutorContract::class);
 
     $agent1 = new TestAgent;
-    $agent2 = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent2 = new class extends AgentDefinition
     {
         public function key(): string
         {
@@ -256,7 +258,7 @@ test('getExecutor returns FakeAgentExecutor', function () {
 
 test('registerSequence adds sequence to executor', function () {
     $response = createFakeTestResponse('Registered');
-    $sequence = (new \Atlasphp\Atlas\Testing\Support\FakeResponseSequence)->push($response);
+    $sequence = (new FakeResponseSequence)->push($response);
 
     $this->fake->registerSequence('test-agent', $sequence);
     $this->fake->activate();

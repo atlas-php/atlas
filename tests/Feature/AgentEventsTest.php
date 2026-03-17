@@ -9,6 +9,8 @@ use Atlasphp\Atlas\Agents\Events\AgentFailed;
 use Atlasphp\Atlas\Agents\Events\AgentStreamed;
 use Atlasphp\Atlas\Agents\Events\AgentStreaming;
 use Atlasphp\Atlas\Agents\Support\AgentContext;
+use Atlasphp\Atlas\Contracts\PipelineContract;
+use Atlasphp\Atlas\Pipelines\PipelineRegistry;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
 use Illuminate\Support\Facades\Event;
 use Prism\Prism\Facades\Prism;
@@ -50,13 +52,13 @@ test('execute dispatches AgentFailed on exception', function () {
     ]);
 
     // Register a before_execute pipeline handler that throws
-    $registry = app(\Atlasphp\Atlas\Pipelines\PipelineRegistry::class);
+    $registry = app(PipelineRegistry::class);
     $registry->define('agent.before_execute');
-    $registry->register('agent.before_execute', new class implements \Atlasphp\Atlas\Contracts\PipelineContract
+    $registry->register('agent.before_execute', new class implements PipelineContract
     {
-        public function handle(mixed $data, \Closure $next): mixed
+        public function handle(mixed $data, Closure $next): mixed
         {
-            throw new \RuntimeException('Forced failure for testing');
+            throw new RuntimeException('Forced failure for testing');
         }
     });
 
@@ -66,7 +68,7 @@ test('execute dispatches AgentFailed on exception', function () {
 
     try {
         $executor->execute($agent, 'Hello', $context);
-    } catch (\Throwable) {
+    } catch (Throwable) {
         // Expected
     }
 
@@ -114,13 +116,13 @@ test('stream dispatches AgentFailed on generator error', function () {
     ]);
 
     // Register a stream.after pipeline handler that simulates checking for errors
-    $registry = app(\Atlasphp\Atlas\Pipelines\PipelineRegistry::class);
+    $registry = app(PipelineRegistry::class);
     $registry->define('agent.stream.after');
-    $registry->register('agent.stream.after', new class implements \Atlasphp\Atlas\Contracts\PipelineContract
+    $registry->register('agent.stream.after', new class implements PipelineContract
     {
         public static ?array $data = null;
 
-        public function handle(mixed $data, \Closure $next): mixed
+        public function handle(mixed $data, Closure $next): mixed
         {
             self::$data = $data;
 

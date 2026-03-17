@@ -5,6 +5,8 @@ declare(strict_types=1);
 use Atlasphp\Atlas\Agents\AnonymousAgent;
 use Atlasphp\Atlas\Agents\Contracts\AgentContract;
 use Atlasphp\Atlas\Agents\Enums\AgentType;
+use Prism\Prism\Contracts\Schema;
+use Prism\Prism\Tool;
 
 test('it implements AgentContract', function () {
     $agent = new AnonymousAgent;
@@ -34,8 +36,8 @@ test('it uses default values when no arguments provided', function () {
 });
 
 test('all constructor parameters map to correct methods', function () {
-    $schema = Mockery::mock(\Prism\Prism\Contracts\Schema::class);
-    $mcpTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $schema = Mockery::mock(Schema::class);
+    $mcpTool = Mockery::mock(Tool::class);
 
     $agent = new AnonymousAgent(
         agentKey: 'test-agent',

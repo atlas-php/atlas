@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Agents\AgentDefinition;
 use Atlasphp\Atlas\Agents\Support\AgentContext;
 use Atlasphp\Atlas\Agents\Support\AgentResponse;
 use Atlasphp\Atlas\Testing\FakeAgentExecutor;
@@ -214,7 +215,7 @@ test('recordedFor filters by agent key', function () {
 
     // Create two different agents
     $agent1 = new TestAgent;
-    $agent2 = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent2 = new class extends AgentDefinition
     {
         public function key(): string
         {

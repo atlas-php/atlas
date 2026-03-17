@@ -120,7 +120,7 @@ test('it throws InvalidArgumentException when handler does not implement Pipelin
 
     $this->runner->run('test.pipeline', ['key' => 'value']);
 })->throws(
-    \InvalidArgumentException::class,
+    InvalidArgumentException::class,
     'Pipeline handler for "test.pipeline" must implement '.PipelineContract::class.', got InvalidHandler.'
 );
 
@@ -143,7 +143,7 @@ test('it throws InvalidArgumentException with correct type for non-object handle
 
     $runner->run('test.pipeline', ['key' => 'value']);
 })->throws(
-    \InvalidArgumentException::class,
+    InvalidArgumentException::class,
     'Pipeline handler for "test.pipeline" must implement '.PipelineContract::class.', got string.'
 );
 

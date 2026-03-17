@@ -9,7 +9,10 @@ use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
 use Atlasphp\Atlas\Agents\Jobs\BroadcastAgent;
 use Atlasphp\Atlas\Agents\Jobs\InvokeAgent;
 use Atlasphp\Atlas\Agents\Services\AgentResolver;
+use Atlasphp\Atlas\Tools\Contracts\ToolContract;
 use Illuminate\Foundation\Bus\PendingDispatch;
+use Prism\Prism\Text\PendingRequest;
+use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Media\Audio;
 use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Media\Image;
@@ -28,7 +31,7 @@ use Prism\Prism\ValueObjects\Messages\UserMessage;
  * Unknown methods are forwarded to Prism's PendingRequest via __call(),
  * allowing full access to Prism's API without explicit wrappers.
  *
- * @mixin \Prism\Prism\Text\PendingRequest
+ * @mixin PendingRequest
  */
 final class PendingAgentRequest
 {
@@ -71,14 +74,14 @@ final class PendingAgentRequest
     /**
      * Runtime Atlas tool classes.
      *
-     * @var array<int, class-string<\Atlasphp\Atlas\Tools\Contracts\ToolContract>>
+     * @var array<int, class-string<ToolContract>>
      */
     private array $tools = [];
 
     /**
      * MCP tools from prism-php/relay.
      *
-     * @var array<int, \Prism\Prism\Tool>
+     * @var array<int, Tool>
      */
     private array $mcpTools = [];
 
@@ -193,7 +196,7 @@ final class PendingAgentRequest
      * Replaces any previously set runtime tools entirely.
      * These are merged with the agent's defined tools at execution time.
      *
-     * @param  array<int, class-string<\Atlasphp\Atlas\Tools\Contracts\ToolContract>>  $tools  Tool class names.
+     * @param  array<int, class-string<ToolContract>>  $tools  Tool class names.
      */
     public function withTools(array $tools): static
     {
@@ -206,7 +209,7 @@ final class PendingAgentRequest
     /**
      * Merge Atlas tools with any previously set runtime tools.
      *
-     * @param  array<int, class-string<\Atlasphp\Atlas\Tools\Contracts\ToolContract>>  $tools  Tool class names.
+     * @param  array<int, class-string<ToolContract>>  $tools  Tool class names.
      */
     public function mergeTools(array $tools): static
     {
@@ -221,7 +224,7 @@ final class PendingAgentRequest
      *
      * Replaces any previously set MCP tools entirely.
      *
-     * @param  array<int, \Prism\Prism\Tool>  $tools  Prism Tool instances from MCP servers.
+     * @param  array<int, Tool>  $tools  Prism Tool instances from MCP servers.
      */
     public function withMcpTools(array $tools): static
     {
@@ -234,7 +237,7 @@ final class PendingAgentRequest
     /**
      * Merge MCP tools with any previously set MCP tools.
      *
-     * @param  array<int, \Prism\Prism\Tool>  $tools  Prism Tool instances from MCP servers.
+     * @param  array<int, Tool>  $tools  Prism Tool instances from MCP servers.
      */
     public function mergeMcpTools(array $tools): static
     {

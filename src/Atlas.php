@@ -16,9 +16,9 @@ use Prism\Prism\Text\Response as PrismResponse;
  * @method static PendingAgentRequest agent(string|AgentContract $agent)
  * @method static PendingAgentRequest make(string $systemPrompt, ?string $provider = null, ?string $model = null, array<int, class-string> $tools = [], ?string $key = null)
  *
- * @mixin \Atlasphp\Atlas\AtlasManager
+ * @mixin AtlasManager
  *
- * @see \Atlasphp\Atlas\AtlasManager
+ * @see AtlasManager
  */
 class Atlas extends Facade
 {

@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Agents\Support;
 
 use Atlasphp\Atlas\Contracts\PipelineContract;
+use Atlasphp\Atlas\Tools\Contracts\ToolContract;
+use Prism\Prism\Contracts\Schema;
+use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Media\Audio;
 use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Media\Image;
@@ -39,8 +42,8 @@ final readonly class AgentContext
      * @param  array<int, array{method: string, args: array<int, mixed>}>  $prismCalls  Captured Prism method calls to replay on the request.
      * @param  array<int, Image|Document|Audio|Video>  $prismMedia  Prism media objects for the current input.
      * @param  array<int, UserMessage|AssistantMessage|SystemMessage>  $prismMessages  Prism message objects for conversation history (direct Prism compatibility).
-     * @param  array<int, class-string<\Atlasphp\Atlas\Tools\Contracts\ToolContract>>  $tools  Runtime Atlas tool classes.
-     * @param  array<int, \Prism\Prism\Tool>  $mcpTools  MCP tools from prism-php/relay for runtime tool injection.
+     * @param  array<int, class-string<ToolContract>>  $tools  Runtime Atlas tool classes.
+     * @param  array<int, Tool>  $mcpTools  MCP tools from prism-php/relay for runtime tool injection.
      * @param  array<string, array<int, array{handler: class-string<PipelineContract>|PipelineContract, priority: int}>>  $middleware  Runtime middleware handlers keyed by pipeline event.
      */
     public function __construct(
@@ -199,7 +202,7 @@ final readonly class AgentContext
     /**
      * Get the schema from prism calls if present.
      *
-     * @return \Prism\Prism\Contracts\Schema|null
+     * @return Schema|null
      */
     public function getSchemaFromCalls(): mixed
     {

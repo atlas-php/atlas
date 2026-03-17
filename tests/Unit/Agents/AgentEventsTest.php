@@ -68,7 +68,7 @@ test('AgentStreamed holds agent, input, context, and events', function () {
 test('AgentFailed holds agent, input, context, and exception', function () {
     $agent = new TestAgent;
     $context = new AgentContext;
-    $exception = new \RuntimeException('Something broke');
+    $exception = new RuntimeException('Something broke');
     $event = new AgentFailed($agent, 'Hello', $context, $exception);
 
     expect($event->agent)->toBe($agent);

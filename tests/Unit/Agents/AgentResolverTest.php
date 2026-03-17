@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Agents\Contracts\AgentContract;
 use Atlasphp\Atlas\Agents\Exceptions\AgentException;
+use Atlasphp\Atlas\Agents\Exceptions\InvalidAgentException;
 use Atlasphp\Atlas\Agents\Services\AgentExtensionRegistry;
 use Atlasphp\Atlas\Agents\Services\AgentRegistry;
 use Atlasphp\Atlas\Agents\Services\AgentResolver;
@@ -71,7 +72,7 @@ test('it throws InvalidAgentException when class does not implement AgentContrac
     $class = NotAnAgent::class;
 
     $this->resolver->resolve($class);
-})->throws(\Atlasphp\Atlas\Agents\Exceptions\InvalidAgentException::class);
+})->throws(InvalidAgentException::class);
 
 test('it applies decorators when resolving instance', function () {
     $this->extensionRegistry->registerDecorator(new ResolverTestDecorator);
@@ -119,7 +120,7 @@ class UnresolvableService
 {
     public function __construct()
     {
-        throw new \RuntimeException('Cannot instantiate');
+        throw new RuntimeException('Cannot instantiate');
     }
 }
 

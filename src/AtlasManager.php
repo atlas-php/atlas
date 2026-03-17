@@ -18,7 +18,7 @@ use Prism\Prism\Facades\Prism;
  * Provides the primary API for agents and Prism operations. Acts as a thin
  * wrapper around Prism with pipeline support for observability.
  *
- * @mixin \Prism\Prism\Facades\Prism
+ * @mixin Prism
  */
 class AtlasManager
 {
