@@ -6,6 +6,7 @@ use Atlasphp\Atlas\Agents\Events\AgentStreamChunk;
 use Atlasphp\Atlas\Agents\Support\AgentContext;
 use Atlasphp\Atlas\Agents\Support\AgentStreamResponse;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
+use Illuminate\Broadcasting\BroadcastEvent;
 use Illuminate\Contracts\Support\Responsable;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Event;
@@ -446,7 +447,7 @@ test('SSE response fires broadcastNow() during streaming', function () {
     $httpResponse = $response->toResponse(request());
     captureStreamedOutput($httpResponse);
 
-    Bus::assertDispatchedSync(\Illuminate\Broadcasting\BroadcastEvent::class, 3);
+    Bus::assertDispatchedSync(BroadcastEvent::class, 3);
 });
 
 test('Vercel response fires broadcast() during streaming', function () {
@@ -487,7 +488,7 @@ test('Vercel response fires broadcastNow() during streaming', function () {
     $httpResponse = $response->asVercelStream()->toResponse(request());
     captureStreamedOutput($httpResponse);
 
-    Bus::assertDispatchedSync(\Illuminate\Broadcasting\BroadcastEvent::class, 3);
+    Bus::assertDispatchedSync(BroadcastEvent::class, 3);
 });
 
 // === SSE collects events even with error ===

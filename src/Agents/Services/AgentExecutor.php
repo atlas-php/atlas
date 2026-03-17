@@ -25,6 +25,7 @@ use Prism\Prism\Structured\PendingRequest as StructuredPendingRequest;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Text\PendingRequest as TextPendingRequest;
 use Prism\Prism\Text\Response as PrismResponse;
+use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
@@ -484,7 +485,7 @@ class AgentExecutor implements AgentExecutorContract
      * Fires the agent.tools.merged pipeline to allow inspection and modification
      * of the complete tool set before sending to Prism.
      *
-     * @return array<int, \Prism\Prism\Tool>
+     * @return array<int, Tool>
      */
     protected function buildAllTools(
         AgentContract $agent,

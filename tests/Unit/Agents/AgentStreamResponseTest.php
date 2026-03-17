@@ -6,6 +6,7 @@ use Atlasphp\Atlas\Agents\Events\AgentStreamChunk;
 use Atlasphp\Atlas\Agents\Support\AgentContext;
 use Atlasphp\Atlas\Agents\Support\AgentStreamResponse;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
+use Illuminate\Broadcasting\BroadcastEvent;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Event;
 use Prism\Prism\Enums\FinishReason;
@@ -619,7 +620,7 @@ test('broadcastNow() dispatches BroadcastEvent synchronously via Bus', function 
     $response->broadcastNow('req-456');
     iterator_to_array($response);
 
-    Bus::assertDispatchedSync(\Illuminate\Broadcasting\BroadcastEvent::class, 3);
+    Bus::assertDispatchedSync(BroadcastEvent::class, 3);
 });
 
 // === Combined Usage ===

@@ -6,10 +6,13 @@ namespace App\Console\Commands;
 
 use App\Services\ThreadStorageService;
 use Atlasphp\Atlas\Agents\Contracts\AgentRegistryContract;
+use Atlasphp\Atlas\Agents\Support\AgentContext;
 use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Pipelines\PipelineRegistry;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Storage;
 use Prism\Prism\Images\Response as ImageResponse;
+use Prism\Prism\Text\Response;
 use Prism\Prism\ValueObjects\Media\Audio;
 use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Media\Image;
@@ -789,7 +792,7 @@ class VisionCommand extends Command
         // Test image from storage path
         $this->line('  Testing image from storage path (assets disk)...');
         try {
-            if (\Illuminate\Support\Facades\Storage::disk('outputs')->exists('test-apple.png')) {
+            if (Storage::disk('outputs')->exists('test-apple.png')) {
                 $response = Atlas::agent('gemini-vision')
                     ->chat('What do you see in this image? Be brief.', [
                         Image::fromStoragePath('test-apple.png', 'outputs'),
@@ -814,7 +817,7 @@ class VisionCommand extends Command
         // Test document from storage path
         $this->line('  Testing document from storage path (assets disk)...');
         try {
-            if (\Illuminate\Support\Facades\Storage::disk('assets')->exists('test-document.txt')) {
+            if (Storage::disk('assets')->exists('test-document.txt')) {
                 $response = Atlas::agent('gemini-vision')
                     ->chat('What is this document about?', [
                         Document::fromStoragePath('test-document.txt', 'text/plain', 'assets'),
@@ -839,7 +842,7 @@ class VisionCommand extends Command
         // Test audio from storage path
         $this->line('  Testing audio from storage path (outputs disk)...');
         try {
-            $audioFiles = \Illuminate\Support\Facades\Storage::disk('outputs')->files();
+            $audioFiles = Storage::disk('outputs')->files();
             $speechFile = collect($audioFiles)->first(fn ($f) => str_starts_with($f, 'speech-') && str_ends_with($f, '.mp3'));
 
             if ($speechFile) {
@@ -876,16 +879,16 @@ class VisionCommand extends Command
             $prismMedia = [];
 
             if ($image1 !== null) {
-                $prismMedia[] = \Prism\Prism\ValueObjects\Media\Image::fromLocalPath($image1);
+                $prismMedia[] = Image::fromLocalPath($image1);
             }
             if ($documentPath !== null) {
-                $prismMedia[] = \Prism\Prism\ValueObjects\Media\Document::fromLocalPath($documentPath);
+                $prismMedia[] = Document::fromLocalPath($documentPath);
             }
             if ($audioPath !== null) {
-                $prismMedia[] = \Prism\Prism\ValueObjects\Media\Audio::fromLocalPath($audioPath);
+                $prismMedia[] = Audio::fromLocalPath($audioPath);
             }
 
-            $context = new \Atlasphp\Atlas\Agents\Support\AgentContext(
+            $context = new AgentContext(
                 messages: [],
                 variables: [],
                 metadata: ['test_key' => 'test_value'],
@@ -970,7 +973,7 @@ class VisionCommand extends Command
     /**
      * Display response details.
      *
-     * @param  \Prism\Prism\Text\Response  $response
+     * @param  Response  $response
      */
     protected function displayResponse($response): void
     {
@@ -1088,10 +1091,10 @@ class VisionCommand extends Command
     protected function setupStorageTestFiles(): void
     {
         // Ensure test document exists in assets disk
-        if (! \Illuminate\Support\Facades\Storage::disk('assets')->exists('test-document.txt')) {
+        if (! Storage::disk('assets')->exists('test-document.txt')) {
             $localDoc = $this->getTestDocument();
             if ($localDoc !== null && file_exists($localDoc)) {
-                \Illuminate\Support\Facades\Storage::disk('assets')->put(
+                Storage::disk('assets')->put(
                     'test-document.txt',
                     file_get_contents($localDoc)
                 );

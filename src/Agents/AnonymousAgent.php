@@ -7,6 +7,7 @@ namespace Atlasphp\Atlas\Agents;
 use Atlasphp\Atlas\Agents\Contracts\AgentContract;
 use Atlasphp\Atlas\Agents\Enums\AgentType;
 use Prism\Prism\Contracts\Schema;
+use Prism\Prism\Tool;
 
 /**
  * Concrete agent for inline configuration without a dedicated class.
@@ -29,7 +30,7 @@ class AnonymousAgent implements AgentContract
      * @param  int|null  $agentMaxSteps  Maximum tool use iterations.
      * @param  Schema|null  $agentSchema  Schema for structured output.
      * @param  array<int, string|array{type: string, ...}>  $agentProviderTools  Provider-specific tools.
-     * @param  array<int, \Prism\Prism\Tool>  $agentMcpTools  MCP tools from external servers.
+     * @param  array<int, Tool>  $agentMcpTools  MCP tools from external servers.
      * @param  array<string, mixed>  $agentClientOptions  HTTP client options.
      * @param  array<string, mixed>  $agentProviderOptions  Provider-specific options.
      */
@@ -103,7 +104,7 @@ class AnonymousAgent implements AgentContract
     }
 
     /**
-     * @return array<int, \Prism\Prism\Tool>
+     * @return array<int, Tool>
      */
     public function mcpTools(): array
     {

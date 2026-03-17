@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Agents\AgentDefinition;
 use Atlasphp\Atlas\Agents\Enums\AgentType;
+use Prism\Prism\Tool;
 
 test('it generates key from class name', function () {
     $agent = new class extends AgentDefinition
@@ -519,7 +520,7 @@ test('it returns empty mcpTools by default', function () {
 });
 
 test('agent can override mcpTools to return tools', function () {
-    $mockTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $mockTool = Mockery::mock(Tool::class);
 
     $agent = new class($mockTool) extends AgentDefinition
     {

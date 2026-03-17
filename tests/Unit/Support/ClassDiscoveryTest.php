@@ -2,8 +2,11 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Agents\AgentDefinition;
 use Atlasphp\Atlas\Agents\Contracts\AgentContract;
 use Atlasphp\Atlas\Support\ClassDiscovery;
+use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
+use Atlasphp\Atlas\Tests\Fixtures\TestTool;
 use Atlasphp\Atlas\Tools\Contracts\ToolContract;
 
 beforeEach(function () {
@@ -117,7 +120,7 @@ test('implementsInterface returns false for abstract classes', function () {
 
     // AgentDefinition is abstract
     $result = $discovery->testImplementsInterface(
-        \Atlasphp\Atlas\Agents\AgentDefinition::class,
+        AgentDefinition::class,
         AgentContract::class
     );
 
@@ -153,7 +156,7 @@ test('implementsInterface returns true for class implementing interface', functi
 
     // TestAgent implements AgentContract
     $result = $discovery->testImplementsInterface(
-        \Atlasphp\Atlas\Tests\Fixtures\TestAgent::class,
+        TestAgent::class,
         AgentContract::class
     );
 
@@ -171,7 +174,7 @@ test('implementsInterface returns true for class extending via interface', funct
 
     // TestTool implements ToolContract (both the interface and extends the base)
     $result = $discovery->testImplementsInterface(
-        \Atlasphp\Atlas\Tests\Fixtures\TestTool::class,
+        TestTool::class,
         ToolContract::class
     );
 
@@ -192,8 +195,8 @@ test('implementsInterface handles class passed as interface parameter gracefully
 
     // Passing a class (AgentDefinition) instead of an interface triggers exception handling
     $result = $discovery->testImplementsInterface(
-        \Atlasphp\Atlas\Tests\Fixtures\TestAgent::class,
-        \Atlasphp\Atlas\Agents\AgentDefinition::class
+        TestAgent::class,
+        AgentDefinition::class
     );
 
     // Method returns false because implementsInterface() throws for non-interface

@@ -8,14 +8,20 @@ use Atlasphp\Atlas\Agents\Support\AgentContext;
 use Atlasphp\Atlas\Agents\Support\AgentResponse;
 use Atlasphp\Atlas\Agents\Support\AgentStreamResponse;
 use Atlasphp\Atlas\Agents\Support\PendingAgentRequest;
+use Atlasphp\Atlas\Contracts\PipelineContract;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
 use Illuminate\Support\Collection;
 use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Text\Response as PrismResponse;
+use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Media\Audio;
 use Prism\Prism\ValueObjects\Media\Document;
 use Prism\Prism\ValueObjects\Media\Image;
 use Prism\Prism\ValueObjects\Media\Video;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\SystemMessage;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
 
@@ -105,8 +111,8 @@ test('withMessages includes messages in context', function () {
 
 test('withMessages accepts Prism message objects', function () {
     $prismMessages = [
-        new \Prism\Prism\ValueObjects\Messages\UserMessage('Previous message'),
-        new \Prism\Prism\ValueObjects\Messages\AssistantMessage('Previous response'),
+        new UserMessage('Previous message'),
+        new AssistantMessage('Previous response'),
     ];
 
     $capturedContext = null;
@@ -158,8 +164,8 @@ test('withMessages with array format sets messages and clears prismMessages', fu
 
 test('withMessages with Prism message objects includes SystemMessage', function () {
     $prismMessages = [
-        new \Prism\Prism\ValueObjects\Messages\SystemMessage('You are a helpful assistant.'),
-        new \Prism\Prism\ValueObjects\Messages\UserMessage('Hello'),
+        new SystemMessage('You are a helpful assistant.'),
+        new UserMessage('Hello'),
     ];
 
     $capturedContext = null;
@@ -179,8 +185,8 @@ test('withMessages with Prism message objects includes SystemMessage', function 
         ->chat('Follow up');
 
     expect($capturedContext->prismMessages)->toHaveCount(2);
-    expect($capturedContext->prismMessages[0])->toBeInstanceOf(\Prism\Prism\ValueObjects\Messages\SystemMessage::class);
-    expect($capturedContext->prismMessages[1])->toBeInstanceOf(\Prism\Prism\ValueObjects\Messages\UserMessage::class);
+    expect($capturedContext->prismMessages[0])->toBeInstanceOf(SystemMessage::class);
+    expect($capturedContext->prismMessages[1])->toBeInstanceOf(UserMessage::class);
 });
 
 // === withVariables ===
@@ -720,13 +726,13 @@ test('stream resolves agent and returns AgentStreamResponse', function () {
         ->andReturnUsing(function ($agent, $input, $context) {
             return new AgentStreamResponse(
                 stream: (function () {
-                    yield new \Prism\Prism\Streaming\Events\TextDeltaEvent(
+                    yield new TextDeltaEvent(
                         id: 'evt_1',
                         timestamp: time(),
                         delta: 'chunk1',
                         messageId: 'msg_1',
                     );
-                    yield new \Prism\Prism\Streaming\Events\TextDeltaEvent(
+                    yield new TextDeltaEvent(
                         id: 'evt_2',
                         timestamp: time(),
                         delta: 'chunk2',
@@ -746,7 +752,7 @@ test('stream resolves agent and returns AgentStreamResponse', function () {
 
     $chunks = iterator_to_array($result);
     expect($chunks)->toHaveCount(2);
-    expect($chunks[0])->toBeInstanceOf(\Prism\Prism\Streaming\Events\TextDeltaEvent::class);
+    expect($chunks[0])->toBeInstanceOf(TextDeltaEvent::class);
     expect($chunks[0]->delta)->toBe('chunk1');
 });
 
@@ -762,7 +768,7 @@ test('stream accepts inline attachments (Prism-style)', function () {
         ->andReturnUsing(function ($agent, $input, $context) {
             return new AgentStreamResponse(
                 stream: (function () {
-                    yield new \Prism\Prism\Streaming\Events\TextDeltaEvent(
+                    yield new TextDeltaEvent(
                         id: 'evt_1',
                         timestamp: time(),
                         delta: 'chunk',
@@ -936,7 +942,7 @@ test('withTools works with multiple tools in single call', function () {
 });
 
 test('withTools can be combined with withMcpTools', function () {
-    $mockMcpTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $mockMcpTool = Mockery::mock(Tool::class);
 
     $capturedContext = null;
     $this->executor->shouldReceive('execute')
@@ -962,7 +968,7 @@ test('withTools can be combined with withMcpTools', function () {
 // === withMcpTools Tests ===
 
 test('withMcpTools adds tools immutably', function () {
-    $mockTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $mockTool = Mockery::mock(Tool::class);
 
     $request2 = $this->request->withMcpTools([$mockTool]);
 
@@ -971,7 +977,7 @@ test('withMcpTools adds tools immutably', function () {
 });
 
 test('withMcpTools includes tools in context', function () {
-    $mockTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $mockTool = Mockery::mock(Tool::class);
 
     $capturedContext = null;
     $this->executor->shouldReceive('execute')
@@ -994,8 +1000,8 @@ test('withMcpTools includes tools in context', function () {
 });
 
 test('withMcpTools replaces with chained calls', function () {
-    $mockTool1 = Mockery::mock(\Prism\Prism\Tool::class);
-    $mockTool2 = Mockery::mock(\Prism\Prism\Tool::class);
+    $mockTool1 = Mockery::mock(Tool::class);
+    $mockTool2 = Mockery::mock(Tool::class);
 
     $capturedContext = null;
     $this->executor->shouldReceive('execute')
@@ -1019,8 +1025,8 @@ test('withMcpTools replaces with chained calls', function () {
 });
 
 test('mergeMcpTools accumulates with chained calls', function () {
-    $mockTool1 = Mockery::mock(\Prism\Prism\Tool::class);
-    $mockTool2 = Mockery::mock(\Prism\Prism\Tool::class);
+    $mockTool1 = Mockery::mock(Tool::class);
+    $mockTool2 = Mockery::mock(Tool::class);
 
     $capturedContext = null;
     $this->executor->shouldReceive('execute')
@@ -1045,8 +1051,8 @@ test('mergeMcpTools accumulates with chained calls', function () {
 });
 
 test('withMcpTools works with multiple tools in single call', function () {
-    $mockTool1 = Mockery::mock(\Prism\Prism\Tool::class);
-    $mockTool2 = Mockery::mock(\Prism\Prism\Tool::class);
+    $mockTool1 = Mockery::mock(Tool::class);
+    $mockTool2 = Mockery::mock(Tool::class);
 
     $capturedContext = null;
     $this->executor->shouldReceive('execute')
@@ -1068,7 +1074,7 @@ test('withMcpTools works with multiple tools in single call', function () {
 });
 
 test('withMcpTools can be combined with other methods', function () {
-    $mockTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $mockTool = Mockery::mock(Tool::class);
 
     $capturedContext = null;
     $this->executor->shouldReceive('execute')
@@ -1145,7 +1151,7 @@ test('withContext applies all serializable properties', function () {
 
 test('withContext applies prismMessages from context', function () {
     $prismMessages = [
-        new \Prism\Prism\ValueObjects\Messages\UserMessage('Previous message'),
+        new UserMessage('Previous message'),
     ];
 
     $context = new AgentContext(
@@ -1172,7 +1178,7 @@ test('withContext applies prismMessages from context', function () {
 });
 
 test('withContext applies mcpTools from context', function () {
-    $mockTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $mockTool = Mockery::mock(Tool::class);
 
     $context = new AgentContext(
         mcpTools: [$mockTool],
@@ -1389,7 +1395,7 @@ test('middleware accepts array of handlers per event', function () {
 });
 
 test('middleware accepts handler instances', function () {
-    $mockHandler = Mockery::mock(\Atlasphp\Atlas\Contracts\PipelineContract::class);
+    $mockHandler = Mockery::mock(PipelineContract::class);
 
     $capturedContext = null;
     $this->executor->shouldReceive('execute')

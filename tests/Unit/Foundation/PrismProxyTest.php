@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Contracts\PipelineContract;
 use Atlasphp\Atlas\Pipelines\PipelineRegistry;
 use Atlasphp\Atlas\Pipelines\PipelineRunner;
 use Atlasphp\Atlas\PrismProxy;
@@ -121,7 +122,7 @@ test('terminal method executes with before pipeline', function () {
 
     $this->registry->define('text.before_text');
     $this->registry->define('text.after_text');
-    $this->registry->register('text.before_text', new class($beforeCalled) implements \Atlasphp\Atlas\Contracts\PipelineContract
+    $this->registry->register('text.before_text', new class($beforeCalled) implements PipelineContract
     {
         public function __construct(private bool &$called) {}
 
@@ -154,7 +155,7 @@ test('terminal method executes with after pipeline', function () {
 
     $this->registry->define('text.before_text');
     $this->registry->define('text.after_text');
-    $this->registry->register('text.after_text', new class($afterCalled, $capturedResponse) implements \Atlasphp\Atlas\Contracts\PipelineContract
+    $this->registry->register('text.after_text', new class($afterCalled, $capturedResponse) implements PipelineContract
     {
         public function __construct(private bool &$called, private &$captured) {}
 
@@ -185,7 +186,7 @@ test('terminal method executes with after pipeline', function () {
 test('pipeline can modify response', function () {
     $this->registry->define('text.before_text');
     $this->registry->define('text.after_text');
-    $this->registry->register('text.after_text', new class implements \Atlasphp\Atlas\Contracts\PipelineContract
+    $this->registry->register('text.after_text', new class implements PipelineContract
     {
         public function handle(mixed $data, Closure $next): mixed
         {
@@ -214,7 +215,7 @@ test('metadata is passed to pipeline context', function () {
 
     $this->registry->define('text.before_text');
     $this->registry->define('text.after_text');
-    $this->registry->register('text.before_text', new class($capturedMetadata) implements \Atlasphp\Atlas\Contracts\PipelineContract
+    $this->registry->register('text.before_text', new class($capturedMetadata) implements PipelineContract
     {
         public function __construct(private &$captured) {}
 
@@ -246,7 +247,7 @@ test('module is passed to pipeline context', function () {
 
     $this->registry->define('text.before_text');
     $this->registry->define('text.after_text');
-    $this->registry->register('text.before_text', new class($capturedModule) implements \Atlasphp\Atlas\Contracts\PipelineContract
+    $this->registry->register('text.before_text', new class($capturedModule) implements PipelineContract
     {
         public function __construct(private &$captured) {}
 
@@ -299,7 +300,7 @@ test('generator method runs before pipeline', function () {
     $beforeCalled = false;
 
     $this->registry->define('text.before_stream');
-    $this->registry->register('text.before_stream', new class($beforeCalled) implements \Atlasphp\Atlas\Contracts\PipelineContract
+    $this->registry->register('text.before_stream', new class($beforeCalled) implements PipelineContract
     {
         public function __construct(private bool &$called) {}
 
@@ -515,7 +516,7 @@ test('structured module runs before pipeline', function () {
 
     $this->registry->define('structured.before_structured');
     $this->registry->define('structured.after_structured');
-    $this->registry->register('structured.before_structured', new class($beforeCalled) implements \Atlasphp\Atlas\Contracts\PipelineContract
+    $this->registry->register('structured.before_structured', new class($beforeCalled) implements PipelineContract
     {
         public function __construct(private bool &$called) {}
 
@@ -547,7 +548,7 @@ test('structured module runs after pipeline with response', function () {
 
     $this->registry->define('structured.before_structured');
     $this->registry->define('structured.after_structured');
-    $this->registry->register('structured.after_structured', new class($afterCalled, $capturedResponse) implements \Atlasphp\Atlas\Contracts\PipelineContract
+    $this->registry->register('structured.after_structured', new class($afterCalled, $capturedResponse) implements PipelineContract
     {
         public function __construct(private bool &$called, private &$captured) {}
 
@@ -578,7 +579,7 @@ test('structured module runs after pipeline with response', function () {
 test('structured module pipeline can modify response', function () {
     $this->registry->define('structured.before_structured');
     $this->registry->define('structured.after_structured');
-    $this->registry->register('structured.after_structured', new class implements \Atlasphp\Atlas\Contracts\PipelineContract
+    $this->registry->register('structured.after_structured', new class implements PipelineContract
     {
         public function handle(mixed $data, Closure $next): mixed
         {
@@ -611,7 +612,7 @@ test('embeddings module runs before pipeline', function () {
 
     $this->registry->define('embeddings.before_embeddings');
     $this->registry->define('embeddings.after_embeddings');
-    $this->registry->register('embeddings.before_embeddings', new class($beforeCalled) implements \Atlasphp\Atlas\Contracts\PipelineContract
+    $this->registry->register('embeddings.before_embeddings', new class($beforeCalled) implements PipelineContract
     {
         public function __construct(private bool &$called) {}
 
@@ -643,7 +644,7 @@ test('embeddings module runs after pipeline with response', function () {
 
     $this->registry->define('embeddings.before_embeddings');
     $this->registry->define('embeddings.after_embeddings');
-    $this->registry->register('embeddings.after_embeddings', new class($afterCalled, $capturedResponse) implements \Atlasphp\Atlas\Contracts\PipelineContract
+    $this->registry->register('embeddings.after_embeddings', new class($afterCalled, $capturedResponse) implements PipelineContract
     {
         public function __construct(private bool &$called, private &$captured) {}
 
@@ -674,7 +675,7 @@ test('embeddings module runs after pipeline with response', function () {
 test('embeddings module pipeline can modify response', function () {
     $this->registry->define('embeddings.before_embeddings');
     $this->registry->define('embeddings.after_embeddings');
-    $this->registry->register('embeddings.after_embeddings', new class implements \Atlasphp\Atlas\Contracts\PipelineContract
+    $this->registry->register('embeddings.after_embeddings', new class implements PipelineContract
     {
         public function handle(mixed $data, Closure $next): mixed
         {
@@ -707,7 +708,7 @@ test('image module runs before pipeline', function () {
 
     $this->registry->define('image.before_generate');
     $this->registry->define('image.after_generate');
-    $this->registry->register('image.before_generate', new class($beforeCalled) implements \Atlasphp\Atlas\Contracts\PipelineContract
+    $this->registry->register('image.before_generate', new class($beforeCalled) implements PipelineContract
     {
         public function __construct(private bool &$called) {}
 
@@ -739,7 +740,7 @@ test('image module runs after pipeline with response', function () {
 
     $this->registry->define('image.before_generate');
     $this->registry->define('image.after_generate');
-    $this->registry->register('image.after_generate', new class($afterCalled, $capturedResponse) implements \Atlasphp\Atlas\Contracts\PipelineContract
+    $this->registry->register('image.after_generate', new class($afterCalled, $capturedResponse) implements PipelineContract
     {
         public function __construct(private bool &$called, private &$captured) {}
 
@@ -770,7 +771,7 @@ test('image module runs after pipeline with response', function () {
 test('image module pipeline can modify response', function () {
     $this->registry->define('image.before_generate');
     $this->registry->define('image.after_generate');
-    $this->registry->register('image.after_generate', new class implements \Atlasphp\Atlas\Contracts\PipelineContract
+    $this->registry->register('image.after_generate', new class implements PipelineContract
     {
         public function handle(mixed $data, Closure $next): mixed
         {
@@ -803,7 +804,7 @@ test('audio module asAudio runs before pipeline', function () {
 
     $this->registry->define('audio.before_audio');
     $this->registry->define('audio.after_audio');
-    $this->registry->register('audio.before_audio', new class($beforeCalled) implements \Atlasphp\Atlas\Contracts\PipelineContract
+    $this->registry->register('audio.before_audio', new class($beforeCalled) implements PipelineContract
     {
         public function __construct(private bool &$called) {}
 
@@ -835,7 +836,7 @@ test('audio module asAudio runs after pipeline with response', function () {
 
     $this->registry->define('audio.before_audio');
     $this->registry->define('audio.after_audio');
-    $this->registry->register('audio.after_audio', new class($afterCalled, $capturedResponse) implements \Atlasphp\Atlas\Contracts\PipelineContract
+    $this->registry->register('audio.after_audio', new class($afterCalled, $capturedResponse) implements PipelineContract
     {
         public function __construct(private bool &$called, private &$captured) {}
 
@@ -866,7 +867,7 @@ test('audio module asAudio runs after pipeline with response', function () {
 test('audio module asAudio pipeline can modify response', function () {
     $this->registry->define('audio.before_audio');
     $this->registry->define('audio.after_audio');
-    $this->registry->register('audio.after_audio', new class implements \Atlasphp\Atlas\Contracts\PipelineContract
+    $this->registry->register('audio.after_audio', new class implements PipelineContract
     {
         public function handle(mixed $data, Closure $next): mixed
         {
@@ -899,7 +900,7 @@ test('audio module asText runs before pipeline', function () {
 
     $this->registry->define('audio.before_text');
     $this->registry->define('audio.after_text');
-    $this->registry->register('audio.before_text', new class($beforeCalled) implements \Atlasphp\Atlas\Contracts\PipelineContract
+    $this->registry->register('audio.before_text', new class($beforeCalled) implements PipelineContract
     {
         public function __construct(private bool &$called) {}
 
@@ -931,7 +932,7 @@ test('audio module asText runs after pipeline with response', function () {
 
     $this->registry->define('audio.before_text');
     $this->registry->define('audio.after_text');
-    $this->registry->register('audio.after_text', new class($afterCalled, $capturedResponse) implements \Atlasphp\Atlas\Contracts\PipelineContract
+    $this->registry->register('audio.after_text', new class($afterCalled, $capturedResponse) implements PipelineContract
     {
         public function __construct(private bool &$called, private &$captured) {}
 
@@ -962,7 +963,7 @@ test('audio module asText runs after pipeline with response', function () {
 test('audio module asText pipeline can modify response', function () {
     $this->registry->define('audio.before_text');
     $this->registry->define('audio.after_text');
-    $this->registry->register('audio.after_text', new class implements \Atlasphp\Atlas\Contracts\PipelineContract
+    $this->registry->register('audio.after_text', new class implements PipelineContract
     {
         public function handle(mixed $data, Closure $next): mixed
         {
@@ -995,7 +996,7 @@ test('moderation module runs before pipeline', function () {
 
     $this->registry->define('moderation.before_moderation');
     $this->registry->define('moderation.after_moderation');
-    $this->registry->register('moderation.before_moderation', new class($beforeCalled) implements \Atlasphp\Atlas\Contracts\PipelineContract
+    $this->registry->register('moderation.before_moderation', new class($beforeCalled) implements PipelineContract
     {
         public function __construct(private bool &$called) {}
 
@@ -1027,7 +1028,7 @@ test('moderation module runs after pipeline with response', function () {
 
     $this->registry->define('moderation.before_moderation');
     $this->registry->define('moderation.after_moderation');
-    $this->registry->register('moderation.after_moderation', new class($afterCalled, $capturedResponse) implements \Atlasphp\Atlas\Contracts\PipelineContract
+    $this->registry->register('moderation.after_moderation', new class($afterCalled, $capturedResponse) implements PipelineContract
     {
         public function __construct(private bool &$called, private &$captured) {}
 
@@ -1059,7 +1060,7 @@ test('moderation module runs after pipeline with response', function () {
 test('moderation module pipeline can modify response', function () {
     $this->registry->define('moderation.before_moderation');
     $this->registry->define('moderation.after_moderation');
-    $this->registry->register('moderation.after_moderation', new class implements \Atlasphp\Atlas\Contracts\PipelineContract
+    $this->registry->register('moderation.after_moderation', new class implements PipelineContract
     {
         public function handle(mixed $data, Closure $next): mixed
         {
@@ -1113,7 +1114,7 @@ test('each module receives correct pipeline name in context', function () {
         };
 
         $registry->define($beforeEvent);
-        $registry->register($beforeEvent, new class($capturedPipeline) implements \Atlasphp\Atlas\Contracts\PipelineContract
+        $registry->register($beforeEvent, new class($capturedPipeline) implements PipelineContract
         {
             public function __construct(private &$captured) {}
 
@@ -1165,7 +1166,7 @@ test('each module passes metadata to pipeline', function () {
         };
 
         $registry->define($beforeEvent);
-        $registry->register($beforeEvent, new class($capturedMetadata) implements \Atlasphp\Atlas\Contracts\PipelineContract
+        $registry->register($beforeEvent, new class($capturedMetadata) implements PipelineContract
         {
             public function __construct(private &$captured) {}
 

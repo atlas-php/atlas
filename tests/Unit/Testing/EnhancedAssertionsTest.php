@@ -12,6 +12,7 @@ use Illuminate\Container\Container;
 use Illuminate\Support\Collection;
 use PHPUnit\Framework\AssertionFailedError;
 use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Text\Response as PrismResponse;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
@@ -205,7 +206,7 @@ test('respondUsing works with streaming', function () {
 
     $text = '';
     foreach ($streamResponse as $event) {
-        if ($event instanceof \Prism\Prism\Streaming\Events\TextDeltaEvent) {
+        if ($event instanceof TextDeltaEvent) {
             $text .= $event->delta;
         }
     }

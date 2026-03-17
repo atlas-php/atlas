@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use Atlasphp\Atlas\Atlas;
+use GuzzleHttp\Client;
+use GuzzleHttp\Exception\ConnectException;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Config;
+use Prism\Prism\Text\Response;
 
 /**
  * Interactive chat command for testing with local LLMs.
@@ -159,7 +162,7 @@ class LocalChatCommand extends Command
 
         try {
             // Try a simple models endpoint check
-            $client = new \GuzzleHttp\Client(['timeout' => 5]);
+            $client = new Client(['timeout' => 5]);
             $modelsUrl = rtrim($url, '/').'/models';
             $response = $client->get($modelsUrl);
 
@@ -169,7 +172,7 @@ class LocalChatCommand extends Command
 
                 return true;
             }
-        } catch (\GuzzleHttp\Exception\ConnectException $e) {
+        } catch (ConnectException $e) {
             $this->error("Failed to connect to {$url}");
             $this->error('Make sure your local LLM server is running.');
 
@@ -217,7 +220,7 @@ class LocalChatCommand extends Command
     /**
      * Display response details.
      *
-     * @param  \Prism\Prism\Text\Response  $response
+     * @param  Response  $response
      */
     protected function displayResponseDetails($response): void
     {

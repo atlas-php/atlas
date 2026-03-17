@@ -23,7 +23,7 @@ test('pipelines remain active when config is explicitly set to null', function (
     // The service provider checks for `=== false`, so null doesn't disable
     config(['atlas.pipelines.enabled' => null]);
 
-    $registry = app(\Atlasphp\Atlas\Pipelines\PipelineRegistry::class);
+    $registry = app(PipelineRegistry::class);
 
     // Pipelines should still be active (null !== false)
     expect($registry->active('agent.before_execute'))->toBeTrue();
@@ -42,7 +42,7 @@ test('pipeline handlers run when pipelines are enabled', function () {
     {
         public function __construct(private bool &$called) {}
 
-        public function handle(mixed $data, \Closure $next): mixed
+        public function handle(mixed $data, Closure $next): mixed
         {
             $this->called = true;
 
@@ -68,7 +68,7 @@ test('disabling pipelines via setActive prevents handlers from running', functio
     {
         public function __construct(private bool &$called) {}
 
-        public function handle(mixed $data, \Closure $next): mixed
+        public function handle(mixed $data, Closure $next): mixed
         {
             $this->called = true;
 
@@ -97,7 +97,7 @@ test('pipeline runner runIfActive respects active state', function () {
     {
         public function __construct(private int &$count) {}
 
-        public function handle(mixed $data, \Closure $next): mixed
+        public function handle(mixed $data, Closure $next): mixed
         {
             $this->count++;
 
@@ -133,7 +133,7 @@ test('pipeline runner run always executes regardless of active state', function 
     {
         public function __construct(private int &$count) {}
 
-        public function handle(mixed $data, \Closure $next): mixed
+        public function handle(mixed $data, Closure $next): mixed
         {
             $this->count++;
 
