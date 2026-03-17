@@ -202,28 +202,276 @@ When `provider` and `model` are set, `Atlas::embeddings()` uses them automatical
 
 See [Embeddings](/capabilities/embeddings) for usage details.
 
-## Prism Configuration
+## Provider Configuration
 
-Provider credentials and model defaults are configured in Prism's `config/prism.php`. After publishing:
+Atlas uses [Prism](https://prismphp.com) for provider connectivity. All provider credentials and settings live in Prism's `config/prism.php`. Publish it with:
 
 ```bash
 php artisan vendor:publish --tag=prism-config
 ```
 
-Configure your providers in `.env`:
+### Supported Providers
+
+Atlas supports **13 providers** out of the box through Prism:
+
+#### OpenAI
 
 ```env
-# OpenAI
 OPENAI_API_KEY=sk-...
+OPENAI_URL=https://api.openai.com/v1          # optional, custom endpoint
+OPENAI_ORGANIZATION=org-...                    # optional
+OPENAI_PROJECT=proj-...                        # optional
+```
 
-# Anthropic
+#### Anthropic
+
+```env
 ANTHROPIC_API_KEY=sk-ant-...
+ANTHROPIC_URL=https://api.anthropic.com/v1     # optional, custom endpoint
+ANTHROPIC_API_VERSION=2023-06-01               # optional
+ANTHROPIC_DEFAULT_THINKING_BUDGET=1024         # optional, for extended thinking
+ANTHROPIC_BETA=                                # optional, comma-separated beta features
+```
 
-# Ollama (local)
+#### Gemini
+
+```env
+GEMINI_API_KEY=...
+GEMINI_URL=https://generativelanguage.googleapis.com/v1beta/models  # optional
+```
+
+#### DeepSeek
+
+```env
+DEEPSEEK_API_KEY=...
+DEEPSEEK_URL=https://api.deepseek.com/v1       # optional
+```
+
+#### Mistral
+
+```env
+MISTRAL_API_KEY=...
+MISTRAL_URL=https://api.mistral.ai/v1          # optional
+```
+
+#### Groq
+
+```env
+GROQ_API_KEY=gsk_...
+GROQ_URL=https://api.groq.com/openai/v1        # optional
+```
+
+#### xAI (Grok)
+
+```env
+XAI_API_KEY=...
+XAI_URL=https://api.x.ai/v1                    # optional
+```
+
+#### OpenRouter
+
+```env
+OPENROUTER_API_KEY=sk-or-...
+OPENROUTER_URL=https://openrouter.ai/api/v1    # optional
+OPENROUTER_SITE_HTTP_REFERER=                  # optional, for rankings
+OPENROUTER_SITE_X_TITLE=                       # optional, for rankings
+```
+
+#### Perplexity
+
+```env
+PERPLEXITY_API_KEY=pplx-...
+PERPLEXITY_URL=https://api.perplexity.ai       # optional
+```
+
+#### Ollama (Local)
+
+No API key required — just point to your running Ollama instance:
+
+```env
 OLLAMA_URL=http://localhost:11434
 ```
 
-For detailed provider configuration including custom URLs, organization IDs, and model options, see the [Prism Configuration documentation](https://prismphp.com/getting-started/configuration.html).
+#### ElevenLabs
+
+```env
+ELEVENLABS_API_KEY=...
+ELEVENLABS_URL=https://api.elevenlabs.io/v1/   # optional
+```
+
+#### VoyageAI
+
+```env
+VOYAGEAI_API_KEY=...
+VOYAGEAI_URL=https://api.voyageai.com/v1       # optional
+```
+
+#### Z
+
+```env
+Z_API_KEY=...
+Z_URL=https://api.z.ai/api/paas/v4            # optional
+```
+
+### Prism Config File
+
+The full `config/prism.php` structure with all providers:
+
+```php
+return [
+    'prism_server' => [
+        'middleware' => [],
+        'enabled' => env('PRISM_SERVER_ENABLED', false),
+    ],
+
+    'request_timeout' => env('PRISM_REQUEST_TIMEOUT', 30),
+
+    'providers' => [
+        'openai' => [
+            'url' => env('OPENAI_URL', 'https://api.openai.com/v1'),
+            'api_key' => env('OPENAI_API_KEY', ''),
+            'organization' => env('OPENAI_ORGANIZATION', null),
+            'project' => env('OPENAI_PROJECT', null),
+        ],
+        'anthropic' => [
+            'api_key' => env('ANTHROPIC_API_KEY', ''),
+            'version' => env('ANTHROPIC_API_VERSION', '2023-06-01'),
+            'url' => env('ANTHROPIC_URL', 'https://api.anthropic.com/v1'),
+            'default_thinking_budget' => env('ANTHROPIC_DEFAULT_THINKING_BUDGET', 1024),
+            'anthropic_beta' => env('ANTHROPIC_BETA', null),
+        ],
+        'ollama' => [
+            'url' => env('OLLAMA_URL', 'http://localhost:11434'),
+        ],
+        'mistral' => [
+            'api_key' => env('MISTRAL_API_KEY', ''),
+            'url' => env('MISTRAL_URL', 'https://api.mistral.ai/v1'),
+        ],
+        'groq' => [
+            'api_key' => env('GROQ_API_KEY', ''),
+            'url' => env('GROQ_URL', 'https://api.groq.com/openai/v1'),
+        ],
+        'xai' => [
+            'api_key' => env('XAI_API_KEY', ''),
+            'url' => env('XAI_URL', 'https://api.x.ai/v1'),
+        ],
+        'gemini' => [
+            'api_key' => env('GEMINI_API_KEY', ''),
+            'url' => env('GEMINI_URL', 'https://generativelanguage.googleapis.com/v1beta/models'),
+        ],
+        'deepseek' => [
+            'api_key' => env('DEEPSEEK_API_KEY', ''),
+            'url' => env('DEEPSEEK_URL', 'https://api.deepseek.com/v1'),
+        ],
+        'elevenlabs' => [
+            'api_key' => env('ELEVENLABS_API_KEY', ''),
+            'url' => env('ELEVENLABS_URL', 'https://api.elevenlabs.io/v1/'),
+        ],
+        'voyageai' => [
+            'api_key' => env('VOYAGEAI_API_KEY', ''),
+            'url' => env('VOYAGEAI_URL', 'https://api.voyageai.com/v1'),
+        ],
+        'openrouter' => [
+            'api_key' => env('OPENROUTER_API_KEY', ''),
+            'url' => env('OPENROUTER_URL', 'https://openrouter.ai/api/v1'),
+            'site' => [
+                'http_referer' => env('OPENROUTER_SITE_HTTP_REFERER', null),
+                'x_title' => env('OPENROUTER_SITE_X_TITLE', null),
+            ],
+        ],
+        'perplexity' => [
+            'api_key' => env('PERPLEXITY_API_KEY', ''),
+            'url' => env('PERPLEXITY_URL', 'https://api.perplexity.ai'),
+        ],
+        'z' => [
+            'url' => env('Z_URL', 'https://api.z.ai/api/paas/v4'),
+            'api_key' => env('Z_API_KEY', ''),
+        ],
+    ],
+];
+```
+
+### Using Multiple Providers
+
+You can configure as many providers as you need simultaneously. Just add the API keys for each provider you want to use, and switch between them per-request:
+
+```php
+use Atlasphp\Atlas\Facades\Atlas;
+use PrismPHP\Prism\Enums\Provider;
+
+// Use OpenAI for chat
+$response = Atlas::chat()
+    ->using(Provider::OpenAI, 'gpt-4o')
+    ->withPrompt('Explain quantum computing')
+    ->generate();
+
+// Use Anthropic for a different task
+$response = Atlas::chat()
+    ->using(Provider::Anthropic, 'claude-sonnet-4-20250514')
+    ->withPrompt('Review this code')
+    ->generate();
+
+// Use Ollama for local inference
+$response = Atlas::chat()
+    ->using(Provider::Ollama, 'llama3')
+    ->withPrompt('Summarize this document')
+    ->generate();
+```
+
+### Custom & OpenAI-Compatible Providers
+
+Many local inference servers (LM Studio, LocalAI, vLLM, text-generation-webui) expose an OpenAI-compatible API. You can add them as custom provider entries in your `config/prism.php` with their own env variables:
+
+```env
+# LM Studio
+LMSTUDIO_URL=http://localhost:1234/v1
+LMSTUDIO_API_KEY=lm-studio
+
+# LocalAI
+LOCALAI_URL=http://localhost:8080/v1
+LOCALAI_API_KEY=not-needed
+
+# vLLM
+VLLM_URL=http://localhost:8000/v1
+VLLM_API_KEY=not-needed
+```
+
+Then register them as providers in `config/prism.php`:
+
+```php
+'providers' => [
+    // ... built-in providers ...
+
+    'lmstudio' => [
+        'url' => env('LMSTUDIO_URL', 'http://localhost:1234/v1'),
+        'api_key' => env('LMSTUDIO_API_KEY', 'lm-studio'),
+    ],
+    'localai' => [
+        'url' => env('LOCALAI_URL', 'http://localhost:8080/v1'),
+        'api_key' => env('LOCALAI_API_KEY', ''),
+    ],
+    'vllm' => [
+        'url' => env('VLLM_URL', 'http://localhost:8000/v1'),
+        'api_key' => env('VLLM_API_KEY', ''),
+    ],
+],
+```
+
+Use them alongside your cloud providers without any conflicts:
+
+```php
+// Cloud provider
+$response = Atlas::chat()
+    ->using(Provider::OpenAI, 'gpt-4o')
+    ->withPrompt('Hello from OpenAI')
+    ->generate();
+
+// Local LM Studio
+$response = Atlas::chat()
+    ->using('lmstudio', 'my-local-model')
+    ->withPrompt('Hello from local inference')
+    ->generate();
+```
 
 ## Manual Registration
 
