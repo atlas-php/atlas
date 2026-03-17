@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Agents\AgentDefinition;
+use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
 use Atlasphp\Atlas\Agents\Support\AgentContext;
 use Atlasphp\Atlas\Agents\Support\AgentResponse;
 use Atlasphp\Atlas\Testing\FakeAgentExecutor;
@@ -297,4 +298,76 @@ test('sequence returns responses in order', function () {
     expect($this->executor->execute($this->agent, 'Hi', $this->context)->text)->toBe('First');
     expect($this->executor->execute($this->agent, 'Hi', $this->context)->text)->toBe('Second');
     expect($this->executor->execute($this->agent, 'Hi', $this->context)->text)->toBe('Third');
+});
+
+// === setRealExecutor ===
+
+test('setRealExecutor returns self for chaining', function () {
+    $realExecutor = Mockery::mock(AgentExecutorContract::class);
+
+    $result = $this->executor->setRealExecutor($realExecutor);
+
+    expect($result)->toBe($this->executor);
+});
+
+test('setRealExecutor throws when no response configured and executor falls back', function () {
+    $realExecutor = Mockery::mock(AgentExecutorContract::class);
+
+    $this->executor->setRealExecutor($realExecutor);
+
+    $this->executor->execute($this->agent, 'Hi', $this->context);
+})->throws(RuntimeException::class, 'Cannot fall back to real executor within FakeAgentExecutor');
+
+test('setRealExecutor does not throw when response is configured', function () {
+    $realExecutor = Mockery::mock(AgentExecutorContract::class);
+    $response = createTestPrismResponse('Configured');
+
+    $this->executor->setRealExecutor($realExecutor);
+    $this->executor->addSequence('test-agent', (new FakeResponseSequence)->push($response));
+
+    $result = $this->executor->execute($this->agent, 'Hi', $this->context);
+
+    expect($result->text)->toBe('Configured');
+});
+
+// === respondUsing ===
+
+test('respondUsing with invalid return type throws', function () {
+    $this->executor->respondUsing('test-agent', fn () => 42);
+
+    $this->executor->execute($this->agent, 'Hi', $this->context);
+})->throws(RuntimeException::class, 'respondUsing factory must return a PrismResponse or string');
+
+test('respondUsing with string return creates response', function () {
+    $this->executor->respondUsing('test-agent', fn () => 'String response');
+
+    $result = $this->executor->execute($this->agent, 'Hi', $this->context);
+
+    expect($result->text)->toBe('String response');
+});
+
+test('respondUsing with PrismResponse return works', function () {
+    $response = createTestPrismResponse('Factory response');
+    $this->executor->respondUsing('test-agent', fn () => $response);
+
+    $result = $this->executor->execute($this->agent, 'Hi', $this->context);
+
+    expect($result->text)->toBe('Factory response');
+});
+
+test('respondUsing receives recorded request with input', function () {
+    $capturedInput = null;
+    $this->executor->respondUsing('test-agent', function ($request) use (&$capturedInput) {
+        $capturedInput = $request->input;
+
+        return 'Echo';
+    });
+
+    $this->executor->execute($this->agent, 'My input', $this->context);
+
+    expect($capturedInput)->toBe('My input');
+});
+
+afterEach(function () {
+    Mockery::close();
 });

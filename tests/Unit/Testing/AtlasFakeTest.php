@@ -6,6 +6,7 @@ use Atlasphp\Atlas\Agents\AgentDefinition;
 use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
 use Atlasphp\Atlas\Agents\Support\AgentContext;
 use Atlasphp\Atlas\Agents\Support\AgentResponse;
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Testing\AtlasFake;
 use Atlasphp\Atlas\Testing\FakeAgentExecutor;
 use Atlasphp\Atlas\Testing\PendingFakeRequest;
@@ -300,6 +301,69 @@ test('full workflow with PendingFakeRequest', function () {
     expect($result->text)->toBe('Fluent response');
 });
 
+// === Atlas Facade: fake/unfake/getFake/isFaked ===
+
+test('Atlas::fake returns AtlasFake instance', function () {
+    $fake = Atlas::fake();
+
+    expect($fake)->toBeInstanceOf(AtlasFake::class);
+
+    Atlas::unfake();
+});
+
+test('Atlas::fake with responses passes them to sequence', function () {
+    $response = createFakeTestResponse('Sequenced');
+    $fake = Atlas::fake([$response]);
+
+    expect($fake)->toBeInstanceOf(AtlasFake::class);
+
+    Atlas::unfake();
+});
+
+test('Atlas::isFaked returns true when faked', function () {
+    expect(Atlas::isFaked())->toBeFalse();
+
+    Atlas::fake();
+
+    expect(Atlas::isFaked())->toBeTrue();
+
+    Atlas::unfake();
+});
+
+test('Atlas::isFaked returns false after unfake', function () {
+    Atlas::fake();
+    Atlas::unfake();
+
+    expect(Atlas::isFaked())->toBeFalse();
+});
+
+test('Atlas::getFake returns null when not faked', function () {
+    expect(Atlas::getFake())->toBeNull();
+});
+
+test('Atlas::getFake returns fake instance when faked', function () {
+    $fake = Atlas::fake();
+
+    expect(Atlas::getFake())->toBe($fake);
+
+    Atlas::unfake();
+});
+
+test('Atlas::unfake restores real implementation', function () {
+    Atlas::fake();
+    Atlas::unfake();
+
+    expect(Atlas::isFaked())->toBeFalse();
+    expect(Atlas::getFake())->toBeNull();
+});
+
+test('Atlas::unfake is safe to call when not faked', function () {
+    Atlas::unfake();
+
+    expect(Atlas::isFaked())->toBeFalse();
+});
+
 afterEach(function () {
+    Atlas::unfake();
     Mockery::close();
 });
