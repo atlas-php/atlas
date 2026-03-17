@@ -9,7 +9,10 @@ use Atlasphp\Atlas\Agents\Contracts\AgentContract;
 use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
 use Atlasphp\Atlas\Agents\Services\AgentResolver;
 use Atlasphp\Atlas\Agents\Support\PendingAgentRequest;
+use Atlasphp\Atlas\Models\Services\ListModelsService;
+use Atlasphp\Atlas\Models\Support\PendingModelRequest;
 use Atlasphp\Atlas\Pipelines\PipelineRunner;
+use Prism\Prism\Enums\Provider;
 use Prism\Prism\Facades\Prism;
 
 /**
@@ -26,6 +29,7 @@ class AtlasManager
         protected AgentResolver $agentResolver,
         protected AgentExecutorContract $agentExecutor,
         protected PipelineRunner $pipelineRunner,
+        protected ListModelsService $listModelsService,
     ) {}
 
     /**
@@ -70,6 +74,19 @@ class AtlasManager
             $this->agentResolver,
             $this->agentExecutor,
             $agent,
+        );
+    }
+
+    /**
+     * Access model listing for a specific provider.
+     *
+     * @param  Provider|string  $provider  The provider to scope operations to.
+     */
+    public function models(Provider|string $provider): PendingModelRequest
+    {
+        return new PendingModelRequest(
+            $this->listModelsService,
+            $provider,
         );
     }
 

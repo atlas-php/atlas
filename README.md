@@ -28,6 +28,7 @@ Built on [Prism PHP](https://prismphp.com), Atlas stays intentionally lightweigh
 - **MCP Tools** – Integrate external tools from MCP servers via [Prism Relay](https://github.com/prism-php/relay)
 - **Dynamic Prompts** – Inject context `{variables}` into system prompts at runtime for personalized interactions
 - **Pipelines** – Add logging, auth, rate limiting, or metrics without coupling the codebase
+- **Model Discovery** – List available models from any provider with `Atlas::models('openai')->all()`
 - **Full Prism Access** – Use embeddings, images, speech, moderation, and structured output without limits
 - **All Providers**: Anthropic, OpenAI, Gemini, Mistral, Ollama, Groq, DeepSeek, xAI, OpenRouter, ElevenLabs (audio), VoyageAI (embeddings), Local LLMs, and Custom LLMs
 
