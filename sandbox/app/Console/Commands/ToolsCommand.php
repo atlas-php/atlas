@@ -8,6 +8,7 @@ use Atlasphp\Atlas\Agents\Contracts\AgentRegistryContract;
 use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Tools\Contracts\ToolRegistryContract;
 use Illuminate\Console\Command;
+use Prism\Prism\Text\Response;
 
 /**
  * Command for testing tool execution with agents.
@@ -134,7 +135,7 @@ class ToolsCommand extends Command
     /**
      * Display tool calls from the response.
      *
-     * @param  \Prism\Prism\Text\Response  $response
+     * @param  Response  $response
      */
     protected function displayToolCalls($response): void
     {
@@ -170,7 +171,7 @@ class ToolsCommand extends Command
     /**
      * Display the final response.
      *
-     * @param  \Prism\Prism\Text\Response  $response
+     * @param  Response  $response
      */
     protected function displayFinalResponse($response): void
     {
@@ -183,7 +184,7 @@ class ToolsCommand extends Command
     /**
      * Display token usage.
      *
-     * @param  \Prism\Prism\Text\Response  $response
+     * @param  Response  $response
      */
     protected function displayTokenUsage($response): void
     {
@@ -200,7 +201,7 @@ class ToolsCommand extends Command
     /**
      * Display verification results.
      *
-     * @param  \Prism\Prism\Text\Response  $response
+     * @param  Response  $response
      */
     protected function displayVerification($response, float $duration): void
     {

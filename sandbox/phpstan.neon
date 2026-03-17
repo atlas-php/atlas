@@ -28,6 +28,10 @@ parameters:
         - identifier: isset.offset
         - identifier: nullCoalesce.expr
         - identifier: nullCoalesce.offset
+        # PrismProxy uses __call() to proxy methods — PHPStan can't resolve them
+        - '#Call to an undefined method Prism\\Prism#'
+        # Sandbox demo code uses write-only properties for pipeline demonstration
+        - identifier: property.onlyWritten
         # Method void result usage
         - identifier: method.void
     # Report unmatched ignores is noisy when classes can't be resolved

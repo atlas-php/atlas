@@ -8,6 +8,7 @@ use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Schema\Schema;
 use Atlasphp\Atlas\Schema\SchemaBuilder;
 use Illuminate\Console\Command;
+use Prism\Prism\Structured\Response;
 use Prism\Prism\Structured\Response as StructuredResponse;
 
 /**
@@ -274,7 +275,7 @@ class StructuredCommand extends Command
     /**
      * Display the structured response.
      *
-     * @param  \Prism\Prism\Structured\Response  $response
+     * @param  Response  $response
      */
     protected function displayResponse($response): void
     {
@@ -303,7 +304,7 @@ class StructuredCommand extends Command
     /**
      * Display verification results.
      *
-     * @param  \Prism\Prism\Structured\Response  $response
+     * @param  Response  $response
      * @param  array<string>  $requiredFields
      */
     protected function displayVerification($response, array $requiredFields): void

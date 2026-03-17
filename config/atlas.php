@@ -64,4 +64,25 @@ return [
         'namespace' => 'App\\Tools',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Embeddings Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configure default provider/model for embeddings and optional caching.
+    | When provider and model are set, Atlas::embeddings() uses them
+    | automatically. Users can still override with ->using().
+    |
+    */
+
+    'embeddings' => [
+        'provider' => env('ATLAS_EMBEDDING_PROVIDER'),
+        'model' => env('ATLAS_EMBEDDING_MODEL'),
+        'cache' => [
+            'enabled' => env('ATLAS_EMBEDDING_CACHE_ENABLED', false),
+            'store' => env('ATLAS_EMBEDDING_CACHE_STORE'),
+            'ttl' => (int) env('ATLAS_EMBEDDING_CACHE_TTL', 3600),
+        ],
+    ],
+
 ];

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use Atlasphp\Atlas\Agents\Contracts\AgentRegistryContract;
+use Atlasphp\Atlas\Agents\Support\AgentResponse;
 use Atlasphp\Atlas\Atlas;
 use Illuminate\Console\Command;
 use Prism\Relay\Facades\Relay;
@@ -208,7 +209,7 @@ class McpCommand extends Command
     /**
      * Display the response with tool call details.
      *
-     * @param  \Atlasphp\Atlas\Agents\Support\AgentResponse  $response
+     * @param  AgentResponse  $response
      */
     protected function displayResponse($response): void
     {
