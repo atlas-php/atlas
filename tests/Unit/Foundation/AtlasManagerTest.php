@@ -3,7 +3,25 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\AtlasManager;
+use Atlasphp\Atlas\Models\Support\PendingModelRequest;
 use Atlasphp\Atlas\PrismProxy;
+use Prism\Prism\Enums\Provider;
+
+test('models returns PendingModelRequest with string provider', function () {
+    $manager = app(AtlasManager::class);
+
+    $request = $manager->models('openai');
+
+    expect($request)->toBeInstanceOf(PendingModelRequest::class);
+});
+
+test('models returns PendingModelRequest with Provider enum', function () {
+    $manager = app(AtlasManager::class);
+
+    $request = $manager->models(Provider::Anthropic);
+
+    expect($request)->toBeInstanceOf(PendingModelRequest::class);
+});
 
 test('embeddings returns PrismProxy for embeddings module', function () {
     $manager = app(AtlasManager::class);

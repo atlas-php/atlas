@@ -289,6 +289,26 @@ test('get returns null when provider config is missing', function (): void {
     expect($models)->toBeNull();
 });
 
+test('get returns null when API returns non-array JSON', function (): void {
+    Http::fake([
+        'api.openai.com/v1/models' => Http::response('"just a string"'),
+    ]);
+
+    $models = $this->service->get('openai');
+
+    expect($models)->toBeNull();
+});
+
+test('get returns null when HTTP request throws exception', function (): void {
+    Http::fake([
+        'api.openai.com/v1/models' => fn () => throw new RuntimeException('Connection refused'),
+    ]);
+
+    $models = $this->service->get('openai');
+
+    expect($models)->toBeNull();
+});
+
 test('get fetches ElevenLabs models with xi-api-key auth', function (): void {
     Http::fake([
         'api.elevenlabs.io/v1/models' => Http::response([
