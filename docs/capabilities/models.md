@@ -13,17 +13,17 @@ Neither Prism nor any other PHP AI SDK provides a way to list available models f
 | Provider | Supported | Format |
 |----------|-----------|--------|
 | OpenAI | Yes | OpenAI-compatible |
-| Anthropic | Yes | Anthropic (includes display names) |
-| Gemini | Yes | Gemini (includes display names) |
+| Anthropic | Yes | Anthropic |
+| Gemini | Yes | Gemini |
 | Ollama | Yes | OpenAI-compatible with native fallback |
 | DeepSeek | Yes | OpenAI-compatible |
 | Mistral | Yes | OpenAI-compatible |
 | Groq | Yes | OpenAI-compatible |
 | XAI | Yes | OpenAI-compatible |
 | OpenRouter | Yes | OpenAI-compatible |
-| Perplexity | Yes | OpenAI-compatible |
-| VoyageAI | Yes | OpenAI-compatible |
-| ElevenLabs | No | No models endpoint |
+| ElevenLabs | Yes | ElevenLabs |
+| Perplexity | No | No models endpoint |
+| VoyageAI | No | No models endpoint |
 | Z | No | No models endpoint |
 
 </div>
@@ -36,10 +36,9 @@ use Atlasphp\Atlas\Atlas;
 // List models from a specific provider
 $models = Atlas::models('openai')->all();
 
-// Each model has an id and optional name
+// Returns a simple sorted list of model identifiers
 foreach ($models as $model) {
-    echo $model['id'];    // e.g., "gpt-4o"
-    echo $model['name'];  // null for most providers, display name for Anthropic/Gemini
+    echo $model; // e.g., "gpt-4o"
 }
 ```
 
@@ -89,10 +88,7 @@ Atlas::models('openai')->clear();
 
 ## Return Format
 
-All methods return `list<array{id: string, name: string|null}>`, sorted by `id`:
-
-- **`id`** — The model identifier used in API calls (e.g., `gpt-4o`, `claude-sonnet-4-20250514`)
-- **`name`** — Optional display name. Only Anthropic and Gemini provide display names; all others return `null`.
+All methods return `list<string>` — a sorted list of model identifier strings (e.g., `['gpt-3.5-turbo', 'gpt-4o']`). These are the identifiers you pass to `->using()` when making API calls.
 
 ## OpenAI-Compatible Providers
 

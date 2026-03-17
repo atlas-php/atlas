@@ -78,19 +78,14 @@ test('get fetches and caches OpenAI models', function (): void {
 
     $models = $this->service->get('openai');
 
-    expect($models)->toBe([
-        ['id' => 'gpt-3.5-turbo', 'name' => null],
-        ['id' => 'gpt-4o', 'name' => null],
-    ]);
+    expect($models)->toBe(['gpt-3.5-turbo', 'gpt-4o']);
 
     // Verify cached
     expect($this->cache->has('atlas:models:openai'))->toBeTrue();
 });
 
 test('get returns cached results on second call', function (): void {
-    $cachedModels = [
-        ['id' => 'cached-model', 'name' => null],
-    ];
+    $cachedModels = ['cached-model'];
     $this->cache->put('atlas:models:openai', $cachedModels, 3600);
 
     $models = $this->service->get('openai');
@@ -101,7 +96,7 @@ test('get returns cached results on second call', function (): void {
     Http::assertNothingSent();
 });
 
-test('get fetches Anthropic models with display names', function (): void {
+test('get fetches Anthropic models', function (): void {
     Http::fake([
         'api.anthropic.com/v1/models' => Http::response([
             'data' => [
@@ -113,10 +108,7 @@ test('get fetches Anthropic models with display names', function (): void {
 
     $models = $this->service->get('anthropic');
 
-    expect($models)->toBe([
-        ['id' => 'claude-3-haiku-20240307', 'name' => 'Claude 3 Haiku'],
-        ['id' => 'claude-sonnet-4-20250514', 'name' => 'Claude Sonnet 4'],
-    ]);
+    expect($models)->toBe(['claude-3-haiku-20240307', 'claude-sonnet-4-20250514']);
 });
 
 test('get fetches Gemini models', function (): void {
@@ -131,10 +123,7 @@ test('get fetches Gemini models', function (): void {
 
     $models = $this->service->get('gemini');
 
-    expect($models)->toBe([
-        ['id' => 'gemini-1.5-flash', 'name' => 'Gemini 1.5 Flash'],
-        ['id' => 'gemini-pro', 'name' => 'Gemini Pro'],
-    ]);
+    expect($models)->toBe(['gemini-1.5-flash', 'gemini-pro']);
 });
 
 test('get returns null when API key is missing for non-keyless provider', function (): void {
@@ -178,7 +167,7 @@ test('get skips cache when caching is disabled', function (): void {
 });
 
 test('refresh always fetches fresh data', function (): void {
-    $this->cache->put('atlas:models:openai', [['id' => 'old-model', 'name' => null]], 3600);
+    $this->cache->put('atlas:models:openai', ['old-model'], 3600);
 
     Http::fake([
         'api.openai.com/v1/models' => Http::response([
@@ -188,10 +177,10 @@ test('refresh always fetches fresh data', function (): void {
 
     $models = $this->service->refresh('openai');
 
-    expect($models)->toBe([['id' => 'new-model', 'name' => null]]);
+    expect($models)->toBe(['new-model']);
 
     // Cache should be updated
-    expect($this->cache->get('atlas:models:openai'))->toBe([['id' => 'new-model', 'name' => null]]);
+    expect($this->cache->get('atlas:models:openai'))->toBe(['new-model']);
 });
 
 test('refresh returns null for unsupported provider', function (): void {
@@ -199,7 +188,7 @@ test('refresh returns null for unsupported provider', function (): void {
 });
 
 test('clear removes cached data', function (): void {
-    $this->cache->put('atlas:models:openai', [['id' => 'cached', 'name' => null]], 3600);
+    $this->cache->put('atlas:models:openai', ['cached'], 3600);
 
     $this->service->clear('openai');
 
@@ -228,8 +217,8 @@ test('all returns models keyed by provider', function (): void {
 
     expect($all)->toHaveKey('openai')
         ->and($all)->toHaveKey('anthropic')
-        ->and($all['openai'])->toBe([['id' => 'gpt-4o', 'name' => null]])
-        ->and($all['anthropic'])->toBe([['id' => 'claude-sonnet-4-20250514', 'name' => 'Claude Sonnet 4']]);
+        ->and($all['openai'])->toBe(['gpt-4o'])
+        ->and($all['anthropic'])->toBe(['claude-sonnet-4-20250514']);
 });
 
 test('Ollama fallback from v1 models to api tags', function (): void {
@@ -245,10 +234,7 @@ test('Ollama fallback from v1 models to api tags', function (): void {
 
     $models = $this->service->get('ollama');
 
-    expect($models)->toBe([
-        ['id' => 'codellama:7b', 'name' => null],
-        ['id' => 'llama2:latest', 'name' => null],
-    ]);
+    expect($models)->toBe(['codellama:7b', 'llama2:latest']);
 });
 
 test('Ollama uses v1 models when available', function (): void {
@@ -262,9 +248,7 @@ test('Ollama uses v1 models when available', function (): void {
 
     $models = $this->service->get('ollama');
 
-    expect($models)->toBe([
-        ['id' => 'llama2:latest', 'name' => null],
-    ]);
+    expect($models)->toBe(['llama2:latest']);
 });
 
 test('Ollama works without API key', function (): void {
@@ -319,8 +303,5 @@ test('get fetches ElevenLabs models with xi-api-key auth', function (): void {
 
     $models = $this->service->get('elevenlabs');
 
-    expect($models)->toBe([
-        ['id' => 'eleven_flash_v2_5', 'name' => 'Eleven Flash v2.5'],
-        ['id' => 'eleven_v3', 'name' => 'Eleven v3'],
-    ]);
+    expect($models)->toBe(['eleven_flash_v2_5', 'eleven_v3']);
 });

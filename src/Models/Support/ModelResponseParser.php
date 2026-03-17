@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Models\Support;
 
 /**
- * Parses provider-specific JSON responses into a standardized model list format.
+ * Parses provider-specific JSON responses into a sorted list of model identifiers.
  *
  * Pure static utility with no side effects. Each method handles a specific
- * JSON structure and returns a sorted list of model entries.
+ * JSON structure and returns a sorted list of model ID strings.
  */
 class ModelResponseParser
 {
@@ -19,21 +19,18 @@ class ModelResponseParser
      * Structure: { "data": [{ "id": "model-id" }] }
      *
      * @param  array<string, mixed>  $json
-     * @return list<array{id: string, name: string|null}>
+     * @return list<string>
      */
     public static function parseOpenAiCompatible(array $json): array
     {
         $data = $json['data'] ?? [];
 
         $models = array_map(
-            fn (array $model): array => [
-                'id' => $model['id'],
-                'name' => null,
-            ],
+            fn (array $model): string => $model['id'],
             $data,
         );
 
-        usort($models, fn (array $a, array $b): int => strcmp($a['id'], $b['id']));
+        sort($models);
 
         return $models;
     }
@@ -44,21 +41,18 @@ class ModelResponseParser
      * Structure: { "data": [{ "id": "model-id", "display_name": "Model Name" }] }
      *
      * @param  array<string, mixed>  $json
-     * @return list<array{id: string, name: string|null}>
+     * @return list<string>
      */
     public static function parseAnthropic(array $json): array
     {
         $data = $json['data'] ?? [];
 
         $models = array_map(
-            fn (array $model): array => [
-                'id' => $model['id'],
-                'name' => $model['display_name'] ?? null,
-            ],
+            fn (array $model): string => $model['id'],
             $data,
         );
 
-        usort($models, fn (array $a, array $b): int => strcmp($a['id'], $b['id']));
+        sort($models);
 
         return $models;
     }
@@ -70,23 +64,20 @@ class ModelResponseParser
      * The "models/" prefix is stripped from the name field.
      *
      * @param  array<string, mixed>  $json
-     * @return list<array{id: string, name: string|null}>
+     * @return list<string>
      */
     public static function parseGemini(array $json): array
     {
         $data = $json['models'] ?? [];
 
         $models = array_map(
-            fn (array $model): array => [
-                'id' => str_starts_with($model['name'], 'models/')
-                    ? substr($model['name'], 7)
-                    : $model['name'],
-                'name' => $model['displayName'] ?? null,
-            ],
+            fn (array $model): string => str_starts_with($model['name'], 'models/')
+                ? substr($model['name'], 7)
+                : $model['name'],
             $data,
         );
 
-        usort($models, fn (array $a, array $b): int => strcmp($a['id'], $b['id']));
+        sort($models);
 
         return $models;
     }
@@ -97,21 +88,18 @@ class ModelResponseParser
      * Structure: { "models": [{ "name": "llama2:latest" }] }
      *
      * @param  array<string, mixed>  $json
-     * @return list<array{id: string, name: string|null}>
+     * @return list<string>
      */
     public static function parseModelsArray(array $json): array
     {
         $data = $json['models'] ?? [];
 
         $models = array_map(
-            fn (array $model): array => [
-                'id' => $model['name'],
-                'name' => null,
-            ],
+            fn (array $model): string => $model['name'],
             $data,
         );
 
-        usort($models, fn (array $a, array $b): int => strcmp($a['id'], $b['id']));
+        sort($models);
 
         return $models;
     }
@@ -123,19 +111,16 @@ class ModelResponseParser
      * Response is a flat JSON array (not wrapped in a data/models key).
      *
      * @param  list<array<string, mixed>>  $json
-     * @return list<array{id: string, name: string|null}>
+     * @return list<string>
      */
     public static function parseElevenLabs(array $json): array
     {
         $models = array_map(
-            fn (array $model): array => [
-                'id' => $model['model_id'],
-                'name' => $model['name'] ?? null,
-            ],
+            fn (array $model): string => $model['model_id'],
             $json,
         );
 
-        usort($models, fn (array $a, array $b): int => strcmp($a['id'], $b['id']));
+        sort($models);
 
         return $models;
     }

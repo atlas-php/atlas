@@ -106,11 +106,7 @@ class ModelsCommand extends Command
             $providerCount++;
 
             foreach ($models as $model) {
-                $rows[] = [
-                    $model['id'],
-                    $model['name'] ?? '-',
-                    $endpoint->value,
-                ];
+                $rows[] = [$model, $endpoint->value];
             }
         }
 
@@ -120,7 +116,7 @@ class ModelsCommand extends Command
             return self::FAILURE;
         }
 
-        $this->table(['ID', 'Name', 'Provider'], $rows);
+        $this->table(['Model', 'Provider'], $rows);
         $this->line('');
         $this->info('Total: '.count($rows).' models from '.$providerCount.' providers');
 
@@ -146,20 +142,16 @@ class ModelsCommand extends Command
     /**
      * Display models in a table.
      *
-     * @param  list<array{id: string, name: string|null}>  $models
+     * @param  list<string>  $models
      */
     protected function displayModels(array $models, string $provider): void
     {
         $rows = array_map(
-            fn (array $model): array => [
-                $model['id'],
-                $model['name'] ?? '-',
-                $provider,
-            ],
+            fn (string $model): array => [$model, $provider],
             $models,
         );
 
-        $this->table(['ID', 'Name', 'Provider'], $rows);
+        $this->table(['Model', 'Provider'], $rows);
         $this->line('');
         $this->info('Total: '.count($models).' models');
     }

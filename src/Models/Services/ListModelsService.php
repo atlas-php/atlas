@@ -39,7 +39,7 @@ class ListModelsService
     /**
      * Get models for a provider, returning cached results when available.
      *
-     * @return list<array{id: string, name: string|null}>|null
+     * @return list<string>|null
      */
     public function get(Provider|string $provider): ?array
     {
@@ -71,7 +71,7 @@ class ListModelsService
     /**
      * Force refresh models from the provider API, updating cache.
      *
-     * @return list<array{id: string, name: string|null}>|null
+     * @return list<string>|null
      */
     public function refresh(Provider|string $provider): ?array
     {
@@ -107,7 +107,7 @@ class ListModelsService
     /**
      * Get models from all configured providers.
      *
-     * @return array<string, list<array{id: string, name: string|null}>>
+     * @return array<string, list<string>>
      */
     public function all(): array
     {
@@ -141,7 +141,7 @@ class ListModelsService
     /**
      * Fetch models from the provider API.
      *
-     * @return list<array{id: string, name: string|null}>|null
+     * @return list<string>|null
      */
     protected function fetchModels(ProviderEndpoint $endpoint): ?array
     {
@@ -176,7 +176,7 @@ class ListModelsService
     /**
      * Fetch Ollama models with fallback from /v1/models to /api/tags.
      *
-     * @return list<array{id: string, name: string|null}>|null
+     * @return list<string>|null
      */
     protected function fetchOllamaModels(ProviderEndpoint $endpoint, string $baseUrl, string $apiKey): ?array
     {
@@ -201,7 +201,7 @@ class ListModelsService
      * Make an HTTP request and parse the response.
      *
      * @param  array<string, string>  $headers
-     * @return list<array{id: string, name: string|null}>|null
+     * @return list<string>|null
      */
     protected function makeRequest(string $url, array $headers, ?ResponseFormat $format): ?array
     {

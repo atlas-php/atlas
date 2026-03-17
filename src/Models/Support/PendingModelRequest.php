@@ -23,7 +23,7 @@ class PendingModelRequest
     /**
      * Get all models for the provider (cached or fresh).
      *
-     * @return list<array{id: string, name: string|null}>|null
+     * @return list<string>|null
      */
     public function all(): ?array
     {
@@ -41,7 +41,7 @@ class PendingModelRequest
     /**
      * Force refresh models from the provider API.
      *
-     * @return list<array{id: string, name: string|null}>|null
+     * @return list<string>|null
      */
     public function refresh(): ?array
     {

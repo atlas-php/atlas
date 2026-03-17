@@ -8,6 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 ---
 
+## [v2.5.1](https://github.com/atlas-php/atlas/releases/tag/v2.5.1) - 2026-03-17
+
+### Changed
+
+- Model listing now returns `list<string>` instead of `list<array{id, name}>` — simpler output, no more empty `name` fields
+- Fixed provider support table (ElevenLabs has a models endpoint; Perplexity/VoyageAI do not)
+
+---
+
 ## [v2.5.0](https://github.com/atlas-php/atlas/releases/tag/v2.5.0) - 2026-03-16
 
 ### Provider Model Listing

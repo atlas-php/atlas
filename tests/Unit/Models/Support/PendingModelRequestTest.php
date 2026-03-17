@@ -31,9 +31,7 @@ test('all returns models for the provider', function (): void {
 
     $request = new PendingModelRequest($this->service, 'openai');
 
-    expect($request->all())->toBe([
-        ['id' => 'gpt-4o', 'name' => null],
-    ]);
+    expect($request->all())->toBe(['gpt-4o']);
 });
 
 test('has returns true for supported provider', function (): void {
@@ -49,7 +47,7 @@ test('has returns false for unsupported provider', function (): void {
 });
 
 test('refresh bypasses cache', function (): void {
-    $this->cache->put('atlas:models:openai', [['id' => 'old', 'name' => null]], 3600);
+    $this->cache->put('atlas:models:openai', ['old'], 3600);
 
     Http::fake([
         'api.openai.com/v1/models' => Http::response([
@@ -60,11 +58,11 @@ test('refresh bypasses cache', function (): void {
     $request = new PendingModelRequest($this->service, 'openai');
     $models = $request->refresh();
 
-    expect($models)->toBe([['id' => 'new-model', 'name' => null]]);
+    expect($models)->toBe(['new-model']);
 });
 
 test('clear removes cached data', function (): void {
-    $this->cache->put('atlas:models:openai', [['id' => 'cached', 'name' => null]], 3600);
+    $this->cache->put('atlas:models:openai', ['cached'], 3600);
 
     $request = new PendingModelRequest($this->service, 'openai');
     $request->clear();

@@ -15,18 +15,14 @@ test('parseOpenAiCompatible extracts ids from data array', function (): void {
 
     $result = ModelResponseParser::parseOpenAiCompatible($json);
 
-    expect($result)->toBe([
-        ['id' => 'dall-e-3', 'name' => null],
-        ['id' => 'gpt-3.5-turbo', 'name' => null],
-        ['id' => 'gpt-4o', 'name' => null],
-    ]);
+    expect($result)->toBe(['dall-e-3', 'gpt-3.5-turbo', 'gpt-4o']);
 });
 
 test('parseOpenAiCompatible returns empty array for missing data key', function (): void {
     expect(ModelResponseParser::parseOpenAiCompatible([]))->toBe([]);
 });
 
-test('parseAnthropic extracts ids and display names', function (): void {
+test('parseAnthropic extracts ids from data array', function (): void {
     $json = [
         'data' => [
             ['id' => 'claude-sonnet-4-20250514', 'display_name' => 'Claude Sonnet 4', 'type' => 'model'],
@@ -36,10 +32,7 @@ test('parseAnthropic extracts ids and display names', function (): void {
 
     $result = ModelResponseParser::parseAnthropic($json);
 
-    expect($result)->toBe([
-        ['id' => 'claude-3-haiku-20240307', 'name' => 'Claude 3 Haiku'],
-        ['id' => 'claude-sonnet-4-20250514', 'name' => 'Claude Sonnet 4'],
-    ]);
+    expect($result)->toBe(['claude-3-haiku-20240307', 'claude-sonnet-4-20250514']);
 });
 
 test('parseAnthropic handles missing display_name', function (): void {
@@ -51,12 +44,10 @@ test('parseAnthropic handles missing display_name', function (): void {
 
     $result = ModelResponseParser::parseAnthropic($json);
 
-    expect($result)->toBe([
-        ['id' => 'claude-test', 'name' => null],
-    ]);
+    expect($result)->toBe(['claude-test']);
 });
 
-test('parseGemini strips models prefix and uses displayName', function (): void {
+test('parseGemini strips models prefix', function (): void {
     $json = [
         'models' => [
             ['name' => 'models/gemini-pro', 'displayName' => 'Gemini Pro', 'description' => 'Best model'],
@@ -66,10 +57,7 @@ test('parseGemini strips models prefix and uses displayName', function (): void 
 
     $result = ModelResponseParser::parseGemini($json);
 
-    expect($result)->toBe([
-        ['id' => 'gemini-1.5-flash', 'name' => 'Gemini 1.5 Flash'],
-        ['id' => 'gemini-pro', 'name' => 'Gemini Pro'],
-    ]);
+    expect($result)->toBe(['gemini-1.5-flash', 'gemini-pro']);
 });
 
 test('parseGemini handles name without models prefix', function (): void {
@@ -81,9 +69,7 @@ test('parseGemini handles name without models prefix', function (): void {
 
     $result = ModelResponseParser::parseGemini($json);
 
-    expect($result)->toBe([
-        ['id' => 'gemini-pro', 'name' => 'Gemini Pro'],
-    ]);
+    expect($result)->toBe(['gemini-pro']);
 });
 
 test('parseGemini handles missing displayName', function (): void {
@@ -95,9 +81,7 @@ test('parseGemini handles missing displayName', function (): void {
 
     $result = ModelResponseParser::parseGemini($json);
 
-    expect($result)->toBe([
-        ['id' => 'gemini-test', 'name' => null],
-    ]);
+    expect($result)->toBe(['gemini-test']);
 });
 
 test('parseModelsArray extracts names from Ollama format', function (): void {
@@ -111,18 +95,14 @@ test('parseModelsArray extracts names from Ollama format', function (): void {
 
     $result = ModelResponseParser::parseModelsArray($json);
 
-    expect($result)->toBe([
-        ['id' => 'codellama:7b', 'name' => null],
-        ['id' => 'llama2:latest', 'name' => null],
-        ['id' => 'mistral:latest', 'name' => null],
-    ]);
+    expect($result)->toBe(['codellama:7b', 'llama2:latest', 'mistral:latest']);
 });
 
 test('parseModelsArray returns empty array for missing models key', function (): void {
     expect(ModelResponseParser::parseModelsArray([]))->toBe([]);
 });
 
-test('parseElevenLabs extracts model_id and name from flat array', function (): void {
+test('parseElevenLabs extracts model_id from flat array', function (): void {
     $json = [
         ['model_id' => 'eleven_v3', 'name' => 'Eleven v3', 'can_do_text_to_speech' => true],
         ['model_id' => 'eleven_flash_v2_5', 'name' => 'Eleven Flash v2.5', 'can_do_text_to_speech' => true],
@@ -131,18 +111,14 @@ test('parseElevenLabs extracts model_id and name from flat array', function (): 
 
     $result = ModelResponseParser::parseElevenLabs($json);
 
-    expect($result)->toBe([
-        ['id' => 'eleven_flash_v2_5', 'name' => 'Eleven Flash v2.5'],
-        ['id' => 'eleven_multilingual_v2', 'name' => 'Eleven Multilingual v2'],
-        ['id' => 'eleven_v3', 'name' => 'Eleven v3'],
-    ]);
+    expect($result)->toBe(['eleven_flash_v2_5', 'eleven_multilingual_v2', 'eleven_v3']);
 });
 
 test('parseElevenLabs returns empty array for empty input', function (): void {
     expect(ModelResponseParser::parseElevenLabs([]))->toBe([]);
 });
 
-test('all parsers return results sorted by id', function (): void {
+test('all parsers return results sorted alphabetically', function (): void {
     $openAi = ModelResponseParser::parseOpenAiCompatible([
         'data' => [
             ['id' => 'z-model'],
@@ -151,7 +127,5 @@ test('all parsers return results sorted by id', function (): void {
         ],
     ]);
 
-    expect($openAi[0]['id'])->toBe('a-model')
-        ->and($openAi[1]['id'])->toBe('m-model')
-        ->and($openAi[2]['id'])->toBe('z-model');
+    expect($openAi)->toBe(['a-model', 'm-model', 'z-model']);
 });
