@@ -7,6 +7,7 @@ namespace Atlasphp\Atlas\Agents;
 use Atlasphp\Atlas\Agents\Contracts\AgentContract;
 use Atlasphp\Atlas\Agents\Enums\AgentType;
 use Prism\Prism\Contracts\Schema;
+use Prism\Prism\Tool;
 
 /**
  * Base class for agent definitions.
@@ -149,7 +150,7 @@ abstract class AgentDefinition implements AgentContract
      * Returns Prism Tool instances, typically from prism-php/relay.
      * Override this method to provide MCP tools for your agent.
      *
-     * @return array<int, \Prism\Prism\Tool>
+     * @return array<int, Tool>
      */
     public function mcpTools(): array
     {

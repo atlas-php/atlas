@@ -11,7 +11,7 @@ use Prism\Prism\Embeddings\Response as EmbeddingsResponse;
 /**
  * Command for testing embedding generation.
  *
- * Demonstrates single and batch embedding capabilities with vector analysis.
+ * Demonstrates single, batch, and cached embedding capabilities with vector analysis.
  */
 class EmbedCommand extends Command
 {
@@ -23,7 +23,9 @@ class EmbedCommand extends Command
     protected $signature = 'atlas:embed
                             {text? : Text to embed}
                             {--batch : Enter batch mode for multiple texts}
-                            {--file= : Read texts from file (one per line)}';
+                            {--file= : Read texts from file (one per line)}
+                            {--cache : Enable caching for this request}
+                            {--cache-demo : Run the cache demo (two identical calls, second should be cached)}';
 
     /**
      * The console command description.
@@ -38,6 +40,11 @@ class EmbedCommand extends Command
     public function handle(): int
     {
         $this->displayHeader();
+
+        // Handle cache demo
+        if ($this->option('cache-demo')) {
+            return $this->processCacheDemo();
+        }
 
         // Handle file input
         if ($file = $this->option('file')) {
@@ -71,9 +78,33 @@ class EmbedCommand extends Command
     {
         $this->line('');
         $this->line('=== Atlas Embedding Test ===');
-        $this->line('Provider: '.config('atlas.embedding.provider', 'openai'));
-        $this->line('Model: '.config('atlas.embedding.model', 'text-embedding-3-small'));
+        $this->line('Provider: '.config('atlas.embeddings.provider', 'openai'));
+        $this->line('Model: '.config('atlas.embeddings.model', 'text-embedding-3-small'));
+
+        $cacheEnabled = config('atlas.embeddings.cache.enabled', false);
+        $this->line('Cache: '.($cacheEnabled ? 'enabled (global)' : 'disabled (global)'));
+
+        if ($this->option('cache')) {
+            $this->line('Cache: enabled (per-request override)');
+        }
+
         $this->line('');
+    }
+
+    /**
+     * Build metadata array for the current request.
+     *
+     * @return array<string, mixed>
+     */
+    protected function buildMetadata(): array
+    {
+        $metadata = [];
+
+        if ($this->option('cache')) {
+            $metadata['cache'] = true;
+        }
+
+        return $metadata;
     }
 
     /**
@@ -85,16 +116,18 @@ class EmbedCommand extends Command
         $this->line('');
 
         try {
-            /** @var EmbeddingsResponse $response */
-            $response = Atlas::embeddings()
-                ->using(
-                    config('atlas.embedding.provider', 'openai'),
-                    config('atlas.embedding.model', 'text-embedding-3-small')
-                )
-                ->fromInput($text)
-                ->asEmbeddings();
+            $metadata = $this->buildMetadata();
 
-            // Get the first embedding vector
+            $request = Atlas::embeddings()
+                ->fromInput($text);
+
+            if ($metadata !== []) {
+                $request = $request->withMetadata($metadata);
+            }
+
+            /** @var EmbeddingsResponse $response */
+            $response = $request->asEmbeddings();
+
             $embedding = $response->embeddings[0]->embedding;
 
             $this->displayEmbeddingAnalysis($embedding);
@@ -137,14 +170,17 @@ class EmbedCommand extends Command
         $this->info("Processing {$count} texts...");
 
         try {
+            $metadata = $this->buildMetadata();
+
+            $request = Atlas::embeddings()
+                ->fromArray($texts);
+
+            if ($metadata !== []) {
+                $request = $request->withMetadata($metadata);
+            }
+
             /** @var EmbeddingsResponse $response */
-            $response = Atlas::embeddings()
-                ->using(
-                    config('atlas.embedding.provider', 'openai'),
-                    config('atlas.embedding.model', 'text-embedding-3-small')
-                )
-                ->fromArray($texts)
-                ->asEmbeddings();
+            $response = $request->asEmbeddings();
 
             foreach ($response->embeddings as $i => $embeddingObj) {
                 $this->line('');
@@ -196,14 +232,17 @@ class EmbedCommand extends Command
         $this->info("Processing {$count} texts from file...");
 
         try {
+            $metadata = $this->buildMetadata();
+
+            $request = Atlas::embeddings()
+                ->fromArray(array_values($texts));
+
+            if ($metadata !== []) {
+                $request = $request->withMetadata($metadata);
+            }
+
             /** @var EmbeddingsResponse $response */
-            $response = Atlas::embeddings()
-                ->using(
-                    config('atlas.embedding.provider', 'openai'),
-                    config('atlas.embedding.model', 'text-embedding-3-small')
-                )
-                ->fromArray(array_values($texts))
-                ->asEmbeddings();
+            $response = $request->asEmbeddings();
 
             foreach ($response->embeddings as $i => $embeddingObj) {
                 $textKeys = array_values($texts);
@@ -218,6 +257,97 @@ class EmbedCommand extends Command
 
             $this->line('');
             $this->info("Batch complete: {$count} embeddings generated.");
+
+            return self::SUCCESS;
+        } catch (\Throwable $e) {
+            $this->error("Error: {$e->getMessage()}");
+
+            return self::FAILURE;
+        }
+    }
+
+    /**
+     * Run the cache demo: two identical calls, second should be cached.
+     */
+    protected function processCacheDemo(): int
+    {
+        $text = $this->argument('text') ?? 'Atlas embedding cache test';
+
+        $this->info('--- Cache Demo ---');
+        $this->line("Text: \"{$text}\"");
+        $this->line('');
+
+        try {
+            // First call — should hit the API
+            $this->info('Call 1: Requesting embedding (should hit API)...');
+            $start = microtime(true);
+
+            /** @var EmbeddingsResponse $response1 */
+            $response1 = Atlas::embeddings()
+                ->withMetadata(['cache' => true])
+                ->fromInput($text)
+                ->asEmbeddings();
+
+            $duration1 = round((microtime(true) - $start) * 1000);
+            $dims1 = count($response1->embeddings[0]->embedding);
+            $this->line("  Result: {$dims1} dimensions, {$duration1}ms");
+
+            // Second call — should return cached
+            $this->info('Call 2: Requesting same embedding (should be cached)...');
+            $start = microtime(true);
+
+            /** @var EmbeddingsResponse $response2 */
+            $response2 = Atlas::embeddings()
+                ->withMetadata(['cache' => true])
+                ->fromInput($text)
+                ->asEmbeddings();
+
+            $duration2 = round((microtime(true) - $start) * 1000);
+            $dims2 = count($response2->embeddings[0]->embedding);
+            $this->line("  Result: {$dims2} dimensions, {$duration2}ms");
+
+            // Third call — cache disabled, should hit API
+            $this->info('Call 3: Requesting same embedding with cache disabled...');
+            $start = microtime(true);
+
+            /** @var EmbeddingsResponse $response3 */
+            $response3 = Atlas::embeddings()
+                ->withMetadata(['cache' => false])
+                ->fromInput($text)
+                ->asEmbeddings();
+
+            $duration3 = round((microtime(true) - $start) * 1000);
+            $dims3 = count($response3->embeddings[0]->embedding);
+            $this->line("  Result: {$dims3} dimensions, {$duration3}ms");
+
+            // Verification
+            $this->line('');
+            $this->line('--- Verification ---');
+
+            // Check vectors match
+            $vec1 = $response1->embeddings[0]->embedding;
+            $vec2 = $response2->embeddings[0]->embedding;
+            if ($vec1 === $vec2) {
+                $this->info('[PASS] Call 1 and Call 2 returned identical vectors (cache hit confirmed)');
+            } else {
+                $this->warn('[WARN] Call 1 and Call 2 returned different vectors');
+            }
+
+            // Check timing — cached call should be faster
+            if ($duration2 < $duration1) {
+                $speedup = $duration1 > 0 ? round($duration1 / max($duration2, 1)) : 0;
+                $this->info("[PASS] Call 2 was {$speedup}x faster ({$duration2}ms vs {$duration1}ms)");
+            } else {
+                $this->warn("[WARN] Call 2 was not faster ({$duration2}ms vs {$duration1}ms)");
+            }
+
+            // Check that call 3 still works
+            $dims3Count = count($response3->embeddings[0]->embedding);
+            if ($dims3Count === $dims1) {
+                $this->info("[PASS] Call 3 (cache disabled) returned valid {$dims3Count}-dim vector");
+            } else {
+                $this->warn("[WARN] Call 3 dimension mismatch: {$dims3Count} vs {$dims1}");
+            }
 
             return self::SUCCESS;
         } catch (\Throwable $e) {

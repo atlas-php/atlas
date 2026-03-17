@@ -13,6 +13,7 @@ use App\Providers\SandboxServiceProvider;
 use Atlasphp\Atlas\AtlasServiceProvider;
 use Dotenv\Dotenv;
 use Orchestra\Testbench\Foundation\Application;
+use Prism\Relay\RelayServiceProvider;
 
 // Load the appropriate autoloader
 // Prefer sandbox's own vendor if it exists, otherwise fall back to parent
@@ -39,7 +40,7 @@ if (file_exists(__DIR__.'/.env')) {
 $sandboxPath = __DIR__;
 
 // Create the application using Orchestra Testbench
-/** @var \Illuminate\Foundation\Application $app */
+/** @var Illuminate\Foundation\Application $app */
 $app = Application::create($sandboxPath);
 
 // Set storage path
@@ -50,8 +51,8 @@ $app->register(AtlasServiceProvider::class);
 $app->register(SandboxServiceProvider::class);
 
 // Register Relay service provider if available
-if (class_exists(\Prism\Relay\RelayServiceProvider::class)) {
-    $app->register(\Prism\Relay\RelayServiceProvider::class);
+if (class_exists(RelayServiceProvider::class)) {
+    $app->register(RelayServiceProvider::class);
 }
 
 // Boot the application

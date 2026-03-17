@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Agents\AgentDefinition;
 use Atlasphp\Atlas\Agents\Contracts\AgentContract;
 use Atlasphp\Atlas\Agents\Events\AgentFailed;
 use Atlasphp\Atlas\Agents\Events\AgentStreamed;
@@ -16,11 +17,15 @@ use Atlasphp\Atlas\Contracts\PipelineContract;
 use Atlasphp\Atlas\Pipelines\PipelineRegistry;
 use Atlasphp\Atlas\Pipelines\PipelineRunner;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
+use Atlasphp\Atlas\Tests\Fixtures\TestAgentWithDefaults;
+use Atlasphp\Atlas\Tests\Fixtures\TestAgentWithOptions;
+use Atlasphp\Atlas\Tests\Fixtures\TestTool;
 use Atlasphp\Atlas\Tools\Services\ToolBuilder;
 use Atlasphp\Atlas\Tools\Services\ToolExecutor;
 use Atlasphp\Atlas\Tools\Services\ToolRegistry;
 use Illuminate\Container\Container;
 use Illuminate\Support\Facades\Event;
+use Prism\Prism\Contracts\Schema;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Streaming\Events\StreamStartEvent;
@@ -29,7 +34,12 @@ use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Testing\StructuredResponseFake;
 use Prism\Prism\Testing\TextResponseFake;
 use Prism\Prism\Text\Response as PrismResponse;
+use Prism\Prism\Tool;
+use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\ProviderTool;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\Usage;
 
@@ -279,7 +289,7 @@ test('it throws when provider is null', function () {
         $this->mediaConverter,
     );
 
-    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithDefaults;
+    $agent = new TestAgentWithDefaults;
     $context = new AgentContext;
 
     $executor->execute($agent, 'Hello', $context);
@@ -294,7 +304,7 @@ test('it throws when model is null but provider is set', function () {
     );
 
     // Create an agent with provider but null model
-    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class extends AgentDefinition
     {
         public function key(): string
         {
@@ -386,8 +396,8 @@ test('it handles prismMessages directly from context', function () {
 
     // Create Prism message objects directly
     $prismMessages = [
-        new \Prism\Prism\ValueObjects\Messages\UserMessage('Previous question'),
-        new \Prism\Prism\ValueObjects\Messages\AssistantMessage('Previous answer'),
+        new UserMessage('Previous question'),
+        new AssistantMessage('Previous answer'),
     ];
 
     $context = new AgentContext(
@@ -418,7 +428,7 @@ test('it prioritizes prismMessages over array messages', function () {
     // Create context with both array and Prism messages
     // prismMessages should take priority
     $prismMessages = [
-        new \Prism\Prism\ValueObjects\Messages\UserMessage('Prism question'),
+        new UserMessage('Prism question'),
     ];
 
     $context = new AgentContext(
@@ -448,7 +458,7 @@ test('it handles prismMedia attachments directly', function () {
     );
 
     // Create a Prism media object using the correct namespace
-    $image = \Prism\Prism\ValueObjects\Media\Image::fromUrl('https://example.com/image.jpg');
+    $image = Image::fromUrl('https://example.com/image.jpg');
 
     $context = new AgentContext(
         prismMedia: [$image],
@@ -476,8 +486,8 @@ test('it handles multiple prismMedia attachments', function () {
     );
 
     // Create multiple Prism media objects
-    $image1 = \Prism\Prism\ValueObjects\Media\Image::fromUrl('https://example.com/image1.jpg');
-    $image2 = \Prism\Prism\ValueObjects\Media\Image::fromUrl('https://example.com/image2.jpg');
+    $image1 = Image::fromUrl('https://example.com/image1.jpg');
+    $image2 = Image::fromUrl('https://example.com/image2.jpg');
 
     $context = new AgentContext(
         prismMedia: [$image1, $image2],
@@ -556,7 +566,7 @@ test('it handles prism media in context', function () {
         $this->mediaConverter,
     );
 
-    $image = \Prism\Prism\ValueObjects\Media\Image::fromUrl('https://example.com/image.jpg');
+    $image = Image::fromUrl('https://example.com/image.jpg');
 
     $context = new AgentContext(
         prismMedia: [$image],
@@ -651,7 +661,7 @@ test('it returns StructuredResponse when withSchema is in prismCalls', function 
     );
 
     // Create a mock schema
-    $mockSchema = Mockery::mock(\Prism\Prism\Contracts\Schema::class);
+    $mockSchema = Mockery::mock(Schema::class);
 
     $context = new AgentContext(
         prismCalls: [
@@ -681,7 +691,7 @@ test('it replays prism calls without schema for structured output', function () 
         $this->mediaConverter,
     );
 
-    $mockSchema = Mockery::mock(\Prism\Prism\Contracts\Schema::class);
+    $mockSchema = Mockery::mock(Schema::class);
 
     // usingTemperature is available on both Text and Structured requests
     $context = new AgentContext(
@@ -712,7 +722,7 @@ test('it applies agent clientOptions to request', function () {
         $this->mediaConverter,
     );
 
-    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithOptions;
+    $agent = new TestAgentWithOptions;
     $context = new AgentContext;
     $response = $executor->execute($agent, 'Hello', $context);
 
@@ -741,7 +751,7 @@ test('it applies agent providerOptions to request', function () {
         $this->mediaConverter,
     );
 
-    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithOptions;
+    $agent = new TestAgentWithOptions;
     $context = new AgentContext;
     $response = $executor->execute($agent, 'Hello', $context);
 
@@ -770,7 +780,7 @@ test('it applies agent providerTools to request', function () {
         $this->mediaConverter,
     );
 
-    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithOptions;
+    $agent = new TestAgentWithOptions;
     $context = new AgentContext;
     $response = $executor->execute($agent, 'Hello', $context);
 
@@ -872,7 +882,7 @@ test('it builds provider tools from string format', function () {
     );
 
     // Create agent with string provider tools
-    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class extends AgentDefinition
     {
         public function key(): string
         {
@@ -916,7 +926,7 @@ test('it builds provider tools from array format', function () {
     );
 
     // Create agent with array provider tools
-    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class extends AgentDefinition
     {
         public function key(): string
         {
@@ -963,7 +973,7 @@ test('it builds provider tools from ProviderTool objects', function () {
     );
 
     // Create agent with ProviderTool objects
-    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class extends AgentDefinition
     {
         public function key(): string
         {
@@ -983,8 +993,8 @@ test('it builds provider tools from ProviderTool objects', function () {
         public function providerTools(): array
         {
             return [
-                new \Prism\Prism\ValueObjects\ProviderTool(type: 'web_search'),
-                new \Prism\Prism\ValueObjects\ProviderTool(type: 'code_execution', name: 'executor'),
+                new ProviderTool(type: 'web_search'),
+                new ProviderTool(type: 'code_execution', name: 'executor'),
             ];
         }
     };
@@ -1004,7 +1014,7 @@ test('it throws for invalid provider tool format', function () {
     );
 
     // Create agent with invalid provider tool (array without 'type')
-    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class extends AgentDefinition
     {
         public function key(): string
         {
@@ -1060,7 +1070,7 @@ test('it runs after_execute pipeline with StructuredResponse', function () {
         new MediaConverter,
     );
 
-    $mockSchema = Mockery::mock(\Prism\Prism\Contracts\Schema::class);
+    $mockSchema = Mockery::mock(Schema::class);
 
     $context = new AgentContext(
         prismCalls: [
@@ -1288,14 +1298,14 @@ test('error pipeline can provide recovery response', function () {
     );
 
     // Create an agent that will fail (null provider triggers error)
-    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithDefaults;
+    $agent = new TestAgentWithDefaults;
     $context = new AgentContext;
 
     $response = $executor->execute($agent, 'Hello', $context);
 
     // Verify recovery was used
     expect(ErrorRecoveryHandler::$called)->toBeTrue();
-    expect(ErrorRecoveryHandler::$data['exception'])->toBeInstanceOf(\InvalidArgumentException::class);
+    expect(ErrorRecoveryHandler::$data['exception'])->toBeInstanceOf(InvalidArgumentException::class);
     expect($response)->toBeInstanceOf(AgentResponse::class);
     expect($response->response)->toBe($recoveryResponse);
     expect($response->text)->toBe('Recovered from error');
@@ -1315,7 +1325,7 @@ test('error pipeline receives exception details', function () {
     );
 
     // Create an agent that will fail
-    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithDefaults;
+    $agent = new TestAgentWithDefaults;
     $context = new AgentContext;
 
     try {
@@ -1347,7 +1357,7 @@ test('error pipeline without recovery rethrows exception', function () {
         $this->mediaConverter,
     );
 
-    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithDefaults;
+    $agent = new TestAgentWithDefaults;
     $context = new AgentContext;
 
     $executor->execute($agent, 'Hello', $context);
@@ -1381,7 +1391,7 @@ test('error pipeline recovery works for AgentException', function () {
     );
 
     // Use agent with null model (triggers AgentException via InvalidArgumentException)
-    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class extends AgentDefinition
     {
         public function key(): string
         {
@@ -1508,7 +1518,7 @@ test('execute handles Throwable and wraps in AgentException', function () {
     );
 
     // Use agent with null provider - triggers InvalidArgumentException which is Throwable
-    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithDefaults;
+    $agent = new TestAgentWithDefaults;
     $context = new AgentContext;
 
     try {
@@ -1549,7 +1559,7 @@ test('execute recovers from Throwable when recovery provided', function () {
     );
 
     // Use agent with null provider - triggers InvalidArgumentException
-    $agent = new \Atlasphp\Atlas\Tests\Fixtures\TestAgentWithDefaults;
+    $agent = new TestAgentWithDefaults;
     $context = new AgentContext;
 
     $response = $executor->execute($agent, 'Hello', $context);
@@ -1880,11 +1890,11 @@ test('it merges native tools with agent MCP tools', function () {
     );
 
     // Create a mock MCP tool
-    $mcpTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $mcpTool = Mockery::mock(Tool::class);
     $mcpTool->shouldReceive('name')->andReturn('mcp_tool');
 
     // Create agent with MCP tools
-    $agent = new class($mcpTool) extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class($mcpTool) extends AgentDefinition
     {
         public function __construct(private $tool) {}
 
@@ -1931,7 +1941,7 @@ test('it merges native tools with runtime MCP tools', function () {
     );
 
     // Create a mock MCP tool
-    $mcpTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $mcpTool = Mockery::mock(Tool::class);
     $mcpTool->shouldReceive('name')->andReturn('runtime_mcp_tool');
 
     $agent = new TestAgent;
@@ -1960,14 +1970,14 @@ test('it merges all three tool sources correctly', function () {
     );
 
     // Create mock MCP tools
-    $agentMcpTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $agentMcpTool = Mockery::mock(Tool::class);
     $agentMcpTool->shouldReceive('name')->andReturn('agent_mcp_tool');
 
-    $runtimeMcpTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $runtimeMcpTool = Mockery::mock(Tool::class);
     $runtimeMcpTool->shouldReceive('name')->andReturn('runtime_mcp_tool');
 
     // Create agent with native tools and MCP tools
-    $agent = new class($agentMcpTool) extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class($agentMcpTool) extends AgentDefinition
     {
         public function __construct(private $tool) {}
 
@@ -2076,7 +2086,7 @@ test('it builds runtime tools from withTools classes', function () {
     );
 
     // Use agent without tools to isolate runtime tool testing
-    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class extends AgentDefinition
     {
         public function key(): string
         {
@@ -2095,14 +2105,14 @@ test('it builds runtime tools from withTools classes', function () {
     };
 
     $context = new AgentContext(
-        tools: [\Atlasphp\Atlas\Tests\Fixtures\TestTool::class],
+        tools: [TestTool::class],
     );
 
     $executor->execute($agent, 'Hello', $context);
 
     // Verify agent_tools contains the built runtime tool
     expect(ToolsMergedCapturingHandler::$data['agent_tools'])->toHaveCount(1);
-    expect(ToolsMergedCapturingHandler::$data['agent_tools'][0])->toBeInstanceOf(\Prism\Prism\Tool::class);
+    expect(ToolsMergedCapturingHandler::$data['agent_tools'][0])->toBeInstanceOf(Tool::class);
     expect(ToolsMergedCapturingHandler::$data['agent_tools'][0]->name())->toBe('test_tool');
 });
 
@@ -2126,7 +2136,7 @@ test('it combines agent tools with runtime tools', function () {
     );
 
     // Create agent with its own tool
-    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class extends AgentDefinition
     {
         public function key(): string
         {
@@ -2145,13 +2155,13 @@ test('it combines agent tools with runtime tools', function () {
 
         public function tools(): array
         {
-            return [\Atlasphp\Atlas\Tests\Fixtures\TestTool::class];
+            return [TestTool::class];
         }
     };
 
     // Add another tool at runtime (same class, but demonstrates merging)
     $context = new AgentContext(
-        tools: [\Atlasphp\Atlas\Tests\Fixtures\TestTool::class],
+        tools: [TestTool::class],
     );
 
     $executor->execute($agent, 'Hello', $context);
@@ -2181,7 +2191,7 @@ test('it builds multiple runtime tools from withTools', function () {
     );
 
     // Use agent without tools to isolate runtime tool testing
-    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class extends AgentDefinition
     {
         public function key(): string
         {
@@ -2202,8 +2212,8 @@ test('it builds multiple runtime tools from withTools', function () {
     // Add multiple tools at runtime
     $context = new AgentContext(
         tools: [
-            \Atlasphp\Atlas\Tests\Fixtures\TestTool::class,
-            \Atlasphp\Atlas\Tests\Fixtures\TestTool::class, // Duplicate for testing
+            TestTool::class,
+            TestTool::class, // Duplicate for testing
         ],
     );
 
@@ -2233,11 +2243,11 @@ test('runtime tools are included in final tools array', function () {
     );
 
     // Create mock MCP tool
-    $mcpTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $mcpTool = Mockery::mock(Tool::class);
     $mcpTool->shouldReceive('name')->andReturn('mcp_tool');
 
     // Use agent without tools to isolate runtime tool testing
-    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class extends AgentDefinition
     {
         public function key(): string
         {
@@ -2256,7 +2266,7 @@ test('runtime tools are included in final tools array', function () {
     };
 
     $context = new AgentContext(
-        tools: [\Atlasphp\Atlas\Tests\Fixtures\TestTool::class],
+        tools: [TestTool::class],
         mcpTools: [$mcpTool],
     );
 
@@ -2288,14 +2298,14 @@ test('it merges all four tool sources correctly', function () {
     );
 
     // Create mock MCP tools
-    $agentMcpTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $agentMcpTool = Mockery::mock(Tool::class);
     $agentMcpTool->shouldReceive('name')->andReturn('agent_mcp_tool');
 
-    $runtimeMcpTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $runtimeMcpTool = Mockery::mock(Tool::class);
     $runtimeMcpTool->shouldReceive('name')->andReturn('runtime_mcp_tool');
 
     // Create agent with MCP tools
-    $agent = new class($agentMcpTool) extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class($agentMcpTool) extends AgentDefinition
     {
         public function __construct(private $tool) {}
 
@@ -2386,14 +2396,14 @@ test('agent.tools.merged pipeline receives all tool categories', function () {
     );
 
     // Create mock MCP tools
-    $agentMcpTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $agentMcpTool = Mockery::mock(Tool::class);
     $agentMcpTool->shouldReceive('name')->andReturn('agent_mcp_tool');
 
-    $runtimeMcpTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $runtimeMcpTool = Mockery::mock(Tool::class);
     $runtimeMcpTool->shouldReceive('name')->andReturn('runtime_mcp_tool');
 
     // Create agent with MCP tools
-    $agent = new class($agentMcpTool) extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class($agentMcpTool) extends AgentDefinition
     {
         public function __construct(private $tool) {}
 
@@ -2449,13 +2459,13 @@ test('agent.tools.merged pipeline can filter tools', function () {
     );
 
     // Create mock MCP tools
-    $tool1 = Mockery::mock(\Prism\Prism\Tool::class);
+    $tool1 = Mockery::mock(Tool::class);
     $tool1->shouldReceive('name')->andReturn('allowed_tool');
 
-    $tool2 = Mockery::mock(\Prism\Prism\Tool::class);
+    $tool2 = Mockery::mock(Tool::class);
     $tool2->shouldReceive('name')->andReturn('blocked_tool');
 
-    $agent = new class([$tool1, $tool2]) extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class([$tool1, $tool2]) extends AgentDefinition
     {
         public function __construct(private array $tools) {}
 

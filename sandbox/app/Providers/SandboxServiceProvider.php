@@ -10,6 +10,7 @@ use App\Console\Commands\EmbedCommand;
 use App\Console\Commands\ImageCommand;
 use App\Console\Commands\LocalChatCommand;
 use App\Console\Commands\McpCommand;
+use App\Console\Commands\ModelsCommand;
 use App\Console\Commands\ModerationCommand;
 use App\Console\Commands\PackagistTestCommand;
 use App\Console\Commands\PipelineCommand;
@@ -93,6 +94,7 @@ class SandboxServiceProvider extends ServiceProvider
                 ImageCommand::class,
                 LocalChatCommand::class,
                 McpCommand::class,
+                ModelsCommand::class,
                 ModerationCommand::class,
                 PackagistTestCommand::class,
                 PipelineCommand::class,

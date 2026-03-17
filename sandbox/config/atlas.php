@@ -64,4 +64,53 @@ return [
         'namespace' => 'App\\Tools',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Embeddings Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Default provider/model for embeddings and optional caching.
+    | When provider and model are set, Atlas::embeddings() uses them
+    | automatically — no ->using() needed.
+    |
+    */
+
+    /*
+    |--------------------------------------------------------------------------
+    | Models Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configure caching for the provider model listing service.
+    |
+    */
+
+    'models' => [
+        'cache' => [
+            'enabled' => env('ATLAS_MODELS_CACHE_ENABLED', true),
+            'store' => env('ATLAS_MODELS_CACHE_STORE'),
+            'ttl' => (int) env('ATLAS_MODELS_CACHE_TTL', 3600),
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Embeddings Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Default provider/model for embeddings and optional caching.
+    | When provider and model are set, Atlas::embeddings() uses them
+    | automatically — no ->using() needed.
+    |
+    */
+
+    'embeddings' => [
+        'provider' => env('ATLAS_EMBEDDING_PROVIDER', 'openai'),
+        'model' => env('ATLAS_EMBEDDING_MODEL', 'text-embedding-3-small'),
+        'cache' => [
+            'enabled' => env('ATLAS_EMBEDDING_CACHE_ENABLED', false),
+            'store' => env('ATLAS_EMBEDDING_CACHE_STORE'),
+            'ttl' => (int) env('ATLAS_EMBEDDING_CACHE_TTL', 3600),
+        ],
+    ],
+
 ];

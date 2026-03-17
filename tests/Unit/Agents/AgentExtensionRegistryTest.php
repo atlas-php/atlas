@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Agents\AgentDefinition;
 use Atlasphp\Atlas\Agents\Contracts\AgentContract;
 use Atlasphp\Atlas\Agents\Services\AgentExtensionRegistry;
 use Atlasphp\Atlas\Agents\Support\AgentDecorator;
@@ -179,7 +180,7 @@ class SelectiveDecorator extends AgentDecorator
     }
 }
 
-class NonMatchingAgent extends \Atlasphp\Atlas\Agents\AgentDefinition
+class NonMatchingAgent extends AgentDefinition
 {
     public function key(): string
     {

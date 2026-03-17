@@ -84,7 +84,7 @@ test('it can set active state', function () {
 
 test('it throws when setting active state for undefined pipeline', function () {
     expect(fn () => $this->registry->setActive('new.pipeline', false))
-        ->toThrow(\InvalidArgumentException::class, 'Cannot set active state for undefined pipeline');
+        ->toThrow(InvalidArgumentException::class, 'Cannot set active state for undefined pipeline');
 });
 
 test('it can set active state for pipeline with handlers but no definition', function () {

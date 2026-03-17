@@ -6,8 +6,10 @@ namespace Atlasphp\Atlas;
 
 use Atlasphp\Atlas\Agents\Contracts\AgentContract;
 use Atlasphp\Atlas\Agents\Support\PendingAgentRequest;
+use Atlasphp\Atlas\Models\Support\PendingModelRequest;
 use Atlasphp\Atlas\Testing\AtlasFake;
 use Illuminate\Support\Facades\Facade;
+use Prism\Prism\Enums\Provider;
 use Prism\Prism\Text\Response as PrismResponse;
 
 /**
@@ -15,10 +17,11 @@ use Prism\Prism\Text\Response as PrismResponse;
  *
  * @method static PendingAgentRequest agent(string|AgentContract $agent)
  * @method static PendingAgentRequest make(string $systemPrompt, ?string $provider = null, ?string $model = null, array<int, class-string> $tools = [], ?string $key = null)
+ * @method static PendingModelRequest models(Provider|string $provider)
  *
- * @mixin \Atlasphp\Atlas\AtlasManager
+ * @mixin AtlasManager
  *
- * @see \Atlasphp\Atlas\AtlasManager
+ * @see AtlasManager
  */
 class Atlas extends Facade
 {

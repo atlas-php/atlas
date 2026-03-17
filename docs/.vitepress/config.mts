@@ -47,6 +47,7 @@ export default defineConfig({
                     { text: 'Text', link: '/capabilities/text' },
                     { text: 'Images', link: '/capabilities/images' },
                     { text: 'Audio', link: '/capabilities/audio' },
+                    { text: 'Models', link: '/capabilities/models' },
                     { text: 'Embeddings', link: '/capabilities/embeddings' },
                     { text: 'Structured', link: '/capabilities/structured-output' },
                     { text: 'Streaming', link: '/capabilities/streaming' },

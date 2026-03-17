@@ -6,10 +6,13 @@ namespace Atlasphp\Atlas\Agents\Support;
 
 use Atlasphp\Atlas\Agents\Contracts\AgentContract;
 use Illuminate\Support\Collection;
+use Prism\Prism\Contracts\Message;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Structured\Response as StructuredResponse;
 use Prism\Prism\Text\Response as PrismResponse;
 use Prism\Prism\ValueObjects\Meta;
+use Prism\Prism\ValueObjects\ToolCall;
+use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
 
 /**
@@ -59,7 +62,7 @@ final readonly class AgentResponse
     /**
      * Get the tool calls from the response.
      *
-     * @return array<int, \Prism\Prism\ValueObjects\ToolCall>
+     * @return array<int, ToolCall>
      */
     public function toolCalls(): array
     {
@@ -73,7 +76,7 @@ final readonly class AgentResponse
     /**
      * Get the tool results from the response.
      *
-     * @return array<int, \Prism\Prism\ValueObjects\ToolResult>
+     * @return array<int, ToolResult>
      */
     public function toolResults(): array
     {
@@ -113,7 +116,7 @@ final readonly class AgentResponse
     /**
      * Get the messages from the response.
      *
-     * @return Collection<int, \Prism\Prism\Contracts\Message>
+     * @return Collection<int, Message>
      */
     public function messages(): Collection
     {

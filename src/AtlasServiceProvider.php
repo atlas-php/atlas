@@ -13,6 +13,8 @@ use Atlasphp\Atlas\Agents\Services\AgentRegistry;
 use Atlasphp\Atlas\Agents\Services\AgentResolver;
 use Atlasphp\Atlas\Agents\Services\MediaConverter;
 use Atlasphp\Atlas\Agents\Services\SystemPromptBuilder;
+use Atlasphp\Atlas\Models\Services\ListModelsService;
+use Atlasphp\Atlas\Pipelines\Middleware\CacheEmbeddings;
 use Atlasphp\Atlas\Pipelines\PipelineRegistry;
 use Atlasphp\Atlas\Pipelines\PipelineRunner;
 use Atlasphp\Atlas\Support\ClassDiscovery;
@@ -21,7 +23,10 @@ use Atlasphp\Atlas\Tools\Contracts\ToolRegistryContract;
 use Atlasphp\Atlas\Tools\Services\ToolBuilder;
 use Atlasphp\Atlas\Tools\Services\ToolExecutor;
 use Atlasphp\Atlas\Tools\Services\ToolRegistry;
+use Illuminate\Cache\CacheManager;
+use Illuminate\Cache\Repository;
 use Illuminate\Contracts\Container\Container;
+use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\ServiceProvider;
 
 /**
@@ -42,6 +47,7 @@ class AtlasServiceProvider extends ServiceProvider
         $this->registerFoundationServices();
         $this->registerAgentServices();
         $this->registerToolServices();
+        $this->registerModelServices();
         $this->registerAtlasManager();
         $this->registerDiscoveryService();
     }
@@ -55,6 +61,7 @@ class AtlasServiceProvider extends ServiceProvider
         $this->registerCommands();
         $this->defineCorePipelines();
         $this->configurePipelinesState();
+        $this->registerEmbeddingCacheMiddleware();
         $this->discoverAgents();
         $this->discoverTools();
     }
@@ -146,6 +153,26 @@ class AtlasServiceProvider extends ServiceProvider
     }
 
     /**
+     * Register model listing services.
+     */
+    protected function registerModelServices(): void
+    {
+        $this->app->singleton(ListModelsService::class, function (Container $app): ListModelsService {
+            /** @var CacheManager $cacheManager */
+            $cacheManager = $app->make('cache');
+            $store = config('atlas.models.cache.store');
+
+            /** @var Repository $cacheStore */
+            $cacheStore = $cacheManager->store($store);
+
+            return new ListModelsService(
+                $app->make(HttpFactory::class),
+                $cacheStore,
+            );
+        });
+    }
+
+    /**
      * Register the AtlasManager.
      */
     protected function registerAtlasManager(): void
@@ -155,6 +182,7 @@ class AtlasServiceProvider extends ServiceProvider
                 $app->make(AgentResolver::class),
                 $app->make(AgentExecutorContract::class),
                 $app->make(PipelineRunner::class),
+                $app->make(ListModelsService::class),
             );
         });
     }
@@ -246,6 +274,19 @@ class AtlasServiceProvider extends ServiceProvider
                 $registry->setActive($name, false);
             }
         }
+    }
+
+    /**
+     * Register the embedding cache middleware when enabled via config.
+     */
+    protected function registerEmbeddingCacheMiddleware(): void
+    {
+        if (config('atlas.embeddings.cache.enabled', false) !== true) {
+            return;
+        }
+
+        $registry = $this->app->make(PipelineRegistry::class);
+        $registry->register('embeddings.before_embeddings', CacheEmbeddings::class, 100);
     }
 
     /**

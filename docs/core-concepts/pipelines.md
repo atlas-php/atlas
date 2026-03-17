@@ -787,50 +787,42 @@ $response = Atlas::text()
     ->asText();
 ```
 
-## Example: Caching Embeddings
+## Built-in: Embedding Cache Middleware
 
-Cache embeddings to reduce API calls. Use metadata to pass a cache key:
+Atlas ships with `CacheEmbeddings` pipeline middleware that caches embedding responses automatically. Enable it via config — no custom code needed:
 
 ```php
-use Atlasphp\Atlas\Contracts\PipelineContract;
-use Closure;
-use Illuminate\Support\Facades\Cache;
-
-class CacheEmbeddings implements PipelineContract
-{
-    public function handle(mixed $data, Closure $next): mixed
-    {
-        $cacheKey = $data['metadata']['cache_key'] ?? null;
-
-        if ($cacheKey && Cache::has($cacheKey)) {
-            $data['response'] = Cache::get($cacheKey);
-            return $data;
-        }
-
-        $result = $next($data);
-
-        if ($cacheKey) {
-            Cache::put($cacheKey, $result['response'], now()->addDay());
-        }
-
-        return $result;
-    }
-}
-
-$registry->register('embeddings.before_embeddings', CacheEmbeddings::class);
+// config/atlas.php
+'embeddings' => [
+    'cache' => [
+        'enabled' => true,
+        'store' => null,    // null = default cache store
+        'ttl' => 3600,
+    ],
+],
 ```
 
-Usage:
+When enabled, the middleware is auto-registered on `embeddings.before_embeddings` with high priority (runs first). It short-circuits the pipeline when a cached response exists.
+
+Per-request overrides are supported via metadata:
 
 ```php
-$cacheKey = 'embeddings:' . md5($text);
-
-$response = Atlas::embeddings()
+// Disable cache for this call
+Atlas::embeddings()
     ->using('openai', 'text-embedding-3-small')
-    ->withMetadata(['cache_key' => $cacheKey])
+    ->withMetadata(['cache' => false])
+    ->fromInput($text)
+    ->asEmbeddings();
+
+// Use explicit cache key
+Atlas::embeddings()
+    ->using('openai', 'text-embedding-3-small')
+    ->withMetadata(['cache_key' => 'product-42'])
     ->fromInput($text)
     ->asEmbeddings();
 ```
+
+See [Embeddings — Caching](/capabilities/embeddings#caching) for full details.
 
 ## Disabling Pipelines
 

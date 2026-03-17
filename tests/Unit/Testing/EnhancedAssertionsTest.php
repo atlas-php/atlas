@@ -12,6 +12,7 @@ use Illuminate\Container\Container;
 use Illuminate\Support\Collection;
 use PHPUnit\Framework\AssertionFailedError;
 use Prism\Prism\Enums\FinishReason;
+use Prism\Prism\Streaming\Events\TextDeltaEvent;
 use Prism\Prism\Text\Response as PrismResponse;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
@@ -80,6 +81,27 @@ test('assertNotStreamed fails when agent used streaming', function () {
         ->toThrow(AssertionFailedError::class);
 });
 
+test('assertStreamed without agentKey passes when any agent streamed', function () {
+    $response = createEnhancedTestResponse();
+    $this->fake->sequence([$response])->activate();
+
+    $executor = $this->container->make(AgentExecutorContract::class);
+    $executor->stream($this->agent, 'Hello', new AgentContext);
+
+    $this->fake->assertStreamed();
+});
+
+test('assertStreamed without agentKey fails when no agent streamed', function () {
+    $response = createEnhancedTestResponse();
+    $this->fake->sequence([$response])->activate();
+
+    $executor = $this->container->make(AgentExecutorContract::class);
+    $executor->execute($this->agent, 'Hello', new AgentContext);
+
+    expect(fn () => $this->fake->assertStreamed())
+        ->toThrow(AssertionFailedError::class, 'Expected at least one agent to use streaming, but none did.');
+});
+
 // === assertCalledWithVariables ===
 
 test('assertCalledWithVariables passes when variables match', function () {
@@ -102,6 +124,18 @@ test('assertCalledWithVariables fails when variables do not match', function () 
     $executor->execute($this->agent, 'Hello', $context);
 
     expect(fn () => $this->fake->assertCalledWithVariables('test-agent', ['user' => 'Bob']))
+        ->toThrow(AssertionFailedError::class);
+});
+
+test('assertCalledWithVariables fails when agent key does not match', function () {
+    $response = createEnhancedTestResponse();
+    $this->fake->sequence([$response])->activate();
+
+    $executor = $this->container->make(AgentExecutorContract::class);
+    $context = new AgentContext(variables: ['user' => 'Alice']);
+    $executor->execute($this->agent, 'Hello', $context);
+
+    expect(fn () => $this->fake->assertCalledWithVariables('wrong-agent', ['user' => 'Alice']))
         ->toThrow(AssertionFailedError::class);
 });
 
@@ -156,6 +190,18 @@ test('assertCalledWithTools passes when tools match', function () {
     $this->fake->assertCalledWithTools('test-agent', [TestTool::class]);
 });
 
+test('assertCalledWithTools fails when agent key does not match', function () {
+    $response = createEnhancedTestResponse();
+    $this->fake->sequence([$response])->activate();
+
+    $executor = $this->container->make(AgentExecutorContract::class);
+    $context = new AgentContext(tools: [TestTool::class]);
+    $executor->execute($this->agent, 'Hello', $context);
+
+    expect(fn () => $this->fake->assertCalledWithTools('wrong-agent', [TestTool::class]))
+        ->toThrow(AssertionFailedError::class);
+});
+
 test('assertCalledWithTools fails when tools do not match', function () {
     $response = createEnhancedTestResponse();
     $this->fake->sequence([$response])->activate();
@@ -205,7 +251,7 @@ test('respondUsing works with streaming', function () {
 
     $text = '';
     foreach ($streamResponse as $event) {
-        if ($event instanceof \Prism\Prism\Streaming\Events\TextDeltaEvent) {
+        if ($event instanceof TextDeltaEvent) {
             $text .= $event->delta;
         }
     }
