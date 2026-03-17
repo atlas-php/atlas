@@ -426,11 +426,20 @@
     margin-top: 8px;
 }
 
-/* Search bar min width */
-.VPNavBarSearch .DocSearch-Button,
-.VPNavBarSearch button,
-.VPNavBarSearch .VPLocalSearchBox button {
-    min-width: 300px !important;
+/* Hide the "..." extra menu - appearance and social links are shown directly */
+.VPNavBarExtra {
+    display: none !important;
+}
+
+/* Show appearance toggle and social links at all screen sizes */
+.VPNavBarAppearance {
+    display: flex !important;
+    align-items: center !important;
+}
+
+.VPNavBarSocialLinks {
+    display: flex !important;
+    align-items: center !important;
 }
 
 /* Narrow header on home page to match home content width */
@@ -511,4 +520,45 @@ body:has(.VPHome) .VPNavBar .content {
 .full-width-table th:last-child,
 .full-width-table td:last-child {
     width: 70%;
+}
+
+/* =========================================
+   Mobile Navigation Fixes
+   VitePress switches sidebar to overlay at 959px
+   ========================================= */
+@media (max-width: 959px) {
+    .VPSidebar {
+        background: var(--vp-c-bg) !important;
+    }
+
+    .VPNavBarHamburger {
+        display: none !important;
+    }
+
+    .VPNavScreen {
+        display: none !important;
+    }
+
+    .VPNavBarMenu {
+        display: flex !important;
+    }
+
+    .VPNavBarSearch .DocSearch-Button,
+    .VPNavBarSearch button,
+    .VPNavBarSearch .VPLocalSearchBox button {
+        min-width: unset !important;
+    }
+
+    body:has(.VPHome) .VPNavBar .content {
+        padding: 0 16px !important;
+        max-width: none !important;
+    }
+
+    .VPSidebarItem .items .link {
+        padding: 6px 0 !important;
+    }
+
+    .VPLocalNav .outline {
+        background: var(--vp-c-bg) !important;
+    }
 }
