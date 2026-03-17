@@ -1,61 +1,178 @@
 # Images
 
-Generate images using DALL-E and other AI image providers.
+Generate images using AI providers like OpenAI and Gemini.
 
 ::: tip Prism Reference
-Atlas image generation wraps Prism's image API. For detailed documentation including all provider options, see [Prism Image Generation](https://prismphp.com/core-concepts/image-generation.html).
+Atlas image generation wraps Prism's image API. For provider-specific options and advanced usage, see [Prism Image Generation](https://prismphp.com/core-concepts/image-generation.html).
 :::
+
+## Supported Providers
+
+Currently **OpenAI** and **Gemini** support image generation through Prism. **xAI** also offers image generation (`grok-imagine-image`) but Prism support is not yet available — check [Prism releases](https://github.com/prism-php/prism/releases) for updates.
 
 ## Basic Usage
 
 ```php
 use Atlasphp\Atlas\Atlas;
+use Prism\Prism\Enums\Provider;
 
 $response = Atlas::image()
-    ->using('openai', 'dall-e-3')
+    ->using(Provider::OpenAI, 'gpt-image-1')
     ->withPrompt('A sunset over mountains')
     ->generate();
 
 $image = $response->firstImage();
-$url = $image->url;
 ```
 
-## With Options
+The `using()` method accepts either the `Prism\Prism\Enums\Provider` enum or a plain string:
 
 ```php
-$response = Atlas::image()
-    ->using('openai', 'dall-e-3')
-    ->withPrompt('A photorealistic portrait of a robot')
-    ->withProviderOptions([
-        'size' => '1024x1024',
-        'quality' => 'hd',
-        'style' => 'vivid',
-    ])
-    ->generate();
+->using(Provider::OpenAI, 'gpt-image-1')  // enum
+->using('openai', 'gpt-image-1')          // string
 ```
+
+## Accessing the Image
+
+Different providers and models return images in different formats. Use `rawContent()` to get the image bytes regardless of how the provider returned them:
+
+```php
+$image = $response->firstImage();
+
+// Get the raw image bytes — works with any provider/model
+$content = $image->rawContent();
+```
+
+Under the hood, `rawContent()` handles the conversion automatically:
+- If the provider returned **base64**, it decodes it
+- If the provider returned a **URL**, it fetches the content via HTTP
+
+You can also access the underlying data directly:
+
+```php
+$image->base64;    // Base64 string or null
+$image->url;       // URL string or null
+$image->mimeType;  // MIME type or null (Gemini sets this, OpenAI does not)
+```
+
+### What Each Model Returns
+
+<div class="full-width-table">
+
+| Provider | Model | Returns | Notes |
+|----------|-------|---------|-------|
+| OpenAI | `dall-e-3` | URL by default | Set `response_format` to `'b64_json'` for base64 |
+| OpenAI | `dall-e-2` | URL by default | Set `response_format` to `'b64_json'` for base64 |
+| OpenAI | `gpt-image-1` | Always base64 | `response_format` is ignored |
+| Gemini | All image models | Always base64 | Also returns `mimeType` |
+
+</div>
 
 ## Saving Images
 
 ```php
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+
 $response = Atlas::image()
-    ->using('openai', 'dall-e-3')
+    ->using(Provider::OpenAI, 'gpt-image-1')
     ->withPrompt('A serene lake at dawn')
     ->generate();
 
 $image = $response->firstImage();
-
-// Save from URL
-$imageContent = file_get_contents($image->url);
-Storage::put('images/lake.png', $imageContent);
-
-// Or using Laravel's HTTP client
-Http::sink(storage_path('images/lake.png'))->get($image->url);
+$filename = 'generated/' . Str::uuid() . '.png';
+Storage::put($filename, $image->rawContent());
 ```
 
-## Example: Complete Image Generation
+## Provider Options
+
+Pass provider-specific options via `withProviderOptions()`.
+
+### OpenAI — DALL-E 3
+
+```php
+$response = Atlas::image()
+    ->using(Provider::OpenAI, 'dall-e-3')
+    ->withPrompt('A photorealistic portrait')
+    ->withProviderOptions([
+        'size' => '1024x1024',            // '1024x1024', '1792x1024', '1024x1792'
+        'quality' => 'hd',                // 'standard' or 'hd'
+        'style' => 'vivid',              // 'vivid' or 'natural'
+        'response_format' => 'b64_json', // 'url' (default) or 'b64_json'
+    ])
+    ->generate();
+```
+
+### OpenAI — GPT-Image-1
+
+GPT-Image-1 always returns base64 — `response_format` has no effect.
+
+```php
+$response = Atlas::image()
+    ->using(Provider::OpenAI, 'gpt-image-1')
+    ->withPrompt('A minimalist logo')
+    ->withProviderOptions([
+        'size' => '1024x1024',               // '1024x1024', '1536x1024', '1024x1536'
+        'quality' => 'high',                 // 'auto', 'high', 'medium', 'low'
+        'background' => 'transparent',       // 'auto', 'transparent', 'opaque'
+        'output_format' => 'png',            // 'png', 'jpeg', 'webp'
+        'output_compression' => 80,          // 0-100 (jpeg/webp only)
+    ])
+    ->generate();
+```
+
+### Gemini
+
+Gemini always returns base64 with mimeType included.
+
+```php
+$response = Atlas::image()
+    ->using(Provider::Gemini, 'gemini-2.0-flash-preview-image-generation')
+    ->withPrompt('A watercolor landscape')
+    ->generate();
+
+$image = $response->firstImage();
+$image->mimeType; // e.g., 'image/png'
+```
+
+## Revised Prompts
+
+OpenAI may modify your prompt for safety or quality. The revised prompt is available on the response:
+
+```php
+$image = $response->firstImage();
+
+if ($image->hasRevisedPrompt()) {
+    echo $image->revisedPrompt; // What the model actually used
+}
+```
+
+## Multiple Images
+
+Some providers support generating multiple images in a single request via the `n` option:
+
+```php
+$response = Atlas::image()
+    ->using(Provider::OpenAI, 'dall-e-3')
+    ->withPrompt('A watercolor painting of flowers')
+    ->withProviderOptions(['n' => 2])
+    ->generate();
+
+// Access all images
+foreach ($response->images as $image) {
+    Storage::put('image-' . uniqid() . '.png', $image->rawContent());
+}
+
+// Helpers
+$response->imageCount();   // 2
+$response->hasImages();    // true
+$response->firstImage();   // First image (convenience for single-image use)
+```
+
+## Example: Controller
 
 ```php
 use Atlasphp\Atlas\Atlas;
+use Prism\Prism\Enums\Provider;
 
 class ImageController extends Controller
 {
@@ -66,16 +183,14 @@ class ImageController extends Controller
         ]);
 
         $response = Atlas::image()
-            ->using('openai', 'dall-e-3')
+            ->using(Provider::OpenAI, 'gpt-image-1')
             ->withPrompt($request->input('prompt'))
             ->withProviderOptions(['size' => '1024x1024'])
             ->generate();
 
-        // Save to storage
         $image = $response->firstImage();
         $filename = 'generated/' . Str::uuid() . '.png';
-        $content = file_get_contents($image->url);
-        Storage::put($filename, $content);
+        Storage::put($filename, $image->rawContent());
 
         return response()->json([
             'url' => Storage::url($filename),
@@ -115,39 +230,6 @@ class LogImageGeneration implements PipelineContract
 }
 
 $registry->register('image.after_generate', LogImageGeneration::class);
-```
-
-## API Reference
-
-```php
-// Image generation fluent API
-Atlas::image()
-    ->using(string $provider, string $model)              // Set provider and model
-    ->withPrompt(string $prompt)                          // Image description
-    ->withProviderOptions(array $options)                 // Provider-specific options
-    ->withMetadata(array $metadata)                       // Pipeline metadata
-    ->generate(): ImageResponse;
-
-// Response properties (ImageResponse)
-$response->images;                    // array of GeneratedImage objects
-$response->firstImage();              // First image (or null)
-$response->firstImage()->url;         // URL to generated image
-$response->firstImage()->base64;      // Base64 encoded image (if requested)
-$response->firstImage()->revisedPrompt;  // Revised prompt (if modified by provider)
-
-// Common provider options (via withProviderOptions)
-// OpenAI DALL-E 3:
-->withProviderOptions([
-    'size' => '1024x1024',       // '1024x1024', '1792x1024', '1024x1792'
-    'quality' => 'standard',     // 'standard' or 'hd'
-    'style' => 'vivid',          // 'vivid' or 'natural'
-    'response_format' => 'url',  // 'url' or 'b64_json'
-])
-
-// Common sizes (passed via providerOptions)
-'size' => '1024x1024'   // Square (DALL-E 3)
-'size' => '1792x1024'   // Landscape (DALL-E 3)
-'size' => '1024x1792'   // Portrait (DALL-E 3)
 ```
 
 ## Next Steps
