@@ -9,13 +9,14 @@ declare(strict_types=1);
  * to the sandbox chat interface.
  */
 
+use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Http\Request;
 
 // Bootstrap the application
 $app = require __DIR__.'/../bootstrap.php';
 
 // Create and handle the request
-$kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
+$kernel = $app->make(Kernel::class);
 
 $response = $kernel->handle(
     $request = Request::capture()

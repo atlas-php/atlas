@@ -8,6 +8,7 @@ use App\Services\ThreadStorageService;
 use Atlasphp\Atlas\Agents\Contracts\AgentRegistryContract;
 use Atlasphp\Atlas\Atlas;
 use Illuminate\Console\Command;
+use Prism\Prism\Text\Response;
 
 /**
  * Interactive chat command for testing agent conversations.
@@ -253,7 +254,7 @@ class ChatCommand extends Command
     /**
      * Display response details.
      *
-     * @param  \Prism\Prism\Text\Response  $response
+     * @param  Response  $response
      */
     protected function displayResponseDetails($response): void
     {

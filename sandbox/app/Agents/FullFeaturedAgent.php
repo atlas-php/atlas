@@ -8,6 +8,7 @@ use App\Tools\CalculatorTool;
 use App\Tools\DateTimeTool;
 use App\Tools\WeatherTool;
 use Atlasphp\Atlas\Agents\AgentDefinition;
+use Prism\Prism\Tool;
 
 /**
  * Full-featured agent demonstrating all tool types.
@@ -137,7 +138,7 @@ PROMPT;
      * }
      * ```
      *
-     * @return array<int, \Prism\Prism\Tool>
+     * @return array<int, Tool>
      */
     public function mcpTools(): array
     {

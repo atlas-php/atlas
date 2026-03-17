@@ -10,6 +10,7 @@ use Atlasphp\Atlas\Tools\Support\ToolResult;
 use Atlasphp\Atlas\Tools\ToolDefinition;
 use DateTimeImmutable;
 use DateTimeZone;
+use Prism\Prism\Contracts\Schema;
 
 /**
  * DateTime tool for current date and time information.
@@ -37,7 +38,7 @@ class DateTimeTool extends ToolDefinition
     /**
      * Get the tool parameters.
      *
-     * @return array<int, \Prism\Prism\Contracts\Schema>
+     * @return array<int, Schema>
      */
     public function parameters(): array
     {

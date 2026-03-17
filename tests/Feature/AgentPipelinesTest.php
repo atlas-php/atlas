@@ -15,6 +15,7 @@ use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Testing\TextResponseFake;
 use Prism\Prism\Text\Response as PrismResponse;
+use Prism\Prism\Tool;
 use Prism\Prism\ValueObjects\Meta;
 use Prism\Prism\ValueObjects\Usage;
 
@@ -38,7 +39,7 @@ test('agent.on_error pipeline can provide recovery response', function () {
     {
         public function handle(mixed $data, Closure $next): mixed
         {
-            throw new \RuntimeException('Simulated API error');
+            throw new RuntimeException('Simulated API error');
         }
     }, priority: 100);
 
@@ -85,7 +86,7 @@ test('agent.on_error pipeline receives exception details', function () {
     {
         public function handle(mixed $data, Closure $next): mixed
         {
-            throw new \RuntimeException('Test error message');
+            throw new RuntimeException('Test error message');
         }
     }, priority: 100);
 
@@ -138,7 +139,7 @@ test('agent.on_error pipeline ignores invalid recovery types', function () {
     {
         public function handle(mixed $data, Closure $next): mixed
         {
-            throw new \RuntimeException('API Error');
+            throw new RuntimeException('API Error');
         }
     }, priority: 100);
 
@@ -288,7 +289,7 @@ test('agent.context.validate pipeline can throw validation errors', function () 
         public function handle(mixed $data, Closure $next): mixed
         {
             if ($data['context']->getMeta('user_id') === null) {
-                throw new \InvalidArgumentException('user_id is required in context metadata');
+                throw new InvalidArgumentException('user_id is required in context metadata');
             }
 
             return $next($data);
@@ -372,7 +373,7 @@ test('tool.after_resolve pipeline receives built Prism tools', function () {
 
     expect($capturedPrismTools)->toBeArray();
     expect($capturedPrismTools)->not->toBeEmpty();
-    expect($capturedPrismTools[0])->toBeInstanceOf(\Prism\Prism\Tool::class);
+    expect($capturedPrismTools[0])->toBeInstanceOf(Tool::class);
     expect($capturedPrismTools[0]->name())->toBe('test_tool');
 });
 
@@ -389,7 +390,7 @@ test('pipeline handler throwing exception propagates as AgentException', functio
     {
         public function handle(mixed $data, Closure $next): mixed
         {
-            throw new \RuntimeException('Handler exploded');
+            throw new RuntimeException('Handler exploded');
         }
     });
 
@@ -416,7 +417,7 @@ test('conditional handler condition throwing exception propagates as AgentExcept
                 return $next($data);
             }
         },
-        fn (array $data) => throw new \RuntimeException('Condition exploded')
+        fn (array $data) => throw new RuntimeException('Condition exploded')
     );
 
     $agent = new TestAgentNoSystemPrompt;
@@ -623,7 +624,7 @@ test('runtime middleware can provide error recovery', function () {
     {
         public function handle(mixed $data, Closure $next): mixed
         {
-            throw new \RuntimeException('Simulated failure');
+            throw new RuntimeException('Simulated failure');
         }
     }, priority: 100);
 

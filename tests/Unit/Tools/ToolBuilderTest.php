@@ -2,8 +2,12 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Agents\AgentDefinition;
+use Atlasphp\Atlas\Contracts\PipelineContract;
 use Atlasphp\Atlas\Pipelines\PipelineRegistry;
 use Atlasphp\Atlas\Pipelines\PipelineRunner;
+use Atlasphp\Atlas\Tests\Fixtures\ConfigurableToolContract;
+use Atlasphp\Atlas\Tests\Fixtures\RawToolContract;
 use Atlasphp\Atlas\Tests\Fixtures\TestAgent;
 use Atlasphp\Atlas\Tests\Fixtures\TestTool;
 use Atlasphp\Atlas\Tools\Services\ToolBuilder;
@@ -34,7 +38,7 @@ test('it builds tools for agent', function () {
 });
 
 test('it returns empty array for agent without tools', function () {
-    $agent = new class extends \Atlasphp\Atlas\Agents\AgentDefinition
+    $agent = new class extends AgentDefinition
     {
         public function key(): string
         {
@@ -121,7 +125,7 @@ test('tool handler returns text property from executor result', function () {
 });
 
 test('it builds tool manually for non-ToolDefinition implementations', function () {
-    $tool = new \Atlasphp\Atlas\Tests\Fixtures\RawToolContract;
+    $tool = new RawToolContract;
     $context = new ToolContext;
 
     $tools = $this->builder->buildFromInstances([$tool], $context);
@@ -131,7 +135,7 @@ test('it builds tool manually for non-ToolDefinition implementations', function 
 });
 
 test('manually built tool has correct name and description', function () {
-    $tool = new \Atlasphp\Atlas\Tests\Fixtures\RawToolContract;
+    $tool = new RawToolContract;
     $context = new ToolContext;
 
     $tools = $this->builder->buildFromInstances([$tool], $context);
@@ -151,7 +155,7 @@ test('manually built tool has correct name and description', function () {
 });
 
 test('manually built tool handler executes correctly', function () {
-    $tool = new \Atlasphp\Atlas\Tests\Fixtures\RawToolContract;
+    $tool = new RawToolContract;
     $context = new ToolContext;
 
     $tools = $this->builder->buildFromInstances([$tool], $context);
@@ -170,7 +174,7 @@ test('manually built tool handler executes correctly', function () {
 });
 
 test('manually built tool includes parameters', function () {
-    $tool = new \Atlasphp\Atlas\Tests\Fixtures\RawToolContract;
+    $tool = new RawToolContract;
     $context = new ToolContext;
 
     $tools = $this->builder->buildFromInstances([$tool], $context);
@@ -187,7 +191,7 @@ test('manually built tool includes parameters', function () {
 });
 
 test('tool implementing ConfiguresPrismTool has configurePrismTool called', function () {
-    $tool = new \Atlasphp\Atlas\Tests\Fixtures\ConfigurableToolContract;
+    $tool = new ConfigurableToolContract;
     $context = new ToolContext;
 
     $tools = $this->builder->buildFromInstances([$tool], $context);
@@ -206,7 +210,7 @@ test('tool implementing ConfiguresPrismTool has configurePrismTool called', func
 test('ConfiguresPrismTool is only called for non-ToolDefinition tools', function () {
     // ToolDefinition tools use toPrismTool() directly
     // ConfiguresPrismTool is called in buildPrismToolManually()
-    $tool = new \Atlasphp\Atlas\Tests\Fixtures\ConfigurableToolContract;
+    $tool = new ConfigurableToolContract;
     $context = new ToolContext;
 
     // This should work without errors
@@ -283,9 +287,6 @@ test('tool.after_resolve pipeline can modify prism_tools', function () {
 });
 
 // Pipeline Handler Classes for Tests
-
-use Atlasphp\Atlas\Contracts\PipelineContract;
-use Closure;
 
 class ToolBeforeResolveCapturingHandler implements PipelineContract
 {

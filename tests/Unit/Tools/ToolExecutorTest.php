@@ -2,10 +2,12 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Contracts\PipelineContract;
 use Atlasphp\Atlas\Pipelines\PipelineRegistry;
 use Atlasphp\Atlas\Pipelines\PipelineRunner;
 use Atlasphp\Atlas\Tests\Fixtures\TestTool;
 use Atlasphp\Atlas\Tools\Contracts\ToolContract;
+use Atlasphp\Atlas\Tools\Exceptions\ToolException;
 use Atlasphp\Atlas\Tools\Services\ToolExecutor;
 use Atlasphp\Atlas\Tools\Support\ToolContext;
 use Atlasphp\Atlas\Tools\Support\ToolResult;
@@ -48,7 +50,7 @@ test('it returns error result on exception', function () {
 
         public function handle(array $params, ToolContext $context): ToolResult
         {
-            throw new \RuntimeException('Tool failed');
+            throw new RuntimeException('Tool failed');
         }
     };
 
@@ -122,7 +124,7 @@ test('it handles tool exception gracefully', function () {
 
         public function handle(array $params, ToolContext $context): ToolResult
         {
-            throw new \Atlasphp\Atlas\Tools\Exceptions\ToolException('Specific error');
+            throw new ToolException('Specific error');
         }
     };
 
@@ -153,7 +155,7 @@ test('it includes tool name in generic error', function () {
 
         public function handle(array $params, ToolContext $context): ToolResult
         {
-            throw new \Exception('Generic error');
+            throw new Exception('Generic error');
         }
     };
 
@@ -197,7 +199,7 @@ test('it runs tool.on_error pipeline when tool throws generic exception', functi
 
         public function handle(array $params, ToolContext $context): ToolResult
         {
-            throw new \RuntimeException('Tool execution failed');
+            throw new RuntimeException('Tool execution failed');
         }
     };
 
@@ -209,7 +211,7 @@ test('it runs tool.on_error pipeline when tool throws generic exception', functi
     expect(ToolErrorCapturingHandler::$data['tool'])->toBe($tool);
     expect(ToolErrorCapturingHandler::$data['params'])->toBe(['arg1' => 'value1']);
     expect(ToolErrorCapturingHandler::$data['context'])->toBe($context);
-    expect(ToolErrorCapturingHandler::$data['exception'])->toBeInstanceOf(\RuntimeException::class);
+    expect(ToolErrorCapturingHandler::$data['exception'])->toBeInstanceOf(RuntimeException::class);
     expect(ToolErrorCapturingHandler::$data['exception']->getMessage())->toBe('Tool execution failed');
 });
 
@@ -246,7 +248,7 @@ test('it runs tool.on_error pipeline when tool throws ToolException', function (
 
         public function handle(array $params, ToolContext $context): ToolResult
         {
-            throw new \Atlasphp\Atlas\Tools\Exceptions\ToolException('Specific tool error');
+            throw new ToolException('Specific tool error');
         }
     };
 
@@ -255,7 +257,7 @@ test('it runs tool.on_error pipeline when tool throws ToolException', function (
 
     expect(ToolErrorCapturingHandler::$called)->toBeTrue();
     expect(ToolErrorCapturingHandler::$data)->not->toBeNull();
-    expect(ToolErrorCapturingHandler::$data['exception'])->toBeInstanceOf(\Atlasphp\Atlas\Tools\Exceptions\ToolException::class);
+    expect(ToolErrorCapturingHandler::$data['exception'])->toBeInstanceOf(ToolException::class);
     expect(ToolErrorCapturingHandler::$data['exception']->getMessage())->toBe('Specific tool error');
 });
 
@@ -432,7 +434,7 @@ test('tool.before_execute and tool.after_execute pipelines run in correct order'
 
 // Pipeline Handler Classes for Tests
 
-class ToolBeforeExecuteCapturingHandler implements \Atlasphp\Atlas\Contracts\PipelineContract
+class ToolBeforeExecuteCapturingHandler implements PipelineContract
 {
     public static bool $called = false;
 
@@ -444,7 +446,7 @@ class ToolBeforeExecuteCapturingHandler implements \Atlasphp\Atlas\Contracts\Pip
         self::$data = null;
     }
 
-    public function handle(mixed $data, \Closure $next): mixed
+    public function handle(mixed $data, Closure $next): mixed
     {
         self::$called = true;
         self::$data = $data;
@@ -453,7 +455,7 @@ class ToolBeforeExecuteCapturingHandler implements \Atlasphp\Atlas\Contracts\Pip
     }
 }
 
-class ToolBeforeExecuteModifyingHandler implements \Atlasphp\Atlas\Contracts\PipelineContract
+class ToolBeforeExecuteModifyingHandler implements PipelineContract
 {
     public static bool $called = false;
 
@@ -462,7 +464,7 @@ class ToolBeforeExecuteModifyingHandler implements \Atlasphp\Atlas\Contracts\Pip
         self::$called = false;
     }
 
-    public function handle(mixed $data, \Closure $next): mixed
+    public function handle(mixed $data, Closure $next): mixed
     {
         self::$called = true;
         $data['params']['input'] = 'modified by pipeline';
@@ -471,7 +473,7 @@ class ToolBeforeExecuteModifyingHandler implements \Atlasphp\Atlas\Contracts\Pip
     }
 }
 
-class ToolAfterExecuteCapturingHandler implements \Atlasphp\Atlas\Contracts\PipelineContract
+class ToolAfterExecuteCapturingHandler implements PipelineContract
 {
     public static bool $called = false;
 
@@ -483,7 +485,7 @@ class ToolAfterExecuteCapturingHandler implements \Atlasphp\Atlas\Contracts\Pipe
         self::$data = null;
     }
 
-    public function handle(mixed $data, \Closure $next): mixed
+    public function handle(mixed $data, Closure $next): mixed
     {
         self::$called = true;
         self::$data = $data;
@@ -492,7 +494,7 @@ class ToolAfterExecuteCapturingHandler implements \Atlasphp\Atlas\Contracts\Pipe
     }
 }
 
-class ToolAfterExecuteStatusCheckHandler implements \Atlasphp\Atlas\Contracts\PipelineContract
+class ToolAfterExecuteStatusCheckHandler implements PipelineContract
 {
     public static bool $succeeded = false;
 
@@ -504,7 +506,7 @@ class ToolAfterExecuteStatusCheckHandler implements \Atlasphp\Atlas\Contracts\Pi
         self::$failed = false;
     }
 
-    public function handle(mixed $data, \Closure $next): mixed
+    public function handle(mixed $data, Closure $next): mixed
     {
         self::$succeeded = $data['result']->succeeded();
         self::$failed = $data['result']->failed();
@@ -513,7 +515,7 @@ class ToolAfterExecuteStatusCheckHandler implements \Atlasphp\Atlas\Contracts\Pi
     }
 }
 
-class ToolAfterExecuteModifyingHandler implements \Atlasphp\Atlas\Contracts\PipelineContract
+class ToolAfterExecuteModifyingHandler implements PipelineContract
 {
     public static bool $called = false;
 
@@ -522,7 +524,7 @@ class ToolAfterExecuteModifyingHandler implements \Atlasphp\Atlas\Contracts\Pipe
         self::$called = false;
     }
 
-    public function handle(mixed $data, \Closure $next): mixed
+    public function handle(mixed $data, Closure $next): mixed
     {
         self::$called = true;
         $data['result'] = ToolResult::text('Modified by after_execute pipeline');
@@ -541,9 +543,9 @@ class ToolExecutionOrderTracker
     }
 }
 
-class ToolBeforeExecuteOrderHandler implements \Atlasphp\Atlas\Contracts\PipelineContract
+class ToolBeforeExecuteOrderHandler implements PipelineContract
 {
-    public function handle(mixed $data, \Closure $next): mixed
+    public function handle(mixed $data, Closure $next): mixed
     {
         ToolExecutionOrderTracker::$order[] = 'before_execute';
 
@@ -551,9 +553,9 @@ class ToolBeforeExecuteOrderHandler implements \Atlasphp\Atlas\Contracts\Pipelin
     }
 }
 
-class ToolAfterExecuteOrderHandler implements \Atlasphp\Atlas\Contracts\PipelineContract
+class ToolAfterExecuteOrderHandler implements PipelineContract
 {
-    public function handle(mixed $data, \Closure $next): mixed
+    public function handle(mixed $data, Closure $next): mixed
     {
         ToolExecutionOrderTracker::$order[] = 'after_execute';
 
@@ -561,7 +563,7 @@ class ToolAfterExecuteOrderHandler implements \Atlasphp\Atlas\Contracts\Pipeline
     }
 }
 
-class ToolErrorCapturingHandler implements \Atlasphp\Atlas\Contracts\PipelineContract
+class ToolErrorCapturingHandler implements PipelineContract
 {
     public static bool $called = false;
 
@@ -573,7 +575,7 @@ class ToolErrorCapturingHandler implements \Atlasphp\Atlas\Contracts\PipelineCon
         self::$data = null;
     }
 
-    public function handle(mixed $data, \Closure $next): mixed
+    public function handle(mixed $data, Closure $next): mixed
     {
         self::$called = true;
         self::$data = $data;

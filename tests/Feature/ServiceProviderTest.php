@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Agents\Contracts\AgentContract;
 use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
 use Atlasphp\Atlas\Agents\Contracts\AgentRegistryContract;
 use Atlasphp\Atlas\Agents\Services\AgentExecutor;
@@ -11,8 +12,11 @@ use Atlasphp\Atlas\Agents\Services\AgentResolver;
 use Atlasphp\Atlas\Agents\Services\MediaConverter;
 use Atlasphp\Atlas\Agents\Services\SystemPromptBuilder;
 use Atlasphp\Atlas\AtlasManager;
+use Atlasphp\Atlas\AtlasServiceProvider;
 use Atlasphp\Atlas\Pipelines\PipelineRegistry;
 use Atlasphp\Atlas\Pipelines\PipelineRunner;
+use Atlasphp\Atlas\Support\ClassDiscovery;
+use Atlasphp\Atlas\Tools\Contracts\ToolContract;
 use Atlasphp\Atlas\Tools\Contracts\ToolRegistryContract;
 use Atlasphp\Atlas\Tools\Services\ToolBuilder;
 use Atlasphp\Atlas\Tools\Services\ToolExecutor;
@@ -138,7 +142,7 @@ test('configurePipelinesState uses registry from container', function () {
     config(['atlas.pipelines.enabled' => false]);
 
     // Create fresh provider and call configurePipelinesState via reflection
-    $provider = new \Atlasphp\Atlas\AtlasServiceProvider($this->app);
+    $provider = new AtlasServiceProvider($this->app);
 
     // First register and boot to define pipelines
     $provider->register();
@@ -189,7 +193,7 @@ test('discoverAgents skips when path is null', function () {
     $registry->clear();
 
     // Call actual service provider method via reflection
-    $provider = new \Atlasphp\Atlas\AtlasServiceProvider($this->app);
+    $provider = new AtlasServiceProvider($this->app);
     $provider->register();
 
     $reflection = new ReflectionClass($provider);
@@ -209,7 +213,7 @@ test('discoverAgents skips when path is empty string', function () {
     $registry->clear();
 
     // Call actual service provider method via reflection
-    $provider = new \Atlasphp\Atlas\AtlasServiceProvider($this->app);
+    $provider = new AtlasServiceProvider($this->app);
     $provider->register();
 
     $reflection = new ReflectionClass($provider);
@@ -229,7 +233,7 @@ test('discoverAgents skips when namespace is null', function () {
     $registry->clear();
 
     // Call actual service provider method via reflection
-    $provider = new \Atlasphp\Atlas\AtlasServiceProvider($this->app);
+    $provider = new AtlasServiceProvider($this->app);
     $provider->register();
 
     $reflection = new ReflectionClass($provider);
@@ -251,7 +255,7 @@ test('discoverAgents registers discovered agents via service provider', function
 
     // Get the already-registered provider
     $providers = $this->app->getLoadedProviders();
-    $providerClass = \Atlasphp\Atlas\AtlasServiceProvider::class;
+    $providerClass = AtlasServiceProvider::class;
 
     // Create provider bound to existing app (uses existing singletons)
     $provider = new $providerClass($this->app);
@@ -273,12 +277,12 @@ test('discoverAgents foreach loop registers each agent class', function () {
     $registry = $this->app->make(AgentRegistryContract::class);
     $registry->clear();
 
-    $discovery = $this->app->make(\Atlasphp\Atlas\Support\ClassDiscovery::class);
+    $discovery = $this->app->make(ClassDiscovery::class);
 
     $agents = $discovery->discover(
         config('atlas.agents.path'),
         config('atlas.agents.namespace'),
-        \Atlasphp\Atlas\Agents\Contracts\AgentContract::class
+        AgentContract::class
     );
 
     // Verify we have agents to register
@@ -307,24 +311,24 @@ test('discoverAgents uses ClassDiscovery from container', function () {
     config(['atlas.agents.namespace' => 'Atlasphp\\Atlas\\Tests\\Fixtures']);
 
     // Create a mock discovery that tracks calls
-    $mockDiscovery = Mockery::mock(\Atlasphp\Atlas\Support\ClassDiscovery::class);
+    $mockDiscovery = Mockery::mock(ClassDiscovery::class);
     $mockDiscovery->shouldReceive('discover')
         ->once()
         ->with(
             __DIR__.'/../Fixtures',
             'Atlasphp\\Atlas\\Tests\\Fixtures',
-            \Atlasphp\Atlas\Agents\Contracts\AgentContract::class
+            AgentContract::class
         )
         ->andReturn([]);
 
     // Bind mock AFTER the app is already bootstrapped (overwrites existing singleton)
-    $this->app->instance(\Atlasphp\Atlas\Support\ClassDiscovery::class, $mockDiscovery);
+    $this->app->instance(ClassDiscovery::class, $mockDiscovery);
 
     $registry = $this->app->make(AgentRegistryContract::class);
     $registry->clear();
 
     // Create provider and call method directly (don't call register() as it rebinds)
-    $provider = new \Atlasphp\Atlas\AtlasServiceProvider($this->app);
+    $provider = new AtlasServiceProvider($this->app);
 
     $reflection = new ReflectionClass($provider);
     $method = $reflection->getMethod('discoverAgents');
@@ -342,7 +346,7 @@ test('discoverTools skips when path is null', function () {
     $registry->clear();
 
     // Call actual service provider method via reflection
-    $provider = new \Atlasphp\Atlas\AtlasServiceProvider($this->app);
+    $provider = new AtlasServiceProvider($this->app);
     $provider->register();
 
     $reflection = new ReflectionClass($provider);
@@ -362,7 +366,7 @@ test('discoverTools skips when path is empty string', function () {
     $registry->clear();
 
     // Call actual service provider method via reflection
-    $provider = new \Atlasphp\Atlas\AtlasServiceProvider($this->app);
+    $provider = new AtlasServiceProvider($this->app);
     $provider->register();
 
     $reflection = new ReflectionClass($provider);
@@ -382,7 +386,7 @@ test('discoverTools skips when namespace is null', function () {
     $registry->clear();
 
     // Call actual service provider method via reflection
-    $provider = new \Atlasphp\Atlas\AtlasServiceProvider($this->app);
+    $provider = new AtlasServiceProvider($this->app);
     $provider->register();
 
     $reflection = new ReflectionClass($provider);
@@ -403,7 +407,7 @@ test('discoverTools registers discovered tools via service provider', function (
     $registry->clear();
 
     // Create provider bound to existing app (uses existing singletons)
-    $provider = new \Atlasphp\Atlas\AtlasServiceProvider($this->app);
+    $provider = new AtlasServiceProvider($this->app);
 
     $reflection = new ReflectionClass($provider);
     $method = $reflection->getMethod('discoverTools');
@@ -422,12 +426,12 @@ test('discoverTools foreach loop registers each tool class', function () {
     $registry = $this->app->make(ToolRegistryContract::class);
     $registry->clear();
 
-    $discovery = $this->app->make(\Atlasphp\Atlas\Support\ClassDiscovery::class);
+    $discovery = $this->app->make(ClassDiscovery::class);
 
     $tools = $discovery->discover(
         config('atlas.tools.path'),
         config('atlas.tools.namespace'),
-        \Atlasphp\Atlas\Tools\Contracts\ToolContract::class
+        ToolContract::class
     );
 
     // Verify we have tools to register
@@ -456,24 +460,24 @@ test('discoverTools uses ClassDiscovery from container', function () {
     config(['atlas.tools.namespace' => 'Atlasphp\\Atlas\\Tests\\Fixtures']);
 
     // Create a mock discovery that tracks calls
-    $mockDiscovery = Mockery::mock(\Atlasphp\Atlas\Support\ClassDiscovery::class);
+    $mockDiscovery = Mockery::mock(ClassDiscovery::class);
     $mockDiscovery->shouldReceive('discover')
         ->once()
         ->with(
             __DIR__.'/../Fixtures',
             'Atlasphp\\Atlas\\Tests\\Fixtures',
-            \Atlasphp\Atlas\Tools\Contracts\ToolContract::class
+            ToolContract::class
         )
         ->andReturn([]);
 
     // Bind mock AFTER the app is already bootstrapped (overwrites existing singleton)
-    $this->app->instance(\Atlasphp\Atlas\Support\ClassDiscovery::class, $mockDiscovery);
+    $this->app->instance(ClassDiscovery::class, $mockDiscovery);
 
     $registry = $this->app->make(ToolRegistryContract::class);
     $registry->clear();
 
     // Create provider and call method directly (don't call register() as it rebinds)
-    $provider = new \Atlasphp\Atlas\AtlasServiceProvider($this->app);
+    $provider = new AtlasServiceProvider($this->app);
 
     $reflection = new ReflectionClass($provider);
     $method = $reflection->getMethod('discoverTools');

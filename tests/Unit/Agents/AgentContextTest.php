@@ -3,6 +3,11 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Agents\Support\AgentContext;
+use Atlasphp\Atlas\Contracts\PipelineContract;
+use Prism\Prism\Tool;
+use Prism\Prism\ValueObjects\Media\Image;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
 
 test('it creates with default empty values', function () {
     $context = new AgentContext;
@@ -117,7 +122,7 @@ test('it creates with default empty prismMedia', function () {
 });
 
 test('it creates with provided prismMedia', function () {
-    $mockImage = Mockery::mock(\Prism\Prism\ValueObjects\Media\Image::class);
+    $mockImage = Mockery::mock(Image::class);
 
     $context = new AgentContext(prismMedia: [$mockImage]);
 
@@ -125,7 +130,7 @@ test('it creates with provided prismMedia', function () {
 });
 
 test('it reports hasAttachments correctly', function () {
-    $mockImage = Mockery::mock(\Prism\Prism\ValueObjects\Media\Image::class);
+    $mockImage = Mockery::mock(Image::class);
 
     $empty = new AgentContext;
     $withMedia = new AgentContext(prismMedia: [$mockImage]);
@@ -146,8 +151,8 @@ test('it creates with prismCalls', function () {
 });
 
 test('it creates with prismMessages', function () {
-    $mockUserMessage = Mockery::mock(\Prism\Prism\ValueObjects\Messages\UserMessage::class);
-    $mockAssistantMessage = Mockery::mock(\Prism\Prism\ValueObjects\Messages\AssistantMessage::class);
+    $mockUserMessage = Mockery::mock(UserMessage::class);
+    $mockAssistantMessage = Mockery::mock(AssistantMessage::class);
 
     $context = new AgentContext(prismMessages: [$mockUserMessage, $mockAssistantMessage]);
 
@@ -155,7 +160,7 @@ test('it creates with prismMessages', function () {
 });
 
 test('it reports hasPrismMessages correctly', function () {
-    $mockUserMessage = Mockery::mock(\Prism\Prism\ValueObjects\Messages\UserMessage::class);
+    $mockUserMessage = Mockery::mock(UserMessage::class);
 
     $empty = new AgentContext;
     $withPrismMessages = new AgentContext(prismMessages: [$mockUserMessage]);
@@ -165,7 +170,7 @@ test('it reports hasPrismMessages correctly', function () {
 });
 
 test('hasMessages returns true for either array or prism messages', function () {
-    $mockUserMessage = Mockery::mock(\Prism\Prism\ValueObjects\Messages\UserMessage::class);
+    $mockUserMessage = Mockery::mock(UserMessage::class);
 
     $empty = new AgentContext;
     $withArrayMessages = new AgentContext(messages: [['role' => 'user', 'content' => 'Hi']]);
@@ -201,7 +206,7 @@ test('it reports hasSchemaCall correctly', function () {
 });
 
 test('it gets schema from prism calls', function () {
-    $mockSchema = new \stdClass;
+    $mockSchema = new stdClass;
     $mockSchema->name = 'test-schema';
 
     $contextWithSchema = new AgentContext(prismCalls: [
@@ -218,7 +223,7 @@ test('it gets schema from prism calls', function () {
 });
 
 test('it gets prism calls without schema', function () {
-    $mockSchema = new \stdClass;
+    $mockSchema = new stdClass;
 
     $context = new AgentContext(prismCalls: [
         ['method' => 'withMaxSteps', 'args' => [10]],
@@ -291,7 +296,7 @@ test('it creates with default empty mcpTools', function () {
 });
 
 test('it creates with provided mcpTools', function () {
-    $mockTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $mockTool = Mockery::mock(Tool::class);
 
     $context = new AgentContext(mcpTools: [$mockTool]);
 
@@ -299,7 +304,7 @@ test('it creates with provided mcpTools', function () {
 });
 
 test('it reports hasMcpTools correctly', function () {
-    $mockTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $mockTool = Mockery::mock(Tool::class);
 
     $empty = new AgentContext;
     $withMcpTools = new AgentContext(mcpTools: [$mockTool]);
@@ -309,8 +314,8 @@ test('it reports hasMcpTools correctly', function () {
 });
 
 test('it creates with multiple mcpTools', function () {
-    $mockTool1 = Mockery::mock(\Prism\Prism\Tool::class);
-    $mockTool2 = Mockery::mock(\Prism\Prism\Tool::class);
+    $mockTool1 = Mockery::mock(Tool::class);
+    $mockTool2 = Mockery::mock(Tool::class);
 
     $context = new AgentContext(mcpTools: [$mockTool1, $mockTool2]);
 
@@ -503,9 +508,9 @@ test('fromArray sets non-serializable properties to empty arrays', function () {
 });
 
 test('toArray excludes runtime-only properties', function () {
-    $mockImage = Mockery::mock(\Prism\Prism\ValueObjects\Media\Image::class);
-    $mockMessage = Mockery::mock(\Prism\Prism\ValueObjects\Messages\UserMessage::class);
-    $mockTool = Mockery::mock(\Prism\Prism\Tool::class);
+    $mockImage = Mockery::mock(Image::class);
+    $mockMessage = Mockery::mock(UserMessage::class);
+    $mockTool = Mockery::mock(Tool::class);
 
     $context = new AgentContext(
         messages: [['role' => 'user', 'content' => 'Hello']],
@@ -613,7 +618,7 @@ test('getMiddlewareFor returns empty array for unknown event', function () {
 });
 
 test('toArray serializes class-string middleware only', function () {
-    $mockHandler = Mockery::mock(\Atlasphp\Atlas\Contracts\PipelineContract::class);
+    $mockHandler = Mockery::mock(PipelineContract::class);
 
     $context = new AgentContext(middleware: [
         'agent.before_execute' => [

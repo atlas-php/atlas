@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas;
 
 use Atlasphp\Atlas\Pipelines\PipelineRunner;
 use Generator;
+use Prism\Prism\Text\PendingRequest;
 
 /**
  * Dynamic proxy for Prism pending requests.
@@ -15,7 +16,7 @@ use Generator;
  * before/after pipeline hooks for observability. All other methods
  * pass through directly, enabling full Prism API access.
  *
- * @mixin \Prism\Prism\Text\PendingRequest
+ * @mixin PendingRequest
  * @mixin \Prism\Prism\Structured\PendingRequest
  * @mixin \Prism\Prism\Embeddings\PendingRequest
  * @mixin \Prism\Prism\Images\PendingRequest

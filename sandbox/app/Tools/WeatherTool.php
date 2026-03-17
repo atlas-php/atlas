@@ -8,6 +8,7 @@ use Atlasphp\Atlas\Tools\Support\ToolContext;
 use Atlasphp\Atlas\Tools\Support\ToolParameter;
 use Atlasphp\Atlas\Tools\Support\ToolResult;
 use Atlasphp\Atlas\Tools\ToolDefinition;
+use Prism\Prism\Contracts\Schema;
 
 /**
  * Mock weather tool for testing.
@@ -35,7 +36,7 @@ class WeatherTool extends ToolDefinition
     /**
      * Get the tool parameters.
      *
-     * @return array<int, \Prism\Prism\Contracts\Schema>
+     * @return array<int, Schema>
      */
     public function parameters(): array
     {

@@ -18,7 +18,7 @@ use Prism\Prism\Facades\Prism;
  * Provides the primary API for agents and Prism operations. Acts as a thin
  * wrapper around Prism with pipeline support for observability.
  *
- * @mixin \Prism\Prism\Facades\Prism
+ * @mixin Prism
  */
 class AtlasManager
 {
@@ -71,6 +71,26 @@ class AtlasManager
             $this->agentExecutor,
             $agent,
         );
+    }
+
+    /**
+     * Start building an embeddings request with optional config defaults.
+     *
+     * When `atlas.embeddings.provider` and `atlas.embeddings.model` are set,
+     * they are applied automatically. Users can still override with ->using().
+     */
+    public function embeddings(): PrismProxy
+    {
+        $prismRequest = Prism::embeddings();
+
+        $provider = config('atlas.embeddings.provider');
+        $model = config('atlas.embeddings.model');
+
+        if ($provider !== null && $model !== null) {
+            $prismRequest = $prismRequest->using($provider, $model);
+        }
+
+        return new PrismProxy($this->pipelineRunner, $prismRequest, 'embeddings');
     }
 
     /**
