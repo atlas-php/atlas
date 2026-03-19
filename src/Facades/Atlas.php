@@ -15,6 +15,15 @@ use Atlasphp\Atlas\Pending\ModerateRequest;
 use Atlasphp\Atlas\Pending\ProviderRequest;
 use Atlasphp\Atlas\Pending\TextRequest;
 use Atlasphp\Atlas\Pending\VideoRequest;
+use Atlasphp\Atlas\Testing\AtlasFake;
+use Atlasphp\Atlas\Testing\AudioResponseFake;
+use Atlasphp\Atlas\Testing\EmbeddingsResponseFake;
+use Atlasphp\Atlas\Testing\ImageResponseFake;
+use Atlasphp\Atlas\Testing\ModerationResponseFake;
+use Atlasphp\Atlas\Testing\StreamResponseFake;
+use Atlasphp\Atlas\Testing\StructuredResponseFake;
+use Atlasphp\Atlas\Testing\TextResponseFake;
+use Atlasphp\Atlas\Testing\VideoResponseFake;
 use Illuminate\Support\Facades\Facade;
 
 /**
@@ -34,6 +43,23 @@ use Illuminate\Support\Facades\Facade;
  */
 class Atlas extends Facade
 {
+    /**
+     * Replace the bound instance with an AtlasFake for testing.
+     *
+     * @param  array<int, TextResponseFake|StreamResponseFake|StructuredResponseFake|ImageResponseFake|AudioResponseFake|VideoResponseFake|EmbeddingsResponseFake|ModerationResponseFake>  $responses
+     */
+    public static function fake(array $responses = []): AtlasFake
+    {
+        $fake = new AtlasFake(
+            app(ProviderRegistryContract::class),
+            $responses,
+        );
+
+        static::swap($fake);
+
+        return $fake;
+    }
+
     protected static function getFacadeAccessor(): string
     {
         return AtlasManager::class;
