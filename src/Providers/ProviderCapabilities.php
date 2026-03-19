@@ -24,6 +24,8 @@ class ProviderCapabilities
         public readonly bool $vision = false,
         public readonly bool $toolCalling = false,
         public readonly bool $providerTools = false,
+        public readonly bool $models = false,
+        public readonly bool $voices = false,
     ) {}
 
     /**

@@ -78,6 +78,122 @@ it('fires ProviderRequestFailed on failure', function () {
     });
 });
 
+// ─── GET ─────────────────────────────────────────────────────────────────────
+
+it('sends a get request and returns json data', function () {
+    Http::fake([
+        'https://api.test.com/models' => Http::response(['data' => [['id' => 'gpt-4o']]], 200),
+    ]);
+
+    Event::fake();
+
+    $client = app(HttpClient::class);
+    $data = $client->get('https://api.test.com/models', ['Authorization' => 'Bearer test'], 60);
+
+    expect($data)->toBe(['data' => [['id' => 'gpt-4o']]]);
+
+    Event::assertDispatched(ProviderRequesting::class);
+    Event::assertDispatched(ProviderResponded::class);
+});
+
+it('fires ProviderRequestFailed on get failure', function () {
+    Http::fake([
+        '*' => Http::response(['error' => 'unauthorized'], 401),
+    ]);
+
+    Event::fake();
+
+    $client = app(HttpClient::class);
+
+    try {
+        $client->get('https://api.test.com/models', [], 60);
+    } catch (RequestException) {
+        // expected
+    }
+
+    Event::assertDispatched(ProviderRequestFailed::class);
+});
+
+// ─── POST RAW ────────────────────────────────────────────────────────────────
+
+it('sends a postRaw request and returns raw body string', function () {
+    Http::fake([
+        'https://api.test.com/audio/speech' => Http::response('binary-audio-data', 200),
+    ]);
+
+    Event::fake();
+
+    $client = app(HttpClient::class);
+    $body = $client->postRaw('https://api.test.com/audio/speech', [], ['model' => 'tts-1'], 60);
+
+    expect($body)->toBe('binary-audio-data');
+
+    Event::assertDispatched(ProviderRequesting::class);
+    Event::assertDispatched(ProviderResponded::class);
+});
+
+it('fires ProviderRequestFailed on postRaw failure', function () {
+    Http::fake([
+        '*' => Http::response('error', 500),
+    ]);
+
+    Event::fake();
+
+    $client = app(HttpClient::class);
+
+    try {
+        $client->postRaw('https://api.test.com/audio/speech', [], [], 60);
+    } catch (RequestException) {
+        // expected
+    }
+
+    Event::assertDispatched(ProviderRequestFailed::class);
+});
+
+// ─── POST MULTIPART ──────────────────────────────────────────────────────────
+
+it('sends a postMultipart request and returns json data', function () {
+    Http::fake([
+        'https://api.test.com/audio/transcriptions' => Http::response(['text' => 'hello'], 200),
+    ]);
+
+    Event::fake();
+
+    $client = app(HttpClient::class);
+    $data = $client->postMultipart(
+        'https://api.test.com/audio/transcriptions',
+        ['Authorization' => 'Bearer test'],
+        ['model' => 'whisper-1'],
+        [['name' => 'file', 'contents' => 'fake-audio', 'filename' => 'audio.mp3']],
+        60,
+    );
+
+    expect($data)->toBe(['text' => 'hello']);
+
+    Event::assertDispatched(ProviderRequesting::class);
+    Event::assertDispatched(ProviderResponded::class);
+});
+
+it('fires ProviderRequestFailed on postMultipart failure', function () {
+    Http::fake([
+        '*' => Http::response(['error' => 'bad'], 400),
+    ]);
+
+    Event::fake();
+
+    $client = app(HttpClient::class);
+
+    try {
+        $client->postMultipart('https://api.test.com/audio/transcriptions', [], [], [], 60);
+    } catch (RequestException) {
+        // expected
+    }
+
+    Event::assertDispatched(ProviderRequestFailed::class);
+});
+
+// ─── STREAM ──────────────────────────────────────────────────────────────────
+
 it('fires ProviderRequestFailed on stream failure', function () {
     Http::fake([
         '*' => Http::response(['error' => 'unauthorized'], 401),

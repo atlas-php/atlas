@@ -5,9 +5,13 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas;
 
 use Atlasphp\Atlas\Contracts\ProviderRegistryContract;
+use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Providers\HttpClient;
+use Atlasphp\Atlas\Providers\OpenAi\OpenAiDriver;
+use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Providers\ProviderRegistry;
 use Illuminate\Contracts\Events\Dispatcher;
+use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
 
 /**
@@ -37,10 +41,28 @@ class AtlasServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        $this->registerProviders();
+
         if ($this->app->runningInConsole()) {
             $this->publishes([
                 __DIR__.'/../config/atlas.php' => config_path('atlas.php'),
             ], 'atlas-config');
         }
+    }
+
+    /**
+     * Register built-in provider factories.
+     */
+    protected function registerProviders(): void
+    {
+        /** @var ProviderRegistryContract $registry */
+        $registry = $this->app->make(ProviderRegistryContract::class);
+
+        $registry->register(Provider::OpenAI->value, function (Application $app, array $config) {
+            return new OpenAiDriver(
+                config: ProviderConfig::fromArray($config),
+                http: $app->make(HttpClient::class),
+            );
+        });
     }
 }

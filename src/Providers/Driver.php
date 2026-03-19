@@ -13,6 +13,7 @@ use Atlasphp\Atlas\Providers\Handlers\AudioHandler;
 use Atlasphp\Atlas\Providers\Handlers\EmbedHandler;
 use Atlasphp\Atlas\Providers\Handlers\ImageHandler;
 use Atlasphp\Atlas\Providers\Handlers\ModerateHandler;
+use Atlasphp\Atlas\Providers\Handlers\ProviderHandler;
 use Atlasphp\Atlas\Providers\Handlers\TextHandler;
 use Atlasphp\Atlas\Providers\Handlers\VideoHandler;
 use Atlasphp\Atlas\Requests\AudioRequest;
@@ -137,19 +138,27 @@ abstract class Driver
 
     public function models(): ModelList
     {
-        throw UnsupportedFeatureException::make('models', $this->name());
+        return $this->providerHandler('models')->models();
     }
 
     public function voices(): VoiceList
     {
-        throw UnsupportedFeatureException::make('voices', $this->name());
+        return $this->providerHandler('voices')->voices();
     }
 
     public function validate(): bool
     {
-        $this->models();
+        return $this->providerHandler('validate')->validate();
+    }
 
-        return true;
+    /**
+     * Resolve the provider handler for interrogation endpoints.
+     *
+     * @throws UnsupportedFeatureException
+     */
+    protected function providerHandler(string $feature = 'provider'): ProviderHandler
+    {
+        throw UnsupportedFeatureException::make($feature, $this->name());
     }
 
     // ─── Capabilities & Identity ─────────────────────────────────────────

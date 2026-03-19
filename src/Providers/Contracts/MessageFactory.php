@@ -36,7 +36,7 @@ interface MessageFactory
     public function toolResult(ToolResultMessage $message): array;
 
     /**
-     * @return array<int, array<string, mixed>>
+     * @return array<string, mixed>
      */
     public function buildAll(TextRequest $request, MediaResolver $media): array;
 }

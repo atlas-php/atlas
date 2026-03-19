@@ -87,4 +87,4 @@ it('throws UnsupportedFeatureException for voices', function () {
 
 it('throws UnsupportedFeatureException for validate on base driver', function () {
     createTestDriver()->validate();
-})->throws(UnsupportedFeatureException::class, 'models');
+})->throws(UnsupportedFeatureException::class, 'validate');
