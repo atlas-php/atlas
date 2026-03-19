@@ -6,113 +6,67 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Pipelines Configuration
+    | Default Provider & Model
     |--------------------------------------------------------------------------
     |
-    | Control whether Atlas pipelines are enabled. Pipelines provide
-    | middleware hooks for observability, logging, and custom processing
-    | during agent execution and API operations.
+    | The default provider and model used when none is explicitly specified.
     |
     */
 
-    'pipelines' => [
-        'enabled' => env('ATLAS_PIPELINES_ENABLED', true),
+    'default' => [
+        'provider' => env('ATLAS_DEFAULT_PROVIDER', 'openai'),
+        'model' => env('ATLAS_DEFAULT_MODEL', 'gpt-4o'),
     ],
 
     /*
     |--------------------------------------------------------------------------
-    | Events Configuration
+    | Provider Configurations
     |--------------------------------------------------------------------------
     |
-    | Control whether Atlas dispatches Laravel events at lifecycle points.
-    | Events are informational (observe-only) and fire AFTER pipelines.
-    | Disable to eliminate event overhead when not using listeners.
+    | Configuration for each AI provider. Each provider requires at minimum
+    | an API key. Additional provider-specific options can be set here.
     |
     */
 
-    'events' => [
-        'enabled' => env('ATLAS_EVENTS_ENABLED', true),
-    ],
+    'providers' => [
 
-    /*
-    |--------------------------------------------------------------------------
-    | Agents Configuration (auto-discovery) *optional
-    |--------------------------------------------------------------------------
-    |
-    | Configure where Atlas should look for agent definitions.
-    | Agents can also be registered programmatically via the AgentRegistry.
-    |
-    */
-
-    'agents' => [
-        'path' => app_path('Agents'),
-        'namespace' => 'App\\Agents',
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Tools Configuration (auto-discovery) *optional
-    |--------------------------------------------------------------------------
-    |
-    | Configure where Atlas should look for tool definitions.
-    | Tools can also be registered programmatically via the ToolRegistry.
-    |
-    */
-
-    'tools' => [
-        'path' => app_path('Tools'),
-        'namespace' => 'App\\Tools',
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Embeddings Configuration
-    |--------------------------------------------------------------------------
-    |
-    | Configure default provider/model for embeddings and optional caching.
-    | When provider and model are set, Atlas::embeddings() uses them
-    | automatically. Users can still override with ->using().
-    |
-    */
-
-    /*
-    |--------------------------------------------------------------------------
-    | Models Configuration
-    |--------------------------------------------------------------------------
-    |
-    | Configure caching for the provider model listing service. When enabled,
-    | fetched model lists are cached to minimize API calls. Models don't
-    | change frequently, so a longer TTL is recommended.
-    |
-    */
-
-    'models' => [
-        'cache' => [
-            'enabled' => env('ATLAS_MODELS_CACHE_ENABLED', true),
-            'store' => env('ATLAS_MODELS_CACHE_STORE'),
-            'ttl' => (int) env('ATLAS_MODELS_CACHE_TTL', 3600),
+        'openai' => [
+            'api_key' => env('OPENAI_API_KEY'),
+            'url' => env('OPENAI_URL', 'https://api.openai.com/v1'),
+            'organization' => env('OPENAI_ORGANIZATION'),
         ],
+
+        'anthropic' => [
+            'api_key' => env('ANTHROPIC_API_KEY'),
+            'url' => env('ANTHROPIC_URL', 'https://api.anthropic.com/v1'),
+            'version' => env('ANTHROPIC_VERSION', '2024-10-22'),
+        ],
+
+        'google' => [
+            'api_key' => env('GOOGLE_API_KEY'),
+            'url' => env('GOOGLE_URL', 'https://generativelanguage.googleapis.com'),
+        ],
+
+        'xai' => [
+            'api_key' => env('XAI_API_KEY'),
+            'url' => env('XAI_URL', 'https://api.x.ai/v1'),
+        ],
+
     ],
 
     /*
     |--------------------------------------------------------------------------
-    | Embeddings Configuration
+    | Timeout Configuration
     |--------------------------------------------------------------------------
     |
-    | Configure default provider/model for embeddings and optional caching.
-    | When provider and model are set, Atlas::embeddings() uses them
-    | automatically. Users can still override with ->using().
+    | Request timeout values in seconds for different operation types.
     |
     */
 
-    'embeddings' => [
-        'provider' => env('ATLAS_EMBEDDING_PROVIDER'),
-        'model' => env('ATLAS_EMBEDDING_MODEL'),
-        'cache' => [
-            'enabled' => env('ATLAS_EMBEDDING_CACHE_ENABLED', false),
-            'store' => env('ATLAS_EMBEDDING_CACHE_STORE'),
-            'ttl' => (int) env('ATLAS_EMBEDDING_CACHE_TTL', 3600),
-        ],
+    'timeout' => [
+        'default' => (int) env('ATLAS_TIMEOUT', 60),
+        'reasoning' => (int) env('ATLAS_TIMEOUT_REASONING', 300),
+        'media' => (int) env('ATLAS_TIMEOUT_MEDIA', 120),
     ],
 
 ];
