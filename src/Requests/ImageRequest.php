@@ -21,5 +21,6 @@ class ImageRequest
         public readonly ?string $quality,
         public readonly ?string $format,
         public readonly array $providerOptions = [],
+        public readonly int $count = 1,
     ) {}
 }

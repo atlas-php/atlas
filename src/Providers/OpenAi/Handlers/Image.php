@@ -32,7 +32,7 @@ class Image implements ImageHandler
             'prompt' => $request->instructions,
             'size' => $request->size,
             'quality' => $request->quality,
-            'n' => 1,
+            'n' => $request->count,
         ], fn (mixed $v): bool => $v !== null);
 
         $body = array_merge($body, $request->providerOptions);
@@ -44,13 +44,32 @@ class Image implements ImageHandler
             timeout: $this->config->mediaTimeout,
         );
 
-        /** @var array<string, mixed> $first */
-        $first = $data['data'][0] ?? [];
+        /** @var array<int, array<string, mixed>> $results */
+        $results = $data['data'] ?? [];
+
+        if ($request->count === 1) {
+            $first = $results[0] ?? [];
+
+            return new ImageResponse(
+                url: (string) ($first['url'] ?? $first['b64_json'] ?? ''),
+                revisedPrompt: isset($first['revised_prompt']) ? (string) $first['revised_prompt'] : null,
+                meta: ['model' => $request->model],
+            );
+        }
+
+        $urls = array_map(
+            fn (array $item): string => (string) ($item['url'] ?? $item['b64_json'] ?? ''),
+            $results,
+        );
+
+        $revisedPrompt = isset($results[0]['revised_prompt'])
+            ? (string) $results[0]['revised_prompt']
+            : null;
 
         return new ImageResponse(
-            url: (string) ($first['url'] ?? $first['b64_json'] ?? ''),
-            revisedPrompt: isset($first['revised_prompt']) ? (string) $first['revised_prompt'] : null,
-            meta: ['model' => $request->model],
+            url: $urls,
+            revisedPrompt: $revisedPrompt,
+            meta: ['model' => $request->model, 'count' => count($results)],
         );
     }
 

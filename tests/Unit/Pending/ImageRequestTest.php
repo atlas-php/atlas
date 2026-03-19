@@ -30,6 +30,7 @@ it('returns $this from fluent methods', function () {
     expect($pending->withQuality('hd'))->toBe($pending);
     expect($pending->withFormat('png'))->toBe($pending);
     expect($pending->withProviderOptions([]))->toBe($pending);
+    expect($pending->withCount(3))->toBe($pending);
 });
 
 it('dispatches asImage to driver', function () {
@@ -77,4 +78,14 @@ it('builds request with correct values', function () {
     expect($request->quality)->toBe('hd');
     expect($request->format)->toBe('png');
     expect($request->providerOptions)->toBe(['style' => 'vivid']);
+    expect($request->count)->toBe(1);
+});
+
+it('builds request with custom count', function () {
+    $request = createImagePending()
+        ->instructions('A cat')
+        ->withCount(3)
+        ->buildRequest();
+
+    expect($request->count)->toBe(3);
 });

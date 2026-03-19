@@ -29,6 +29,8 @@ class ImageRequest
 
     protected ?string $format = null;
 
+    protected int $count = 1;
+
     /** @var array<string, mixed> */
     protected array $providerOptions = [];
 
@@ -76,6 +78,13 @@ class ImageRequest
         return $this;
     }
 
+    public function withCount(int $count): static
+    {
+        $this->count = $count;
+
+        return $this;
+    }
+
     /**
      * @param  array<string, mixed>  $options
      */
@@ -112,6 +121,7 @@ class ImageRequest
             quality: $this->quality,
             format: $this->format,
             providerOptions: $this->providerOptions,
+            count: $this->count,
         );
     }
 }

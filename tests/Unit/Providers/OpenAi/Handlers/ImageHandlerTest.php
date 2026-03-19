@@ -51,6 +51,42 @@ it('sends image generation request to /v1/images/generations', function () {
     });
 });
 
+it('returns multiple URLs when count > 1', function () {
+    Http::fake([
+        'api.openai.com/v1/images/generations' => Http::response([
+            'data' => [
+                ['url' => 'https://images.openai.com/img1.png', 'revised_prompt' => 'A cat v1'],
+                ['url' => 'https://images.openai.com/img2.png', 'revised_prompt' => 'A cat v2'],
+                ['url' => 'https://images.openai.com/img3.png', 'revised_prompt' => 'A cat v3'],
+            ],
+        ]),
+    ]);
+
+    $request = new ImageRequest(
+        model: 'dall-e-2',
+        instructions: 'A cat',
+        media: [],
+        size: '512x512',
+        quality: null,
+        format: null,
+        count: 3,
+    );
+
+    $handler = makeImageHandler();
+    $response = $handler->image($request);
+
+    expect($response->url)->toBeArray();
+    expect($response->url)->toHaveCount(3);
+    expect($response->url[0])->toBe('https://images.openai.com/img1.png');
+    expect($response->url[1])->toBe('https://images.openai.com/img2.png');
+    expect($response->url[2])->toBe('https://images.openai.com/img3.png');
+    expect($response->meta['count'])->toBe(3);
+
+    Http::assertSent(function ($request) {
+        return $request['n'] === 3;
+    });
+});
+
 it('throws UnsupportedFeatureException for imageToText', function () {
     $handler = makeImageHandler();
 
