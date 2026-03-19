@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Responses;
 
+use Atlasphp\Atlas\Concerns\StoresMedia;
+
 /**
  * Response from a video generation request.
  */
 class VideoResponse
 {
+    use StoresMedia;
+
     /**
      * @param  array<string, mixed>  $meta
      */
@@ -16,5 +20,19 @@ class VideoResponse
         public readonly string $url,
         public readonly ?int $duration = null,
         public readonly array $meta = [],
+        public readonly ?string $format = null,
     ) {}
+
+    /**
+     * @return array{type: string, value: string, disk?: string|null}
+     */
+    protected function mediaSource(): array
+    {
+        return ['type' => 'url', 'value' => $this->url];
+    }
+
+    protected function defaultExtension(): string
+    {
+        return $this->format ?? 'mp4';
+    }
 }

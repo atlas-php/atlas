@@ -69,4 +69,20 @@ return [
         'media' => (int) env('ATLAS_TIMEOUT_MEDIA', 120),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Media Storage
+    |--------------------------------------------------------------------------
+    |
+    | Configure how Atlas stores media files (images, audio, video).
+    | Used by Input::store() and Response::store() methods.
+    |
+    */
+
+    'storage' => [
+        'disk' => env('ATLAS_STORAGE_DISK'),
+        'prefix' => 'atlas',
+        'visibility' => 'private',
+    ],
+
 ];

@@ -4,14 +4,26 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Input;
 
+use Atlasphp\Atlas\Concerns\StoresMedia;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use RuntimeException;
+
 /**
  * Abstract base class for media input types.
  *
- * Provides common storage for different input sources (URL, path, base64, file ID)
- * and factory methods in concrete subclasses.
+ * Provides common storage for different input sources (URL, path, base64, file ID,
+ * Laravel Storage, UploadedFile) and persistence via the StoresMedia trait.
  */
 abstract class Input
 {
+    use StoresMedia {
+        store as traitStore;
+        storeAs as traitStoreAs;
+        storePublicly as traitStorePublicly;
+        storePubliclyAs as traitStorePubliclyAs;
+    }
+
     protected ?string $url = null;
 
     protected ?string $path = null;
@@ -24,7 +36,13 @@ abstract class Input
 
     protected ?string $disk = null;
 
+    protected ?string $storagePath = null;
+
+    protected ?UploadedFile $uploadedFile = null;
+
     abstract public function mimeType(): string;
+
+    // ─── Source Checks ───────────────────────────────────────────────────
 
     public function isUrl(): bool
     {
@@ -45,6 +63,18 @@ abstract class Input
     {
         return $this->fileId !== null;
     }
+
+    public function isStorage(): bool
+    {
+        return $this->storagePath !== null;
+    }
+
+    public function isUpload(): bool
+    {
+        return $this->uploadedFile !== null;
+    }
+
+    // ─── Accessors ───────────────────────────────────────────────────────
 
     public function url(): ?string
     {
@@ -69,5 +99,111 @@ abstract class Input
     public function disk(): ?string
     {
         return $this->disk;
+    }
+
+    public function storagePath(): ?string
+    {
+        return $this->storagePath;
+    }
+
+    public function storageDisk(): ?string
+    {
+        return $this->disk;
+    }
+
+    // ─── Storage (overrides trait to update internal state) ──────────────
+
+    /**
+     * Store with auto-generated filename and update internal reference.
+     */
+    public function store(?string $disk = null): string
+    {
+        return $this->storeAs($this->generatePath(), $disk);
+    }
+
+    /**
+     * Store at a specific path and update internal reference.
+     *
+     * After calling this, the Input references the stored copy. Subsequent
+     * calls to contents()/toBase64() read from storage, and the MediaResolver
+     * will use the persisted file instead of the original source.
+     */
+    public function storeAs(string $path, ?string $disk = null): string
+    {
+        $disk = $disk ?? $this->defaultDisk();
+
+        Storage::disk($disk)->put($path, $this->contents(), $this->defaultVisibility());
+
+        $this->storagePath = $path;
+        $this->disk = $disk;
+        $this->url = null;
+        $this->path = null;
+        $this->base64Data = null;
+        $this->uploadedFile = null;
+
+        return $path;
+    }
+
+    /**
+     * Store with public visibility and update internal reference.
+     */
+    public function storePublicly(?string $disk = null): string
+    {
+        return $this->storePubliclyAs($this->generatePath(), $disk);
+    }
+
+    /**
+     * Store at a specific path with public visibility and update internal reference.
+     */
+    public function storePubliclyAs(string $path, ?string $disk = null): string
+    {
+        $disk = $disk ?? $this->defaultDisk();
+
+        Storage::disk($disk)->put($path, $this->contents(), 'public');
+
+        $this->storagePath = $path;
+        $this->disk = $disk;
+        $this->url = null;
+        $this->path = null;
+        $this->base64Data = null;
+        $this->uploadedFile = null;
+
+        return $path;
+    }
+
+    // ─── StoresMedia Implementation ──────────────────────────────────────
+
+    /**
+     * @return array{type: string, value: string, disk?: string|null}
+     */
+    protected function mediaSource(): array
+    {
+        if ($this->base64Data !== null) {
+            return ['type' => 'base64', 'value' => $this->base64Data];
+        }
+
+        if ($this->storagePath !== null) {
+            return ['type' => 'storage', 'value' => $this->storagePath, 'disk' => $this->disk];
+        }
+
+        if ($this->path !== null) {
+            return ['type' => 'path', 'value' => $this->path];
+        }
+
+        if ($this->uploadedFile !== null) {
+            $realPath = $this->uploadedFile->getRealPath();
+
+            if ($realPath === false) {
+                throw new RuntimeException('Cannot resolve uploaded file path.');
+            }
+
+            return ['type' => 'uploaded', 'value' => $realPath];
+        }
+
+        if ($this->url !== null) {
+            return ['type' => 'url', 'value' => $this->url];
+        }
+
+        throw new RuntimeException('Cannot resolve media source — no source set.');
     }
 }

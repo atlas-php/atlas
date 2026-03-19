@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Input;
 
+use Illuminate\Http\UploadedFile;
+
 /**
  * Represents an image input from various sources.
  */
@@ -28,7 +30,7 @@ class Image extends Input
     public static function fromStorage(string $path, ?string $disk = null): self
     {
         $input = new self;
-        $input->path = $path;
+        $input->storagePath = $path;
         $input->disk = $disk;
 
         return $input;
@@ -51,8 +53,28 @@ class Image extends Input
         return $input;
     }
 
+    public static function fromUpload(UploadedFile $file): self
+    {
+        $input = new self;
+        $input->uploadedFile = $file;
+        $input->mime = $file->getMimeType();
+
+        return $input;
+    }
+
     public function mimeType(): string
     {
         return $this->mime ?? 'image/jpeg';
+    }
+
+    protected function defaultExtension(): string
+    {
+        return match ($this->mimeType()) {
+            'image/png' => 'png',
+            'image/gif' => 'gif',
+            'image/webp' => 'webp',
+            'image/svg+xml' => 'svg',
+            default => 'jpg',
+        };
     }
 }

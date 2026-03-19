@@ -35,6 +35,21 @@ class MediaResolver implements MediaResolverContract
             ];
         }
 
+        if ($input->isStorage()) {
+            $raw = Storage::disk($input->storageDisk())->get($input->storagePath());
+
+            if ($raw === null) {
+                throw new InvalidArgumentException("Cannot read media file from storage: {$input->storagePath()}");
+            }
+
+            $data = base64_encode($raw);
+
+            return [
+                'type' => 'input_image',
+                'image_url' => "data:{$input->mimeType()};base64,{$data}",
+            ];
+        }
+
         if ($input->isPath()) {
             $raw = file_get_contents($input->path());
 
@@ -50,25 +65,19 @@ class MediaResolver implements MediaResolverContract
             ];
         }
 
-        if ($input->isFileId()) {
-            return [
-                'type' => 'input_file',
-                'file_id' => $input->fileId(),
-            ];
-        }
-
-        if ($input->disk() !== null) {
-            $raw = Storage::disk($input->disk())->get($input->path());
-
-            if ($raw === null) {
-                throw new InvalidArgumentException("Cannot read media file from storage: {$input->path()}");
-            }
-
-            $data = base64_encode($raw);
+        if ($input->isUpload()) {
+            $data = $input->toBase64();
 
             return [
                 'type' => 'input_image',
                 'image_url' => "data:{$input->mimeType()};base64,{$data}",
+            ];
+        }
+
+        if ($input->isFileId()) {
+            return [
+                'type' => 'input_file',
+                'file_id' => $input->fileId(),
             ];
         }
 

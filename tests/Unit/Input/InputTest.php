@@ -42,9 +42,10 @@ it('creates an Image from file ID', function () {
 it('creates an Image from storage', function () {
     $image = Image::fromStorage('photos/test.jpg', 's3');
 
-    expect($image->isPath())->toBeTrue();
-    expect($image->path())->toBe('photos/test.jpg');
-    expect($image->disk())->toBe('s3');
+    expect($image->isStorage())->toBeTrue();
+    expect($image->isPath())->toBeFalse();
+    expect($image->storagePath())->toBe('photos/test.jpg');
+    expect($image->storageDisk())->toBe('s3');
 });
 
 it('returns correct default mime types', function () {

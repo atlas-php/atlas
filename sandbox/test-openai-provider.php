@@ -12,7 +12,6 @@ declare(strict_types=1);
  *
  * Requires OPENAI_API_KEY in sandbox/.env
  */
-
 $app = require __DIR__.'/bootstrap.php';
 
 // Ensure provider config from env
@@ -29,13 +28,14 @@ use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Input\Audio;
 use Atlasphp\Atlas\Messages\AssistantMessage;
 use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Messages\ToolResultMessage;
 use Atlasphp\Atlas\Messages\UserMessage;
-use Atlasphp\Atlas\Providers\Tools\WebSearch;
 use Atlasphp\Atlas\Schema\Schema;
 use Atlasphp\Atlas\Tools\ToolDefinition;
+use Illuminate\Support\Facades\Storage;
 
 // ─── Test Runner ─────────────────────────────────────────────────────────────
 
@@ -52,10 +52,10 @@ function test(string $name, Closure $fn): void
 
     try {
         $fn();
-        echo "✓";
+        echo '✓';
         $passed++;
     } catch (Throwable $e) {
-        echo "✗ FAIL";
+        echo '✗ FAIL';
         $msg = get_class($e).': '.$e->getMessage();
         $errors[] = "  {$name}: {$msg}";
         $failed++;
@@ -79,7 +79,7 @@ function assert_true(bool $condition, string $message): void
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
-echo "╔══════════════════════════════════════════════╗";
+echo '╔══════════════════════════════════════════════╗';
 echo "\n║   OpenAI Provider Integration Tests          ║";
 echo "\n╚══════════════════════════════════════════════╝";
 
@@ -258,9 +258,9 @@ test('nested structured schema', function () {
         ->withSchema($schema)
         ->asStructured();
 
-    assert_true($r->structured['name'] === 'Apple Inc', "Company should be Apple Inc");
-    assert_true($r->structured['address']['city'] === 'Cupertino', "City should be Cupertino");
-    assert_true($r->structured['address']['country'] === 'USA', "Country should be USA");
+    assert_true($r->structured['name'] === 'Apple Inc', 'Company should be Apple Inc');
+    assert_true($r->structured['address']['city'] === 'Cupertino', 'City should be Cupertino');
+    assert_true($r->structured['address']['country'] === 'USA', 'Country should be USA');
 });
 
 // ── Tool Calling ─────────────────────────────────────────────────────────────
@@ -302,7 +302,7 @@ test('tool call detected with correct call_id format', function () {
 
 test('tool call loop replay (multi-round)', function () {
     // Simulate a complete tool call round trip using conversation history
-    $toolCallId = 'call_test_' . bin2hex(random_bytes(8));
+    $toolCallId = 'call_test_'.bin2hex(random_bytes(8));
 
     $r = Atlas::text(Provider::OpenAI, 'gpt-4o-mini')
         ->instructions('You are a helpful assistant with a weather tool.')
@@ -388,12 +388,12 @@ test('speech-to-text round trip (TTS → STT)', function () {
         ->asAudio();
 
     // Write to temp file
-    $tmpFile = tempnam(sys_get_temp_dir(), 'atlas_stt_') . '.mp3';
+    $tmpFile = tempnam(sys_get_temp_dir(), 'atlas_stt_').'.mp3';
     file_put_contents($tmpFile, base64_decode($audio->data));
 
     // Transcribe
     $r = Atlas::audio(Provider::OpenAI, 'whisper-1')
-        ->withMedia([\Atlasphp\Atlas\Input\Audio::fromPath($tmpFile)])
+        ->withMedia([Audio::fromPath($tmpFile)])
         ->asText();
 
     unlink($tmpFile);
@@ -416,7 +416,7 @@ test('single embedding', function () {
         ->asEmbeddings();
 
     assert_true(count($r->embeddings) === 1, 'Should have 1 embedding');
-    assert_true(count($r->embeddings[0]) === 1536, "Should have 1536 dimensions, got: " . count($r->embeddings[0]));
+    assert_true(count($r->embeddings[0]) === 1536, 'Should have 1536 dimensions, got: '.count($r->embeddings[0]));
     assert_true($r->usage->inputTokens > 0, 'Should report input tokens');
     assert_true($r->usage->outputTokens === 0, 'Embeddings should have 0 output tokens');
 
@@ -500,7 +500,7 @@ echo "\n\n── Provider Interrogation";
 test('models list returns known models', function () {
     $models = Atlas::provider(Provider::OpenAI)->models();
 
-    assert_true(count($models->models) > 10, 'Should have many models, got: ' . count($models->models));
+    assert_true(count($models->models) > 10, 'Should have many models, got: '.count($models->models));
     assert_true(in_array('gpt-4o', $models->models, true), 'Should include gpt-4o');
     assert_true(in_array('gpt-4o-mini', $models->models, true), 'Should include gpt-4o-mini');
     assert_true(in_array('dall-e-3', $models->models, true), 'Should include dall-e-3');
@@ -559,6 +559,143 @@ test('provider options pass through', function () {
         ->asText();
 
     assert_true($r->text !== '', 'Should work with provider options');
+});
+
+// ── Media Storage ────────────────────────────────────────────────────────────
+
+echo "\n\n── Media Storage";
+
+test('store generated image to disk', function () {
+    Storage::fake('test');
+
+    $response = Atlas::image(Provider::OpenAI, 'dall-e-3')
+        ->instructions('A small red dot')
+        ->withSize('1024x1024')
+        ->asImage();
+
+    assert_true($response->url !== '', 'Should have image URL');
+
+    // Store the image via the URL
+    $path = $response->storeAs('generated/image.png', 'test');
+
+    assert_true($path === 'generated/image.png', "Path should match, got: {$path}");
+    Storage::disk('test')->assertExists('generated/image.png');
+
+    $stored = Storage::disk('test')->get('generated/image.png');
+    assert_true(strlen($stored) > 100, 'Stored image should have substantial content ('.strlen($stored).' bytes)');
+});
+
+test('store generated audio to disk', function () {
+    Storage::fake('test');
+
+    $response = Atlas::audio(Provider::OpenAI, 'tts-1')
+        ->instructions('Hello from Atlas.')
+        ->withVoice('nova')
+        ->withFormat('mp3')
+        ->asAudio();
+
+    $path = $response->storeAs('audio/greeting.mp3', 'test');
+
+    assert_true($path === 'audio/greeting.mp3', "Path should match, got: {$path}");
+    Storage::disk('test')->assertExists('audio/greeting.mp3');
+
+    $stored = Storage::disk('test')->get('audio/greeting.mp3');
+    assert_true(strlen($stored) > 1000, 'Stored audio should be substantial ('.strlen($stored).' bytes)');
+
+    // Verify contents() matches what was stored
+    $direct = $response->contents();
+    assert_true($direct === $stored, 'contents() should match stored file');
+});
+
+test('store audio then transcribe from storage (round-trip)', function () {
+    Storage::fake('test');
+
+    // Generate audio
+    $audioResponse = Atlas::audio(Provider::OpenAI, 'tts-1')
+        ->instructions('The quick brown fox jumps over the lazy dog.')
+        ->withVoice('alloy')
+        ->withFormat('mp3')
+        ->asAudio();
+
+    // Store it
+    $audioResponse->storeAs('recordings/fox.mp3', 'test');
+    Storage::disk('test')->assertExists('recordings/fox.mp3');
+
+    // Read back from storage as an Input and transcribe
+    $storedAudio = Storage::disk('test')->get('recordings/fox.mp3');
+    $tmpPath = tempnam(sys_get_temp_dir(), 'atlas_stt_').'.mp3';
+    file_put_contents($tmpPath, $storedAudio);
+
+    $transcript = Atlas::audio(Provider::OpenAI, 'whisper-1')
+        ->withMedia([Audio::fromPath($tmpPath)])
+        ->asText();
+
+    unlink($tmpPath);
+
+    assert_true($transcript->text !== '', 'Transcription should not be empty');
+    assert_true(
+        str_contains(strtolower($transcript->text), 'fox') || str_contains(strtolower($transcript->text), 'quick'),
+        "Should transcribe original text, got: {$transcript->text}"
+    );
+});
+
+test('audio response toBase64 and contents', function () {
+    $response = Atlas::audio(Provider::OpenAI, 'tts-1')
+        ->instructions('Test.')
+        ->withVoice('alloy')
+        ->withFormat('mp3')
+        ->asAudio();
+
+    $binary = $response->contents();
+    $b64 = $response->toBase64();
+
+    assert_true(strlen($binary) > 100, 'contents() should return binary data');
+    assert_true($b64 === base64_encode($binary), 'toBase64() should match base64_encode(contents())');
+    assert_true((string) $response === $binary, '__toString should return binary');
+});
+
+test('image response auto-generates storage path', function () {
+    Storage::fake('test');
+    config()->set('atlas.storage.prefix', 'atlas-test');
+
+    $response = Atlas::image(Provider::OpenAI, 'dall-e-3')
+        ->instructions('A tiny green square')
+        ->withSize('1024x1024')
+        ->asImage();
+
+    $path = $response->store('test');
+
+    assert_true(str_starts_with($path, 'atlas-test/'), "Auto path should use prefix, got: {$path}");
+    assert_true(str_ends_with($path, '.png'), "Auto path should end with .png, got: {$path}");
+    Storage::disk('test')->assertExists($path);
+});
+
+test('input fromPath store and contents round-trip', function () {
+    Storage::fake('test');
+
+    // Create a temp file simulating a user's file
+    $tmpPath = tempnam(sys_get_temp_dir(), 'atlas_input_');
+    file_put_contents($tmpPath, 'fake-image-content-for-test');
+
+    $input = \Atlasphp\Atlas\Input\Image::fromPath($tmpPath);
+
+    // Verify contents from path
+    assert_true($input->contents() === 'fake-image-content-for-test', 'Should read from path');
+    assert_true($input->isPath(), 'Should be path source');
+
+    // Store it
+    $storedPath = $input->storeAs('uploads/test-image.jpg', 'test');
+
+    // After store, internal state should switch to storage
+    assert_true($input->isStorage(), 'Should be storage source after store');
+    assert_true(! $input->isPath(), 'Should no longer be path source');
+    assert_true($input->storagePath() === 'uploads/test-image.jpg', 'storagePath should match');
+
+    // Contents should now read from storage
+    Storage::disk('test')->assertExists('uploads/test-image.jpg');
+    assert_true($input->contents() === 'fake-image-content-for-test', 'Should read same content from storage');
+
+    unlink($tmpPath);
 });
 
 // ─── Summary ─────────────────────────────────────────────────────────────────
