@@ -17,6 +17,7 @@ final class TextRequest
      * @param  array<int, mixed>  $tools
      * @param  array<int, mixed>  $providerTools
      * @param  array<string, mixed>  $providerOptions
+     * @param  array<int, mixed>  $middleware
      */
     public function __construct(
         public readonly string $model,
@@ -30,6 +31,7 @@ final class TextRequest
         public readonly array $tools,
         public readonly array $providerTools,
         public readonly array $providerOptions,
+        public readonly array $middleware = [],
     ) {}
 
     /**
@@ -37,7 +39,7 @@ final class TextRequest
      *
      * @param  array<int, mixed>  $messages
      */
-    public function withAppendedMessages(array $messages): static
+    public function withAppendedMessages(array $messages): self
     {
         return new self(
             model: $this->model,
@@ -51,6 +53,7 @@ final class TextRequest
             tools: $this->tools,
             providerTools: $this->providerTools,
             providerOptions: $this->providerOptions,
+            middleware: $this->middleware,
         );
     }
 }

@@ -11,8 +11,12 @@ use Atlasphp\Atlas\Events\AgentToolCalling;
 use Atlasphp\Atlas\Events\AgentToolErrored;
 use Atlasphp\Atlas\Exceptions\MaxStepsExceededException;
 use Atlasphp\Atlas\Messages\ToolCall;
+use Atlasphp\Atlas\Middleware\MiddlewareStack;
+use Atlasphp\Atlas\Middleware\StepContext;
+use Atlasphp\Atlas\Middleware\ToolContext;
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Requests\TextRequest;
+use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\Usage;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Support\Facades\Concurrency;
@@ -22,7 +26,7 @@ use Illuminate\Support\Facades\Concurrency;
  *
  * Calls the driver, executes any requested tools, appends results
  * to the conversation, and repeats until the model stops or the
- * step limit is reached.
+ * step limit is reached. Supports step and tool middleware.
  */
 class AgentExecutor
 {
@@ -30,6 +34,7 @@ class AgentExecutor
         protected readonly Driver $driver,
         protected readonly ToolExecutor $toolExecutor,
         protected readonly Dispatcher $events,
+        protected readonly ?MiddlewareStack $middlewareStack = null,
     ) {}
 
     /**
@@ -47,6 +52,7 @@ class AgentExecutor
     ): ExecutorResult {
         $steps = [];
         $stepCount = 0;
+        $accumulatedUsage = new Usage(0, 0);
 
         while (true) {
             $stepCount++;
@@ -55,7 +61,7 @@ class AgentExecutor
                 throw new MaxStepsExceededException($maxSteps, $stepCount);
             }
 
-            $response = $this->driver->text($request);
+            $response = $this->dispatchStep($request, $stepCount, $steps, $accumulatedUsage, $meta);
 
             if ($response->finishReason !== FinishReason::ToolCalls) {
                 $steps[] = new Step(
@@ -72,12 +78,15 @@ class AgentExecutor
                 ? $this->executeToolsConcurrently($response->toolCalls, $meta)
                 : $this->executeToolsSequentially($response->toolCalls, $meta);
 
-            $steps[] = new Step(
+            $step = new Step(
                 text: $response->text,
                 toolCalls: $response->toolCalls,
                 toolResults: $toolResults,
                 usage: $response->usage,
             );
+
+            $steps[] = $step;
+            $accumulatedUsage = $accumulatedUsage->merge($step->usage);
 
             $messagesToAppend = [$response->toMessage()];
 
@@ -97,6 +106,77 @@ class AgentExecutor
             usage: $this->mergeUsage($steps),
             finishReason: $response->finishReason,
             meta: $response->meta,
+        );
+    }
+
+    // ─── Step Dispatch ──────────────────────────────────────────────────
+
+    /**
+     * Dispatch a step through step middleware.
+     *
+     * @param  array<int, Step>  $previousSteps
+     * @param  array<string, mixed>  $meta
+     */
+    protected function dispatchStep(
+        TextRequest $request,
+        int $stepNumber,
+        array $previousSteps,
+        Usage $accumulatedUsage,
+        array $meta,
+    ): TextResponse {
+        if ($this->middlewareStack === null) {
+            return $this->driver->text($request);
+        }
+
+        $middleware = config('atlas.middleware.step', []);
+
+        if ($middleware === []) {
+            return $this->driver->text($request);
+        }
+
+        $context = new StepContext(
+            stepNumber: $stepNumber,
+            request: $request,
+            accumulatedUsage: $accumulatedUsage,
+            previousSteps: $previousSteps,
+            meta: $meta,
+        );
+
+        return $this->middlewareStack->run(
+            $context,
+            $middleware,
+            fn (StepContext $ctx) => $this->driver->text($ctx->request),
+        );
+    }
+
+    // ─── Tool Dispatch ──────────────────────────────────────────────────
+
+    /**
+     * Dispatch a tool execution through tool middleware.
+     *
+     * @param  array<string, mixed>  $meta
+     */
+    protected function dispatchTool(ToolCall $toolCall, array $meta): ToolResult
+    {
+        if ($this->middlewareStack === null) {
+            return $this->toolExecutor->execute($toolCall, $meta);
+        }
+
+        $middleware = config('atlas.middleware.tool', []);
+
+        if ($middleware === []) {
+            return $this->toolExecutor->execute($toolCall, $meta);
+        }
+
+        $context = new ToolContext(
+            toolCall: $toolCall,
+            meta: $meta,
+        );
+
+        return $this->middlewareStack->run(
+            $context,
+            $middleware,
+            fn (ToolContext $ctx) => $this->toolExecutor->execute($ctx->toolCall, $ctx->meta),
         );
     }
 
@@ -148,7 +228,7 @@ class AgentExecutor
         $tasks = array_map(
             fn (ToolCall $toolCall) => function () use ($toolCall, $meta): ToolResult|\Throwable {
                 try {
-                    return $this->toolExecutor->execute($toolCall, $meta);
+                    return $this->dispatchTool($toolCall, $meta);
                 } catch (\Throwable $e) {
                     return $e;
                 }
@@ -198,7 +278,7 @@ class AgentExecutor
         $this->events->dispatch(new AgentToolCalling($toolCall));
 
         try {
-            $result = $this->toolExecutor->execute($toolCall, $meta);
+            $result = $this->dispatchTool($toolCall, $meta);
 
             $this->events->dispatch(new AgentToolCalled($toolCall, $result));
 

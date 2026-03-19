@@ -12,6 +12,7 @@ class VideoRequest
     /**
      * @param  array<int, mixed>  $media
      * @param  array<string, mixed>  $providerOptions
+     * @param  array<int, mixed>  $middleware
      */
     public function __construct(
         public readonly string $model,
@@ -21,5 +22,6 @@ class VideoRequest
         public readonly ?string $ratio,
         public readonly ?string $format,
         public readonly array $providerOptions = [],
+        public readonly array $middleware = [],
     ) {}
 }

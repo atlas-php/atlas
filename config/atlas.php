@@ -79,6 +79,26 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Middleware
+    |--------------------------------------------------------------------------
+    |
+    | Global middleware applied at each layer of Atlas execution.
+    | Provider middleware runs on every HTTP call to an AI provider.
+    | Step middleware runs on each executor round trip.
+    | Tool middleware runs on each tool execution.
+    | Agent middleware runs on each agent execution.
+    |
+    */
+
+    'middleware' => [
+        'provider' => [],
+        'step' => [],
+        'tool' => [],
+        'agent' => [],
+    ],
+
     'storage' => [
         'disk' => env('ATLAS_STORAGE_DISK'),
         'prefix' => 'atlas',

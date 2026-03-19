@@ -12,6 +12,7 @@ class ImageRequest
     /**
      * @param  array<int, mixed>  $media
      * @param  array<string, mixed>  $providerOptions
+     * @param  array<int, mixed>  $middleware
      */
     public function __construct(
         public readonly string $model,
@@ -22,5 +23,6 @@ class ImageRequest
         public readonly ?string $format,
         public readonly array $providerOptions = [],
         public readonly int $count = 1,
+        public readonly array $middleware = [],
     ) {}
 }

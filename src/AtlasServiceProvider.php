@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas;
 
 use Atlasphp\Atlas\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Middleware\MiddlewareStack;
 use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\OpenAi\OpenAiDriver;
 use Atlasphp\Atlas\Providers\ProviderConfig;
@@ -38,6 +39,10 @@ class AtlasServiceProvider extends ServiceProvider
         $this->app->singleton(HttpClient::class, function ($app) {
             return new HttpClient($app->make(Dispatcher::class));
         });
+
+        $this->app->singleton(MiddlewareStack::class, function ($app) {
+            return new MiddlewareStack($app);
+        });
     }
 
     public function boot(): void
@@ -63,6 +68,7 @@ class AtlasServiceProvider extends ServiceProvider
             return new OpenAiDriver(
                 config: ProviderConfig::fromArray($config),
                 http: $app->make(HttpClient::class),
+                middlewareStack: $app->make(MiddlewareStack::class),
             );
         });
 
@@ -70,6 +76,7 @@ class AtlasServiceProvider extends ServiceProvider
             return new XaiDriver(
                 config: ProviderConfig::fromArray($config),
                 http: $app->make(HttpClient::class),
+                middlewareStack: $app->make(MiddlewareStack::class),
             );
         });
     }

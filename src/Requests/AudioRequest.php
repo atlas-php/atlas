@@ -13,6 +13,7 @@ class AudioRequest
      * @param  array<int, mixed>  $media
      * @param  array<string, mixed>|null  $voiceClone
      * @param  array<string, mixed>  $providerOptions
+     * @param  array<int, mixed>  $middleware
      */
     public function __construct(
         public readonly string $model,
@@ -25,5 +26,6 @@ class AudioRequest
         public readonly ?string $format,
         public readonly ?array $voiceClone,
         public readonly array $providerOptions = [],
+        public readonly array $middleware = [],
     ) {}
 }

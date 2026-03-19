@@ -9,6 +9,8 @@ use Atlasphp\Atlas\Exceptions\AuthorizationException;
 use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Exceptions\RateLimitException;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
+use Atlasphp\Atlas\Middleware\MiddlewareStack;
+use Atlasphp\Atlas\Middleware\ProviderContext;
 use Atlasphp\Atlas\Providers\Handlers\AudioHandler;
 use Atlasphp\Atlas\Providers\Handlers\EmbedHandler;
 use Atlasphp\Atlas\Providers\Handlers\ImageHandler;
@@ -30,76 +32,115 @@ use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\VideoResponse;
+use Closure;
 use Illuminate\Http\Client\RequestException;
 
 /**
  * Abstract driver that coordinates modality handlers for a provider.
  *
- * Each provider extends this class and overrides the handler methods
- * for the modalities it supports.
+ * Every modality call routes through dispatch() which applies provider
+ * middleware from global config and the request object.
  */
 abstract class Driver
 {
     public function __construct(
         protected readonly ProviderConfig $config,
         protected readonly HttpClient $http,
+        protected readonly ?MiddlewareStack $middlewareStack = null,
     ) {}
 
     // ─── Modality Methods ────────────────────────────────────────────────
 
     public function text(TextRequest $request): TextResponse
     {
-        return $this->textHandler()->text($request);
+        return $this->dispatch('text', $request, fn (TextRequest $r) => $this->textHandler()->text($r));
     }
 
     public function stream(TextRequest $request): StreamResponse
     {
-        return $this->textHandler()->stream($request);
+        return $this->dispatch('stream', $request, fn (TextRequest $r) => $this->textHandler()->stream($r));
     }
 
     public function structured(TextRequest $request): StructuredResponse
     {
-        return $this->textHandler()->structured($request);
+        return $this->dispatch('structured', $request, fn (TextRequest $r) => $this->textHandler()->structured($r));
     }
 
     public function image(ImageRequest $request): ImageResponse
     {
-        return $this->imageHandler()->image($request);
+        return $this->dispatch('image', $request, fn (ImageRequest $r) => $this->imageHandler()->image($r));
     }
 
     public function imageToText(ImageRequest $request): TextResponse
     {
-        return $this->imageHandler()->imageToText($request);
+        return $this->dispatch('imageToText', $request, fn (ImageRequest $r) => $this->imageHandler()->imageToText($r));
     }
 
     public function audio(AudioRequest $request): AudioResponse
     {
-        return $this->audioHandler()->audio($request);
+        return $this->dispatch('audio', $request, fn (AudioRequest $r) => $this->audioHandler()->audio($r));
     }
 
     public function audioToText(AudioRequest $request): TextResponse
     {
-        return $this->audioHandler()->audioToText($request);
+        return $this->dispatch('audioToText', $request, fn (AudioRequest $r) => $this->audioHandler()->audioToText($r));
     }
 
     public function video(VideoRequest $request): VideoResponse
     {
-        return $this->videoHandler()->video($request);
+        return $this->dispatch('video', $request, fn (VideoRequest $r) => $this->videoHandler()->video($r));
     }
 
     public function videoToText(VideoRequest $request): TextResponse
     {
-        return $this->videoHandler()->videoToText($request);
+        return $this->dispatch('videoToText', $request, fn (VideoRequest $r) => $this->videoHandler()->videoToText($r));
     }
 
     public function embed(EmbedRequest $request): EmbeddingsResponse
     {
-        return $this->embedHandler()->embed($request);
+        return $this->dispatch('embed', $request, fn (EmbedRequest $r) => $this->embedHandler()->embed($r));
     }
 
     public function moderate(ModerateRequest $request): ModerationResponse
     {
-        return $this->moderateHandler()->moderate($request);
+        return $this->dispatch('moderate', $request, fn (ModerateRequest $r) => $this->moderateHandler()->moderate($r));
+    }
+
+    // ─── Middleware Dispatch ─────────────────────────────────────────────
+
+    /**
+     * Dispatch a handler call through provider middleware.
+     *
+     * Merges middleware from global config and the request object.
+     * Global config middleware runs outermost, request middleware innermost.
+     */
+    protected function dispatch(string $method, mixed $request, Closure $handler): mixed
+    {
+        if ($this->middlewareStack === null) {
+            return $handler($request);
+        }
+
+        $middleware = array_merge(
+            config('atlas.middleware.provider', []),
+            $request->middleware,
+        );
+
+        if ($middleware === []) {
+            return $handler($request);
+        }
+
+        $context = new ProviderContext(
+            provider: $this->name(),
+            model: $request->model,
+            method: $method,
+            request: $request,
+        );
+
+        return $this->middlewareStack->run(
+            $context,
+            $middleware,
+            fn (ProviderContext $ctx) => $handler($ctx->request),
+        );
     }
 
     // ─── Handler Resolution ──────────────────────────────────────────────

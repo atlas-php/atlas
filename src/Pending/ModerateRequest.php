@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Pending;
 
 use Atlasphp\Atlas\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
 use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
 use Atlasphp\Atlas\Requests\ModerateRequest as ModerateRequestObject;
 use Atlasphp\Atlas\Responses\ModerationResponse;
@@ -15,6 +16,7 @@ use Atlasphp\Atlas\Responses\ModerationResponse;
  */
 class ModerateRequest
 {
+    use HasMiddleware;
     use ResolvesProvider;
 
     /** @var string|array<int, string>|null */
@@ -67,6 +69,7 @@ class ModerateRequest
             model: $this->model,
             input: $this->input ?? '',
             providerOptions: $this->providerOptions,
+            middleware: $this->middleware,
         );
     }
 }
