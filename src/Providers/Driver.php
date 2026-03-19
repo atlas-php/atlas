@@ -48,7 +48,7 @@ abstract class Driver
 
     public function text(TextRequest $request): TextResponse
     {
-        return $this->textHandler()->generate($request);
+        return $this->textHandler()->text($request);
     }
 
     public function stream(TextRequest $request): StreamResponse
@@ -63,42 +63,42 @@ abstract class Driver
 
     public function image(ImageRequest $request): ImageResponse
     {
-        return $this->imageHandler()->generate($request);
+        return $this->imageHandler()->image($request);
     }
 
     public function imageToText(ImageRequest $request): TextResponse
     {
-        return $this->imageHandler()->describe($request);
+        return $this->imageHandler()->imageToText($request);
     }
 
     public function audio(AudioRequest $request): AudioResponse
     {
-        return $this->audioHandler()->generate($request);
+        return $this->audioHandler()->audio($request);
     }
 
     public function audioToText(AudioRequest $request): TextResponse
     {
-        return $this->audioHandler()->transcribe($request);
+        return $this->audioHandler()->audioToText($request);
     }
 
     public function video(VideoRequest $request): VideoResponse
     {
-        return $this->videoHandler()->generate($request);
+        return $this->videoHandler()->video($request);
     }
 
     public function videoToText(VideoRequest $request): TextResponse
     {
-        return $this->videoHandler()->describe($request);
+        return $this->videoHandler()->videoToText($request);
     }
 
     public function embed(EmbedRequest $request): EmbeddingsResponse
     {
-        return $this->embedHandler()->generate($request);
+        return $this->embedHandler()->embed($request);
     }
 
     public function moderate(ModerateRequest $request): ModerationResponse
     {
-        return $this->moderateHandler()->check($request);
+        return $this->moderateHandler()->moderate($request);
     }
 
     // ─── Handler Resolution ──────────────────────────────────────────────

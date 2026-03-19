@@ -13,7 +13,7 @@ use Atlasphp\Atlas\Responses\VideoResponse;
  */
 interface VideoHandler
 {
-    public function generate(VideoRequest $request): VideoResponse;
+    public function video(VideoRequest $request): VideoResponse;
 
-    public function describe(VideoRequest $request): TextResponse;
+    public function videoToText(VideoRequest $request): TextResponse;
 }

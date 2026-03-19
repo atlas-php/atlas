@@ -12,5 +12,5 @@ use Atlasphp\Atlas\Responses\EmbeddingsResponse;
  */
 interface EmbedHandler
 {
-    public function generate(EmbedRequest $request): EmbeddingsResponse;
+    public function embed(EmbedRequest $request): EmbeddingsResponse;
 }

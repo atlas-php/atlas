@@ -13,7 +13,7 @@ use Atlasphp\Atlas\Responses\TextResponse;
  */
 interface AudioHandler
 {
-    public function generate(AudioRequest $request): AudioResponse;
+    public function audio(AudioRequest $request): AudioResponse;
 
-    public function transcribe(AudioRequest $request): TextResponse;
+    public function audioToText(AudioRequest $request): TextResponse;
 }

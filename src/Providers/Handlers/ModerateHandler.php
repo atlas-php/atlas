@@ -12,5 +12,5 @@ use Atlasphp\Atlas\Responses\ModerationResponse;
  */
 interface ModerateHandler
 {
-    public function check(ModerateRequest $request): ModerationResponse;
+    public function moderate(ModerateRequest $request): ModerationResponse;
 }

@@ -14,7 +14,7 @@ use Atlasphp\Atlas\Responses\TextResponse;
  */
 interface TextHandler
 {
-    public function generate(TextRequest $request): TextResponse;
+    public function text(TextRequest $request): TextResponse;
 
     public function stream(TextRequest $request): StreamResponse;
 

@@ -13,7 +13,7 @@ use Atlasphp\Atlas\Responses\TextResponse;
  */
 interface ImageHandler
 {
-    public function generate(ImageRequest $request): ImageResponse;
+    public function image(ImageRequest $request): ImageResponse;
 
-    public function describe(ImageRequest $request): TextResponse;
+    public function imageToText(ImageRequest $request): TextResponse;
 }
