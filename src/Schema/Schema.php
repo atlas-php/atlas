@@ -5,29 +5,31 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Schema;
 
 /**
- * Minimal schema value object for structured output and tool parameters.
+ * Schema value object and static entry point for building JSON Schema structures.
  *
- * This is a stub that Phase 3 replaces with the full fluent builder.
+ * As a value object, it holds a name, description, and schema array.
+ * As a SchemaBuilder subclass, it exposes static factories (string, object, etc.)
+ * for creating field instances used in tool parameters and structured output.
  */
-class Schema
+class Schema extends SchemaBuilder
 {
     /**
-     * @param  array<string, mixed>  $schema
+     * @param  array<string, mixed>  $schemaData
      */
     public function __construct(
-        protected readonly string $name,
-        protected readonly string $description,
-        protected readonly array $schema,
+        protected readonly string $schemaName,
+        protected readonly string $schemaDescription,
+        protected readonly array $schemaData,
     ) {}
 
     public function name(): string
     {
-        return $this->name;
+        return $this->schemaName;
     }
 
     public function description(): string
     {
-        return $this->description;
+        return $this->schemaDescription;
     }
 
     /**
@@ -35,7 +37,7 @@ class Schema
      */
     public function toArray(): array
     {
-        return $this->schema;
+        return $this->schemaData;
     }
 
     /**
@@ -44,8 +46,8 @@ class Schema
     public function toProviderFormat(): array
     {
         return [
-            'name' => $this->name,
-            'schema' => $this->schema,
+            'name' => $this->schemaName,
+            'schema' => $this->schemaData,
         ];
     }
 }
