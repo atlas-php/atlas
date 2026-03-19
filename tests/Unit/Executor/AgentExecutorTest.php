@@ -229,7 +229,7 @@ it('executes multiple tool calls in single response sequentially', function () {
     $toolExecutor = new ToolExecutor($registry);
     $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
 
-    $result = $executor->execute(makeTextRequest(), maxSteps: 10, parallelToolCalls: true, meta: []);
+    $result = $executor->execute(makeTextRequest(), maxSteps: 10, parallelToolCalls: false, meta: []);
 
     expect($result->totalSteps())->toBe(2);
     expect($result->totalToolCalls())->toBe(3);
@@ -237,6 +237,30 @@ it('executes multiple tool calls in single response sequentially', function () {
     expect($result->steps[0]->toolResults[0]->content)->toBe('a');
     expect($result->steps[0]->toolResults[1]->content)->toBe('b');
     expect($result->steps[0]->toolResults[2]->content)->toBe('c');
+});
+
+it('falls back to sequential for single concurrent tool call', function () {
+    $driver = makeMockDriver([
+        new TextResponse(
+            'Using tool.',
+            new Usage(10, 10),
+            FinishReason::ToolCalls,
+            toolCalls: [new ToolCall('tc-1', 'echo', ['text' => 'solo'])],
+        ),
+        new TextResponse('Done.', new Usage(10, 10), FinishReason::Stop),
+    ]);
+
+    $dispatcher = makeFakeDispatcher();
+    $registry = new ToolRegistry([makeEchoTool()]);
+    $toolExecutor = new ToolExecutor($registry);
+    $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
+
+    // parallelToolCalls: true with a single tool call falls back to sequential
+    $result = $executor->execute(makeTextRequest(), maxSteps: 10, parallelToolCalls: true, meta: []);
+
+    expect($result->totalSteps())->toBe(2);
+    expect($result->totalToolCalls())->toBe(1);
+    expect($result->steps[0]->toolResults[0]->content)->toBe('solo');
 });
 
 it('catches tool errors and sends error result to model', function () {

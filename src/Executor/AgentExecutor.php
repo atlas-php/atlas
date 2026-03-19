@@ -15,6 +15,7 @@ use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\Usage;
 use Illuminate\Contracts\Events\Dispatcher;
+use Illuminate\Support\Facades\Concurrency;
 
 /**
  * Orchestrates the tool call loop for agent execution.
@@ -67,11 +68,9 @@ class AgentExecutor
                 break;
             }
 
-            $toolResults = [];
-
-            foreach ($response->toolCalls as $toolCall) {
-                $toolResults[] = $this->executeSingleTool($toolCall, $meta);
-            }
+            $toolResults = $parallelToolCalls
+                ? $this->executeToolsConcurrently($response->toolCalls, $meta)
+                : $this->executeToolsSequentially($response->toolCalls, $meta);
 
             $steps[] = new Step(
                 text: $response->text,
@@ -100,6 +99,90 @@ class AgentExecutor
             meta: $response->meta,
         );
     }
+
+    // ─── Sequential Execution ────────────────────────────────────────────
+
+    /**
+     * Execute tool calls one at a time.
+     *
+     * @param  array<int, ToolCall>  $toolCalls
+     * @param  array<string, mixed>  $meta
+     * @return array<int, ToolResult>
+     */
+    protected function executeToolsSequentially(array $toolCalls, array $meta): array
+    {
+        $results = [];
+
+        foreach ($toolCalls as $toolCall) {
+            $results[] = $this->executeSingleTool($toolCall, $meta);
+        }
+
+        return $results;
+    }
+
+    // ─── Concurrent Execution ────────────────────────────────────────────
+
+    /**
+     * Execute tool calls concurrently using Laravel's Concurrency facade.
+     *
+     * Falls back to sequential if only one tool call is present.
+     *
+     * @param  array<int, ToolCall>  $toolCalls
+     * @param  array<string, mixed>  $meta
+     * @return array<int, ToolResult>
+     */
+    protected function executeToolsConcurrently(array $toolCalls, array $meta): array
+    {
+        if (count($toolCalls) === 1) {
+            return $this->executeToolsSequentially($toolCalls, $meta);
+        }
+
+        $toolCalls = array_values($toolCalls);
+
+        // Fire AgentToolCalling events upfront for all tools
+        foreach ($toolCalls as $toolCall) {
+            $this->events->dispatch(new AgentToolCalling($toolCall));
+        }
+
+        // Build closures — each catches its own errors so Concurrency::run() never throws
+        $tasks = array_map(
+            fn (ToolCall $toolCall) => function () use ($toolCall, $meta): ToolResult|\Throwable {
+                try {
+                    return $this->toolExecutor->execute($toolCall, $meta);
+                } catch (\Throwable $e) {
+                    return $e;
+                }
+            },
+            $toolCalls,
+        );
+
+        // Run concurrently — each returns a ToolResult or a caught Throwable
+        $rawResults = Concurrency::run($tasks);
+
+        // Post-process: fire events, convert errors to ToolResults
+        $results = [];
+
+        foreach ($toolCalls as $i => $toolCall) {
+            $result = $rawResults[$i];
+
+            if ($result instanceof \Throwable) {
+                $this->events->dispatch(new AgentToolErrored($toolCall, $result));
+
+                $results[] = new ToolResult(
+                    toolCall: $toolCall,
+                    content: $result->getMessage(),
+                    isError: true,
+                );
+            } elseif ($result instanceof ToolResult) {
+                $this->events->dispatch(new AgentToolCalled($toolCall, $result));
+                $results[] = $result;
+            }
+        }
+
+        return $results;
+    }
+
+    // ─── Single Tool Execution ───────────────────────────────────────────
 
     /**
      * Execute a single tool call with event dispatching and error handling.
@@ -130,6 +213,8 @@ class AgentExecutor
             );
         }
     }
+
+    // ─── Usage ───────────────────────────────────────────────────────────
 
     /**
      * Merge usage across all steps into a single Usage instance.
