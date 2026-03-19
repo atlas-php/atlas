@@ -10,6 +10,7 @@ use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\OpenAi\OpenAiDriver;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Providers\ProviderRegistry;
+use Atlasphp\Atlas\Providers\Xai\XaiDriver;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
@@ -60,6 +61,13 @@ class AtlasServiceProvider extends ServiceProvider
 
         $registry->register(Provider::OpenAI->value, function (Application $app, array $config) {
             return new OpenAiDriver(
+                config: ProviderConfig::fromArray($config),
+                http: $app->make(HttpClient::class),
+            );
+        });
+
+        $registry->register(Provider::xAI->value, function (Application $app, array $config) {
+            return new XaiDriver(
                 config: ProviderConfig::fromArray($config),
                 http: $app->make(HttpClient::class),
             );

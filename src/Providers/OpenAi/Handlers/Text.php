@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Providers\OpenAi\Handlers;
 
+use Atlasphp\Atlas\Providers\Contracts\MessageFactory as MessageFactoryContract;
 use Atlasphp\Atlas\Providers\Handlers\TextHandler;
 use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\OpenAi\Concerns\BuildsHeaders;
 use Atlasphp\Atlas\Providers\OpenAi\MediaResolver;
-use Atlasphp\Atlas\Providers\OpenAi\MessageFactory;
 use Atlasphp\Atlas\Providers\OpenAi\ResponseParser;
 use Atlasphp\Atlas\Providers\OpenAi\ToolMapper;
 use Atlasphp\Atlas\Providers\ProviderConfig;
@@ -33,7 +33,7 @@ class Text implements TextHandler
     public function __construct(
         protected readonly ProviderConfig $config,
         protected readonly HttpClient $http,
-        protected readonly MessageFactory $messages,
+        protected readonly MessageFactoryContract $messages,
         protected readonly MediaResolver $media,
         protected readonly ToolMapper $toolMapper,
         protected readonly ResponseParser $parser,

@@ -75,7 +75,8 @@ it('returns all registered keys', function () {
     $this->registry->register('openai', fn ($app, $config) => createTestDriverInstance());
     $this->registry->register('anthropic', fn ($app, $config) => createTestDriverInstance());
 
-    expect($this->registry->available())->toBe(['openai', 'anthropic']);
+    expect($this->registry->available())->toContain('openai');
+    expect($this->registry->available())->toContain('anthropic');
 });
 
 it('clears cache when re-registering a key', function () {

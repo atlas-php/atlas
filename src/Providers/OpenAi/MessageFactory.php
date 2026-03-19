@@ -124,7 +124,7 @@ class MessageFactory implements MessageFactoryContract
      *
      * @param  array<int, array<string, mixed>>  $input
      */
-    private function expandAssistant(AssistantMessage $message, array &$input): void
+    protected function expandAssistant(AssistantMessage $message, array &$input): void
     {
         if ($message->content !== null && $message->content !== '') {
             $input[] = [
