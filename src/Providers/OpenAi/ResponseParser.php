@@ -160,7 +160,17 @@ class ResponseParser implements ResponseParserContract
         }
 
         if ($event === 'response.completed') {
-            return new StreamChunk(type: ChunkType::Done);
+            /** @var array<string, mixed> $response */
+            $response = $payload['response'] ?? $payload;
+
+            $usage = isset($response['usage']) ? $this->parseUsage($response) : null;
+            $finishReason = $this->parseFinishReason($response);
+
+            return new StreamChunk(
+                type: ChunkType::Done,
+                usage: $usage,
+                finishReason: $finishReason,
+            );
         }
 
         if ($event === 'response.failed') {

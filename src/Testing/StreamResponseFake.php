@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Testing;
 
 use Atlasphp\Atlas\Enums\ChunkType;
+use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Responses\StreamChunk;
 use Atlasphp\Atlas\Responses\StreamResponse;
+use Atlasphp\Atlas\Responses\Usage;
 use Generator;
 
 /**
@@ -17,6 +19,10 @@ class StreamResponseFake
     protected string $text = '';
 
     protected int $chunkSize = 5;
+
+    protected ?Usage $usage = null;
+
+    protected ?FinishReason $finishReason = null;
 
     public static function make(): self
     {
@@ -33,6 +39,20 @@ class StreamResponseFake
     public function withChunkSize(int $chunkSize): static
     {
         $this->chunkSize = $chunkSize;
+
+        return $this;
+    }
+
+    public function withUsage(Usage $usage): static
+    {
+        $this->usage = $usage;
+
+        return $this;
+    }
+
+    public function withFinishReason(FinishReason $finishReason): static
+    {
+        $this->finishReason = $finishReason;
 
         return $this;
     }
@@ -55,6 +75,10 @@ class StreamResponseFake
             }
         }
 
-        yield new StreamChunk(ChunkType::Done);
+        yield new StreamChunk(
+            type: ChunkType::Done,
+            usage: $this->usage ?? new Usage(10, 20),
+            finishReason: $this->finishReason ?? FinishReason::Stop,
+        );
     }
 }
