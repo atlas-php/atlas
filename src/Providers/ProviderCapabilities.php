@@ -1,0 +1,36 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Atlasphp\Atlas\Providers;
+
+/**
+ * Declares what features a provider supports.
+ */
+class ProviderCapabilities
+{
+    public function __construct(
+        public readonly bool $text = false,
+        public readonly bool $stream = false,
+        public readonly bool $structured = false,
+        public readonly bool $image = false,
+        public readonly bool $imageToText = false,
+        public readonly bool $audio = false,
+        public readonly bool $audioToText = false,
+        public readonly bool $video = false,
+        public readonly bool $videoToText = false,
+        public readonly bool $embed = false,
+        public readonly bool $moderate = false,
+        public readonly bool $vision = false,
+        public readonly bool $toolCalling = false,
+        public readonly bool $providerTools = false,
+    ) {}
+
+    /**
+     * Check if a given feature is supported.
+     */
+    public function supports(string $feature): bool
+    {
+        return property_exists($this, $feature) && $this->{$feature};
+    }
+}

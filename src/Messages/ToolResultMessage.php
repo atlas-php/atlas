@@ -1,0 +1,24 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Atlasphp\Atlas\Messages;
+
+use Atlasphp\Atlas\Enums\Role;
+
+/**
+ * A message containing the result of a tool execution.
+ */
+class ToolResultMessage extends Message
+{
+    public function __construct(
+        public readonly string $toolCallId,
+        public readonly string $content,
+        public readonly ?string $toolName = null,
+    ) {}
+
+    public function role(): Role
+    {
+        return Role::Tool;
+    }
+}

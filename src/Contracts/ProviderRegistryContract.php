@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Contracts;
 
-use Atlasphp\Atlas\Providers\Exceptions\ProviderNotRegisteredException;
+use Atlasphp\Atlas\Exceptions\ProviderNotFoundException;
+use Atlasphp\Atlas\Providers\Driver;
 use Closure;
 
 /**
@@ -22,9 +23,9 @@ interface ProviderRegistryContract
     /**
      * Resolve the provider for the given key.
      *
-     * @throws ProviderNotRegisteredException
+     * @throws ProviderNotFoundException
      */
-    public function resolve(string $key): mixed;
+    public function resolve(string $key): Driver;
 
     /**
      * Determine if a factory is registered for the given key.

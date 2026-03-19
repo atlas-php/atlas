@@ -20,63 +20,31 @@ For workflow, task management, and Claude Code-specific behavioral rules, see `C
 
 ---
 
-## Atlas and Prism Philosophy
+## Atlas v3 Architecture
 
-Atlas is a **Prism complement** that adds application-level AI concerns. It does NOT replace Prism—it enhances it.
+Atlas v3 is a unified AI execution layer for Laravel. It owns its own provider layer — no external AI package dependency.
+
+### Layer Model
+
+```
+Consumer API (Facade, fluent builders)
+         ↓
+Executor (tool loop, steps, orchestration events)
+         ↓
+Driver (routes modality calls to handlers)
+         ↓
+Handlers + Resolvers (build HTTP payloads, parse responses)
+         ↓
+HttpClient (sends HTTP, fires transport events)
+```
 
 ### Key Principles
 
-1. **Defer to Prism** — Atlas wraps Prism, never replaces it
-2. **Users access Prism directly** — All Prism methods remain available through Atlas
-3. **No feature duplication** — If Prism does it, don't rebuild it
-
-### Atlas Unique Value (document fully)
-
-| Feature        | Description                                              |
-|----------------|----------------------------------------------------------|
-| Agent Registry | Define agents once, resolve by key/class/instance        |
-| Tool Registry  | Register tools, resolve by name, attach to agents        |
-| System Prompts | Variable interpolation ({var_name}), SystemPromptBuilder |
-| Pipelines      | Before/after hooks for observability and extension        |
-| AgentContext   | Stateless context carrier with media support             |
-| Testing        | AtlasFake for agent testing without API calls            |
-
-### Prism Handles (link, don't document)
-
-- Text generation, Chat responses
-- Tool/function calling syntax and execution
-- Structured output and schemas
-- Streaming implementation
-- Embeddings, Images, Audio, Moderation
-- Provider configuration
-- Error handling and rate limits
-
----
-
-## Prism Compatibility
-
-Atlas depends on Prism (`prism-php/prism`). Periodically review Prism releases for breaking changes.
-
-### Review Process
-
-1. **Check releases**: https://github.com/prism-php/prism/releases
-2. **Check last review**: See `NOTES.md` "Prism Compatibility Tracking" for last reviewed version
-3. **Assess impact**: Focus on changes to terminal methods, Tool API, Response/Request structure, streaming events
-4. **Update NOTES.md**: Record the review date, versions, and findings
-5. **If changes needed**: Create tasks for code updates
-
-### Why Atlas is Resilient
-
-Atlas uses a thin proxy pattern — captures Prism method calls via `__call()` for later replay, wraps terminal methods with pipeline hooks, converts Atlas tools to Prism tools. Never re-implements Prism internals. Most Prism changes are transparent to Atlas.
-
-### Key Integration Files
-
-| File                                         | Purpose                                |
-|----------------------------------------------|----------------------------------------|
-| `src/Agents/Services/AgentExecutor.php`      | Calls terminal methods                 |
-| `src/Tools/Services/ToolBuilder.php`         | Converts Atlas tools to Prism tools    |
-| `src/PrismProxy.php`                         | Pipeline hooks around terminal methods |
-| `src/Agents/Support/PendingAgentRequest.php` | Captures Prism method calls            |
+1. **Own the provider layer** — Atlas talks directly to AI provider APIs
+2. **Drivers are thin coordinators** — they route to modality handlers, never build HTTP payloads
+3. **Handlers compose resolvers** — MessageFactory, MediaResolver, ToolMapper, ResponseParser
+4. **Stateless drivers** — one request → one response; the executor handles loops
+5. **Shared HttpClient** — all providers use the same transport with consistent event dispatching
 
 ---
 
@@ -107,92 +75,54 @@ Atlas uses a thin proxy pattern — captures Prism method calls via `__call()` f
 
 ## Package Structure
 
-Each package must follow this layout. **No new top-level directories are allowed.**
-
 ```
 package-root/
 ├── composer.json
 ├── AGENTS.md
 ├── README.md
 ├── docs/                 # VitePress documentation
-│   ├── getting-started/
-│   ├── core-concepts/
-│   ├── capabilities/
-│   ├── guides/
-│   └── api-reference/
 ├── src/
-│   ├── Agents/
-│   ├── Contracts/
-│   ├── Conversations/
-│   ├── Delegation/
-│   ├── Foundation/
-│   ├── Logging/
-│   ├── Memory/
-│   ├── Processes/
-│   ├── Providers/
-│   ├── Streaming/
-│   └── Tools/
+│   ├── Contracts/        # Cross-cutting interfaces
+│   ├── Enums/            # Shared enums (Provider, Role, FinishReason, ChunkType)
+│   ├── Events/           # Transport and orchestration events
+│   ├── Exceptions/       # Exception hierarchy
+│   ├── Input/            # Media input types (Image, Audio, Video, Document)
+│   ├── Messages/         # Typed conversation messages + ToolCall
+│   ├── Providers/        # Driver, HttpClient, ProviderConfig, handlers, resolvers
+│   ├── Requests/         # Request objects (TextRequest, ImageRequest, etc.)
+│   ├── Responses/        # Response objects (TextResponse, Usage, StreamChunk, etc.)
+│   ├── Schema/           # Schema builder for structured output & tool parameters
+│   └── Tools/            # Tool base class, ToolDefinition, ToolSerializer
 ├── config/
-├── database/
-│   ├── factories/
-│   └── migrations/
 ├── tests/
 │   ├── Unit/
 │   └── Feature/
 └── sandbox/
 ```
 
----
+### Directory Rules
 
-## Module Organization
+1. **Domain-organized** – Each top-level `src/` directory represents a domain concern, not a generic pattern
+2. **Namespacing follows structure** – e.g., `Atlasphp\Atlas\Messages\UserMessage`
+3. **Cross-domain references are allowed** – Domains may import types from other domains
+4. **Contracts remain centralized** – Interfaces that span domains live in `src/Contracts/`
+5. **Provider sub-structure** – `Providers/` contains subdirectories for handlers (`Handlers/`), resolver contracts (`Contracts/`), and per-provider implementations (`OpenAi/`, `Anthropic/`, etc.)
+6. **No unnecessary nesting** – Don't create subdirectories until there are enough files to justify them
 
-Each domain module is self-contained with its own enums, models, and services.
+### Adding Files
 
-### Module Structure
-
-```
-src/
-├── ExampleModule/
-│   ├── Enums/
-│   ├── Models/
-│   └── Services/
-├── AnotherModule/
-│   ├── Enums/
-│   ├── Models/
-│   ├── Services/
-│   ├── Events/
-│   ├── Jobs/
-│   └── Exceptions/
-└── Foundation/
-    └── PackageServiceProvider.php
-```
-
-### Module Rules
-
-1. **Self-contained modules** – Each module contains its own `Enums/`, `Models/`, `Services/`, `Events/`, `Jobs/`, and `Exceptions/` subdirectories as needed
-2. **No top-level shared directories** – Do NOT create `src/Enums/`, `src/Models/`, or `src/Services/` directories; these belong inside their respective modules
-3. **Namespacing follows structure** – e.g., `Vendor\Package\Processes\Models\Process`
-4. **Cross-module references are allowed** – Modules may reference models/enums from other modules where needed
-5. **Contracts remain centralized** – Interfaces that span modules live in `src/Contracts/`
-6. **Foundation is infrastructure** – Service providers, configuration, and package setup live in `src/Foundation/`
-
-### Adding to a Module
-
-| Adding...                | Location                 |
-|--------------------------|--------------------------|
-| New enum for a module    | `src/{Module}/Enums/`    |
-| New model for a module   | `src/{Module}/Models/`   |
-| New service for a module | `src/{Module}/Services/` |
-| New event for a module   | `src/{Module}/Events/`   |
-| Cross-module contract    | `src/Contracts/`         |
-
-### Creating a New Module
-
-1. Create the module directory under `src/`
-2. Add subdirectories as needed: `Enums/`, `Models/`, `Services/`, `Events/`, etc.
-3. Register services in the package service provider
-4. Create corresponding test directories under `tests/Unit/{Module}/` and `tests/Feature/`
-5. Document the module in the appropriate VitePress docs section
+| Adding...                          | Location                        |
+|------------------------------------|---------------------------------|
+| New enum                           | `src/Enums/`                    |
+| New message type                   | `src/Messages/`                 |
+| New request/response object        | `src/Requests/` or `src/Responses/` |
+| New exception                      | `src/Exceptions/`               |
+| New event                          | `src/Events/`                   |
+| New handler interface              | `src/Providers/Handlers/`       |
+| New resolver contract              | `src/Providers/Contracts/`      |
+| Provider-specific implementation   | `src/Providers/{ProviderName}/` |
+| Cross-domain interface             | `src/Contracts/`                |
+| New tool class                     | `src/Tools/`                    |
 
 ---
 

@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Providers;
 
 use Atlasphp\Atlas\Contracts\ProviderRegistryContract;
-use Atlasphp\Atlas\Providers\Exceptions\ProviderNotRegisteredException;
+use Atlasphp\Atlas\Exceptions\ProviderNotFoundException;
 use Closure;
+use Illuminate\Contracts\Foundation\Application;
 
 /**
  * Closure-based factory registry with lazy resolution and per-key caching.
@@ -19,8 +20,12 @@ class ProviderRegistry implements ProviderRegistryContract
     /** @var array<string, Closure> */
     protected array $factories = [];
 
-    /** @var array<string, mixed> */
+    /** @var array<string, Driver> */
     protected array $resolved = [];
+
+    public function __construct(
+        protected readonly Application $app,
+    ) {}
 
     /**
      * Register a factory for the given key.
@@ -35,19 +40,21 @@ class ProviderRegistry implements ProviderRegistryContract
     /**
      * Resolve the provider for the given key.
      *
-     * @throws ProviderNotRegisteredException If no factory is registered for the key.
+     * @throws ProviderNotFoundException If no factory is registered for the key.
      */
-    public function resolve(string $key): mixed
+    public function resolve(string $key): Driver
     {
         if (isset($this->resolved[$key])) {
             return $this->resolved[$key];
         }
 
-        if (! isset($this->factories[$key])) {
-            throw ProviderNotRegisteredException::forKey($key);
-        }
+        $factory = $this->factories[$key]
+            ?? throw new ProviderNotFoundException($key);
 
-        return $this->resolved[$key] = ($this->factories[$key])();
+        /** @var array<string, mixed> $config */
+        $config = config("atlas.providers.{$key}", []);
+
+        return $this->resolved[$key] = ($factory)($this->app, $config);
     }
 
     /**
