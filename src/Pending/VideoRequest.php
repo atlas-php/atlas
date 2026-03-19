@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Pending;
 
 use Atlasphp\Atlas\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
 use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
 use Atlasphp\Atlas\Requests\VideoRequest as VideoRequestObject;
@@ -17,6 +18,7 @@ use Atlasphp\Atlas\Responses\VideoResponse;
  */
 class VideoRequest
 {
+    use HasMeta;
     use HasMiddleware;
     use ResolvesProvider;
 
@@ -115,6 +117,7 @@ class VideoRequest
             format: $this->format,
             providerOptions: $this->providerOptions,
             middleware: $this->middleware,
+            meta: $this->meta,
         );
     }
 }

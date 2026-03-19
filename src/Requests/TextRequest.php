@@ -18,6 +18,7 @@ final class TextRequest
      * @param  array<int, mixed>  $providerTools
      * @param  array<string, mixed>  $providerOptions
      * @param  array<int, mixed>  $middleware
+     * @param  array<string, mixed>  $meta
      */
     public function __construct(
         public readonly string $model,
@@ -32,6 +33,7 @@ final class TextRequest
         public readonly array $providerTools,
         public readonly array $providerOptions,
         public readonly array $middleware = [],
+        public readonly array $meta = [],
     ) {}
 
     /**
@@ -54,6 +56,7 @@ final class TextRequest
             providerTools: $this->providerTools,
             providerOptions: $this->providerOptions,
             middleware: $this->middleware,
+            meta: $this->meta,
         );
     }
 }

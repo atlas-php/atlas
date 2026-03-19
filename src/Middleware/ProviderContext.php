@@ -13,7 +13,7 @@ namespace Atlasphp\Atlas\Middleware;
 class ProviderContext
 {
     /**
-     * @param  array<string, mixed>  $meta  Reserved for cross-middleware data passing. Not populated by dispatch() — middleware may set values for downstream middleware to read.
+     * @param  array<string, mixed>  $meta  Populated from the request object's meta by Driver::dispatch(). Mutable for cross-middleware data passing. After construction, this is the authoritative field — mutations here are not reflected back into $request->meta.
      */
     public function __construct(
         public readonly string $provider,

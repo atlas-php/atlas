@@ -8,6 +8,7 @@ use Atlasphp\Atlas\Concerns\NormalizesMessages;
 use Atlasphp\Atlas\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Input\Input;
+use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
 use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
 use Atlasphp\Atlas\Requests\TextRequest as TextRequestObject;
@@ -21,6 +22,7 @@ use Atlasphp\Atlas\Schema\Schema;
  */
 class TextRequest
 {
+    use HasMeta;
     use HasMiddleware;
     use NormalizesMessages;
     use ResolvesProvider;
@@ -148,6 +150,7 @@ class TextRequest
             providerTools: [],   // Wired via AgentRequest in Phase 7
             providerOptions: $this->providerOptions,
             middleware: $this->middleware,
+            meta: $this->meta,
         );
     }
 }

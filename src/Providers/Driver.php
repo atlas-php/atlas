@@ -134,6 +134,7 @@ abstract class Driver
             model: $request->model,
             method: $method,
             request: $request,
+            meta: $request->meta,
         );
 
         return $this->middlewareStack->run(

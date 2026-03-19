@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Pending;
 
 use Atlasphp\Atlas\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
 use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
 use Atlasphp\Atlas\Requests\ImageRequest as ImageRequestObject;
@@ -17,6 +18,7 @@ use Atlasphp\Atlas\Responses\TextResponse;
  */
 class ImageRequest
 {
+    use HasMeta;
     use HasMiddleware;
     use ResolvesProvider;
 
@@ -125,6 +127,7 @@ class ImageRequest
             providerOptions: $this->providerOptions,
             count: $this->count,
             middleware: $this->middleware,
+            meta: $this->meta,
         );
     }
 }

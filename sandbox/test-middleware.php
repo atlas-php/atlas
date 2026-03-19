@@ -23,11 +23,12 @@ $app['config']->set('atlas.providers', [
     ],
 ]);
 
-use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Input\Audio;
 use Atlasphp\Atlas\Middleware\ProviderContext;
+use Atlasphp\Atlas\Responses\StreamResponse;
+use Atlasphp\Atlas\Schema\Schema;
 
 // ─── Middleware Logger ────────────────────────────────────────────────────────
 
@@ -54,7 +55,7 @@ $loggerMiddleware = new class($middlewareLog)
 
         // Extract usage if available (skip StreamResponse — usage requires iteration)
         if (is_object($response)
-            && ! $response instanceof \Atlasphp\Atlas\Responses\StreamResponse
+            && ! $response instanceof StreamResponse
             && property_exists($response, 'usage')
             && $response->usage !== null) {
             $entry['input_tokens'] = $response->usage->inputTokens;
@@ -122,7 +123,7 @@ test('text generation logged by middleware', function () use (&$middlewareLog) {
     assert_true(str_contains(strtoupper($r->text), 'PONG'), "Expected PONG, got: {$r->text}");
 
     $countAfter = count($middlewareLog);
-    assert_true($countAfter === $countBefore + 1, "Should have 1 new log entry, got ".($countAfter - $countBefore));
+    assert_true($countAfter === $countBefore + 1, 'Should have 1 new log entry, got '.($countAfter - $countBefore));
 
     $entry = $middlewareLog[$countAfter - 1];
     assert_true($entry['method'] === 'text', "Method should be 'text', got: {$entry['method']}");
@@ -152,7 +153,7 @@ test('stream logged by middleware', function () use (&$middlewareLog) {
     }
 
     $countAfter = count($middlewareLog);
-    assert_true($countAfter === $countBefore + 1, "Should have 1 new log entry");
+    assert_true($countAfter === $countBefore + 1, 'Should have 1 new log entry');
 
     $entry = $middlewareLog[$countAfter - 1];
     assert_true($entry['method'] === 'stream', "Method should be 'stream', got: {$entry['method']}");
@@ -167,7 +168,7 @@ echo "\n\n── Structured (via global middleware)";
 test('structured logged by middleware', function () use (&$middlewareLog) {
     $countBefore = count($middlewareLog);
 
-    $schema = new \Atlasphp\Atlas\Schema\Schema('person', 'A person', [
+    $schema = new Schema('person', 'A person', [
         'type' => 'object',
         'properties' => ['name' => ['type' => 'string']],
         'required' => ['name'],
@@ -179,7 +180,7 @@ test('structured logged by middleware', function () use (&$middlewareLog) {
         ->withSchema($schema)
         ->asStructured();
 
-    assert_true($r->structured['name'] === 'Alice', "Name should be Alice");
+    assert_true($r->structured['name'] === 'Alice', 'Name should be Alice');
 
     $entry = $middlewareLog[count($middlewareLog) - 1];
     assert_true($entry['method'] === 'structured', "Method should be 'structured', got: {$entry['method']}");

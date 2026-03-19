@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Pending;
 
 use Atlasphp\Atlas\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
 use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
 use Atlasphp\Atlas\Requests\AudioRequest as AudioRequestObject;
@@ -17,6 +18,7 @@ use Atlasphp\Atlas\Responses\TextResponse;
  */
 class AudioRequest
 {
+    use HasMeta;
     use HasMiddleware;
     use ResolvesProvider;
 
@@ -149,6 +151,7 @@ class AudioRequest
             voiceClone: $this->voiceClone,
             providerOptions: $this->providerOptions,
             middleware: $this->middleware,
+            meta: $this->meta,
         );
     }
 }
