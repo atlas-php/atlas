@@ -537,7 +537,7 @@ test('capabilities are accurate', function () {
     assert_true(! $cap->supports('imageToText'), 'Should NOT support imageToText');
     assert_true($cap->supports('audio'), 'Should support audio');
     assert_true($cap->supports('audioToText'), 'Should support audioToText');
-    assert_true(! $cap->supports('video'), 'Should NOT support video');
+    assert_true($cap->supports('video'), 'Should support video');
     assert_true($cap->supports('embed'), 'Should support embed');
     assert_true($cap->supports('moderate'), 'Should support moderate');
     assert_true($cap->supports('vision'), 'Should support vision');
@@ -560,6 +560,42 @@ test('provider options pass through', function () {
         ->asText();
 
     assert_true($r->text !== '', 'Should work with provider options');
+});
+
+// ── Video Generation ─────────────────────────────────────────────────────────
+
+echo "\n\n── Video Generation (Sora)";
+
+test('video generation with sora-2 + save to disk', function () {
+    echo "\n    → Submitting video generation request (sora-2, 4s)...";
+
+    $r = Atlas::video(Provider::OpenAI, 'sora-2')
+        ->instructions('A tiny blue dot slowly pulsing on a white background')
+        ->withDuration(4)
+        ->withRatio('16:9')
+        ->asVideo();
+
+    assert_true($r->url !== '', 'Should have a video file path');
+    assert_true(file_exists($r->url), "Video file should exist at: {$r->url}");
+
+    $videoSize = filesize($r->url);
+    assert_true($videoSize > 10000, "Video should be substantial, got: {$videoSize} bytes");
+    echo "\n    → Duration: ".($r->duration ?? 'unknown').'s';
+    echo "\n    → Size: ".number_format($videoSize).' bytes';
+    echo "\n    → Model: ".($r->meta['model'] ?? 'unknown');
+    echo "\n    → Video ID: ".($r->meta['video_id'] ?? 'unknown');
+
+    // Save to disk
+    $outDir = __DIR__.'/storage/openai-test';
+    if (! is_dir($outDir)) {
+        mkdir($outDir, 0755, true);
+    }
+    $savePath = $outDir.'/video-sora2-'.date('His').'.mp4';
+    copy($r->url, $savePath);
+    echo "\n    → Saved: {$savePath}";
+
+    // Clean up temp file
+    unlink($r->url);
 });
 
 // ── Media Storage ────────────────────────────────────────────────────────────

@@ -30,7 +30,7 @@ it('reports correct capabilities', function () {
     expect($cap->supports('imageToText'))->toBeFalse();
     expect($cap->supports('audio'))->toBeTrue();
     expect($cap->supports('audioToText'))->toBeTrue();
-    expect($cap->supports('video'))->toBeFalse();
+    expect($cap->supports('video'))->toBeTrue();
     expect($cap->supports('videoToText'))->toBeFalse();
     expect($cap->supports('embed'))->toBeTrue();
     expect($cap->supports('moderate'))->toBeTrue();

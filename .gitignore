@@ -67,6 +67,7 @@ sandbox/storage/framework/views/*
 /sandbox/storage/app/nexus/*
 /sandbox/storage/app/nexus/
 sandbox/storage/xai-test/
+sandbox/storage/openai-test/
 
 # VitePress
 docs/.vitepress/cache

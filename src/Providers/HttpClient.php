@@ -45,6 +45,29 @@ class HttpClient
     }
 
     /**
+     * Send a GET request and return the raw response body.
+     *
+     * Used for binary responses such as video content downloads.
+     *
+     * @param  array<string, string>  $headers
+     */
+    public function getRaw(string $url, array $headers, int $timeout): string
+    {
+        $this->events->dispatch(new ProviderRequesting($url, []));
+
+        $response = Http::withHeaders($headers)->timeout($timeout)->get($url);
+
+        if ($response->failed()) {
+            $this->events->dispatch(new ProviderRequestFailed($url, $response));
+            $response->throw();
+        }
+
+        $this->events->dispatch(new ProviderResponded($url, []));
+
+        return $response->body();
+    }
+
+    /**
      * Send a POST request and return the decoded JSON response.
      *
      * @param  array<string, string>  $headers
