@@ -38,7 +38,7 @@ class VideoRequest
 
     public function __construct(
         protected readonly Provider|string $provider,
-        protected readonly string $model,
+        protected readonly ?string $model,
         protected readonly ProviderRegistryContract $registry,
     ) {}
 
@@ -109,7 +109,7 @@ class VideoRequest
     public function buildRequest(): VideoRequestObject
     {
         return new VideoRequestObject(
-            model: $this->model,
+            model: $this->model ?? '',
             instructions: $this->instructions,
             media: $this->media,
             duration: $this->duration,

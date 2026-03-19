@@ -40,7 +40,7 @@ class ImageRequest
 
     public function __construct(
         protected readonly Provider|string $provider,
-        protected readonly string $model,
+        protected readonly ?string $model,
         protected readonly ProviderRegistryContract $registry,
     ) {}
 
@@ -118,7 +118,7 @@ class ImageRequest
     public function buildRequest(): ImageRequestObject
     {
         return new ImageRequestObject(
-            model: $this->model,
+            model: $this->model ?? '',
             instructions: $this->instructions,
             media: $this->media,
             size: $this->size,

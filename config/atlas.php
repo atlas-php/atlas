@@ -13,9 +13,14 @@ return [
     |
     */
 
-    'default' => [
-        'provider' => env('ATLAS_DEFAULT_PROVIDER', 'openai'),
-        'model' => env('ATLAS_DEFAULT_MODEL', 'gpt-4o'),
+    'defaults' => [
+        'text' => ['provider' => env('ATLAS_TEXT_PROVIDER'), 'model' => env('ATLAS_TEXT_MODEL')],
+        'image' => ['provider' => env('ATLAS_IMAGE_PROVIDER'), 'model' => env('ATLAS_IMAGE_MODEL')],
+        'tts' => ['provider' => env('ATLAS_TTS_PROVIDER'), 'model' => env('ATLAS_TTS_MODEL')],
+        'stt' => ['provider' => env('ATLAS_STT_PROVIDER'), 'model' => env('ATLAS_STT_MODEL')],
+        'video' => ['provider' => env('ATLAS_VIDEO_PROVIDER'), 'model' => env('ATLAS_VIDEO_MODEL')],
+        'embed' => ['provider' => env('ATLAS_EMBED_PROVIDER'), 'model' => env('ATLAS_EMBED_MODEL')],
+        'moderate' => ['provider' => env('ATLAS_MODERATE_PROVIDER'), 'model' => env('ATLAS_MODERATE_MODEL')],
     ],
 
     /*

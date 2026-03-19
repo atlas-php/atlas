@@ -2,12 +2,15 @@
 
 declare(strict_types=1);
 
-it('has openai as the default provider', function () {
-    expect(config('atlas.default.provider'))->toBe('openai');
-});
-
-it('has gpt-4o as the default model', function () {
-    expect(config('atlas.default.model'))->toBe('gpt-4o');
+it('has modality defaults configured as null', function () {
+    expect(config('atlas.defaults.text.provider'))->toBeNull();
+    expect(config('atlas.defaults.text.model'))->toBeNull();
+    expect(config('atlas.defaults.image.provider'))->toBeNull();
+    expect(config('atlas.defaults.tts.provider'))->toBeNull();
+    expect(config('atlas.defaults.stt.provider'))->toBeNull();
+    expect(config('atlas.defaults.video.provider'))->toBeNull();
+    expect(config('atlas.defaults.embed.provider'))->toBeNull();
+    expect(config('atlas.defaults.moderate.provider'))->toBeNull();
 });
 
 it('has all four providers configured', function () {

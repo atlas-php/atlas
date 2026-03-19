@@ -7,18 +7,29 @@ namespace Atlasphp\Atlas\Pending;
 use Atlasphp\Atlas\Concerns\NormalizesMessages;
 use Atlasphp\Atlas\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Exceptions\AtlasException;
+use Atlasphp\Atlas\Executor\AgentExecutor;
+use Atlasphp\Atlas\Executor\ToolExecutor;
+use Atlasphp\Atlas\Executor\ToolRegistry;
 use Atlasphp\Atlas\Input\Input;
+use Atlasphp\Atlas\Middleware\MiddlewareStack;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
 use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
+use Atlasphp\Atlas\Providers\Tools\ProviderTool;
 use Atlasphp\Atlas\Requests\TextRequest as TextRequestObject;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Schema\Schema;
+use Atlasphp\Atlas\Tools\Tool;
+use Illuminate\Contracts\Events\Dispatcher;
 
 /**
  * Fluent builder for text generation, streaming, and structured output requests.
+ *
+ * When tools are present, terminal methods route through the executor's step loop
+ * for automatic tool call handling. Without tools, calls go directly to the driver.
  */
 class TextRequest
 {
@@ -46,9 +57,19 @@ class TextRequest
     /** @var array<string, mixed> */
     protected array $providerOptions = [];
 
+    /** @var array<int, Tool|string> */
+    protected array $tools = [];
+
+    /** @var array<int, ProviderTool> */
+    protected array $providerTools = [];
+
+    protected ?int $maxSteps = null;
+
+    protected bool $parallelToolCalls = true;
+
     public function __construct(
         protected readonly Provider|string $provider,
-        protected readonly string $model,
+        protected readonly ?string $model,
         protected readonly ProviderRegistryContract $registry,
     ) {}
 
@@ -111,8 +132,52 @@ class TextRequest
         return $this;
     }
 
+    /**
+     * Add tools for automatic tool call handling via the executor step loop.
+     *
+     * Accepts Tool instances or class strings (resolved from container).
+     *
+     * @param  array<int, Tool|string>  $tools
+     */
+    public function withTools(array $tools): static
+    {
+        $this->tools = array_merge($this->tools, $tools);
+
+        return $this;
+    }
+
+    /**
+     * Add provider-native tools (web search, code interpreter, etc.).
+     *
+     * @param  array<int, ProviderTool>  $providerTools
+     */
+    public function withProviderTools(array $providerTools): static
+    {
+        $this->providerTools = array_merge($this->providerTools, $providerTools);
+
+        return $this;
+    }
+
+    public function withMaxSteps(?int $maxSteps): static
+    {
+        $this->maxSteps = $maxSteps;
+
+        return $this;
+    }
+
+    public function withParallelToolCalls(bool $parallel = true): static
+    {
+        $this->parallelToolCalls = $parallel;
+
+        return $this;
+    }
+
     public function asText(): TextResponse
     {
+        if ($this->hasTools()) {
+            return $this->executeWithTools();
+        }
+
         $driver = $this->resolveDriver();
         $this->ensureCapability($driver, 'text');
 
@@ -121,6 +186,10 @@ class TextRequest
 
     public function asStream(): StreamResponse
     {
+        if ($this->hasTools()) {
+            throw new AtlasException('Streaming with tools is not yet supported. Use asText() for tool-enabled requests.');
+        }
+
         $driver = $this->resolveDriver();
         $this->ensureCapability($driver, 'stream');
 
@@ -135,10 +204,76 @@ class TextRequest
         return $driver->structured($this->buildRequest());
     }
 
+    protected function hasTools(): bool
+    {
+        return $this->tools !== [] || $this->providerTools !== [];
+    }
+
+    protected function executeWithTools(): TextResponse
+    {
+        $resolvedTools = $this->resolveTools();
+
+        $driver = $this->resolveDriver();
+        $this->ensureCapability($driver, 'text');
+
+        $toolRegistry = new ToolRegistry($resolvedTools);
+        $toolExecutor = new ToolExecutor($toolRegistry);
+
+        $executor = new AgentExecutor(
+            driver: $driver,
+            toolExecutor: $toolExecutor,
+            events: app(Dispatcher::class),
+            middlewareStack: app(MiddlewareStack::class),
+        );
+
+        $request = $this->buildRequestWithTools($resolvedTools);
+
+        $result = $executor->execute(
+            request: $request,
+            maxSteps: $this->maxSteps,
+            parallelToolCalls: $this->parallelToolCalls,
+            meta: $this->meta,
+        );
+
+        return new TextResponse(
+            text: $result->text,
+            usage: $result->usage,
+            finishReason: $result->finishReason,
+            reasoning: $result->reasoning,
+            meta: $result->meta,
+        );
+    }
+
+    /**
+     * Resolve tool class strings from the container.
+     *
+     * @return array<int, Tool>
+     */
+    protected function resolveTools(): array
+    {
+        return array_map(function (Tool|string $tool): Tool {
+            if (is_string($tool)) {
+                return app($tool);
+            }
+
+            return $tool;
+        }, $this->tools);
+    }
+
     public function buildRequest(): TextRequestObject
     {
+        return $this->buildRequestWithTools($this->resolveTools());
+    }
+
+    /**
+     * Build the request with pre-resolved tools to avoid double resolution.
+     *
+     * @param  array<int, Tool>  $resolvedTools
+     */
+    protected function buildRequestWithTools(array $resolvedTools): TextRequestObject
+    {
         return new TextRequestObject(
-            model: $this->model,
+            model: $this->model ?? '',
             instructions: $this->instructions,
             message: $this->message,
             messageMedia: $this->messageMedia,
@@ -146,8 +281,8 @@ class TextRequest
             maxTokens: $this->maxTokens,
             temperature: $this->temperature,
             schema: $this->schema,
-            tools: [],           // Wired via AgentRequest in Phase 7
-            providerTools: [],   // Wired via AgentRequest in Phase 7
+            tools: array_map(fn (Tool $t) => $t->toDefinition(), $resolvedTools),
+            providerTools: $this->providerTools,
             providerOptions: $this->providerOptions,
             middleware: $this->middleware,
             meta: $this->meta,

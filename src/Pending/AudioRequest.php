@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Pending;
 
 use Atlasphp\Atlas\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
 use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
@@ -44,8 +45,8 @@ class AudioRequest
     protected array $providerOptions = [];
 
     public function __construct(
-        protected readonly Provider|string $provider,
-        protected readonly string $model,
+        protected Provider|string|null $provider,
+        protected ?string $model,
         protected readonly ProviderRegistryContract $registry,
     ) {}
 
@@ -123,6 +124,8 @@ class AudioRequest
 
     public function asAudio(): AudioResponse
     {
+        $this->resolveAudioDefaults('tts');
+
         $driver = $this->resolveDriver();
         $this->ensureCapability($driver, 'audio');
 
@@ -131,16 +134,36 @@ class AudioRequest
 
     public function asText(): TextResponse
     {
+        $this->resolveAudioDefaults('stt');
+
         $driver = $this->resolveDriver();
         $this->ensureCapability($driver, 'audioToText');
 
         return $driver->audioToText($this->buildRequest());
     }
 
+    /**
+     * Resolve provider and model from TTS or STT defaults if not set explicitly.
+     *
+     * Uses the same resolution pattern as AtlasManager::resolveDefaults().
+     */
+    protected function resolveAudioDefaults(string $modality): void
+    {
+        /** @var array<string, string|null> $defaults */
+        $defaults = config("atlas.defaults.{$modality}", []);
+
+        $this->provider = $this->provider ?? ($defaults['provider'] ?? null);
+        $this->model = $this->model ?? ($defaults['model'] ?? null);
+
+        if ($this->provider === null) {
+            throw AtlasException::missingDefault($modality);
+        }
+    }
+
     public function buildRequest(): AudioRequestObject
     {
         return new AudioRequestObject(
-            model: $this->model,
+            model: $this->model ?? '',
             instructions: $this->instructions,
             media: $this->media,
             voice: $this->voice,

@@ -16,8 +16,8 @@ class ModerateRequest
      * @param  array<string, mixed>  $meta
      */
     public function __construct(
-        public readonly string $model,
         public readonly string|array $input,
+        public readonly ?string $model = null,
         public readonly array $providerOptions = [],
         public readonly array $middleware = [],
         public readonly array $meta = [],

@@ -24,7 +24,8 @@ it('registers AtlasManager as a singleton', function () {
 });
 
 it('merges the atlas config', function () {
-    expect(config('atlas.default.provider'))->not->toBeNull();
+    expect(config('atlas.defaults'))->not->toBeNull();
+    expect(config('atlas.providers'))->not->toBeNull();
 });
 
 it('registers the openai provider factory', function () {

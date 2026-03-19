@@ -25,10 +25,10 @@ class Moderate implements ModerateHandler
 
     public function moderate(ModerateRequest $request): ModerationResponse
     {
-        $body = [
+        $body = array_filter([
             'model' => $request->model,
             'input' => $request->input,
-        ];
+        ], fn (mixed $v): bool => $v !== null);
 
         $body = array_merge($body, $request->providerOptions);
 

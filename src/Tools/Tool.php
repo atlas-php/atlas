@@ -83,6 +83,7 @@ abstract class Tool
         $schema = [
             'type' => 'object',
             'properties' => $properties,
+            'additionalProperties' => false,
         ];
 
         if ($required !== []) {

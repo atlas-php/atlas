@@ -29,7 +29,7 @@ class ModerateRequest
 
     public function __construct(
         protected readonly Provider|string $provider,
-        protected readonly string $model,
+        protected readonly ?string $model,
         protected readonly ProviderRegistryContract $registry,
     ) {}
 

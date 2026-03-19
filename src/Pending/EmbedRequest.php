@@ -29,7 +29,7 @@ class EmbedRequest
 
     public function __construct(
         protected readonly Provider|string $provider,
-        protected readonly string $model,
+        protected readonly ?string $model,
         protected readonly ProviderRegistryContract $registry,
     ) {}
 
@@ -68,7 +68,7 @@ class EmbedRequest
     public function buildRequest(): EmbedRequestObject
     {
         return new EmbedRequestObject(
-            model: $this->model,
+            model: $this->model ?? '',
             input: $this->input ?? '',
             providerOptions: $this->providerOptions,
             middleware: $this->middleware,
