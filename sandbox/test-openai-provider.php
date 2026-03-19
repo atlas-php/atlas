@@ -29,6 +29,7 @@ use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Input\Audio;
+use Atlasphp\Atlas\Input\Image;
 use Atlasphp\Atlas\Messages\AssistantMessage;
 use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Messages\ToolResultMessage;
@@ -677,7 +678,7 @@ test('input fromPath store and contents round-trip', function () {
     $tmpPath = tempnam(sys_get_temp_dir(), 'atlas_input_');
     file_put_contents($tmpPath, 'fake-image-content-for-test');
 
-    $input = \Atlasphp\Atlas\Input\Image::fromPath($tmpPath);
+    $input = Image::fromPath($tmpPath);
 
     // Verify contents from path
     assert_true($input->contents() === 'fake-image-content-for-test', 'Should read from path');
