@@ -8,6 +8,7 @@ use Atlasphp\Atlas\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
 use Atlasphp\Atlas\Providers\Cohere\CohereDriver;
+use Atlasphp\Atlas\Providers\Google\GoogleDriver;
 use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\Jina\JinaDriver;
 use Atlasphp\Atlas\Providers\OpenAi\OpenAiDriver;
@@ -81,6 +82,14 @@ class AtlasServiceProvider extends ServiceProvider
 
         $registry->register(Provider::xAI->value, function (Application $app, array $config) {
             return new XaiDriver(
+                config: ProviderConfig::fromArray($config),
+                http: $app->make(HttpClient::class),
+                middlewareStack: $app->make(MiddlewareStack::class),
+            );
+        });
+
+        $registry->register(Provider::Google->value, function (Application $app, array $config) {
+            return new GoogleDriver(
                 config: ProviderConfig::fromArray($config),
                 http: $app->make(HttpClient::class),
                 middlewareStack: $app->make(MiddlewareStack::class),
