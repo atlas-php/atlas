@@ -8,14 +8,19 @@ use Atlasphp\Atlas\Responses\StreamChunk;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\Usage;
 
-it('onChunk fires for every chunk', function () {
-    $chunks = [];
-
-    $stream = new StreamResponse((function () {
+function makeTestStream(): StreamResponse
+{
+    return new StreamResponse((function () {
         yield new StreamChunk(ChunkType::Text, text: 'Hello');
         yield new StreamChunk(ChunkType::Text, text: ' World');
         yield new StreamChunk(ChunkType::Done, usage: new Usage(10, 5), finishReason: FinishReason::Stop);
-    })())
+    })());
+}
+
+it('onChunk fires for every chunk', function () {
+    $chunks = [];
+
+    $stream = makeTestStream()
         ->onChunk(function (StreamChunk $chunk) use (&$chunks) {
             $chunks[] = $chunk->type;
         });
@@ -30,11 +35,7 @@ it('onChunk fires for every chunk', function () {
 it('onChunk receives the StreamChunk object', function () {
     $receivedTexts = [];
 
-    $stream = new StreamResponse((function () {
-        yield new StreamChunk(ChunkType::Text, text: 'Hello');
-        yield new StreamChunk(ChunkType::Text, text: ' World');
-        yield new StreamChunk(ChunkType::Done, usage: new Usage(10, 5), finishReason: FinishReason::Stop);
-    })())
+    $stream = makeTestStream()
         ->onChunk(function (StreamChunk $chunk) use (&$receivedTexts) {
             if ($chunk->text !== null) {
                 $receivedTexts[] = $chunk->text;
@@ -52,11 +53,7 @@ it('then fires once after stream completes', function () {
     $thenCalled = 0;
     $receivedText = null;
 
-    $stream = new StreamResponse((function () {
-        yield new StreamChunk(ChunkType::Text, text: 'Hello');
-        yield new StreamChunk(ChunkType::Text, text: ' World');
-        yield new StreamChunk(ChunkType::Done, usage: new Usage(10, 5), finishReason: FinishReason::Stop);
-    })())
+    $stream = makeTestStream()
         ->then(function (StreamResponse $s) use (&$thenCalled, &$receivedText) {
             $thenCalled++;
             $receivedText = $s->getText();
@@ -74,11 +71,7 @@ it('then receives StreamResponse with accumulated data', function () {
     $receivedUsage = null;
     $receivedFinishReason = null;
 
-    $stream = new StreamResponse((function () {
-        yield new StreamChunk(ChunkType::Text, text: 'Hello');
-        yield new StreamChunk(ChunkType::Text, text: ' World');
-        yield new StreamChunk(ChunkType::Done, usage: new Usage(10, 5), finishReason: FinishReason::Stop);
-    })())
+    $stream = makeTestStream()
         ->then(function (StreamResponse $s) use (&$receivedUsage, &$receivedFinishReason) {
             $receivedUsage = $s->getUsage();
             $receivedFinishReason = $s->getFinishReason();
@@ -97,11 +90,7 @@ it('both onChunk and then work together', function () {
     $chunkCount = 0;
     $thenText = null;
 
-    $stream = new StreamResponse((function () {
-        yield new StreamChunk(ChunkType::Text, text: 'Hello');
-        yield new StreamChunk(ChunkType::Text, text: ' World');
-        yield new StreamChunk(ChunkType::Done, usage: new Usage(10, 5), finishReason: FinishReason::Stop);
-    })())
+    $stream = makeTestStream()
         ->onChunk(function () use (&$chunkCount) {
             $chunkCount++;
         })
