@@ -2,8 +2,9 @@ name: Automated Tests
 
 on:
   push:
-    branches: [main]
+    branches: [main, 2.x, 3-dev]
   pull_request:
+    branches: [main, 2.x, 3-dev]
 
 jobs:
   lint:
