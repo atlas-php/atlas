@@ -63,7 +63,7 @@ class TextRequest
     /** @var array<int, ProviderTool> */
     protected array $providerTools = [];
 
-    protected ?int $maxSteps = null;
+    protected ?int $maxSteps = 200;
 
     protected bool $parallelToolCalls = true;
 
@@ -239,7 +239,9 @@ class TextRequest
             text: $result->text,
             usage: $result->usage,
             finishReason: $result->finishReason,
+            toolCalls: $result->allToolCalls(),
             reasoning: $result->reasoning,
+            steps: $result->steps,
             meta: $result->meta,
         );
     }

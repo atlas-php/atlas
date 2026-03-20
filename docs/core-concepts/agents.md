@@ -322,7 +322,7 @@ All methods have sensible defaults. Override only what you need.
 | `mcpTools()` | `[]` | MCP tools from external servers ([details](/capabilities/mcp)) |
 | `temperature()` | `null` | Sampling temperature (0-2) |
 | `maxTokens()` | `null` | Maximum response tokens |
-| `maxSteps()` | `null` | Maximum tool use iterations |
+| `maxSteps()` | `null` | Maximum tool use iterations (builder defaults to 200 when tools are present) |
 | `clientOptions()` | `[]` | HTTP client options (timeout, retries) |
 | `providerOptions()` | `[]` | Provider-specific options |
 | `schema()` | `null` | Schema for structured output |

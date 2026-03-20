@@ -436,6 +436,141 @@ it('propagates provider exceptions', function () {
     $executor->execute(makeTextRequest(), maxSteps: 10, parallelToolCalls: true, meta: []);
 })->throws(AtlasException::class, 'Provider failed');
 
+it('executes multiple tool calls concurrently with parallelToolCalls true', function () {
+    $driver = makeMockDriver([
+        new TextResponse(
+            'Running tools.',
+            new Usage(10, 10),
+            FinishReason::ToolCalls,
+            toolCalls: [
+                new ToolCall('tc-1', 'echo', ['text' => 'a']),
+                new ToolCall('tc-2', 'echo', ['text' => 'b']),
+                new ToolCall('tc-3', 'echo', ['text' => 'c']),
+            ],
+        ),
+        new TextResponse('Done.', new Usage(20, 20), FinishReason::Stop),
+    ]);
+
+    $dispatcher = makeFakeDispatcher();
+    $registry = new ToolRegistry([makeEchoTool()]);
+    $toolExecutor = new ToolExecutor($registry);
+    $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
+
+    $result = $executor->execute(makeTextRequest(), maxSteps: 10, parallelToolCalls: true, meta: []);
+
+    expect($result->totalSteps())->toBe(2);
+    expect($result->totalToolCalls())->toBe(3);
+    expect($result->steps[0]->toolResults)->toHaveCount(3);
+    expect($result->steps[0]->toolResults[0]->content)->toBe('a');
+    expect($result->steps[0]->toolResults[1]->content)->toBe('b');
+    expect($result->steps[0]->toolResults[2]->content)->toBe('c');
+
+    // Concurrent path fires AgentToolCalling events upfront, then AgentToolCalled after
+    $callingEvents = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentToolCalling);
+    expect($callingEvents)->toHaveCount(3);
+
+    $calledEvents = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentToolCalled);
+    expect($calledEvents)->toHaveCount(3);
+});
+
+it('handles errors in concurrent path with multiple tools', function () {
+    $driver = makeMockDriver([
+        new TextResponse(
+            'Running tools.',
+            new Usage(10, 10),
+            FinishReason::ToolCalls,
+            toolCalls: [
+                new ToolCall('tc-1', 'echo', ['text' => 'a']),
+                new ToolCall('tc-2', 'fail', []),
+            ],
+        ),
+        new TextResponse('One failed.', new Usage(20, 20), FinishReason::Stop),
+    ]);
+
+    $dispatcher = makeFakeDispatcher();
+    $registry = new ToolRegistry([makeEchoTool(), makeFailingTool()]);
+    $toolExecutor = new ToolExecutor($registry);
+    $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
+
+    $result = $executor->execute(makeTextRequest(), maxSteps: 10, parallelToolCalls: true, meta: []);
+
+    expect($result->totalSteps())->toBe(2);
+    expect($result->steps[0]->toolResults)->toHaveCount(2);
+    expect($result->steps[0]->toolResults[0]->content)->toBe('a');
+    expect($result->steps[0]->toolResults[0]->isError)->toBeFalse();
+    expect($result->steps[0]->toolResults[1]->content)->toBe('Tool exploded');
+    expect($result->steps[0]->toolResults[1]->isError)->toBeTrue();
+
+    $erroredEvents = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentToolErrored);
+    expect($erroredEvents)->toHaveCount(1);
+});
+
+it('executes multiple tool calls sequentially when parallelToolCalls is false', function () {
+    $driver = makeMockDriver([
+        new TextResponse(
+            'Running tools.',
+            new Usage(10, 10),
+            FinishReason::ToolCalls,
+            toolCalls: [
+                new ToolCall('tc-1', 'echo', ['text' => 'a']),
+                new ToolCall('tc-2', 'echo', ['text' => 'b']),
+            ],
+        ),
+        new TextResponse('Done.', new Usage(20, 20), FinishReason::Stop),
+    ]);
+
+    $dispatcher = makeFakeDispatcher();
+    $registry = new ToolRegistry([makeEchoTool()]);
+    $toolExecutor = new ToolExecutor($registry);
+    $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
+
+    $result = $executor->execute(makeTextRequest(), maxSteps: 10, parallelToolCalls: false, meta: []);
+
+    expect($result->totalSteps())->toBe(2);
+    expect($result->totalToolCalls())->toBe(2);
+    expect($result->steps[0]->toolResults)->toHaveCount(2);
+    expect($result->steps[0]->toolResults[0]->content)->toBe('a');
+    expect($result->steps[0]->toolResults[1]->content)->toBe('b');
+
+    $callingEvents = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentToolCalling);
+    expect($callingEvents)->toHaveCount(2);
+
+    $calledEvents = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentToolCalled);
+    expect($calledEvents)->toHaveCount(2);
+});
+
+it('handles mixed success and error with multiple sequential tools', function () {
+    $driver = makeMockDriver([
+        new TextResponse(
+            'Running tools.',
+            new Usage(10, 10),
+            FinishReason::ToolCalls,
+            toolCalls: [
+                new ToolCall('tc-1', 'echo', ['text' => 'a']),
+                new ToolCall('tc-2', 'fail', []),
+            ],
+        ),
+        new TextResponse('One failed.', new Usage(20, 20), FinishReason::Stop),
+    ]);
+
+    $dispatcher = makeFakeDispatcher();
+    $registry = new ToolRegistry([makeEchoTool(), makeFailingTool()]);
+    $toolExecutor = new ToolExecutor($registry);
+    $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
+
+    $result = $executor->execute(makeTextRequest(), maxSteps: 10, parallelToolCalls: false, meta: []);
+
+    expect($result->totalSteps())->toBe(2);
+    expect($result->steps[0]->toolResults)->toHaveCount(2);
+    expect($result->steps[0]->toolResults[0]->content)->toBe('a');
+    expect($result->steps[0]->toolResults[0]->isError)->toBeFalse();
+    expect($result->steps[0]->toolResults[1]->content)->toBe('Tool exploded');
+    expect($result->steps[0]->toolResults[1]->isError)->toBeTrue();
+
+    $erroredEvents = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentToolErrored);
+    expect($erroredEvents)->toHaveCount(1);
+});
+
 it('dispatches AgentCompleted with correct steps', function () {
     $driver = makeMockDriver([
         new TextResponse(

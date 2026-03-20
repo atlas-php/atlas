@@ -12,7 +12,8 @@
     "require-dev": {
         "larastan/larastan": "^3.0",
         "laravel/pint": "^1.18",
-        "prism-php/relay": "^1.6"
+        "prism-php/relay": "^1.6",
+        "spatie/fork": "^1.2"
     },
     "repositories": [
         {

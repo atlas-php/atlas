@@ -20,6 +20,7 @@ use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\Usage;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Support\Facades\Concurrency;
+use Spatie\Fork\Fork;
 
 /**
  * Orchestrates the tool call loop for agent execution.
@@ -205,6 +206,11 @@ class AgentExecutor
     /**
      * Execute tool calls concurrently using Laravel's Concurrency facade.
      *
+     * Uses the fork driver when available (requires spatie/fork + pcntl)
+     * for true parallelism. Falls back to the sync driver otherwise.
+     * The default process driver is not used because it serializes closures
+     * into child PHP processes, which fails with dependency-injected tools.
+     *
      * Falls back to sequential if only one tool call is present.
      *
      * @param  array<int, ToolCall>  $toolCalls
@@ -224,42 +230,54 @@ class AgentExecutor
             $this->events->dispatch(new AgentToolCalling($toolCall));
         }
 
-        // Build closures — each catches its own errors so Concurrency::run() never throws
+        // Build closures that always return ToolResult — never Throwable.
+        // This ensures return values serialize cleanly across fork boundaries.
         $tasks = array_map(
-            fn (ToolCall $toolCall) => function () use ($toolCall, $meta): ToolResult|\Throwable {
+            fn (ToolCall $toolCall) => function () use ($toolCall, $meta): ToolResult {
                 try {
                     return $this->dispatchTool($toolCall, $meta);
                 } catch (\Throwable $e) {
-                    return $e;
+                    return new ToolResult(
+                        toolCall: $toolCall,
+                        content: $e->getMessage(),
+                        isError: true,
+                    );
                 }
             },
             $toolCalls,
         );
 
-        // Run concurrently — each returns a ToolResult or a caught Throwable
-        $rawResults = Concurrency::run($tasks);
+        /** @var array<int, ToolResult> $results */
+        $results = Concurrency::driver($this->concurrencyDriver())->run($tasks);
 
-        // Post-process: fire events, convert errors to ToolResults
-        $results = [];
-
-        foreach ($toolCalls as $i => $toolCall) {
-            $result = $rawResults[$i];
-
-            if ($result instanceof \Throwable) {
-                $this->events->dispatch(new AgentToolErrored($toolCall, $result));
-
-                $results[] = new ToolResult(
-                    toolCall: $toolCall,
-                    content: $result->getMessage(),
-                    isError: true,
-                );
-            } elseif ($result instanceof ToolResult) {
-                $this->events->dispatch(new AgentToolCalled($toolCall, $result));
-                $results[] = $result;
+        // Post-process: fire completion or error events
+        foreach ($results as $result) {
+            if ($result->isError) {
+                $this->events->dispatch(new AgentToolErrored($result->toolCall, new \RuntimeException($result->content)));
+            } else {
+                $this->events->dispatch(new AgentToolCalled($result->toolCall, $result));
             }
         }
 
-        return $results;
+        return array_values($results);
+    }
+
+    /**
+     * Resolve which concurrency driver to use.
+     *
+     * Prefers fork (true parallelism) when spatie/fork is installed and
+     * pcntl is available. Falls back to sync (sequential via Concurrency
+     * facade) otherwise. The default process driver is avoided because it
+     * serializes closures into child processes, which fails with
+     * dependency-injected tool classes.
+     */
+    protected function concurrencyDriver(): string
+    {
+        if (class_exists(Fork::class) && extension_loaded('pcntl')) {
+            return 'fork';
+        }
+
+        return 'sync';
     }
 
     // ─── Single Tool Execution ───────────────────────────────────────────
