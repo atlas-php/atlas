@@ -18,4 +18,16 @@ class {{ class }} extends Agent
     {
         return 'You are a helpful assistant.';
     }
+
+    /**
+     * The tools available to this agent.
+     *
+     * @return array<int, class-string|object>
+     */
+    public function tools(): array
+    {
+        return [
+            // \App\Tools\YourTool::class,
+        ];
+    }
 }

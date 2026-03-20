@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace {{ namespace }};
 
 use Atlasphp\Atlas\Agents\Agent;
+use Atlasphp\Atlas\Providers\Tools\WebSearch;
 
 /**
  * {{ class }} agent.
@@ -17,5 +18,17 @@ class {{ class }} extends Agent
     public function instructions(): ?string
     {
         return 'You are a helpful assistant.';
+    }
+
+    /**
+     * Provider tools available to this agent.
+     *
+     * @return array<int, \Atlasphp\Atlas\Providers\Tools\ProviderTool>
+     */
+    public function providerTools(): array
+    {
+        return [
+            new WebSearch,
+        ];
     }
 }

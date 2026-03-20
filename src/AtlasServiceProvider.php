@@ -52,6 +52,11 @@ class AtlasServiceProvider extends ServiceProvider
         $this->registerProviders();
 
         if ($this->app->runningInConsole()) {
+            $this->commands([
+                Console\MakeAgentCommand::class,
+                Console\MakeToolCommand::class,
+            ]);
+
             $this->publishes([
                 __DIR__.'/../config/atlas.php' => config_path('atlas.php'),
             ], 'atlas-config');

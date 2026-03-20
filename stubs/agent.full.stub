@@ -1,0 +1,46 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use Atlasphp\Atlas\Agents\Agent;
+use Atlasphp\Atlas\Providers\Tools\WebSearch;
+
+/**
+ * {{ class }} agent.
+ */
+class {{ class }} extends Agent
+{
+    /**
+     * The system instructions for this agent.
+     */
+    public function instructions(): ?string
+    {
+        return 'You are a helpful assistant.';
+    }
+
+    /**
+     * The tools available to this agent.
+     *
+     * @return array<int, class-string|object>
+     */
+    public function tools(): array
+    {
+        return [
+            // \App\Tools\YourTool::class,
+        ];
+    }
+
+    /**
+     * Provider tools available to this agent.
+     *
+     * @return array<int, \Atlasphp\Atlas\Providers\Tools\ProviderTool>
+     */
+    public function providerTools(): array
+    {
+        return [
+            new WebSearch,
+        ];
+    }
+}

@@ -4,39 +4,53 @@ declare(strict_types=1);
 
 namespace {{ namespace }};
 
-use Atlasphp\Atlas\Tools\ToolDefinition;
-use Atlasphp\Atlas\Tools\Support\ToolContext;
-use Atlasphp\Atlas\Tools\Support\ToolParameter;
-use Atlasphp\Atlas\Tools\Support\ToolResult;
+use Atlasphp\Atlas\Schema\Schema;
+use Atlasphp\Atlas\Tools\Tool;
 
 /**
  * {{ class }} tool.
- *
- * Describe what this tool does for the AI agent.
  */
-class {{ class }} extends ToolDefinition
+class {{ class }} extends Tool
 {
+    /**
+     * The tool name the model uses to call this tool.
+     */
     public function name(): string
     {
-        return '{{ tool_name }}';
+        return '{{ toolName }}';
     }
 
+    /**
+     * Describe when and how the model should use this tool.
+     */
     public function description(): string
     {
-        return 'A description of what this tool does.';
+        return 'TODO: Describe what this tool does and when the model should call it.';
     }
 
+    /**
+     * The parameters this tool accepts.
+     *
+     * @return array<int, \Atlasphp\Atlas\Schema\Fields\Field>
+     */
     public function parameters(): array
     {
         return [
-            ToolParameter::string('query', 'The input query', required: true),
+            // Schema::string('query', 'The search query'),
+            // Schema::integer('limit', 'Max results to return')->optional(),
         ];
     }
 
-    public function handle(array $params, ToolContext $context): ToolResult
+    /**
+     * Execute the tool.
+     *
+     * @param  array<string, mixed>  $args  Parameter values from the model
+     * @param  array<string, mixed>  $context  Metadata from withMeta()
+     */
+    public function handle(array $args, array $context): mixed
     {
-        // Implement your tool logic here
+        // TODO: Implement your tool logic here.
 
-        return ToolResult::text('Result');
+        return 'Tool result';
     }
 }
