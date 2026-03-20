@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Providers\Responses;
 
+use Atlasphp\Atlas\Providers\ChatCompletions\Handlers\Provider;
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\Handlers\AudioHandler;
 use Atlasphp\Atlas\Providers\Handlers\EmbedHandler;
 use Atlasphp\Atlas\Providers\Handlers\ImageHandler;
 use Atlasphp\Atlas\Providers\Handlers\ModerateHandler;
+use Atlasphp\Atlas\Providers\Handlers\ProviderHandler;
 use Atlasphp\Atlas\Providers\Handlers\TextHandler;
 use Atlasphp\Atlas\Providers\Handlers\VideoHandler;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Audio;
@@ -54,9 +56,15 @@ class ResponsesDriver extends Driver
                 moderate: true,
                 vision: true,
                 toolCalling: true,
+                models: true,
             ),
             $this->config->capabilityOverrides,
         );
+    }
+
+    protected function providerHandler(string $feature = 'provider'): ProviderHandler
+    {
+        return new Provider($this->config, $this->http);
     }
 
     protected function textHandler(): TextHandler
