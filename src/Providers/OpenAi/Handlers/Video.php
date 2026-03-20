@@ -7,9 +7,10 @@ namespace Atlasphp\Atlas\Providers\OpenAi\Handlers;
 use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Input\Input;
+use Atlasphp\Atlas\Providers\Concerns\BuildsHeaders;
 use Atlasphp\Atlas\Providers\Handlers\VideoHandler;
 use Atlasphp\Atlas\Providers\HttpClient;
-use Atlasphp\Atlas\Providers\OpenAi\Concerns\BuildsHeaders;
+use Atlasphp\Atlas\Providers\OpenAi\Concerns\HasOrganizationHeader;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Requests\VideoRequest;
 use Atlasphp\Atlas\Responses\TextResponse;
@@ -23,7 +24,9 @@ use Atlasphp\Atlas\Responses\VideoResponse;
  */
 class Video implements VideoHandler
 {
-    use BuildsHeaders;
+    use BuildsHeaders, HasOrganizationHeader {
+        HasOrganizationHeader::extraHeaders insteadof BuildsHeaders;
+    }
 
     private const DEFAULT_POLL_INTERVAL = 5;
 

@@ -2,32 +2,27 @@
 
 declare(strict_types=1);
 
-namespace Atlasphp\Atlas\Providers\OpenAi\Concerns;
+namespace Atlasphp\Atlas\Providers\Concerns;
 
 /**
- * Shared header builder for OpenAI handlers.
+ * Shared header builder for provider handlers.
  *
  * Expects the using class to have a $config property of type ProviderConfig.
+ * Override extraHeaders() to add provider-specific headers.
  */
 trait BuildsHeaders
 {
     /**
-     * Build standard OpenAI API headers.
+     * Build standard API headers with Bearer auth.
      *
      * @return array<string, string>
      */
     protected function headers(): array
     {
-        $headers = [
+        return array_merge([
             'Authorization' => "Bearer {$this->config->apiKey}",
             'Content-Type' => 'application/json',
-        ];
-
-        if ($this->config->organization !== null) {
-            $headers['OpenAI-Organization'] = $this->config->organization;
-        }
-
-        return $headers;
+        ], $this->extraHeaders());
     }
 
     /**
@@ -37,14 +32,18 @@ trait BuildsHeaders
      */
     protected function headersWithoutContentType(): array
     {
-        $headers = [
+        return array_merge([
             'Authorization' => "Bearer {$this->config->apiKey}",
-        ];
+        ], $this->extraHeaders());
+    }
 
-        if ($this->config->organization !== null) {
-            $headers['OpenAI-Organization'] = $this->config->organization;
-        }
-
-        return $headers;
+    /**
+     * Provider-specific headers. Override to add vendor headers.
+     *
+     * @return array<string, string>
+     */
+    protected function extraHeaders(): array
+    {
+        return [];
     }
 }

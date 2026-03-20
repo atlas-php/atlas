@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Providers\Xai;
 
-use Atlasphp\Atlas\Messages\AssistantMessage;
 use Atlasphp\Atlas\Messages\SystemMessage;
-use Atlasphp\Atlas\Messages\ToolResultMessage;
-use Atlasphp\Atlas\Messages\UserMessage;
+use Atlasphp\Atlas\Providers\Concerns\BuildsResponsesMessages;
 use Atlasphp\Atlas\Providers\Contracts\MediaResolver;
-use Atlasphp\Atlas\Providers\OpenAi\MessageFactory as OpenAiMessageFactory;
+use Atlasphp\Atlas\Providers\Contracts\MessageFactory as MessageFactoryContract;
 use Atlasphp\Atlas\Requests\TextRequest;
 
 /**
@@ -19,8 +17,10 @@ use Atlasphp\Atlas\Requests\TextRequest;
  * are injected as a system role message in the input array. Uses `system` role
  * instead of OpenAI's `developer` role.
  */
-class MessageFactory extends OpenAiMessageFactory
+class MessageFactory implements MessageFactoryContract
 {
+    use BuildsResponsesMessages;
+
     /**
      * @return array<string, mixed>
      */
@@ -45,28 +45,13 @@ class MessageFactory extends OpenAiMessageFactory
         $instructions = $request->instructions;
         $input = [];
 
-        foreach ($request->messages as $message) {
-            if ($message instanceof SystemMessage) {
-                $instructions ??= $message->content;
-            } elseif ($message instanceof UserMessage) {
-                $input[] = $this->user($message, $media);
-            } elseif ($message instanceof AssistantMessage) {
-                $this->expandAssistant($message, $input);
-            } elseif ($message instanceof ToolResultMessage) {
-                $input[] = $this->toolResult($message);
-            }
-        }
+        $this->collectInputItems($request, $media, $instructions, $input);
 
         if ($instructions !== null) {
             array_unshift($input, [
                 'role' => 'system',
                 'content' => $instructions,
             ]);
-        }
-
-        if ($request->message !== null) {
-            $userMessage = new UserMessage($request->message, $request->messageMedia);
-            $input[] = $this->user($userMessage, $media);
         }
 
         return [

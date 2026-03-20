@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Providers\OpenAi;
 
 use Atlasphp\Atlas\Input\Input;
+use Atlasphp\Atlas\Providers\Concerns\ResolvesMediaUri;
 use Atlasphp\Atlas\Providers\Contracts\MediaResolver as MediaResolverContract;
-use Illuminate\Support\Facades\Storage;
-use InvalidArgumentException;
 
 /**
  * Converts Atlas Input types into OpenAI Responses API content parts.
@@ -16,64 +15,13 @@ use InvalidArgumentException;
  */
 class MediaResolver implements MediaResolverContract
 {
+    use ResolvesMediaUri;
+
     /**
      * @return array<string, mixed>
      */
     public function resolve(Input $input): array
     {
-        if ($input->isUrl()) {
-            return [
-                'type' => 'input_image',
-                'image_url' => $input->url(),
-            ];
-        }
-
-        if ($input->isBase64()) {
-            return [
-                'type' => 'input_image',
-                'image_url' => "data:{$input->mimeType()};base64,{$input->data()}",
-            ];
-        }
-
-        if ($input->isStorage()) {
-            $raw = Storage::disk($input->storageDisk())->get($input->storagePath());
-
-            if ($raw === null) {
-                throw new InvalidArgumentException("Cannot read media file from storage: {$input->storagePath()}");
-            }
-
-            $data = base64_encode($raw);
-
-            return [
-                'type' => 'input_image',
-                'image_url' => "data:{$input->mimeType()};base64,{$data}",
-            ];
-        }
-
-        if ($input->isPath()) {
-            $raw = file_get_contents($input->path());
-
-            if ($raw === false) {
-                throw new InvalidArgumentException("Cannot read media file: {$input->path()}");
-            }
-
-            $data = base64_encode($raw);
-
-            return [
-                'type' => 'input_image',
-                'image_url' => "data:{$input->mimeType()};base64,{$data}",
-            ];
-        }
-
-        if ($input->isUpload()) {
-            $data = $input->toBase64();
-
-            return [
-                'type' => 'input_image',
-                'image_url' => "data:{$input->mimeType()};base64,{$data}",
-            ];
-        }
-
         if ($input->isFileId()) {
             return [
                 'type' => 'input_file',
@@ -81,6 +29,9 @@ class MediaResolver implements MediaResolverContract
             ];
         }
 
-        throw new InvalidArgumentException('Cannot resolve media input — no source set.');
+        return [
+            'type' => 'input_image',
+            'image_url' => $this->resolveToUri($input),
+        ];
     }
 }

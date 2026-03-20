@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Providers\OpenAi\Handlers;
 
+use Atlasphp\Atlas\Providers\Concerns\BuildsHeaders;
 use Atlasphp\Atlas\Providers\Contracts\MessageFactory as MessageFactoryContract;
 use Atlasphp\Atlas\Providers\Handlers\TextHandler;
 use Atlasphp\Atlas\Providers\HttpClient;
-use Atlasphp\Atlas\Providers\OpenAi\Concerns\BuildsHeaders;
+use Atlasphp\Atlas\Providers\OpenAi\Concerns\HasOrganizationHeader;
 use Atlasphp\Atlas\Providers\OpenAi\MediaResolver;
 use Atlasphp\Atlas\Providers\OpenAi\ResponseParser;
 use Atlasphp\Atlas\Providers\OpenAi\ToolMapper;
@@ -28,7 +29,9 @@ use Psr\Http\Message\StreamInterface;
  */
 class Text implements TextHandler
 {
-    use BuildsHeaders;
+    use BuildsHeaders, HasOrganizationHeader {
+        HasOrganizationHeader::extraHeaders insteadof BuildsHeaders;
+    }
 
     public function __construct(
         protected readonly ProviderConfig $config,
