@@ -131,3 +131,45 @@ it('parses done stream chunk with usage', function () {
     expect($chunk->usage)->not->toBeNull();
     expect($chunk->usage->inputTokens)->toBe(10);
 });
+
+it('parses done stream chunk without usage', function () {
+    $parser = makeCcParser();
+
+    $chunk = $parser->parseStreamChunk([
+        'choices' => [['delta' => [], 'finish_reason' => 'stop']],
+    ]);
+
+    expect($chunk->type)->toBe(ChunkType::Done);
+    expect($chunk->finishReason)->toBe(FinishReason::Stop);
+    expect($chunk->usage)->toBeNull();
+});
+
+it('parses empty delta as text chunk with null text', function () {
+    $parser = makeCcParser();
+
+    $chunk = $parser->parseStreamChunk([
+        'choices' => [['delta' => [], 'finish_reason' => null]],
+    ]);
+
+    expect($chunk->type)->toBe(ChunkType::Text);
+    expect($chunk->text)->toBeNull();
+});
+
+it('defaults unknown finish_reason to stop', function () {
+    $parser = makeCcParser();
+
+    $reason = $parser->parseFinishReason(['choices' => [['finish_reason' => 'unknown_reason']]]);
+
+    expect($reason)->toBe(FinishReason::Stop);
+});
+
+it('handles missing usage gracefully', function () {
+    $parser = makeCcParser();
+
+    $usage = $parser->parseUsage([]);
+
+    expect($usage->inputTokens)->toBe(0);
+    expect($usage->outputTokens)->toBe(0);
+    expect($usage->reasoningTokens)->toBeNull();
+    expect($usage->cachedTokens)->toBeNull();
+});

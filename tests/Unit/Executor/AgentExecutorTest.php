@@ -505,6 +505,38 @@ it('handles errors in concurrent path with multiple tools', function () {
     expect($erroredEvents)->toHaveCount(1);
 });
 
+it('catches all tool errors in concurrent path when every tool fails', function () {
+    $driver = makeMockDriver([
+        new TextResponse(
+            'Running tools.',
+            new Usage(10, 10),
+            FinishReason::ToolCalls,
+            toolCalls: [
+                new ToolCall('tc-1', 'fail', []),
+                new ToolCall('tc-2', 'fail', []),
+            ],
+        ),
+        new TextResponse('Both failed.', new Usage(20, 20), FinishReason::Stop),
+    ]);
+
+    $dispatcher = makeFakeDispatcher();
+    $registry = new ToolRegistry([makeFailingTool()]);
+    $toolExecutor = new ToolExecutor($registry);
+    $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
+
+    $result = $executor->execute(makeTextRequest(), maxSteps: 10, parallelToolCalls: true, meta: []);
+
+    expect($result->totalSteps())->toBe(2);
+    expect($result->steps[0]->toolResults)->toHaveCount(2);
+    expect($result->steps[0]->toolResults[0]->isError)->toBeTrue();
+    expect($result->steps[0]->toolResults[0]->content)->toBe('Tool exploded');
+    expect($result->steps[0]->toolResults[1]->isError)->toBeTrue();
+    expect($result->steps[0]->toolResults[1]->content)->toBe('Tool exploded');
+
+    $erroredEvents = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentToolErrored);
+    expect($erroredEvents)->toHaveCount(2);
+});
+
 it('executes multiple tool calls sequentially when parallelToolCalls is false', function () {
     $driver = makeMockDriver([
         new TextResponse(

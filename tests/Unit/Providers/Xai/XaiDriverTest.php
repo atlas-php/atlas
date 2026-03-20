@@ -2,27 +2,34 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Providers\Xai\XaiDriver;
+use Atlasphp\Atlas\Requests\AudioRequest;
+use Atlasphp\Atlas\Requests\EmbedRequest;
+use Atlasphp\Atlas\Requests\ModerateRequest;
+use Atlasphp\Atlas\Requests\RerankRequest;
 use Illuminate\Support\Facades\Http;
 
-it('returns xai as name', function () {
-    $driver = new XaiDriver(
+function makeXaiDriver(): XaiDriver
+{
+    return new XaiDriver(
         config: ProviderConfig::fromArray(['api_key' => 'test', 'url' => 'https://api.x.ai/v1']),
         http: app(HttpClient::class),
     );
+}
 
-    expect($driver->name())->toBe('xai');
+// ─── Identity ───────────────────────────────────────────────────────────────
+
+it('returns xai as name', function () {
+    expect(makeXaiDriver()->name())->toBe('xai');
 });
 
-it('reports correct capabilities', function () {
-    $driver = new XaiDriver(
-        config: ProviderConfig::fromArray(['api_key' => 'test', 'url' => 'https://api.x.ai/v1']),
-        http: app(HttpClient::class),
-    );
+// ─── Capabilities ───────────────────────────────────────────────────────────
 
-    $cap = $driver->capabilities();
+it('reports correct capabilities', function () {
+    $cap = makeXaiDriver()->capabilities();
 
     expect($cap->supports('text'))->toBeTrue();
     expect($cap->supports('stream'))->toBeTrue();
@@ -42,6 +49,26 @@ it('reports correct capabilities', function () {
     expect($cap->supports('voices'))->toBeTrue();
 });
 
+// ─── Unsupported modalities throw ───────────────────────────────────────────
+
+it('throws UnsupportedFeatureException for audioToText', function () {
+    makeXaiDriver()->audioToText(new AudioRequest('model', null, [], null, null, null, null, null, null));
+})->throws(UnsupportedFeatureException::class);
+
+it('throws UnsupportedFeatureException for embed', function () {
+    makeXaiDriver()->embed(new EmbedRequest('model', 'text'));
+})->throws(UnsupportedFeatureException::class, 'embed');
+
+it('throws UnsupportedFeatureException for moderate', function () {
+    makeXaiDriver()->moderate(new ModerateRequest('test'));
+})->throws(UnsupportedFeatureException::class, 'moderate');
+
+it('throws UnsupportedFeatureException for rerank', function () {
+    makeXaiDriver()->rerank(new RerankRequest('model', 'query', ['doc']));
+})->throws(UnsupportedFeatureException::class, 'rerank');
+
+// ─── Provider handler ───────────────────────────────────────────────────────
+
 it('lists models via provider handler', function () {
     Http::fake([
         'api.x.ai/v1/models' => Http::response([
@@ -52,24 +79,14 @@ it('lists models via provider handler', function () {
         ]),
     ]);
 
-    $driver = new XaiDriver(
-        config: ProviderConfig::fromArray(['api_key' => 'test', 'url' => 'https://api.x.ai/v1']),
-        http: app(HttpClient::class),
-    );
-
-    $models = $driver->models();
+    $models = makeXaiDriver()->models();
 
     expect($models->models)->toContain('grok-3');
     expect($models->models)->toContain('grok-3-mini');
 });
 
 it('lists voices via provider handler', function () {
-    $driver = new XaiDriver(
-        config: ProviderConfig::fromArray(['api_key' => 'test', 'url' => 'https://api.x.ai/v1']),
-        http: app(HttpClient::class),
-    );
-
-    $voices = $driver->voices();
+    $voices = makeXaiDriver()->voices();
 
     expect($voices->voices)->toHaveCount(5);
     expect($voices->voices)->toContain('ara');

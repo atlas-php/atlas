@@ -2,8 +2,10 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Providers\Tools\CodeExecution;
 use Atlasphp\Atlas\Providers\Tools\CodeInterpreter;
 use Atlasphp\Atlas\Providers\Tools\FileSearch;
+use Atlasphp\Atlas\Providers\Tools\GoogleSearch;
 use Atlasphp\Atlas\Providers\Tools\ProviderTool;
 use Atlasphp\Atlas\Providers\Tools\WebFetch;
 use Atlasphp\Atlas\Providers\Tools\WebSearch;
@@ -13,6 +15,8 @@ it('all extend ProviderTool', function () {
     expect(new WebFetch)->toBeInstanceOf(ProviderTool::class);
     expect(new FileSearch)->toBeInstanceOf(ProviderTool::class);
     expect(new CodeInterpreter)->toBeInstanceOf(ProviderTool::class);
+    expect(new GoogleSearch)->toBeInstanceOf(ProviderTool::class);
+    expect(new CodeExecution)->toBeInstanceOf(ProviderTool::class);
 });
 
 it('WebSearch has correct type', function () {
@@ -58,4 +62,30 @@ it('CodeInterpreter has correct type and minimal output', function () {
 
     expect($tool->type())->toBe('code_interpreter');
     expect($tool->toArray())->toBe(['type' => 'code_interpreter']);
+});
+
+// ─── Google Provider Tools ──────────────────────────────────────────────────
+
+it('GoogleSearch has correct type', function () {
+    expect((new GoogleSearch)->type())->toBe('google_search');
+});
+
+it('GoogleSearch returns correct array format', function () {
+    $tool = new GoogleSearch;
+    $arr = $tool->toArray();
+
+    expect($arr)->toHaveKey('google_search');
+    expect($arr['google_search'])->toBeInstanceOf(stdClass::class);
+});
+
+it('CodeExecution has correct type', function () {
+    expect((new CodeExecution)->type())->toBe('code_execution');
+});
+
+it('CodeExecution returns correct array format', function () {
+    $tool = new CodeExecution;
+    $arr = $tool->toArray();
+
+    expect($arr)->toHaveKey('code_execution');
+    expect($arr['code_execution'])->toBeInstanceOf(stdClass::class);
 });

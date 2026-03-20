@@ -126,6 +126,96 @@ it('buildAll with no instructions skips system message', function () {
     expect($result['messages'][0]['role'])->toBe('user');
 });
 
+it('buildAll includes SystemMessage from messages array', function () {
+    $factory = new MessageFactory;
+
+    $request = new TextRequest(
+        model: 'llama3.2',
+        instructions: null,
+        message: 'Hello',
+        messageMedia: [],
+        messages: [
+            new SystemMessage('You are a pirate.'),
+        ],
+        maxTokens: null,
+        temperature: null,
+        schema: null,
+        tools: [],
+        providerTools: [],
+        providerOptions: [],
+    );
+
+    $result = $factory->buildAll($request, makeCcMediaResolver());
+
+    expect($result['messages'])->toHaveCount(2);
+    expect($result['messages'][0])->toBe(['role' => 'system', 'content' => 'You are a pirate.']);
+    expect($result['messages'][1]['role'])->toBe('user');
+});
+
+it('buildAll includes UserMessage from messages array', function () {
+    $factory = new MessageFactory;
+
+    $request = new TextRequest(
+        model: 'llama3.2',
+        instructions: null,
+        message: null,
+        messageMedia: [],
+        messages: [
+            new UserMessage('First question'),
+            new UserMessage('Second question'),
+        ],
+        maxTokens: null,
+        temperature: null,
+        schema: null,
+        tools: [],
+        providerTools: [],
+        providerOptions: [],
+    );
+
+    $result = $factory->buildAll($request, makeCcMediaResolver());
+
+    expect($result['messages'])->toHaveCount(2);
+    expect($result['messages'][0])->toBe(['role' => 'user', 'content' => 'First question']);
+    expect($result['messages'][1])->toBe(['role' => 'user', 'content' => 'Second question']);
+});
+
+it('buildAll includes all message types in correct order', function () {
+    $factory = new MessageFactory;
+
+    $request = new TextRequest(
+        model: 'llama3.2',
+        instructions: 'Be helpful',
+        message: 'Follow-up',
+        messageMedia: [],
+        messages: [
+            new SystemMessage('Extra context'),
+            new UserMessage('First'),
+            new AssistantMessage('Response'),
+            new ToolResultMessage('call_1', 'result'),
+        ],
+        maxTokens: null,
+        temperature: null,
+        schema: null,
+        tools: [],
+        providerTools: [],
+        providerOptions: [],
+    );
+
+    $result = $factory->buildAll($request, makeCcMediaResolver());
+
+    // instructions(system) + SystemMessage + UserMessage + AssistantMessage + ToolResult + message(user)
+    expect($result['messages'])->toHaveCount(6);
+    expect($result['messages'][0]['role'])->toBe('system');
+    expect($result['messages'][0]['content'])->toBe('Be helpful');
+    expect($result['messages'][1]['role'])->toBe('system');
+    expect($result['messages'][1]['content'])->toBe('Extra context');
+    expect($result['messages'][2]['role'])->toBe('user');
+    expect($result['messages'][3]['role'])->toBe('assistant');
+    expect($result['messages'][4]['role'])->toBe('tool');
+    expect($result['messages'][5]['role'])->toBe('user');
+    expect($result['messages'][5]['content'])->toBe('Follow-up');
+});
+
 it('buildAll includes assistant with tool calls and tool results', function () {
     $factory = new MessageFactory;
 

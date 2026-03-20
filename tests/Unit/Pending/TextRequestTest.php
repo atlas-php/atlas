@@ -5,17 +5,20 @@ declare(strict_types=1);
 use Atlasphp\Atlas\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Pending\TextRequest;
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
+use Atlasphp\Atlas\Providers\Tools\WebSearch;
 use Atlasphp\Atlas\Requests\TextRequest as TextRequestObject;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\Usage;
 use Atlasphp\Atlas\Schema\Schema;
+use Atlasphp\Atlas\Tools\Tool;
 
 function createTextPending(
     ?Driver $driver = null,
@@ -126,4 +129,256 @@ it('normalizes messages in withMessages', function () {
 
     expect($request->messages)->toHaveCount(1);
     expect($request->messages[0])->toBeInstanceOf(UserMessage::class);
+});
+
+// ─── Tool fluent methods ────────────────────────────────────────────────────
+
+it('withTools returns $this for chaining', function () {
+    $pending = createTextPending();
+
+    expect($pending->withTools([]))->toBe($pending);
+});
+
+it('withProviderTools returns $this for chaining', function () {
+    $pending = createTextPending();
+
+    expect($pending->withProviderTools([]))->toBe($pending);
+});
+
+it('withMaxSteps returns $this for chaining', function () {
+    $pending = createTextPending();
+
+    expect($pending->withMaxSteps(10))->toBe($pending);
+});
+
+it('withParallelToolCalls returns $this for chaining', function () {
+    $pending = createTextPending();
+
+    expect($pending->withParallelToolCalls(false))->toBe($pending);
+});
+
+it('withTools includes tool definitions in built request', function () {
+    $tool = new class extends Tool
+    {
+        public function name(): string
+        {
+            return 'test_tool';
+        }
+
+        public function description(): string
+        {
+            return 'A test tool.';
+        }
+
+        public function handle(array $args, array $context): mixed
+        {
+            return 'result';
+        }
+    };
+
+    $request = createTextPending()
+        ->withTools([$tool])
+        ->buildRequest();
+
+    expect($request->tools)->toHaveCount(1);
+    expect($request->tools[0]->name)->toBe('test_tool');
+});
+
+it('withTools accumulates across multiple calls', function () {
+    $tool1 = new class extends Tool
+    {
+        public function name(): string
+        {
+            return 'tool_one';
+        }
+
+        public function description(): string
+        {
+            return 'First.';
+        }
+
+        public function handle(array $args, array $context): mixed
+        {
+            return null;
+        }
+    };
+
+    $tool2 = new class extends Tool
+    {
+        public function name(): string
+        {
+            return 'tool_two';
+        }
+
+        public function description(): string
+        {
+            return 'Second.';
+        }
+
+        public function handle(array $args, array $context): mixed
+        {
+            return null;
+        }
+    };
+
+    $request = createTextPending()
+        ->withTools([$tool1])
+        ->withTools([$tool2])
+        ->buildRequest();
+
+    expect($request->tools)->toHaveCount(2);
+});
+
+it('withProviderTools includes provider tools in built request', function () {
+    $request = createTextPending()
+        ->withProviderTools([new WebSearch])
+        ->buildRequest();
+
+    expect($request->providerTools)->toHaveCount(1);
+    expect($request->providerTools[0])->toBeInstanceOf(WebSearch::class);
+});
+
+it('hasTools is true when tools are set', function () {
+    $tool = new class extends Tool
+    {
+        public function name(): string
+        {
+            return 'test';
+        }
+
+        public function description(): string
+        {
+            return 'Test.';
+        }
+
+        public function handle(array $args, array $context): mixed
+        {
+            return null;
+        }
+    };
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
+    $driver->shouldReceive('text')->once()->andReturn(
+        new TextResponse('tool response', new Usage(10, 5), FinishReason::Stop)
+    );
+
+    // With tools, asText should route through executeWithTools
+    // Since the mock driver returns Stop (no tool calls), the executor completes in 1 step
+    $result = createTextPending($driver)
+        ->withTools([$tool])
+        ->message('test')
+        ->asText();
+
+    expect($result->text)->toBe('tool response');
+    expect($result->steps)->toHaveCount(1);
+});
+
+it('hasTools is true when only providerTools are set', function () {
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
+    $driver->shouldReceive('text')->once()->andReturn(
+        new TextResponse('provider tool response', new Usage(10, 5), FinishReason::Stop)
+    );
+
+    $result = createTextPending($driver)
+        ->withProviderTools([new WebSearch])
+        ->message('test')
+        ->asText();
+
+    expect($result->text)->toBe('provider tool response');
+});
+
+it('throws AtlasException when streaming with tools', function () {
+    $tool = new class extends Tool
+    {
+        public function name(): string
+        {
+            return 'test';
+        }
+
+        public function description(): string
+        {
+            return 'Test.';
+        }
+
+        public function handle(array $args, array $context): mixed
+        {
+            return null;
+        }
+    };
+
+    createTextPending()->withTools([$tool])->asStream();
+})->throws(AtlasException::class, 'Streaming with tools is not yet supported');
+
+it('throws AtlasException when streaming with provider tools', function () {
+    createTextPending()->withProviderTools([new WebSearch])->asStream();
+})->throws(AtlasException::class, 'Streaming with tools is not yet supported');
+
+it('resolves tool class strings from the container', function () {
+    $toolClass = get_class(new class extends Tool
+    {
+        public function name(): string
+        {
+            return 'resolved_tool';
+        }
+
+        public function description(): string
+        {
+            return 'Resolved.';
+        }
+
+        public function handle(array $args, array $context): mixed
+        {
+            return null;
+        }
+    });
+
+    app()->bind($toolClass, fn () => new $toolClass);
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
+    $driver->shouldReceive('text')->once()->andReturn(
+        new TextResponse('ok', new Usage(1, 1), FinishReason::Stop)
+    );
+
+    $result = createTextPending($driver)
+        ->withTools([$toolClass])
+        ->asText();
+
+    expect($result->text)->toBe('ok');
+});
+
+it('withMaxSteps passes through to executor', function () {
+    $tool = new class extends Tool
+    {
+        public function name(): string
+        {
+            return 'echo';
+        }
+
+        public function description(): string
+        {
+            return 'Echo.';
+        }
+
+        public function handle(array $args, array $context): mixed
+        {
+            return 'done';
+        }
+    };
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
+    $driver->shouldReceive('text')->once()->andReturn(
+        new TextResponse('ok', new Usage(1, 1), FinishReason::Stop)
+    );
+
+    // Just verify it doesn't blow up — maxSteps is passed to executor
+    $result = createTextPending($driver)
+        ->withTools([$tool])
+        ->withMaxSteps(5)
+        ->asText();
+
+    expect($result->text)->toBe('ok');
 });

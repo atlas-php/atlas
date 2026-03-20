@@ -122,3 +122,24 @@ it('broadcast events have correct broadcastAs names', function () {
     expect($tool->broadcastAs())->toBe('StreamToolCallReceived');
     expect($completed->broadcastAs())->toBe('StreamCompleted');
 });
+
+it('StreamChunkReceived broadcastOn returns the channel', function () {
+    $channel = new Channel('chat.42');
+    $event = new StreamChunkReceived($channel, 'hello');
+
+    expect($event->broadcastOn())->toBe($channel);
+});
+
+it('StreamToolCallReceived broadcastOn returns the channel', function () {
+    $channel = new Channel('chat.42');
+    $event = new StreamToolCallReceived($channel, [['name' => 'search']]);
+
+    expect($event->broadcastOn())->toBe($channel);
+});
+
+it('StreamCompleted broadcastOn returns the channel', function () {
+    $channel = new Channel('chat.42');
+    $event = new StreamCompleted($channel, 'done', ['input_tokens' => 10, 'output_tokens' => 5], FinishReason::Stop);
+
+    expect($event->broadcastOn())->toBe($channel);
+});

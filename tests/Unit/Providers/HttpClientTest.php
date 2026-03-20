@@ -194,6 +194,55 @@ it('fires ProviderRequestFailed on postMultipart failure', function () {
 
 // ─── STREAM ──────────────────────────────────────────────────────────────────
 
+it('sends a get raw request and returns body string', function () {
+    Http::fake([
+        'https://api.test.com/video' => Http::response('binary-video-data', 200),
+    ]);
+
+    Event::fake();
+
+    $client = app(HttpClient::class);
+    $body = $client->getRaw('https://api.test.com/video', ['Authorization' => 'Bearer test'], 60);
+
+    expect($body)->toBe('binary-video-data');
+
+    Event::assertDispatched(ProviderRequesting::class);
+    Event::assertDispatched(ProviderResponded::class);
+});
+
+it('fires ProviderRequestFailed on getRaw failure', function () {
+    Http::fake([
+        '*' => Http::response('error', 404),
+    ]);
+
+    Event::fake();
+
+    $client = app(HttpClient::class);
+
+    try {
+        $client->getRaw('https://api.test.com/video', [], 60);
+    } catch (RequestException) {
+        // expected
+    }
+
+    Event::assertDispatched(ProviderRequestFailed::class);
+});
+
+it('sends a stream request and fires events', function () {
+    Http::fake([
+        '*' => Http::response('stream-data', 200),
+    ]);
+
+    Event::fake();
+
+    $client = app(HttpClient::class);
+    $response = $client->stream('https://api.test.com/chat', [], ['model' => 'test'], 60);
+
+    expect($response)->not->toBeNull();
+
+    Event::assertDispatched(ProviderRequesting::class);
+});
+
 it('fires ProviderRequestFailed on stream failure', function () {
     Http::fake([
         '*' => Http::response(['error' => 'unauthorized'], 401),

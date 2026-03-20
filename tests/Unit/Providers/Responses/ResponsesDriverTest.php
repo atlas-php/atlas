@@ -45,3 +45,22 @@ it('applies capability overrides from config', function () {
     expect($cap->supports('text'))->toBeTrue();
     expect($cap->supports('embed'))->toBeFalse();
 });
+
+it('supports models capability', function () {
+    $cap = makeResponsesDriver()->capabilities();
+
+    expect($cap->supports('models'))->toBeTrue();
+});
+
+it('can disable multiple capabilities via overrides', function () {
+    $cap = makeResponsesDriver([
+        'image' => false,
+        'audio' => false,
+        'video' => false,
+    ])->capabilities();
+
+    expect($cap->supports('text'))->toBeTrue();
+    expect($cap->supports('image'))->toBeFalse();
+    expect($cap->supports('audio'))->toBeFalse();
+    expect($cap->supports('video'))->toBeFalse();
+});
