@@ -23,4 +23,12 @@ class AtlasException extends RuntimeException
             ."Set {$envVar} in your .env or pass a provider."
         );
     }
+
+    /**
+     * Create an exception for an unknown driver.
+     */
+    public static function unknownDriver(string $driver, string $key): self
+    {
+        return new self("Unknown driver '{$driver}' for provider '{$key}'.");
+    }
 }

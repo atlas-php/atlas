@@ -35,4 +35,25 @@ class ProviderCapabilities
     {
         return property_exists($this, $feature) && $this->{$feature};
     }
+
+    /**
+     * Create a new instance with config-level overrides applied.
+     *
+     * @param  array<string, bool>  $overrides
+     */
+    public static function withOverrides(self $base, array $overrides): self
+    {
+        if ($overrides === []) {
+            return $base;
+        }
+
+        $args = [];
+
+        foreach ((new \ReflectionClass(self::class))->getConstructor()->getParameters() as $param) {
+            $name = $param->getName();
+            $args[$name] = $overrides[$name] ?? $base->{$name};
+        }
+
+        return new self(...$args);
+    }
 }

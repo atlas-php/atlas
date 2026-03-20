@@ -55,6 +55,47 @@ return [
             'url' => env('XAI_URL', 'https://api.x.ai/v1'),
         ],
 
+        // ─── Custom Providers (Chat Completions compatible) ─────────────
+        //
+        // Add a 'driver' key to use a named driver or custom class.
+        // Available named drivers: 'chat_completions', 'responses'
+        //
+        // 'ollama' => [
+        //     'driver'   => 'chat_completions',
+        //     'api_key'  => env('OLLAMA_API_KEY', 'ollama'),
+        //     'base_url' => env('OLLAMA_URL', 'http://localhost:11434/v1'),
+        // ],
+        //
+        // 'lmstudio' => [
+        //     'driver'   => 'chat_completions',
+        //     'api_key'  => env('LMSTUDIO_API_KEY', 'lm-studio'),
+        //     'base_url' => env('LMSTUDIO_URL', 'http://localhost:1234/v1'),
+        // ],
+        //
+        // 'groq' => [
+        //     'driver'   => 'chat_completions',
+        //     'api_key'  => env('GROQ_API_KEY'),
+        //     'base_url' => 'https://api.groq.com/openai/v1',
+        // ],
+        //
+        // 'together' => [
+        //     'driver'   => 'chat_completions',
+        //     'api_key'  => env('TOGETHER_API_KEY'),
+        //     'base_url' => 'https://api.together.xyz/v1',
+        // ],
+        //
+        // 'deepseek' => [
+        //     'driver'   => 'chat_completions',
+        //     'api_key'  => env('DEEPSEEK_API_KEY'),
+        //     'base_url' => 'https://api.deepseek.com/v1',
+        // ],
+        //
+        // 'openrouter' => [
+        //     'driver'   => 'chat_completions',
+        //     'api_key'  => env('OPENROUTER_API_KEY'),
+        //     'base_url' => 'https://openrouter.ai/api/v1',
+        // ],
+
     ],
 
     /*

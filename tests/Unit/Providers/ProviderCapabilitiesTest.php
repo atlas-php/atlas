@@ -25,3 +25,25 @@ it('returns false for nonexistent features', function () {
 
     expect($caps->supports('nonexistent'))->toBeFalse();
 });
+
+it('withOverrides merges config overrides with defaults', function () {
+    $base = new ProviderCapabilities(text: true, stream: true, structured: true, vision: true);
+
+    $overridden = ProviderCapabilities::withOverrides($base, [
+        'structured' => false,
+        'vision' => false,
+    ]);
+
+    expect($overridden->supports('text'))->toBeTrue();
+    expect($overridden->supports('stream'))->toBeTrue();
+    expect($overridden->supports('structured'))->toBeFalse();
+    expect($overridden->supports('vision'))->toBeFalse();
+});
+
+it('withOverrides returns same instance when overrides are empty', function () {
+    $base = new ProviderCapabilities(text: true);
+
+    $result = ProviderCapabilities::withOverrides($base, []);
+
+    expect($result)->toBe($base);
+});

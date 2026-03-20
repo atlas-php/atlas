@@ -10,6 +10,7 @@ namespace Atlasphp\Atlas\Providers;
 class ProviderConfig
 {
     /**
+     * @param  array<string, bool>  $capabilityOverrides
      * @param  array<string, mixed>  $extra
      */
     public function __construct(
@@ -19,6 +20,7 @@ class ProviderConfig
         public readonly int $timeout = 60,
         public readonly int $reasoningTimeout = 300,
         public readonly int $mediaTimeout = 120,
+        public readonly array $capabilityOverrides = [],
         public readonly array $extra = [],
     ) {}
 
@@ -29,15 +31,16 @@ class ProviderConfig
      */
     public static function fromArray(array $config): self
     {
-        $known = ['api_key', 'url', 'organization', 'timeout', 'reasoning_timeout', 'media_timeout'];
+        $known = ['api_key', 'url', 'base_url', 'organization', 'timeout', 'reasoning_timeout', 'media_timeout', 'driver', 'capabilities'];
 
         return new self(
             apiKey: (string) ($config['api_key'] ?? ''),
-            baseUrl: (string) ($config['url'] ?? ''),
+            baseUrl: (string) ($config['base_url'] ?? $config['url'] ?? ''),
             organization: isset($config['organization']) ? (string) $config['organization'] : null,
             timeout: (int) ($config['timeout'] ?? 60),
             reasoningTimeout: (int) ($config['reasoning_timeout'] ?? 300),
             mediaTimeout: (int) ($config['media_timeout'] ?? 120),
+            capabilityOverrides: (array) ($config['capabilities'] ?? []),
             extra: array_diff_key($config, array_flip($known)),
         );
     }

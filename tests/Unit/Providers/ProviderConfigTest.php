@@ -46,3 +46,46 @@ it('captures extra keys', function () {
         'custom_option' => true,
     ]);
 });
+
+it('accepts base_url with preference over url', function () {
+    $config = ProviderConfig::fromArray([
+        'api_key' => 'sk-test',
+        'base_url' => 'https://base.test.com/v1',
+        'url' => 'https://url.test.com/v1',
+    ]);
+
+    expect($config->baseUrl)->toBe('https://base.test.com/v1');
+});
+
+it('falls back to url when base_url is not set', function () {
+    $config = ProviderConfig::fromArray([
+        'api_key' => 'sk-test',
+        'url' => 'https://url.test.com/v1',
+    ]);
+
+    expect($config->baseUrl)->toBe('https://url.test.com/v1');
+});
+
+it('extracts capability overrides from config', function () {
+    $config = ProviderConfig::fromArray([
+        'api_key' => 'sk-test',
+        'url' => 'https://api.test.com',
+        'capabilities' => ['structured' => false, 'vision' => false],
+    ]);
+
+    expect($config->capabilityOverrides)->toBe(['structured' => false, 'vision' => false]);
+});
+
+it('excludes driver and capabilities from extra', function () {
+    $config = ProviderConfig::fromArray([
+        'api_key' => 'sk-test',
+        'url' => 'https://api.test.com',
+        'driver' => 'chat_completions',
+        'capabilities' => ['structured' => false],
+        'version' => '1.0',
+    ]);
+
+    expect($config->extra)->toBe(['version' => '1.0']);
+    expect($config->extra)->not->toHaveKey('driver');
+    expect($config->extra)->not->toHaveKey('capabilities');
+});

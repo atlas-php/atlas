@@ -5,7 +5,11 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Providers;
 
 use Atlasphp\Atlas\Contracts\ProviderRegistryContract;
+use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Exceptions\ProviderNotFoundException;
+use Atlasphp\Atlas\Middleware\MiddlewareStack;
+use Atlasphp\Atlas\Providers\ChatCompletions\ChatCompletionsDriver;
+use Atlasphp\Atlas\Providers\Responses\ResponsesDriver;
 use Closure;
 use Illuminate\Contracts\Foundation\Application;
 
@@ -48,13 +52,38 @@ class ProviderRegistry implements ProviderRegistryContract
             return $this->resolved[$key];
         }
 
-        $factory = $this->factories[$key]
-            ?? throw new ProviderNotFoundException($key);
-
         /** @var array<string, mixed> $config */
         $config = config("atlas.providers.{$key}", []);
 
-        return $this->resolved[$key] = ($factory)($this->app, $config);
+        if (isset($this->factories[$key])) {
+            return $this->resolved[$key] = ($this->factories[$key])($this->app, $config);
+        }
+
+        if (isset($config['driver'])) {
+            return $this->resolved[$key] = $this->resolveFromDriver($key, $config);
+        }
+
+        throw new ProviderNotFoundException($key);
+    }
+
+    /**
+     * Resolve a driver from the config 'driver' key.
+     *
+     * @param  array<string, mixed>  $config
+     */
+    protected function resolveFromDriver(string $key, array $config): Driver
+    {
+        $driver = $config['driver'];
+        $providerConfig = ProviderConfig::fromArray($config);
+        $http = $this->app->make(HttpClient::class);
+        $stack = $this->app->make(MiddlewareStack::class);
+
+        return match (true) {
+            $driver === 'chat_completions' => new ChatCompletionsDriver($providerConfig, $http, $stack),
+            $driver === 'responses' => new ResponsesDriver($providerConfig, $http, $stack),
+            is_string($driver) && class_exists($driver) => $this->app->make($driver, ['config' => $providerConfig]),
+            default => throw AtlasException::unknownDriver($driver, $key),
+        };
     }
 
     /**

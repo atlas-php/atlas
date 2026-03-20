@@ -3,11 +3,14 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Contracts\ProviderRegistryContract;
+use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Exceptions\ProviderNotFoundException;
+use Atlasphp\Atlas\Providers\ChatCompletions\ChatCompletionsDriver;
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
 use Atlasphp\Atlas\Providers\ProviderConfig;
+use Atlasphp\Atlas\Providers\Responses\ResponsesDriver;
 
 function createTestDriverInstance(?ProviderConfig $config = null, ?HttpClient $http = null): Driver
 {
@@ -102,4 +105,64 @@ it('passes app and config to factory closures', function () {
 
     expect($receivedConfig)->toBeArray();
     expect($receivedConfig)->toHaveKey('api_key');
+});
+
+it('resolves chat_completions driver from config', function () {
+    config()->set('atlas.providers.ollama', [
+        'driver' => 'chat_completions',
+        'api_key' => 'ollama',
+        'base_url' => 'http://localhost:11434/v1',
+    ]);
+
+    $driver = $this->registry->resolve('ollama');
+
+    expect($driver)->toBeInstanceOf(ChatCompletionsDriver::class);
+    expect($driver->name())->toBe('chat_completions');
+});
+
+it('resolves responses driver from config', function () {
+    config()->set('atlas.providers.ollama-responses', [
+        'driver' => 'responses',
+        'api_key' => 'ollama',
+        'base_url' => 'http://localhost:11434/v1',
+    ]);
+
+    $driver = $this->registry->resolve('ollama-responses');
+
+    expect($driver)->toBeInstanceOf(ResponsesDriver::class);
+    expect($driver->name())->toBe('responses');
+});
+
+it('resolves custom driver class from config', function () {
+    config()->set('atlas.providers.custom', [
+        'driver' => get_class(createTestDriverInstance()),
+        'api_key' => 'test',
+        'url' => 'https://custom.test.com',
+    ]);
+
+    $driver = $this->registry->resolve('custom');
+
+    expect($driver)->toBeInstanceOf(Driver::class);
+});
+
+it('throws AtlasException for unknown driver string', function () {
+    config()->set('atlas.providers.bad', [
+        'driver' => 'not_a_real_driver',
+        'api_key' => 'test',
+    ]);
+
+    $this->registry->resolve('bad');
+})->throws(AtlasException::class, "Unknown driver 'not_a_real_driver' for provider 'bad'.");
+
+it('caches config-resolved driver instances', function () {
+    config()->set('atlas.providers.ollama', [
+        'driver' => 'chat_completions',
+        'api_key' => 'ollama',
+        'base_url' => 'http://localhost:11434/v1',
+    ]);
+
+    $first = $this->registry->resolve('ollama');
+    $second = $this->registry->resolve('ollama');
+
+    expect($first)->toBe($second);
 });
