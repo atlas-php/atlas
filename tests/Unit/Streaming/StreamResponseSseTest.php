@@ -83,6 +83,30 @@ it('sends done chunk as SSE done event with accumulated text and usage', functio
     expect($output)->toContain('"output_tokens":5');
 });
 
+it('skips SSE event for unhandled chunk types like Thinking', function () {
+    $stream = new StreamResponse((function () {
+        yield new StreamChunk(ChunkType::Thinking, text: 'Let me think...');
+        yield new StreamChunk(ChunkType::Text, text: 'Answer');
+        yield new StreamChunk(ChunkType::Done, usage: new Usage(5, 3), finishReason: FinishReason::Stop);
+    })());
+
+    $response = $stream->toResponse(request());
+
+    ob_start();
+    ob_start();
+    $response->sendContent();
+    ob_end_flush();
+    $output = ob_get_clean();
+
+    // Count SSE events — should be 2 (chunk + done), not 3
+    // Thinking chunk hits default => null in sendSseEvent and is skipped
+    expect(substr_count($output, 'event: '))->toBe(2);
+    expect($output)->toContain('event: chunk');
+    expect($output)->toContain('event: done');
+    // No "thinking" event type emitted
+    expect($output)->not->toContain('event: thinking');
+});
+
 it('sends tool call chunks as SSE tool_call events', function () {
     $stream = new StreamResponse((function () {
         yield new StreamChunk(

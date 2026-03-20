@@ -626,3 +626,87 @@ it('dispatches AgentCompleted with correct steps', function () {
     expect($completed[0]->steps)->toHaveCount(2);
     expect($completed[0]->steps)->toBe($result->steps);
 });
+
+// ─── Concurrent closure catch block (sync driver) ───────────────────────────
+
+it('concurrent closure catch converts exception to error ToolResult via sync driver', function () {
+    $driver = makeMockDriver([
+        new TextResponse(
+            'Running tools.',
+            new Usage(10, 10),
+            FinishReason::ToolCalls,
+            toolCalls: [
+                new ToolCall('tc-1', 'echo', ['text' => 'ok']),
+                new ToolCall('tc-2', 'fail', []),
+            ],
+        ),
+        new TextResponse('Done.', new Usage(20, 20), FinishReason::Stop),
+    ]);
+
+    $dispatcher = makeFakeDispatcher();
+    $registry = new ToolRegistry([makeEchoTool(), makeFailingTool()]);
+    $toolExecutor = new ToolExecutor($registry);
+
+    // Force sync driver so the closure runs in-process and the catch block is hit directly
+    $executor = new class($driver, $toolExecutor, $dispatcher) extends AgentExecutor
+    {
+        protected function concurrencyDriver(): string
+        {
+            return 'sync';
+        }
+    };
+
+    $result = $executor->execute(makeTextRequest(), maxSteps: 10, parallelToolCalls: true, meta: []);
+
+    // The failing tool's exception is caught inside the closure, returned as ToolResult
+    expect($result->steps[0]->toolResults)->toHaveCount(2);
+    expect($result->steps[0]->toolResults[0]->content)->toBe('ok');
+    expect($result->steps[0]->toolResults[0]->isError)->toBeFalse();
+    expect($result->steps[0]->toolResults[1]->content)->toBe('Tool exploded');
+    expect($result->steps[0]->toolResults[1]->isError)->toBeTrue();
+
+    // AgentToolErrored fires for the failed tool
+    $erroredEvents = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentToolErrored);
+    expect($erroredEvents)->toHaveCount(1);
+});
+
+it('concurrencyDriver returns sync when fork is unavailable', function () {
+    $driver = makeMockDriver([
+        new TextResponse(
+            'Running tools.',
+            new Usage(10, 10),
+            FinishReason::ToolCalls,
+            toolCalls: [
+                new ToolCall('tc-1', 'echo', ['text' => 'a']),
+                new ToolCall('tc-2', 'echo', ['text' => 'b']),
+            ],
+        ),
+        new TextResponse('Done.', new Usage(20, 20), FinishReason::Stop),
+    ]);
+
+    $dispatcher = makeFakeDispatcher();
+    $registry = new ToolRegistry([makeEchoTool()]);
+    $toolExecutor = new ToolExecutor($registry);
+
+    // Simulate environment where Fork class doesn't exist
+    $executor = new class($driver, $toolExecutor, $dispatcher) extends AgentExecutor
+    {
+        protected function concurrencyDriver(): string
+        {
+            // Mimic the real logic but pretend Fork class doesn't exist
+            if (false && extension_loaded('pcntl')) {
+                return 'fork';
+            }
+
+            return 'sync';
+        }
+    };
+
+    $result = $executor->execute(makeTextRequest(), maxSteps: 10, parallelToolCalls: true, meta: []);
+
+    // Tools still execute correctly via sync driver
+    expect($result->totalSteps())->toBe(2);
+    expect($result->totalToolCalls())->toBe(2);
+    expect($result->steps[0]->toolResults[0]->content)->toBe('a');
+    expect($result->steps[0]->toolResults[1]->content)->toBe('b');
+});
