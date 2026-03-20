@@ -10,6 +10,7 @@ use Atlasphp\Atlas\Pending\EmbedRequest;
 use Atlasphp\Atlas\Pending\ImageRequest;
 use Atlasphp\Atlas\Pending\ModerateRequest;
 use Atlasphp\Atlas\Pending\ProviderRequest;
+use Atlasphp\Atlas\Pending\RerankRequest;
 use Atlasphp\Atlas\Pending\TextRequest;
 use Atlasphp\Atlas\Pending\VideoRequest;
 
@@ -47,6 +48,12 @@ it('moderate returns ModerateRequest', function () {
     $manager = app(AtlasManager::class);
 
     expect($manager->moderate('openai', 'text-moderation-latest'))->toBeInstanceOf(ModerateRequest::class);
+});
+
+it('rerank returns RerankRequest', function () {
+    $manager = app(AtlasManager::class);
+
+    expect($manager->rerank('cohere', 'rerank-v3.5'))->toBeInstanceOf(RerankRequest::class);
 });
 
 it('provider returns ProviderRequest', function () {

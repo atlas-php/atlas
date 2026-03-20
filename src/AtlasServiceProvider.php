@@ -7,7 +7,9 @@ namespace Atlasphp\Atlas;
 use Atlasphp\Atlas\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
+use Atlasphp\Atlas\Providers\Cohere\CohereDriver;
 use Atlasphp\Atlas\Providers\HttpClient;
+use Atlasphp\Atlas\Providers\Jina\JinaDriver;
 use Atlasphp\Atlas\Providers\OpenAi\OpenAiDriver;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Providers\ProviderRegistry;
@@ -74,6 +76,22 @@ class AtlasServiceProvider extends ServiceProvider
 
         $registry->register(Provider::xAI->value, function (Application $app, array $config) {
             return new XaiDriver(
+                config: ProviderConfig::fromArray($config),
+                http: $app->make(HttpClient::class),
+                middlewareStack: $app->make(MiddlewareStack::class),
+            );
+        });
+
+        $registry->register('cohere', function (Application $app, array $config) {
+            return new CohereDriver(
+                config: ProviderConfig::fromArray($config),
+                http: $app->make(HttpClient::class),
+                middlewareStack: $app->make(MiddlewareStack::class),
+            );
+        });
+
+        $registry->register('jina', function (Application $app, array $config) {
+            return new JinaDriver(
                 config: ProviderConfig::fromArray($config),
                 http: $app->make(HttpClient::class),
                 middlewareStack: $app->make(MiddlewareStack::class),

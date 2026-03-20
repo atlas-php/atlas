@@ -10,12 +10,14 @@ use Atlasphp\Atlas\Requests\AudioRequest;
 use Atlasphp\Atlas\Requests\EmbedRequest;
 use Atlasphp\Atlas\Requests\ImageRequest;
 use Atlasphp\Atlas\Requests\ModerateRequest;
+use Atlasphp\Atlas\Requests\RerankRequest;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Requests\VideoRequest;
 use Atlasphp\Atlas\Responses\AudioResponse;
 use Atlasphp\Atlas\Responses\EmbeddingsResponse;
 use Atlasphp\Atlas\Responses\ImageResponse;
 use Atlasphp\Atlas\Responses\ModerationResponse;
+use Atlasphp\Atlas\Responses\RerankResponse;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
@@ -29,7 +31,7 @@ use Atlasphp\Atlas\Responses\VideoResponse;
  */
 class FakeDriver extends Driver
 {
-    /** @var array<int, TextResponseFake|StreamResponseFake|StructuredResponseFake|ImageResponseFake|AudioResponseFake|VideoResponseFake|EmbeddingsResponseFake|ModerationResponseFake> */
+    /** @var array<int, TextResponseFake|StreamResponseFake|StructuredResponseFake|ImageResponseFake|AudioResponseFake|VideoResponseFake|EmbeddingsResponseFake|ModerationResponseFake|RerankResponseFake> */
     private array $responses;
 
     private int $responseIndex = 0;
@@ -38,7 +40,7 @@ class FakeDriver extends Driver
     private array $recorded = [];
 
     /**
-     * @param  array<int, TextResponseFake|StreamResponseFake|StructuredResponseFake|ImageResponseFake|AudioResponseFake|VideoResponseFake|EmbeddingsResponseFake|ModerationResponseFake>  $responses
+     * @param  array<int, TextResponseFake|StreamResponseFake|StructuredResponseFake|ImageResponseFake|AudioResponseFake|VideoResponseFake|EmbeddingsResponseFake|ModerationResponseFake|RerankResponseFake>  $responses
      */
     public function __construct(
         private readonly string $providerName,
@@ -67,6 +69,7 @@ class FakeDriver extends Driver
             videoToText: true,
             embed: true,
             moderate: true,
+            rerank: true,
             vision: true,
             toolCalling: true,
             providerTools: true,
@@ -156,6 +159,13 @@ class FakeDriver extends Driver
         return $this->nextResponseFor('moderate')->toResponse();
     }
 
+    public function rerank(RerankRequest $request): RerankResponse
+    {
+        $this->record('rerank', $request);
+
+        return $this->nextResponseFor('rerank')->toResponse();
+    }
+
     /**
      * @return array<int, RecordedRequest>
      */
@@ -164,7 +174,7 @@ class FakeDriver extends Driver
         return $this->recorded;
     }
 
-    private function record(string $method, TextRequest|ImageRequest|AudioRequest|VideoRequest|EmbedRequest|ModerateRequest $request): void
+    private function record(string $method, TextRequest|ImageRequest|AudioRequest|VideoRequest|EmbedRequest|ModerateRequest|RerankRequest $request): void
     {
         $this->recorded[] = new RecordedRequest(
             method: $method,
@@ -174,7 +184,7 @@ class FakeDriver extends Driver
         );
     }
 
-    private function nextResponseFor(string $method): TextResponseFake|StreamResponseFake|StructuredResponseFake|ImageResponseFake|AudioResponseFake|VideoResponseFake|EmbeddingsResponseFake|ModerationResponseFake
+    private function nextResponseFor(string $method): TextResponseFake|StreamResponseFake|StructuredResponseFake|ImageResponseFake|AudioResponseFake|VideoResponseFake|EmbeddingsResponseFake|ModerationResponseFake|RerankResponseFake
     {
         if ($this->responses === []) {
             return $this->defaultFakeFor($method);
@@ -188,7 +198,7 @@ class FakeDriver extends Driver
         return $this->responses[count($this->responses) - 1];
     }
 
-    private function defaultFakeFor(string $method): TextResponseFake|StreamResponseFake|StructuredResponseFake|ImageResponseFake|AudioResponseFake|VideoResponseFake|EmbeddingsResponseFake|ModerationResponseFake
+    private function defaultFakeFor(string $method): TextResponseFake|StreamResponseFake|StructuredResponseFake|ImageResponseFake|AudioResponseFake|VideoResponseFake|EmbeddingsResponseFake|ModerationResponseFake|RerankResponseFake
     {
         return match ($method) {
             'text', 'imageToText', 'audioToText', 'videoToText' => TextResponseFake::make(),
@@ -199,6 +209,7 @@ class FakeDriver extends Driver
             'video' => VideoResponseFake::make(),
             'embed' => EmbeddingsResponseFake::make(),
             'moderate' => ModerationResponseFake::make(),
+            'rerank' => RerankResponseFake::make(),
             default => TextResponseFake::make(),
         };
     }

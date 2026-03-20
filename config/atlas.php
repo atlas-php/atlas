@@ -19,6 +19,7 @@ return [
         'video' => ['provider' => env('ATLAS_VIDEO_PROVIDER'), 'model' => env('ATLAS_VIDEO_MODEL')],
         'embed' => ['provider' => env('ATLAS_EMBED_PROVIDER'), 'model' => env('ATLAS_EMBED_MODEL')],
         'moderate' => ['provider' => env('ATLAS_MODERATE_PROVIDER'), 'model' => env('ATLAS_MODERATE_MODEL')],
+        'rerank' => ['provider' => env('ATLAS_RERANK_PROVIDER'), 'model' => env('ATLAS_RERANK_MODEL')],
     ],
 
     /*
@@ -53,6 +54,16 @@ return [
         'xai' => [
             'api_key' => env('XAI_API_KEY'),
             'url' => env('XAI_URL', 'https://api.x.ai/v1'),
+        ],
+
+        'cohere' => [
+            'api_key' => env('COHERE_API_KEY'),
+            'url' => env('COHERE_URL', 'https://api.cohere.com'),
+        ],
+
+        'jina' => [
+            'api_key' => env('JINA_API_KEY'),
+            'url' => env('JINA_URL', 'https://api.jina.ai'),
         ],
 
         // ─── Custom Providers (Chat Completions compatible) ─────────────

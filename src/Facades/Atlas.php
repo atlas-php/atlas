@@ -13,6 +13,7 @@ use Atlasphp\Atlas\Pending\EmbedRequest;
 use Atlasphp\Atlas\Pending\ImageRequest;
 use Atlasphp\Atlas\Pending\ModerateRequest;
 use Atlasphp\Atlas\Pending\ProviderRequest;
+use Atlasphp\Atlas\Pending\RerankRequest;
 use Atlasphp\Atlas\Pending\TextRequest;
 use Atlasphp\Atlas\Pending\VideoRequest;
 use Atlasphp\Atlas\Testing\AtlasFake;
@@ -20,6 +21,7 @@ use Atlasphp\Atlas\Testing\AudioResponseFake;
 use Atlasphp\Atlas\Testing\EmbeddingsResponseFake;
 use Atlasphp\Atlas\Testing\ImageResponseFake;
 use Atlasphp\Atlas\Testing\ModerationResponseFake;
+use Atlasphp\Atlas\Testing\RerankResponseFake;
 use Atlasphp\Atlas\Testing\StreamResponseFake;
 use Atlasphp\Atlas\Testing\StructuredResponseFake;
 use Atlasphp\Atlas\Testing\TextResponseFake;
@@ -35,6 +37,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static VideoRequest video(Provider|string $provider, string $model)
  * @method static EmbedRequest embed(Provider|string $provider, string $model)
  * @method static ModerateRequest moderate(Provider|string $provider, string $model)
+ * @method static RerankRequest rerank(Provider|string|null $provider = null, ?string $model = null)
  * @method static ProviderRequest provider(Provider|string $provider)
  * @method static AgentRequest agent(string $key)
  * @method static ProviderRegistryContract providers()
@@ -46,7 +49,7 @@ class Atlas extends Facade
     /**
      * Replace the bound instance with an AtlasFake for testing.
      *
-     * @param  array<int, TextResponseFake|StreamResponseFake|StructuredResponseFake|ImageResponseFake|AudioResponseFake|VideoResponseFake|EmbeddingsResponseFake|ModerationResponseFake>  $responses
+     * @param  array<int, TextResponseFake|StreamResponseFake|StructuredResponseFake|ImageResponseFake|AudioResponseFake|VideoResponseFake|EmbeddingsResponseFake|ModerationResponseFake|RerankResponseFake>  $responses
      */
     public static function fake(array $responses = []): AtlasFake
     {

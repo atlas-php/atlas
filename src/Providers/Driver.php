@@ -16,18 +16,21 @@ use Atlasphp\Atlas\Providers\Handlers\EmbedHandler;
 use Atlasphp\Atlas\Providers\Handlers\ImageHandler;
 use Atlasphp\Atlas\Providers\Handlers\ModerateHandler;
 use Atlasphp\Atlas\Providers\Handlers\ProviderHandler;
+use Atlasphp\Atlas\Providers\Handlers\RerankHandler;
 use Atlasphp\Atlas\Providers\Handlers\TextHandler;
 use Atlasphp\Atlas\Providers\Handlers\VideoHandler;
 use Atlasphp\Atlas\Requests\AudioRequest;
 use Atlasphp\Atlas\Requests\EmbedRequest;
 use Atlasphp\Atlas\Requests\ImageRequest;
 use Atlasphp\Atlas\Requests\ModerateRequest;
+use Atlasphp\Atlas\Requests\RerankRequest;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Requests\VideoRequest;
 use Atlasphp\Atlas\Responses\AudioResponse;
 use Atlasphp\Atlas\Responses\EmbeddingsResponse;
 use Atlasphp\Atlas\Responses\ImageResponse;
 use Atlasphp\Atlas\Responses\ModerationResponse;
+use Atlasphp\Atlas\Responses\RerankResponse;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
@@ -106,6 +109,11 @@ abstract class Driver
         return $this->dispatch('moderate', $request, fn (ModerateRequest $r) => $this->moderateHandler()->moderate($r));
     }
 
+    public function rerank(RerankRequest $request): RerankResponse
+    {
+        return $this->dispatch('rerank', $request, fn (RerankRequest $r) => $this->rerankHandler()->rerank($r));
+    }
+
     // ─── Middleware Dispatch ─────────────────────────────────────────────
 
     /**
@@ -174,6 +182,11 @@ abstract class Driver
     protected function moderateHandler(): ModerateHandler
     {
         throw UnsupportedFeatureException::make('moderate', $this->name());
+    }
+
+    protected function rerankHandler(): RerankHandler
+    {
+        throw UnsupportedFeatureException::make('rerank', $this->name());
     }
 
     // ─── Provider Interrogation ──────────────────────────────────────────

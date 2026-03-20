@@ -13,6 +13,7 @@ use Atlasphp\Atlas\Pending\EmbedRequest;
 use Atlasphp\Atlas\Pending\ImageRequest;
 use Atlasphp\Atlas\Pending\ModerateRequest;
 use Atlasphp\Atlas\Pending\ProviderRequest;
+use Atlasphp\Atlas\Pending\RerankRequest;
 use Atlasphp\Atlas\Pending\TextRequest;
 use Atlasphp\Atlas\Pending\VideoRequest;
 
@@ -67,6 +68,13 @@ class AtlasManager
         [$provider, $model] = $this->resolveDefaults('moderate', $provider, $model);
 
         return new ModerateRequest($provider, $model, $this->providerRegistry);
+    }
+
+    public function rerank(Provider|string|null $provider = null, ?string $model = null): RerankRequest
+    {
+        [$provider, $model] = $this->resolveDefaults('rerank', $provider, $model);
+
+        return new RerankRequest($provider, $model, $this->providerRegistry);
     }
 
     public function provider(Provider|string $provider): ProviderRequest

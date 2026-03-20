@@ -21,6 +21,7 @@ class ProviderCapabilities
         public readonly bool $videoToText = false,
         public readonly bool $embed = false,
         public readonly bool $moderate = false,
+        public readonly bool $rerank = false,
         public readonly bool $vision = false,
         public readonly bool $toolCalling = false,
         public readonly bool $providerTools = false,
