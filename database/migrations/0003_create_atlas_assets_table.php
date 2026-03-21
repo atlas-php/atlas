@@ -41,7 +41,7 @@ return new class extends Migration
 
             // Conditional vector column — PostgreSQL only
             if ($this->isPostgres()) {
-                $dimensions = config('atlas.persistence.embedding_dimensions', 1536);
+                $dimensions = config('atlas.embeddings.dimensions', config('atlas.persistence.embedding_dimensions', 1536));
                 $table->vector('embedding', $dimensions)->nullable();
                 $table->timestamp('embedding_at')->nullable();
             }

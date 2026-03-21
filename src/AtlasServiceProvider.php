@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas;
 
 use Atlasphp\Atlas\Contracts\ProviderRegistryContract;
+use Atlasphp\Atlas\Database\VectorQueryMacros;
+use Atlasphp\Atlas\Embeddings\EmbeddingCache;
+use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
@@ -53,6 +56,11 @@ class AtlasServiceProvider extends ServiceProvider
         $this->app->scoped(ExecutionService::class);
 
         $this->app->singleton(VariableRegistry::class);
+
+        $this->app->singleton(EmbeddingCache::class);
+        $this->app->singleton(EmbeddingResolver::class, function ($app) {
+            return new EmbeddingResolver($app->make(EmbeddingCache::class));
+        });
     }
 
     public function boot(): void
@@ -76,6 +84,7 @@ class AtlasServiceProvider extends ServiceProvider
 
         $this->registerBuiltInVariables();
         $this->registerPersistenceMiddleware();
+        $this->registerVectorMacros();
     }
 
     /**
@@ -105,6 +114,18 @@ class AtlasServiceProvider extends ServiceProvider
             $providerMiddleware[] = Persistence\Middleware\TrackProviderCall::class;
             config(['atlas.middleware.provider' => $providerMiddleware]);
         });
+    }
+
+    /**
+     * Register pgvector query macros when persistence is enabled.
+     */
+    protected function registerVectorMacros(): void
+    {
+        if (! config('atlas.persistence.enabled', false)) {
+            return;
+        }
+
+        VectorQueryMacros::register();
     }
 
     /**

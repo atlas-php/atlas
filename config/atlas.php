@@ -203,6 +203,29 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Embeddings
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for embedding generation and caching. The dimensions value
+    | controls vector column size in migrations. When caching is enabled,
+    | embedding vectors are cached to avoid redundant API calls.
+    |
+    | Note: 'dimensions' was previously at 'persistence.embedding_dimensions'.
+    | The old location is still supported as a fallback in migrations.
+    |
+    */
+
+    'embeddings' => [
+        'dimensions' => (int) env('ATLAS_EMBEDDING_DIMENSIONS', 1536),
+        'cache' => [
+            'enabled' => env('ATLAS_EMBEDDING_CACHE', false),
+            'store' => env('ATLAS_EMBEDDING_CACHE_STORE'),
+            'ttl' => (int) env('ATLAS_EMBEDDING_CACHE_TTL', 2592000), // 30 days
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Persistence
     |--------------------------------------------------------------------------
     |
@@ -216,7 +239,6 @@ return [
     'persistence' => [
         'enabled' => env('ATLAS_PERSISTENCE_ENABLED', false),
         'table_prefix' => env('ATLAS_TABLE_PREFIX', 'atlas_'),
-        'embedding_dimensions' => (int) env('ATLAS_EMBEDDING_DIMENSIONS', 1536),
         'message_limit' => (int) env('ATLAS_MESSAGE_LIMIT', 50),
 
         // Auto-store generated files (images, audio, video) as assets.
