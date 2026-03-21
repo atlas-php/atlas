@@ -8,6 +8,7 @@ use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
 use Atlasphp\Atlas\Persistence\Enums\ToolCallType;
+use Atlasphp\Atlas\Persistence\Models\Asset;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\ExecutionStep;
 use Atlasphp\Atlas\Persistence\Models\ExecutionToolCall;
@@ -31,6 +32,8 @@ class ExecutionService
     protected ?ExecutionStep $currentStep = null;
 
     protected ?ExecutionToolCall $currentToolCall = null;
+
+    protected ?Asset $lastAsset = null;
 
     protected int $stepSequence = 0;
 
@@ -313,13 +316,23 @@ class ExecutionService
     /**
      * Link a generated asset to the current execution.
      */
-    public function linkAsset(int $assetId): void
+    public function linkAsset(int $assetId, ?Asset $asset = null): void
     {
         if ($this->execution === null) {
             return;
         }
 
         $this->execution->update(['asset_id' => $assetId]);
+        $this->lastAsset = $asset;
+    }
+
+    /**
+     * Get the last asset stored during this execution.
+     * Available immediately after a media provider call completes.
+     */
+    public function getLastAsset(): ?Asset
+    {
+        return $this->lastAsset;
     }
 
     // ─── Accessors ──────────────────────────────────────────────
@@ -364,6 +377,7 @@ class ExecutionService
         $this->execution = null;
         $this->currentStep = null;
         $this->currentToolCall = null;
+        $this->lastAsset = null;
         $this->stepSequence = 0;
         $this->executionStartTime = 0;
         $this->stepStartTime = 0;

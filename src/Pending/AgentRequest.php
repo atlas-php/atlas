@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Pending;
 
 use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\Agents\AgentRegistry;
+use Atlasphp\Atlas\Concerns\HasQueueDispatch;
 use Atlasphp\Atlas\Concerns\NormalizesMessages;
 use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Enums\Provider;
@@ -14,6 +15,7 @@ use Atlasphp\Atlas\Executor\AgentExecutor;
 use Atlasphp\Atlas\Executor\ExecutorResult;
 use Atlasphp\Atlas\Executor\ToolExecutor;
 use Atlasphp\Atlas\Executor\ToolRegistry;
+use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Input\Input;
 use Atlasphp\Atlas\Middleware\AgentContext;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
@@ -21,6 +23,8 @@ use Atlasphp\Atlas\Persistence\Concerns\HasConversations;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\Tools\ProviderTool;
+use Atlasphp\Atlas\Queue\PendingExecution;
+use Atlasphp\Atlas\Queue\QueueableRequest;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\StreamChunk;
 use Atlasphp\Atlas\Responses\StreamResponse;
@@ -30,6 +34,7 @@ use Atlasphp\Atlas\Schema\Schema;
 use Atlasphp\Atlas\Support\VariableInterpolator;
 use Atlasphp\Atlas\Support\VariableRegistry;
 use Atlasphp\Atlas\Tools\Tool;
+use Illuminate\Broadcasting\Channel;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Model;
@@ -41,8 +46,9 @@ use Illuminate\Database\Eloquent\Model;
  * and dispatches through the AgentExecutor (with tools) or directly to the
  * driver (without tools). Supports runtime overrides for all agent config.
  */
-class AgentRequest
+class AgentRequest implements QueueableRequest
 {
+    use HasQueueDispatch;
     use NormalizesMessages;
 
     // ─── Runtime overrides ──────────────────────────────────────────
@@ -341,8 +347,12 @@ class AgentRequest
     /**
      * Execute the agent and return a text response.
      */
-    public function asText(): TextResponse
+    public function asText(): TextResponse|PendingExecution
     {
+        if ($this->queued) {
+            return $this->dispatchToQueue('asText');
+        }
+
         $agent = $this->resolveAgent();
         $tools = $this->resolveTools($agent);
         $driver = $this->resolveDriver($agent);
@@ -373,8 +383,12 @@ class AgentRequest
     /**
      * Execute the agent and return a stream response.
      */
-    public function asStream(): StreamResponse
+    public function asStream(): StreamResponse|PendingExecution
     {
+        if ($this->queued) {
+            return $this->dispatchToQueue('asStream');
+        }
+
         $agent = $this->resolveAgent();
         $tools = $this->resolveTools($agent);
         $driver = $this->resolveDriver($agent);
@@ -395,8 +409,12 @@ class AgentRequest
     /**
      * Execute the agent and return a structured response.
      */
-    public function asStructured(): StructuredResponse
+    public function asStructured(): StructuredResponse|PendingExecution
     {
+        if ($this->queued) {
+            return $this->dispatchToQueue('asStructured');
+        }
+
         $agent = $this->resolveAgent();
         $driver = $this->resolveDriver($agent);
         $request = $this->buildRequest($agent, []);
@@ -651,5 +669,182 @@ class AgentRequest
         yield new StreamChunk(
             type: ChunkType::Done,
         );
+    }
+
+    // ─── Queue Support ─────────────────────────────────────────────
+
+    /**
+     * Serialize all properties needed to rebuild this request in a queue worker.
+     *
+     * @return array<string, mixed>
+     */
+    public function toQueuePayload(): array
+    {
+        return [
+            'key' => $this->key,
+            'message' => $this->message,
+            'instructions' => $this->instructionsOverride,
+            'variables' => $this->variables,
+            'meta' => $this->meta,
+            'provider' => $this->providerOverride instanceof Provider
+                ? $this->providerOverride->value
+                : $this->providerOverride,
+            'model' => $this->modelOverride,
+            'max_tokens' => $this->maxTokensOverride,
+            'temperature' => $this->temperatureOverride,
+            'max_steps' => $this->maxStepsOverride,
+            'parallel_tool_calls' => $this->parallelToolCallsOverride,
+            'provider_options' => $this->providerOptionsOverride,
+            'conversation_id' => $this->conversationId,
+            'owner_type' => $this->conversationOwner?->getMorphClass(),
+            'owner_id' => $this->conversationOwner?->getKey(),
+            'author_type' => $this->messageAuthor?->getMorphClass(),
+            'author_id' => $this->messageAuthor?->getKey(),
+            'message_limit' => $this->runtimeMessageLimit,
+            'respond_mode' => $this->respondMode,
+            'retry_mode' => $this->retryMode,
+        ];
+    }
+
+    /**
+     * Rebuild this request from a queue payload and execute the given terminal method.
+     *
+     * @param  array<string, mixed>  $payload
+     * @param  string  $terminal  Terminal method name (e.g. 'asText', 'asStream')
+     * @param  int|null  $executionId  Pre-created execution ID for persistence
+     * @param  Channel|null  $broadcastChannel  Channel for broadcasting
+     */
+    public static function executeFromPayload(
+        array $payload,
+        string $terminal,
+        ?int $executionId = null,
+        ?Channel $broadcastChannel = null,
+    ): mixed {
+        $request = Atlas::agent($payload['key']);
+
+        if ($payload['message'] !== null) {
+            $request->message($payload['message']);
+        }
+
+        if ($payload['instructions'] !== null) {
+            $request->instructions($payload['instructions']);
+        }
+
+        if (! empty($payload['variables'])) {
+            $request->withVariables($payload['variables']);
+        }
+
+        $meta = $payload['meta'] ?? [];
+
+        if ($executionId !== null) {
+            $meta['_execution_id'] = $executionId;
+        }
+
+        if (! empty($meta)) {
+            $request->withMeta($meta);
+        }
+
+        if ($payload['provider'] !== null && $payload['model'] !== null) {
+            $request->withProvider($payload['provider'], $payload['model']);
+        }
+
+        if ($payload['max_tokens'] !== null) {
+            $request->withMaxTokens($payload['max_tokens']);
+        }
+
+        if ($payload['temperature'] !== null) {
+            $request->withTemperature($payload['temperature']);
+        }
+
+        if ($payload['max_steps'] !== null) {
+            $request->withMaxSteps($payload['max_steps']);
+        }
+
+        if ($payload['parallel_tool_calls'] !== null) {
+            $request->withParallelToolCalls($payload['parallel_tool_calls']);
+        }
+
+        if (! empty($payload['provider_options'])) {
+            $request->withProviderOptions($payload['provider_options']);
+        }
+
+        // Restore conversation state
+        if ($payload['owner_type'] !== null && $payload['owner_id'] !== null) {
+            $owner = $payload['owner_type']::findOrFail($payload['owner_id']);
+            $request->for($owner);
+        }
+
+        if ($payload['author_type'] !== null && $payload['author_id'] !== null) {
+            $author = $payload['author_type']::findOrFail($payload['author_id']);
+            $request->asUser($author);
+        }
+
+        if ($payload['conversation_id'] !== null) {
+            $request->forConversation($payload['conversation_id']);
+        }
+
+        if ($payload['message_limit'] !== null) {
+            $request->withMessageLimit($payload['message_limit']);
+        }
+
+        if ($payload['respond_mode'] ?? false) {
+            $request->respond();
+        }
+
+        if ($payload['retry_mode'] ?? false) {
+            $request->retry();
+        }
+
+        return match ($terminal) {
+            'asText' => $request->asText(),
+            'asStream' => $request->asStream(),
+            'asStructured' => $request->asStructured(),
+            default => throw new \InvalidArgumentException("Unknown terminal method: {$terminal}"),
+        };
+    }
+
+    /**
+     * Resolve the provider as a string key for queue serialization.
+     */
+    protected function resolveProviderKey(): string
+    {
+        if ($this->providerOverride !== null) {
+            return $this->providerOverride instanceof Provider
+                ? $this->providerOverride->value
+                : (string) $this->providerOverride;
+        }
+
+        $agent = $this->agentRegistry->resolve($this->key);
+        $provider = $agent->provider();
+
+        if ($provider !== null) {
+            return $provider instanceof Provider ? $provider->value : (string) $provider;
+        }
+
+        return (string) config('atlas.defaults.text.provider', 'openai');
+    }
+
+    /**
+     * Resolve the model as a string key for queue serialization.
+     */
+    protected function resolveModelKey(): string
+    {
+        if ($this->modelOverride !== null) {
+            return $this->modelOverride;
+        }
+
+        $agent = $this->agentRegistry->resolve($this->key);
+
+        return $agent->model() ?? (string) config('atlas.defaults.text.model', '');
+    }
+
+    /**
+     * Get metadata for the execution record when queuing.
+     *
+     * @return array<string, mixed>
+     */
+    protected function getQueueMeta(): array
+    {
+        return $this->meta;
     }
 }

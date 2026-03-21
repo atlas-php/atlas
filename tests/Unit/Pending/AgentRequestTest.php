@@ -11,6 +11,7 @@ use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Pending\AgentRequest;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Tools\WebSearch;
+use Atlasphp\Atlas\Queue\PendingExecution;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
@@ -21,6 +22,7 @@ use Atlasphp\Atlas\Testing\StructuredResponseFake;
 use Atlasphp\Atlas\Testing\TextResponseFake;
 use Atlasphp\Atlas\Tools\Tool;
 use Illuminate\Contracts\Events\Dispatcher;
+use Illuminate\Support\Facades\Queue;
 
 // ─── Test agents ────────────────────────────────────────────────────────────
 
@@ -169,6 +171,9 @@ it('returns self from all fluent methods', function () {
     expect($request->withMessageLimit(10))->toBe($request);
     expect($request->respond())->toBe($request);
     expect($request->retry())->toBe($request);
+    expect($request->queue())->toBe($request);
+    expect($request->onConnection('redis'))->toBe($request);
+    expect($request->onQueue('high'))->toBe($request);
 });
 
 // ─── asText() — no tools ───────────────────────────────────────────────────
@@ -642,4 +647,295 @@ it('passes withMessages to the request', function () {
 
     $recorded = $fake->recorded();
     expect($recorded[0]->request->messages)->toHaveCount(2);
+});
+
+// ─── Queue support ──────────────────────────────────────────────────────────
+
+it('queued asText returns PendingExecution', function () {
+    registerTestAgent(RequestTestMinimalAgent::class);
+
+    config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+
+    Queue::fake();
+
+    $result = makeAgentRequest('minimal')
+        ->message('Hello')
+        ->queue()
+        ->asText();
+
+    expect($result)->toBeInstanceOf(PendingExecution::class);
+});
+
+it('queued asStream returns PendingExecution', function () {
+    registerTestAgent(RequestTestMinimalAgent::class);
+
+    config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+
+    Queue::fake();
+
+    $result = makeAgentRequest('minimal')
+        ->message('Hello')
+        ->queue()
+        ->asStream();
+
+    expect($result)->toBeInstanceOf(PendingExecution::class);
+});
+
+it('queued asStructured returns PendingExecution', function () {
+    registerTestAgent(RequestTestMinimalAgent::class);
+
+    config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+
+    Queue::fake();
+
+    $result = makeAgentRequest('minimal')
+        ->withSchema(new Schema('Test', 'Test', ['type' => 'object']))
+        ->message('Hello')
+        ->queue()
+        ->asStructured();
+
+    expect($result)->toBeInstanceOf(PendingExecution::class);
+});
+
+it('toQueuePayload serializes agent key and message', function () {
+    registerTestAgent(RequestTestMinimalAgent::class);
+
+    config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+
+    $request = makeAgentRequest('minimal')
+        ->message('Hello world');
+
+    $payload = $request->toQueuePayload();
+
+    expect($payload['key'])->toBe('minimal')
+        ->and($payload['message'])->toBe('Hello world')
+        ->and($payload['instructions'])->toBeNull()
+        ->and($payload['variables'])->toBe([])
+        ->and($payload['meta'])->toBe([])
+        ->and($payload['provider'])->toBeNull()
+        ->and($payload['model'])->toBeNull()
+        ->and($payload['conversation_id'])->toBeNull()
+        ->and($payload['respond_mode'])->toBeFalse()
+        ->and($payload['retry_mode'])->toBeFalse();
+});
+
+it('toQueuePayload serializes all overrides', function () {
+    registerTestAgent(RequestTestMinimalAgent::class);
+
+    config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+
+    $request = makeAgentRequest('minimal')
+        ->message('Hello')
+        ->instructions('Custom instructions')
+        ->withVariables(['FOO' => 'bar'])
+        ->withMeta(['user_id' => 42])
+        ->withProvider(Provider::Anthropic, 'claude-sonnet-4-20250514')
+        ->withMaxTokens(500)
+        ->withTemperature(0.9)
+        ->withMaxSteps(5)
+        ->withParallelToolCalls(false)
+        ->withProviderOptions(['top_k' => 10])
+        ->forConversation(99)
+        ->withMessageLimit(20);
+
+    $payload = $request->toQueuePayload();
+
+    expect($payload['key'])->toBe('minimal')
+        ->and($payload['message'])->toBe('Hello')
+        ->and($payload['instructions'])->toBe('Custom instructions')
+        ->and($payload['variables'])->toBe(['FOO' => 'bar'])
+        ->and($payload['meta'])->toBe(['user_id' => 42])
+        ->and($payload['provider'])->toBe('anthropic')
+        ->and($payload['model'])->toBe('claude-sonnet-4-20250514')
+        ->and($payload['max_tokens'])->toBe(500)
+        ->and($payload['temperature'])->toBe(0.9)
+        ->and($payload['max_steps'])->toBe(5)
+        ->and($payload['parallel_tool_calls'])->toBeFalse()
+        ->and($payload['provider_options'])->toBe(['top_k' => 10])
+        ->and($payload['conversation_id'])->toBe(99)
+        ->and($payload['message_limit'])->toBe(20);
+});
+
+it('toQueuePayload serializes respond and retry modes', function () {
+    registerTestAgent(RequestTestMinimalAgent::class);
+
+    config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+
+    $request = makeAgentRequest('minimal')
+        ->forConversation(1)
+        ->respond();
+
+    $payload = $request->toQueuePayload();
+
+    expect($payload['respond_mode'])->toBeTrue()
+        ->and($payload['retry_mode'])->toBeFalse();
+
+    $retryRequest = makeAgentRequest('minimal')
+        ->forConversation(1)
+        ->retry();
+
+    $retryPayload = $retryRequest->toQueuePayload();
+
+    expect($retryPayload['retry_mode'])->toBeTrue()
+        ->and($retryPayload['respond_mode'])->toBeFalse();
+});
+
+it('executeFromPayload rebuilds and executes asText', function () {
+    registerTestAgent(RequestTestMinimalAgent::class);
+
+    config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+
+    $fake = new AtlasFake(app(ProviderRegistryContract::class), [
+        TextResponseFake::make()->withText('Rebuilt'),
+    ]);
+
+    $result = AgentRequest::executeFromPayload(
+        payload: [
+            'key' => 'minimal',
+            'message' => 'Hello',
+            'instructions' => null,
+            'variables' => [],
+            'meta' => [],
+            'provider' => null,
+            'model' => null,
+            'max_tokens' => null,
+            'temperature' => null,
+            'max_steps' => null,
+            'parallel_tool_calls' => null,
+            'provider_options' => [],
+            'conversation_id' => null,
+            'owner_type' => null,
+            'owner_id' => null,
+            'author_type' => null,
+            'author_id' => null,
+            'message_limit' => null,
+            'respond_mode' => false,
+            'retry_mode' => false,
+        ],
+        terminal: 'asText',
+    );
+
+    expect($result)->toBeInstanceOf(TextResponse::class);
+    expect($result->text)->toBe('Rebuilt');
+});
+
+it('executeFromPayload applies overrides', function () {
+    registerTestAgent(RequestTestMinimalAgent::class);
+
+    $fake = new AtlasFake(app(ProviderRegistryContract::class), [
+        TextResponseFake::make()->withText('OK'),
+    ]);
+
+    $result = AgentRequest::executeFromPayload(
+        payload: [
+            'key' => 'minimal',
+            'message' => 'Hello',
+            'instructions' => 'Be brief',
+            'variables' => ['APP' => 'Test'],
+            'meta' => ['user_id' => 1],
+            'provider' => 'openai',
+            'model' => 'gpt-4o',
+            'max_tokens' => 100,
+            'temperature' => 0.5,
+            'max_steps' => 3,
+            'parallel_tool_calls' => false,
+            'provider_options' => ['top_p' => 0.9],
+            'conversation_id' => null,
+            'owner_type' => null,
+            'owner_id' => null,
+            'author_type' => null,
+            'author_id' => null,
+            'message_limit' => 10,
+            'respond_mode' => false,
+            'retry_mode' => false,
+        ],
+        terminal: 'asText',
+    );
+
+    expect($result)->toBeInstanceOf(TextResponse::class);
+
+    $recorded = $fake->recorded();
+    expect($recorded[0]->request->model)->toBe('gpt-4o');
+    expect($recorded[0]->request->maxTokens)->toBe(100);
+    expect($recorded[0]->request->temperature)->toBe(0.5);
+    expect($recorded[0]->request->providerOptions)->toBe(['top_p' => 0.9]);
+});
+
+it('executeFromPayload throws on unknown terminal', function () {
+    registerTestAgent(RequestTestMinimalAgent::class);
+
+    config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+
+    new AtlasFake(app(ProviderRegistryContract::class), [
+        TextResponseFake::make()->withText('OK'),
+    ]);
+
+    AgentRequest::executeFromPayload(
+        payload: [
+            'key' => 'minimal',
+            'message' => 'Hello',
+            'instructions' => null,
+            'variables' => [],
+            'meta' => [],
+            'provider' => null,
+            'model' => null,
+            'max_tokens' => null,
+            'temperature' => null,
+            'max_steps' => null,
+            'parallel_tool_calls' => null,
+            'provider_options' => [],
+            'conversation_id' => null,
+            'owner_type' => null,
+            'owner_id' => null,
+            'author_type' => null,
+            'author_id' => null,
+            'message_limit' => null,
+            'respond_mode' => false,
+            'retry_mode' => false,
+        ],
+        terminal: 'asUnknown',
+    );
+})->throws(InvalidArgumentException::class, 'Unknown terminal method: asUnknown');
+
+it('resolveProviderKey falls back through agent then config', function () {
+    registerTestAgent(RequestTestMinimalAgent::class);
+    registerTestAgent(RequestTestConfiguredAgent::class);
+
+    config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+
+    // Minimal agent — no provider override, no agent provider → falls to config
+    $method = new ReflectionMethod(AgentRequest::class, 'resolveProviderKey');
+    $minimalRequest = makeAgentRequest('minimal');
+    expect($method->invoke($minimalRequest))->toBe('openai');
+
+    // Configured agent — has agent provider
+    $configuredRequest = makeAgentRequest('configured');
+    expect($method->invoke($configuredRequest))->toBe('anthropic');
+
+    // Explicit override wins
+    $overrideRequest = makeAgentRequest('minimal')
+        ->withProvider(Provider::xAI, 'grok');
+    expect($method->invoke($overrideRequest))->toBe('xai');
+});
+
+it('resolveModelKey falls back through agent then config', function () {
+    registerTestAgent(RequestTestMinimalAgent::class);
+    registerTestAgent(RequestTestConfiguredAgent::class);
+
+    config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+
+    $method = new ReflectionMethod(AgentRequest::class, 'resolveModelKey');
+
+    // Minimal agent → falls to config
+    $minimalRequest = makeAgentRequest('minimal');
+    expect($method->invoke($minimalRequest))->toBe('gpt-4o-mini');
+
+    // Configured agent
+    $configuredRequest = makeAgentRequest('configured');
+    expect($method->invoke($configuredRequest))->toBe('claude-sonnet-4-20250514');
+
+    // Explicit override
+    $overrideRequest = makeAgentRequest('minimal')
+        ->withProvider('openai', 'gpt-5');
+    expect($method->invoke($overrideRequest))->toBe('gpt-5');
 });

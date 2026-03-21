@@ -56,6 +56,9 @@ $app->boot();
 $app['config']->set('app', require $sandboxPath.'/config/app.php');
 $app['config']->set('database', require $sandboxPath.'/config/database.php');
 $app['config']->set('session', require $sandboxPath.'/config/session.php');
+$app['config']->set('queue', require $sandboxPath.'/config/queue.php');
+$app['config']->set('broadcasting', require $sandboxPath.'/config/broadcasting.php');
+$app['config']->set('filesystems', require $sandboxPath.'/config/filesystems.php');
 $app['config']->set('atlas', require $sandboxPath.'/config/atlas.php');
 
 return $app;

@@ -86,6 +86,18 @@ class ToolAssets
     }
 
     /**
+     * Get the last asset stored during the current execution.
+     *
+     * Available immediately after an Atlas media call (image/audio/video)
+     * completes inside a tool. TrackProviderCall stores the asset and
+     * makes it available via the ExecutionService.
+     */
+    public static function lastStored(): ?Asset
+    {
+        return app(ExecutionService::class)->getLastAsset();
+    }
+
+    /**
      * Resolve a file extension from a MIME type.
      */
     protected static function resolveExtension(?string $mimeType): string

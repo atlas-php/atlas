@@ -2,13 +2,24 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Agent;
+use Atlasphp\Atlas\Agents\AgentRegistry;
 use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Queue\PendingExecution;
 use Illuminate\Support\Facades\Queue;
 
+class QueuedModalitiesMinimalAgent extends Agent
+{
+    public function key(): string
+    {
+        return 'queued-minimal';
+    }
+}
+
 beforeEach(function () {
     Atlas::fake();
     Queue::fake();
+    config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
 });
 
 // ─── Text ────────────────────────────────────────────────────────────────────
@@ -86,5 +97,28 @@ it('queues rerank asReranked', function () {
         ->documents(['doc1', 'doc2'])
         ->queue()
         ->asReranked();
+    expect($result)->toBeInstanceOf(PendingExecution::class);
+});
+
+// ─── Agent ──────────────────────────────────────────────────────────────────
+
+it('queues agent asText', function () {
+    app(AgentRegistry::class)->register(QueuedModalitiesMinimalAgent::class);
+
+    $result = Atlas::agent('queued-minimal')->message('Hello')->queue()->asText();
+    expect($result)->toBeInstanceOf(PendingExecution::class);
+});
+
+it('queues agent asStream', function () {
+    app(AgentRegistry::class)->register(QueuedModalitiesMinimalAgent::class);
+
+    $result = Atlas::agent('queued-minimal')->message('Hello')->queue()->asStream();
+    expect($result)->toBeInstanceOf(PendingExecution::class);
+});
+
+it('queues agent asStructured', function () {
+    app(AgentRegistry::class)->register(QueuedModalitiesMinimalAgent::class);
+
+    $result = Atlas::agent('queued-minimal')->message('Hello')->queue()->asStructured();
     expect($result)->toBeInstanceOf(PendingExecution::class);
 });

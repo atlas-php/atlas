@@ -14,9 +14,9 @@ return [
     */
 
     'defaults' => [
-        'text' => ['provider' => env('ATLAS_TEXT_PROVIDER', 'openai'), 'model' => env('ATLAS_TEXT_MODEL', 'gpt-4o-mini')],
-        'image' => ['provider' => env('ATLAS_IMAGE_PROVIDER', 'openai'), 'model' => env('ATLAS_IMAGE_MODEL', 'dall-e-3')],
-        'video' => ['provider' => env('ATLAS_VIDEO_PROVIDER'), 'model' => env('ATLAS_VIDEO_MODEL')],
+        'text' => ['provider' => env('ATLAS_TEXT_PROVIDER', 'anthropic'), 'model' => env('ATLAS_TEXT_MODEL', 'claude-sonnet-4-20250514')],
+        'image' => ['provider' => env('ATLAS_IMAGE_PROVIDER', 'xai'), 'model' => env('ATLAS_IMAGE_MODEL', 'grok-2-image')],
+        'video' => ['provider' => env('ATLAS_VIDEO_PROVIDER', 'xai'), 'model' => env('ATLAS_VIDEO_MODEL', 'grok-2-video')],
         'embed' => ['provider' => env('ATLAS_EMBED_PROVIDER', 'openai'), 'model' => env('ATLAS_EMBED_MODEL', 'text-embedding-3-small')],
         'moderate' => ['provider' => env('ATLAS_MODERATE_PROVIDER', 'openai'), 'model' => env('ATLAS_MODERATE_MODEL', 'omni-moderation-latest')],
         'rerank' => ['provider' => env('ATLAS_RERANK_PROVIDER'), 'model' => env('ATLAS_RERANK_MODEL')],
@@ -159,15 +159,37 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Embeddings
+    |--------------------------------------------------------------------------
+    */
+
+    'embeddings' => [
+        'dimensions' => (int) env('ATLAS_EMBEDDING_DIMENSIONS', 1536),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Persistence
     |--------------------------------------------------------------------------
-    |
-    | Optional conversation persistence. Disabled for sandbox testing.
-    |
     */
 
     'persistence' => [
-        'enabled' => false,
+        'enabled' => env('ATLAS_PERSISTENCE_ENABLED', true),
+        'table_prefix' => env('ATLAS_TABLE_PREFIX', 'atlas_'),
+        'message_limit' => (int) env('ATLAS_MESSAGE_LIMIT', 50),
+        'auto_store_assets' => env('ATLAS_AUTO_STORE_ASSETS', true),
+        'memory_auto_embed' => env('ATLAS_MEMORY_AUTO_EMBED', true),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Agents
+    |--------------------------------------------------------------------------
+    */
+
+    'agents' => [
+        'path' => __DIR__.'/../app/Agents',
+        'namespace' => 'App\\Agents',
     ],
 
 ];

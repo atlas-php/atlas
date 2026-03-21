@@ -143,8 +143,8 @@ class TrackProviderCall
                 'metadata' => $metadata,
             ]);
 
-            // Link asset to execution
-            $this->executionService->linkAsset($asset->id);
+            // Link asset to execution (pass model for immediate tool access)
+            $this->executionService->linkAsset($asset->id, $asset);
         } catch (\Throwable $e) {
             // Asset storage failure should not fail the execution.
             report($e);
