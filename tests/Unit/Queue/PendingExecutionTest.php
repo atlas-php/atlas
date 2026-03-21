@@ -132,3 +132,24 @@ it('dispatch() fires ExecutionQueued event', function () {
         return $event->executionId === 99;
     });
 });
+
+it('dispatches lazily via __destruct', function () {
+    Queue::fake();
+
+    $job = new ExecuteAtlasJob(
+        requestClass: 'Atlasphp\Atlas\Pending\TextRequest',
+        terminal: 'asText',
+        payload: [],
+    );
+
+    // Create PendingExecution in a scope — when it goes out of scope, __destruct fires
+    $pending = new PendingExecution(
+        executionId: null,
+        job: $job,
+    );
+
+    // Manually trigger destruct by unsetting
+    unset($pending);
+
+    Queue::assertPushed(ExecuteAtlasJob::class);
+});

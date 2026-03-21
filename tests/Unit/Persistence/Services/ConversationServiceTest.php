@@ -370,6 +370,216 @@ it('returns null when no user messages exist', function () {
     expect($this->service->lastUserMessageId($conversation))->toBeNull();
 });
 
+// ─── loadMessages with forAgent (group remapping) ─────────────────
+
+it('remaps other agent messages to user role with name prefix', function () {
+    $conversation = Conversation::factory()->create();
+
+    Message::factory()->fromUser()->create([
+        'conversation_id' => $conversation->id,
+        'content' => 'Hello team',
+        'sequence' => 0,
+    ]);
+
+    Message::factory()->fromAssistant('devops')->create([
+        'conversation_id' => $conversation->id,
+        'content' => 'Build passed',
+        'sequence' => 1,
+    ]);
+
+    Message::factory()->fromAssistant('qa')->create([
+        'conversation_id' => $conversation->id,
+        'content' => 'I will run smoke tests',
+        'sequence' => 2,
+    ]);
+
+    // Load for QA agent — own messages stay assistant, others become user
+    $messages = $this->service->loadMessages($conversation, 50, 'qa');
+
+    // Find the QA agent's message — should still be AssistantMessage
+    $qaMessages = array_filter($messages, fn ($m) => $m instanceof AssistantMessage);
+    expect(count($qaMessages))->toBe(1);
+    $qaMsg = array_values($qaMessages)[0];
+    expect($qaMsg->content)->toBe('I will run smoke tests');
+
+    // DevOps message should be remapped to UserMessage with name prefix
+    $userMessages = array_filter($messages, fn ($m) => $m instanceof UserMessage);
+    $contents = array_map(fn ($m) => $m->content, array_values($userMessages));
+    expect($contents)->toContain('[devops]: Build passed');
+});
+
+it('passes system messages through unchanged in group remapping', function () {
+    $conversation = Conversation::factory()->create();
+
+    Message::factory()->system()->create([
+        'conversation_id' => $conversation->id,
+        'content' => 'System instructions',
+        'sequence' => 0,
+    ]);
+
+    Message::factory()->fromAssistant('agent-a')->create([
+        'conversation_id' => $conversation->id,
+        'content' => 'Hello',
+        'sequence' => 1,
+    ]);
+
+    $messages = $this->service->loadMessages($conversation, 50, 'agent-a');
+
+    $systemMessages = array_filter($messages, fn ($m) => $m instanceof SystemMessage);
+    expect(count($systemMessages))->toBe(1);
+    expect(array_values($systemMessages)[0]->content)->toBe('System instructions');
+});
+
+// ─── prepareRetry error paths ─────────────────────────────────────
+
+it('prepareRetry throws when no assistant message exists', function () {
+    $conversation = Conversation::factory()->create();
+
+    Message::factory()->fromUser()->create([
+        'conversation_id' => $conversation->id,
+        'sequence' => 0,
+    ]);
+
+    $this->service->prepareRetry($conversation);
+})->throws(RuntimeException::class, 'No assistant message to retry.');
+
+it('prepareRetry throws when conversation has continued past response', function () {
+    $conversation = Conversation::factory()->create();
+
+    $userMsg = Message::factory()->fromUser()->create([
+        'conversation_id' => $conversation->id,
+        'content' => 'First question',
+        'sequence' => 0,
+    ]);
+
+    Message::factory()->fromAssistant('agent')->create([
+        'conversation_id' => $conversation->id,
+        'content' => 'First answer',
+        'sequence' => 1,
+        'parent_id' => $userMsg->id,
+    ]);
+
+    // User continues the conversation
+    Message::factory()->fromUser()->create([
+        'conversation_id' => $conversation->id,
+        'content' => 'Follow-up question',
+        'sequence' => 2,
+    ]);
+
+    $this->service->prepareRetry($conversation);
+})->throws(RuntimeException::class, 'Can only retry the last assistant response.');
+
+it('prepareRetry throws when assistant message has no parent', function () {
+    $conversation = Conversation::factory()->create();
+
+    // Assistant message without parent_id
+    Message::factory()->fromAssistant('agent')->create([
+        'conversation_id' => $conversation->id,
+        'content' => 'Orphan response',
+        'sequence' => 0,
+        'parent_id' => null,
+    ]);
+
+    $this->service->prepareRetry($conversation);
+})->throws(RuntimeException::class, 'Cannot retry a message without a parent.');
+
+// ─── cycleSibling ─────────────────────────────────────────────────
+
+it('cycleSibling activates target group and deactivates others', function () {
+    $conversation = Conversation::factory()->create();
+
+    $userMsg = Message::factory()->fromUser()->create([
+        'conversation_id' => $conversation->id,
+        'sequence' => 0,
+    ]);
+
+    // Retry 1 (inactive)
+    Message::factory()->fromAssistant('agent')->create([
+        'conversation_id' => $conversation->id,
+        'content' => 'Response 1',
+        'sequence' => 1,
+        'parent_id' => $userMsg->id,
+        'is_active' => false,
+    ]);
+
+    // Retry 2 (active)
+    Message::factory()->fromAssistant('agent')->create([
+        'conversation_id' => $conversation->id,
+        'content' => 'Response 2',
+        'sequence' => 2,
+        'parent_id' => $userMsg->id,
+        'is_active' => true,
+    ]);
+
+    // Cycle to group 1
+    $this->service->cycleSibling($conversation, $userMsg->id, 1);
+
+    $messages = Message::where('parent_id', $userMsg->id)->orderBy('sequence')->get();
+    expect($messages[0]->is_active)->toBeTrue();   // Group 1 now active
+    expect($messages[1]->is_active)->toBeFalse();   // Group 2 now inactive
+});
+
+it('cycleSibling throws on out-of-range index', function () {
+    $conversation = Conversation::factory()->create();
+
+    $userMsg = Message::factory()->fromUser()->create([
+        'conversation_id' => $conversation->id,
+        'sequence' => 0,
+    ]);
+
+    Message::factory()->fromAssistant('agent')->create([
+        'conversation_id' => $conversation->id,
+        'sequence' => 1,
+        'parent_id' => $userMsg->id,
+    ]);
+
+    $this->service->cycleSibling($conversation, $userMsg->id, 5);
+})->throws(RuntimeException::class, 'Sibling index 5 out of range');
+
+// ─── siblingInfo ──────────────────────────────────────────────────
+
+it('siblingInfo returns current index and total count', function () {
+    $conversation = Conversation::factory()->create();
+
+    $userMsg = Message::factory()->fromUser()->create([
+        'conversation_id' => $conversation->id,
+        'sequence' => 0,
+    ]);
+
+    $retry1 = Message::factory()->fromAssistant('agent')->create([
+        'conversation_id' => $conversation->id,
+        'content' => 'Response 1',
+        'sequence' => 1,
+        'parent_id' => $userMsg->id,
+        'is_active' => false,
+    ]);
+
+    $retry2 = Message::factory()->fromAssistant('agent')->create([
+        'conversation_id' => $conversation->id,
+        'content' => 'Response 2',
+        'sequence' => 2,
+        'parent_id' => $userMsg->id,
+        'is_active' => true,
+    ]);
+
+    $info = $this->service->siblingInfo($retry2);
+
+    expect($info['total'])->toBe(2);
+    expect($info['current'])->toBe(2);
+});
+
+it('siblingInfo returns 1 of 1 for message without parent', function () {
+    $message = Message::factory()->fromUser()->create([
+        'conversation_id' => Conversation::factory()->create()->id,
+        'sequence' => 0,
+    ]);
+
+    $info = $this->service->siblingInfo($message);
+
+    expect($info['current'])->toBe(1);
+    expect($info['total'])->toBe(1);
+});
+
 // ─── Helper ────────────────────────────────────────────────────────
 
 function createMockOwner(int $id): Model

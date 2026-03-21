@@ -422,6 +422,98 @@ it('completes standalone execution with token counts', function () {
     expect($execution->total_output_tokens)->toBe(42);
 });
 
+it('resolves default extension for unknown mime type', function () {
+    Storage::fake('local');
+    config()->set('atlas.storage.disk', 'local');
+    config()->set('atlas.storage.prefix', 'atlas');
+    config()->set('atlas.persistence.auto_store_assets', true);
+
+    $service = new ExecutionService;
+    $middleware = new TrackProviderCall($service);
+
+    $context = new ProviderContext(
+        provider: 'openai',
+        model: 'dall-e-3',
+        method: 'image',
+        request: new stdClass,
+        meta: [],
+    );
+
+    $response = new class
+    {
+        public object $usage;
+
+        public function __construct()
+        {
+            $this->usage = (object) ['inputTokens' => 10, 'outputTokens' => 0];
+        }
+
+        public function contents(): string
+        {
+            return 'fake-bytes';
+        }
+
+        public function mimeType(): string
+        {
+            return 'application/octet-stream';
+        }
+    };
+
+    $middleware->handle($context, fn () => $response);
+
+    $asset = Asset::latest('id')->first();
+
+    expect($asset)->not->toBeNull();
+    // Unknown mime type falls back to AssetType default — 'png' for Image
+    expect($asset->path)->toEndWith('.png');
+});
+
+it('resolves png extension for image/png mime type', function () {
+    Storage::fake('local');
+    config()->set('atlas.storage.disk', 'local');
+    config()->set('atlas.storage.prefix', 'atlas');
+    config()->set('atlas.persistence.auto_store_assets', true);
+
+    $service = new ExecutionService;
+    $middleware = new TrackProviderCall($service);
+
+    $context = new ProviderContext(
+        provider: 'openai',
+        model: 'dall-e-3',
+        method: 'image',
+        request: new stdClass,
+        meta: [],
+    );
+
+    $response = new class
+    {
+        public object $usage;
+
+        public function __construct()
+        {
+            $this->usage = (object) ['inputTokens' => 10, 'outputTokens' => 0];
+        }
+
+        public function contents(): string
+        {
+            return 'fake-image-bytes';
+        }
+
+        public function mimeType(): string
+        {
+            return 'image/png';
+        }
+    };
+
+    $middleware->handle($context, fn () => $response);
+
+    $asset = Asset::latest('id')->first();
+
+    expect($asset)->not->toBeNull()
+        ->and($asset->path)->toEndWith('.png')
+        ->and($asset->mime_type)->toBe('image/png');
+});
+
 it('links asset to current tool call when inside tool execution', function () {
     Storage::fake('local');
     config()->set('atlas.storage.disk', 'local');

@@ -373,3 +373,53 @@ it('clears all state on reset', function () {
         ->and($this->service->getCurrentToolCall())->toBeNull()
         ->and($this->service->hasActiveExecution())->toBeFalse();
 });
+
+// ─── Null duration_ms paths ───────────────────────────────────────
+
+it('completeExecution returns null duration when beginExecution was never called', function () {
+    $this->service->createExecution(provider: 'openai', model: 'gpt-5');
+
+    // Skip beginExecution — executionStartTime stays 0
+    $this->service->completeExecution();
+
+    $execution = Execution::first();
+    expect($execution->status)->toBe(ExecutionStatus::Completed)
+        ->and($execution->duration_ms)->toBeNull();
+});
+
+it('failExecution returns null duration when beginExecution was never called', function () {
+    $this->service->createExecution(provider: 'openai', model: 'gpt-5');
+
+    // Skip beginExecution
+    $this->service->failExecution(new RuntimeException('test'));
+
+    $execution = Execution::first();
+    expect($execution->status)->toBe(ExecutionStatus::Failed)
+        ->and($execution->duration_ms)->toBeNull();
+});
+
+it('completeStep returns null duration when beginStep was never called', function () {
+    $this->service->createExecution(provider: 'openai', model: 'gpt-5');
+    $this->service->beginExecution();
+    $this->service->createStep();
+
+    // Skip beginStep — stepStartTime stays 0
+    $this->service->completeStep();
+
+    $step = ExecutionStep::first();
+    expect($step->status)->toBe(ExecutionStatus::Completed)
+        ->and($step->duration_ms)->toBeNull();
+});
+
+it('completeDirectExecution returns null duration when beginExecution was never called', function () {
+    $this->service->createExecution(provider: 'openai', model: 'gpt-5');
+
+    // Skip beginExecution
+    $this->service->completeDirectExecution(inputTokens: 50, outputTokens: 25);
+
+    $execution = Execution::first();
+    expect($execution->status)->toBe(ExecutionStatus::Completed)
+        ->and($execution->total_input_tokens)->toBe(50)
+        ->and($execution->total_output_tokens)->toBe(25)
+        ->and($execution->duration_ms)->toBeNull();
+});

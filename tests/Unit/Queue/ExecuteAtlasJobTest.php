@@ -8,6 +8,7 @@ use Atlasphp\Atlas\Queue\Contracts\QueueableRequest;
 use Atlasphp\Atlas\Queue\Jobs\ExecuteAtlasJob;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Support\Facades\Event;
+use Laravel\SerializableClosure\SerializableClosure;
 
 it('calls executeFromPayload on the request class', function () {
     Event::fake();
@@ -126,4 +127,66 @@ it('reads config values for tries, backoff, timeout', function () {
     expect($job->tries)->toBe(5);
     expect($job->backoff)->toBe(60);
     expect($job->timeout)->toBe(600);
+});
+
+it('invokes thenCallback with result on success', function () {
+    Event::fake();
+
+    $callbackResult = null;
+
+    $requestClass = new class implements QueueableRequest
+    {
+        public function toQueuePayload(): array
+        {
+            return [];
+        }
+
+        public static function executeFromPayload(
+            array $payload,
+            string $terminal,
+            ?int $executionId = null,
+            ?Channel $broadcastChannel = null,
+        ): mixed {
+            return 'success-value';
+        }
+    };
+
+    $job = new ExecuteAtlasJob(
+        requestClass: get_class($requestClass),
+        terminal: 'asText',
+        payload: [],
+    );
+
+    $job->thenCallback = new SerializableClosure(
+        function ($result) use (&$callbackResult) {
+            $callbackResult = $result;
+        }
+    );
+
+    $job->handle();
+
+    expect($callbackResult)->toBe('success-value');
+});
+
+it('invokes catchCallback with exception on failure', function () {
+    Event::fake();
+
+    $caughtException = null;
+
+    $job = new ExecuteAtlasJob(
+        requestClass: 'Atlasphp\Atlas\Pending\TextRequest',
+        terminal: 'asText',
+        payload: [],
+    );
+
+    $job->catchCallback = new SerializableClosure(
+        function (Throwable $e) use (&$caughtException) {
+            $caughtException = $e;
+        }
+    );
+
+    $job->failed(new RuntimeException('Test failure'));
+
+    expect($caughtException)->toBeInstanceOf(RuntimeException::class);
+    expect($caughtException->getMessage())->toBe('Test failure');
 });

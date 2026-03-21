@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Agents\Agent;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Executor\ExecutorResult;
 use Atlasphp\Atlas\Middleware\AgentContext;
@@ -153,6 +154,34 @@ it('handles null agent gracefully', function () {
     expect($execution)->not->toBeNull();
     expect($execution->agent)->toBeNull();
     expect($execution->status)->toBe(ExecutionStatus::Completed);
+});
+
+it('falls back to config defaults when agent provider and model are null', function () {
+    config()->set('atlas.defaults.text.provider', 'config-provider');
+    config()->set('atlas.defaults.text.model', 'config-model');
+
+    $middleware = app(TrackExecution::class);
+
+    $agent = new class extends Agent
+    {
+        public function key(): string
+        {
+            return 'null-provider-agent';
+        }
+    };
+
+    $context = new AgentContext(
+        request: makeExecutionTextRequest(),
+        agent: $agent,
+        meta: [],
+    );
+
+    $result = $middleware->handle($context, fn () => makeExecutionFakeResult());
+
+    $execution = Execution::latest('id')->first();
+
+    expect($execution->provider)->toBe('config-provider')
+        ->and($execution->model)->toBe('config-model');
 });
 
 it('attaches executionId to result', function () {

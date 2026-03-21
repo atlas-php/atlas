@@ -16,6 +16,7 @@ use Atlasphp\Atlas\Responses\VideoResponse;
 use Atlasphp\Atlas\Testing\AtlasFake;
 use Atlasphp\Atlas\Testing\AudioResponseFake;
 use Atlasphp\Atlas\Testing\EmbeddingsResponseFake;
+use Atlasphp\Atlas\Testing\FakeDriver;
 use Atlasphp\Atlas\Testing\ImageResponseFake;
 use Atlasphp\Atlas\Testing\ModerationResponseFake;
 use Atlasphp\Atlas\Testing\StreamResponseFake;
@@ -156,4 +157,23 @@ it('handles rerank entry point', function () {
 
     expect($response)->toBeInstanceOf(RerankResponse::class);
     expect($response->results)->not->toBeEmpty();
+});
+
+it('returns FakeDriver via driver() method', function () {
+    $fake = Atlas::fake();
+
+    $driver = $fake->driver('openai');
+
+    expect($driver)->toBeInstanceOf(FakeDriver::class);
+    expect($driver->name())->toBe('openai');
+});
+
+it('returns FakeDriver for each registered provider', function () {
+    $fake = Atlas::fake();
+
+    foreach (Provider::cases() as $provider) {
+        $driver = $fake->driver($provider->value);
+        expect($driver)->toBeInstanceOf(FakeDriver::class);
+        expect($driver->name())->toBe($provider->value);
+    }
 });
