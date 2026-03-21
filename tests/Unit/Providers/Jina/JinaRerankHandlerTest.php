@@ -124,3 +124,68 @@ it('does not send top_n when null', function () {
         return ! isset($request['top_n']);
     });
 });
+
+it('formats structured documents as key-value strings', function () {
+    Http::fake([
+        'api.jina.ai/v1/rerank' => Http::response([
+            'results' => [
+                ['index' => 0, 'relevance_score' => 0.95],
+                ['index' => 1, 'relevance_score' => 0.80],
+            ],
+        ]),
+    ]);
+
+    $handler = new JinaRerankHandler(
+        config: ProviderConfig::fromArray(['api_key' => 'test-key', 'url' => 'https://api.jina.ai']),
+        http: app(HttpClient::class),
+    );
+
+    $documents = [
+        ['title' => 'Doc One', 'body' => 'First content'],
+        ['title' => 'Doc Two', 'body' => 'Second content'],
+    ];
+
+    $request = new RerankRequest(
+        model: 'jina-reranker-v2-base-multilingual',
+        query: 'test query',
+        documents: $documents,
+    );
+
+    $handler->rerank($request);
+
+    Http::assertSent(function ($request) {
+        $docs = $request['documents'];
+
+        return $docs[0] === "title: Doc One\nbody: First content"
+            && $docs[1] === "title: Doc Two\nbody: Second content";
+    });
+});
+
+it('resolves document from original array when not in response', function () {
+    Http::fake([
+        'api.jina.ai/v1/rerank' => Http::response([
+            'results' => [
+                ['index' => 0, 'relevance_score' => 0.90],
+            ],
+        ]),
+    ]);
+
+    $handler = new JinaRerankHandler(
+        config: ProviderConfig::fromArray(['api_key' => 'test-key', 'url' => 'https://api.jina.ai']),
+        http: app(HttpClient::class),
+    );
+
+    $documents = [
+        ['title' => 'My Title', 'body' => 'My Body'],
+    ];
+
+    $request = new RerankRequest(
+        model: 'jina-reranker-v2-base-multilingual',
+        query: 'test',
+        documents: $documents,
+    );
+
+    $response = $handler->rerank($request);
+
+    expect($response->results[0]->document)->toBe("title: My Title\nbody: My Body");
+});

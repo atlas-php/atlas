@@ -94,3 +94,60 @@ it('throws UnsupportedFeatureException for imageToText', function () {
 
     $handler->imageToText($request);
 })->throws(UnsupportedFeatureException::class);
+
+it('handles camelCase inlineData response key', function () {
+    Http::fake([
+        'generativelanguage.googleapis.com/*' => Http::response([
+            'candidates' => [
+                ['content' => ['parts' => [
+                    ['inlineData' => ['mimeType' => 'image/webp', 'data' => 'webpdata123']],
+                    ['text' => 'A camelCase response'],
+                ], 'role' => 'model'], 'finishReason' => 'STOP'],
+            ],
+        ]),
+    ]);
+
+    $request = new ImageRequest(
+        model: 'gemini-2.0-flash-exp',
+        instructions: 'Draw something',
+        media: [],
+        size: null,
+        quality: null,
+        format: null,
+    );
+
+    $handler = makeGoogleImageHandler();
+    $response = $handler->image($request);
+
+    expect($response)->toBeInstanceOf(ImageResponse::class)
+        ->and($response->base64)->toBe('webpdata123')
+        ->and($response->url)->toBe('data:image/webp;base64,webpdata123')
+        ->and($response->revisedPrompt)->toBe('A camelCase response');
+});
+
+it('handles response with no image parts', function () {
+    Http::fake([
+        'generativelanguage.googleapis.com/*' => Http::response([
+            'candidates' => [
+                ['content' => ['parts' => [], 'role' => 'model'], 'finishReason' => 'STOP'],
+            ],
+        ]),
+    ]);
+
+    $request = new ImageRequest(
+        model: 'gemini-2.0-flash-exp',
+        instructions: 'Draw something',
+        media: [],
+        size: null,
+        quality: null,
+        format: null,
+    );
+
+    $handler = makeGoogleImageHandler();
+    $response = $handler->image($request);
+
+    expect($response)->toBeInstanceOf(ImageResponse::class)
+        ->and($response->base64)->toBeNull()
+        ->and($response->url)->toBe('')
+        ->and($response->revisedPrompt)->toBeNull();
+});
