@@ -10,6 +10,9 @@ use RuntimeException;
  * Stub for agent execution — accepts fluent calls but throws on terminal methods.
  *
  * Full implementation deferred to Phase 7 when the executor is ready.
+ *
+ * @method self forConversation(int $conversationId)
+ * @method self message(string $message)
  */
 class AgentRequest
 {

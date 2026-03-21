@@ -16,6 +16,12 @@ use Atlasphp\Atlas\Responses\Usage;
  */
 class ExecutorResult
 {
+    /** @var int|null Set by PersistConversation middleware. */
+    public ?int $conversationId = null;
+
+    /** @var int|null Set by TrackExecution middleware. */
+    public ?int $executionId = null;
+
     /**
      * @param  array<int, Step>  $steps
      * @param  array<string, mixed>  $meta

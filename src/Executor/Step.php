@@ -24,6 +24,7 @@ class Step
         public readonly array $toolCalls,
         public readonly array $toolResults,
         public readonly Usage $usage,
+        public readonly ?string $reasoning = null,
     ) {}
 
     /**

@@ -1,0 +1,76 @@
+<?php
+
+declare(strict_types=1);
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    protected function tableName(string $name): string
+    {
+        return config('atlas.persistence.table_prefix', 'atlas_').$name;
+    }
+
+    protected function isPostgres(): bool
+    {
+        return Schema::getConnection()->getDriverName() === 'pgsql';
+    }
+
+    public function up(): void
+    {
+        Schema::create($this->tableName('messages'), function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('conversation_id')
+                ->constrained($this->tableName('conversations'))
+                ->cascadeOnDelete();
+            $table->foreignId('parent_id')
+                ->nullable()
+                ->constrained($this->tableName('messages'))
+                ->nullOnDelete();
+            $table->unsignedBigInteger('step_id')->nullable(); // FK added in 0008 after execution_steps exists
+            $table->string('role', 20);
+            $table->string('status', 20)->default('delivered');
+            $table->nullableMorphs('author');
+            $table->string('agent', 255)->nullable();
+            $table->text('content')->nullable();
+            $table->unsignedInteger('sequence')->default(0);
+            $table->boolean('is_active')->default(true);
+            $table->timestamp('read_at')->nullable();
+            $table->json('metadata')->nullable();
+            $table->timestamps();
+
+            // Conditional vector column — PostgreSQL only
+            if ($this->isPostgres()) {
+                $dimensions = config('atlas.persistence.embedding_dimensions', 1536);
+                $table->vector('embedding', $dimensions)->nullable();
+                $table->timestamp('embedding_at')->nullable();
+            }
+
+            $table->index('conversation_id');
+            $table->index('parent_id');
+            $table->index('step_id');
+            $table->index('role');
+            $table->index('agent');
+            $table->unique(['conversation_id', 'sequence']);
+            $table->index(['conversation_id', 'status']);
+            $table->index(['conversation_id', 'is_active']);
+            $table->index(['author_type', 'author_id']);
+        });
+
+        // Add HNSW vector index — PostgreSQL only
+        if ($this->isPostgres()) {
+            $table = $this->tableName('messages');
+            DB::statement(
+                "CREATE INDEX {$table}_embedding_idx ON {$table} USING hnsw (embedding vector_cosine_ops)"
+            );
+        }
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists($this->tableName('messages'));
+    }
+};

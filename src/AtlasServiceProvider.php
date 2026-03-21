@@ -7,6 +7,7 @@ namespace Atlasphp\Atlas;
 use Atlasphp\Atlas\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
+use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 use Atlasphp\Atlas\Providers\Cohere\CohereDriver;
 use Atlasphp\Atlas\Providers\Google\GoogleDriver;
 use Atlasphp\Atlas\Providers\HttpClient;
@@ -46,6 +47,8 @@ class AtlasServiceProvider extends ServiceProvider
         $this->app->singleton(MiddlewareStack::class, function ($app) {
             return new MiddlewareStack($app);
         });
+
+        $this->app->scoped(ExecutionService::class);
     }
 
     public function boot(): void
@@ -61,7 +64,42 @@ class AtlasServiceProvider extends ServiceProvider
             $this->publishes([
                 __DIR__.'/../config/atlas.php' => config_path('atlas.php'),
             ], 'atlas-config');
+
+            $this->publishes([
+                __DIR__.'/../database/migrations' => database_path('migrations'),
+            ], 'atlas-migrations');
         }
+
+        $this->registerPersistenceMiddleware();
+    }
+
+    /**
+     * Auto-register persistence middleware when enabled.
+     */
+    protected function registerPersistenceMiddleware(): void
+    {
+        if (! config('atlas.persistence.enabled')) {
+            return;
+        }
+
+        $this->app->booted(function (): void {
+            $agentMiddleware = config('atlas.middleware.agent', []);
+            $agentMiddleware[] = Persistence\Middleware\PersistConversation::class;
+            $agentMiddleware[] = Persistence\Middleware\TrackExecution::class;
+            config(['atlas.middleware.agent' => $agentMiddleware]);
+
+            $stepMiddleware = config('atlas.middleware.step', []);
+            $stepMiddleware[] = Persistence\Middleware\TrackStep::class;
+            config(['atlas.middleware.step' => $stepMiddleware]);
+
+            $toolMiddleware = config('atlas.middleware.tool', []);
+            $toolMiddleware[] = Persistence\Middleware\TrackToolCall::class;
+            config(['atlas.middleware.tool' => $toolMiddleware]);
+
+            $providerMiddleware = config('atlas.middleware.provider', []);
+            $providerMiddleware[] = Persistence\Middleware\TrackProviderCall::class;
+            config(['atlas.middleware.provider' => $providerMiddleware]);
+        });
     }
 
     /**

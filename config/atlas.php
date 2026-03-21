@@ -160,4 +160,39 @@ return [
         'visibility' => 'private',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Persistence
+    |--------------------------------------------------------------------------
+    |
+    | Optional conversation persistence and execution tracking. If you don't
+    | publish the migrations, Atlas works fully stateless. When enabled,
+    | execution tracking is always active — conversations with tools require
+    | execution data for replay.
+    |
+    */
+
+    'persistence' => [
+        'enabled' => env('ATLAS_PERSISTENCE_ENABLED', false),
+        'table_prefix' => env('ATLAS_TABLE_PREFIX', 'atlas_'),
+        'embedding_dimensions' => (int) env('ATLAS_EMBEDDING_DIMENSIONS', 1536),
+        'message_limit' => (int) env('ATLAS_MESSAGE_LIMIT', 50),
+
+        // Auto-store generated files (images, audio, video) as assets.
+        // Only applies to direct calls tracked by TrackProviderCall.
+        // Tool-generated assets use ToolAssets::store() explicitly.
+        'auto_store_assets' => env('ATLAS_AUTO_STORE_ASSETS', true),
+
+        // Model overrides — extend base models with your own
+        'models' => [
+            // 'conversation'        => \Atlasphp\Atlas\Persistence\Models\Conversation::class,
+            // 'message'             => \Atlasphp\Atlas\Persistence\Models\Message::class,
+            // 'asset'               => \Atlasphp\Atlas\Persistence\Models\Asset::class,
+            // 'message_attachment'   => \Atlasphp\Atlas\Persistence\Models\MessageAttachment::class,
+            // 'execution'           => \Atlasphp\Atlas\Persistence\Models\Execution::class,
+            // 'execution_step'      => \Atlasphp\Atlas\Persistence\Models\ExecutionStep::class,
+            // 'execution_tool_call' => \Atlasphp\Atlas\Persistence\Models\ExecutionToolCall::class,
+        ],
+    ],
+
 ];
