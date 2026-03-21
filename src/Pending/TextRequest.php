@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Pending;
 
+use Atlasphp\Atlas\Concerns\HasQueueDispatch;
 use Atlasphp\Atlas\Concerns\NormalizesMessages;
 use Atlasphp\Atlas\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Enums\Provider;
@@ -11,18 +12,22 @@ use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Executor\AgentExecutor;
 use Atlasphp\Atlas\Executor\ToolExecutor;
 use Atlasphp\Atlas\Executor\ToolRegistry;
+use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Input\Input;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
 use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
 use Atlasphp\Atlas\Providers\Tools\ProviderTool;
+use Atlasphp\Atlas\Queue\Contracts\QueueableRequest;
+use Atlasphp\Atlas\Queue\PendingExecution;
 use Atlasphp\Atlas\Requests\TextRequest as TextRequestObject;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Schema\Schema;
 use Atlasphp\Atlas\Tools\Tool;
+use Illuminate\Broadcasting\Channel;
 use Illuminate\Contracts\Events\Dispatcher;
 
 /**
@@ -31,10 +36,11 @@ use Illuminate\Contracts\Events\Dispatcher;
  * When tools are present, terminal methods route through the executor's step loop
  * for automatic tool call handling. Without tools, calls go directly to the driver.
  */
-class TextRequest
+class TextRequest implements QueueableRequest
 {
     use HasMeta;
     use HasMiddleware;
+    use HasQueueDispatch;
     use NormalizesMessages;
     use ResolvesProvider;
 
@@ -172,8 +178,12 @@ class TextRequest
         return $this;
     }
 
-    public function asText(): TextResponse
+    public function asText(): TextResponse|PendingExecution
     {
+        if ($this->queued) {
+            return $this->dispatchToQueue('asText');
+        }
+
         if ($this->hasTools()) {
             return $this->executeWithTools();
         }
@@ -184,8 +194,12 @@ class TextRequest
         return $driver->text($this->buildRequest());
     }
 
-    public function asStream(): StreamResponse
+    public function asStream(): StreamResponse|PendingExecution
     {
+        if ($this->queued) {
+            return $this->dispatchToQueue('asStream');
+        }
+
         if ($this->hasTools()) {
             throw new AtlasException('Streaming with tools is not yet supported. Use asText() for tool-enabled requests.');
         }
@@ -196,8 +210,12 @@ class TextRequest
         return $driver->stream($this->buildRequest());
     }
 
-    public function asStructured(): StructuredResponse
+    public function asStructured(): StructuredResponse|PendingExecution
     {
+        if ($this->queued) {
+            return $this->dispatchToQueue('asStructured');
+        }
+
         $driver = $this->resolveDriver();
         $this->ensureCapability($driver, 'structured');
 
@@ -289,5 +307,153 @@ class TextRequest
             middleware: $this->middleware,
             meta: $this->meta,
         );
+    }
+
+    /**
+     * Serialize all properties needed to rebuild this request in a queue worker.
+     *
+     * @return array<string, mixed>
+     */
+    public function toQueuePayload(): array
+    {
+        return [
+            'provider' => $this->resolveProviderKey(),
+            'model' => $this->resolveModelKey(),
+            'instructions' => $this->instructions,
+            'message' => $this->message,
+            'messageMedia' => $this->messageMedia,
+            'messages' => $this->messages,
+            'maxTokens' => $this->maxTokens,
+            'temperature' => $this->temperature,
+            'tools' => array_map(fn (Tool|string $tool): string => is_string($tool) ? $tool : $tool::class, $this->tools),
+            'providerTools' => $this->providerTools,
+            'maxSteps' => $this->maxSteps,
+            'parallelToolCalls' => $this->parallelToolCalls,
+            'schema' => $this->schema !== null ? [
+                'name' => $this->schema->name(),
+                'description' => $this->schema->description(),
+                'data' => $this->schema->toArray(),
+            ] : null,
+            'providerOptions' => $this->providerOptions,
+            'meta' => $this->meta,
+        ];
+    }
+
+    /**
+     * Rebuild this request from a queue payload and execute the given terminal method.
+     *
+     * @param  array<string, mixed>  $payload
+     * @param  string  $terminal  Terminal method name (e.g. 'asText', 'asStream', 'asStructured')
+     * @param  int|null  $executionId  Pre-created execution ID for persistence
+     * @param  Channel|null  $broadcastChannel  Channel for broadcasting stream chunks
+     */
+    public static function executeFromPayload(
+        array $payload,
+        string $terminal,
+        ?int $executionId = null,
+        ?Channel $broadcastChannel = null,
+    ): mixed {
+        $request = Atlas::text($payload['provider'], $payload['model']);
+
+        if ($payload['instructions'] !== null) {
+            $request->instructions($payload['instructions']);
+        }
+
+        if ($payload['message'] !== null) {
+            $request->message($payload['message'], $payload['messageMedia'] ?? []);
+        }
+
+        if (! empty($payload['messages'])) {
+            $request->withMessages($payload['messages']);
+        }
+
+        if ($payload['maxTokens'] !== null) {
+            $request->withMaxTokens($payload['maxTokens']);
+        }
+
+        if ($payload['temperature'] !== null) {
+            $request->withTemperature($payload['temperature']);
+        }
+
+        if (! empty($payload['tools'])) {
+            $request->withTools($payload['tools']);
+        }
+
+        if (! empty($payload['providerTools'])) {
+            $request->withProviderTools($payload['providerTools']);
+        }
+
+        if (array_key_exists('maxSteps', $payload)) {
+            $request->withMaxSteps($payload['maxSteps']);
+        }
+
+        if (array_key_exists('parallelToolCalls', $payload)) {
+            $request->withParallelToolCalls($payload['parallelToolCalls']);
+        }
+
+        if (! empty($payload['providerOptions'])) {
+            $request->withProviderOptions($payload['providerOptions']);
+        }
+
+        if (! empty($payload['schema'])) {
+            $request->withSchema(new Schema(
+                $payload['schema']['name'],
+                $payload['schema']['description'],
+                $payload['schema']['data'],
+            ));
+        }
+
+        $meta = $payload['meta'] ?? [];
+
+        if ($executionId !== null) {
+            $meta['_execution_id'] = $executionId;
+        }
+
+        if (! empty($meta)) {
+            $request->withMeta($meta);
+        }
+
+        if ($terminal === 'asStream' && $broadcastChannel !== null) {
+            $stream = $request->asStream()->broadcastOn($broadcastChannel);
+
+            foreach ($stream as $chunk) {
+                // Iterating triggers broadcasting
+            }
+
+            return $stream;
+        }
+
+        return match ($terminal) {
+            'asText' => $request->asText(),
+            'asStream' => $request->asStream(),
+            'asStructured' => $request->asStructured(),
+            default => throw new \InvalidArgumentException("Unknown terminal method: {$terminal}"),
+        };
+    }
+
+    /**
+     * Resolve the provider as a string key for queue serialization.
+     */
+    protected function resolveProviderKey(): string
+    {
+        return $this->provider instanceof Provider ? $this->provider->value : (string) $this->provider;
+    }
+
+    /**
+     * Resolve the model as a string key for queue serialization.
+     */
+    protected function resolveModelKey(): string
+    {
+        return (string) $this->model;
+    }
+
+    /**
+     * Get metadata for the execution record when queuing.
+     *
+     * @return array<string, mixed>
+     */
+    protected function getQueueMeta(): array
+    {
+        return $this->meta;
     }
 }

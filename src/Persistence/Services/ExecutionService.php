@@ -89,6 +89,19 @@ class ExecutionService
     }
 
     /**
+     * Transition pending → queued. Called when the execution is
+     * dispatched to a queue instead of running inline.
+     */
+    public function markQueued(): void
+    {
+        if ($this->execution === null) {
+            return;
+        }
+
+        $this->execution->markQueued();
+    }
+
+    /**
      * Transition pending → processing. Starts the wall-time timer.
      * Called when the executor actually begins work.
      */

@@ -4,21 +4,27 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Pending;
 
+use Atlasphp\Atlas\Concerns\HasQueueDispatch;
 use Atlasphp\Atlas\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
 use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
+use Atlasphp\Atlas\Queue\Contracts\QueueableRequest;
+use Atlasphp\Atlas\Queue\PendingExecution;
 use Atlasphp\Atlas\Requests\RerankRequest as RerankRequestObject;
 use Atlasphp\Atlas\Responses\RerankResponse;
+use Illuminate\Broadcasting\Channel;
 
 /**
  * Fluent builder for reranking requests.
  */
-class RerankRequest
+class RerankRequest implements QueueableRequest
 {
     use HasMeta;
     use HasMiddleware;
+    use HasQueueDispatch;
     use ResolvesProvider;
 
     protected ?string $query = null;
@@ -89,7 +95,7 @@ class RerankRequest
         return $this;
     }
 
-    public function asReranked(): RerankResponse
+    public function asReranked(): RerankResponse|PendingExecution
     {
         if ($this->query === null) {
             throw new \InvalidArgumentException('Query must be provided via query() before dispatching.');
@@ -97,6 +103,10 @@ class RerankRequest
 
         if ($this->documents === null || $this->documents === []) {
             throw new \InvalidArgumentException('Documents must be provided via documents() before dispatching.');
+        }
+
+        if ($this->queued) {
+            return $this->dispatchToQueue('asReranked');
         }
 
         $driver = $this->resolveDriver();
@@ -125,5 +135,107 @@ class RerankRequest
             middleware: $this->middleware,
             meta: $this->meta,
         );
+    }
+
+    /**
+     * Serialize all properties needed to rebuild this request in a queue worker.
+     *
+     * @return array<string, mixed>
+     */
+    public function toQueuePayload(): array
+    {
+        return [
+            'provider' => $this->resolveProviderKey(),
+            'model' => $this->resolveModelKey(),
+            'query' => $this->query,
+            'documents' => $this->documents,
+            'topN' => $this->topN,
+            'maxTokensPerDoc' => $this->maxTokensPerDoc,
+            'minScore' => $this->minScore,
+            'providerOptions' => $this->providerOptions,
+            'meta' => $this->meta,
+        ];
+    }
+
+    /**
+     * Rebuild this request from a queue payload and execute the given terminal method.
+     *
+     * @param  array<string, mixed>  $payload
+     * @param  string  $terminal  Terminal method name (e.g. 'asReranked')
+     * @param  int|null  $executionId  Pre-created execution ID for persistence
+     * @param  Channel|null  $broadcastChannel  Channel for broadcasting
+     */
+    public static function executeFromPayload(
+        array $payload,
+        string $terminal,
+        ?int $executionId = null,
+        ?Channel $broadcastChannel = null,
+    ): mixed {
+        $request = Atlas::rerank($payload['provider'], $payload['model']);
+
+        if ($payload['query'] !== null) {
+            $request->query($payload['query']);
+        }
+
+        if (! empty($payload['documents'])) {
+            $request->documents($payload['documents']);
+        }
+
+        if ($payload['topN'] !== null) {
+            $request->topN($payload['topN']);
+        }
+
+        if ($payload['maxTokensPerDoc'] !== null) {
+            $request->maxTokensPerDoc($payload['maxTokensPerDoc']);
+        }
+
+        if ($payload['minScore'] !== null) {
+            $request->minScore($payload['minScore']);
+        }
+
+        if (! empty($payload['providerOptions'])) {
+            $request->withProviderOptions($payload['providerOptions']);
+        }
+
+        $meta = $payload['meta'] ?? [];
+
+        if ($executionId !== null) {
+            $meta['_execution_id'] = $executionId;
+        }
+
+        if (! empty($meta)) {
+            $request->withMeta($meta);
+        }
+
+        return match ($terminal) {
+            'asReranked' => $request->asReranked(),
+            default => throw new \InvalidArgumentException("Unknown terminal method: {$terminal}"),
+        };
+    }
+
+    /**
+     * Resolve the provider as a string key for queue serialization.
+     */
+    protected function resolveProviderKey(): string
+    {
+        return $this->provider instanceof Provider ? $this->provider->value : (string) $this->provider;
+    }
+
+    /**
+     * Resolve the model as a string key for queue serialization.
+     */
+    protected function resolveModelKey(): string
+    {
+        return (string) $this->model;
+    }
+
+    /**
+     * Get metadata for the execution record when queuing.
+     *
+     * @return array<string, mixed>
+     */
+    protected function getQueueMeta(): array
+    {
+        return $this->meta;
     }
 }

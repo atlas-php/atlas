@@ -4,21 +4,27 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Pending;
 
+use Atlasphp\Atlas\Concerns\HasQueueDispatch;
 use Atlasphp\Atlas\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
 use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
+use Atlasphp\Atlas\Queue\Contracts\QueueableRequest;
+use Atlasphp\Atlas\Queue\PendingExecution;
 use Atlasphp\Atlas\Requests\EmbedRequest as EmbedRequestObject;
 use Atlasphp\Atlas\Responses\EmbeddingsResponse;
+use Illuminate\Broadcasting\Channel;
 
 /**
  * Fluent builder for embedding requests.
  */
-class EmbedRequest
+class EmbedRequest implements QueueableRequest
 {
     use HasMeta;
     use HasMiddleware;
+    use HasQueueDispatch;
     use ResolvesProvider;
 
     /** @var string|array<int, string>|null */
@@ -53,10 +59,14 @@ class EmbedRequest
         return $this;
     }
 
-    public function asEmbeddings(): EmbeddingsResponse
+    public function asEmbeddings(): EmbeddingsResponse|PendingExecution
     {
         if ($this->input === null) {
             throw new \InvalidArgumentException('Input must be provided via fromInput() before dispatching.');
+        }
+
+        if ($this->queued) {
+            return $this->dispatchToQueue('asEmbeddings');
         }
 
         $driver = $this->resolveDriver();
@@ -74,5 +84,84 @@ class EmbedRequest
             middleware: $this->middleware,
             meta: $this->meta,
         );
+    }
+
+    /**
+     * Serialize all properties needed to rebuild this request in a queue worker.
+     *
+     * @return array<string, mixed>
+     */
+    public function toQueuePayload(): array
+    {
+        return [
+            'provider' => $this->resolveProviderKey(),
+            'model' => $this->resolveModelKey(),
+            'input' => $this->input,
+            'providerOptions' => $this->providerOptions,
+            'meta' => $this->meta,
+        ];
+    }
+
+    /**
+     * Rebuild this request from a queue payload and execute the given terminal method.
+     *
+     * @param  array<string, mixed>  $payload
+     * @param  string  $terminal  Terminal method name (e.g. 'asEmbeddings')
+     * @param  int|null  $executionId  Pre-created execution ID for persistence
+     * @param  Channel|null  $broadcastChannel  Channel for broadcasting
+     */
+    public static function executeFromPayload(
+        array $payload,
+        string $terminal,
+        ?int $executionId = null,
+        ?Channel $broadcastChannel = null,
+    ): mixed {
+        $request = Atlas::embed($payload['provider'], $payload['model'])
+            ->fromInput($payload['input']);
+
+        if (! empty($payload['providerOptions'])) {
+            $request->withProviderOptions($payload['providerOptions']);
+        }
+
+        $meta = $payload['meta'] ?? [];
+
+        if ($executionId !== null) {
+            $meta['_execution_id'] = $executionId;
+        }
+
+        if (! empty($meta)) {
+            $request->withMeta($meta);
+        }
+
+        return match ($terminal) {
+            'asEmbeddings' => $request->asEmbeddings(),
+            default => throw new \InvalidArgumentException("Unknown terminal method: {$terminal}"),
+        };
+    }
+
+    /**
+     * Resolve the provider as a string key for queue serialization.
+     */
+    protected function resolveProviderKey(): string
+    {
+        return $this->provider instanceof Provider ? $this->provider->value : (string) $this->provider;
+    }
+
+    /**
+     * Resolve the model as a string key for queue serialization.
+     */
+    protected function resolveModelKey(): string
+    {
+        return (string) $this->model;
+    }
+
+    /**
+     * Get metadata for the execution record when queuing.
+     *
+     * @return array<string, mixed>
+     */
+    protected function getQueueMeta(): array
+    {
+        return $this->meta;
     }
 }

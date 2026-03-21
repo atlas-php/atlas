@@ -126,6 +126,14 @@ class Execution extends Model
 
     // ─── Lifecycle ──────────────────────────────────────────────
 
+    /**
+     * Transition pending → queued. Called when dispatched to queue.
+     */
+    public function markQueued(): void
+    {
+        $this->update(['status' => ExecutionStatus::Queued]);
+    }
+
     public function markCompleted(?int $durationMs): void
     {
         $this->update([

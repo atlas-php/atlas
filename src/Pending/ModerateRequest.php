@@ -4,21 +4,27 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Pending;
 
+use Atlasphp\Atlas\Concerns\HasQueueDispatch;
 use Atlasphp\Atlas\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
 use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
+use Atlasphp\Atlas\Queue\Contracts\QueueableRequest;
+use Atlasphp\Atlas\Queue\PendingExecution;
 use Atlasphp\Atlas\Requests\ModerateRequest as ModerateRequestObject;
 use Atlasphp\Atlas\Responses\ModerationResponse;
+use Illuminate\Broadcasting\Channel;
 
 /**
  * Fluent builder for content moderation requests.
  */
-class ModerateRequest
+class ModerateRequest implements QueueableRequest
 {
     use HasMeta;
     use HasMiddleware;
+    use HasQueueDispatch;
     use ResolvesProvider;
 
     /** @var string|array<int, string>|null */
@@ -53,10 +59,14 @@ class ModerateRequest
         return $this;
     }
 
-    public function asModeration(): ModerationResponse
+    public function asModeration(): ModerationResponse|PendingExecution
     {
         if ($this->input === null) {
             throw new \InvalidArgumentException('Input must be provided via fromInput() before dispatching.');
+        }
+
+        if ($this->queued) {
+            return $this->dispatchToQueue('asModeration');
         }
 
         $driver = $this->resolveDriver();
@@ -74,5 +84,84 @@ class ModerateRequest
             middleware: $this->middleware,
             meta: $this->meta,
         );
+    }
+
+    /**
+     * Serialize all properties needed to rebuild this request in a queue worker.
+     *
+     * @return array<string, mixed>
+     */
+    public function toQueuePayload(): array
+    {
+        return [
+            'provider' => $this->resolveProviderKey(),
+            'model' => $this->resolveModelKey(),
+            'input' => $this->input,
+            'providerOptions' => $this->providerOptions,
+            'meta' => $this->meta,
+        ];
+    }
+
+    /**
+     * Rebuild this request from a queue payload and execute the given terminal method.
+     *
+     * @param  array<string, mixed>  $payload
+     * @param  string  $terminal  Terminal method name (e.g. 'asModeration')
+     * @param  int|null  $executionId  Pre-created execution ID for persistence
+     * @param  Channel|null  $broadcastChannel  Channel for broadcasting
+     */
+    public static function executeFromPayload(
+        array $payload,
+        string $terminal,
+        ?int $executionId = null,
+        ?Channel $broadcastChannel = null,
+    ): mixed {
+        $request = Atlas::moderate($payload['provider'], $payload['model'])
+            ->fromInput($payload['input']);
+
+        if (! empty($payload['providerOptions'])) {
+            $request->withProviderOptions($payload['providerOptions']);
+        }
+
+        $meta = $payload['meta'] ?? [];
+
+        if ($executionId !== null) {
+            $meta['_execution_id'] = $executionId;
+        }
+
+        if (! empty($meta)) {
+            $request->withMeta($meta);
+        }
+
+        return match ($terminal) {
+            'asModeration' => $request->asModeration(),
+            default => throw new \InvalidArgumentException("Unknown terminal method: {$terminal}"),
+        };
+    }
+
+    /**
+     * Resolve the provider as a string key for queue serialization.
+     */
+    protected function resolveProviderKey(): string
+    {
+        return $this->provider instanceof Provider ? $this->provider->value : (string) $this->provider;
+    }
+
+    /**
+     * Resolve the model as a string key for queue serialization.
+     */
+    protected function resolveModelKey(): string
+    {
+        return (string) $this->model;
+    }
+
+    /**
+     * Get metadata for the execution record when queuing.
+     *
+     * @return array<string, mixed>
+     */
+    protected function getQueueMeta(): array
+    {
+        return $this->meta;
     }
 }

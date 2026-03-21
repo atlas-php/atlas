@@ -126,16 +126,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Media Storage
-    |--------------------------------------------------------------------------
-    |
-    | Configure how Atlas stores media files (images, audio, video).
-    | Used by Input::store() and Response::store() methods.
-    |
-    */
-
-    /*
-    |--------------------------------------------------------------------------
     | Middleware
     |--------------------------------------------------------------------------
     |
@@ -153,6 +143,35 @@ return [
         'tool' => [],
         'agent' => [],
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Queue
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for queued Atlas executions. Use ->queue() on any
+    | pending request to dispatch it asynchronously.
+    |
+    */
+
+    'queue' => [
+        'connection' => env('ATLAS_QUEUE_CONNECTION'),
+        'queue' => env('ATLAS_QUEUE', 'default'),
+        'tries' => (int) env('ATLAS_QUEUE_TRIES', 3),
+        'backoff' => (int) env('ATLAS_QUEUE_BACKOFF', 30),
+        'timeout' => (int) env('ATLAS_QUEUE_TIMEOUT', 300),
+        'after_commit' => (bool) env('ATLAS_QUEUE_AFTER_COMMIT', true),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Media Storage
+    |--------------------------------------------------------------------------
+    |
+    | Configure how Atlas stores media files (images, audio, video).
+    | Used by Input::store() and Response::store() methods.
+    |
+    */
 
     'storage' => [
         'disk' => env('ATLAS_STORAGE_DISK'),
