@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Embeddings;
 
 use Atlasphp\Atlas\Cache\AtlasCache;
+use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Facades\Atlas;
 
 /**
@@ -79,7 +80,7 @@ class EmbeddingResolver
             ->asEmbeddings();
 
         if (empty($response->embeddings)) {
-            throw new \RuntimeException('Provider returned no embeddings for the given input.');
+            throw new AtlasException('Provider returned no embeddings for the given input.');
         }
 
         return $response->embeddings[0];

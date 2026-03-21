@@ -43,9 +43,13 @@ class Provider extends AbstractProviderHandler
             timeout: $this->config->timeout,
         );
 
+        // ElevenLabs returns a flat array of model objects (not wrapped in data[])
+        /** @var array<int, array<string, mixed>> $models */
+        $models = array_values($data);
+
         $ids = array_map(
-            fn (array $m): string => (string) $m['model_id'],
-            $data,
+            fn (array $m): string => (string) ($m['model_id'] ?? ''),
+            $models,
         );
 
         sort($ids);

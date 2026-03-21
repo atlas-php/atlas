@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Cache\AtlasCache;
 use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
+use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Testing\EmbeddingsResponseFake;
 
@@ -66,7 +67,7 @@ it('throws RuntimeException when provider returns empty embeddings', function ()
     ]);
 
     $this->resolver->resolve('test input');
-})->throws(RuntimeException::class, 'Provider returned no embeddings for the given input.');
+})->throws(AtlasException::class, 'Provider returned no embeddings for the given input.');
 
 it('throws RuntimeException when resolveUsing returns empty embeddings', function () {
     Atlas::fake([
@@ -74,4 +75,4 @@ it('throws RuntimeException when resolveUsing returns empty embeddings', functio
     ]);
 
     $this->resolver->resolveUsing('test input', 'openai', 'text-embedding-3-small');
-})->throws(RuntimeException::class, 'Provider returned no embeddings for the given input.');
+})->throws(AtlasException::class, 'Provider returned no embeddings for the given input.');

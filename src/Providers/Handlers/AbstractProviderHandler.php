@@ -33,7 +33,7 @@ abstract class AbstractProviderHandler implements ProviderHandler
     {
         return $this->cache->remember(
             'models',
-            $this->cacheKeyPrefix().':models',
+            $this->cacheKeyPrefix(),
             fn () => $this->fetchModels(),
         );
     }
@@ -42,7 +42,7 @@ abstract class AbstractProviderHandler implements ProviderHandler
     {
         return $this->cache->remember(
             'voices',
-            $this->cacheKeyPrefix().':voices',
+            $this->cacheKeyPrefix(),
             fn () => $this->fetchVoices(),
         );
     }
@@ -103,7 +103,7 @@ abstract class AbstractProviderHandler implements ProviderHandler
     public function flushCache(): void
     {
         $prefix = $this->cacheKeyPrefix();
-        $this->cache->flushKeys('models', ["{$prefix}:models"]);
-        $this->cache->flushKeys('voices', ["{$prefix}:voices"]);
+        $this->cache->flushKeys('models', [$prefix]);
+        $this->cache->flushKeys('voices', [$prefix]);
     }
 }
