@@ -45,6 +45,7 @@ pest()->extend(TestCase::class)->in(
     'Unit/Middleware',
     'Unit/Pending',
     'Unit/Providers',
+    'Unit/Queue',
     'Unit/Requests',
     'Unit/Responses',
     'Unit/Schema',
