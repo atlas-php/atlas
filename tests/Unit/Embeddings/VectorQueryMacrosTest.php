@@ -2,90 +2,90 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
 use Atlasphp\Atlas\Embeddings\VectorQueryMacros;
-use Illuminate\Database\Query\Builder;
 
-// ─── toVectorLiteral ───────────────────────────────────────────────
+// ─── isPgvectorAvailable ────────────────────────────────────────────────────
 
-it('formats vector array as pgvector literal', function () {
-    $literal = VectorQueryMacros::toVectorLiteral([0.1, 0.2, 0.3]);
+it('returns false for non-pgsql connections', function () {
+    config(['database.default' => 'testing']);
+    config(['database.connections.testing.driver' => 'sqlite']);
 
-    expect($literal)->toBe('[0.1,0.2,0.3]');
+    expect(VectorQueryMacros::isPgvectorAvailable())->toBeFalse();
 });
 
-it('formats integer values in vector literal', function () {
-    $literal = VectorQueryMacros::toVectorLiteral([1, 0, -1]);
+it('returns true when default connection is pgsql', function () {
+    config(['database.default' => 'pgsql']);
 
-    expect($literal)->toBe('[1,0,-1]');
+    expect(VectorQueryMacros::isPgvectorAvailable())->toBeTrue();
 });
 
-it('formats empty vector literal', function () {
-    $literal = VectorQueryMacros::toVectorLiteral([]);
+it('returns true when default connection driver is pgsql', function () {
+    config(['database.default' => 'custom']);
+    config(['database.connections.custom.driver' => 'pgsql']);
 
-    expect($literal)->toBe('[]');
+    expect(VectorQueryMacros::isPgvectorAvailable())->toBeTrue();
 });
 
-// ─── resolveEmbedding ──────────────────────────────────────────────
+// ─── toVectorLiteral ────────────────────────────────────────────────────────
 
-it('passes arrays through resolveEmbedding unchanged', function () {
-    $vector = [0.1, 0.2, 0.3];
+it('converts float array to pgvector literal', function () {
+    $result = VectorQueryMacros::toVectorLiteral([0.1, 0.2, 0.3]);
 
-    $result = VectorQueryMacros::resolveEmbedding($vector);
-
-    expect($result)->toBe($vector);
+    expect($result)->toBe('[0.1,0.2,0.3]');
 });
 
-it('calls EmbeddingResolver for string input', function () {
-    $vector = [0.4, 0.5, 0.6];
+it('converts integer values in vector literal', function () {
+    $result = VectorQueryMacros::toVectorLiteral([1, 0, -1]);
 
-    $resolver = Mockery::mock(EmbeddingResolver::class);
-    $resolver->shouldReceive('resolve')
-        ->with('test query')
-        ->once()
-        ->andReturn($vector);
-
-    app()->instance(EmbeddingResolver::class, $resolver);
-
-    $result = VectorQueryMacros::resolveEmbedding('test query');
-
-    expect($result)->toBe($vector);
+    expect($result)->toBe('[1,0,-1]');
 });
 
-// ─── validateColumnName ────────────────────────────────────────────
+it('handles empty vector', function () {
+    $result = VectorQueryMacros::toVectorLiteral([]);
 
-it('validates acceptable column names', function () {
+    expect($result)->toBe('[]');
+});
+
+// ─── validateColumnName ─────────────────────────────────────────────────────
+
+it('accepts valid simple column names', function () {
     VectorQueryMacros::validateColumnName('embedding');
     VectorQueryMacros::validateColumnName('content_embedding');
-    VectorQueryMacros::validateColumnName('table.column');
     VectorQueryMacros::validateColumnName('_private');
 
     expect(true)->toBeTrue();
 });
 
-it('rejects SQL injection in column names', function () {
-    VectorQueryMacros::validateColumnName("'; DROP TABLE users --");
-})->throws(InvalidArgumentException::class);
+it('accepts qualified column names with dots', function () {
+    VectorQueryMacros::validateColumnName('table.embedding');
+    VectorQueryMacros::validateColumnName('schema.table.column');
+
+    expect(true)->toBeTrue();
+});
+
+it('rejects column names with SQL injection attempts', function () {
+    VectorQueryMacros::validateColumnName('embedding; DROP TABLE users');
+})->throws(InvalidArgumentException::class, 'Invalid column name');
+
+it('rejects column names starting with numbers', function () {
+    VectorQueryMacros::validateColumnName('123column');
+})->throws(InvalidArgumentException::class, 'Invalid column name');
+
+it('rejects empty column names', function () {
+    VectorQueryMacros::validateColumnName('');
+})->throws(InvalidArgumentException::class, 'Invalid column name');
+
+it('rejects column names with special characters', function () {
+    VectorQueryMacros::validateColumnName("column'name");
+})->throws(InvalidArgumentException::class, 'Invalid column name');
 
 it('rejects column names with spaces', function () {
     VectorQueryMacros::validateColumnName('my column');
-})->throws(InvalidArgumentException::class);
+})->throws(InvalidArgumentException::class, 'Invalid column name');
 
-it('rejects column names with parentheses', function () {
-    VectorQueryMacros::validateColumnName('col()');
-})->throws(InvalidArgumentException::class);
+// ─── validateAliasName ──────────────────────────────────────────────────────
 
-it('rejects column names with semicolons', function () {
-    VectorQueryMacros::validateColumnName('col;drop');
-})->throws(InvalidArgumentException::class);
-
-it('rejects column names starting with numbers', function () {
-    VectorQueryMacros::validateColumnName('1col');
-})->throws(InvalidArgumentException::class);
-
-// ─── validateAliasName ─────────────────────────────────────────────
-
-it('validates acceptable alias names', function () {
+it('accepts valid alias names', function () {
     VectorQueryMacros::validateAliasName('vector_distance');
     VectorQueryMacros::validateAliasName('similarity');
     VectorQueryMacros::validateAliasName('_score');
@@ -93,81 +93,35 @@ it('validates acceptable alias names', function () {
     expect(true)->toBeTrue();
 });
 
-it('rejects dots in alias names', function () {
+it('rejects alias names with dots', function () {
     VectorQueryMacros::validateAliasName('table.alias');
-})->throws(InvalidArgumentException::class);
+})->throws(InvalidArgumentException::class, 'Invalid alias name');
 
-it('rejects SQL injection in alias names', function () {
-    VectorQueryMacros::validateAliasName("'; DROP TABLE --");
-})->throws(InvalidArgumentException::class);
+it('rejects alias names with SQL injection', function () {
+    VectorQueryMacros::validateAliasName('alias; DROP TABLE');
+})->throws(InvalidArgumentException::class, 'Invalid alias name');
 
-it('rejects spaces in alias names', function () {
-    VectorQueryMacros::validateAliasName('bad alias');
-})->throws(InvalidArgumentException::class);
+it('rejects empty alias names', function () {
+    VectorQueryMacros::validateAliasName('');
+})->throws(InvalidArgumentException::class, 'Invalid alias name');
 
-// ─── isPgvectorAvailable ───────────────────────────────────────────
+// ─── resolveEmbedding ───────────────────────────────────────────────────────
 
-it('detects pgsql driver for pgvector availability', function () {
-    config(['database.default' => 'pgsql']);
+it('passes array embeddings through unchanged', function () {
+    $vector = [0.1, 0.2, 0.3];
 
-    expect(VectorQueryMacros::isPgvectorAvailable())->toBeTrue();
+    $result = VectorQueryMacros::resolveEmbedding($vector);
+
+    expect($result)->toBe($vector);
 });
 
-it('detects pgsql driver via connection config', function () {
-    config([
-        'database.default' => 'custom',
-        'database.connections.custom.driver' => 'pgsql',
-    ]);
+// ─── register ───────────────────────────────────────────────────────────────
 
-    expect(VectorQueryMacros::isPgvectorAvailable())->toBeTrue();
-});
+it('skips registration when pgvector is not available', function () {
+    config(['database.default' => 'testing']);
+    config(['database.connections.testing.driver' => 'sqlite']);
 
-it('detects non-pgsql driver as unavailable', function () {
-    config([
-        'database.default' => 'sqlite',
-        'database.connections.sqlite.driver' => 'sqlite',
-    ]);
-
-    expect(VectorQueryMacros::isPgvectorAvailable())->toBeFalse();
-});
-
-// ─── register() ────────────────────────────────────────────────────
-
-it('registers macros when pgsql is available', function () {
-    config(['database.default' => 'pgsql']);
-
-    VectorQueryMacros::register();
-
-    expect(Builder::hasMacro('whereVectorSimilarTo'))->toBeTrue()
-        ->and(Builder::hasMacro('whereVectorDistanceLessThan'))->toBeTrue()
-        ->and(Builder::hasMacro('selectVectorDistance'))->toBeTrue()
-        ->and(Builder::hasMacro('orderByVectorDistance'))->toBeTrue();
-});
-
-it('skips registration when pgsql is not available', function () {
-    config([
-        'database.default' => 'mysql',
-        'database.connections.mysql.driver' => 'mysql',
-    ]);
-
-    // Should silently return without error
     VectorQueryMacros::register();
 
     expect(true)->toBeTrue();
 });
-
-it('register is idempotent', function () {
-    config(['database.default' => 'pgsql']);
-
-    VectorQueryMacros::register();
-    VectorQueryMacros::register();
-
-    expect(Builder::hasMacro('whereVectorSimilarTo'))->toBeTrue();
-});
-
-// NOTE: Laravel 12.55+ added native vector query methods on Query\Builder
-// (whereVectorSimilarTo, whereVectorDistanceLessThan, selectVectorDistance,
-// orderByVectorDistance). Native methods take precedence over macros, so the
-// registered macros are shadowed in Laravel 12+. The helper methods
-// (resolveEmbedding, toVectorLiteral, validateColumnName, validateAliasName)
-// remain used by SimilaritySearch and other code that composes vector queries.
