@@ -35,6 +35,34 @@ use Atlasphp\Atlas\Messages\ToolResultMessage;
 use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Schema\Schema;
 
+// ─── Storage Setup ───────────────────────────────────────────────────────────
+
+$storageDir = __DIR__.'/storage/providers/anthropic';
+
+// Wipe previous test output
+if (is_dir($storageDir)) {
+    $files = glob("{$storageDir}/*");
+    if ($files !== false) {
+        foreach ($files as $file) {
+            if (is_file($file)) {
+                unlink($file);
+            }
+        }
+    }
+} else {
+    mkdir($storageDir, 0755, true);
+}
+
+function saveFile(string $name, string $data, string $ext = 'bin'): void
+{
+    global $storageDir;
+
+    $path = "{$storageDir}/{$name}.{$ext}";
+    file_put_contents($path, $data);
+    $size = strlen($data);
+    echo " → saved {$name}.{$ext} (".number_format($size).' bytes)';
+}
+
 // ─── Test Runner ─────────────────────────────────────────────────────────────
 
 $passed = 0;
@@ -361,6 +389,7 @@ test('provider options pass through', function () {
 
 echo "\n\n══════════════════════════════════════════════";
 echo "\n  Results: {$passed} passed, {$failed} failed, {$skipped} skipped";
+echo "\n  Media files: {$storageDir}/";
 echo "\n══════════════════════════════════════════════\n";
 
 if ($errors !== []) {

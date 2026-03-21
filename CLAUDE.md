@@ -6,8 +6,7 @@ This file is the source of truth for Claude Code workflow, task management, and 
 
 ## Session Start
 
-1. Read `AGENTS.md` — follow all conventions
-2. Review `LESSONS.md` for the relevant project
+1. Read `AGENTS.md` — follow all conventions, no exceptions
 
 ---
 
@@ -29,21 +28,12 @@ This file is the source of truth for Claude Code workflow, task management, and 
 
 ---
 
-## Self-Improvement & Lessons
+## Lessons & Memory
 
-- After ANY correction from the user: update `LESSONS.md` with the pattern
-- Review lessons at session start before beginning work
-
-**Writing lessons:**
-- Keep entries tight and direct — one or two sentences max per lesson
-- State the rule, not the story. Enough context to understand the "what" and "why", nothing more
-- Bad: *"When I was working on the pipeline refactor, Tim pointed out that I was using Axios to fetch user data in onMounted instead of using Inertia props, which broke partial reloads and caused a flash of empty state"*
-- Good: *"Server data must come from Inertia props, never Axios in onMounted — breaks partial reloads"*
-
-**Maintaining lessons:**
-- When reviewing lessons at session start, remove or update any that are outdated, redundant, or no longer apply to the current codebase
-- If a lesson was absorbed into `AGENTS.md` as a formal convention, remove it from `LESSONS.md` — don't keep duplicates
-- Consolidate similar lessons into a single entry rather than letting them accumulate
+- Lessons go in Claude's **local auto-memory** — not in repo files
+- Save gotchas, patterns, and corrections that come up repeatedly so future sessions benefit
+- If a memory becomes redundant or outdated, remove it
+- Don't duplicate anything already in `AGENTS.md` — that's the source of truth for conventions
 
 ---
 

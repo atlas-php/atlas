@@ -38,6 +38,34 @@ use Atlasphp\Atlas\Schema\Schema;
 use Atlasphp\Atlas\Tools\ToolDefinition;
 use Illuminate\Support\Facades\Storage;
 
+// ─── Storage Setup ───────────────────────────────────────────────────────────
+
+$storageDir = __DIR__.'/storage/providers/openai';
+
+// Wipe previous test output
+if (is_dir($storageDir)) {
+    $files = glob("{$storageDir}/*");
+    if ($files !== false) {
+        foreach ($files as $file) {
+            if (is_file($file)) {
+                unlink($file);
+            }
+        }
+    }
+} else {
+    mkdir($storageDir, 0755, true);
+}
+
+function saveFile(string $name, string $data, string $ext = 'bin'): void
+{
+    global $storageDir;
+
+    $path = "{$storageDir}/{$name}.{$ext}";
+    file_put_contents($path, $data);
+    $size = strlen($data);
+    echo " → saved {$name}.{$ext} (".number_format($size).' bytes)';
+}
+
 // ─── Test Runner ─────────────────────────────────────────────────────────────
 
 $passed = 0;
@@ -353,6 +381,12 @@ test('DALL-E image generation', function () {
     assert_true(str_starts_with($r->url, 'https://'), 'URL should be HTTPS');
     assert_true($r->revisedPrompt !== null, 'DALL-E 3 should return revised prompt');
     assert_true(strlen($r->revisedPrompt) > 10, 'Revised prompt should be substantial');
+
+    // Download and save the image
+    $imgData = file_get_contents($r->url);
+    if ($imgData !== false) {
+        saveFile('image-dalle3', $imgData, 'png');
+    }
 });
 
 // ── Audio TTS ────────────────────────────────────────────────────────────────
@@ -374,6 +408,8 @@ test('text-to-speech generation', function () {
     $firstBytes = substr($decoded, 0, 3);
     $isValid = $firstBytes === 'ID3' || (ord($decoded[0]) === 0xFF && (ord($decoded[1]) & 0xE0) === 0xE0);
     assert_true($isValid, 'Should be valid MP3 data');
+
+    saveFile('tts-nova', $decoded, 'mp3');
 });
 
 // ── Audio STT ────────────────────────────────────────────────────────────────
@@ -388,9 +424,12 @@ test('speech-to-text round trip (TTS → STT)', function () {
         ->withFormat('mp3')
         ->asAudio();
 
+    $decoded = base64_decode($audio->data);
+    saveFile('stt-input', $decoded, 'mp3');
+
     // Write to temp file
     $tmpFile = tempnam(sys_get_temp_dir(), 'atlas_stt_').'.mp3';
-    file_put_contents($tmpFile, base64_decode($audio->data));
+    file_put_contents($tmpFile, $decoded);
 
     // Transcribe
     $r = Atlas::audio(Provider::OpenAI, 'whisper-1')
@@ -567,6 +606,8 @@ test('provider options pass through', function () {
 echo "\n\n── Video Generation (Sora)";
 
 test('video generation with sora-2 + save to disk', function () {
+    global $storageDir;
+
     echo "\n    → Submitting video generation request (sora-2, 4s)...";
 
     $r = Atlas::video(Provider::OpenAI, 'sora-2')
@@ -586,13 +627,8 @@ test('video generation with sora-2 + save to disk', function () {
     echo "\n    → Video ID: ".($r->meta['video_id'] ?? 'unknown');
 
     // Save to disk
-    $outDir = __DIR__.'/storage/openai-test';
-    if (! is_dir($outDir)) {
-        mkdir($outDir, 0755, true);
-    }
-    $savePath = $outDir.'/video-sora2-'.date('His').'.mp4';
-    copy($r->url, $savePath);
-    echo "\n    → Saved: {$savePath}";
+    copy($r->url, "{$storageDir}/video-sora2.mp4");
+    echo "\n    → Saved: {$storageDir}/video-sora2.mp4";
 
     // Clean up temp file
     unlink($r->url);
@@ -739,6 +775,7 @@ test('input fromPath store and contents round-trip', function () {
 
 echo "\n\n══════════════════════════════════════════════";
 echo "\n  Results: {$passed} passed, {$failed} failed, {$skipped} skipped";
+echo "\n  Media files: {$storageDir}/";
 echo "\n══════════════════════════════════════════════\n";
 
 if ($errors !== []) {

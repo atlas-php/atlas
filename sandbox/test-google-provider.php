@@ -33,6 +33,34 @@ use Atlasphp\Atlas\Messages\ToolResultMessage;
 use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Schema\Schema;
 
+// ─── Storage Setup ───────────────────────────────────────────────────────────
+
+$storageDir = __DIR__.'/storage/providers/google';
+
+// Wipe previous test output
+if (is_dir($storageDir)) {
+    $files = glob("{$storageDir}/*");
+    if ($files !== false) {
+        foreach ($files as $file) {
+            if (is_file($file)) {
+                unlink($file);
+            }
+        }
+    }
+} else {
+    mkdir($storageDir, 0755, true);
+}
+
+function saveFile(string $name, string $data, string $ext = 'bin'): void
+{
+    global $storageDir;
+
+    $path = "{$storageDir}/{$name}.{$ext}";
+    file_put_contents($path, $data);
+    $size = strlen($data);
+    echo " → saved {$name}.{$ext} (".number_format($size).' bytes)';
+}
+
 // ─── Test Runner ─────────────────────────────────────────────────────────────
 
 $passed = 0;
@@ -412,6 +440,12 @@ test('image generation via generateContent', function () {
     assert_true($url !== '', 'Should have an image URL/data');
     assert_true(str_starts_with($url, 'data:image/'), 'Should be a data URI, got: '.substr($url, 0, 30));
     assert_true($r->base64 !== null && $r->base64 !== '', 'Should have base64 data');
+
+    // Extract base64 data from data URI and save
+    $imgData = base64_decode($r->base64);
+    if ($imgData !== false) {
+        saveFile('image-gemini', $imgData, 'png');
+    }
 });
 
 // ── Provider Options ─────────────────────────────────────────────────────────
@@ -431,6 +465,7 @@ test('provider options pass through (generationConfig)', function () {
 
 echo "\n\n══════════════════════════════════════════════";
 echo "\n  Results: {$passed} passed, {$failed} failed, {$skipped} skipped";
+echo "\n  Media files: {$storageDir}/";
 echo "\n══════════════════════════════════════════════\n";
 
 if ($errors !== []) {

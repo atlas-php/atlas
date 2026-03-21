@@ -12,7 +12,7 @@ declare(strict_types=1);
  *
  * Requires ELEVENLABS_API_KEY in sandbox/.env
  *
- * Generated audio files are saved to sandbox/storage/elevenlabs/
+ * Generated audio files are saved to sandbox/storage/providers/elevenlabs/
  * for manual review. The directory is wiped at the start of each run.
  *
  * Note: Some features require a paid ElevenLabs plan.
@@ -39,7 +39,7 @@ use Illuminate\Http\Client\RequestException;
 
 // ─── Storage Setup ───────────────────────────────────────────────────────────
 
-$storageDir = __DIR__.'/storage/elevenlabs';
+$storageDir = __DIR__.'/storage/providers/elevenlabs';
 
 // Wipe previous test output
 if (is_dir($storageDir)) {

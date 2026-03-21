@@ -34,6 +34,34 @@ use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Schema\Schema;
 use Atlasphp\Atlas\Tools\ToolDefinition;
 
+// ─── Storage Setup ───────────────────────────────────────────────────────────
+
+$storageDir = __DIR__.'/storage/providers/xai';
+
+// Wipe previous test output
+if (is_dir($storageDir)) {
+    $files = glob("{$storageDir}/*");
+    if ($files !== false) {
+        foreach ($files as $file) {
+            if (is_file($file)) {
+                unlink($file);
+            }
+        }
+    }
+} else {
+    mkdir($storageDir, 0755, true);
+}
+
+function saveFile(string $name, string $data, string $ext = 'bin'): void
+{
+    global $storageDir;
+
+    $path = "{$storageDir}/{$name}.{$ext}";
+    file_put_contents($path, $data);
+    $size = strlen($data);
+    echo " → saved {$name}.{$ext} (".number_format($size).' bytes)';
+}
+
 // ─── Test Runner ─────────────────────────────────────────────────────────────
 
 $passed = 0;
@@ -296,15 +324,12 @@ test('image generation + save to disk', function () {
     echo "\n    → URL: {$r->url}";
     echo "\n    → Revised prompt: ".($r->revisedPrompt ?? '(none)');
 
-    // Save to disk
-    $outDir = __DIR__.'/storage/xai-test';
-    if (! is_dir($outDir)) {
-        mkdir($outDir, 0755, true);
-    }
+    // Download and save the image
     $imgData = file_get_contents($r->url);
-    $imgPath = $outDir.'/image-'.date('His').'.png';
-    file_put_contents($imgPath, $imgData);
-    echo "\n    → Saved: {$imgPath} (".strlen($imgData).' bytes)';
+    if ($imgData !== false) {
+        $timestamp = date('His');
+        saveFile("image-{$timestamp}", $imgData, 'png');
+    }
 });
 
 // ── Audio TTS ────────────────────────────────────────────────────────────────
@@ -320,22 +345,11 @@ test('text-to-speech with default voice (eve) + save', function () {
     assert_true(strlen($decoded) > 100, 'Audio data should be substantial');
     assert_true($r->format === 'mp3', "Format should be mp3, got: {$r->format}");
 
-    $outDir = __DIR__.'/storage/xai-test';
-    if (! is_dir($outDir)) {
-        mkdir($outDir, 0755, true);
-    }
-    $audioPath = $outDir.'/audio-eve-'.date('His').'.mp3';
-    file_put_contents($audioPath, $decoded);
-    echo "\n    → Saved: {$audioPath} (".strlen($decoded).' bytes)';
+    saveFile('tts-eve', $decoded, 'mp3');
 });
 
 test('text-to-speech with each voice + save', function () {
     $voices = ['ara', 'eve', 'leo', 'rex', 'sal'];
-
-    $outDir = __DIR__.'/storage/xai-test';
-    if (! is_dir($outDir)) {
-        mkdir($outDir, 0755, true);
-    }
 
     foreach ($voices as $voice) {
         $r = Atlas::audio(Provider::xAI, 'tts-1')
@@ -346,9 +360,7 @@ test('text-to-speech with each voice + save', function () {
         $decoded = base64_decode($r->data);
         assert_true(strlen($decoded) > 50, "Voice {$voice} should produce audio data");
 
-        $audioPath = $outDir."/audio-{$voice}-".date('His').'.mp3';
-        file_put_contents($audioPath, $decoded);
-        echo "\n    → {$voice}: ".strlen($decoded)." bytes → {$audioPath}";
+        saveFile("tts-{$voice}", $decoded, 'mp3');
     }
 });
 
@@ -370,14 +382,10 @@ test('async video generation (5s) + save to disk', function () {
     echo "\n    → Duration: ".($r->duration ?? 'unknown').'s';
     echo "\n    → Request ID: ".($r->meta['request_id'] ?? 'unknown');
 
-    $outDir = __DIR__.'/storage/xai-test';
-    if (! is_dir($outDir)) {
-        mkdir($outDir, 0755, true);
-    }
     $videoData = file_get_contents($r->url);
-    $videoPath = $outDir.'/video-5s-'.date('His').'.mp4';
-    file_put_contents($videoPath, $videoData);
-    echo "\n    → Saved: {$videoPath} (".number_format(strlen($videoData)).' bytes)';
+    if ($videoData !== false) {
+        saveFile('video-5s', $videoData, 'mp4');
+    }
 });
 
 // ── Models & Voices ──────────────────────────────────────────────────────────
@@ -441,6 +449,7 @@ test('provider options pass through', function () {
 
 echo "\n\n══════════════════════════════════════════════";
 echo "\n  Results: {$passed} passed, {$failed} failed, {$skipped} skipped";
+echo "\n  Media files: {$storageDir}/";
 echo "\n══════════════════════════════════════════════\n";
 
 if ($errors !== []) {
