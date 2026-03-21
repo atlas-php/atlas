@@ -301,6 +301,127 @@ it('still stores assets when inside agent execution', function () {
     expect(Asset::count())->toBe(1);
 });
 
+it('stores asset for video response', function () {
+    Storage::fake('local');
+    config()->set('atlas.storage.disk', 'local');
+    config()->set('atlas.storage.prefix', 'atlas');
+    config()->set('atlas.persistence.auto_store_assets', true);
+
+    $service = new ExecutionService;
+    $middleware = new TrackProviderCall($service);
+
+    $context = new ProviderContext(
+        provider: 'openai',
+        model: 'sora-1',
+        method: 'video',
+        request: new stdClass,
+        meta: [],
+    );
+
+    $response = new class
+    {
+        public object $usage;
+
+        public function __construct()
+        {
+            $this->usage = (object) ['inputTokens' => 5, 'outputTokens' => 0];
+        }
+
+        public function contents(): string
+        {
+            return 'fake-video-bytes';
+        }
+
+        public function mimeType(): string
+        {
+            return 'video/mp4';
+        }
+    };
+
+    $middleware->handle($context, fn () => $response);
+
+    $asset = Asset::latest('id')->first();
+
+    expect($asset)->not->toBeNull();
+    expect($asset->type)->toBe(AssetType::Video);
+    expect($asset->mime_type)->toBe('video/mp4');
+});
+
+it('fails standalone execution on exception', function () {
+    $service = new ExecutionService;
+    $middleware = new TrackProviderCall($service);
+
+    $context = new ProviderContext(
+        provider: 'openai',
+        model: 'gpt-4o',
+        method: 'text',
+        request: new stdClass,
+        meta: [],
+    );
+
+    try {
+        $middleware->handle($context, function () {
+            throw new RuntimeException('Provider crashed');
+        });
+    } catch (RuntimeException) {
+        // expected
+    }
+
+    $execution = Execution::latest('id')->first();
+
+    expect($execution)->not->toBeNull();
+    expect($execution->status)->toBe(ExecutionStatus::Failed);
+    expect($execution->error)->toContain('Provider crashed');
+});
+
+it('re-throws exception after failing execution', function () {
+    $service = new ExecutionService;
+    $middleware = new TrackProviderCall($service);
+
+    $context = new ProviderContext(
+        provider: 'openai',
+        model: 'gpt-4o',
+        method: 'text',
+        request: new stdClass,
+        meta: [],
+    );
+
+    $middleware->handle($context, function () {
+        throw new RuntimeException('Provider crashed');
+    });
+})->throws(RuntimeException::class, 'Provider crashed');
+
+it('completes standalone execution with token counts', function () {
+    $service = new ExecutionService;
+    $middleware = new TrackProviderCall($service);
+
+    $context = new ProviderContext(
+        provider: 'openai',
+        model: 'gpt-4o',
+        method: 'text',
+        request: new stdClass,
+        meta: [],
+    );
+
+    $response = new class
+    {
+        public object $usage;
+
+        public function __construct()
+        {
+            $this->usage = (object) ['inputTokens' => 100, 'outputTokens' => 42];
+        }
+    };
+
+    $middleware->handle($context, fn () => $response);
+
+    $execution = Execution::latest('id')->first();
+
+    expect($execution->status)->toBe(ExecutionStatus::Completed);
+    expect($execution->total_input_tokens)->toBe(100);
+    expect($execution->total_output_tokens)->toBe(42);
+});
+
 it('links asset to current tool call when inside tool execution', function () {
     Storage::fake('local');
     config()->set('atlas.storage.disk', 'local');
