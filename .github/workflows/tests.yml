@@ -35,7 +35,7 @@ jobs:
 
   tests:
     runs-on: ubuntu-latest
-    name: Tests (PHP 8.2)
+    name: Tests (PHP 8.2, SQLite)
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
@@ -63,3 +63,39 @@ jobs:
           slug: atlas-php/atlas
           fail_ci_if_error: true
           verbose: true
+
+  tests-persistence:
+    runs-on: ubuntu-latest
+    name: Tests — Persistence (PHP 8.2, PostgreSQL)
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: atlas
+          POSTGRES_PASSWORD: secret
+          POSTGRES_DB: atlas_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: dom, curl, mbstring, zip, pdo_pgsql
+          coverage: none
+      - run: composer install --prefer-dist --no-interaction --no-progress
+      - name: Run persistence tests against PostgreSQL
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: atlas_test
+          DB_USERNAME: atlas
+          DB_PASSWORD: secret
+          ATLAS_PERSISTENCE_ENABLED: true
+        run: vendor/bin/pest tests/Unit/Persistence tests/Feature/Persistence

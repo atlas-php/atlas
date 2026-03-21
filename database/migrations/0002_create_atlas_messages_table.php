@@ -57,7 +57,7 @@ return new class extends Migration
             $table->unique(['conversation_id', 'sequence']);
             $table->index(['conversation_id', 'status']);
             $table->index(['conversation_id', 'is_active']);
-            $table->index(['author_type', 'author_id']);
+            // author index already created by nullableMorphs('author') above
         });
 
         // Add HNSW vector index — PostgreSQL only

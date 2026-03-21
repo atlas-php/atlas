@@ -45,7 +45,6 @@ return new class extends Migration
             $table->index('status');
             $table->index('name');
             $table->index('tool_call_id');
-            $table->index('asset_id');
         });
     }
 

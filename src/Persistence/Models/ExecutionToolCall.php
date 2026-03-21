@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Models;
 
+use Atlasphp\Atlas\Database\Factories\ExecutionToolCallFactory;
 use Atlasphp\Atlas\Persistence\Concerns\HasAtlasTable;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Enums\ToolCallType;
@@ -38,6 +39,11 @@ class ExecutionToolCall extends Model
 {
     /** @use HasFactory<Factory<static>> */
     use HasAtlasTable, HasFactory;
+
+    protected static function newFactory(): ExecutionToolCallFactory
+    {
+        return ExecutionToolCallFactory::new();
+    }
 
     protected $table = 'execution_tool_calls';
 

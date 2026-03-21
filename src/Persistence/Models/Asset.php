@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Models;
 
+use Atlasphp\Atlas\Database\Factories\AssetFactory;
 use Atlasphp\Atlas\Persistence\Concerns\HasAtlasTable;
 use Atlasphp\Atlas\Persistence\Enums\AssetType;
 use Illuminate\Database\Eloquent\Builder;
@@ -44,6 +45,11 @@ class Asset extends Model
 {
     /** @use HasFactory<Factory<static>> */
     use HasAtlasTable, HasFactory, SoftDeletes;
+
+    protected static function newFactory(): AssetFactory
+    {
+        return AssetFactory::new();
+    }
 
     protected $table = 'assets';
 

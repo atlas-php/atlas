@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Models;
 
+use Atlasphp\Atlas\Database\Factories\MessageAttachmentFactory;
 use Atlasphp\Atlas\Persistence\Concerns\HasAtlasTable;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -28,6 +29,11 @@ class MessageAttachment extends Model
 {
     /** @use HasFactory<Factory<static>> */
     use HasAtlasTable, HasFactory;
+
+    protected static function newFactory(): MessageAttachmentFactory
+    {
+        return MessageAttachmentFactory::new();
+    }
 
     public const UPDATED_AT = null;
 

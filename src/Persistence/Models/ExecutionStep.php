@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Models;
 
+use Atlasphp\Atlas\Database\Factories\ExecutionStepFactory;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Persistence\Concerns\HasAtlasTable;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
@@ -40,6 +41,11 @@ class ExecutionStep extends Model
 {
     /** @use HasFactory<Factory<static>> */
     use HasAtlasTable, HasFactory;
+
+    protected static function newFactory(): ExecutionStepFactory
+    {
+        return ExecutionStepFactory::new();
+    }
 
     protected $table = 'execution_steps';
 

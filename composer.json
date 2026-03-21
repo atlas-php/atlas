@@ -29,7 +29,8 @@
     },
     "autoload": {
         "psr-4": {
-            "Atlasphp\\Atlas\\": "src/"
+            "Atlasphp\\Atlas\\": "src/",
+            "Atlasphp\\Atlas\\Database\\Factories\\": "database/factories/"
         }
     },
     "autoload-dev": {

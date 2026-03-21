@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Models;
 
+use Atlasphp\Atlas\Database\Factories\ConversationFactory;
 use Atlasphp\Atlas\Persistence\Concerns\HasAtlasTable;
 use Atlasphp\Atlas\Persistence\Enums\MessageStatus;
 use Illuminate\Database\Eloquent\Builder;
@@ -36,6 +37,11 @@ class Conversation extends Model
 {
     /** @use HasFactory<Factory<static>> */
     use HasAtlasTable, HasFactory, SoftDeletes;
+
+    protected static function newFactory(): ConversationFactory
+    {
+        return ConversationFactory::new();
+    }
 
     protected $table = 'conversations';
 

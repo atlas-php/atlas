@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Models;
 
+use Atlasphp\Atlas\Database\Factories\MessageFactory;
 use Atlasphp\Atlas\Messages\AssistantMessage;
 use Atlasphp\Atlas\Messages\Message as AtlasMessage;
 use Atlasphp\Atlas\Messages\SystemMessage;
@@ -51,6 +52,11 @@ class Message extends Model
 {
     /** @use HasFactory<Factory<static>> */
     use HasAtlasTable, HasFactory;
+
+    protected static function newFactory(): MessageFactory
+    {
+        return MessageFactory::new();
+    }
 
     protected $table = 'messages';
 

@@ -4,6 +4,7 @@ includes:
 parameters:
     paths:
         - src
+        - database/factories
     level: 6
     ignoreErrors:
         -

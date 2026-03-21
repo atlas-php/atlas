@@ -16,6 +16,12 @@ trait HasAtlasTable
     {
         $prefix = config('atlas.persistence.table_prefix', 'atlas_');
 
+        // Guard against double-prefixing when Eloquent's newInstance() copies
+        // the already-prefixed table name via setTable($this->getTable()).
+        if (str_starts_with($this->table, $prefix)) {
+            return $this->table;
+        }
+
         return $prefix.$this->table;
     }
 }
