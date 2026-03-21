@@ -6,111 +6,168 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Pipelines Configuration
+    | Default Provider & Model
     |--------------------------------------------------------------------------
     |
-    | Control whether Atlas pipelines are enabled. Pipelines provide
-    | middleware hooks for observability, logging, and custom processing
-    | during agent execution and API operations.
+    | The default provider and model used when none is explicitly specified.
     |
     */
 
-    'pipelines' => [
-        'enabled' => env('ATLAS_PIPELINES_ENABLED', true),
+    'defaults' => [
+        'text' => ['provider' => env('ATLAS_TEXT_PROVIDER', 'openai'), 'model' => env('ATLAS_TEXT_MODEL', 'gpt-4o-mini')],
+        'image' => ['provider' => env('ATLAS_IMAGE_PROVIDER', 'openai'), 'model' => env('ATLAS_IMAGE_MODEL', 'dall-e-3')],
+        'video' => ['provider' => env('ATLAS_VIDEO_PROVIDER'), 'model' => env('ATLAS_VIDEO_MODEL')],
+        'embed' => ['provider' => env('ATLAS_EMBED_PROVIDER', 'openai'), 'model' => env('ATLAS_EMBED_MODEL', 'text-embedding-3-small')],
+        'moderate' => ['provider' => env('ATLAS_MODERATE_PROVIDER', 'openai'), 'model' => env('ATLAS_MODERATE_MODEL', 'omni-moderation-latest')],
+        'rerank' => ['provider' => env('ATLAS_RERANK_PROVIDER'), 'model' => env('ATLAS_RERANK_MODEL')],
     ],
 
     /*
     |--------------------------------------------------------------------------
-    | Events Configuration
+    | Provider Configurations
     |--------------------------------------------------------------------------
     |
-    | Control whether Atlas dispatches Laravel events at lifecycle points.
-    | Events are informational (observe-only) and fire AFTER pipelines.
-    | Disable to eliminate event overhead when not using listeners.
+    | Configuration for each AI provider. Each provider requires at minimum
+    | an API key. Additional provider-specific options can be set here.
     |
     */
 
-    'events' => [
-        'enabled' => env('ATLAS_EVENTS_ENABLED', true),
-    ],
+    'providers' => [
 
-    /*
-    |--------------------------------------------------------------------------
-    | Agents Configuration (auto-discovery)
-    |--------------------------------------------------------------------------
-    |
-    | Configure where Atlas should look for agent definitions.
-    | Sandbox uses app/Agents/ for auto-discovery of agent classes.
-    |
-    */
-
-    'agents' => [
-        'path' => app_path('Agents'),
-        'namespace' => 'App\\Agents',
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Tools Configuration (auto-discovery)
-    |--------------------------------------------------------------------------
-    |
-    | Configure where Atlas should look for tool definitions.
-    | Sandbox uses app/Tools/ for auto-discovery of tool classes.
-    |
-    */
-
-    'tools' => [
-        'path' => app_path('Tools'),
-        'namespace' => 'App\\Tools',
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Embeddings Configuration
-    |--------------------------------------------------------------------------
-    |
-    | Default provider/model for embeddings and optional caching.
-    | When provider and model are set, Atlas::embeddings() uses them
-    | automatically — no ->using() needed.
-    |
-    */
-
-    /*
-    |--------------------------------------------------------------------------
-    | Models Configuration
-    |--------------------------------------------------------------------------
-    |
-    | Configure caching for the provider model listing service.
-    |
-    */
-
-    'models' => [
-        'cache' => [
-            'enabled' => env('ATLAS_MODELS_CACHE_ENABLED', true),
-            'store' => env('ATLAS_MODELS_CACHE_STORE'),
-            'ttl' => (int) env('ATLAS_MODELS_CACHE_TTL', 3600),
+        'openai' => [
+            'api_key' => env('OPENAI_API_KEY'),
+            'url' => env('OPENAI_URL', 'https://api.openai.com/v1'),
+            'organization' => env('OPENAI_ORGANIZATION'),
         ],
+
+        'anthropic' => [
+            'api_key' => env('ANTHROPIC_API_KEY'),
+            'url' => env('ANTHROPIC_URL', 'https://api.anthropic.com/v1'),
+            'version' => env('ANTHROPIC_VERSION', '2024-10-22'),
+        ],
+
+        'google' => [
+            'api_key' => env('GOOGLE_API_KEY', env('GEMINI_API_KEY')),
+            'url' => env('GOOGLE_URL', 'https://generativelanguage.googleapis.com'),
+        ],
+
+        'xai' => [
+            'api_key' => env('XAI_API_KEY'),
+            'url' => env('XAI_URL', 'https://api.x.ai/v1'),
+        ],
+
+        'cohere' => [
+            'api_key' => env('COHERE_API_KEY'),
+            'url' => env('COHERE_URL', 'https://api.cohere.com'),
+        ],
+
+        'jina' => [
+            'api_key' => env('JINA_API_KEY'),
+            'url' => env('JINA_URL', 'https://api.jina.ai'),
+        ],
+
+        // ─── Custom Providers (Chat Completions compatible) ─────────────
+
+        'lmstudio' => [
+            'driver' => 'chat_completions',
+            'api_key' => env('LMSTUDIO_API_KEY', 'lm-studio'),
+            'base_url' => env('LMSTUDIO_URL', 'http://localhost:1234/v1'),
+        ],
+
     ],
 
     /*
     |--------------------------------------------------------------------------
-    | Embeddings Configuration
+    | Timeout Configuration
     |--------------------------------------------------------------------------
     |
-    | Default provider/model for embeddings and optional caching.
-    | When provider and model are set, Atlas::embeddings() uses them
-    | automatically — no ->using() needed.
+    | Request timeout values in seconds for different operation types.
     |
     */
 
-    'embeddings' => [
-        'provider' => env('ATLAS_EMBEDDING_PROVIDER', 'openai'),
-        'model' => env('ATLAS_EMBEDDING_MODEL', 'text-embedding-3-small'),
-        'cache' => [
-            'enabled' => env('ATLAS_EMBEDDING_CACHE_ENABLED', false),
-            'store' => env('ATLAS_EMBEDDING_CACHE_STORE'),
-            'ttl' => (int) env('ATLAS_EMBEDDING_CACHE_TTL', 3600),
-        ],
+    'timeout' => [
+        'default' => (int) env('ATLAS_TIMEOUT', 60),
+        'reasoning' => (int) env('ATLAS_TIMEOUT_REASONING', 300),
+        'media' => (int) env('ATLAS_TIMEOUT_MEDIA', 120),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Middleware
+    |--------------------------------------------------------------------------
+    |
+    | Global middleware applied at each layer of Atlas execution.
+    | Provider middleware runs on every HTTP call to an AI provider.
+    | Step middleware runs on each executor round trip.
+    | Tool middleware runs on each tool execution.
+    | Agent middleware runs on each agent execution.
+    |
+    */
+
+    'middleware' => [
+        'provider' => [],
+        'step' => [],
+        'tool' => [],
+        'agent' => [],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Variables
+    |--------------------------------------------------------------------------
+    |
+    | Static variables available in all instructions across all modalities.
+    |
+    */
+
+    'variables' => [
+        'APP_NAME' => env('APP_NAME', 'Atlas Sandbox'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Queue
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for queued Atlas executions.
+    |
+    */
+
+    'queue' => [
+        'connection' => env('ATLAS_QUEUE_CONNECTION'),
+        'queue' => env('ATLAS_QUEUE', 'default'),
+        'tries' => (int) env('ATLAS_QUEUE_TRIES', 3),
+        'backoff' => (int) env('ATLAS_QUEUE_BACKOFF', 30),
+        'timeout' => (int) env('ATLAS_QUEUE_TIMEOUT', 300),
+        'after_commit' => (bool) env('ATLAS_QUEUE_AFTER_COMMIT', true),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Media Storage
+    |--------------------------------------------------------------------------
+    |
+    | Configure how Atlas stores media files (images, audio, video).
+    |
+    */
+
+    'storage' => [
+        'disk' => env('ATLAS_STORAGE_DISK'),
+        'prefix' => 'atlas',
+        'visibility' => 'private',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Persistence
+    |--------------------------------------------------------------------------
+    |
+    | Optional conversation persistence. Disabled for sandbox testing.
+    |
+    */
+
+    'persistence' => [
+        'enabled' => false,
     ],
 
 ];

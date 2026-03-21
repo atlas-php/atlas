@@ -4,35 +4,14 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
-use App\Console\Commands\ChatCommand;
-use App\Console\Commands\ComprehensiveToolsCommand;
-use App\Console\Commands\EmbedCommand;
-use App\Console\Commands\ImageCommand;
-use App\Console\Commands\LocalChatCommand;
-use App\Console\Commands\McpCommand;
-use App\Console\Commands\ModelsCommand;
-use App\Console\Commands\ModerationCommand;
-use App\Console\Commands\PackagistTestCommand;
-use App\Console\Commands\PipelineCommand;
-use App\Console\Commands\ProviderResolutionCommand;
-use App\Console\Commands\SpeechCommand;
-use App\Console\Commands\StreamCommand;
-use App\Console\Commands\StructuredCommand;
-use App\Console\Commands\ToolsCommand;
-use App\Console\Commands\VisionCommand;
-use App\Console\Commands\WhenProviderCommand;
-use App\Services\ThreadStorageService;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
 /**
  * Service provider for the Atlas sandbox environment.
  *
- * Registers sandbox-specific commands and services for testing
- * Atlas functionality against real AI providers.
- *
- * Agents and tools are auto-discovered from app/Agents and app/Tools
- * directories via the atlas.php configuration.
+ * Registers sandbox-specific configuration, routes, and views
+ * for testing Atlas v3 functionality against real AI providers.
  */
 class SandboxServiceProvider extends ServiceProvider
 {
@@ -41,11 +20,7 @@ class SandboxServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->singleton(ThreadStorageService::class, function () {
-            return new ThreadStorageService(
-                dirname(__DIR__, 2).'/storage/threads'
-            );
-        });
+        //
     }
 
     /**
@@ -53,7 +28,6 @@ class SandboxServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        $this->registerCommands();
         $this->registerRoutes();
         $this->registerViews();
     }
@@ -75,37 +49,11 @@ class SandboxServiceProvider extends ServiceProvider
      */
     protected function registerViews(): void
     {
-        $this->loadViewsFrom(dirname(__DIR__, 2).'/resources/views', 'sandbox');
+        $viewsPath = dirname(__DIR__, 2).'/resources/views';
 
-        // Also register as default view path
-        $this->app['view']->addLocation(dirname(__DIR__, 2).'/resources/views');
-    }
-
-    /**
-     * Register sandbox console commands.
-     */
-    protected function registerCommands(): void
-    {
-        if ($this->app->runningInConsole()) {
-            $this->commands([
-                ChatCommand::class,
-                ComprehensiveToolsCommand::class,
-                EmbedCommand::class,
-                ImageCommand::class,
-                LocalChatCommand::class,
-                McpCommand::class,
-                ModelsCommand::class,
-                ModerationCommand::class,
-                PackagistTestCommand::class,
-                PipelineCommand::class,
-                ProviderResolutionCommand::class,
-                SpeechCommand::class,
-                StreamCommand::class,
-                StructuredCommand::class,
-                ToolsCommand::class,
-                VisionCommand::class,
-                WhenProviderCommand::class,
-            ]);
+        if (is_dir($viewsPath)) {
+            $this->loadViewsFrom($viewsPath, 'sandbox');
+            $this->app['view']->addLocation($viewsPath);
         }
     }
 }

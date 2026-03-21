@@ -13,7 +13,6 @@ use App\Providers\SandboxServiceProvider;
 use Atlasphp\Atlas\AtlasServiceProvider;
 use Dotenv\Dotenv;
 use Orchestra\Testbench\Foundation\Application;
-use Prism\Relay\RelayServiceProvider;
 
 // Load the appropriate autoloader
 // Prefer sandbox's own vendor if it exists, otherwise fall back to parent
@@ -50,24 +49,13 @@ $app->useStoragePath($sandboxPath.'/storage');
 $app->register(AtlasServiceProvider::class);
 $app->register(SandboxServiceProvider::class);
 
-// Register Relay service provider if available
-if (class_exists(RelayServiceProvider::class)) {
-    $app->register(RelayServiceProvider::class);
-}
-
 // Boot the application
 $app->boot();
 
 // Load configuration from sandbox config directory
 $app['config']->set('app', require $sandboxPath.'/config/app.php');
-$app['config']->set('session', require $sandboxPath.'/config/session.php');
 $app['config']->set('database', require $sandboxPath.'/config/database.php');
+$app['config']->set('session', require $sandboxPath.'/config/session.php');
 $app['config']->set('atlas', require $sandboxPath.'/config/atlas.php');
-$app['config']->set('prism', require $sandboxPath.'/config/prism.php');
-
-// Load Relay configuration if available
-if (file_exists($sandboxPath.'/config/relay.php')) {
-    $app['config']->set('relay', require $sandboxPath.'/config/relay.php');
-}
 
 return $app;

@@ -15,7 +15,7 @@ declare(strict_types=1);
 $app = require __DIR__.'/bootstrap.php';
 
 // Ensure provider config from env
-$app['config']->set('atlas.default', ['provider' => 'xai', 'model' => 'grok-3-mini']);
+$app['config']->set('atlas.defaults.text', ['provider' => 'xai', 'model' => 'grok-3-mini']);
 $app['config']->set('atlas.providers', [
     'xai' => [
         'api_key' => env('XAI_API_KEY'),

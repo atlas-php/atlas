@@ -15,7 +15,7 @@ declare(strict_types=1);
 $app = require __DIR__.'/bootstrap.php';
 
 // Ensure provider config from env
-$app['config']->set('atlas.default', ['provider' => 'openai', 'model' => 'gpt-4o-mini']);
+$app['config']->set('atlas.defaults.text', ['provider' => 'openai', 'model' => 'gpt-4o-mini']);
 $app['config']->set('atlas.providers', [
     'openai' => [
         'api_key' => env('OPENAI_API_KEY'),

@@ -15,7 +15,7 @@ declare(strict_types=1);
 $app = require __DIR__.'/bootstrap.php';
 
 // Ensure provider config from env
-$app['config']->set('atlas.default', ['provider' => 'google', 'model' => 'gemini-2.5-flash']);
+$app['config']->set('atlas.defaults.text', ['provider' => 'google', 'model' => 'gemini-2.5-flash']);
 $app['config']->set('atlas.providers', [
     'google' => [
         'api_key' => env('GEMINI_API_KEY', env('GOOGLE_API_KEY')),
