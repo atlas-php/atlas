@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Persistence\Enums\MessageStatus;
 use Atlasphp\Atlas\Persistence\Jobs\ProcessQueuedMessage;
 use Atlasphp\Atlas\Persistence\Models\Conversation;
@@ -33,16 +34,33 @@ it('uniqueId returns conversation-scoped string', function () {
     expect($job->uniqueId())->toBe('atlas-queued-99');
 });
 
-it('has tries set to 3', function () {
+it('reads tries from atlas.queue config', function () {
+    config(['atlas.queue.tries' => 5]);
+
     $job = new ProcessQueuedMessage(conversationId: 1, agentKey: 'test');
 
-    expect($job->tries)->toBe(3);
+    expect($job->tries)->toBe(5);
+});
+
+it('reads backoff from atlas.queue config', function () {
+    config(['atlas.queue.backoff' => 60]);
+
+    $job = new ProcessQueuedMessage(conversationId: 1, agentKey: 'test');
+
+    expect($job->backoff)->toBe(60);
+});
+
+it('reads timeout from atlas.queue config', function () {
+    config(['atlas.queue.timeout' => 600]);
+
+    $job = new ProcessQueuedMessage(conversationId: 1, agentKey: 'test');
+
+    expect($job->timeout)->toBe(600);
 });
 
 it('returns early when queue is empty', function () {
     $conversation = Conversation::factory()->create();
 
-    // No queued messages exist
     $job = new ProcessQueuedMessage(
         conversationId: $conversation->id,
         agentKey: 'test-agent',
@@ -51,7 +69,6 @@ it('returns early when queue is empty', function () {
     $conversations = app(ConversationService::class);
     $job->handle($conversations);
 
-    // No messages exist at all, so nothing should have changed
     expect(Message::count())->toBe(0);
 });
 
@@ -71,7 +88,7 @@ it('delivers next queued message and re-queues on agent failure', function () {
 
     $conversations = app(ConversationService::class);
 
-    // Atlas::agent() will throw because 'nonexistent-agent' is not registered.
+    // Atlas::agent() will throw because agent execution is not yet implemented.
     // The catch block should re-queue the message.
     try {
         $job->handle($conversations);
@@ -81,6 +98,53 @@ it('delivers next queued message and re-queues on agent failure', function () {
 
     $message->refresh();
 
-    // Message should be back to Queued after the catch block
     expect($message->status)->toBe(MessageStatus::Queued);
+});
+
+it('marks message as failed when all retries exhausted', function () {
+    $conversation = Conversation::factory()->create();
+
+    $message = Message::factory()->create([
+        'conversation_id' => $conversation->id,
+        'content' => 'Will fail permanently',
+        'status' => MessageStatus::Delivered,
+        'sequence' => 0,
+    ]);
+
+    $job = new ProcessQueuedMessage(
+        conversationId: $conversation->id,
+        agentKey: 'test-agent',
+    );
+
+    // Simulate the job having delivered this message
+    $reflection = new ReflectionProperty($job, 'deliveredMessageId');
+    $reflection->setValue($job, $message->id);
+
+    $job->failed(new RuntimeException('Provider error'));
+
+    $message->refresh();
+
+    expect($message->status)->toBe(MessageStatus::Failed);
+});
+
+it('stores request context in metadata when queueing', function () {
+    $conversation = Conversation::factory()->create();
+    $conversations = app(ConversationService::class);
+
+    $message = $conversations->queueMessage(
+        $conversation,
+        new UserMessage('Hello'),
+        requestContext: [
+            'variables' => ['USER_NAME' => 'Tim'],
+            'meta' => ['user_id' => 123],
+            'provider_options' => ['temperature' => 0.5],
+        ],
+    );
+
+    expect($message->status)->toBe(MessageStatus::Queued);
+    expect($message->metadata)->toBe([
+        'variables' => ['USER_NAME' => 'Tim'],
+        'meta' => ['user_id' => 123],
+        'provider_options' => ['temperature' => 0.5],
+    ]);
 });

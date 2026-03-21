@@ -150,10 +150,25 @@ class PersistConversation
         $nextQueued = $this->conversations->nextQueuedMessage($conversation);
 
         if ($nextQueued !== null) {
-            ProcessQueuedMessage::dispatch(
-                $conversation->id,
-                $agentKey,
+            $job = new ProcessQueuedMessage(
+                conversationId: $conversation->id,
+                agentKey: $agentKey,
             );
+
+            $connection = config('atlas.queue.connection');
+            $queue = config('atlas.queue.queue', 'default');
+
+            if ($connection !== null) {
+                $job->onConnection($connection);
+            }
+
+            $job->onQueue($queue);
+
+            if (config('atlas.queue.after_commit', true)) {
+                $job->afterCommit();
+            }
+
+            dispatch($job);
         }
 
         return $result;

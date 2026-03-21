@@ -14,6 +14,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Laravel\SerializableClosure\SerializableClosure;
+use Throwable;
 
 /**
  * Single job class for all Atlas modality executions.
@@ -87,7 +88,7 @@ class ExecuteAtlasJob implements ShouldQueue
     /**
      * Called by Laravel when all retries are exhausted.
      */
-    public function failed(\Throwable $exception): void
+    public function failed(Throwable $exception): void
     {
         // Mark execution as failed in persistence
         $this->markExecutionFailed($exception);

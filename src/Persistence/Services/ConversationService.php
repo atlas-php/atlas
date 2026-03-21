@@ -381,21 +381,34 @@ class ConversationService
     /**
      * Store a user message as queued — visible in UI but invisible to the agent
      * until the current execution completes.
+     *
+     * The optional $requestContext stores the full request state (variables, meta,
+     * provider options, etc.) so that ProcessQueuedMessage can replay the request
+     * identically to a direct call — not just the message text.
+     *
+     * @param  array<string, mixed>  $requestContext
      */
     public function queueMessage(
         Conversation $conversation,
         AtlasMessage $message,
         ?Model $author = null,
+        array $requestContext = [],
     ): Message {
         $messageModel = config('atlas.persistence.models.message', Message::class);
 
-        return $messageModel::fromAtlasMessage(
+        $stored = $messageModel::fromAtlasMessage(
             message: $message,
             conversationId: $conversation->id,
             sequence: $conversation->nextSequence(),
             author: $author,
             status: MessageStatus::Queued,
         );
+
+        if ($requestContext !== []) {
+            $stored->update(['metadata' => $requestContext]);
+        }
+
+        return $stored;
     }
 
     /**

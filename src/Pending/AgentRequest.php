@@ -14,6 +14,8 @@ use RuntimeException;
  *
  * @method self forConversation(int $conversationId)
  * @method self message(string $message)
+ * @method self withMeta(array<string, mixed> $meta)
+ * @method self withProviderOptions(array<string, mixed> $options)
  */
 class AgentRequest
 {

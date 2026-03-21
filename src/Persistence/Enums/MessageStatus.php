@@ -14,4 +14,5 @@ enum MessageStatus: string
 {
     case Delivered = 'delivered';
     case Queued = 'queued';
+    case Failed = 'failed';
 }
