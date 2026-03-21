@@ -14,6 +14,12 @@ class AudioResponse
     use StoresMedia;
 
     /**
+     * The stored asset record, set by TrackProviderCall when persistence is enabled.
+     * Typed as ?object to avoid coupling Responses to the Persistence layer.
+     */
+    public ?object $asset = null;
+
+    /**
      * @param  array<string, mixed>  $meta
      */
     public function __construct(

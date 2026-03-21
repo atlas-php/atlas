@@ -6,15 +6,13 @@ namespace App\Tools;
 
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Facades\Atlas;
-use Atlasphp\Atlas\Persistence\ToolAssets;
 use Atlasphp\Atlas\Schema\Fields\StringField;
 use Atlasphp\Atlas\Tools\Tool;
 
 /**
  * Tool for generating speech audio from text via xAI.
  *
- * Asset storage is handled automatically by TrackProviderCall middleware.
- * Uses ToolAssets::lastStored() to get the stored asset for the proxy URL.
+ * The response carries the stored asset directly via asset.
  */
 class GenerateSpeechTool extends Tool
 {
@@ -46,14 +44,14 @@ class GenerateSpeechTool extends Tool
     {
         $text = $args['text'];
 
-        Atlas::audio(Provider::xAI)
+        $response = Atlas::audio(Provider::xAI)
             ->instructions($text)
             ->asAudio();
 
-        $asset = ToolAssets::lastStored();
+        if ($response->asset) {
+            return "[Audio: speech](/api/assets/{$response->asset->id})";
+        }
 
-        return $asset
-            ? "[Audio: speech](/api/assets/{$asset->id})"
-            : 'Speech audio generated.';
+        return 'Speech audio generated.';
     }
 }

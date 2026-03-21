@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Tools;
 
 use Atlasphp\Atlas\Facades\Atlas;
-use Atlasphp\Atlas\Persistence\ToolAssets;
 use Atlasphp\Atlas\Schema\Fields\IntegerField;
 use Atlasphp\Atlas\Schema\Fields\StringField;
 use Atlasphp\Atlas\Tools\Tool;
@@ -13,8 +12,7 @@ use Atlasphp\Atlas\Tools\Tool;
 /**
  * Tool for generating videos using the configured default video provider.
  *
- * Asset storage is handled automatically by TrackProviderCall middleware.
- * Uses ToolAssets::lastStored() to get the stored asset for the proxy URL.
+ * The response carries the stored asset directly via asset.
  */
 class GenerateVideoTool extends Tool
 {
@@ -48,15 +46,15 @@ class GenerateVideoTool extends Tool
         $prompt = $args['prompt'];
         $duration = $args['duration'] ?? 5;
 
-        Atlas::video()
+        $response = Atlas::video()
             ->instructions($prompt)
             ->withDuration($duration)
             ->asVideo();
 
-        $asset = ToolAssets::lastStored();
+        if ($response->asset) {
+            return "[Video: {$prompt}](/api/assets/{$response->asset->id})";
+        }
 
-        return $asset
-            ? "[Video: {$prompt}](/api/assets/{$asset->id})"
-            : "Video generated for: {$prompt}";
+        return "[Video: {$prompt}]({$response->url})";
     }
 }

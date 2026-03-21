@@ -5,15 +5,13 @@ declare(strict_types=1);
 namespace App\Tools;
 
 use Atlasphp\Atlas\Facades\Atlas;
-use Atlasphp\Atlas\Persistence\ToolAssets;
 use Atlasphp\Atlas\Schema\Fields\StringField;
 use Atlasphp\Atlas\Tools\Tool;
 
 /**
  * Tool for generating images using the configured default image provider.
  *
- * Asset storage is handled automatically by TrackProviderCall middleware.
- * Uses ToolAssets::lastStored() to get the stored asset for the proxy URL.
+ * The response carries the stored asset directly via asset.
  */
 class GenerateImageTool extends Tool
 {
@@ -47,15 +45,17 @@ class GenerateImageTool extends Tool
         $prompt = $args['prompt'];
         $size = $args['size'] ?? '1024x1024';
 
-        Atlas::image()
+        $response = Atlas::image()
             ->instructions($prompt)
             ->withSize($size)
             ->asImage();
 
-        $asset = ToolAssets::lastStored();
+        if ($response->asset) {
+            return "![{$prompt}](/api/assets/{$response->asset->id})";
+        }
 
-        return $asset
-            ? "![{$prompt}](/api/assets/{$asset->id})"
-            : "Image generated for: {$prompt}";
+        $url = is_array($response->url) ? $response->url[0] : $response->url;
+
+        return "![{$prompt}]({$url})";
     }
 }

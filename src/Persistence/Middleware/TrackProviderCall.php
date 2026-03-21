@@ -145,6 +145,11 @@ class TrackProviderCall
 
             // Link asset to execution (pass model for immediate tool access)
             $this->executionService->linkAsset($asset->id, $asset);
+
+            // Attach asset to the response for sync callers
+            if (property_exists($response, 'asset')) {
+                $response->asset = $asset;
+            }
         } catch (\Throwable $e) {
             // Asset storage failure should not fail the execution.
             report($e);

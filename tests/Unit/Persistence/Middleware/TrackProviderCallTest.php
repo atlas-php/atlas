@@ -721,3 +721,198 @@ it('resolves known mime type extensions in middleware', function (string $method
     'audio/ogg' => ['audio', 'audio/ogg', 'ogg'],
     'video/webm' => ['video', 'video/webm', 'webm'],
 ]);
+
+// ─── Response asset attachment ──────────────────────────────────────────────
+
+it('sets asset on response when response has asset property', function () {
+    Storage::fake('local');
+    config()->set('atlas.storage.disk', 'local');
+    config()->set('atlas.storage.prefix', 'atlas');
+    config()->set('atlas.persistence.auto_store_assets', true);
+
+    $service = new ExecutionService;
+    $middleware = new TrackProviderCall($service);
+
+    $context = new ProviderContext(
+        provider: 'openai',
+        model: 'dall-e-3',
+        method: 'image',
+        request: new stdClass,
+        meta: [],
+    );
+
+    // Use a response with an asset property (like ImageResponse/VideoResponse/AudioResponse)
+    $response = new class
+    {
+        public ?object $asset = null;
+
+        public object $usage;
+
+        public function __construct()
+        {
+            $this->usage = (object) ['inputTokens' => 10, 'outputTokens' => 0];
+        }
+
+        public function contents(): string
+        {
+            return 'fake-image-bytes';
+        }
+
+        public function mimeType(): string
+        {
+            return 'image/png';
+        }
+    };
+
+    $result = $middleware->handle($context, fn () => $response);
+
+    expect($result->asset)->not->toBeNull();
+    expect($result->asset)->toBeInstanceOf(Asset::class);
+    expect($result->asset->type)->toBe(AssetType::Image);
+    expect($result->asset->mime_type)->toBe('image/png');
+});
+
+it('does not set asset on response without asset property', function () {
+    Storage::fake('local');
+    config()->set('atlas.storage.disk', 'local');
+    config()->set('atlas.storage.prefix', 'atlas');
+    config()->set('atlas.persistence.auto_store_assets', true);
+
+    $service = new ExecutionService;
+    $middleware = new TrackProviderCall($service);
+
+    $context = new ProviderContext(
+        provider: 'openai',
+        model: 'dall-e-3',
+        method: 'image',
+        request: new stdClass,
+        meta: [],
+    );
+
+    // Response WITHOUT an asset property — no crash
+    $response = new class
+    {
+        public object $usage;
+
+        public function __construct()
+        {
+            $this->usage = (object) ['inputTokens' => 10, 'outputTokens' => 0];
+        }
+
+        public function contents(): string
+        {
+            return 'fake-image-bytes';
+        }
+
+        public function mimeType(): string
+        {
+            return 'image/png';
+        }
+    };
+
+    $result = $middleware->handle($context, fn () => $response);
+
+    // Asset still stored in DB, just not attached to response
+    expect(Asset::count())->toBe(1);
+    expect(property_exists($result, 'asset'))->toBeFalse();
+});
+
+it('makes asset available via ExecutionService getLastAsset', function () {
+    Storage::fake('local');
+    config()->set('atlas.storage.disk', 'local');
+    config()->set('atlas.storage.prefix', 'atlas');
+    config()->set('atlas.persistence.auto_store_assets', true);
+
+    $service = new ExecutionService;
+    $middleware = new TrackProviderCall($service);
+
+    $context = new ProviderContext(
+        provider: 'openai',
+        model: 'dall-e-3',
+        method: 'image',
+        request: new stdClass,
+        meta: [],
+    );
+
+    $response = new class
+    {
+        public ?object $asset = null;
+
+        public object $usage;
+
+        public function __construct()
+        {
+            $this->usage = (object) ['inputTokens' => 10, 'outputTokens' => 0];
+        }
+
+        public function contents(): string
+        {
+            return 'fake-image-bytes';
+        }
+
+        public function mimeType(): string
+        {
+            return 'image/png';
+        }
+    };
+
+    // Before: no last asset
+    expect($service->getLastAsset())->toBeNull();
+
+    $middleware->handle($context, fn () => $response);
+
+    // After: last asset is available without DB query
+    $lastAsset = $service->getLastAsset();
+
+    expect($lastAsset)->not->toBeNull();
+    expect($lastAsset)->toBeInstanceOf(Asset::class);
+    expect($lastAsset->type)->toBe(AssetType::Image);
+});
+
+it('getLastAsset is cleared on execution service reset', function () {
+    Storage::fake('local');
+    config()->set('atlas.storage.disk', 'local');
+    config()->set('atlas.storage.prefix', 'atlas');
+    config()->set('atlas.persistence.auto_store_assets', true);
+
+    $service = new ExecutionService;
+    $middleware = new TrackProviderCall($service);
+
+    $context = new ProviderContext(
+        provider: 'openai',
+        model: 'dall-e-3',
+        method: 'image',
+        request: new stdClass,
+        meta: [],
+    );
+
+    $response = new class
+    {
+        public ?object $asset = null;
+
+        public object $usage;
+
+        public function __construct()
+        {
+            $this->usage = (object) ['inputTokens' => 10, 'outputTokens' => 0];
+        }
+
+        public function contents(): string
+        {
+            return 'fake-image-bytes';
+        }
+
+        public function mimeType(): string
+        {
+            return 'image/png';
+        }
+    };
+
+    $middleware->handle($context, fn () => $response);
+
+    expect($service->getLastAsset())->not->toBeNull();
+
+    $service->reset();
+
+    expect($service->getLastAsset())->toBeNull();
+});

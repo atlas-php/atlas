@@ -14,6 +14,12 @@ class ImageResponse
     use StoresMedia;
 
     /**
+     * The stored asset record, set by TrackProviderCall when persistence is enabled.
+     * Typed as ?object to avoid coupling Responses to the Persistence layer.
+     */
+    public ?object $asset = null;
+
+    /**
      * @param  string|array<int, string>  $url
      * @param  array<string, mixed>  $meta
      */
