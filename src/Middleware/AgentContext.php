@@ -24,7 +24,7 @@ class AgentContext
         public TextRequest $request,
         public readonly ?Agent $agent = null,
         public array $messages = [],
-        public readonly array $tools = [],
+        public array $tools = [],
         public array $meta = [],
     ) {}
 }

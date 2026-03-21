@@ -15,6 +15,7 @@ use Atlasphp\Atlas\Pending\ProviderRequest;
 use Atlasphp\Atlas\Pending\RerankRequest;
 use Atlasphp\Atlas\Pending\TextRequest;
 use Atlasphp\Atlas\Pending\VideoRequest;
+use Atlasphp\Atlas\Persistence\Memory\MemoryBuilder;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 
 /**
@@ -85,6 +86,11 @@ class AtlasManager
     public function agent(string $key): AgentRequest
     {
         return new AgentRequest($key);
+    }
+
+    public function memory(): MemoryBuilder
+    {
+        return app(MemoryBuilder::class);
     }
 
     /**

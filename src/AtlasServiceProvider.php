@@ -9,6 +9,8 @@ use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
 use Atlasphp\Atlas\Embeddings\VectorQueryMacros;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
+use Atlasphp\Atlas\Persistence\Memory\MemoryBuilder;
+use Atlasphp\Atlas\Persistence\Memory\MemoryService;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 use Atlasphp\Atlas\Providers\Anthropic\AnthropicDriver;
 use Atlasphp\Atlas\Providers\Cohere\CohereDriver;
@@ -57,6 +59,10 @@ class AtlasServiceProvider extends ServiceProvider
 
         $this->app->singleton(VariableRegistry::class);
 
+        $this->app->singleton(MemoryService::class);
+
+        $this->app->bind(MemoryBuilder::class, fn ($app) => new MemoryBuilder($app->make(MemoryService::class)));
+
         $this->app->singleton(EmbeddingCache::class);
         $this->app->singleton(EmbeddingResolver::class, function ($app) {
             return new EmbeddingResolver($app->make(EmbeddingCache::class));
@@ -83,8 +89,28 @@ class AtlasServiceProvider extends ServiceProvider
         }
 
         $this->registerBuiltInVariables();
+        $this->registerMemoryMiddleware();
         $this->registerPersistenceMiddleware();
         $this->registerVectorMacros();
+    }
+
+    /**
+     * Register memory middleware when persistence is enabled.
+     *
+     * Prepends WireMemory before PersistConversation so variable documents
+     * are registered before instruction interpolation happens.
+     */
+    protected function registerMemoryMiddleware(): void
+    {
+        if (! config('atlas.persistence.enabled')) {
+            return;
+        }
+
+        $this->app->booted(function (): void {
+            $agentMiddleware = config('atlas.middleware.agent', []);
+            array_unshift($agentMiddleware, Persistence\Middleware\WireMemory::class);
+            config(['atlas.middleware.agent' => $agentMiddleware]);
+        });
     }
 
     /**

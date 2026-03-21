@@ -32,6 +32,7 @@ abstract class PersistenceTestCase extends TestCase
     {
         $app['config']->set('atlas.persistence.enabled', true);
         $app['config']->set('atlas.persistence.table_prefix', 'atlas_');
+        $app['config']->set('atlas.persistence.memory_auto_embed', false);
 
         // Respect DB_CONNECTION from environment (e.g. CI PostgreSQL job).
         // Only set SQLite in-memory config when no external DB is configured.
