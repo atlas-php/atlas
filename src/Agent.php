@@ -103,4 +103,49 @@ abstract class Agent
     {
         return [];
     }
+
+    // ─── Config ─────────────────────────────────────────────────────
+
+    /**
+     * Sampling temperature. Null falls back to provider default.
+     */
+    public function temperature(): ?float
+    {
+        return null;
+    }
+
+    /**
+     * Maximum tokens in the response. Null falls back to provider default.
+     */
+    public function maxTokens(): ?int
+    {
+        return null;
+    }
+
+    /**
+     * Max round trips in the tool call loop. Null = unlimited.
+     */
+    public function maxSteps(): ?int
+    {
+        return null;
+    }
+
+    /**
+     * Run tool calls concurrently. True by default.
+     * Set to false when tools depend on each other's side effects.
+     */
+    public function parallelToolCalls(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Provider-specific options passed through directly.
+     *
+     * @return array<string, mixed>
+     */
+    public function providerOptions(): array
+    {
+        return [];
+    }
 }

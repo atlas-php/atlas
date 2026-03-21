@@ -8,6 +8,7 @@ use Atlasphp\Atlas\AtlasManager;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Closure;
+use Illuminate\Contracts\Foundation\Application;
 use PHPUnit\Framework\Assert;
 
 /**
@@ -26,6 +27,7 @@ class AtlasFake extends AtlasManager
     public function __construct(
         ProviderRegistryContract $registry,
         array $responses = [],
+        ?Application $app = null,
     ) {
         foreach (Provider::cases() as $provider) {
             $driver = new FakeDriver($provider->value, $responses);
@@ -33,7 +35,7 @@ class AtlasFake extends AtlasManager
             $registry->register($provider->value, fn () => $driver);
         }
 
-        parent::__construct($registry);
+        parent::__construct($registry, $app ?? app());
     }
 
     /**
@@ -77,7 +79,9 @@ class AtlasFake extends AtlasManager
      */
     public function assertNothingSent(): void
     {
-        Assert::assertEmpty($this->recorded(), 'Expected no requests to be sent, but '.count($this->recorded()).' were recorded.');
+        $recorded = $this->recorded();
+
+        Assert::assertEmpty($recorded, 'Expected no requests to be sent, but '.count($recorded).' were recorded.');
     }
 
     /**

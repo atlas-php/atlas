@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas;
 
+use Atlasphp\Atlas\Agents\AgentRegistry;
 use Atlasphp\Atlas\Cache\AtlasCache;
 use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
 use Atlasphp\Atlas\Embeddings\VectorQueryMacros;
@@ -44,8 +45,15 @@ class AtlasServiceProvider extends ServiceProvider
             return new ProviderRegistry($app);
         });
 
+        $this->app->singleton(AgentRegistry::class, function ($app) {
+            return new AgentRegistry($app);
+        });
+
         $this->app->singleton(AtlasManager::class, function ($app) {
-            return new AtlasManager($app->make(ProviderRegistryContract::class));
+            return new AtlasManager(
+                $app->make(ProviderRegistryContract::class),
+                $app,
+            );
         });
 
         $this->app->singleton(HttpClient::class, function ($app) {
@@ -73,6 +81,7 @@ class AtlasServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->registerProviders();
+        $this->discoverAgents();
 
         if ($this->app->runningInConsole()) {
             $this->commands([
@@ -153,6 +162,24 @@ class AtlasServiceProvider extends ServiceProvider
         }
 
         VectorQueryMacros::register();
+    }
+
+    /**
+     * Auto-discover agent classes from the configured directory.
+     */
+    protected function discoverAgents(): void
+    {
+        /** @var array<string, string|null> $config */
+        $config = $this->app['config']->get('atlas.agents', []);
+
+        $path = $config['path'] ?? null;
+        $namespace = $config['namespace'] ?? null;
+
+        if ($path !== null && $namespace !== null) {
+            /** @var AgentRegistry $registry */
+            $registry = $this->app->make(AgentRegistry::class);
+            $registry->discover($path, $namespace);
+        }
     }
 
     /**

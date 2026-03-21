@@ -24,6 +24,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Agents
+    |--------------------------------------------------------------------------
+    |
+    | Auto-discovery path and namespace for agent classes. Agents found in
+    | the configured directory are automatically registered at boot time.
+    |
+    */
+
+    'agents' => [
+        'path' => null,
+        'namespace' => null,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Provider Configurations
     |--------------------------------------------------------------------------
     |

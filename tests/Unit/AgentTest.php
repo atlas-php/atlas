@@ -54,6 +54,31 @@ class CustomizedAgent extends Agent
     {
         return [new WebSearch];
     }
+
+    public function temperature(): ?float
+    {
+        return 0.7;
+    }
+
+    public function maxTokens(): ?int
+    {
+        return 4096;
+    }
+
+    public function maxSteps(): ?int
+    {
+        return 10;
+    }
+
+    public function parallelToolCalls(): bool
+    {
+        return false;
+    }
+
+    public function providerOptions(): array
+    {
+        return ['top_p' => 0.9];
+    }
 }
 
 class EchoAgentTool extends Tool
@@ -166,4 +191,54 @@ it('allows overriding providerTools', function () {
 
     expect($tools)->toHaveCount(1);
     expect($tools[0])->toBeInstanceOf(WebSearch::class);
+});
+
+// ─── temperature() ──────────────────────────────────────────────────────────
+
+it('defaults temperature to null', function () {
+    expect((new SupportAgent)->temperature())->toBeNull();
+});
+
+it('allows overriding temperature', function () {
+    expect((new CustomizedAgent)->temperature())->toBe(0.7);
+});
+
+// ─── maxTokens() ────────────────────────────────────────────────────────────
+
+it('defaults maxTokens to null', function () {
+    expect((new SupportAgent)->maxTokens())->toBeNull();
+});
+
+it('allows overriding maxTokens', function () {
+    expect((new CustomizedAgent)->maxTokens())->toBe(4096);
+});
+
+// ─── maxSteps() ─────────────────────────────────────────────────────────────
+
+it('defaults maxSteps to null', function () {
+    expect((new SupportAgent)->maxSteps())->toBeNull();
+});
+
+it('allows overriding maxSteps', function () {
+    expect((new CustomizedAgent)->maxSteps())->toBe(10);
+});
+
+// ─── parallelToolCalls() ────────────────────────────────────────────────────
+
+it('defaults parallelToolCalls to true', function () {
+    expect((new SupportAgent)->parallelToolCalls())->toBeTrue();
+});
+
+it('allows overriding parallelToolCalls to false', function () {
+    expect((new CustomizedAgent)->parallelToolCalls())->toBeFalse();
+});
+
+// ─── providerOptions() ─────────────────────────────────────────────────────
+
+it('defaults providerOptions to empty array', function () {
+    expect((new SupportAgent)->providerOptions())->toBe([]);
+});
+
+it('allows overriding providerOptions', function () {
+    expect((new CustomizedAgent)->providerOptions())->toBe(['top_p' => 0.9]);
 });

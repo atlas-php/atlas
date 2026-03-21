@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas;
 
+use Atlasphp\Atlas\Agents\AgentRegistry;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Pending\AgentRequest;
@@ -17,6 +18,9 @@ use Atlasphp\Atlas\Pending\TextRequest;
 use Atlasphp\Atlas\Pending\VideoRequest;
 use Atlasphp\Atlas\Persistence\Memory\MemoryBuilder;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
+use Atlasphp\Atlas\Support\VariableRegistry;
+use Illuminate\Contracts\Events\Dispatcher;
+use Illuminate\Contracts\Foundation\Application;
 
 /**
  * Central manager for Atlas, accessible via the Atlas facade.
@@ -29,6 +33,7 @@ class AtlasManager
 {
     public function __construct(
         private readonly ProviderRegistryContract $providerRegistry,
+        private readonly Application $app,
     ) {}
 
     public function text(Provider|string|null $provider = null, ?string $model = null): TextRequest
@@ -85,12 +90,19 @@ class AtlasManager
 
     public function agent(string $key): AgentRequest
     {
-        return new AgentRequest($key);
+        return new AgentRequest(
+            key: $key,
+            agentRegistry: $this->app->make(AgentRegistry::class),
+            providerRegistry: $this->providerRegistry,
+            variableRegistry: $this->app->make(VariableRegistry::class),
+            app: $this->app,
+            events: $this->app->make(Dispatcher::class),
+        );
     }
 
     public function memory(): MemoryBuilder
     {
-        return app(MemoryBuilder::class);
+        return $this->app->make(MemoryBuilder::class);
     }
 
     /**
