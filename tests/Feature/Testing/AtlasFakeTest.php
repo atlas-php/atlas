@@ -9,6 +9,7 @@ use Atlasphp\Atlas\Responses\AudioResponse;
 use Atlasphp\Atlas\Responses\EmbeddingsResponse;
 use Atlasphp\Atlas\Responses\ImageResponse;
 use Atlasphp\Atlas\Responses\ModerationResponse;
+use Atlasphp\Atlas\Responses\RerankResponse;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\VideoResponse;
@@ -143,4 +144,16 @@ it('repeats last response when sequence is exhausted', function () {
     $third = Atlas::text('openai', 'gpt-4o')->message('three')->asText();
 
     expect($third->text)->toBe('last');
+});
+
+it('handles rerank entry point', function () {
+    Atlas::fake();
+
+    $response = Atlas::rerank('openai', 'rerank-v3')
+        ->query('What is Laravel?')
+        ->documents(['Doc 1', 'Doc 2', 'Doc 3'])
+        ->asReranked();
+
+    expect($response)->toBeInstanceOf(RerankResponse::class);
+    expect($response->results)->not->toBeEmpty();
 });

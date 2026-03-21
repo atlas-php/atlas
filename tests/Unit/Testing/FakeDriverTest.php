@@ -7,18 +7,21 @@ use Atlasphp\Atlas\Requests\AudioRequest;
 use Atlasphp\Atlas\Requests\EmbedRequest;
 use Atlasphp\Atlas\Requests\ImageRequest;
 use Atlasphp\Atlas\Requests\ModerateRequest;
+use Atlasphp\Atlas\Requests\RerankRequest;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Requests\VideoRequest;
 use Atlasphp\Atlas\Responses\AudioResponse;
 use Atlasphp\Atlas\Responses\EmbeddingsResponse;
 use Atlasphp\Atlas\Responses\ImageResponse;
 use Atlasphp\Atlas\Responses\ModerationResponse;
+use Atlasphp\Atlas\Responses\RerankResponse;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\VideoResponse;
 use Atlasphp\Atlas\Testing\FakeDriver;
 use Atlasphp\Atlas\Testing\ImageResponseFake;
+use Atlasphp\Atlas\Testing\RerankResponseFake;
 use Atlasphp\Atlas\Testing\StreamResponseFake;
 use Atlasphp\Atlas\Testing\TextResponseFake;
 
@@ -234,4 +237,69 @@ it('returns correct response type from sequence for each modality', function () 
     $response = $driver->image(makeTestImageRequest());
 
     expect($response->url)->toBe('https://custom.url/img.png');
+});
+
+// ─── Name ────────────────────────────────────────────────────────────────────
+
+it('returns the configured provider name', function () {
+    $driver = new FakeDriver('my-custom-provider');
+
+    expect($driver->name())->toBe('my-custom-provider');
+});
+
+it('defaults to configured provider name', function () {
+    $driver = new FakeDriver('anthropic');
+
+    expect($driver->name())->toBe('anthropic');
+});
+
+// ─── Rerank ──────────────────────────────────────────────────────────────────
+
+it('returns RerankResponse from default sequence', function () {
+    $driver = new FakeDriver('cohere');
+
+    $request = new RerankRequest(
+        model: 'rerank-v3',
+        query: 'What is Laravel?',
+        documents: ['Doc 1', 'Doc 2'],
+    );
+
+    $response = $driver->rerank($request);
+
+    expect($response)->toBeInstanceOf(RerankResponse::class);
+    expect($response->results)->not->toBeEmpty();
+});
+
+it('returns custom RerankResponse from sequence', function () {
+    $driver = new FakeDriver('cohere', [
+        RerankResponseFake::withCount(2, [0.9, 0.3]),
+    ]);
+
+    $request = new RerankRequest(
+        model: 'rerank-v3',
+        query: 'Test query',
+        documents: ['Doc A', 'Doc B'],
+    );
+
+    $response = $driver->rerank($request);
+
+    expect($response->results)->toHaveCount(2);
+    expect($response->results[0]->score)->toBe(0.9);
+    expect($response->results[1]->score)->toBe(0.3);
+});
+
+it('records rerank calls for assertions', function () {
+    $driver = new FakeDriver('cohere');
+
+    $request = new RerankRequest(
+        model: 'rerank-v3',
+        query: 'Test',
+        documents: ['Doc'],
+    );
+
+    $driver->rerank($request);
+
+    expect($driver->recorded('rerank'))->toHaveCount(1);
+    expect($driver->recorded('rerank')[0]->method)->toBe('rerank');
+    expect($driver->recorded('rerank')[0]->request->query)->toBe('Test');
 });

@@ -9,6 +9,8 @@ use Atlasphp\Atlas\Responses\AudioResponse;
 use Atlasphp\Atlas\Responses\EmbeddingsResponse;
 use Atlasphp\Atlas\Responses\ImageResponse;
 use Atlasphp\Atlas\Responses\ModerationResponse;
+use Atlasphp\Atlas\Responses\RerankResponse;
+use Atlasphp\Atlas\Responses\RerankResult;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
@@ -18,6 +20,7 @@ use Atlasphp\Atlas\Testing\AudioResponseFake;
 use Atlasphp\Atlas\Testing\EmbeddingsResponseFake;
 use Atlasphp\Atlas\Testing\ImageResponseFake;
 use Atlasphp\Atlas\Testing\ModerationResponseFake;
+use Atlasphp\Atlas\Testing\RerankResponseFake;
 use Atlasphp\Atlas\Testing\StreamResponseFake;
 use Atlasphp\Atlas\Testing\StructuredResponseFake;
 use Atlasphp\Atlas\Testing\TextResponseFake;
@@ -272,4 +275,88 @@ it('overrides meta on ModerationResponseFake', function () {
     $response = ModerationResponseFake::make()->withMeta(['source' => 'openai'])->toResponse();
 
     expect($response->meta)->toBe(['source' => 'openai']);
+});
+
+// ─── RerankResponseFake ────────────────────────────────────────────────────
+
+it('creates RerankResponse with defaults', function () {
+    $response = RerankResponseFake::make()->toResponse();
+
+    expect($response)->toBeInstanceOf(RerankResponse::class);
+    expect($response->results)->toHaveCount(3);
+    expect($response->results[0])->toBeInstanceOf(RerankResult::class);
+    expect($response->results[0]->index)->toBe(0);
+    expect($response->results[0]->score)->toBe(0.95);
+    expect($response->results[0]->document)->toBe('Document 1');
+    expect($response->meta)->toBe([]);
+});
+
+it('creates RerankResponse with specific count', function () {
+    $response = RerankResponseFake::withCount(5)->toResponse();
+
+    expect($response->results)->toHaveCount(5);
+    expect($response->results[0]->score)->toBe(1.0);
+    expect($response->results[4]->score)->toBe(0.6);
+});
+
+it('creates RerankResponse with custom scores', function () {
+    $response = RerankResponseFake::withCount(3, [0.9, 0.7, 0.5])->toResponse();
+
+    expect($response->results[0]->score)->toBe(0.9);
+    expect($response->results[1]->score)->toBe(0.7);
+    expect($response->results[2]->score)->toBe(0.5);
+});
+
+it('overrides results on RerankResponseFake', function () {
+    $results = [
+        new RerankResult(0, 0.99, 'Top doc'),
+    ];
+    $response = RerankResponseFake::make()->withResults($results)->toResponse();
+
+    expect($response->results)->toHaveCount(1);
+    expect($response->results[0]->document)->toBe('Top doc');
+});
+
+it('overrides meta on RerankResponseFake', function () {
+    $response = RerankResponseFake::make()->withMeta(['provider' => 'cohere'])->toResponse();
+
+    expect($response->meta)->toBe(['provider' => 'cohere']);
+});
+
+// ─── StreamResponseFake (additional methods) ────────────────────────────────
+
+it('overrides usage on StreamResponseFake', function () {
+    $usage = new Usage(100, 200);
+    $response = StreamResponseFake::make()->withText('test')->withUsage($usage)->toResponse();
+
+    $chunks = iterator_to_array($response);
+    $doneChunk = array_values(array_filter($chunks, fn ($c) => $c->type === ChunkType::Done));
+
+    expect($doneChunk[0]->usage->inputTokens)->toBe(100);
+    expect($doneChunk[0]->usage->outputTokens)->toBe(200);
+});
+
+it('overrides finishReason on StreamResponseFake', function () {
+    $response = StreamResponseFake::make()->withText('test')->withFinishReason(FinishReason::Length)->toResponse();
+
+    $chunks = iterator_to_array($response);
+    $doneChunk = array_values(array_filter($chunks, fn ($c) => $c->type === ChunkType::Done));
+
+    expect($doneChunk[0]->finishReason)->toBe(FinishReason::Length);
+});
+
+// ─── StructuredResponseFake (additional methods) ────────────────────────────
+
+it('overrides usage on StructuredResponseFake', function () {
+    $usage = new Usage(100, 200);
+    $response = StructuredResponseFake::make()->withUsage($usage)->toResponse();
+
+    expect($response->usage->inputTokens)->toBe(100);
+    expect($response->usage->outputTokens)->toBe(200);
+});
+
+it('overrides finishReason on StructuredResponseFake', function () {
+    $response = StructuredResponseFake::make()->withFinishReason(FinishReason::Length)->toResponse();
+
+    expect($response->finishReason)->toBe(FinishReason::Length);
 });
