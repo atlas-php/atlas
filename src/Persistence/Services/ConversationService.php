@@ -290,34 +290,36 @@ class ConversationService
      */
     public function cycleSibling(Conversation $conversation, int $parentId, int $index): void
     {
-        $messageModel = config('atlas.persistence.models.message', Message::class);
+        DB::transaction(function () use ($conversation, $parentId, $index): void {
+            $messageModel = config('atlas.persistence.models.message', Message::class);
 
-        // Get a child message to access siblingGroups()
-        $anyChild = $messageModel::where('parent_id', $parentId)->first();
+            // Get a child message to access siblingGroups()
+            $anyChild = $messageModel::where('parent_id', $parentId)->first();
 
-        if ($anyChild === null) {
-            throw new \RuntimeException('No siblings found for this message.');
-        }
+            if ($anyChild === null) {
+                throw new \RuntimeException('No siblings found for this message.');
+            }
 
-        $groups = $anyChild->siblingGroups();
+            $groups = $anyChild->siblingGroups();
 
-        if ($index < 1 || $index > count($groups)) {
-            throw new \RuntimeException(
-                "Sibling index {$index} out of range. Available: 1-".count($groups)
-            );
-        }
+            if ($index < 1 || $index > count($groups)) {
+                throw new \RuntimeException(
+                    "Sibling index {$index} out of range. Available: 1-".count($groups)
+                );
+            }
 
-        // Deactivate all siblings
-        $messageModel::where('conversation_id', $conversation->id)
-            ->where('parent_id', $parentId)
-            ->update(['is_active' => false]);
+            // Deactivate all siblings
+            $messageModel::where('conversation_id', $conversation->id)
+                ->where('parent_id', $parentId)
+                ->update(['is_active' => false]);
 
-        // Activate the target group
-        $targetGroup = $groups[$index - 1];
-        $targetIds = $targetGroup->pluck('id');
+            // Activate the target group
+            $targetGroup = $groups[$index - 1];
+            $targetIds = $targetGroup->pluck('id');
 
-        $messageModel::whereIn('id', $targetIds)
-            ->update(['is_active' => true]);
+            $messageModel::whereIn('id', $targetIds)
+                ->update(['is_active' => true]);
+        });
     }
 
     /**

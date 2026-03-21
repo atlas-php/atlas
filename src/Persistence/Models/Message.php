@@ -434,6 +434,9 @@ class Message extends Model
     /**
      * Get all sibling retry groups for the same user message.
      * Each group is identified by distinct execution runs with the same parent_id.
+     *
+     * Groups by execution_id (via step relationship) so multi-step responses
+     * stay together. Messages without a step are each treated as their own group.
      */
     /** @return array<int, Collection<int, Message>> */
     public function siblingGroups(): array
@@ -443,19 +446,38 @@ class Message extends Model
         }
 
         $siblings = static::where('parent_id', $this->parent_id)
+            ->with('step')
             ->orderBy('sequence')
             ->get();
 
-        // Group into contiguous runs — each retry starts with an assistant message
+        // Group by execution_id — messages from the same execution belong together.
+        // Messages without a step_id form individual groups.
         $groups = [];
+        $currentExecutionId = null;
         $current = [];
 
         foreach ($siblings as $message) {
-            if ($message->role === MessageRole::Assistant && ! empty($current)) {
+            $executionId = $message->step?->execution_id;
+
+            if ($executionId === null) {
+                // No step link — standalone group
+                if (! empty($current)) {
+                    $groups[] = collect($current);
+                    $current = [];
+                    $currentExecutionId = null;
+                }
+                $groups[] = collect([$message]);
+
+                continue;
+            }
+
+            if ($executionId !== $currentExecutionId && ! empty($current)) {
                 $groups[] = collect($current);
                 $current = [];
             }
+
             $current[] = $message;
+            $currentExecutionId = $executionId;
         }
 
         if (! empty($current)) {
