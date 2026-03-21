@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Pending;
 
 use Atlasphp\Atlas\Concerns\HasQueueDispatch;
+use Atlasphp\Atlas\Concerns\HasVariables;
 use Atlasphp\Atlas\Concerns\NormalizesMessages;
 use Atlasphp\Atlas\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Enums\Provider;
@@ -14,6 +15,9 @@ use Atlasphp\Atlas\Executor\ToolExecutor;
 use Atlasphp\Atlas\Executor\ToolRegistry;
 use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Input\Input;
+use Atlasphp\Atlas\Messages\AssistantMessage;
+use Atlasphp\Atlas\Messages\SystemMessage;
+use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
@@ -26,6 +30,7 @@ use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Schema\Schema;
+use Atlasphp\Atlas\Support\VariableInterpolator;
 use Atlasphp\Atlas\Tools\Tool;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Contracts\Events\Dispatcher;
@@ -41,6 +46,7 @@ class TextRequest implements QueueableRequest
     use HasMeta;
     use HasMiddleware;
     use HasQueueDispatch;
+    use HasVariables;
     use NormalizesMessages;
     use ResolvesProvider;
 
@@ -294,10 +300,14 @@ class TextRequest implements QueueableRequest
     {
         return new TextRequestObject(
             model: $this->model ?? '',
-            instructions: $this->instructions,
-            message: $this->message,
+            instructions: $this->interpolate($this->instructions),
+            message: $this->interpolateMessages
+                ? $this->interpolate($this->message)
+                : $this->message,
             messageMedia: $this->messageMedia,
-            messages: $this->messages,
+            messages: $this->interpolateMessages
+                ? $this->interpolateMessageArray($this->messages)
+                : $this->messages,
             maxTokens: $this->maxTokens,
             temperature: $this->temperature,
             schema: $this->schema,
@@ -336,6 +346,8 @@ class TextRequest implements QueueableRequest
             ] : null,
             'providerOptions' => $this->providerOptions,
             'meta' => $this->meta,
+            'variables' => $this->variables,
+            'interpolate_messages' => $this->interpolateMessages,
         ];
     }
 
@@ -413,6 +425,14 @@ class TextRequest implements QueueableRequest
             $request->withMeta($meta);
         }
 
+        if (! empty($payload['variables'])) {
+            $request->withVariables($payload['variables']);
+        }
+
+        if ($payload['interpolate_messages'] ?? false) {
+            $request->withMessageInterpolation();
+        }
+
         if ($terminal === 'asStream' && $broadcastChannel !== null) {
             $stream = $request->asStream()->broadcastOn($broadcastChannel);
 
@@ -429,6 +449,42 @@ class TextRequest implements QueueableRequest
             'asStructured' => $request->asStructured(),
             default => throw new \InvalidArgumentException("Unknown terminal method: {$terminal}"),
         };
+    }
+
+    /**
+     * Interpolate variable placeholders in a messages array.
+     *
+     * @param  array<int, mixed>  $messages
+     * @return array<int, mixed>
+     */
+    protected function interpolateMessageArray(array $messages): array
+    {
+        $resolved = $this->resolveVariables();
+
+        return array_map(function (mixed $message) use ($resolved): mixed {
+            if ($message instanceof UserMessage && $message->content !== '') {
+                return new UserMessage(
+                    VariableInterpolator::interpolate($message->content, $resolved),
+                    $message->media,
+                );
+            }
+
+            if ($message instanceof AssistantMessage && $message->content !== null) {
+                return new AssistantMessage(
+                    VariableInterpolator::interpolate($message->content, $resolved),
+                    $message->toolCalls,
+                    $message->reasoning,
+                );
+            }
+
+            if ($message instanceof SystemMessage) {
+                return new SystemMessage(
+                    VariableInterpolator::interpolate($message->content, $resolved),
+                );
+            }
+
+            return $message;
+        }, $messages);
     }
 
     /**

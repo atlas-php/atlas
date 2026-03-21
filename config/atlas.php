@@ -146,6 +146,28 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Variables
+    |--------------------------------------------------------------------------
+    |
+    | Static variables available in all instructions across all modalities.
+    | These are the lowest priority — global registry and withVariables()
+    | override them.
+    |
+    | Supports flat keys and nested arrays:
+    |   'APP_NAME' => 'My App'
+    |   'COMPANY' => ['NAME' => 'Acme', 'SUPPORT_EMAIL' => 'help@acme.com']
+    |
+    | Access flat: {APP_NAME}
+    | Access nested: {COMPANY.NAME}, {COMPANY.SUPPORT_EMAIL}
+    |
+    */
+
+    'variables' => [
+        'APP_NAME' => env('APP_NAME', 'Laravel'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Queue
     |--------------------------------------------------------------------------
     |

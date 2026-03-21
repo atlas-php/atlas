@@ -26,6 +26,7 @@ pest()->extend(PersistenceTestCase::class)->in('Feature/Persistence');
 pest()->extend(TestCase::class)->in(
     'Feature/Console',
     'Feature/Testing',
+    'Feature/Variables',
     'Feature/AtlasManagerEntryPointTest.php',
     'Feature/AtlasManagerMissingDefaultTest.php',
     'Feature/AtlasServiceProviderTest.php',
@@ -51,6 +52,7 @@ pest()->extend(TestCase::class)->in(
     'Unit/Responses',
     'Unit/Schema',
     'Unit/Streaming',
+    'Unit/Support',
     'Unit/Testing',
     'Unit/Tools',
 );

@@ -16,6 +16,7 @@ use Atlasphp\Atlas\Providers\OpenAi\OpenAiDriver;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Providers\ProviderRegistry;
 use Atlasphp\Atlas\Providers\Xai\XaiDriver;
+use Atlasphp\Atlas\Support\VariableRegistry;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
@@ -49,6 +50,8 @@ class AtlasServiceProvider extends ServiceProvider
         });
 
         $this->app->scoped(ExecutionService::class);
+
+        $this->app->singleton(VariableRegistry::class);
     }
 
     public function boot(): void
@@ -70,6 +73,7 @@ class AtlasServiceProvider extends ServiceProvider
             ], 'atlas-migrations');
         }
 
+        $this->registerBuiltInVariables();
         $this->registerPersistenceMiddleware();
     }
 
@@ -100,6 +104,23 @@ class AtlasServiceProvider extends ServiceProvider
             $providerMiddleware[] = Persistence\Middleware\TrackProviderCall::class;
             config(['atlas.middleware.provider' => $providerMiddleware]);
         });
+    }
+
+    /**
+     * Register built-in variables available across all modalities.
+     */
+    protected function registerBuiltInVariables(): void
+    {
+        /** @var VariableRegistry $registry */
+        $registry = $this->app->make(VariableRegistry::class);
+
+        $registry->register('DATE', fn () => now()->toDateString());
+        $registry->register('DATETIME', fn () => now()->toDateTimeString());
+        $registry->register('TIME', fn () => now()->format('H:i:s'));
+        $registry->register('TIMEZONE', fn () => config('app.timezone', 'UTC'));
+        $registry->register('APP_NAME', fn () => config('app.name', 'Laravel'));
+        $registry->register('APP_ENV', fn () => config('app.env', 'production'));
+        $registry->register('APP_URL', fn () => config('app.url', 'http://localhost'));
     }
 
     /**

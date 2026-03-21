@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Pending;
 
 use Atlasphp\Atlas\Concerns\HasQueueDispatch;
+use Atlasphp\Atlas\Concerns\HasVariables;
 use Atlasphp\Atlas\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Facades\Atlas;
@@ -26,6 +27,7 @@ class VideoRequest implements QueueableRequest
     use HasMeta;
     use HasMiddleware;
     use HasQueueDispatch;
+    use HasVariables;
     use ResolvesProvider;
 
     protected ?string $instructions = null;
@@ -124,7 +126,7 @@ class VideoRequest implements QueueableRequest
     {
         return new VideoRequestObject(
             model: $this->model ?? '',
-            instructions: $this->instructions,
+            instructions: $this->interpolate($this->instructions),
             media: $this->media,
             duration: $this->duration,
             ratio: $this->ratio,
@@ -152,6 +154,8 @@ class VideoRequest implements QueueableRequest
             'format' => $this->format,
             'providerOptions' => $this->providerOptions,
             'meta' => $this->meta,
+            'variables' => $this->variables,
+            'interpolate_messages' => $this->interpolateMessages,
         ];
     }
 
@@ -203,6 +207,14 @@ class VideoRequest implements QueueableRequest
 
         if (! empty($meta)) {
             $request->withMeta($meta);
+        }
+
+        if (! empty($payload['variables'])) {
+            $request->withVariables($payload['variables']);
+        }
+
+        if ($payload['interpolate_messages'] ?? false) {
+            $request->withMessageInterpolation();
         }
 
         return match ($terminal) {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Pending;
 
+use Atlasphp\Atlas\Concerns\HasVariables;
 use RuntimeException;
 
 /**
@@ -16,6 +17,8 @@ use RuntimeException;
  */
 class AgentRequest
 {
+    use HasVariables;
+
     public function __construct(
         protected readonly string $key,
     ) {}
