@@ -6,6 +6,7 @@ use Atlasphp\Atlas\Persistence\Enums\MessageStatus;
 use Atlasphp\Atlas\Persistence\Models\Conversation;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\Message;
+use Illuminate\Database\Eloquent\Model;
 
 it('creates a valid record via factory', function () {
     $conversation = Conversation::factory()->create();
@@ -114,4 +115,41 @@ it('executions relationship returns related executions', function () {
     Execution::factory()->create(); // unrelated
 
     expect($conversation->executions)->toHaveCount(2);
+});
+
+it('scopeForOwner filters by polymorphic owner', function () {
+    Conversation::factory()->create(['owner_type' => 'App\\Models\\User', 'owner_id' => 1]);
+    Conversation::factory()->create(['owner_type' => 'App\\Models\\User', 'owner_id' => 2]);
+    Conversation::factory()->create(['owner_type' => 'App\\Models\\Team', 'owner_id' => 1]);
+
+    $owner = new class extends Model
+    {
+        protected $table = 'users';
+
+        public function getMorphClass(): string
+        {
+            return 'App\\Models\\User';
+        }
+
+        public function getKey(): mixed
+        {
+            return 1;
+        }
+    };
+
+    $results = Conversation::forOwner($owner)->get();
+
+    expect($results)->toHaveCount(1)
+        ->and($results->first()->owner_id)->toBe(1)
+        ->and($results->first()->owner_type)->toBe('App\\Models\\User');
+});
+
+it('getTable does not double-prefix when table already has prefix', function () {
+    $conversation = Conversation::factory()->create();
+
+    // The table should be 'atlas_conversations', not 'atlas_atlas_conversations'
+    expect($conversation->getTable())->toBe('atlas_conversations');
+
+    // Call getTable() twice to ensure idempotency
+    expect($conversation->getTable())->toBe('atlas_conversations');
 });

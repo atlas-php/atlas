@@ -84,3 +84,58 @@ it('step relationship returns parent step', function () {
     expect($toolCall->step)->toBeInstanceOf(ExecutionStep::class)
         ->and($toolCall->step->id)->toBe($step->id);
 });
+
+it('scopePending filters pending tool calls', function () {
+    $execution = Execution::factory()->create();
+    $step = ExecutionStep::factory()->create(['execution_id' => $execution->id]);
+
+    ExecutionToolCall::factory()->create([
+        'execution_id' => $execution->id,
+        'step_id' => $step->id,
+        'status' => ExecutionStatus::Pending,
+    ]);
+    ExecutionToolCall::factory()->completed()->create([
+        'execution_id' => $execution->id,
+        'step_id' => $step->id,
+    ]);
+
+    expect(ExecutionToolCall::pending()->count())->toBe(1);
+});
+
+it('scopeCompleted filters completed tool calls', function () {
+    $execution = Execution::factory()->create();
+    $step = ExecutionStep::factory()->create(['execution_id' => $execution->id]);
+
+    ExecutionToolCall::factory()->completed()->create([
+        'execution_id' => $execution->id,
+        'step_id' => $step->id,
+    ]);
+    ExecutionToolCall::factory()->completed()->create([
+        'execution_id' => $execution->id,
+        'step_id' => $step->id,
+    ]);
+    ExecutionToolCall::factory()->create([
+        'execution_id' => $execution->id,
+        'step_id' => $step->id,
+        'status' => ExecutionStatus::Pending,
+    ]);
+
+    expect(ExecutionToolCall::completed()->count())->toBe(2);
+});
+
+it('scopeProcessing filters processing tool calls', function () {
+    $execution = Execution::factory()->create();
+    $step = ExecutionStep::factory()->create(['execution_id' => $execution->id]);
+
+    ExecutionToolCall::factory()->create([
+        'execution_id' => $execution->id,
+        'step_id' => $step->id,
+        'status' => ExecutionStatus::Processing,
+    ]);
+    ExecutionToolCall::factory()->completed()->create([
+        'execution_id' => $execution->id,
+        'step_id' => $step->id,
+    ]);
+
+    expect(ExecutionToolCall::processing()->count())->toBe(1);
+});

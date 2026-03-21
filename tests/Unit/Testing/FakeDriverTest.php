@@ -303,3 +303,19 @@ it('records rerank calls for assertions', function () {
     expect($driver->recorded('rerank')[0]->method)->toBe('rerank');
     expect($driver->recorded('rerank')[0]->request->query)->toBe('Test');
 });
+
+// ─── Per-Instance Isolation ─────────────────────────────────────────────────
+
+it('recorded requests are scoped to their driver instance', function () {
+    $driver1 = new FakeDriver('openai');
+    $driver2 = new FakeDriver('anthropic');
+
+    $driver1->text(makeTestTextRequest());
+    $driver2->text(makeTestTextRequest());
+    $driver2->text(makeTestTextRequest());
+
+    expect($driver1->recorded())->toHaveCount(1);
+    expect($driver2->recorded())->toHaveCount(2);
+    expect($driver1->recorded()[0]->provider)->toBe('openai');
+    expect($driver2->recorded()[0]->provider)->toBe('anthropic');
+});

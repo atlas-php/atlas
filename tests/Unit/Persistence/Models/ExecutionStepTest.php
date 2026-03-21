@@ -94,3 +94,49 @@ it('toolCalls relationship returns related tool calls', function () {
 
     expect($step->toolCalls)->toHaveCount(3);
 });
+
+it('scopePending filters pending steps', function () {
+    $execution = Execution::factory()->create();
+
+    ExecutionStep::factory()->create([
+        'execution_id' => $execution->id,
+        'status' => ExecutionStatus::Pending,
+    ]);
+    ExecutionStep::factory()->completed()->create([
+        'execution_id' => $execution->id,
+    ]);
+
+    expect(ExecutionStep::pending()->count())->toBe(1);
+});
+
+it('scopeCompleted filters completed steps', function () {
+    $execution = Execution::factory()->create();
+
+    ExecutionStep::factory()->completed()->create([
+        'execution_id' => $execution->id,
+    ]);
+    ExecutionStep::factory()->completed()->create([
+        'execution_id' => $execution->id,
+    ]);
+    ExecutionStep::factory()->create([
+        'execution_id' => $execution->id,
+        'status' => ExecutionStatus::Pending,
+    ]);
+
+    expect(ExecutionStep::completed()->count())->toBe(2);
+});
+
+it('scopeProcessing filters processing steps', function () {
+    $execution = Execution::factory()->create();
+    ExecutionStep::factory()->create([
+        'execution_id' => $execution->id,
+        'status' => ExecutionStatus::Processing,
+        'sequence' => 0,
+    ]);
+    ExecutionStep::factory()->completed()->create([
+        'execution_id' => $execution->id,
+        'sequence' => 1,
+    ]);
+
+    expect(ExecutionStep::processing()->count())->toBe(1);
+});

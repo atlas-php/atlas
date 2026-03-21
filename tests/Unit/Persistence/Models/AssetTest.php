@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Persistence\Enums\AssetType;
 use Atlasphp\Atlas\Persistence\Models\Asset;
+use Atlasphp\Atlas\Persistence\Models\Conversation;
 use Atlasphp\Atlas\Persistence\Models\Execution;
+use Atlasphp\Atlas\Persistence\Models\Message;
+use Atlasphp\Atlas\Persistence\Models\MessageAttachment;
+use Illuminate\Database\Eloquent\Model;
 
 it('creates a valid record via factory', function () {
     $asset = Asset::factory()->create();
@@ -93,10 +97,64 @@ it('supports soft deletes', function () {
         ->and(Asset::count())->toBe(1);
 });
 
+it('scopeByAuthor filters by polymorphic author', function () {
+    // Create assets with specific author_type and author_id
+    Asset::factory()->create([
+        'author_type' => 'App\\Models\\User',
+        'author_id' => 1,
+    ]);
+    Asset::factory()->create([
+        'author_type' => 'App\\Models\\User',
+        'author_id' => 1,
+    ]);
+    Asset::factory()->create([
+        'author_type' => 'App\\Models\\User',
+        'author_id' => 2,
+    ]);
+    Asset::factory()->create([
+        'author_type' => 'App\\Models\\Team',
+        'author_id' => 1,
+    ]);
+
+    // Use a Conversation model as a stand-in for the polymorphic query
+    // since we need a Model instance. We'll use a mock approach instead.
+    $author = new class extends Model
+    {
+        protected $table = 'users';
+
+        public function getMorphClass(): string
+        {
+            return 'App\\Models\\User';
+        }
+
+        public function getKey(): mixed
+        {
+            return 1;
+        }
+    };
+
+    expect(Asset::byAuthor($author)->count())->toBe(2);
+});
+
 it('execution relationship returns related execution', function () {
     $execution = Execution::factory()->create();
     $asset = Asset::factory()->create(['execution_id' => $execution->id]);
 
     expect($asset->execution)->toBeInstanceOf(Execution::class)
         ->and($asset->execution->id)->toBe($execution->id);
+});
+
+it('attachments relationship returns message attachments', function () {
+    $asset = Asset::factory()->create();
+    $conversation = Conversation::factory()->create();
+    $message = Message::factory()->create([
+        'conversation_id' => $conversation->id,
+    ]);
+    MessageAttachment::factory()->create([
+        'message_id' => $message->id,
+        'asset_id' => $asset->id,
+    ]);
+
+    expect($asset->attachments)->toHaveCount(1)
+        ->and($asset->attachments->first()->message_id)->toBe($message->id);
 });

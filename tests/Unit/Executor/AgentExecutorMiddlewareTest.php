@@ -303,3 +303,57 @@ it('works without middleware stack (backward compat)', function () {
 
     expect($result->text)->toBe('ok');
 });
+
+it('calls driver directly when middleware stack exists but step middleware config is empty', function () {
+    config()->set('atlas.middleware.step', []);
+
+    $driver = makeMiddlewareMockDriver([
+        new TextResponse(
+            text: 'direct',
+            usage: new Usage(10, 5),
+            finishReason: FinishReason::Stop,
+        ),
+    ]);
+
+    $registry = new ToolRegistry([]);
+    $executor = new AgentExecutor($driver, new ToolExecutor($registry), makeMiddlewareExecutorDispatcher(), app(MiddlewareStack::class));
+
+    $result = $executor->execute(makeMiddlewareExecutorRequest(), maxSteps: 10);
+
+    expect($result->text)->toBe('direct');
+    expect($result->totalSteps())->toBe(1);
+
+    config()->set('atlas.middleware.step', []);
+});
+
+it('calls tool executor directly when middleware stack exists but tool middleware config is empty', function () {
+    config()->set('atlas.middleware.step', []);
+    config()->set('atlas.middleware.tool', []);
+
+    $driver = makeMiddlewareMockDriver([
+        new TextResponse(
+            text: 'calling tool',
+            usage: new Usage(10, 5),
+            finishReason: FinishReason::ToolCalls,
+            toolCalls: [new ToolCall('tc-1', 'echo', ['input' => 'hi'])],
+        ),
+        new TextResponse(
+            text: 'done',
+            usage: new Usage(10, 5),
+            finishReason: FinishReason::Stop,
+        ),
+    ]);
+
+    $registry = new ToolRegistry([makeMiddlewareEchoTool()]);
+    $executor = new AgentExecutor($driver, new ToolExecutor($registry), makeMiddlewareExecutorDispatcher(), app(MiddlewareStack::class));
+
+    $result = $executor->execute(makeMiddlewareExecutorRequest(), maxSteps: 10, parallelToolCalls: false);
+
+    expect($result->text)->toBe('done');
+    expect($result->totalSteps())->toBe(2);
+    expect($result->totalToolCalls())->toBe(1);
+    expect($result->steps[0]->toolResults[0]->content)->toBe('hi');
+
+    config()->set('atlas.middleware.step', []);
+    config()->set('atlas.middleware.tool', []);
+});

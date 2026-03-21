@@ -9,6 +9,7 @@ use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
 use Atlasphp\Atlas\Queue\PendingExecution;
+use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Support\Facades\Queue;
 
 function createQueueTextPending(
@@ -85,4 +86,65 @@ it('queued terminal returns PendingExecution', function () {
     $result = $pending->asText();
 
     expect($result)->toBeInstanceOf(PendingExecution::class);
+});
+
+it('broadcastOn sets broadcast channel', function () {
+    $pending = createQueueTextPending();
+
+    $channel = new PrivateChannel('test-channel');
+    $result = $pending->broadcastOn($channel);
+
+    expect($result)->toBe($pending);
+
+    // Verify via reflection that broadcastChannel is stored
+    $property = new ReflectionProperty($pending, 'broadcastChannel');
+    expect($property->getValue($pending))->toBe($channel);
+});
+
+it('resolveQueueConnection uses config fallback', function () {
+    config()->set('atlas.queue.connection', 'redis');
+
+    $pending = createQueueTextPending();
+    $method = new ReflectionMethod($pending, 'resolveQueueConnection');
+
+    expect($method->invoke($pending))->toBe('redis');
+});
+
+it('resolveQueueConnection prefers explicit over config', function () {
+    config()->set('atlas.queue.connection', 'redis');
+
+    $pending = createQueueTextPending();
+    $pending->onConnection('sqs');
+
+    $method = new ReflectionMethod($pending, 'resolveQueueConnection');
+
+    expect($method->invoke($pending))->toBe('sqs');
+});
+
+it('resolveQueueName uses config fallback', function () {
+    config()->set('atlas.queue.queue', 'atlas-priority');
+
+    $pending = createQueueTextPending();
+    $method = new ReflectionMethod($pending, 'resolveQueueName');
+
+    expect($method->invoke($pending))->toBe('atlas-priority');
+});
+
+it('resolveQueueName prefers explicit over config', function () {
+    config()->set('atlas.queue.queue', 'atlas-priority');
+
+    $pending = createQueueTextPending();
+    $pending->onQueue('custom-queue');
+
+    $method = new ReflectionMethod($pending, 'resolveQueueName');
+
+    expect($method->invoke($pending))->toBe('custom-queue');
+});
+
+it('resolveQueueName defaults to default from config', function () {
+    // The config ships with 'default' as the default value
+    $pending = createQueueTextPending();
+    $method = new ReflectionMethod($pending, 'resolveQueueName');
+
+    expect($method->invoke($pending))->toBe('default');
 });

@@ -22,6 +22,7 @@ use Atlasphp\Atlas\Testing\ModerationResponseFake;
 use Atlasphp\Atlas\Testing\StreamResponseFake;
 use Atlasphp\Atlas\Testing\TextResponseFake;
 use Atlasphp\Atlas\Testing\VideoResponseFake;
+use PHPUnit\Framework\ExpectationFailedException;
 
 it('swaps the manager with AtlasFake', function () {
     Atlas::fake();
@@ -177,3 +178,9 @@ it('returns FakeDriver for each registered provider', function () {
         expect($driver->name())->toBe($provider->value);
     }
 });
+
+it('driver() throws for unregistered provider', function () {
+    $fake = Atlas::fake();
+
+    $fake->driver('nonexistent-provider');
+})->throws(ExpectationFailedException::class);

@@ -211,6 +211,21 @@ it('stores user message after execution', function () {
         ->and($userMessage->role)->toBe(MessageRole::User);
 });
 
+it('throws when respond mode used without forConversation', function () {
+    $middleware = app(PersistConversation::class);
+
+    $agent = makeTestAgent();
+    $agent->respond();
+
+    $context = new AgentContext(
+        request: makePersistConversationRequest(),
+        agent: $agent,
+        meta: [],
+    );
+
+    $middleware->handle($context, fn () => makeFakeExecutorResult());
+})->throws(RuntimeException::class, 'respond() and retry() require forConversation($id).');
+
 it('stores assistant messages from steps', function () {
     $middleware = app(PersistConversation::class);
 

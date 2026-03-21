@@ -5,9 +5,11 @@ declare(strict_types=1);
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
 use Atlasphp\Atlas\Persistence\Models\Asset;
+use Atlasphp\Atlas\Persistence\Models\Conversation;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\ExecutionStep;
 use Atlasphp\Atlas\Persistence\Models\ExecutionToolCall;
+use Atlasphp\Atlas\Persistence\Models\Message;
 
 it('creates in pending status via factory', function () {
     $execution = Execution::factory()->create();
@@ -158,4 +160,18 @@ it('asset relationship returns related asset', function () {
 
     expect($execution->asset)->toBeInstanceOf(Asset::class)
         ->and($execution->asset->id)->toBe($asset->id);
+});
+
+it('triggerMessage relationship returns the triggering message', function () {
+    $conversation = Conversation::factory()->create();
+    $message = Message::factory()->create([
+        'conversation_id' => $conversation->id,
+    ]);
+    $execution = Execution::factory()->create([
+        'conversation_id' => $conversation->id,
+        'message_id' => $message->id,
+    ]);
+
+    expect($execution->triggerMessage)->toBeInstanceOf(Message::class)
+        ->and($execution->triggerMessage->id)->toBe($message->id);
 });

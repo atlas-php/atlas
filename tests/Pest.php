@@ -38,6 +38,7 @@ pest()->extend(TestCase::class)->in(
     'Unit/Concerns',
     'Unit/Console',
     'Unit/Enums',
+    'Unit/Events',
     'Unit/Exceptions',
     'Unit/Executor',
     'Unit/Input',
