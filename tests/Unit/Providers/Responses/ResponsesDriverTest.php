@@ -2,7 +2,21 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Providers\ChatCompletions\Handlers\Provider;
+use Atlasphp\Atlas\Providers\Handlers\AudioHandler;
+use Atlasphp\Atlas\Providers\Handlers\EmbedHandler;
+use Atlasphp\Atlas\Providers\Handlers\ImageHandler;
+use Atlasphp\Atlas\Providers\Handlers\ModerateHandler;
+use Atlasphp\Atlas\Providers\Handlers\ProviderHandler;
+use Atlasphp\Atlas\Providers\Handlers\TextHandler;
+use Atlasphp\Atlas\Providers\Handlers\VideoHandler;
 use Atlasphp\Atlas\Providers\HttpClient;
+use Atlasphp\Atlas\Providers\OpenAi\Handlers\Audio;
+use Atlasphp\Atlas\Providers\OpenAi\Handlers\Embed;
+use Atlasphp\Atlas\Providers\OpenAi\Handlers\Image;
+use Atlasphp\Atlas\Providers\OpenAi\Handlers\Moderate;
+use Atlasphp\Atlas\Providers\OpenAi\Handlers\Text;
+use Atlasphp\Atlas\Providers\OpenAi\Handlers\Video;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Providers\ResponsesDriver;
 
@@ -63,4 +77,77 @@ it('can disable multiple capabilities via overrides', function () {
     expect($cap->supports('image'))->toBeFalse();
     expect($cap->supports('audio'))->toBeFalse();
     expect($cap->supports('video'))->toBeFalse();
+});
+
+// ─── Handler instantiation ──────────────────────────────────────────
+// Each handler method must return the correct type and be backed by OpenAI handlers.
+
+it('returns a ProviderHandler from providerHandler', function () {
+    $driver = makeResponsesDriver();
+    $method = new ReflectionMethod($driver, 'providerHandler');
+
+    $handler = $method->invoke($driver);
+
+    expect($handler)->toBeInstanceOf(ProviderHandler::class)
+        ->and($handler)->toBeInstanceOf(Provider::class);
+});
+
+it('returns a TextHandler from textHandler', function () {
+    $driver = makeResponsesDriver();
+    $method = new ReflectionMethod($driver, 'textHandler');
+
+    $handler = $method->invoke($driver);
+
+    expect($handler)->toBeInstanceOf(TextHandler::class)
+        ->and($handler)->toBeInstanceOf(Text::class);
+});
+
+it('returns an ImageHandler from imageHandler', function () {
+    $driver = makeResponsesDriver();
+    $method = new ReflectionMethod($driver, 'imageHandler');
+
+    $handler = $method->invoke($driver);
+
+    expect($handler)->toBeInstanceOf(ImageHandler::class)
+        ->and($handler)->toBeInstanceOf(Image::class);
+});
+
+it('returns an AudioHandler from audioHandler', function () {
+    $driver = makeResponsesDriver();
+    $method = new ReflectionMethod($driver, 'audioHandler');
+
+    $handler = $method->invoke($driver);
+
+    expect($handler)->toBeInstanceOf(AudioHandler::class)
+        ->and($handler)->toBeInstanceOf(Audio::class);
+});
+
+it('returns a VideoHandler from videoHandler', function () {
+    $driver = makeResponsesDriver();
+    $method = new ReflectionMethod($driver, 'videoHandler');
+
+    $handler = $method->invoke($driver);
+
+    expect($handler)->toBeInstanceOf(VideoHandler::class)
+        ->and($handler)->toBeInstanceOf(Video::class);
+});
+
+it('returns an EmbedHandler from embedHandler', function () {
+    $driver = makeResponsesDriver();
+    $method = new ReflectionMethod($driver, 'embedHandler');
+
+    $handler = $method->invoke($driver);
+
+    expect($handler)->toBeInstanceOf(EmbedHandler::class)
+        ->and($handler)->toBeInstanceOf(Embed::class);
+});
+
+it('returns a ModerateHandler from moderateHandler', function () {
+    $driver = makeResponsesDriver();
+    $method = new ReflectionMethod($driver, 'moderateHandler');
+
+    $handler = $method->invoke($driver);
+
+    expect($handler)->toBeInstanceOf(ModerateHandler::class)
+        ->and($handler)->toBeInstanceOf(Moderate::class);
 });

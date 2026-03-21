@@ -58,3 +58,19 @@ it('passes explicit provider and model via resolveUsing', function () {
 
     expect($result)->toBe($vector);
 });
+
+it('throws RuntimeException when provider returns empty embeddings', function () {
+    Atlas::fake([
+        EmbeddingsResponseFake::make()->withEmbeddings([]),
+    ]);
+
+    $this->resolver->resolve('test input');
+})->throws(RuntimeException::class, 'Provider returned no embeddings for the given input.');
+
+it('throws RuntimeException when resolveUsing returns empty embeddings', function () {
+    Atlas::fake([
+        EmbeddingsResponseFake::make()->withEmbeddings([]),
+    ]);
+
+    $this->resolver->resolveUsing('test input', 'openai', 'text-embedding-3-small');
+})->throws(RuntimeException::class, 'Provider returned no embeddings for the given input.');
