@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Atlasphp\Atlas\Agents;
+namespace Atlasphp\Atlas;
 
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Providers\Tools\ProviderTool;

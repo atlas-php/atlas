@@ -5,7 +5,7 @@ declare(strict_types=1);
 use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Persistence\Models\Asset;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
-use Atlasphp\Atlas\Persistence\Support\ToolAssets;
+use Atlasphp\Atlas\Persistence\ToolAssets;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Models\Execution;
-use Atlasphp\Atlas\Queue\Jobs\Concerns\TracksExecution;
+use Atlasphp\Atlas\Queue\Jobs\TracksExecution;
 
 function createTracksExecutionHarness(?int $executionId): object
 {

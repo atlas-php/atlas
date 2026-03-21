@@ -2,9 +2,8 @@
 
 declare(strict_types=1);
 
-namespace Atlasphp\Atlas\Database;
+namespace Atlasphp\Atlas\Embeddings;
 
-use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
 use Illuminate\Database\Query\Builder;
 use InvalidArgumentException;
 

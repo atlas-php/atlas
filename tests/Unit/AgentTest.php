@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Agents\Agent;
+use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Providers\Tools\WebSearch;
 use Atlasphp\Atlas\Tools\Tool;

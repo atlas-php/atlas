@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Atlasphp\Atlas\Persistence\Jobs;
+namespace Atlasphp\Atlas\Persistence;
 
 use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Persistence\Enums\MessageStatus;

@@ -2,10 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Atlasphp\Atlas\Providers\Responses;
+namespace Atlasphp\Atlas\Providers;
 
 use Atlasphp\Atlas\Providers\ChatCompletions\Handlers\Provider;
-use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\Handlers\AudioHandler;
 use Atlasphp\Atlas\Providers\Handlers\EmbedHandler;
 use Atlasphp\Atlas\Providers\Handlers\ImageHandler;
@@ -23,7 +22,6 @@ use Atlasphp\Atlas\Providers\OpenAi\MediaResolver;
 use Atlasphp\Atlas\Providers\OpenAi\MessageFactory;
 use Atlasphp\Atlas\Providers\OpenAi\ResponseParser;
 use Atlasphp\Atlas\Providers\OpenAi\ToolMapper;
-use Atlasphp\Atlas\Providers\ProviderCapabilities;
 
 /**
  * Clean Responses API driver for compatible endpoints.

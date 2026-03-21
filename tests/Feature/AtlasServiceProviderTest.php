@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\AtlasManager;
-use Atlasphp\Atlas\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Cohere\CohereDriver;
+use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Google\GoogleDriver;
 use Atlasphp\Atlas\Providers\Jina\JinaDriver;
 use Atlasphp\Atlas\Providers\OpenAi\OpenAiDriver;

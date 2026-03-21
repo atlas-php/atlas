@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Middleware;
 
-use Atlasphp\Atlas\Agents\Agent;
+use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\Executor\ExecutorResult;
 use Atlasphp\Atlas\Messages\Message;
 use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Middleware\AgentContext;
 use Atlasphp\Atlas\Persistence\Concerns\HasConversations;
-use Atlasphp\Atlas\Persistence\Jobs\ProcessQueuedMessage;
 use Atlasphp\Atlas\Persistence\Models\Asset;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\ExecutionStep;
 use Atlasphp\Atlas\Persistence\Models\MessageAttachment;
+use Atlasphp\Atlas\Persistence\ProcessQueuedMessage;
 use Atlasphp\Atlas\Persistence\Services\ConversationService;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 use Closure;

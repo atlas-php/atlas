@@ -6,7 +6,7 @@ namespace Atlasphp\Atlas\Queue\Jobs;
 
 use Atlasphp\Atlas\Events\ExecutionCompleted;
 use Atlasphp\Atlas\Events\ExecutionFailed;
-use Atlasphp\Atlas\Queue\Contracts\QueueableRequest;
+use Atlasphp\Atlas\Queue\QueueableRequest;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -25,11 +25,11 @@ use Throwable;
  */
 class ExecuteAtlasJob implements ShouldQueue
 {
-    use Concerns\TracksExecution;
     use Dispatchable;
     use InteractsWithQueue;
     use Queueable;
     use SerializesModels;
+    use TracksExecution;
 
     public int $tries;
 

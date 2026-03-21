@@ -5,7 +5,7 @@ declare(strict_types=1);
 use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Models\Execution;
-use Atlasphp\Atlas\Queue\Jobs\Concerns\TracksExecution;
+use Atlasphp\Atlas\Queue\Jobs\TracksExecution;
 use Atlasphp\Atlas\Queue\PendingExecution;
 use Atlasphp\Atlas\Responses\ImageResponse;
 use Atlasphp\Atlas\Responses\TextResponse;

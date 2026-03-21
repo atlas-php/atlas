@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas;
 
-use Atlasphp\Atlas\Contracts\ProviderRegistryContract;
-use Atlasphp\Atlas\Database\VectorQueryMacros;
 use Atlasphp\Atlas\Embeddings\EmbeddingCache;
 use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
+use Atlasphp\Atlas\Embeddings\VectorQueryMacros;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 use Atlasphp\Atlas\Providers\Anthropic\AnthropicDriver;
 use Atlasphp\Atlas\Providers\Cohere\CohereDriver;
+use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Google\GoogleDriver;
 use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\Jina\JinaDriver;

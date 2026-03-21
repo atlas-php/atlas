@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Atlasphp\Atlas\Contracts;
+namespace Atlasphp\Atlas\Providers\Contracts;
 
 use Atlasphp\Atlas\Exceptions\ProviderNotFoundException;
 use Atlasphp\Atlas\Providers\Driver;

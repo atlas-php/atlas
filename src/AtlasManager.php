@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas;
 
-use Atlasphp\Atlas\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Pending\AgentRequest;
@@ -16,6 +15,7 @@ use Atlasphp\Atlas\Pending\ProviderRequest;
 use Atlasphp\Atlas\Pending\RerankRequest;
 use Atlasphp\Atlas\Pending\TextRequest;
 use Atlasphp\Atlas\Pending\VideoRequest;
+use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 
 /**
  * Central manager for Atlas, accessible via the Atlas facade.

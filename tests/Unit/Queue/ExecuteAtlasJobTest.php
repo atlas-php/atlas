@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Events\ExecutionCompleted;
 use Atlasphp\Atlas\Events\ExecutionFailed;
-use Atlasphp\Atlas\Queue\Contracts\QueueableRequest;
 use Atlasphp\Atlas\Queue\Jobs\ExecuteAtlasJob;
+use Atlasphp\Atlas\Queue\QueueableRequest;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Support\Facades\Event;
 use Laravel\SerializableClosure\SerializableClosure;

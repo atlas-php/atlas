@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Exceptions\ProviderNotFoundException;
 use Atlasphp\Atlas\Providers\ChatCompletions\ChatCompletionsDriver;
+use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
 use Atlasphp\Atlas\Providers\ProviderConfig;
-use Atlasphp\Atlas\Providers\Responses\ResponsesDriver;
+use Atlasphp\Atlas\Providers\ResponsesDriver;
 
 function createTestDriverInstance(?ProviderConfig $config = null, ?HttpClient $http = null): Driver
 {

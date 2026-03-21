@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Pending\ProviderRequest;
+use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\ModelList;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;

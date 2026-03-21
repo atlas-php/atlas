@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Agents\Agent;
+use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Executor\ExecutorResult;
 use Atlasphp\Atlas\Middleware\AgentContext;

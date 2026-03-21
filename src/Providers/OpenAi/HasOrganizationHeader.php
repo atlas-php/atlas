@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Atlasphp\Atlas\Providers\OpenAi\Concerns;
+namespace Atlasphp\Atlas\Providers\OpenAi;
 
 /**
  * Adds the OpenAI-Organization header when configured.

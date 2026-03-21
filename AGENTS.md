@@ -82,17 +82,30 @@ package-root/
 ├── README.md
 ├── docs/                 # VitePress documentation
 ├── src/
-│   ├── Contracts/        # Cross-cutting interfaces
-│   ├── Enums/            # Shared enums (Provider, Role, FinishReason, ChunkType)
-│   ├── Events/           # Transport and orchestration events
-│   ├── Exceptions/       # Exception hierarchy
-│   ├── Input/            # Media input types (Image, Audio, Video, Document)
-│   ├── Messages/         # Typed conversation messages + ToolCall
-│   ├── Providers/        # Driver, HttpClient, ProviderConfig, handlers, resolvers
-│   ├── Requests/         # Request objects (TextRequest, ImageRequest, etc.)
-│   ├── Responses/        # Response objects (TextResponse, Usage, StreamChunk, etc.)
-│   ├── Schema/           # Schema builder for structured output & tool parameters
-│   └── Tools/            # Tool base class, ToolDefinition, ToolSerializer
+│   ├── Agent.php                    # Abstract agent base class
+│   ├── AtlasManager.php             # Central manager
+│   ├── AtlasServiceProvider.php     # Service provider
+│   ├── Concerns/          (4)       # Cross-domain traits (HasQueueDispatch, HasVariables, etc.)
+│   ├── Console/           (2)       # Artisan commands (MakeAgentCommand, MakeToolCommand)
+│   ├── Embeddings/        (4)       # EmbeddingCache, EmbeddingResolver, VectorQueryMacros, SimilaritySearch
+│   ├── Enums/             (4)       # Shared enums (Provider, Role, FinishReason, ChunkType)
+│   ├── Events/           (13)       # Transport and orchestration events
+│   ├── Exceptions/        (9)       # Exception hierarchy
+│   ├── Executor/          (6)       # Agent executor, tool loop, steps
+│   ├── Facades/           (1)       # Atlas facade
+│   ├── Input/             (5)       # Media input types (Image, Audio, Video, Document)
+│   ├── Messages/          (6)       # Typed conversation messages + ToolCall
+│   ├── Middleware/         (5)       # MiddlewareStack + context objects
+│   ├── Pending/           (9+3)     # Fluent builders + Concerns/ (HasMeta, HasMiddleware, ResolvesProvider)
+│   ├── Persistence/                 # Models, Services, Middleware, Enums, Concerns, ToolAssets, ProcessQueuedMessage
+│   ├── Providers/                   # Driver, HttpClient, Contracts/, Concerns/, Handlers/, Tools/, ResponsesDriver, {Provider}/
+│   ├── Queue/                       # PendingExecution, QueueableRequest, Jobs/ (ExecuteAtlasJob, TracksExecution)
+│   ├── Requests/          (7)       # Immutable request DTOs
+│   ├── Responses/        (12)       # Response objects (TextResponse, Usage, StreamChunk, etc.)
+│   ├── Schema/            (2+8)     # Schema builder + Fields/
+│   ├── Support/           (2)       # Pure utilities (VariableInterpolator, VariableRegistry)
+│   ├── Testing/          (12)       # Fakes (AtlasFake, FakeDriver, response fakes)
+│   └── Tools/             (3)       # Tool, ToolDefinition, ToolSerializer (infrastructure only)
 ├── config/
 ├── tests/
 │   ├── Unit/
@@ -105,24 +118,32 @@ package-root/
 1. **Domain-organized** – Each top-level `src/` directory represents a domain concern, not a generic pattern
 2. **Namespacing follows structure** – e.g., `Atlasphp\Atlas\Messages\UserMessage`
 3. **Cross-domain references are allowed** – Domains may import types from other domains
-4. **Contracts remain centralized** – Interfaces that span domains live in `src/Contracts/`
-5. **Provider sub-structure** – `Providers/` contains subdirectories for handlers (`Handlers/`), resolver contracts (`Contracts/`), and per-provider implementations (`OpenAi/`, `Anthropic/`, etc.)
-6. **No unnecessary nesting** – Don't create subdirectories until there are enough files to justify them
+4. **Domain-local contracts** – Interfaces live with their domain (e.g., `Providers/Contracts/`), not in a shared `Contracts/` directory
+5. **Domain-local concerns** – Traits scoped to a single domain live in that domain's `Concerns/` subdirectory; only genuinely cross-cutting traits live in the top-level `Concerns/`
+6. **Provider sub-structure** – `Providers/` contains subdirectories for handlers (`Handlers/`), resolver contracts (`Contracts/`), provider tools (`Tools/`), and per-provider implementations (`OpenAi/`, `Anthropic/`, etc.)
+7. **No unnecessary nesting** – Don't create subdirectories until there are enough files to justify them
 
 ### Adding Files
 
-| Adding...                          | Location                        |
-|------------------------------------|---------------------------------|
-| New enum                           | `src/Enums/`                    |
-| New message type                   | `src/Messages/`                 |
+| Adding...                          | Location                            |
+|------------------------------------|-------------------------------------|
+| New enum                           | `src/Enums/`                        |
+| New message type                   | `src/Messages/`                     |
 | New request/response object        | `src/Requests/` or `src/Responses/` |
-| New exception                      | `src/Exceptions/`               |
-| New event                          | `src/Events/`                   |
-| New handler interface              | `src/Providers/Handlers/`       |
-| New resolver contract              | `src/Providers/Contracts/`      |
-| Provider-specific implementation   | `src/Providers/{ProviderName}/` |
-| Cross-domain interface             | `src/Contracts/`                |
-| New tool class                     | `src/Tools/`                    |
+| New exception                      | `src/Exceptions/`                   |
+| New event                          | `src/Events/`                       |
+| New handler interface              | `src/Providers/Handlers/`           |
+| New resolver contract              | `src/Providers/Contracts/`          |
+| Provider-specific implementation   | `src/Providers/{ProviderName}/`     |
+| Provider-scoped contract           | `src/Providers/Contracts/`          |
+| New tool class                     | `src/Tools/`                        |
+| Embedding/vector feature           | `src/Embeddings/`                   |
+| Cross-domain trait                 | `src/Concerns/`                     |
+| Domain-scoped trait                | `src/{Domain}/Concerns/`            |
+| Persistence model/service          | `src/Persistence/Models/` or `src/Persistence/Services/` |
+| Queue infrastructure               | `src/Queue/`                        |
+| Fluent builder                     | `src/Pending/`                      |
+| Test fake                          | `src/Testing/`                      |
 
 ---
 

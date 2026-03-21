@@ -8,7 +8,7 @@ use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Providers\Concerns\BuildsHeaders;
 use Atlasphp\Atlas\Providers\Handlers\ImageHandler;
 use Atlasphp\Atlas\Providers\HttpClient;
-use Atlasphp\Atlas\Providers\OpenAi\Concerns\HasOrganizationHeader;
+use Atlasphp\Atlas\Providers\OpenAi\HasOrganizationHeader;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Requests\ImageRequest;
 use Atlasphp\Atlas\Responses\ImageResponse;

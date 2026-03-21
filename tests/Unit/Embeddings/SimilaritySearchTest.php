@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Tools\SimilaritySearch;
+use Atlasphp\Atlas\Embeddings\SimilaritySearch;
 use Atlasphp\Atlas\Tools\ToolDefinition;
 use Illuminate\Database\Eloquent\Model;
 

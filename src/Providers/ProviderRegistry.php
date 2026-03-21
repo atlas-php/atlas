@@ -4,12 +4,11 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Providers;
 
-use Atlasphp\Atlas\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Exceptions\ProviderNotFoundException;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
 use Atlasphp\Atlas\Providers\ChatCompletions\ChatCompletionsDriver;
-use Atlasphp\Atlas\Providers\Responses\ResponsesDriver;
+use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Closure;
 use Illuminate\Contracts\Foundation\Application;
 

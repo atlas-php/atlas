@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Database\VectorQueryMacros;
 use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
+use Atlasphp\Atlas\Embeddings\VectorQueryMacros;
 
 it('formats vector array as pgvector literal', function () {
     $literal = VectorQueryMacros::toVectorLiteral([0.1, 0.2, 0.3]);

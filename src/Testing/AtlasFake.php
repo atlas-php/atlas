@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Testing;
 
 use Atlasphp\Atlas\AtlasManager;
-use Atlasphp\Atlas\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Closure;
 use PHPUnit\Framework\Assert;
 

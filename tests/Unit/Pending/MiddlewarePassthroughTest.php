@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Pending\AudioRequest;
 use Atlasphp\Atlas\Pending\EmbedRequest;
 use Atlasphp\Atlas\Pending\ImageRequest;
 use Atlasphp\Atlas\Pending\ModerateRequest;
 use Atlasphp\Atlas\Pending\TextRequest;
 use Atlasphp\Atlas\Pending\VideoRequest;
+use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 
 function makeMiddlewarePendingRegistry(): ProviderRegistryContract
 {

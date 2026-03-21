@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Pending\AudioRequest;
 use Atlasphp\Atlas\Pending\EmbedRequest;
@@ -11,6 +10,7 @@ use Atlasphp\Atlas\Pending\ModerateRequest;
 use Atlasphp\Atlas\Pending\RerankRequest;
 use Atlasphp\Atlas\Pending\TextRequest;
 use Atlasphp\Atlas\Pending\VideoRequest;
+use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Responses\AudioResponse;
 use Atlasphp\Atlas\Responses\EmbeddingsResponse;
 use Atlasphp\Atlas\Responses\ImageResponse;

@@ -8,7 +8,7 @@ use Atlasphp\Atlas\Providers\Concerns\BuildsHeaders;
 use Atlasphp\Atlas\Providers\Contracts\MessageFactory as MessageFactoryContract;
 use Atlasphp\Atlas\Providers\Handlers\TextHandler;
 use Atlasphp\Atlas\Providers\HttpClient;
-use Atlasphp\Atlas\Providers\OpenAi\Concerns\HasOrganizationHeader;
+use Atlasphp\Atlas\Providers\OpenAi\HasOrganizationHeader;
 use Atlasphp\Atlas\Providers\OpenAi\MediaResolver;
 use Atlasphp\Atlas\Providers\OpenAi\ResponseParser;
 use Atlasphp\Atlas\Providers\OpenAi\ToolMapper;

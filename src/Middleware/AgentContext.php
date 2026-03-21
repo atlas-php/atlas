@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Middleware;
 
-use Atlasphp\Atlas\Agents\Agent;
+use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\Messages\Message;
 use Atlasphp\Atlas\Requests\TextRequest;
 

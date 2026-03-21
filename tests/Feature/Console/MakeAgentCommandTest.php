@@ -20,7 +20,7 @@ it('creates an agent class', function () {
 
     expect($content)
         ->toContain('namespace App\Agents;')
-        ->toContain('use Atlasphp\Atlas\Agents\Agent;')
+        ->toContain('use Atlasphp\Atlas\Agent;')
         ->toContain('class TestAgent extends Agent')
         ->toContain('public function instructions(): ?string');
 });
