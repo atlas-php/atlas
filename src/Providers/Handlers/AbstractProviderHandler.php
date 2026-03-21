@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Providers\Handlers;
 
+use Atlasphp\Atlas\Cache\AtlasCache;
 use Atlasphp\Atlas\Providers\Concerns\BuildsHeaders;
 use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ModelList;
@@ -11,9 +12,10 @@ use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Providers\VoiceList;
 
 /**
- * Base provider handler with shared models/validate logic.
+ * Base provider handler with cached models/voices and shared logic.
  *
- * Subclasses only need to implement voices() with their provider's voice list.
+ * Subclasses override fetchModels() and fetchVoices() for provider-specific
+ * API calls. Caching is handled by AtlasCache with configurable TTLs.
  */
 abstract class AbstractProviderHandler implements ProviderHandler
 {
@@ -22,9 +24,42 @@ abstract class AbstractProviderHandler implements ProviderHandler
     public function __construct(
         protected readonly ProviderConfig $config,
         protected readonly HttpClient $http,
+        protected readonly AtlasCache $cache,
     ) {}
 
+    // ─── Public API (cached) ─────────────────────────────────────────
+
     public function models(): ModelList
+    {
+        return $this->cache->remember(
+            'models',
+            $this->cacheKeyPrefix().':models',
+            fn () => $this->fetchModels(),
+        );
+    }
+
+    public function voices(): VoiceList
+    {
+        return $this->cache->remember(
+            'voices',
+            $this->cacheKeyPrefix().':voices',
+            fn () => $this->fetchVoices(),
+        );
+    }
+
+    public function validate(): bool
+    {
+        $this->models();
+
+        return true;
+    }
+
+    // ─── Uncached fetch — subclasses override these ──────────────────
+
+    /**
+     * Fetch models from the provider API.
+     */
+    protected function fetchModels(): ModelList
     {
         $data = $this->http->get(
             url: "{$this->config->baseUrl}/models",
@@ -42,12 +77,33 @@ abstract class AbstractProviderHandler implements ProviderHandler
         return new ModelList($ids);
     }
 
-    abstract public function voices(): VoiceList;
+    /**
+     * Fetch voices from the provider API.
+     */
+    abstract protected function fetchVoices(): VoiceList;
 
-    public function validate(): bool
+    // ─── Cache key ───────────────────────────────────────────────────
+
+    /**
+     * Cache key prefix for this provider instance.
+     * Override for providers with per-account data (like ElevenLabs).
+     */
+    protected function cacheKeyPrefix(): string
     {
-        $this->models();
+        $host = parse_url($this->config->baseUrl, PHP_URL_HOST);
 
-        return true;
+        return is_string($host) ? $host : 'unknown';
+    }
+
+    // ─── Cache management ────────────────────────────────────────────
+
+    /**
+     * Clear cached models and voices for this provider.
+     */
+    public function flushCache(): void
+    {
+        $prefix = $this->cacheKeyPrefix();
+        $this->cache->flushKeys('models', ["{$prefix}:models"]);
+        $this->cache->flushKeys('voices', ["{$prefix}:voices"]);
     }
 }

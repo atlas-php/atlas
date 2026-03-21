@@ -12,7 +12,7 @@ use Atlasphp\Atlas\Providers\VoiceList;
  */
 class Provider extends AbstractProviderHandler
 {
-    public function voices(): VoiceList
+    protected function fetchVoices(): VoiceList
     {
         return new VoiceList(['ara', 'eve', 'leo', 'rex', 'sal']);
     }

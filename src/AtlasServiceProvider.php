@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas;
 
-use Atlasphp\Atlas\Embeddings\EmbeddingCache;
+use Atlasphp\Atlas\Cache\AtlasCache;
 use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
 use Atlasphp\Atlas\Embeddings\VectorQueryMacros;
 use Atlasphp\Atlas\Enums\Provider;
@@ -15,6 +15,7 @@ use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 use Atlasphp\Atlas\Providers\Anthropic\AnthropicDriver;
 use Atlasphp\Atlas\Providers\Cohere\CohereDriver;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
+use Atlasphp\Atlas\Providers\ElevenLabs\ElevenLabsDriver;
 use Atlasphp\Atlas\Providers\Google\GoogleDriver;
 use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\Jina\JinaDriver;
@@ -63,9 +64,9 @@ class AtlasServiceProvider extends ServiceProvider
 
         $this->app->bind(MemoryBuilder::class, fn ($app) => new MemoryBuilder($app->make(MemoryService::class)));
 
-        $this->app->singleton(EmbeddingCache::class);
+        $this->app->singleton(AtlasCache::class);
         $this->app->singleton(EmbeddingResolver::class, function ($app) {
-            return new EmbeddingResolver($app->make(EmbeddingCache::class));
+            return new EmbeddingResolver($app->make(AtlasCache::class));
         });
     }
 
@@ -184,6 +185,7 @@ class AtlasServiceProvider extends ServiceProvider
                 config: ProviderConfig::fromArray($config),
                 http: $app->make(HttpClient::class),
                 middlewareStack: $app->make(MiddlewareStack::class),
+                cache: $app->make(AtlasCache::class),
             );
         });
 
@@ -192,6 +194,7 @@ class AtlasServiceProvider extends ServiceProvider
                 config: ProviderConfig::fromArray($config),
                 http: $app->make(HttpClient::class),
                 middlewareStack: $app->make(MiddlewareStack::class),
+                cache: $app->make(AtlasCache::class),
             );
         });
 
@@ -200,6 +203,7 @@ class AtlasServiceProvider extends ServiceProvider
                 config: ProviderConfig::fromArray($config),
                 http: $app->make(HttpClient::class),
                 middlewareStack: $app->make(MiddlewareStack::class),
+                cache: $app->make(AtlasCache::class),
             );
         });
 
@@ -208,6 +212,16 @@ class AtlasServiceProvider extends ServiceProvider
                 config: ProviderConfig::fromArray($config),
                 http: $app->make(HttpClient::class),
                 middlewareStack: $app->make(MiddlewareStack::class),
+                cache: $app->make(AtlasCache::class),
+            );
+        });
+
+        $registry->register(Provider::ElevenLabs->value, function (Application $app, array $config) {
+            return new ElevenLabsDriver(
+                config: ProviderConfig::fromArray($config),
+                http: $app->make(HttpClient::class),
+                middlewareStack: $app->make(MiddlewareStack::class),
+                cache: $app->make(AtlasCache::class),
             );
         });
 
@@ -216,6 +230,7 @@ class AtlasServiceProvider extends ServiceProvider
                 config: ProviderConfig::fromArray($config),
                 http: $app->make(HttpClient::class),
                 middlewareStack: $app->make(MiddlewareStack::class),
+                cache: $app->make(AtlasCache::class),
             );
         });
 
@@ -224,6 +239,7 @@ class AtlasServiceProvider extends ServiceProvider
                 config: ProviderConfig::fromArray($config),
                 http: $app->make(HttpClient::class),
                 middlewareStack: $app->make(MiddlewareStack::class),
+                cache: $app->make(AtlasCache::class),
             );
         });
     }

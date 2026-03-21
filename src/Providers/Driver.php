@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Providers;
 
+use Atlasphp\Atlas\Cache\AtlasCache;
 use Atlasphp\Atlas\Exceptions\AuthenticationException;
 use Atlasphp\Atlas\Exceptions\AuthorizationException;
 use Atlasphp\Atlas\Exceptions\ProviderException;
@@ -50,6 +51,7 @@ abstract class Driver
         protected readonly ProviderConfig $config,
         protected readonly HttpClient $http,
         protected readonly ?MiddlewareStack $middlewareStack = null,
+        protected readonly ?AtlasCache $cache = null,
     ) {}
 
     // ─── Modality Methods ────────────────────────────────────────────────

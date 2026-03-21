@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Embeddings\EmbeddingCache;
+use Atlasphp\Atlas\Cache\AtlasCache;
 use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
 use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Testing\EmbeddingsResponseFake;
@@ -11,9 +11,10 @@ beforeEach(function () {
     config([
         'atlas.defaults.embed.provider' => 'openai',
         'atlas.defaults.embed.model' => 'text-embedding-3-small',
+        'atlas.cache.ttl.embeddings' => 0,
     ]);
 
-    $this->cache = new EmbeddingCache;
+    $this->cache = new AtlasCache;
     $this->resolver = new EmbeddingResolver($this->cache);
 });
 
@@ -30,7 +31,7 @@ it('resolves a string into an embedding vector', function () {
 });
 
 it('returns cached value when cache is enabled', function () {
-    config(['atlas.embeddings.cache.enabled' => true]);
+    config(['atlas.cache.ttl.embeddings' => 3600]);
 
     $vector = [0.4, 0.5, 0.6];
 

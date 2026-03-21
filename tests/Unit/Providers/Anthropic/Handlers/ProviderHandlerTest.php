@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Cache\AtlasCache;
 use Atlasphp\Atlas\Providers\Anthropic\Handlers\Provider;
 use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderConfig;
@@ -12,6 +13,7 @@ function makeAnthropicProviderHandler(): Provider
     return new Provider(
         config: ProviderConfig::fromArray(['api_key' => 'test-key', 'url' => 'https://api.anthropic.com/v1']),
         http: app(HttpClient::class),
+        cache: app(AtlasCache::class),
     );
 }
 

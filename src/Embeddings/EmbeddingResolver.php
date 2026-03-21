@@ -4,18 +4,19 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Embeddings;
 
+use Atlasphp\Atlas\Cache\AtlasCache;
 use Atlasphp\Atlas\Facades\Atlas;
 
 /**
  * Resolves a text string into an embedding vector.
  *
  * Acts as the single bridge between raw text and the vector array needed
- * by query macros and traits. Uses EmbeddingCache when enabled.
+ * by query macros and traits. Uses AtlasCache when enabled.
  */
 class EmbeddingResolver
 {
     public function __construct(
-        protected readonly EmbeddingCache $cache,
+        protected readonly AtlasCache $cache,
     ) {}
 
     /**
@@ -26,7 +27,8 @@ class EmbeddingResolver
     public function resolve(string $input): array
     {
         return $this->cache->remember(
-            $input,
+            'embeddings',
+            $this->cacheKey($input),
             fn (): array => $this->generate($input),
         );
     }
@@ -39,11 +41,30 @@ class EmbeddingResolver
     public function resolveUsing(string $input, ?string $provider = null, ?string $model = null): array
     {
         return $this->cache->remember(
-            $input,
+            'embeddings',
+            $this->cacheKey($input, $provider, $model),
             fn (): array => $this->generate($input, $provider, $model),
-            $provider,
-            $model,
         );
+    }
+
+    /**
+     * Remove a cached embedding.
+     */
+    public function forget(string $input, ?string $provider = null, ?string $model = null): bool
+    {
+        return $this->cache->forget('embeddings', $this->cacheKey($input, $provider, $model));
+    }
+
+    /**
+     * Build a unique cache key for an embedding.
+     */
+    protected function cacheKey(string $input, ?string $provider = null, ?string $model = null): string
+    {
+        $provider ??= config('atlas.defaults.embed.provider', 'default');
+        $model ??= config('atlas.defaults.embed.model', 'default');
+        $dimensions = (int) config('atlas.embeddings.dimensions', 1536);
+
+        return hash('xxh128', "{$provider}:{$model}:{$dimensions}:{$input}");
     }
 
     /**

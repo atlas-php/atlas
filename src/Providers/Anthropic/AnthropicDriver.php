@@ -52,6 +52,6 @@ class AnthropicDriver extends Driver
 
     protected function providerHandler(string $feature = 'provider'): ProviderHandler
     {
-        return new Handlers\Provider($this->config, $this->http);
+        return new Handlers\Provider($this->config, $this->http, $this->cache);
     }
 }

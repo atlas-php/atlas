@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Cache\AtlasCache;
 use Atlasphp\Atlas\Providers\ChatCompletions\Handlers\Provider;
 use Atlasphp\Atlas\Providers\Handlers\AudioHandler;
 use Atlasphp\Atlas\Providers\Handlers\EmbedHandler;
@@ -29,6 +30,7 @@ function makeResponsesDriver(array $capabilityOverrides = []): ResponsesDriver
             capabilityOverrides: $capabilityOverrides,
         ),
         http: app(HttpClient::class),
+        cache: app(AtlasCache::class),
     );
 }
 

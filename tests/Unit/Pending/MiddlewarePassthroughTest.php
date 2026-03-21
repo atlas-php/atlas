@@ -129,7 +129,8 @@ it('AudioRequest passes meta to built request', function () {
     $pending->withMeta(['user_id' => 123]);
     $request = $pending->buildRequest();
 
-    expect($request->meta)->toBe(['user_id' => 123]);
+    expect($request->meta)->toMatchArray(['user_id' => 123])
+        ->and($request->meta['_audio_mode'])->toBe('tts');
 });
 
 it('VideoRequest passes meta to built request', function () {

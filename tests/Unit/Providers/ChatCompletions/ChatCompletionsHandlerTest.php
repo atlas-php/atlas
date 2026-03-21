@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Cache\AtlasCache;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Providers\ChatCompletions\ChatCompletionsDriver;
@@ -20,6 +21,7 @@ function makeChatCompletionsDriver(): ChatCompletionsDriver
             baseUrl: 'http://localhost:11434/v1',
         ),
         http: app(HttpClient::class),
+        cache: app(AtlasCache::class),
     );
 }
 

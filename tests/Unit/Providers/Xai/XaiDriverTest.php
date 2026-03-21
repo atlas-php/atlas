@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Cache\AtlasCache;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderConfig;
@@ -17,6 +18,7 @@ function makeXaiDriver(): XaiDriver
     return new XaiDriver(
         config: ProviderConfig::fromArray(['api_key' => 'test', 'url' => 'https://api.x.ai/v1']),
         http: app(HttpClient::class),
+        cache: app(AtlasCache::class),
     );
 }
 

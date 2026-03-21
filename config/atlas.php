@@ -66,6 +66,12 @@ return [
             'url' => env('JINA_URL', 'https://api.jina.ai'),
         ],
 
+        'elevenlabs' => [
+            'api_key' => env('ELEVENLABS_API_KEY'),
+            'url' => env('ELEVENLABS_URL', 'https://api.elevenlabs.io/v1'),
+            'media_timeout' => 300,
+        ],
+
         // ─── Custom Providers (Chat Completions compatible) ─────────────
         //
         // Add a 'driver' key to use a named driver or custom class.
@@ -206,9 +212,9 @@ return [
     | Embeddings
     |--------------------------------------------------------------------------
     |
-    | Configuration for embedding generation and caching. The dimensions value
-    | controls vector column size in migrations. When caching is enabled,
-    | embedding vectors are cached to avoid redundant API calls.
+    | Configuration for embedding generation. The dimensions value controls
+    | vector column size in migrations. For embedding caching, see the
+    | 'cache' section below (atlas.cache.ttl.embeddings).
     |
     | Note: 'dimensions' was previously at 'persistence.embedding_dimensions'.
     | The old location is still supported as a fallback in migrations.
@@ -217,10 +223,25 @@ return [
 
     'embeddings' => [
         'dimensions' => (int) env('ATLAS_EMBEDDING_DIMENSIONS', 1536),
-        'cache' => [
-            'enabled' => env('ATLAS_EMBEDDING_CACHE', false),
-            'store' => env('ATLAS_EMBEDDING_CACHE_STORE'),
-            'ttl' => (int) env('ATLAS_EMBEDDING_CACHE_TTL', 2592000), // 30 days
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Cache
+    |--------------------------------------------------------------------------
+    |
+    | Unified caching for provider data (models, voices) and embeddings.
+    | Set any TTL to 0 to disable caching for that type.
+    |
+    */
+
+    'cache' => [
+        'store' => env('ATLAS_CACHE_STORE'),
+        'prefix' => 'atlas',
+        'ttl' => [
+            'models' => (int) env('ATLAS_CACHE_MODELS_TTL', 86400),        // 24 hours
+            'voices' => (int) env('ATLAS_CACHE_VOICES_TTL', 3600),         // 1 hour
+            'embeddings' => (int) env('ATLAS_CACHE_EMBEDDINGS_TTL', 0),    // disabled by default
         ],
     ],
 

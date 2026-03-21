@@ -2,23 +2,15 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Embeddings\EmbeddingCache;
+use Atlasphp\Atlas\Cache\AtlasCache;
 use Illuminate\Support\Facades\Cache;
 
 beforeEach(function () {
-    $this->cache = new EmbeddingCache;
+    $this->cache = new AtlasCache;
 });
 
-it('reads enabled state from config', function () {
-    config(['atlas.embeddings.cache.enabled' => true]);
-    expect($this->cache->isEnabled())->toBeTrue();
-
-    config(['atlas.embeddings.cache.enabled' => false]);
-    expect($this->cache->isEnabled())->toBeFalse();
-});
-
-it('returns cached value on hit without calling generate', function () {
-    config(['atlas.embeddings.cache.enabled' => true]);
+it('remembers a value by type and key', function () {
+    config(['atlas.cache.ttl.embeddings' => 3600]);
 
     $vector = [0.1, 0.2, 0.3];
     $callCount = 0;
@@ -30,34 +22,18 @@ it('returns cached value on hit without calling generate', function () {
     };
 
     // First call — generates
-    $result1 = $this->cache->remember('hello', $generate);
+    $result1 = $this->cache->remember('embeddings', 'test-key', $generate);
     expect($result1)->toBe($vector);
     expect($callCount)->toBe(1);
 
     // Second call — cached
-    $result2 = $this->cache->remember('hello', $generate);
+    $result2 = $this->cache->remember('embeddings', 'test-key', $generate);
     expect($result2)->toBe($vector);
     expect($callCount)->toBe(1);
 });
 
-it('calls generate closure on cache miss', function () {
-    config(['atlas.embeddings.cache.enabled' => true]);
-
-    $vector = [0.4, 0.5, 0.6];
-    $called = false;
-
-    $result = $this->cache->remember('test input', function () use ($vector, &$called) {
-        $called = true;
-
-        return $vector;
-    });
-
-    expect($called)->toBeTrue();
-    expect($result)->toBe($vector);
-});
-
-it('bypasses cache when disabled', function () {
-    config(['atlas.embeddings.cache.enabled' => false]);
+it('bypasses cache when ttl is zero', function () {
+    config(['atlas.cache.ttl.embeddings' => 0]);
 
     $callCount = 0;
     $generate = function () use (&$callCount) {
@@ -66,23 +42,23 @@ it('bypasses cache when disabled', function () {
         return [0.1, 0.2];
     };
 
-    $this->cache->remember('input', $generate);
-    $this->cache->remember('input', $generate);
+    $this->cache->remember('embeddings', 'input', $generate);
+    $this->cache->remember('embeddings', 'input', $generate);
 
     expect($callCount)->toBe(2);
 });
 
 it('forgets cached entry', function () {
-    config(['atlas.embeddings.cache.enabled' => true]);
+    config(['atlas.cache.ttl.embeddings' => 3600]);
 
-    $this->cache->remember('forget-me', fn () => [0.1, 0.2]);
+    $this->cache->remember('embeddings', 'forget-me', fn () => [0.1, 0.2]);
 
-    $result = $this->cache->forget('forget-me');
+    $result = $this->cache->forget('embeddings', 'forget-me');
     expect($result)->toBeTrue();
 
     // After forget, generate is called again
     $called = false;
-    $this->cache->remember('forget-me', function () use (&$called) {
+    $this->cache->remember('embeddings', 'forget-me', function () use (&$called) {
         $called = true;
 
         return [0.3, 0.4];
@@ -91,42 +67,63 @@ it('forgets cached entry', function () {
     expect($called)->toBeTrue();
 });
 
-it('includes provider model and dimensions in cache key', function () {
-    config([
-        'atlas.defaults.embed.provider' => 'openai',
-        'atlas.defaults.embed.model' => 'text-embedding-3-small',
-        'atlas.embeddings.dimensions' => 1536,
-    ]);
+it('enabled checks ttl', function () {
+    config(['atlas.cache.ttl.models' => 3600]);
+    expect($this->cache->enabled('models'))->toBeTrue();
 
-    $key1 = $this->cache->buildKey('hello', 'openai', 'model-a');
-    $key2 = $this->cache->buildKey('hello', 'openai', 'model-b');
-    $key3 = $this->cache->buildKey('hello', 'cohere', 'model-a');
-
-    expect($key1)->not->toBe($key2);
-    expect($key1)->not->toBe($key3);
-    expect($key1)->toStartWith('atlas:embedding:');
+    config(['atlas.cache.ttl.models' => 0]);
+    expect($this->cache->enabled('models'))->toBeFalse();
 });
 
-it('produces different keys for different inputs', function () {
-    $key1 = $this->cache->buildKey('input one');
-    $key2 = $this->cache->buildKey('input two');
+it('key format is correct', function () {
+    config(['atlas.cache.ttl.models' => 3600, 'atlas.cache.prefix' => 'atlas']);
 
-    expect($key1)->not->toBe($key2);
+    $callCount = 0;
+    $this->cache->remember('models', 'my-key', function () use (&$callCount) {
+        $callCount++;
+
+        return ['model-1'];
+    });
+
+    // Verify the cache key format
+    $key = 'atlas:models:my-key';
+    expect(Cache::has($key))->toBeTrue();
 });
 
-it('uses configured cache store', function () {
-    config([
-        'atlas.embeddings.cache.enabled' => true,
-        'atlas.embeddings.cache.store' => 'array',
-    ]);
+it('types dont collide', function () {
+    config(['atlas.cache.ttl.models' => 3600, 'atlas.cache.ttl.voices' => 3600]);
 
-    // Verify the cache store is accessed and remembers correctly
-    $vector = [0.1, 0.2];
-    $result = $this->cache->remember('store-test', fn () => $vector);
+    $this->cache->remember('models', 'same-key', fn () => 'models-value');
+    $this->cache->remember('voices', 'same-key', fn () => 'voices-value');
 
-    expect($result)->toBe($vector);
+    // Forgetting one type doesn't affect the other
+    $this->cache->forget('models', 'same-key');
 
-    // Verify it's actually cached in the array store
-    $key = $this->cache->buildKey('store-test');
-    expect(Cache::store('array')->has($key))->toBeTrue();
+    $voicesStillCached = false;
+    $result = $this->cache->remember('voices', 'same-key', function () use (&$voicesStillCached) {
+        $voicesStillCached = true;
+
+        return 'regenerated';
+    });
+
+    expect($voicesStillCached)->toBeFalse();
+    expect($result)->toBe('voices-value');
+});
+
+it('flush keys removes multiple entries', function () {
+    config(['atlas.cache.ttl.models' => 3600]);
+
+    $this->cache->remember('models', 'key-a', fn () => 'a');
+    $this->cache->remember('models', 'key-b', fn () => 'b');
+
+    $this->cache->flushKeys('models', ['key-a', 'key-b']);
+
+    $calledA = false;
+    $this->cache->remember('models', 'key-a', function () use (&$calledA) {
+        $calledA = true;
+
+        return 'regenerated';
+    });
+
+    expect($calledA)->toBeTrue();
 });

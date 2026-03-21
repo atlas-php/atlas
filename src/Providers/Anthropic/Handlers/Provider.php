@@ -4,32 +4,39 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Providers\Anthropic\Handlers;
 
-use Atlasphp\Atlas\Providers\Handlers\ProviderHandler;
-use Atlasphp\Atlas\Providers\HttpClient;
+use Atlasphp\Atlas\Providers\Handlers\AbstractProviderHandler;
 use Atlasphp\Atlas\Providers\ModelList;
-use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Providers\VoiceList;
 
 /**
  * Anthropic provider handler for the models endpoint.
  *
  * Uses Anthropic's /v1/models endpoint which returns data[].id format.
+ * Custom auth via x-api-key header and anthropic-version.
  */
-class Provider implements ProviderHandler
+class Provider extends AbstractProviderHandler
 {
-    public function __construct(
-        protected readonly ProviderConfig $config,
-        protected readonly HttpClient $http,
-    ) {}
+    /**
+     * Anthropic uses x-api-key header, not Bearer.
+     *
+     * @return array<string, string>
+     */
+    protected function headersWithoutContentType(): array
+    {
+        return [
+            'x-api-key' => $this->config->apiKey,
+            'anthropic-version' => $this->config->extra['version'] ?? '2023-06-01',
+        ];
+    }
 
-    public function models(): ModelList
+    /**
+     * Fetch models from Anthropic's /v1/models endpoint.
+     */
+    protected function fetchModels(): ModelList
     {
         $data = $this->http->get(
             url: "{$this->config->baseUrl}/models?limit=100",
-            headers: [
-                'x-api-key' => $this->config->apiKey,
-                'anthropic-version' => $this->config->extra['version'] ?? '2023-06-01',
-            ],
+            headers: $this->headersWithoutContentType(),
             timeout: $this->config->timeout,
         );
 
@@ -43,15 +50,8 @@ class Provider implements ProviderHandler
         return new ModelList($ids);
     }
 
-    public function voices(): VoiceList
+    protected function fetchVoices(): VoiceList
     {
         return new VoiceList([]);
-    }
-
-    public function validate(): bool
-    {
-        $this->models();
-
-        return true;
     }
 }

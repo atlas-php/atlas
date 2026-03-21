@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Cache\AtlasCache;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Providers\Anthropic\AnthropicDriver;
 use Atlasphp\Atlas\Providers\HttpClient;
@@ -22,6 +23,7 @@ function makeAnthropicDriver(array $capabilityOverrides = []): AnthropicDriver
             'capabilities' => $capabilityOverrides,
         ]),
         http: app(HttpClient::class),
+        cache: app(AtlasCache::class),
     );
 }
 

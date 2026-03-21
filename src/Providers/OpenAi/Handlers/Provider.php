@@ -15,7 +15,7 @@ class Provider extends AbstractProviderHandler
 {
     use HasOrganizationHeader;
 
-    public function voices(): VoiceList
+    protected function fetchVoices(): VoiceList
     {
         return new VoiceList([
             'alloy', 'ash', 'ballad', 'coral', 'echo',

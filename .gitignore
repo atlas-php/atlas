@@ -68,6 +68,7 @@ sandbox/storage/framework/views/*
 /sandbox/storage/app/nexus/
 sandbox/storage/xai-test/
 sandbox/storage/openai-test/
+sandbox/storage/elevenlabs/
 atlas-v3*.md
 
 # VitePress

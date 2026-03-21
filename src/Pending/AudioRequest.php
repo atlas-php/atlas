@@ -167,7 +167,9 @@ class AudioRequest implements QueueableRequest
             voiceClone: $this->voiceClone,
             providerOptions: $this->providerOptions,
             middleware: $this->middleware,
-            meta: $this->meta,
+            meta: array_merge($this->meta, [
+                '_audio_mode' => $this->meta['_audio_mode'] ?? 'tts',
+            ]),
         );
     }
 

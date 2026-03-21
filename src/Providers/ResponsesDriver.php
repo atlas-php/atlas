@@ -62,7 +62,7 @@ class ResponsesDriver extends Driver
 
     protected function providerHandler(string $feature = 'provider'): ProviderHandler
     {
-        return new Provider($this->config, $this->http);
+        return new Provider($this->config, $this->http, $this->cache);
     }
 
     protected function textHandler(): TextHandler

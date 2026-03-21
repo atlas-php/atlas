@@ -13,6 +13,7 @@ use Atlasphp\Atlas\Pending\ProviderRequest;
 use Atlasphp\Atlas\Pending\RerankRequest;
 use Atlasphp\Atlas\Pending\TextRequest;
 use Atlasphp\Atlas\Pending\VideoRequest;
+use Atlasphp\Atlas\Persistence\Memory\MemoryBuilder;
 
 it('text returns TextRequest', function () {
     $manager = app(AtlasManager::class);
@@ -66,6 +67,12 @@ it('agent returns AgentRequest', function () {
     $manager = app(AtlasManager::class);
 
     expect($manager->agent('support'))->toBeInstanceOf(AgentRequest::class);
+});
+
+it('memory returns MemoryBuilder', function () {
+    $manager = app(AtlasManager::class);
+
+    expect($manager->memory())->toBeInstanceOf(MemoryBuilder::class);
 });
 
 it('accepts Provider enum', function () {

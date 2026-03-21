@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Cache\AtlasCache;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Providers\Google\GoogleDriver;
 use Atlasphp\Atlas\Providers\HttpClient;
@@ -21,6 +22,7 @@ function makeGoogleDriver(array $capabilityOverrides = []): GoogleDriver
             'capability_overrides' => $capabilityOverrides,
         ]),
         http: app(HttpClient::class),
+        cache: app(AtlasCache::class),
     );
 }
 

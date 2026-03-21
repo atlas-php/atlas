@@ -13,4 +13,5 @@ enum Provider: string
     case Anthropic = 'anthropic';
     case Google = 'google';
     case xAI = 'xai';
+    case ElevenLabs = 'elevenlabs';
 }

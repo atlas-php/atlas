@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Providers\Google\Handlers;
 
-use Atlasphp\Atlas\Providers\Handlers\ProviderHandler;
-use Atlasphp\Atlas\Providers\HttpClient;
+use Atlasphp\Atlas\Providers\Handlers\AbstractProviderHandler;
 use Atlasphp\Atlas\Providers\ModelList;
-use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Providers\VoiceList;
 
 /**
@@ -16,20 +14,28 @@ use Atlasphp\Atlas\Providers\VoiceList;
  * Uses Gemini's /v1beta/models format which returns models[].name
  * instead of OpenAI's data[].id format.
  */
-class Provider implements ProviderHandler
+class Provider extends AbstractProviderHandler
 {
-    public function __construct(
-        protected readonly ProviderConfig $config,
-        protected readonly HttpClient $http,
-    ) {}
+    /**
+     * Google uses x-goog-api-key header.
+     *
+     * @return array<string, string>
+     */
+    protected function headersWithoutContentType(): array
+    {
+        return [
+            'x-goog-api-key' => $this->config->apiKey,
+        ];
+    }
 
-    public function models(): ModelList
+    /**
+     * Fetch models from Gemini's /v1beta/models endpoint.
+     */
+    protected function fetchModels(): ModelList
     {
         $data = $this->http->get(
             url: "{$this->config->baseUrl}/v1beta/models?pageSize=1000",
-            headers: [
-                'x-goog-api-key' => $this->config->apiKey,
-            ],
+            headers: $this->headersWithoutContentType(),
             timeout: $this->config->timeout,
         );
 
@@ -48,15 +54,8 @@ class Provider implements ProviderHandler
         return new ModelList($ids);
     }
 
-    public function voices(): VoiceList
+    protected function fetchVoices(): VoiceList
     {
         return new VoiceList([]);
-    }
-
-    public function validate(): bool
-    {
-        $this->models();
-
-        return true;
     }
 }
