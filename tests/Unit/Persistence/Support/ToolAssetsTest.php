@@ -119,6 +119,24 @@ it('resolves extension from mime type', function () {
     expect($unknownAsset->filename)->toEndWith('.bin');
 });
 
+it('resolves all supported mime type extensions', function (string $mimeType, string $extension) {
+    $asset = ToolAssets::store('content', ['mime_type' => $mimeType]);
+    expect($asset->filename)->toEndWith(".{$extension}");
+})->with([
+    'image/jpeg' => ['image/jpeg', 'jpg'],
+    'image/gif' => ['image/gif', 'gif'],
+    'image/webp' => ['image/webp', 'webp'],
+    'image/svg+xml' => ['image/svg+xml', 'svg'],
+    'audio/mpeg' => ['audio/mpeg', 'mp3'],
+    'audio/wav' => ['audio/wav', 'wav'],
+    'audio/ogg' => ['audio/ogg', 'ogg'],
+    'audio/flac' => ['audio/flac', 'flac'],
+    'video/mp4' => ['video/mp4', 'mp4'],
+    'video/webm' => ['video/webm', 'webm'],
+    'application/json' => ['application/json', 'json'],
+    'text/plain' => ['text/plain', 'txt'],
+]);
+
 it('defaults type to file when not specified', function () {
     $asset = ToolAssets::store('content', []);
 

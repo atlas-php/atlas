@@ -95,3 +95,15 @@ it('lists voices via provider handler', function () {
     expect($voices->voices)->toContain('rex');
     expect($voices->voices)->toContain('sal');
 });
+
+// ─── Validate ──────────────────────────────────────────────────────────────
+
+it('validates via provider handler', function () {
+    Http::fake([
+        'api.x.ai/v1/models' => Http::response([
+            'data' => [['id' => 'grok-3', 'object' => 'model']],
+        ]),
+    ]);
+
+    expect(makeXaiDriver()->validate())->toBeTrue();
+});

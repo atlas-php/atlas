@@ -580,3 +580,144 @@ it('links asset to current tool call when inside tool execution', function () {
     expect($asset->metadata['tool_call_id'])->toBe($toolCallRecord->id);
     expect($asset->metadata['tool_name'])->toBe('generate_image');
 });
+
+// ─── resolveExtension AssetType fallback branches ──────────────────────────
+
+it('resolves mp3 extension for audio response with unknown mime type', function () {
+    Storage::fake('local');
+    config()->set('atlas.storage.disk', 'local');
+    config()->set('atlas.storage.prefix', 'atlas');
+    config()->set('atlas.persistence.auto_store_assets', true);
+
+    $service = new ExecutionService;
+    $middleware = new TrackProviderCall($service);
+
+    $context = new ProviderContext(
+        provider: 'openai',
+        model: 'tts-1',
+        method: 'audio',
+        request: new stdClass,
+        meta: [],
+    );
+
+    $response = new class
+    {
+        public object $usage;
+
+        public function __construct()
+        {
+            $this->usage = (object) ['inputTokens' => 5, 'outputTokens' => 0];
+        }
+
+        public function contents(): string
+        {
+            return 'fake-audio-bytes';
+        }
+
+        public function mimeType(): string
+        {
+            return 'application/octet-stream';
+        }
+    };
+
+    $middleware->handle($context, fn () => $response);
+
+    $asset = Asset::latest('id')->first();
+    expect($asset)->not->toBeNull();
+    expect($asset->path)->toEndWith('.mp3');
+});
+
+it('resolves mp4 extension for video response with unknown mime type', function () {
+    Storage::fake('local');
+    config()->set('atlas.storage.disk', 'local');
+    config()->set('atlas.storage.prefix', 'atlas');
+    config()->set('atlas.persistence.auto_store_assets', true);
+
+    $service = new ExecutionService;
+    $middleware = new TrackProviderCall($service);
+
+    $context = new ProviderContext(
+        provider: 'openai',
+        model: 'sora-2',
+        method: 'video',
+        request: new stdClass,
+        meta: [],
+    );
+
+    $response = new class
+    {
+        public object $usage;
+
+        public function __construct()
+        {
+            $this->usage = (object) ['inputTokens' => 10, 'outputTokens' => 0];
+        }
+
+        public function contents(): string
+        {
+            return 'fake-video-bytes';
+        }
+
+        public function mimeType(): string
+        {
+            return 'application/octet-stream';
+        }
+    };
+
+    $middleware->handle($context, fn () => $response);
+
+    $asset = Asset::latest('id')->first();
+    expect($asset)->not->toBeNull();
+    expect($asset->path)->toEndWith('.mp4');
+});
+
+it('resolves known mime type extensions in middleware', function (string $method, string $mimeType, string $extension) {
+    Storage::fake('local');
+    config()->set('atlas.storage.disk', 'local');
+    config()->set('atlas.storage.prefix', 'atlas');
+    config()->set('atlas.persistence.auto_store_assets', true);
+
+    $service = new ExecutionService;
+    $middleware = new TrackProviderCall($service);
+
+    $context = new ProviderContext(
+        provider: 'openai',
+        model: 'test-model',
+        method: $method,
+        request: new stdClass,
+        meta: [],
+    );
+
+    $response = new class($mimeType)
+    {
+        public object $usage;
+
+        public function __construct(private string $mime)
+        {
+            $this->usage = (object) ['inputTokens' => 1, 'outputTokens' => 0];
+        }
+
+        public function contents(): string
+        {
+            return 'bytes';
+        }
+
+        public function mimeType(): string
+        {
+            return $this->mime;
+        }
+    };
+
+    $middleware->handle($context, fn () => $response);
+
+    $asset = Asset::latest('id')->first();
+    expect($asset)->not->toBeNull();
+    expect($asset->path)->toEndWith(".{$extension}");
+})->with([
+    'image/jpeg' => ['image', 'image/jpeg', 'jpg'],
+    'image/webp' => ['image', 'image/webp', 'webp'],
+    'image/gif' => ['image', 'image/gif', 'gif'],
+    'audio/wav' => ['audio', 'audio/wav', 'wav'],
+    'audio/ogg' => ['audio', 'audio/ogg', 'ogg'],
+    'video/webm' => ['video', 'video/webm', 'webm'],
+]);

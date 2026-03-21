@@ -207,6 +207,149 @@ it('videoToText throws UnsupportedFeatureException', function () {
     $handler->videoToText(makeOpenAiVideoRequest());
 })->throws(UnsupportedFeatureException::class);
 
+// ─── resolveSize branches ──────────────────────────────────────────────────
+
+it('maps 9:16 to portrait size', function () {
+    Http::fake([
+        'api.openai.com/v1/videos' => Http::response(['id' => 'video_port', 'status' => 'queued']),
+        'api.openai.com/v1/videos/video_port' => Http::response(['status' => 'completed']),
+        'api.openai.com/v1/videos/video_port/content' => Http::response('binary'),
+    ]);
+
+    $handler = makeOpenAiVideoHandler();
+    $handler->video(makeOpenAiVideoRequest(['ratio' => '9:16']));
+
+    Http::assertSent(function ($request) {
+        if ($request->url() === 'https://api.openai.com/v1/videos') {
+            return $request['size'] === '720x1280';
+        }
+
+        return true;
+    });
+});
+
+it('maps portrait alias to 720x1280', function () {
+    Http::fake([
+        'api.openai.com/v1/videos' => Http::response(['id' => 'video_prt', 'status' => 'queued']),
+        'api.openai.com/v1/videos/video_prt' => Http::response(['status' => 'completed']),
+        'api.openai.com/v1/videos/video_prt/content' => Http::response('binary'),
+    ]);
+
+    $handler = makeOpenAiVideoHandler();
+    $handler->video(makeOpenAiVideoRequest(['ratio' => 'portrait']));
+
+    Http::assertSent(function ($request) {
+        if ($request->url() === 'https://api.openai.com/v1/videos') {
+            return $request['size'] === '720x1280';
+        }
+
+        return true;
+    });
+});
+
+it('maps landscape alias to 1280x720', function () {
+    Http::fake([
+        'api.openai.com/v1/videos' => Http::response(['id' => 'video_land', 'status' => 'queued']),
+        'api.openai.com/v1/videos/video_land' => Http::response(['status' => 'completed']),
+        'api.openai.com/v1/videos/video_land/content' => Http::response('binary'),
+    ]);
+
+    $handler = makeOpenAiVideoHandler();
+    $handler->video(makeOpenAiVideoRequest(['ratio' => 'landscape']));
+
+    Http::assertSent(function ($request) {
+        if ($request->url() === 'https://api.openai.com/v1/videos') {
+            return $request['size'] === '1280x720';
+        }
+
+        return true;
+    });
+});
+
+it('passes through unknown ratio as-is', function () {
+    Http::fake([
+        'api.openai.com/v1/videos' => Http::response(['id' => 'video_unk', 'status' => 'queued']),
+        'api.openai.com/v1/videos/video_unk' => Http::response(['status' => 'completed']),
+        'api.openai.com/v1/videos/video_unk/content' => Http::response('binary'),
+    ]);
+
+    $handler = makeOpenAiVideoHandler();
+    $handler->video(makeOpenAiVideoRequest(['ratio' => '4:3']));
+
+    Http::assertSent(function ($request) {
+        if ($request->url() === 'https://api.openai.com/v1/videos') {
+            return $request['size'] === '4:3';
+        }
+
+        return true;
+    });
+});
+
+// ─── resolveInputReference branches ────────────────────────────────────────
+
+it('resolves base64 input reference for image-to-video', function () {
+    Http::fake([
+        'api.openai.com/v1/videos' => Http::response(['id' => 'video_b64', 'status' => 'queued']),
+        'api.openai.com/v1/videos/video_b64' => Http::response(['status' => 'completed']),
+        'api.openai.com/v1/videos/video_b64/content' => Http::response('binary'),
+    ]);
+
+    $image = Image::fromBase64(base64_encode('fake-png'), 'image/png');
+
+    $handler = makeOpenAiVideoHandler();
+    $handler->video(makeOpenAiVideoRequest(['media' => [$image]]));
+
+    Http::assertSent(function ($request) {
+        if ($request->url() === 'https://api.openai.com/v1/videos') {
+            return str_starts_with($request['input_reference']['image_url'] ?? '', 'data:image/png;base64,');
+        }
+
+        return true;
+    });
+});
+
+it('resolves file path input reference for image-to-video', function () {
+    $tmpFile = tempnam(sys_get_temp_dir(), 'atlas_test_');
+    file_put_contents($tmpFile, 'fake-image-bytes');
+
+    Http::fake([
+        'api.openai.com/v1/videos' => Http::response(['id' => 'video_fp', 'status' => 'queued']),
+        'api.openai.com/v1/videos/video_fp' => Http::response(['status' => 'completed']),
+        'api.openai.com/v1/videos/video_fp/content' => Http::response('binary'),
+    ]);
+
+    $image = Image::fromPath($tmpFile);
+
+    $handler = makeOpenAiVideoHandler();
+    $handler->video(makeOpenAiVideoRequest(['media' => [$image]]));
+
+    Http::assertSent(function ($request) {
+        if ($request->url() === 'https://api.openai.com/v1/videos') {
+            return str_contains($request['input_reference']['image_url'] ?? '', 'base64,');
+        }
+
+        return true;
+    });
+
+    unlink($tmpFile);
+});
+
+// ─── pollForCompletion branches ────────────────────────────────────────────
+
+it('handles failed generation with plain string error', function () {
+    Http::fake([
+        'api.openai.com/v1/videos' => Http::response(['id' => 'video_strerr', 'status' => 'queued']),
+        'api.openai.com/v1/videos/video_strerr' => Http::response([
+            'status' => 'failed',
+            'error' => 'Rate limit exceeded',
+        ]),
+    ]);
+
+    $handler = makeOpenAiVideoHandler();
+
+    $handler->video(makeOpenAiVideoRequest());
+})->throws(ProviderException::class, 'Rate limit exceeded');
+
 it('downloads video binary from content endpoint', function () {
     $videoContent = random_bytes(100);
 

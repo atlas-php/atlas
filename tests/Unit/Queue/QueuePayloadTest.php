@@ -16,6 +16,7 @@ use Atlasphp\Atlas\Responses\EmbeddingsResponse;
 use Atlasphp\Atlas\Responses\ImageResponse;
 use Atlasphp\Atlas\Responses\ModerationResponse;
 use Atlasphp\Atlas\Responses\RerankResponse;
+use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\VideoResponse;
@@ -459,3 +460,301 @@ it('RerankRequest executeFromPayload rebuilds and executes asReranked', function
 
     expect($result)->toBeInstanceOf(RerankResponse::class);
 });
+
+// ─── executeFromPayload branch coverage ────────────────────────────────────
+
+it('TextRequest executeFromPayload injects executionId into meta', function () {
+    Atlas::fake();
+
+    $result = TextRequest::executeFromPayload(
+        payload: [
+            'provider' => 'openai', 'model' => 'gpt-5',
+            'instructions' => null, 'message' => 'Hello', 'messageMedia' => [],
+            'messages' => [], 'maxTokens' => null, 'temperature' => null,
+            'tools' => [], 'providerTools' => [], 'maxSteps' => null,
+            'parallelToolCalls' => true, 'schema' => null,
+            'providerOptions' => [], 'meta' => [],
+        ],
+        terminal: 'asText',
+        executionId: 42,
+    );
+
+    expect($result)->toBeInstanceOf(TextResponse::class);
+});
+
+it('TextRequest executeFromPayload applies maxTokens and temperature', function () {
+    Atlas::fake();
+
+    $result = TextRequest::executeFromPayload(
+        payload: [
+            'provider' => 'openai', 'model' => 'gpt-5',
+            'instructions' => null, 'message' => 'Hello', 'messageMedia' => [],
+            'messages' => [], 'maxTokens' => 500, 'temperature' => 0.8,
+            'tools' => [], 'providerTools' => [], 'maxSteps' => null,
+            'parallelToolCalls' => true, 'schema' => null,
+            'providerOptions' => [], 'meta' => [],
+        ],
+        terminal: 'asText',
+    );
+
+    expect($result)->toBeInstanceOf(TextResponse::class);
+});
+
+it('TextRequest executeFromPayload applies providerOptions', function () {
+    Atlas::fake();
+
+    $result = TextRequest::executeFromPayload(
+        payload: [
+            'provider' => 'openai', 'model' => 'gpt-5',
+            'instructions' => null, 'message' => 'Hello', 'messageMedia' => [],
+            'messages' => [], 'maxTokens' => null, 'temperature' => null,
+            'tools' => [], 'providerTools' => [], 'maxSteps' => null,
+            'parallelToolCalls' => true, 'schema' => null,
+            'providerOptions' => ['top_p' => 0.9], 'meta' => [],
+        ],
+        terminal: 'asText',
+    );
+
+    expect($result)->toBeInstanceOf(TextResponse::class);
+});
+
+it('TextRequest executeFromPayload applies schema', function () {
+    Atlas::fake();
+
+    $result = TextRequest::executeFromPayload(
+        payload: [
+            'provider' => 'openai', 'model' => 'gpt-5',
+            'instructions' => null, 'message' => 'Hello', 'messageMedia' => [],
+            'messages' => [], 'maxTokens' => null, 'temperature' => null,
+            'tools' => [], 'providerTools' => [], 'maxSteps' => null,
+            'parallelToolCalls' => true,
+            'schema' => ['name' => 'result', 'description' => 'The result', 'data' => ['type' => 'object']],
+            'providerOptions' => [], 'meta' => [],
+        ],
+        terminal: 'asStructured',
+    );
+
+    expect($result)->toBeInstanceOf(StructuredResponse::class);
+});
+
+it('TextRequest executeFromPayload applies variables and interpolation', function () {
+    Atlas::fake();
+
+    $result = TextRequest::executeFromPayload(
+        payload: [
+            'provider' => 'openai', 'model' => 'gpt-5',
+            'instructions' => 'Hello {NAME}', 'message' => null, 'messageMedia' => [],
+            'messages' => [], 'maxTokens' => null, 'temperature' => null,
+            'tools' => [], 'providerTools' => [], 'maxSteps' => null,
+            'parallelToolCalls' => true, 'schema' => null,
+            'providerOptions' => [], 'meta' => [],
+            'variables' => ['NAME' => 'Tim'],
+            'interpolate_messages' => true,
+        ],
+        terminal: 'asText',
+    );
+
+    expect($result)->toBeInstanceOf(TextResponse::class);
+});
+
+it('TextRequest executeFromPayload handles asStream terminal', function () {
+    Atlas::fake();
+
+    $result = TextRequest::executeFromPayload(
+        payload: [
+            'provider' => 'openai', 'model' => 'gpt-5',
+            'instructions' => null, 'message' => 'Hello', 'messageMedia' => [],
+            'messages' => [], 'maxTokens' => null, 'temperature' => null,
+            'tools' => [], 'providerTools' => [], 'maxSteps' => null,
+            'parallelToolCalls' => true, 'schema' => null,
+            'providerOptions' => [], 'meta' => [],
+        ],
+        terminal: 'asStream',
+    );
+
+    expect($result)->toBeInstanceOf(StreamResponse::class);
+});
+
+it('ImageRequest executeFromPayload injects executionId', function () {
+    Atlas::fake();
+
+    $result = ImageRequest::executeFromPayload(
+        payload: [
+            'provider' => 'openai', 'model' => 'dall-e-3',
+            'instructions' => 'A cat', 'media' => [],
+            'size' => null, 'quality' => null, 'format' => null, 'count' => 1,
+            'providerOptions' => ['style' => 'vivid'], 'meta' => [],
+        ],
+        terminal: 'asImage',
+        executionId: 99,
+    );
+
+    expect($result)->toBeInstanceOf(ImageResponse::class);
+});
+
+it('ImageRequest executeFromPayload throws on unknown terminal', function () {
+    Atlas::fake();
+
+    ImageRequest::executeFromPayload(
+        payload: [
+            'provider' => 'openai', 'model' => 'dall-e-3',
+            'instructions' => null, 'media' => [],
+            'size' => null, 'quality' => null, 'format' => null, 'count' => 1,
+            'providerOptions' => [], 'meta' => [],
+        ],
+        terminal: 'asUnknown',
+    );
+})->throws(InvalidArgumentException::class, 'Unknown terminal method: asUnknown');
+
+it('AudioRequest executeFromPayload applies all optional fields', function () {
+    Atlas::fake();
+
+    $result = AudioRequest::executeFromPayload(
+        payload: [
+            'provider' => 'openai', 'model' => 'tts-1',
+            'instructions' => 'Hello', 'media' => [],
+            'voice' => 'nova', 'voiceClone' => ['data' => 'base64clonedata'],
+            'speed' => 1.5, 'language' => 'en', 'duration' => 30, 'format' => 'mp3',
+            'providerOptions' => ['response_format' => 'opus'], 'meta' => [],
+        ],
+        terminal: 'asAudio',
+        executionId: 7,
+    );
+
+    expect($result)->toBeInstanceOf(AudioResponse::class);
+});
+
+it('AudioRequest executeFromPayload throws on unknown terminal', function () {
+    Atlas::fake();
+
+    AudioRequest::executeFromPayload(
+        payload: [
+            'provider' => 'openai', 'model' => 'tts-1',
+            'instructions' => null, 'media' => [],
+            'voice' => null, 'voiceClone' => null,
+            'speed' => null, 'language' => null, 'duration' => null, 'format' => null,
+            'providerOptions' => [], 'meta' => [],
+        ],
+        terminal: 'asUnknown',
+    );
+})->throws(InvalidArgumentException::class, 'Unknown terminal method: asUnknown');
+
+it('VideoRequest executeFromPayload applies all optional fields and executionId', function () {
+    Atlas::fake();
+
+    $result = VideoRequest::executeFromPayload(
+        payload: [
+            'provider' => 'openai', 'model' => 'sora',
+            'instructions' => 'Sunset', 'media' => [],
+            'duration' => 10, 'ratio' => '16:9', 'format' => 'mp4',
+            'providerOptions' => ['style' => 'natural'], 'meta' => ['key' => 'val'],
+            'variables' => ['APP' => 'test'],
+            'interpolate_messages' => true,
+        ],
+        terminal: 'asVideo',
+        executionId: 15,
+    );
+
+    expect($result)->toBeInstanceOf(VideoResponse::class);
+});
+
+it('VideoRequest executeFromPayload throws on unknown terminal', function () {
+    Atlas::fake();
+
+    VideoRequest::executeFromPayload(
+        payload: [
+            'provider' => 'openai', 'model' => 'sora',
+            'instructions' => null, 'media' => [],
+            'duration' => null, 'ratio' => null, 'format' => null,
+            'providerOptions' => [], 'meta' => [],
+        ],
+        terminal: 'asUnknown',
+    );
+})->throws(InvalidArgumentException::class, 'Unknown terminal method: asUnknown');
+
+it('EmbedRequest executeFromPayload applies providerOptions and executionId', function () {
+    Atlas::fake();
+
+    $result = EmbedRequest::executeFromPayload(
+        payload: [
+            'provider' => 'openai', 'model' => 'text-embedding-3-small',
+            'input' => 'Hello world',
+            'providerOptions' => ['dimensions' => 512], 'meta' => [],
+        ],
+        terminal: 'asEmbeddings',
+        executionId: 33,
+    );
+
+    expect($result)->toBeInstanceOf(EmbeddingsResponse::class);
+});
+
+it('EmbedRequest executeFromPayload throws on unknown terminal', function () {
+    Atlas::fake();
+
+    EmbedRequest::executeFromPayload(
+        payload: [
+            'provider' => 'openai', 'model' => 'text-embedding-3-small',
+            'input' => 'Hello', 'providerOptions' => [], 'meta' => [],
+        ],
+        terminal: 'asUnknown',
+    );
+})->throws(InvalidArgumentException::class, 'Unknown terminal method: asUnknown');
+
+it('ModerateRequest executeFromPayload applies providerOptions and executionId', function () {
+    Atlas::fake();
+
+    $result = ModerateRequest::executeFromPayload(
+        payload: [
+            'provider' => 'openai', 'model' => 'omni-moderation',
+            'input' => 'test content',
+            'providerOptions' => ['threshold' => 0.8], 'meta' => [],
+        ],
+        terminal: 'asModeration',
+        executionId: 55,
+    );
+
+    expect($result)->toBeInstanceOf(ModerationResponse::class);
+});
+
+it('ModerateRequest executeFromPayload throws on unknown terminal', function () {
+    Atlas::fake();
+
+    ModerateRequest::executeFromPayload(
+        payload: [
+            'provider' => 'openai', 'model' => 'omni-moderation',
+            'input' => 'test', 'providerOptions' => [], 'meta' => [],
+        ],
+        terminal: 'asUnknown',
+    );
+})->throws(InvalidArgumentException::class, 'Unknown terminal method: asUnknown');
+
+it('RerankRequest executeFromPayload applies all optional fields', function () {
+    Atlas::fake();
+
+    $result = RerankRequest::executeFromPayload(
+        payload: [
+            'provider' => 'openai', 'model' => 'rerank-v3',
+            'query' => 'test query', 'documents' => ['doc1', 'doc2'],
+            'topN' => 5, 'maxTokensPerDoc' => 512, 'minScore' => 0.5,
+            'providerOptions' => ['return_documents' => true], 'meta' => [],
+        ],
+        terminal: 'asReranked',
+        executionId: 77,
+    );
+
+    expect($result)->toBeInstanceOf(RerankResponse::class);
+});
+
+it('RerankRequest executeFromPayload throws on unknown terminal', function () {
+    Atlas::fake();
+
+    RerankRequest::executeFromPayload(
+        payload: [
+            'provider' => 'openai', 'model' => 'rerank-v3',
+            'query' => 'q', 'documents' => ['doc'],
+            'topN' => null, 'maxTokensPerDoc' => null, 'minScore' => null,
+            'providerOptions' => [], 'meta' => [],
+        ],
+        terminal: 'asUnknown',
+    );
+})->throws(InvalidArgumentException::class, 'Unknown terminal method: asUnknown');
