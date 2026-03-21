@@ -21,6 +21,11 @@ return new class extends Migration
 
     public function up(): void
     {
+        // Enable pgvector extension for vector columns (PostgreSQL only, idempotent)
+        if ($this->isPostgres()) {
+            DB::statement('CREATE EXTENSION IF NOT EXISTS vector');
+        }
+
         Schema::create($this->tableName('messages'), function (Blueprint $table) {
             $table->id();
             $table->foreignId('conversation_id')

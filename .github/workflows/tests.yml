@@ -69,7 +69,7 @@ jobs:
     name: Tests — Persistence (PHP 8.2, PostgreSQL)
     services:
       postgres:
-        image: postgres:16
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_USER: atlas
           POSTGRES_PASSWORD: secret

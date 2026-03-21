@@ -6,9 +6,12 @@ use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
 use Atlasphp\Atlas\Persistence\Enums\ToolCallType;
+use Atlasphp\Atlas\Persistence\Models\Asset;
+use Atlasphp\Atlas\Persistence\Models\Conversation;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\ExecutionStep;
 use Atlasphp\Atlas\Persistence\Models\ExecutionToolCall;
+use Atlasphp\Atlas\Persistence\Models\Message;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 
 beforeEach(function () {
@@ -34,19 +37,24 @@ it('creates execution in pending status with correct provider and model', functi
 });
 
 it('creates execution with optional parameters', function () {
+    $conversation = Conversation::factory()->create();
+    $message = Message::factory()->create([
+        'conversation_id' => $conversation->id,
+    ]);
+
     $execution = $this->service->createExecution(
         provider: 'openai',
         model: 'gpt-5',
         meta: ['key' => 'value'],
         agent: 'writer-agent',
-        conversationId: 42,
-        messageId: 7,
+        conversationId: $conversation->id,
+        messageId: $message->id,
         type: ExecutionType::Image,
     );
 
     expect($execution->agent)->toBe('writer-agent')
-        ->and($execution->conversation_id)->toBe(42)
-        ->and($execution->message_id)->toBe(7)
+        ->and($execution->conversation_id)->toBe($conversation->id)
+        ->and($execution->message_id)->toBe($message->id)
         ->and($execution->type)->toBe(ExecutionType::Image)
         ->and($execution->metadata)->toBe(['key' => 'value']);
 });
@@ -299,12 +307,13 @@ it('records tokens directly without step aggregation', function () {
 it('updates execution asset_id', function () {
     $this->service->createExecution(provider: 'openai', model: 'gpt-5');
 
-    $this->service->linkAsset(42);
+    $asset = Asset::factory()->create();
+    $this->service->linkAsset($asset->id);
 
     $execution = $this->service->getExecution();
     $execution->refresh();
 
-    expect($execution->asset_id)->toBe(42);
+    expect($execution->asset_id)->toBe($asset->id);
 });
 
 it('linkAsset no-ops without active execution', function () {
