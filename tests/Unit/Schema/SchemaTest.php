@@ -20,14 +20,17 @@ it('returns the raw schema from toArray', function () {
     expect($schema->toArray())->toBe($raw);
 });
 
-it('returns provider format with name and schema', function () {
+it('returns provider format with name and schema without description', function () {
     $raw = ['type' => 'object'];
     $schema = new Schema('contact', 'Contact info', $raw);
 
-    expect($schema->toProviderFormat())->toBe([
+    $format = $schema->toProviderFormat();
+
+    expect($format)->toBe([
         'name' => 'contact',
         'schema' => ['type' => 'object'],
     ]);
+    expect($format)->not->toHaveKey('description');
 });
 
 it('inherits static factory methods from SchemaBuilder', function () {

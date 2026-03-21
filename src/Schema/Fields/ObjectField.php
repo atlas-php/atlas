@@ -11,6 +11,9 @@ use Closure;
  * An object field that produces a JSON Schema object type with nested properties.
  *
  * Supports fluent field definition and can be used as a builder via build().
+ *
+ * Note: optional() on this class marks the most recently added child field as
+ * not required — unlike other Field subclasses where optional() marks $this.
  */
 class ObjectField extends Field
 {
@@ -85,7 +88,7 @@ class ObjectField extends Field
     }
 
     /**
-     * @param  Closure(ObjectFieldBuilder): ObjectFieldBuilder  $callback
+     * @param  Closure(ObjectFieldBuilder): void  $callback
      */
     public function array(string $name, string $description, Closure $callback): static
     {
@@ -110,6 +113,9 @@ class ObjectField extends Field
      * In the fluent builder chain, this targets the most recently added child field
      * by cloning it with required=false. This avoids delegating to the child's own
      * optional() override, which would recurse incorrectly for nested ObjectFields.
+     *
+     * The clone is shallow — child ObjectField $fields arrays are safe because
+     * they are fully built before optional() is called and not mutated afterward.
      */
     public function optional(): static
     {

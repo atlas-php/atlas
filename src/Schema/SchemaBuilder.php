@@ -61,7 +61,7 @@ abstract class SchemaBuilder
     }
 
     /**
-     * @param  Closure(ObjectFieldBuilder): ObjectFieldBuilder  $callback
+     * @param  Closure(ObjectFieldBuilder): void  $callback
      */
     public static function array(string $name, string $description, Closure $callback): ArrayField
     {

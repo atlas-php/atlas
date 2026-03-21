@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Schema\Fields;
 
+use InvalidArgumentException;
+
 /**
  * An enum field that produces a JSON Schema string type with allowed values.
  */
@@ -12,7 +14,7 @@ class EnumField extends Field
     /**
      * @param  array<int, string>  $options
      *
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
      */
     public function __construct(
         string $name,
@@ -20,7 +22,7 @@ class EnumField extends Field
         protected readonly array $options,
     ) {
         if ($options === []) {
-            throw new \InvalidArgumentException('EnumField requires at least one option.');
+            throw new InvalidArgumentException('EnumField requires at least one option.');
         }
 
         parent::__construct($name, $description);

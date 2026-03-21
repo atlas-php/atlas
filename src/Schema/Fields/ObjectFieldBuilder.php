@@ -9,7 +9,10 @@ namespace Atlasphp\Atlas\Schema\Fields;
  *
  * Used by ArrayField::ofObjects() to define the shape of each array element.
  * Separate from ObjectField because array item schemas omit the top-level
- * description and don't need nested object/array or build() support.
+ * description and intentionally omit nested object/array or build() support.
+ *
+ * Note: optional() marks the most recently added child field as not required,
+ * matching the ObjectField convention for fluent builder chains.
  */
 class ObjectFieldBuilder
 {

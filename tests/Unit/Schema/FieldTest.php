@@ -50,6 +50,20 @@ it('optional returns a new instance', function () {
     expect($field)->not->toBe($optional);
 });
 
+it('optional returns a new instance for enum field preserving options', function () {
+    $field = new EnumField('status', 'The status', ['active', 'inactive']);
+    $optional = $field->optional();
+
+    expect($field->isRequired())->toBeTrue();
+    expect($optional->isRequired())->toBeFalse();
+    expect($field)->not->toBe($optional);
+    expect($optional->toSchema())->toBe([
+        'type' => 'string',
+        'description' => 'The status',
+        'enum' => ['active', 'inactive'],
+    ]);
+});
+
 it('exposes name and description accessors', function () {
     $field = new StringField('foo', 'bar');
 

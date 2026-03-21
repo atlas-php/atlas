@@ -35,7 +35,7 @@ class ArrayField extends Field
     }
 
     /**
-     * @param  Closure(ObjectFieldBuilder): ObjectFieldBuilder  $callback
+     * @param  Closure(ObjectFieldBuilder): void  $callback
      */
     public static function ofObjects(string $name, string $description, Closure $callback): self
     {
