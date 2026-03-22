@@ -97,75 +97,30 @@ $response = Atlas::agent('support')
 
 ## Custom Providers
 
-Any OpenAI-compatible API can be used via the `chat_completions` driver. Add entries to the `providers` array in `config/atlas.php`:
+Any OpenAI-compatible API (Ollama, LM Studio, Groq, DeepSeek, OpenRouter, etc.) can be added via the `chat_completions` driver:
 
 ```php
-'providers' => [
-
-    // Ollama (local)
-    'ollama' => [
-        'driver'   => 'chat_completions',
-        'api_key'  => env('OLLAMA_API_KEY', 'ollama'),
-        'base_url' => env('OLLAMA_URL', 'http://localhost:11434/v1'),
-    ],
-
-    // LM Studio (local)
-    'lmstudio' => [
-        'driver'   => 'chat_completions',
-        'api_key'  => env('LMSTUDIO_API_KEY', 'lm-studio'),
-        'base_url' => env('LMSTUDIO_URL', 'http://localhost:1234/v1'),
-    ],
-
-    // Groq
-    'groq' => [
-        'driver'   => 'chat_completions',
-        'api_key'  => env('GROQ_API_KEY'),
-        'base_url' => 'https://api.groq.com/openai/v1',
-    ],
-
-    // Together AI
-    'together' => [
-        'driver'   => 'chat_completions',
-        'api_key'  => env('TOGETHER_API_KEY'),
-        'base_url' => 'https://api.together.xyz/v1',
-    ],
-
-    // DeepSeek
-    'deepseek' => [
-        'driver'   => 'chat_completions',
-        'api_key'  => env('DEEPSEEK_API_KEY'),
-        'base_url' => 'https://api.deepseek.com/v1',
-    ],
-
-    // OpenRouter
-    'openrouter' => [
-        'driver'   => 'chat_completions',
-        'api_key'  => env('OPENROUTER_API_KEY'),
-        'base_url' => 'https://openrouter.ai/api/v1',
-    ],
-
+// config/atlas.php → providers
+'ollama' => [
+    'driver'   => 'chat_completions',
+    'api_key'  => env('OLLAMA_API_KEY', 'ollama'),
+    'base_url' => env('OLLAMA_URL', 'http://localhost:11434/v1'),
 ],
 ```
-
-Use custom providers exactly like built-in ones:
 
 ```php
 $response = Atlas::text('ollama', 'llama3')
     ->message('Hello')
     ->asText();
-
-$response = Atlas::text('groq', 'llama-3.3-70b-versatile')
-    ->message('Summarize this text.')
-    ->asText();
 ```
+
+See the [Custom Providers Guide](/guides/custom-providers) for step-by-step setup of Ollama, LM Studio, Groq, Together, DeepSeek, OpenRouter, and more.
 
 ## Provider Reference
 
 Each provider is configured in `config/atlas.php` under the `providers` key. Add your API key to `.env` and you're ready to go.
 
----
-
-### OpenAI
+## OpenAI
 
 Text, images, audio, video, embeddings, moderation, structured output, streaming, vision, tool calling.
 
@@ -186,11 +141,8 @@ OPENAI_URL=https://api.openai.com/v1  # optional, custom endpoint
 ],
 ```
 
-**Popular models:** `gpt-4o`, `gpt-4o-mini`, `o3-mini`, `dall-e-3`, `tts-1`, `whisper-1`, `text-embedding-3-small`
 
----
-
-### Anthropic
+## Anthropic
 
 Text, structured output, streaming, vision, tool calling.
 
@@ -210,11 +162,8 @@ ANTHROPIC_URL=https://api.anthropic.com/v1  # optional
 ],
 ```
 
-**Popular models:** `claude-sonnet-4-20250514`, `claude-opus-4-20250514`, `claude-haiku-3-5-20241022`
 
----
-
-### Google (Gemini)
+## Google (Gemini)
 
 Text, images, embeddings, structured output, streaming, vision, tool calling.
 
@@ -232,11 +181,8 @@ GOOGLE_URL=https://generativelanguage.googleapis.com  # optional
 ],
 ```
 
-**Popular models:** `gemini-2.5-flash`, `gemini-2.5-pro`, `text-embedding-004`
 
----
-
-### xAI (Grok)
+## xAI (Grok)
 
 Text, images, audio, video, structured output, streaming, vision, tool calling.
 
@@ -254,11 +200,8 @@ XAI_URL=https://api.x.ai/v1  # optional
 ],
 ```
 
-**Popular models:** `grok-3`, `grok-3-mini`, `grok-2-image`, `grok-2-video`
 
----
-
-### ElevenLabs
+## ElevenLabs
 
 Text-to-speech, speech-to-text, sound effects, music generation, voice cloning.
 
@@ -277,11 +220,8 @@ ELEVENLABS_URL=https://api.elevenlabs.io/v1  # optional
 ],
 ```
 
-**Popular models:** `eleven_multilingual_v2`, `eleven_turbo_v2_5`
 
----
-
-### Cohere
+## Cohere
 
 Semantic reranking for RAG and search quality.
 
@@ -299,11 +239,8 @@ COHERE_URL=https://api.cohere.com  # optional
 ],
 ```
 
-**Popular models:** `rerank-v3.5`, `rerank-english-v3.0`, `rerank-multilingual-v3.0`
 
----
-
-### Jina
+## Jina
 
 Semantic reranking and content extraction.
 
@@ -321,7 +258,6 @@ JINA_URL=https://api.jina.ai  # optional
 ],
 ```
 
-**Popular models:** `jina-reranker-v2-base-multilingual`
 
 ### Default Provider & Model
 
