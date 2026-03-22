@@ -21,6 +21,7 @@ class StreamCompleted implements ShouldBroadcastNow
         public readonly string $text,
         public readonly ?array $usage = null,
         public readonly ?FinishReason $finishReason = null,
+        public readonly ?string $error = null,
     ) {}
 
     /** @return array<int, Channel> */

@@ -101,36 +101,51 @@ class StreamResponse implements IteratorAggregate, Responsable
             broadcast(new StreamStarted(channel: $this->broadcastChannel));
         }
 
-        foreach ($this->source as $chunk) {
-            // 1. Accumulate
-            if ($chunk->text !== null) {
-                $this->accumulatedText .= $chunk->text;
-            }
+        try {
+            foreach ($this->source as $chunk) {
+                // 1. Accumulate
+                if ($chunk->text !== null) {
+                    $this->accumulatedText .= $chunk->text;
+                }
 
-            if ($chunk->toolCalls !== []) {
-                $this->toolCalls = array_merge($this->toolCalls, $chunk->toolCalls);
-            }
+                if ($chunk->toolCalls !== []) {
+                    $this->toolCalls = array_merge($this->toolCalls, $chunk->toolCalls);
+                }
 
-            if ($chunk->usage !== null) {
-                $this->usage = $chunk->usage;
-            }
+                if ($chunk->usage !== null) {
+                    $this->usage = $chunk->usage;
+                }
 
-            if ($chunk->finishReason !== null) {
-                $this->finishReason = $chunk->finishReason;
-            }
+                if ($chunk->finishReason !== null) {
+                    $this->finishReason = $chunk->finishReason;
+                }
 
-            // 2. Per-chunk callback
-            if ($this->onChunkCallback !== null) {
-                ($this->onChunkCallback)($chunk);
-            }
+                // 2. Per-chunk callback
+                if ($this->onChunkCallback !== null) {
+                    ($this->onChunkCallback)($chunk);
+                }
 
-            // 3. Broadcast chunk
+                // 3. Broadcast chunk
+                if ($this->broadcastChannel !== null) {
+                    $this->broadcastChunk($chunk);
+                }
+
+                // 4. Yield
+                yield $chunk;
+            }
+        } catch (\Throwable $e) {
+            // Broadcast error so frontend clients don't stay in "typing..." state
             if ($this->broadcastChannel !== null) {
-                $this->broadcastChunk($chunk);
+                broadcast(new StreamCompleted(
+                    channel: $this->broadcastChannel,
+                    text: $this->accumulatedText,
+                    usage: null,
+                    finishReason: null,
+                    error: $e->getMessage(),
+                ));
             }
 
-            // 4. Yield
-            yield $chunk;
+            throw $e;
         }
 
         // 5. Broadcast completion

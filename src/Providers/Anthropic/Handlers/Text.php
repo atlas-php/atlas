@@ -98,6 +98,7 @@ class Text implements TextHandler
             structured: $structured,
             usage: $textResponse->usage,
             finishReason: $textResponse->finishReason,
+            meta: $textResponse->meta,
         );
     }
 

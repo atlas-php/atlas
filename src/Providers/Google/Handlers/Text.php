@@ -84,6 +84,7 @@ class Text implements TextHandler
             structured: json_decode($text->text, true) ?? [],
             usage: $text->usage,
             finishReason: $text->finishReason,
+            meta: $text->meta,
         );
     }
 

@@ -49,9 +49,13 @@ abstract class AbstractProviderHandler implements ProviderHandler
 
     public function validate(): bool
     {
-        $this->models();
+        try {
+            $this->models();
 
-        return true;
+            return true;
+        } catch (\Exception) {
+            return false;
+        }
     }
 
     // ─── Uncached fetch — subclasses override these ──────────────────

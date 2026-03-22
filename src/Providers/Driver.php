@@ -126,32 +126,37 @@ abstract class Driver
      */
     protected function dispatch(string $method, mixed $request, Closure $handler): mixed
     {
-        if ($this->middlewareStack === null) {
-            return $handler($request);
+        try {
+            if ($this->middlewareStack === null) {
+                return $handler($request);
+            }
+
+            $middleware = array_merge(
+                config('atlas.middleware.provider', []),
+                $request->middleware,
+            );
+
+            if ($middleware === []) {
+                return $handler($request);
+            }
+
+            $context = new ProviderContext(
+                provider: $this->name(),
+                model: $request->model,
+                method: $method,
+                request: $request,
+                meta: $request->meta,
+            );
+
+            return $this->middlewareStack->run(
+                $context,
+                $middleware,
+                fn (ProviderContext $ctx) => $handler($ctx->request),
+            );
+        } catch (RequestException $e) {
+            // handleRequestException() is declared never — always re-throws as a typed Atlas exception
+            $this->handleRequestException($request->model, $e);
         }
-
-        $middleware = array_merge(
-            config('atlas.middleware.provider', []),
-            $request->middleware,
-        );
-
-        if ($middleware === []) {
-            return $handler($request);
-        }
-
-        $context = new ProviderContext(
-            provider: $this->name(),
-            model: $request->model,
-            method: $method,
-            request: $request,
-            meta: $request->meta,
-        );
-
-        return $this->middlewareStack->run(
-            $context,
-            $middleware,
-            fn (ProviderContext $ctx) => $handler($ctx->request),
-        );
     }
 
     // ─── Handler Resolution ──────────────────────────────────────────────

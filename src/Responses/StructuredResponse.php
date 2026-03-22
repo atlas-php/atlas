@@ -13,10 +13,12 @@ class StructuredResponse
 {
     /**
      * @param  array<string, mixed>  $structured
+     * @param  array<string, mixed>  $meta
      */
     public function __construct(
         public readonly array $structured,
         public readonly Usage $usage,
         public readonly FinishReason $finishReason,
+        public readonly array $meta = [],
     ) {}
 }
