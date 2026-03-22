@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Memory\Tools;
 
-use Atlasphp\Atlas\Persistence\Memory\MemoryService;
+use Atlasphp\Atlas\Persistence\Memory\MemoryContext;
+use Atlasphp\Atlas\Persistence\Memory\MemoryModelService;
 use Atlasphp\Atlas\Schema\Schema;
 use Atlasphp\Atlas\Tools\Tool;
 
@@ -16,10 +17,9 @@ use Atlasphp\Atlas\Tools\Tool;
  */
 class MemorySearch extends Tool
 {
-    use ResolvesMemoryOwner;
-
     public function __construct(
-        protected readonly MemoryService $service,
+        protected readonly MemoryModelService $service,
+        protected readonly MemoryContext $memoryContext,
     ) {}
 
     public function name(): string
@@ -50,14 +50,12 @@ class MemorySearch extends Tool
      */
     public function handle(array $args, array $context): array|string
     {
-        $owner = $this->resolveOwner($context);
-
         $results = $this->service->search(
-            owner: $owner,
+            owner: $this->memoryContext->owner(),
             query: $args['query'],
             type: $args['type'] ?? null,
             namespace: $args['namespace'] ?? null,
-            agent: $context['memory_agent'] ?? null,
+            agent: $this->memoryContext->agentKey(),
             limit: $args['limit'] ?? 10,
         );
 

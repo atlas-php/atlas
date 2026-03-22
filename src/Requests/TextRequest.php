@@ -61,6 +61,30 @@ final class TextRequest
     }
 
     /**
+     * Return a copy with the tools array replaced entirely.
+     *
+     * @param  array<int, mixed>  $tools
+     */
+    public function withReplacedTools(array $tools): self
+    {
+        return new self(
+            model: $this->model,
+            instructions: $this->instructions,
+            message: $this->message,
+            messageMedia: $this->messageMedia,
+            messages: $this->messages,
+            maxTokens: $this->maxTokens,
+            temperature: $this->temperature,
+            schema: $this->schema,
+            tools: $tools,
+            providerTools: $this->providerTools,
+            providerOptions: $this->providerOptions,
+            middleware: $this->middleware,
+            meta: $this->meta,
+        );
+    }
+
+    /**
      * Return a copy with the messages array replaced entirely.
      *
      * @param  array<int, mixed>  $messages

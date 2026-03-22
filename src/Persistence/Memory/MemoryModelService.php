@@ -12,12 +12,12 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Class MemoryService
+ * Class MemoryModelService
  *
- * Core service for memory CRUD, semantic search, direct recall, and maintenance.
- * All memory operations flow through this service — tools and the facade builder delegate here.
+ * Single point of truth for all persistence operations on the Memory model.
+ * Handles CRUD, semantic search, direct recall, and maintenance.
  */
-class MemoryService
+class MemoryModelService
 {
     // ─── Remember ───────────────────────────────────────────────
 
@@ -57,16 +57,26 @@ class MemoryService
         ];
 
         if ($key !== null) {
-            $model::query()
-                ->where('memoryable_type', $owner?->getMorphClass())
-                ->where('memoryable_id', $owner?->getKey())
-                ->where('agent', $agent)
-                ->where('type', $type)
-                ->where('key', $key)
-                ->first()
-                ?->delete();
-
             $attributes['key'] = $key;
+
+            return DB::transaction(function () use ($model, $attributes, $owner, $agent, $type, $key) {
+                $existing = $model::query()
+                    ->where('memoryable_type', $owner?->getMorphClass())
+                    ->where('memoryable_id', $owner?->getKey())
+                    ->where('agent', $agent)
+                    ->where('type', $type)
+                    ->where('key', $key)
+                    ->first();
+
+                if ($existing !== null) {
+                    // PostgreSQL uses a partial unique index that excludes soft-deleted rows,
+                    // so soft-delete preserves version history. Non-PostgreSQL uses a standard
+                    // unique constraint that includes all rows, so force-delete is required.
+                    $this->isPostgres() ? $existing->delete() : $existing->forceDelete();
+                }
+
+                return $model::create($attributes);
+            });
         }
 
         return $model::create($attributes);
@@ -298,5 +308,13 @@ class MemoryService
     {
         /** @var class-string<Memory> */
         return config('atlas.persistence.models.memory', Memory::class);
+    }
+
+    /**
+     * Check if the current database connection is PostgreSQL.
+     */
+    protected function isPostgres(): bool
+    {
+        return DB::connection()->getDriverName() === 'pgsql';
     }
 }

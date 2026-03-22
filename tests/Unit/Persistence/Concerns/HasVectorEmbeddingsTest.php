@@ -158,7 +158,7 @@ it('generates embedding and sets column and timestamp', function () {
     $model->content = 'Test content';
     $model->generateEmbedding();
 
-    expect($model->getAttribute('embedding'))->toBe($vector);
+    expect($model->getAttribute('embedding'))->toBe('[0.1,0.2,0.3]');
     expect($model->getAttribute('embedding_at'))->not->toBeNull();
 });
 
@@ -179,7 +179,7 @@ it('generates embedding using explicit provider and model', function () {
     $model->content = 'Test content';
     $model->generateEmbeddingUsing('openai', 'text-embedding-3-small');
 
-    expect($model->getAttribute('embedding'))->toBe($vector);
+    expect($model->getAttribute('embedding'))->toBe('[0.4,0.5,0.6]');
     expect($model->getAttribute('embedding_at'))->not->toBeNull();
 });
 

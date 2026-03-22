@@ -45,11 +45,11 @@ return new class extends Migration
                 config('atlas.persistence.embedding_dimensions', 1536)
             );
 
-            // Partial unique index — only enforced when key IS NOT NULL (document memories).
-            // Atomic memories (key=null) have no uniqueness constraint.
+            // Partial unique index — only enforced on active document memories.
+            // Excludes: atomic memories (key=null) and soft-deleted rows (deleted_at IS NOT NULL).
             DB::statement(
                 "CREATE UNIQUE INDEX {$tableName}_document_unique ON {$tableName} "
-                .'(memoryable_type, memoryable_id, agent, type, key) WHERE key IS NOT NULL'
+                .'(memoryable_type, memoryable_id, agent, type, key) WHERE key IS NOT NULL AND deleted_at IS NULL'
             );
 
             Schema::table($tableName, function (Blueprint $table) use ($dimensions) {

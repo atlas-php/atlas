@@ -3,12 +3,12 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Persistence\Memory\MemoryBuilder;
-use Atlasphp\Atlas\Persistence\Memory\MemoryService;
+use Atlasphp\Atlas\Persistence\Memory\MemoryModelService;
 use Atlasphp\Atlas\Persistence\Models\Memory;
 use Illuminate\Database\Eloquent\Model;
 
 beforeEach(function () {
-    $this->service = app(MemoryService::class);
+    $this->service = app(MemoryModelService::class);
     $this->builder = new MemoryBuilder($this->service);
     $this->owner = new class extends Model
     {
@@ -73,13 +73,13 @@ it('remember explicit namespace overrides scoped namespace', function () {
 it('forget by id delegates to service', function () {
     $memory = Memory::factory()->create();
 
-    $result = $this->builder->forget(id: $memory->id);
+    $result = $this->builder->forget($memory->id);
 
     expect($result)->toBeTrue()
         ->and(Memory::count())->toBe(0);
 });
 
-it('forget by criteria delegates to service with scoped params', function () {
+it('forgetWhere deletes by criteria with scoped params', function () {
     Memory::factory()->create([
         'memoryable_type' => 'App\\Models\\User',
         'memoryable_id' => 42,
@@ -91,7 +91,7 @@ it('forget by criteria delegates to service with scoped params', function () {
         'type' => 'fact',
     ]);
 
-    $deleted = $this->builder->for($this->owner)->forget(type: 'note');
+    $deleted = $this->builder->for($this->owner)->forgetWhere(type: 'note');
 
     expect($deleted)->toBe(1)
         ->and(Memory::count())->toBe(1);

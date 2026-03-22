@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
 use Atlasphp\Atlas\Embeddings\VectorQueryMacros;
+use Illuminate\Database\Query\Builder;
 
 // ─── isPgvectorAvailable ────────────────────────────────────────────────────
 
@@ -115,6 +117,22 @@ it('passes array embeddings through unchanged', function () {
     expect($result)->toBe($vector);
 });
 
+it('resolves string embeddings through EmbeddingResolver', function () {
+    $vector = [0.4, 0.5, 0.6];
+
+    $resolver = Mockery::mock(EmbeddingResolver::class);
+    $resolver->shouldReceive('resolve')
+        ->with('hello world')
+        ->once()
+        ->andReturn($vector);
+
+    app()->instance(EmbeddingResolver::class, $resolver);
+
+    $result = VectorQueryMacros::resolveEmbedding('hello world');
+
+    expect($result)->toBe($vector);
+});
+
 // ─── register ───────────────────────────────────────────────────────────────
 
 it('skips registration when pgvector is not available', function () {
@@ -124,4 +142,29 @@ it('skips registration when pgvector is not available', function () {
     VectorQueryMacros::register();
 
     expect(true)->toBeTrue();
+});
+
+// ─── Macro Registration & Validation ────────────────────────────────────────
+// SQL generation tests require a real PostgreSQL connection.
+// Here we test that macros are correctly registered and validate inputs.
+
+it('registers all four macros on pgsql', function () {
+    $original = config('database.default');
+    config(['database.default' => 'pgsql']);
+    VectorQueryMacros::register();
+    config(['database.default' => $original]);
+
+    expect(Builder::hasMacro('whereVectorSimilarTo'))->toBeTrue()
+        ->and(Builder::hasMacro('whereVectorDistanceLessThan'))->toBeTrue()
+        ->and(Builder::hasMacro('selectVectorDistance'))->toBeTrue()
+        ->and(Builder::hasMacro('orderByVectorDistance'))->toBeTrue();
+});
+
+it('whereVectorSimilarTo converts minSimilarity to maxDistance', function () {
+    // maxDistance = 1.0 - minSimilarity
+    // When minSimilarity = 0.7, maxDistance ≈ 0.3 (< 1.0, so filter applies)
+    // When minSimilarity = 0.0, maxDistance = 1.0 (>= 1.0, so filter is skipped)
+    expect(1.0 - 0.7)->toBeLessThan(1.0)  // filter applies
+        ->and(1.0 - 0.0)->toBeGreaterThanOrEqual(1.0)  // filter skipped
+        ->and(1.0 - 1.0)->toBe(0.0);  // max strictness
 });

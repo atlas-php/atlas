@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Memory\Tools;
 
-use Atlasphp\Atlas\Persistence\Memory\MemoryService;
+use Atlasphp\Atlas\Persistence\Memory\MemoryContext;
+use Atlasphp\Atlas\Persistence\Memory\MemoryModelService;
 use Atlasphp\Atlas\Schema\Schema;
 use Atlasphp\Atlas\Tools\Tool;
 use Illuminate\Support\Str;
@@ -17,10 +18,9 @@ use Illuminate\Support\Str;
  */
 class RememberMemory extends Tool
 {
-    use ResolvesMemoryOwner;
-
     public function __construct(
-        protected readonly MemoryService $service,
+        protected readonly MemoryModelService $service,
+        protected readonly MemoryContext $memoryContext,
     ) {}
 
     public function name(): string
@@ -51,17 +51,15 @@ class RememberMemory extends Tool
      */
     public function handle(array $args, array $context): string
     {
-        $owner = $this->resolveOwner($context);
-
         $memory = $this->service->remember(
-            owner: $owner,
+            owner: $this->memoryContext->owner(),
             content: $args['content'],
             type: $args['type'] ?? 'atomic',
             namespace: $args['namespace'] ?? null,
             key: $args['key'] ?? null,
             importance: (float) ($args['importance'] ?? 0.5),
             source: 'tool:remember_memory',
-            agent: $context['memory_agent'] ?? null,
+            agent: $this->memoryContext->agentKey(),
         );
 
         return 'Remembered: '.Str::limit($memory->content, 100);

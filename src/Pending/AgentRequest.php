@@ -331,17 +331,19 @@ class AgentRequest implements QueueableRequest
         $driver = $this->resolveDriver($agent);
         $request = $this->buildRequest($agent, $tools);
 
-        if ($tools === []) {
-            return $this->dispatchAgentMiddleware($agent, $request, $tools, function (AgentContext $ctx) use ($driver) {
+        $result = $this->dispatchAgentMiddleware($agent, $request, $tools, function (AgentContext $ctx) use ($driver, $agent) {
+            if ($ctx->tools === []) {
                 return $driver->text($ctx->request);
-            });
+            }
+
+            return $this->executeWithTools($driver, $ctx->request, $agent, $ctx->tools, $ctx->meta);
+        });
+
+        if ($result instanceof TextResponse) {
+            return $result;
         }
 
         /** @var ExecutorResult $result */
-        $result = $this->dispatchAgentMiddleware($agent, $request, $tools, function (AgentContext $ctx) use ($driver, $agent, $tools) {
-            return $this->executeWithTools($driver, $ctx->request, $agent, $tools);
-        });
-
         return new TextResponse(
             text: $result->text,
             usage: $result->usage,
@@ -370,21 +372,20 @@ class AgentRequest implements QueueableRequest
         $driver = $this->resolveDriver($agent);
         $request = $this->buildRequest($agent, $tools);
 
-        if ($tools === []) {
-            $stream = $this->dispatchAgentMiddleware($agent, $request, $tools, function (AgentContext $ctx) use ($driver) {
+        $result = $this->dispatchAgentMiddleware($agent, $request, $tools, function (AgentContext $ctx) use ($driver, $agent) {
+            if ($ctx->tools === []) {
                 return $driver->stream($ctx->request);
-            });
-        } else {
-            /** @var ExecutorResult $result */
-            $result = $this->dispatchAgentMiddleware($agent, $request, $tools, function (AgentContext $ctx) use ($driver, $agent, $tools) {
-                return $this->executeWithTools($driver, $ctx->request, $agent, $tools);
-            });
+            }
 
-            $stream = new StreamResponse($this->resultToChunks($result));
-        }
+            return $this->executeWithTools($driver, $ctx->request, $agent, $ctx->tools, $ctx->meta);
+        });
+
+        $stream = $result instanceof StreamResponse
+            ? $result
+            : new StreamResponse($this->resultToChunks($result));
 
         // Pipe broadcast channel to the stream response
-        if ($stream instanceof StreamResponse && $this->broadcastChannel !== null) {
+        if ($this->broadcastChannel !== null) {
             $stream->broadcastOn($this->broadcastChannel);
         }
 
@@ -566,13 +567,22 @@ class AgentRequest implements QueueableRequest
      * Execute the agent through the AgentExecutor tool loop.
      *
      * @param  array<int, Tool>  $tools
+     * @param  array<string, mixed>  $meta
      */
     protected function executeWithTools(
         Driver $driver,
         TextRequest $request,
         Agent $agent,
         array $tools,
+        array $meta = [],
     ): ExecutorResult {
+        // Rebuild tool definitions from the actual tools array — middleware
+        // may have added tools (e.g. WireMemory) after the request was built.
+        $request = $request->withReplacedTools(array_map(
+            fn (Tool $tool) => $tool->toDefinition(),
+            $tools,
+        ));
+
         // ToolRegistry is a stateless value object (immutable map) and ToolExecutor
         // is a thin wrapper with no external dependencies — direct instantiation is
         // intentional here to avoid unnecessary container overhead.
@@ -596,7 +606,7 @@ class AgentRequest implements QueueableRequest
             request: $request,
             maxSteps: $maxSteps,
             parallelToolCalls: $parallelToolCalls,
-            meta: $this->meta,
+            meta: $meta,
             agentKey: $agent->key(),
         );
     }

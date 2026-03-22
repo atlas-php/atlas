@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Memory\Tools;
 
-use Atlasphp\Atlas\Persistence\Memory\MemoryService;
+use Atlasphp\Atlas\Persistence\Memory\MemoryContext;
+use Atlasphp\Atlas\Persistence\Memory\MemoryModelService;
 use Atlasphp\Atlas\Schema\Schema;
 use Atlasphp\Atlas\Tools\Tool;
 
@@ -16,10 +17,9 @@ use Atlasphp\Atlas\Tools\Tool;
  */
 class MemoryRecall extends Tool
 {
-    use ResolvesMemoryOwner;
-
     public function __construct(
-        protected readonly MemoryService $service,
+        protected readonly MemoryModelService $service,
+        protected readonly MemoryContext $memoryContext,
     ) {}
 
     public function name(): string
@@ -47,13 +47,11 @@ class MemoryRecall extends Tool
      */
     public function handle(array $args, array $context): string
     {
-        $owner = $this->resolveOwner($context);
-
         $memory = $this->service->recall(
-            owner: $owner,
+            owner: $this->memoryContext->owner(),
             type: $args['type'],
             key: $args['key'] ?? null,
-            agent: $context['memory_agent'] ?? null,
+            agent: $this->memoryContext->agentKey(),
         );
 
         if ($memory === null) {

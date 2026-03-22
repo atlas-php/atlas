@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Persistence\Memory\MemoryService;
+use Atlasphp\Atlas\Persistence\Memory\MemoryModelService;
 use Atlasphp\Atlas\Persistence\Models\Memory;
 use Illuminate\Database\Eloquent\Model;
 
 beforeEach(function () {
-    $this->service = app(MemoryService::class);
+    $this->service = app(MemoryModelService::class);
     $this->owner = new class extends Model
     {
         protected $table = 'users';
@@ -36,26 +36,18 @@ it('stores and recalls atomic memories', function () {
     expect(Memory::count())->toBe(2);
 });
 
-it('document upsert preserves version history', function () {
-    $v1 = $this->service->remember(
+it('document upsert replaces old version', function () {
+    $this->service->remember(
         $this->owner, 'Version 1', type: 'profile', key: 'main'
     );
 
-    $v2 = $this->service->remember(
+    $this->service->remember(
         $this->owner, 'Version 2', type: 'profile', key: 'main'
     );
 
     // Only latest is active
     expect(Memory::count())->toBe(1)
         ->and(Memory::first()->content)->toBe('Version 2');
-
-    // History preserved via soft deletes
-    $history = Memory::withTrashed()->orderBy('id')->get();
-    expect($history)->toHaveCount(2)
-        ->and($history[0]->content)->toBe('Version 1')
-        ->and($history[0]->trashed())->toBeTrue()
-        ->and($history[1]->content)->toBe('Version 2')
-        ->and($history[1]->trashed())->toBeFalse();
 });
 
 it('forget removes memory and recall returns null', function () {

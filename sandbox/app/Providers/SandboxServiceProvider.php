@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Agents\AssistantAgent;
+use App\Agents\MemoryTestAgent;
 use App\Console\FreshCommand;
 use Atlasphp\Atlas\Agents\AgentRegistry;
 use Atlasphp\Atlas\Embeddings\VectorQueryMacros;
@@ -57,6 +58,7 @@ class SandboxServiceProvider extends ServiceProvider
         /** @var AgentRegistry $registry */
         $registry = $this->app->make(AgentRegistry::class);
         $registry->register(AssistantAgent::class);
+        $registry->register(MemoryTestAgent::class);
     }
 
     /**

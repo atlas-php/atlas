@@ -15,7 +15,7 @@ use Illuminate\Support\Collection;
  *
  * Fluent facade API for memory operations. Returned by Atlas::memory().
  * Scoping methods return cloned instances for immutability.
- * All operations delegate to MemoryService with the scoped parameters.
+ * All operations delegate to MemoryModelService with the scoped parameters.
  */
 class MemoryBuilder
 {
@@ -26,7 +26,7 @@ class MemoryBuilder
     protected ?string $namespace = null;
 
     public function __construct(
-        protected readonly MemoryService $service,
+        protected readonly MemoryModelService $service,
     ) {}
 
     // ─── Scoping (returns cloned instance — immutable) ──────────
@@ -86,16 +86,22 @@ class MemoryBuilder
 
     // ─── Forget ─────────────────────────────────────────────────
 
-    public function forget(
-        ?int $id = null,
+    /**
+     * Soft-delete a specific memory by ID.
+     */
+    public function forget(int $id): bool
+    {
+        return $this->service->forget($id);
+    }
+
+    /**
+     * Soft-delete memories matching the given criteria.
+     */
+    public function forgetWhere(
         ?string $type = null,
         ?string $namespace = null,
         ?string $key = null,
-    ): int|bool {
-        if ($id !== null) {
-            return $this->service->forget($id);
-        }
-
+    ): int {
         return $this->service->forgetFor(
             owner: $this->owner,
             type: $type,

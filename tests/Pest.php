@@ -37,6 +37,7 @@ pest()->extend(TestCase::class)->in(
 pest()->extend(TestCase::class)->in(
     'Unit/Agents',
     'Unit/AgentTest.php',
+    'Unit/AtlasServiceProviderTest.php',
     'Unit/Concerns',
     'Unit/Console',
     'Unit/Embeddings',

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Persistence\Concerns;
 
 use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
+use Atlasphp\Atlas\Embeddings\VectorQueryMacros;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -105,7 +106,7 @@ trait HasVectorEmbeddings
         $resolver = app(EmbeddingResolver::class);
         $vector = $resolver->resolve($content);
 
-        $this->setAttribute($config['column'], $vector);
+        $this->setAttribute($config['column'], VectorQueryMacros::toVectorLiteral($vector));
         $this->setAttribute('embedding_at', now());
 
         return $this;
@@ -123,7 +124,7 @@ trait HasVectorEmbeddings
         $resolver = app(EmbeddingResolver::class);
         $vector = $resolver->resolveUsing($content, $provider, $model);
 
-        $this->setAttribute($config['column'], $vector);
+        $this->setAttribute($config['column'], VectorQueryMacros::toVectorLiteral($vector));
         $this->setAttribute('embedding_at', now());
 
         return $this;

@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Persistence\Memory\MemoryService;
+use Atlasphp\Atlas\Persistence\Memory\MemoryModelService;
 use Atlasphp\Atlas\Persistence\Models\Memory;
 use Illuminate\Database\Eloquent\Model;
 
 beforeEach(function () {
-    $this->service = new MemoryService;
+    $this->service = new MemoryModelService;
     $this->owner = new class extends Model
     {
         protected $table = 'users';
@@ -44,8 +44,8 @@ it('creates multiple atomic memories without conflict', function () {
     expect(Memory::count())->toBe(2);
 });
 
-it('upserts document memory by soft-deleting old version', function () {
-    $v1 = $this->service->remember(
+it('upserts document memory by replacing old version', function () {
+    $this->service->remember(
         $this->owner, 'Version 1', type: 'profile', key: 'main'
     );
 
@@ -53,10 +53,10 @@ it('upserts document memory by soft-deleting old version', function () {
         $this->owner, 'Version 2', type: 'profile', key: 'main'
     );
 
+    // Only the latest version should be active
     expect(Memory::count())->toBe(1)
-        ->and(Memory::withTrashed()->count())->toBe(2)
         ->and($v2->content)->toBe('Version 2')
-        ->and(Memory::withTrashed()->find($v1->id)->trashed())->toBeTrue();
+        ->and(Memory::first()->content)->toBe('Version 2');
 });
 
 it('creates global memory when owner is null', function () {
@@ -211,11 +211,9 @@ it('recall filters by agent', function () {
     expect($result->content)->toBe('Agent-specific');
 
     $result = $this->service->recall($this->owner, 'note', agent: null);
-    // agent is null, but the query uses global() scoping, which returns where memoryable is null
-    // Actually for recall, when agent is null it just doesn't filter by agent
-    // Let me check - recall with null agent doesn't call forAgent scope
-    // So it returns the latest of both. Let's verify:
-    expect($result)->not->toBeNull();
+    // When agent is null, forAgent scope is not applied — returns the latest of all
+    expect($result)->not->toBeNull()
+        ->and($result->content)->toBe('Agent-specific');
 });
 
 it('recallMany fetches multiple types', function () {
