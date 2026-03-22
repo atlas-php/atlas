@@ -9,8 +9,8 @@ use Atlasphp\Atlas\Concerns\HasVariables;
 use Atlasphp\Atlas\Concerns\NormalizesMessages;
 use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
-use Atlasphp\Atlas\Events\TextCompleted;
-use Atlasphp\Atlas\Events\TextStarted;
+use Atlasphp\Atlas\Events\ModalityCompleted;
+use Atlasphp\Atlas\Events\ModalityStarted;
 use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Executor\AgentExecutor;
 use Atlasphp\Atlas\Executor\ToolExecutor;
@@ -196,22 +196,26 @@ class TextRequest implements QueueableRequest
             return $this->dispatchToQueue('asText');
         }
 
-        event(new TextStarted(modality: Modality::Text, provider: $this->resolveProviderKey(), model: (string) $this->model));
+        $provider = $this->resolveProviderKey();
+        $model = (string) $this->model;
 
-        if ($this->hasTools()) {
-            $response = $this->executeWithTools();
+        event(new ModalityStarted(modality: Modality::Text, provider: $provider, model: $model));
 
-            event(new TextCompleted(modality: Modality::Text, provider: $this->resolveProviderKey(), model: (string) $this->model, usage: $response->usage));
+        try {
+            if ($this->hasTools()) {
+                $response = $this->executeWithTools();
+            } else {
+                $driver = $this->resolveDriver();
+                $this->ensureCapability($driver, 'text');
+                $response = $driver->text($this->buildRequest());
+            }
+        } catch (\Throwable $e) {
+            event(new ModalityCompleted(modality: Modality::Text, provider: $provider, model: $model));
 
-            return $response;
+            throw $e;
         }
 
-        $driver = $this->resolveDriver();
-        $this->ensureCapability($driver, 'text');
-
-        $response = $driver->text($this->buildRequest());
-
-        event(new TextCompleted(modality: Modality::Text, provider: $this->resolveProviderKey(), model: (string) $this->model, usage: $response->usage));
+        event(new ModalityCompleted(modality: Modality::Text, provider: $provider, model: $model, usage: $response->usage));
 
         return $response;
     }
@@ -222,25 +226,31 @@ class TextRequest implements QueueableRequest
             return $this->dispatchToQueue('asStream');
         }
 
-        event(new TextStarted(modality: Modality::Stream, provider: $this->resolveProviderKey(), model: (string) $this->model));
-
-        if ($this->hasTools()) {
-            throw new AtlasException('Streaming with tools is not yet supported. Use asText() for tool-enabled requests.');
-        }
-
-        $driver = $this->resolveDriver();
-        $this->ensureCapability($driver, 'stream');
-
         $provider = $this->resolveProviderKey();
         $model = (string) $this->model;
 
-        $response = $driver->stream($this->buildRequest());
+        event(new ModalityStarted(modality: Modality::Stream, provider: $provider, model: $model));
 
-        // TextCompleted fires after the stream is fully consumed, not when the
+        try {
+            if ($this->hasTools()) {
+                throw new AtlasException('Streaming with tools is not yet supported. Use asText() for tool-enabled requests.');
+            }
+
+            $driver = $this->resolveDriver();
+            $this->ensureCapability($driver, 'stream');
+
+            $response = $driver->stream($this->buildRequest());
+        } catch (\Throwable $e) {
+            event(new ModalityCompleted(modality: Modality::Stream, provider: $provider, model: $model));
+
+            throw $e;
+        }
+
+        // ModalityCompleted fires after the stream is fully consumed, not when the
         // response object is created. The then() callback runs at the end of
         // StreamResponse::getIterator() after all chunks have been yielded.
         $response->then(function () use ($response, $provider, $model) {
-            event(new TextCompleted(modality: Modality::Stream, provider: $provider, model: $model, usage: $response->getUsage()));
+            event(new ModalityCompleted(modality: Modality::Stream, provider: $provider, model: $model, usage: $response->getUsage()));
         });
 
         return $response;
@@ -252,14 +262,22 @@ class TextRequest implements QueueableRequest
             return $this->dispatchToQueue('asStructured');
         }
 
-        event(new TextStarted(modality: Modality::Structured, provider: $this->resolveProviderKey(), model: (string) $this->model));
+        $provider = $this->resolveProviderKey();
+        $model = (string) $this->model;
 
-        $driver = $this->resolveDriver();
-        $this->ensureCapability($driver, 'structured');
+        event(new ModalityStarted(modality: Modality::Structured, provider: $provider, model: $model));
 
-        $response = $driver->structured($this->buildRequest());
+        try {
+            $driver = $this->resolveDriver();
+            $this->ensureCapability($driver, 'structured');
+            $response = $driver->structured($this->buildRequest());
+        } catch (\Throwable $e) {
+            event(new ModalityCompleted(modality: Modality::Structured, provider: $provider, model: $model));
 
-        event(new TextCompleted(modality: Modality::Structured, provider: $this->resolveProviderKey(), model: (string) $this->model, usage: $response->usage));
+            throw $e;
+        }
+
+        event(new ModalityCompleted(modality: Modality::Structured, provider: $provider, model: $model, usage: $response->usage));
 
         return $response;
     }
@@ -528,17 +546,6 @@ class TextRequest implements QueueableRequest
         }, $messages);
     }
 
-    /**
-     * Resolve the provider as a string key for queue serialization.
-     */
-    protected function resolveProviderKey(): string
-    {
-        return Provider::normalize($this->provider);
-    }
-
-    /**
-     * Resolve the model as a string key for queue serialization.
-     */
     protected function resolveModelKey(): string
     {
         return (string) $this->model;

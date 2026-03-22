@@ -20,9 +20,10 @@ class StreamToolCallReceived implements ShouldBroadcastNow
         public readonly array $toolCalls,
     ) {}
 
-    public function broadcastOn(): Channel
+    /** @return array<int, Channel> */
+    public function broadcastOn(): array
     {
-        return $this->channel;
+        return [$this->channel];
     }
 
     public function broadcastAs(): string

@@ -29,4 +29,12 @@ trait ResolvesProvider
             throw UnsupportedFeatureException::make($feature, $driver->name());
         }
     }
+
+    /**
+     * Resolve the provider as a string key for events and queue serialization.
+     */
+    protected function resolveProviderKey(): string
+    {
+        return Provider::normalize($this->provider);
+    }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Atlasphp\Atlas\Events\ProviderRequestCompleted;
 use Atlasphp\Atlas\Events\ProviderRequestFailed;
 use Atlasphp\Atlas\Events\ProviderRequestStarted;
+use Illuminate\Http\Client\Response;
 
 // ─── ProviderRequestStarted ────────────────────────────────────────────────
 
@@ -46,26 +47,16 @@ it('ProviderRequestCompleted stores empty data', function () {
 
 // ─── ProviderRequestFailed ─────────────────────────────────────────────────
 
-it('ProviderRequestFailed stores url and response', function () {
+it('ProviderRequestFailed stores url and typed response', function () {
+    $response = Mockery::mock(Response::class);
+    $response->shouldReceive('status')->andReturn(429);
+
     $event = new ProviderRequestFailed(
         url: 'https://api.openai.com/v1/chat/completions',
-        response: ['error' => ['message' => 'Rate limit exceeded']],
+        response: $response,
     );
 
     expect($event->url)->toBe('https://api.openai.com/v1/chat/completions')
-        ->and($event->response)->toBe(['error' => ['message' => 'Rate limit exceeded']]);
-});
-
-it('ProviderRequestFailed stores string response', function () {
-    $event = new ProviderRequestFailed(url: 'https://api.example.com', response: 'Connection timeout');
-
-    expect($event->url)->toBe('https://api.example.com')
-        ->and($event->response)->toBe('Connection timeout');
-});
-
-it('ProviderRequestFailed stores null response', function () {
-    $event = new ProviderRequestFailed(url: 'https://api.example.com', response: null);
-
-    expect($event->url)->toBe('https://api.example.com')
-        ->and($event->response)->toBeNull();
+        ->and($event->response)->toBe($response)
+        ->and($event->response->status())->toBe(429);
 });

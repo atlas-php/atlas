@@ -8,8 +8,8 @@ use Atlasphp\Atlas\Concerns\HasQueueDispatch;
 use Atlasphp\Atlas\Concerns\HasVariables;
 use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
-use Atlasphp\Atlas\Events\VideoCompleted;
-use Atlasphp\Atlas\Events\VideoStarted;
+use Atlasphp\Atlas\Events\ModalityCompleted;
+use Atlasphp\Atlas\Events\ModalityStarted;
 use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
@@ -107,14 +107,22 @@ class VideoRequest implements QueueableRequest
             return $this->dispatchToQueue('asVideo');
         }
 
-        event(new VideoStarted(modality: Modality::Video, provider: $this->resolveProviderKey(), model: (string) $this->model));
+        $provider = $this->resolveProviderKey();
+        $model = (string) $this->model;
 
-        $driver = $this->resolveDriver();
-        $this->ensureCapability($driver, 'video');
+        event(new ModalityStarted(modality: Modality::Video, provider: $provider, model: $model));
 
-        $response = $driver->video($this->buildRequest());
+        try {
+            $driver = $this->resolveDriver();
+            $this->ensureCapability($driver, 'video');
+            $response = $driver->video($this->buildRequest());
+        } catch (\Throwable $e) {
+            event(new ModalityCompleted(modality: Modality::Video, provider: $provider, model: $model));
 
-        event(new VideoCompleted(modality: Modality::Video, provider: $this->resolveProviderKey(), model: (string) $this->model, usage: null));
+            throw $e;
+        }
+
+        event(new ModalityCompleted(modality: Modality::Video, provider: $provider, model: $model));
 
         return $response;
     }
@@ -125,14 +133,22 @@ class VideoRequest implements QueueableRequest
             return $this->dispatchToQueue('asText');
         }
 
-        event(new VideoStarted(modality: Modality::VideoToText, provider: $this->resolveProviderKey(), model: (string) $this->model));
+        $provider = $this->resolveProviderKey();
+        $model = (string) $this->model;
 
-        $driver = $this->resolveDriver();
-        $this->ensureCapability($driver, 'videoToText');
+        event(new ModalityStarted(modality: Modality::VideoToText, provider: $provider, model: $model));
 
-        $response = $driver->videoToText($this->buildRequest());
+        try {
+            $driver = $this->resolveDriver();
+            $this->ensureCapability($driver, 'videoToText');
+            $response = $driver->videoToText($this->buildRequest());
+        } catch (\Throwable $e) {
+            event(new ModalityCompleted(modality: Modality::VideoToText, provider: $provider, model: $model));
 
-        event(new VideoCompleted(modality: Modality::VideoToText, provider: $this->resolveProviderKey(), model: (string) $this->model, usage: $response->usage));
+            throw $e;
+        }
+
+        event(new ModalityCompleted(modality: Modality::VideoToText, provider: $provider, model: $model, usage: $response->usage));
 
         return $response;
     }
@@ -239,17 +255,6 @@ class VideoRequest implements QueueableRequest
         };
     }
 
-    /**
-     * Resolve the provider as a string key for queue serialization.
-     */
-    protected function resolveProviderKey(): string
-    {
-        return Provider::normalize($this->provider);
-    }
-
-    /**
-     * Resolve the model as a string key for queue serialization.
-     */
     protected function resolveModelKey(): string
     {
         return (string) $this->model;

@@ -7,8 +7,8 @@ namespace Atlasphp\Atlas\Pending;
 use Atlasphp\Atlas\Concerns\HasQueueDispatch;
 use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
-use Atlasphp\Atlas\Events\RerankCompleted;
-use Atlasphp\Atlas\Events\RerankStarted;
+use Atlasphp\Atlas\Events\ModalityCompleted;
+use Atlasphp\Atlas\Events\ModalityStarted;
 use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
@@ -112,14 +112,22 @@ class RerankRequest implements QueueableRequest
             return $this->dispatchToQueue('asReranked');
         }
 
-        event(new RerankStarted(modality: Modality::Rerank, provider: $this->resolveProviderKey(), model: (string) $this->model));
+        $provider = $this->resolveProviderKey();
+        $model = (string) $this->model;
 
-        $driver = $this->resolveDriver();
-        $this->ensureCapability($driver, 'rerank');
+        event(new ModalityStarted(modality: Modality::Rerank, provider: $provider, model: $model));
 
-        $response = $driver->rerank($this->buildRequest());
+        try {
+            $driver = $this->resolveDriver();
+            $this->ensureCapability($driver, 'rerank');
+            $response = $driver->rerank($this->buildRequest());
+        } catch (\Throwable $e) {
+            event(new ModalityCompleted(modality: Modality::Rerank, provider: $provider, model: $model));
 
-        event(new RerankCompleted(modality: Modality::Rerank, provider: $this->resolveProviderKey(), model: (string) $this->model, usage: null));
+            throw $e;
+        }
+
+        event(new ModalityCompleted(modality: Modality::Rerank, provider: $provider, model: $model));
 
         if ($this->minScore !== null) {
             return new RerankResponse($response->aboveScore($this->minScore), $response->meta);
@@ -218,17 +226,6 @@ class RerankRequest implements QueueableRequest
         };
     }
 
-    /**
-     * Resolve the provider as a string key for queue serialization.
-     */
-    protected function resolveProviderKey(): string
-    {
-        return Provider::normalize($this->provider);
-    }
-
-    /**
-     * Resolve the model as a string key for queue serialization.
-     */
     protected function resolveModelKey(): string
     {
         return (string) $this->model;

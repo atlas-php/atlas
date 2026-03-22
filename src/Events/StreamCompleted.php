@@ -23,9 +23,10 @@ class StreamCompleted implements ShouldBroadcastNow
         public readonly ?FinishReason $finishReason = null,
     ) {}
 
-    public function broadcastOn(): Channel
+    /** @return array<int, Channel> */
+    public function broadcastOn(): array
     {
-        return $this->channel;
+        return [$this->channel];
     }
 
     public function broadcastAs(): string

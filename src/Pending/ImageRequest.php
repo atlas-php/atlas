@@ -8,8 +8,8 @@ use Atlasphp\Atlas\Concerns\HasQueueDispatch;
 use Atlasphp\Atlas\Concerns\HasVariables;
 use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
-use Atlasphp\Atlas\Events\ImageCompleted;
-use Atlasphp\Atlas\Events\ImageStarted;
+use Atlasphp\Atlas\Events\ModalityCompleted;
+use Atlasphp\Atlas\Events\ModalityStarted;
 use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
@@ -116,14 +116,22 @@ class ImageRequest implements QueueableRequest
             return $this->dispatchToQueue('asImage');
         }
 
-        event(new ImageStarted(modality: Modality::Image, provider: $this->resolveProviderKey(), model: (string) $this->model));
+        $provider = $this->resolveProviderKey();
+        $model = (string) $this->model;
 
-        $driver = $this->resolveDriver();
-        $this->ensureCapability($driver, 'image');
+        event(new ModalityStarted(modality: Modality::Image, provider: $provider, model: $model));
 
-        $response = $driver->image($this->buildRequest());
+        try {
+            $driver = $this->resolveDriver();
+            $this->ensureCapability($driver, 'image');
+            $response = $driver->image($this->buildRequest());
+        } catch (\Throwable $e) {
+            event(new ModalityCompleted(modality: Modality::Image, provider: $provider, model: $model));
 
-        event(new ImageCompleted(modality: Modality::Image, provider: $this->resolveProviderKey(), model: (string) $this->model, usage: null));
+            throw $e;
+        }
+
+        event(new ModalityCompleted(modality: Modality::Image, provider: $provider, model: $model));
 
         return $response;
     }
@@ -134,14 +142,22 @@ class ImageRequest implements QueueableRequest
             return $this->dispatchToQueue('asText');
         }
 
-        event(new ImageStarted(modality: Modality::ImageToText, provider: $this->resolveProviderKey(), model: (string) $this->model));
+        $provider = $this->resolveProviderKey();
+        $model = (string) $this->model;
 
-        $driver = $this->resolveDriver();
-        $this->ensureCapability($driver, 'imageToText');
+        event(new ModalityStarted(modality: Modality::ImageToText, provider: $provider, model: $model));
 
-        $response = $driver->imageToText($this->buildRequest());
+        try {
+            $driver = $this->resolveDriver();
+            $this->ensureCapability($driver, 'imageToText');
+            $response = $driver->imageToText($this->buildRequest());
+        } catch (\Throwable $e) {
+            event(new ModalityCompleted(modality: Modality::ImageToText, provider: $provider, model: $model));
 
-        event(new ImageCompleted(modality: Modality::ImageToText, provider: $this->resolveProviderKey(), model: (string) $this->model, usage: $response->usage));
+            throw $e;
+        }
+
+        event(new ModalityCompleted(modality: Modality::ImageToText, provider: $provider, model: $model, usage: $response->usage));
 
         return $response;
     }
@@ -254,17 +270,6 @@ class ImageRequest implements QueueableRequest
         };
     }
 
-    /**
-     * Resolve the provider as a string key for queue serialization.
-     */
-    protected function resolveProviderKey(): string
-    {
-        return Provider::normalize($this->provider);
-    }
-
-    /**
-     * Resolve the model as a string key for queue serialization.
-     */
     protected function resolveModelKey(): string
     {
         return (string) $this->model;

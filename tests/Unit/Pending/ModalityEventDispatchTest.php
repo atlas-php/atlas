@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Enums\Modality;
-use Atlasphp\Atlas\Events\TextCompleted;
-use Atlasphp\Atlas\Events\TextStarted;
+use Atlasphp\Atlas\Events\ModalityCompleted;
+use Atlasphp\Atlas\Events\ModalityStarted;
 use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Queue\PendingExecution;
 use Atlasphp\Atlas\Responses\StreamResponse;
@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Queue;
 
 // ─── asText dispatches events ──────────────────────────────────────────────────
 
-it('asText dispatches TextStarted and TextCompleted with correct properties', function () {
+it('asText dispatches ModalityStarted and ModalityCompleted with correct properties', function () {
     Event::fake();
 
     Atlas::fake([
@@ -25,12 +25,12 @@ it('asText dispatches TextStarted and TextCompleted with correct properties', fu
 
     Atlas::text('openai', 'gpt-4o')->message('hi')->asText();
 
-    Event::assertDispatched(TextStarted::class, fn (TextStarted $e) => $e->modality === Modality::Text
+    Event::assertDispatched(ModalityStarted::class, fn (ModalityStarted $e) => $e->modality === Modality::Text
         && $e->provider === 'openai'
         && $e->model === 'gpt-4o'
     );
 
-    Event::assertDispatched(TextCompleted::class, fn (TextCompleted $e) => $e->modality === Modality::Text
+    Event::assertDispatched(ModalityCompleted::class, fn (ModalityCompleted $e) => $e->modality === Modality::Text
         && $e->provider === 'openai'
         && $e->model === 'gpt-4o'
     );
@@ -38,27 +38,27 @@ it('asText dispatches TextStarted and TextCompleted with correct properties', fu
 
 // ─── asStructured dispatches events ────────────────────────────────────────────
 
-it('asStructured dispatches TextStarted and TextCompleted with Structured modality', function () {
+it('asStructured dispatches ModalityStarted and ModalityCompleted with Structured modality', function () {
     Event::fake();
 
     Atlas::fake();
 
     Atlas::text('openai', 'gpt-4o')->message('hi')->asStructured();
 
-    Event::assertDispatched(TextStarted::class, fn (TextStarted $e) => $e->modality === Modality::Structured
+    Event::assertDispatched(ModalityStarted::class, fn (ModalityStarted $e) => $e->modality === Modality::Structured
         && $e->provider === 'openai'
         && $e->model === 'gpt-4o'
     );
 
-    Event::assertDispatched(TextCompleted::class, fn (TextCompleted $e) => $e->modality === Modality::Structured
+    Event::assertDispatched(ModalityCompleted::class, fn (ModalityCompleted $e) => $e->modality === Modality::Structured
         && $e->provider === 'openai'
         && $e->model === 'gpt-4o'
     );
 });
 
-// ─── TextCompleted carries usage data ──────────────────────────────────────────
+// ─── ModalityCompleted carries usage data ──────────────────────────────────────
 
-it('TextCompleted carries usage data', function () {
+it('ModalityCompleted carries usage data', function () {
     Event::fake();
 
     Atlas::fake([
@@ -69,7 +69,7 @@ it('TextCompleted carries usage data', function () {
 
     Atlas::text('openai', 'gpt-4o')->message('hi')->asText();
 
-    Event::assertDispatched(TextCompleted::class, fn (TextCompleted $e) => $e->usage !== null
+    Event::assertDispatched(ModalityCompleted::class, fn (ModalityCompleted $e) => $e->usage !== null
         && $e->usage->inputTokens === 42
         && $e->usage->outputTokens === 84
     );
@@ -86,19 +86,19 @@ it('queued requests skip synchronous event dispatch path', function () {
     ]);
 
     // queue() sets the queued flag — dispatchToQueue returns a PendingExecution
-    // instead of executing inline, so TextStarted/TextCompleted do not fire
+    // instead of executing inline, so ModalityStarted/ModalityCompleted do not fire
     // in the calling process.
     $result = Atlas::text('openai', 'gpt-4o')->message('hi')->queue()->asText();
 
     expect($result)->toBeInstanceOf(PendingExecution::class);
 
-    Event::assertNotDispatched(TextStarted::class);
-    Event::assertNotDispatched(TextCompleted::class);
+    Event::assertNotDispatched(ModalityStarted::class);
+    Event::assertNotDispatched(ModalityCompleted::class);
 });
 
-// ─── Stream deferred TextCompleted ─────────────────────────────────────────────
+// ─── Stream deferred ModalityCompleted ──────────────────────────────────────────
 
-it('TextCompleted fires after stream is consumed, not before', function () {
+it('ModalityCompleted fires after stream is consumed, not before', function () {
     Event::fake();
 
     Atlas::fake([
@@ -107,18 +107,18 @@ it('TextCompleted fires after stream is consumed, not before', function () {
 
     $response = Atlas::text('openai', 'gpt-4o')->message('hi')->asStream();
 
-    // TextStarted fires immediately when asStream() is called
-    Event::assertDispatched(TextStarted::class, fn (TextStarted $e) => $e->modality === Modality::Stream);
+    // ModalityStarted fires immediately when asStream() is called
+    Event::assertDispatched(ModalityStarted::class, fn (ModalityStarted $e) => $e->modality === Modality::Stream);
 
-    // TextCompleted should NOT have fired yet — the stream has not been consumed
-    Event::assertNotDispatched(TextCompleted::class);
+    // ModalityCompleted should NOT have fired yet — the stream has not been consumed
+    Event::assertNotDispatched(ModalityCompleted::class);
 
     // Consume the stream
     expect($response)->toBeInstanceOf(StreamResponse::class);
     iterator_to_array($response);
 
-    // Now TextCompleted should have fired
-    Event::assertDispatched(TextCompleted::class, fn (TextCompleted $e) => $e->modality === Modality::Stream
+    // Now ModalityCompleted should have fired
+    Event::assertDispatched(ModalityCompleted::class, fn (ModalityCompleted $e) => $e->modality === Modality::Stream
         && $e->provider === 'openai'
         && $e->model === 'gpt-4o'
     );

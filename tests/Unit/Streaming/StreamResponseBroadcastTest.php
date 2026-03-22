@@ -124,25 +124,25 @@ it('broadcast events have correct broadcastAs names', function () {
     expect($completed->broadcastAs())->toBe('StreamCompleted');
 });
 
-it('StreamChunkReceived broadcastOn returns the channel', function () {
+it('StreamChunkReceived broadcastOn returns array with channel', function () {
     $channel = new Channel('chat.42');
     $event = new StreamChunkReceived($channel, 'hello');
 
-    expect($event->broadcastOn())->toBe($channel);
+    expect($event->broadcastOn())->toBe([$channel]);
 });
 
-it('StreamToolCallReceived broadcastOn returns the channel', function () {
+it('StreamToolCallReceived broadcastOn returns array with channel', function () {
     $channel = new Channel('chat.42');
     $event = new StreamToolCallReceived($channel, [['name' => 'search']]);
 
-    expect($event->broadcastOn())->toBe($channel);
+    expect($event->broadcastOn())->toBe([$channel]);
 });
 
-it('StreamCompleted broadcastOn returns the channel', function () {
+it('StreamCompleted broadcastOn returns array with channel', function () {
     $channel = new Channel('chat.42');
     $event = new StreamCompleted($channel, 'done', ['input_tokens' => 10, 'output_tokens' => 5], FinishReason::Stop);
 
-    expect($event->broadcastOn())->toBe($channel);
+    expect($event->broadcastOn())->toBe([$channel]);
 });
 
 // ─── StreamStarted broadcast ────────────────────────────────────────────────

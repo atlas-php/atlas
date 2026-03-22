@@ -10,7 +10,10 @@ use Atlasphp\Atlas\Concerns\HasQueueDispatch;
 use Atlasphp\Atlas\Concerns\HasVariables;
 use Atlasphp\Atlas\Concerns\NormalizesMessages;
 use Atlasphp\Atlas\Enums\ChunkType;
+use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Events\ModalityCompleted;
+use Atlasphp\Atlas\Events\ModalityStarted;
 use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Executor\AgentExecutor;
 use Atlasphp\Atlas\Executor\ExecutorResult;
@@ -330,20 +333,34 @@ class AgentRequest implements QueueableRequest
         $tools = $this->resolveTools($agent);
         $driver = $this->resolveDriver($agent);
         $request = $this->buildRequest($agent, $tools);
+        $provider = $this->resolveProviderKey();
+        $model = $this->resolveModelKey();
 
-        $result = $this->dispatchAgentMiddleware($agent, $request, $tools, function (AgentContext $ctx) use ($driver, $agent) {
-            if ($ctx->tools === []) {
-                return $driver->text($ctx->request);
-            }
+        event(new ModalityStarted(modality: Modality::Text, provider: $provider, model: $model));
 
-            return $this->executeWithTools($driver, $ctx->request, $agent, $ctx->tools, $ctx->meta);
-        });
+        try {
+            $result = $this->dispatchAgentMiddleware($agent, $request, $tools, function (AgentContext $ctx) use ($driver, $agent) {
+                if ($ctx->tools === []) {
+                    return $driver->text($ctx->request);
+                }
+
+                return $this->executeWithTools($driver, $ctx->request, $agent, $ctx->tools, $ctx->meta);
+            });
+        } catch (\Throwable $e) {
+            event(new ModalityCompleted(modality: Modality::Text, provider: $provider, model: $model));
+
+            throw $e;
+        }
 
         if ($result instanceof TextResponse) {
+            event(new ModalityCompleted(modality: Modality::Text, provider: $provider, model: $model, usage: $result->usage));
+
             return $result;
         }
 
         /** @var ExecutorResult $result */
+        event(new ModalityCompleted(modality: Modality::Text, provider: $provider, model: $model, usage: $result->usage));
+
         return new TextResponse(
             text: $result->text,
             usage: $result->usage,
@@ -371,18 +388,33 @@ class AgentRequest implements QueueableRequest
         $tools = $this->resolveTools($agent);
         $driver = $this->resolveDriver($agent);
         $request = $this->buildRequest($agent, $tools);
+        $provider = $this->resolveProviderKey();
+        $model = $this->resolveModelKey();
 
-        $result = $this->dispatchAgentMiddleware($agent, $request, $tools, function (AgentContext $ctx) use ($driver, $agent) {
-            if ($ctx->tools === []) {
-                return $driver->stream($ctx->request);
-            }
+        event(new ModalityStarted(modality: Modality::Stream, provider: $provider, model: $model));
 
-            return $this->executeWithTools($driver, $ctx->request, $agent, $ctx->tools, $ctx->meta);
-        });
+        try {
+            $result = $this->dispatchAgentMiddleware($agent, $request, $tools, function (AgentContext $ctx) use ($driver, $agent) {
+                if ($ctx->tools === []) {
+                    return $driver->stream($ctx->request);
+                }
+
+                return $this->executeWithTools($driver, $ctx->request, $agent, $ctx->tools, $ctx->meta);
+            });
+        } catch (\Throwable $e) {
+            event(new ModalityCompleted(modality: Modality::Stream, provider: $provider, model: $model));
+
+            throw $e;
+        }
 
         $stream = $result instanceof StreamResponse
             ? $result
             : new StreamResponse($this->resultToChunks($result));
+
+        // ModalityCompleted fires after the stream is fully consumed
+        $stream->then(function () use ($stream, $provider, $model) {
+            event(new ModalityCompleted(modality: Modality::Stream, provider: $provider, model: $model, usage: $stream->getUsage()));
+        });
 
         // Pipe broadcast channel to the stream response
         if ($this->broadcastChannel !== null) {
@@ -404,10 +436,24 @@ class AgentRequest implements QueueableRequest
         $agent = $this->resolveAgent();
         $driver = $this->resolveDriver($agent);
         $request = $this->buildRequest($agent, []);
+        $provider = $this->resolveProviderKey();
+        $model = $this->resolveModelKey();
 
-        return $this->dispatchAgentMiddleware($agent, $request, [], function (AgentContext $ctx) use ($driver) {
-            return $driver->structured($ctx->request);
-        });
+        event(new ModalityStarted(modality: Modality::Structured, provider: $provider, model: $model));
+
+        try {
+            $result = $this->dispatchAgentMiddleware($agent, $request, [], function (AgentContext $ctx) use ($driver) {
+                return $driver->structured($ctx->request);
+            });
+        } catch (\Throwable $e) {
+            event(new ModalityCompleted(modality: Modality::Structured, provider: $provider, model: $model));
+
+            throw $e;
+        }
+
+        event(new ModalityCompleted(modality: Modality::Structured, provider: $provider, model: $model));
+
+        return $result;
     }
 
     // ─── Internal: Resolution ───────────────────────────────────────

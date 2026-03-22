@@ -8,8 +8,8 @@ use Atlasphp\Atlas\Concerns\HasQueueDispatch;
 use Atlasphp\Atlas\Concerns\HasVariables;
 use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
-use Atlasphp\Atlas\Events\AudioCompleted;
-use Atlasphp\Atlas\Events\AudioStarted;
+use Atlasphp\Atlas\Events\ModalityCompleted;
+use Atlasphp\Atlas\Events\ModalityStarted;
 use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
@@ -138,14 +138,22 @@ class AudioRequest implements QueueableRequest
             return $this->dispatchToQueue('asAudio');
         }
 
-        event(new AudioStarted(modality: Modality::Audio, provider: $this->resolveProviderKey(), model: (string) $this->model));
+        $provider = $this->resolveProviderKey();
+        $model = (string) $this->model;
 
-        $driver = $this->resolveDriver();
-        $this->ensureCapability($driver, 'audio');
+        event(new ModalityStarted(modality: Modality::Audio, provider: $provider, model: $model));
 
-        $response = $driver->audio($this->buildRequest());
+        try {
+            $driver = $this->resolveDriver();
+            $this->ensureCapability($driver, 'audio');
+            $response = $driver->audio($this->buildRequest());
+        } catch (\Throwable $e) {
+            event(new ModalityCompleted(modality: Modality::Audio, provider: $provider, model: $model));
 
-        event(new AudioCompleted(modality: Modality::Audio, provider: $this->resolveProviderKey(), model: (string) $this->model, usage: null));
+            throw $e;
+        }
+
+        event(new ModalityCompleted(modality: Modality::Audio, provider: $provider, model: $model));
 
         return $response;
     }
@@ -156,14 +164,22 @@ class AudioRequest implements QueueableRequest
             return $this->dispatchToQueue('asText');
         }
 
-        event(new AudioStarted(modality: Modality::AudioToText, provider: $this->resolveProviderKey(), model: (string) $this->model));
+        $provider = $this->resolveProviderKey();
+        $model = (string) $this->model;
 
-        $driver = $this->resolveDriver();
-        $this->ensureCapability($driver, 'audioToText');
+        event(new ModalityStarted(modality: Modality::AudioToText, provider: $provider, model: $model));
 
-        $response = $driver->audioToText($this->buildRequest());
+        try {
+            $driver = $this->resolveDriver();
+            $this->ensureCapability($driver, 'audioToText');
+            $response = $driver->audioToText($this->buildRequest());
+        } catch (\Throwable $e) {
+            event(new ModalityCompleted(modality: Modality::AudioToText, provider: $provider, model: $model));
 
-        event(new AudioCompleted(modality: Modality::AudioToText, provider: $this->resolveProviderKey(), model: (string) $this->model, usage: $response->usage));
+            throw $e;
+        }
+
+        event(new ModalityCompleted(modality: Modality::AudioToText, provider: $provider, model: $model, usage: $response->usage));
 
         return $response;
     }
@@ -290,17 +306,6 @@ class AudioRequest implements QueueableRequest
         };
     }
 
-    /**
-     * Resolve the provider as a string key for queue serialization.
-     */
-    protected function resolveProviderKey(): string
-    {
-        return Provider::normalize($this->provider);
-    }
-
-    /**
-     * Resolve the model as a string key for queue serialization.
-     */
     protected function resolveModelKey(): string
     {
         return (string) $this->model;

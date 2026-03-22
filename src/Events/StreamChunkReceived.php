@@ -17,9 +17,10 @@ class StreamChunkReceived implements ShouldBroadcastNow
         public readonly string $text,
     ) {}
 
-    public function broadcastOn(): Channel
+    /** @return array<int, Channel> */
+    public function broadcastOn(): array
     {
-        return $this->channel;
+        return [$this->channel];
     }
 
     public function broadcastAs(): string

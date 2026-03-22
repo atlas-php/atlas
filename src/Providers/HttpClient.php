@@ -8,6 +8,7 @@ use Atlasphp\Atlas\Events\ProviderRequestCompleted;
 use Atlasphp\Atlas\Events\ProviderRequestFailed;
 use Atlasphp\Atlas\Events\ProviderRequestStarted;
 use Illuminate\Contracts\Events\Dispatcher;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
 /**
@@ -32,11 +33,7 @@ class HttpClient
         $this->events->dispatch(new ProviderRequestStarted($url, []));
 
         $response = Http::withHeaders($headers)->timeout($timeout)->get($url);
-
-        if ($response->failed()) {
-            $this->events->dispatch(new ProviderRequestFailed($url, $response));
-            $response->throw();
-        }
+        $this->handleFailure($url, $response);
 
         $data = $response->json() ?? [];
         $this->events->dispatch(new ProviderRequestCompleted($url, $data));
@@ -56,11 +53,7 @@ class HttpClient
         $this->events->dispatch(new ProviderRequestStarted($url, []));
 
         $response = Http::withHeaders($headers)->timeout($timeout)->get($url);
-
-        if ($response->failed()) {
-            $this->events->dispatch(new ProviderRequestFailed($url, $response));
-            $response->throw();
-        }
+        $this->handleFailure($url, $response);
 
         $this->events->dispatch(new ProviderRequestCompleted($url, []));
 
@@ -79,11 +72,7 @@ class HttpClient
         $this->events->dispatch(new ProviderRequestStarted($url, $body));
 
         $response = Http::withHeaders($headers)->timeout($timeout)->post($url, $body);
-
-        if ($response->failed()) {
-            $this->events->dispatch(new ProviderRequestFailed($url, $response));
-            $response->throw();
-        }
+        $this->handleFailure($url, $response);
 
         $data = $response->json() ?? [];
         $this->events->dispatch(new ProviderRequestCompleted($url, $data));
@@ -104,11 +93,7 @@ class HttpClient
         $this->events->dispatch(new ProviderRequestStarted($url, $body));
 
         $response = Http::withHeaders($headers)->timeout($timeout)->post($url, $body);
-
-        if ($response->failed()) {
-            $this->events->dispatch(new ProviderRequestFailed($url, $response));
-            $response->throw();
-        }
+        $this->handleFailure($url, $response);
 
         $this->events->dispatch(new ProviderRequestCompleted($url, []));
 
@@ -140,11 +125,7 @@ class HttpClient
         }
 
         $response = $pending->post($url, $data);
-
-        if ($response->failed()) {
-            $this->events->dispatch(new ProviderRequestFailed($url, $response));
-            $response->throw();
-        }
+        $this->handleFailure($url, $response);
 
         $result = $response->json() ?? [];
         $this->events->dispatch(new ProviderRequestCompleted($url, $result));
@@ -167,13 +148,21 @@ class HttpClient
             ->withOptions(['stream' => true])
             ->post($url, $body);
 
-        if ($response->failed()) {
-            $this->events->dispatch(new ProviderRequestFailed($url, $response));
-            $response->throw();
-        }
+        $this->handleFailure($url, $response);
 
         $this->events->dispatch(new ProviderRequestCompleted($url, []));
 
         return $response;
+    }
+
+    /**
+     * Dispatch failure event and throw if the response indicates an error.
+     */
+    private function handleFailure(string $url, Response $response): void
+    {
+        if ($response->failed()) {
+            $this->events->dispatch(new ProviderRequestFailed($url, $response));
+            $response->throw();
+        }
     }
 }

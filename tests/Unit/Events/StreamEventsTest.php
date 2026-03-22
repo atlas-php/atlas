@@ -27,14 +27,7 @@ it('StreamChunkReceived stores text and channel', function () {
     $event = new StreamChunkReceived(channel: $channel, text: 'chunk');
 
     expect($event->text)->toBe('chunk')
-        ->and($event->broadcastOn())->toBe($channel);
-});
-
-it('StreamChunkReceived broadcastOn returns channel', function () {
-    $channel = new Channel('stream.42');
-    $event = new StreamChunkReceived(channel: $channel, text: 'data');
-
-    expect($event->broadcastOn())->toBe($channel);
+        ->and($event->broadcastOn())->toBe([$channel]);
 });
 
 it('StreamChunkReceived broadcastAs returns StreamChunkReceived', function () {
@@ -68,14 +61,7 @@ it('StreamCompleted stores text, usage, finishReason, channel', function () {
     expect($event->text)->toBe('Complete response')
         ->and($event->usage)->toBe($usage)
         ->and($event->finishReason)->toBe(FinishReason::Stop)
-        ->and($event->broadcastOn())->toBe($channel);
-});
-
-it('StreamCompleted broadcastOn returns channel', function () {
-    $channel = new Channel('stream.99');
-    $event = new StreamCompleted(channel: $channel, text: 'done');
-
-    expect($event->broadcastOn())->toBe($channel);
+        ->and($event->broadcastOn())->toBe([$channel]);
 });
 
 it('StreamCompleted broadcastAs returns StreamCompleted', function () {
@@ -111,14 +97,7 @@ it('StreamToolCallReceived stores toolCalls and channel', function () {
     $event = new StreamToolCallReceived(channel: $channel, toolCalls: $toolCalls);
 
     expect($event->toolCalls)->toBe($toolCalls)
-        ->and($event->broadcastOn())->toBe($channel);
-});
-
-it('StreamToolCallReceived broadcastOn returns channel', function () {
-    $channel = new Channel('tools.42');
-    $event = new StreamToolCallReceived(channel: $channel, toolCalls: []);
-
-    expect($event->broadcastOn())->toBe($channel);
+        ->and($event->broadcastOn())->toBe([$channel]);
 });
 
 it('StreamToolCallReceived broadcastAs returns StreamToolCallReceived', function () {
@@ -139,8 +118,8 @@ it('StreamStarted broadcastOn returns channel when provided', function () {
     $channel = new PrivateChannel('stream.1');
     $event = new StreamStarted(channel: $channel);
 
-    expect($event->broadcastOn())->toHaveCount(1);
-    expect($event->broadcastOn()[0])->toBe($channel);
+    expect($event->broadcastOn())->toHaveCount(1)
+        ->and($event->broadcastOn()[0])->toBe($channel);
 });
 
 it('StreamStarted broadcastOn returns empty when no channel', function () {

@@ -7,8 +7,8 @@ namespace Atlasphp\Atlas\Pending;
 use Atlasphp\Atlas\Concerns\HasQueueDispatch;
 use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
-use Atlasphp\Atlas\Events\ModerationCompleted;
-use Atlasphp\Atlas\Events\ModerationStarted;
+use Atlasphp\Atlas\Events\ModalityCompleted;
+use Atlasphp\Atlas\Events\ModalityStarted;
 use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
@@ -72,14 +72,22 @@ class ModerateRequest implements QueueableRequest
             return $this->dispatchToQueue('asModeration');
         }
 
-        event(new ModerationStarted(modality: Modality::Moderate, provider: $this->resolveProviderKey(), model: (string) ($this->model ?? '')));
+        $provider = $this->resolveProviderKey();
+        $model = (string) ($this->model ?? '');
 
-        $driver = $this->resolveDriver();
-        $this->ensureCapability($driver, 'moderate');
+        event(new ModalityStarted(modality: Modality::Moderate, provider: $provider, model: $model));
 
-        $response = $driver->moderate($this->buildRequest());
+        try {
+            $driver = $this->resolveDriver();
+            $this->ensureCapability($driver, 'moderate');
+            $response = $driver->moderate($this->buildRequest());
+        } catch (\Throwable $e) {
+            event(new ModalityCompleted(modality: Modality::Moderate, provider: $provider, model: $model));
 
-        event(new ModerationCompleted(modality: Modality::Moderate, provider: $this->resolveProviderKey(), model: (string) ($this->model ?? ''), usage: null));
+            throw $e;
+        }
+
+        event(new ModalityCompleted(modality: Modality::Moderate, provider: $provider, model: $model));
 
         return $response;
     }
@@ -148,19 +156,8 @@ class ModerateRequest implements QueueableRequest
         };
     }
 
-    /**
-     * Resolve the provider as a string key for queue serialization.
-     */
-    protected function resolveProviderKey(): string
-    {
-        return Provider::normalize($this->provider);
-    }
-
-    /**
-     * Resolve the model as a string key for queue serialization.
-     */
     protected function resolveModelKey(): string
     {
-        return (string) $this->model;
+        return (string) ($this->model ?? '');
     }
 }
