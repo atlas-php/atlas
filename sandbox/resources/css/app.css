@@ -114,11 +114,13 @@
     50% { opacity: 0; }
 }
 
-.streaming-cursor::after {
+.streaming-cursor > *:last-child::after,
+.streaming-cursor:empty::after {
     content: "▊";
     animation: cursor-blink 1s step-end infinite;
     color: var(--color-zinc-400);
     margin-left: 1px;
+    display: inline;
 }
 
 /* ─── Prose overrides for markdown ────────────────────── */

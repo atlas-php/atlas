@@ -398,17 +398,24 @@ class AgentRequest implements QueueableRequest
         $request = $this->buildRequest($agent, $tools);
 
         if ($tools === []) {
-            return $this->dispatchAgentMiddleware($agent, $request, $tools, function (AgentContext $ctx) use ($driver) {
+            $stream = $this->dispatchAgentMiddleware($agent, $request, $tools, function (AgentContext $ctx) use ($driver) {
                 return $driver->stream($ctx->request);
             });
+        } else {
+            /** @var ExecutorResult $result */
+            $result = $this->dispatchAgentMiddleware($agent, $request, $tools, function (AgentContext $ctx) use ($driver, $agent, $tools) {
+                return $this->executeWithTools($driver, $ctx->request, $agent, $tools);
+            });
+
+            $stream = new StreamResponse($this->resultToChunks($result));
         }
 
-        /** @var ExecutorResult $result */
-        $result = $this->dispatchAgentMiddleware($agent, $request, $tools, function (AgentContext $ctx) use ($driver, $agent, $tools) {
-            return $this->executeWithTools($driver, $ctx->request, $agent, $tools);
-        });
+        // Pipe broadcast channel to the stream response
+        if ($stream instanceof StreamResponse && $this->broadcastChannel !== null) {
+            $stream->broadcastOn($this->broadcastChannel);
+        }
 
-        return new StreamResponse($this->resultToChunks($result));
+        return $stream;
     }
 
     /**
@@ -663,13 +670,27 @@ class AgentRequest implements QueueableRequest
 
     /**
      * Convert an ExecutorResult into a generator of StreamChunks.
+     *
+     * Yields the text in small segments to simulate streaming for tool-based
+     * agent executions. Each segment is broadcast as a StreamChunkReceived
+     * event, giving the UI a word-by-word typing effect.
      */
     protected function resultToChunks(ExecutorResult $result): \Generator
     {
-        yield new StreamChunk(
-            type: ChunkType::Text,
-            text: $result->text,
-        );
+        if ($result->text !== '') {
+            // Split on word boundaries, preserving whitespace
+            $segments = preg_split('/(?<=\s)/', $result->text, -1, PREG_SPLIT_NO_EMPTY) ?: [$result->text];
+
+            foreach ($segments as $segment) {
+                yield new StreamChunk(
+                    type: ChunkType::Text,
+                    text: $segment,
+                );
+
+                // Small delay between chunks for visual effect
+                usleep(15_000);
+            }
+        }
 
         yield new StreamChunk(
             type: ChunkType::Done,
@@ -809,6 +830,10 @@ class AgentRequest implements QueueableRequest
 
         if ($payload['retry_mode'] ?? false) {
             $request->retry();
+        }
+
+        if ($broadcastChannel !== null) {
+            $request->broadcastChannel = $broadcastChannel;
         }
 
         return match ($terminal) {

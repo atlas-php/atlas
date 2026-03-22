@@ -7,6 +7,7 @@ namespace Atlasphp\Atlas\Queue\Jobs;
 use Atlasphp\Atlas\Events\ExecutionCompleted;
 use Atlasphp\Atlas\Events\ExecutionFailed;
 use Atlasphp\Atlas\Queue\QueueableRequest;
+use Atlasphp\Atlas\Responses\StreamResponse;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -72,6 +73,19 @@ class ExecuteAtlasJob implements ShouldQueue
             executionId: $this->executionId,
             broadcastChannel: $this->broadcastChannel,
         );
+
+        // StreamResponse is a generator — must be consumed for broadcasting
+        // to fire. Some request classes (TextRequest) consume internally,
+        // but AgentRequest returns an unconsumed stream that needs iteration.
+        if ($result instanceof StreamResponse) {
+            try {
+                foreach ($result as $chunk) {
+                    // Chunks are consumed; broadcasting happens inside the iterator
+                }
+            } catch (Throwable) {
+                // Generator may already be closed if consumed by executeFromPayload
+            }
+        }
 
         // Fire success callback with the actual response
         if ($this->thenCallback !== null) {

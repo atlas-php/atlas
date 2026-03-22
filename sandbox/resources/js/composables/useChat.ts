@@ -55,6 +55,7 @@ export interface ChatMessage {
     parent_id: number | null;
     sequence: number;
     created_at: string;
+    read_at: string | null;
     execution?: MessageExecution | null;
     sibling_count?: number;
     sibling_index?: number;
@@ -81,12 +82,28 @@ export function useChat() {
     const activeConversationId = ref<number | null>(null);
     const messages = ref<ChatMessage[]>([]);
     const isTyping = ref(false);
+    const isStreaming = ref(false);
+    const streamingText = ref('');
     const isLoading = ref(false);
     const hasMore = ref(false);
     const conversationTitle = ref('');
     const error = ref<string | null>(null);
 
     let subscribedChannelId: number | null = null;
+    let scrollToBottomCallback: (() => void) | null = null;
+    let responseCompleteCallback: (() => void) | null = null;
+
+    function onScrollToBottom(cb: () => void) {
+        scrollToBottomCallback = cb;
+    }
+
+    function onResponseComplete(cb: () => void) {
+        responseCompleteCallback = cb;
+    }
+
+    function requestScroll() {
+        scrollToBottomCallback?.();
+    }
 
     // ─── Conversations ───────────────────────────────
 
@@ -160,11 +177,12 @@ export function useChat() {
             parent_id: null,
             sequence: messages.value.length + 1,
             created_at: new Date().toISOString(),
+            read_at: null,
             attachments: optimisticAttachments.length > 0 ? optimisticAttachments : undefined,
             _optimistic: true,
         };
         messages.value.push(optimistic);
-        isTyping.value = true;
+        requestScroll();
 
         try {
             const payload: Record<string, unknown> = {
@@ -220,13 +238,11 @@ export function useChat() {
 
         error.value = null;
 
-        // Remove the last assistant message so the typing indicator takes its place
+        // Remove the last assistant message — typing indicator will show via ExecutionProcessing event
         const lastAssistantIdx = messages.value.findLastIndex((m) => m.role === 'assistant');
         if (lastAssistantIdx !== -1) {
             messages.value.splice(lastAssistantIdx, 1);
         }
-
-        isTyping.value = true;
 
         try {
             await api(`/conversations/${activeConversationId.value}/retry`, {
@@ -248,6 +264,15 @@ export function useChat() {
             body: JSON.stringify({ index }),
         });
         await reloadMessages();
+    }
+
+    function markLastUserMessageRead() {
+        for (let i = messages.value.length - 1; i >= 0; i--) {
+            if (messages.value[i].role === 'user' && !messages.value[i].read_at) {
+                messages.value[i].read_at = new Date().toISOString();
+                break;
+            }
+        }
     }
 
     async function reloadMessages() {
@@ -281,15 +306,50 @@ export function useChat() {
         }
 
         subscribedChannelId = id;
+        console.log(`[Echo] Subscribing to conversation.${id}`);
 
         window.Echo.channel(`conversation.${id}`)
-            .listen('.ExecutionCompleted', () => {
-                isTyping.value = false;
+            .listen('.ExecutionProcessing', () => {
+                console.log('[Echo] Execution processing');
+                isTyping.value = true;
+                markLastUserMessageRead();
+                requestScroll();
+            })
+            .listen('.StreamChunkReceived', (data: { text: string }) => {
+                // First chunk — switch from typing to streaming, mark user message read
+                if (!isStreaming.value) {
+                    console.log('[Echo] Stream started');
+                    isTyping.value = false;
+                    isStreaming.value = true;
+                    streamingText.value = '';
+                    markLastUserMessageRead();
+                }
+                streamingText.value += data.text;
+                requestScroll();
+            })
+            .listen('.StreamCompleted', () => {
+                console.log('[Echo] Stream completed');
+                isStreaming.value = false;
+                streamingText.value = '';
                 reloadMessages();
                 loadConversations();
+                responseCompleteCallback?.();
+            })
+            .listen('.ExecutionCompleted', () => {
+                console.log('[Echo] Execution completed');
+                isTyping.value = false;
+                isStreaming.value = false;
+                streamingText.value = '';
+                markLastUserMessageRead();
+                reloadMessages();
+                loadConversations();
+                responseCompleteCallback?.();
             })
             .listen('.ExecutionFailed', (data: { error?: string }) => {
+                console.log('[Echo] Execution failed', data);
                 isTyping.value = false;
+                isStreaming.value = false;
+                streamingText.value = '';
                 error.value = data.error ?? 'Execution failed';
                 reloadMessages();
             });
@@ -315,6 +375,8 @@ export function useChat() {
         conversationTitle.value = '';
         hasMore.value = false;
         isTyping.value = false;
+        isStreaming.value = false;
+        streamingText.value = '';
         error.value = null;
     }
 
@@ -326,6 +388,8 @@ export function useChat() {
         messages,
         conversationTitle,
         isTyping,
+        isStreaming,
+        streamingText,
         isLoading,
         hasMore,
         isEmpty,
@@ -339,5 +403,7 @@ export function useChat() {
         cycleSibling,
         startNewConversation,
         unsubscribe,
+        onScrollToBottom,
+        onResponseComplete,
     };
 }

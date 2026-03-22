@@ -123,15 +123,17 @@ class ChatController
         }
 
         // Dispatch in respond mode — user message is already stored
+        // 3s delay so UI shows "Delivered" before processing starts
         $agentRequest = Atlas::agent('assistant')
             ->for($user)
             ->message($request->string('message')->toString(), $media)
             ->queue()
+            ->withDelay(3)
             ->forConversation($conversationId)
             ->respond()
             ->broadcastOn(new Channel('conversation.'.$conversationId));
 
-        $pending = $agentRequest->asText();
+        $pending = $agentRequest->asStream();
 
         return new JsonResponse([
             'execution_id' => $pending->executionId,
@@ -235,52 +237,18 @@ class ChatController
 
     /**
      * Retry the last assistant response in a conversation.
-     *
-     * Reconstructs media from saved assets on the parent user message
-     * so the AI sees the same images on retry.
      */
     public function retry(int $conversationId): JsonResponse
     {
         $user = User::findOrFail(1);
-        $conversation = Conversation::findOrFail($conversationId);
 
-        // Find the last assistant message to get its parent (user message)
-        $lastAssistant = Message::where('conversation_id', $conversationId)
-            ->where('is_active', true)
-            ->where('role', 'assistant')
-            ->latest('sequence')
-            ->first();
-
-        // Rebuild media from the parent user message's assets
-        $media = [];
-
-        if ($lastAssistant?->parent_id) {
-            $parentMsg = Message::with('attachments.asset')->find($lastAssistant->parent_id);
-
-            if ($parentMsg) {
-                foreach ($parentMsg->attachments as $att) {
-                    if ($att->asset->type === AssetType::Image) {
-                        $disk = $att->asset->disk ?? config('filesystems.default');
-                        $media[] = Image::fromStorage($att->asset->path, $disk);
-                    }
-                }
-            }
-        }
-
-        $agentRequest = Atlas::agent('assistant')
+        $pending = Atlas::agent('assistant')
             ->for($user)
             ->forConversation($conversationId)
             ->retry()
             ->queue()
-            ->broadcastOn(new Channel('conversation.'.$conversationId));
-
-        if ($media !== []) {
-            // Re-send the parent user message text with its media
-            $parentContent = Message::find($lastAssistant->parent_id)?->content ?? '';
-            $agentRequest->message($parentContent, $media);
-        }
-
-        $pending = $agentRequest->asText();
+            ->broadcastOn(new Channel('conversation.'.$conversationId))
+            ->asStream();
 
         return new JsonResponse([
             'execution_id' => $pending->executionId,

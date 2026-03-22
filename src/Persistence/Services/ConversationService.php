@@ -75,11 +75,15 @@ class ConversationService
         int $limit = 50,
         ?string $forAgent = null,
     ): array {
-        // Eager-load step + step.toolCalls for assistant messages
+        // Eager-load step + step.toolCalls for assistant messages.
+        // reorder() clears the relationship's default orderBy('sequence')
+        // so latest('sequence') can take the N most recent, then reverse
+        // restores chronological order for the provider.
         $messages = $conversation->messages()
             ->where('is_active', true)
             ->where('status', MessageStatus::Delivered)
             ->with(['step.toolCalls'])
+            ->reorder()
             ->latest('sequence')
             ->limit($limit)
             ->get()

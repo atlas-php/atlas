@@ -7,6 +7,7 @@ import type { ChatMessage } from '../composables/useChat';
 const props = defineProps<{
     message: ChatMessage;
     isLastAssistant: boolean;
+    isLastUser: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -25,11 +26,6 @@ const hasExecution = computed(() => !!props.message.execution);
 const hasSiblings = computed(
     () => (props.message.sibling_count ?? 0) > 1,
 );
-const hasToolCalls = computed(() => {
-    if (!props.message.execution) return false;
-    return props.message.execution.steps.some((s) => s.tool_calls.length > 0);
-});
-
 const showExecution = ref(false);
 const copied = ref(false);
 
@@ -67,16 +63,16 @@ function formatTokens(n: number): string {
     if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
     return String(n);
 }
+
+function formatTime(dateStr: string): string {
+    const date = new Date(dateStr);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
 </script>
 
 <template>
     <div class="group flex gap-3 py-2" :class="isUser ? 'justify-end' : 'justify-start'">
         <div :class="isUser ? 'max-w-[80%]' : 'max-w-[85%] w-full'">
-            <!-- Author label -->
-            <p class="mb-1 text-xs text-muted-foreground" :class="isUser ? 'text-right' : 'text-left'">
-                {{ message.author.name || (isUser ? 'You' : 'Assistant') }}
-            </p>
-
             <!-- Attachments (above the bubble) -->
             <div v-if="imageAttachments.length" class="mb-2 flex flex-wrap gap-1.5" :class="isUser ? 'justify-end' : ''">
                 <img
@@ -117,6 +113,12 @@ function formatTokens(n: number): string {
                     class="prose prose-sm prose-invert max-w-none"
                     v-html="renderedContent"
                 />
+            </div>
+
+            <!-- User message status (below bubble, last user message only) -->
+            <div v-if="isUser && isLastUser" class="mt-0.5 text-right text-[10px] text-muted-foreground">
+                <template v-if="message.read_at">Read · {{ formatTime(message.read_at) }}</template>
+                <template v-else>Delivered</template>
             </div>
 
             <!-- Action bar (assistant messages) -->

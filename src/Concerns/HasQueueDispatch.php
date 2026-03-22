@@ -25,6 +25,8 @@ trait HasQueueDispatch
 
     protected ?string $queueName = null;
 
+    protected int $queueDelay = 0;
+
     protected ?Channel $broadcastChannel = null;
 
     /**
@@ -58,6 +60,16 @@ trait HasQueueDispatch
     public function onQueue(string $queue): static
     {
         $this->queueName = $queue;
+
+        return $this;
+    }
+
+    /**
+     * Set delay in seconds before the job is processed.
+     */
+    public function withDelay(int $seconds): static
+    {
+        $this->queueDelay = $seconds;
 
         return $this;
     }
@@ -126,6 +138,10 @@ trait HasQueueDispatch
         }
 
         $job->onQueue($queue);
+
+        if ($this->queueDelay > 0) {
+            $job->delay($this->queueDelay);
+        }
 
         if (config('atlas.queue.after_commit', true)) {
             $job->afterCommit();

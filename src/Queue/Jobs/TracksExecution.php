@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Queue\Jobs;
 
+use Atlasphp\Atlas\Events\ExecutionProcessing;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 
@@ -43,6 +44,13 @@ trait TracksExecution
                 'status' => ExecutionStatus::Processing,
                 'started_at' => now(),
             ]);
+
+            if ($this instanceof ExecuteAtlasJob) {
+                event(new ExecutionProcessing(
+                    executionId: $this->executionId,
+                    channel: $this->broadcastChannel,
+                ));
+            }
         }
     }
 

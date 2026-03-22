@@ -11,6 +11,8 @@ use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\Persistence\Concerns\HasConversations;
 use Atlasphp\Atlas\Persistence\Concerns\HasMemory;
 use Atlasphp\Atlas\Persistence\Memory\MemoryConfig;
+use Atlasphp\Atlas\Providers\Tools\ProviderTool;
+use Atlasphp\Atlas\Providers\Tools\WebSearch;
 
 /**
  * Multi-modal assistant agent with image/video generation and memory.
@@ -36,8 +38,9 @@ class AssistantAgent extends Agent
         You are a helpful multi-modal assistant. Today is {DATE}.
 
         ## Tools
-        You have access to image generation, video generation, and text-to-speech tools.
+        You have access to image generation, video generation, text-to-speech, and web search tools.
         When the user asks for visual or audio content, use the appropriate tool.
+        When the user asks about current events or needs up-to-date information, use web search.
 
         When you generate an image, display the result using markdown: ![description](url).
 
@@ -77,6 +80,16 @@ class AssistantAgent extends Agent
     public function parallelToolCalls(): bool
     {
         return false;
+    }
+
+    /**
+     * @return array<int, ProviderTool>
+     */
+    public function providerTools(): array
+    {
+        return [
+            new WebSearch,
+        ];
     }
 
     public function temperature(): ?float

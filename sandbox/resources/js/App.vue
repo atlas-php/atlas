@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, watch } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 import ThreadSidebar from './components/ThreadSidebar.vue';
 import ChatThread from './components/ChatThread.vue';
 import ChatInput from './components/ChatInput.vue';
@@ -10,6 +10,19 @@ import { useAttachments } from './composables/useAttachments';
 const chat = useChat();
 const { attachments, hasAttachments, canAddMore, addFiles, removeAttachment, clearAttachments, toPayload } =
     useAttachments();
+
+const chatThreadRef = ref<InstanceType<typeof ChatThread> | null>(null);
+const chatInputRef = ref<InstanceType<typeof ChatInput> | null>(null);
+
+// Register scroll callback so composable can trigger scroll-to-bottom
+chat.onScrollToBottom(() => {
+    chatThreadRef.value?.scrollToBottom('instant');
+});
+
+// Focus input when assistant response completes
+chat.onResponseComplete(() => {
+    chatInputRef.value?.focus();
+});
 
 // ─── URL-based thread routing ────────────────────────
 
@@ -101,10 +114,13 @@ function handleCycleSibling(messageId: number, index: number) {
         <div class="flex flex-1 flex-col min-w-0">
             <!-- Messages -->
             <ChatThread
+                ref="chatThreadRef"
                 :messages="chat.messages.value"
                 :is-loading="chat.isLoading.value"
                 :has-more="chat.hasMore.value"
                 :is-empty="chat.isEmpty.value"
+                :is-streaming="chat.isStreaming.value"
+                :streaming-text="chat.streamingText.value"
                 @load-more="chat.loadOlderMessages"
                 @retry="handleRetry"
                 @cycle-sibling="handleCycleSibling"
@@ -124,7 +140,8 @@ function handleCycleSibling(messageId: number, index: number) {
 
             <!-- Input -->
             <ChatInput
-                :disabled="chat.isTyping.value"
+                ref="chatInputRef"
+                :disabled="chat.isTyping.value || chat.isStreaming.value"
                 :attachments="attachments"
                 :can-add-more="canAddMore"
                 @send="handleSend"

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, watch, nextTick, onMounted } from 'vue';
+import { ref, computed, watch, nextTick, onMounted } from 'vue';
 import { Loader2 } from 'lucide-vue-next';
 import ChatMessageBubble from './ChatMessageBubble.vue';
+import { renderMarkdown } from '../utils/markdown';
 import type { ChatMessage } from '../composables/useChat';
 
 const props = defineProps<{
@@ -9,6 +10,8 @@ const props = defineProps<{
     isLoading: boolean;
     hasMore: boolean;
     isEmpty: boolean;
+    isStreaming: boolean;
+    streamingText: string;
 }>();
 
 const emit = defineEmits<{
@@ -16,6 +19,8 @@ const emit = defineEmits<{
     retry: [];
     'cycle-sibling': [messageId: number, index: number];
 }>();
+
+const renderedStreamingText = computed(() => renderMarkdown(props.streamingText));
 
 const containerRef = ref<HTMLElement | null>(null);
 const sentinelRef = ref<HTMLElement | null>(null);
@@ -39,9 +44,18 @@ function onScroll() {
     shouldAutoScroll = scrollHeight - scrollTop - clientHeight < 100;
 }
 
-// Auto-scroll on new messages
+// Auto-scroll on new messages or when messages array is replaced (thread load)
 watch(
-    () => props.messages.length,
+    () => props.messages,
+    () => {
+        shouldAutoScroll = true;
+        scrollToBottom('instant');
+    },
+);
+
+// Auto-scroll while streaming
+watch(
+    () => props.streamingText,
     () => {
         if (shouldAutoScroll) scrollToBottom();
     },
@@ -82,6 +96,14 @@ function isLastAssistant(msg: ChatMessage, index: number): boolean {
     return true;
 }
 
+function isLastUser(msg: ChatMessage, index: number): boolean {
+    if (msg.role !== 'user') return false;
+    for (let i = index + 1; i < props.messages.length; i++) {
+        if (props.messages[i].role === 'user') return false;
+    }
+    return true;
+}
+
 defineExpose({ scrollToBottom });
 </script>
 
@@ -113,9 +135,19 @@ defineExpose({ scrollToBottom });
                 :key="msg.id"
                 :message="msg"
                 :is-last-assistant="isLastAssistant(msg, index)"
+                :is-last-user="isLastUser(msg, index)"
                 @retry="emit('retry')"
                 @cycle-sibling="(messageId, idx) => emit('cycle-sibling', messageId, idx)"
             />
+
+            <!-- Streaming assistant message -->
+            <div v-if="isStreaming && streamingText" class="group flex gap-3 py-2 justify-start">
+                <div class="max-w-[85%] w-full">
+                    <div class="rounded-2xl rounded-bl-md bg-muted text-foreground px-4 py-2.5">
+                        <div class="prose prose-sm prose-invert max-w-none streaming-cursor" v-html="renderedStreamingText" />
+                    </div>
+                </div>
+            </div>
 
             <!-- Typing indicator slot -->
             <slot name="typing" />

@@ -601,11 +601,16 @@ it('asStream with tools falls back to non-streaming and wraps as chunks', functi
         $chunks[] = $chunk;
     }
 
-    // resultToChunks yields Text chunk then Done chunk
-    expect($chunks)->toHaveCount(2);
-    expect($chunks[0]->type)->toBe(ChunkType::Text);
-    expect($chunks[0]->text)->toBe('Streamed with tools');
-    expect($chunks[1]->type)->toBe(ChunkType::Done);
+    // resultToChunks yields word-level Text chunks then a Done chunk
+    $textChunks = array_filter($chunks, fn ($c) => $c->type === ChunkType::Text);
+    $doneChunks = array_filter($chunks, fn ($c) => $c->type === ChunkType::Done);
+
+    expect($textChunks)->not->toBeEmpty();
+    expect($doneChunks)->toHaveCount(1);
+
+    // Reassembled text matches the original
+    $reassembled = implode('', array_map(fn ($c) => $c->text, $textChunks));
+    expect($reassembled)->toBe('Streamed with tools');
 });
 
 // ─── Structured output ignores tools ────────────────────────────────────────

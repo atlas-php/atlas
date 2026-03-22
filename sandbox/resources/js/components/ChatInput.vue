@@ -39,6 +39,14 @@ function focusTextarea() {
     textareaRef.value?.focus();
 }
 
+function handleBoxClick(e: MouseEvent) {
+    // Focus textarea when clicking anywhere in the box that isn't a button/input
+    const target = e.target as HTMLElement;
+    if (!target.closest('button') && !target.closest('input[type="file"]')) {
+        focusTextarea();
+    }
+}
+
 function handleSend() {
     const trimmed = text.value.trim();
     if (!canSubmit.value) return;
@@ -80,6 +88,8 @@ function handleDragLeave() {
     }
 }
 
+defineExpose({ focus: focusTextarea });
+
 function handleDrop(e: DragEvent) {
     dragCounter = 0;
     isDragging.value = false;
@@ -104,7 +114,7 @@ function handleDrop(e: DragEvent) {
                 @dragover.prevent
                 @dragleave="handleDragLeave"
                 @drop.prevent="handleDrop"
-                @mousedown="focusTextarea"
+                @click="handleBoxClick"
             >
                 <!-- Drop overlay -->
                 <div
