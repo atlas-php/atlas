@@ -7,7 +7,7 @@ namespace Atlasphp\Atlas\Events;
 /**
  * Dispatched before an HTTP request is sent to a provider.
  */
-class ProviderRequesting
+class ProviderRequestStarted
 {
     /**
      * @param  array<string, mixed>  $body

@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Events\AgentCompleted;
-use Atlasphp\Atlas\Events\AgentToolCalled;
-use Atlasphp\Atlas\Events\AgentToolCalling;
-use Atlasphp\Atlas\Events\AgentToolErrored;
+use Atlasphp\Atlas\Events\AgentMaxStepsExceeded;
+use Atlasphp\Atlas\Events\AgentStarted;
+use Atlasphp\Atlas\Events\AgentStepCompleted;
+use Atlasphp\Atlas\Events\AgentStepStarted;
+use Atlasphp\Atlas\Events\AgentToolCallCompleted;
+use Atlasphp\Atlas\Events\AgentToolCallFailed;
+use Atlasphp\Atlas\Events\AgentToolCallStarted;
 use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Exceptions\MaxStepsExceededException;
 use Atlasphp\Atlas\Executor\AgentExecutor;
@@ -204,8 +208,8 @@ it('handles one tool call across two round trips', function () {
 
     // Events: Calling, Called, Completed
     $eventClasses = array_map(fn ($e) => $e::class, $dispatcher->dispatched);
-    expect($eventClasses)->toContain(AgentToolCalling::class);
-    expect($eventClasses)->toContain(AgentToolCalled::class);
+    expect($eventClasses)->toContain(AgentToolCallStarted::class);
+    expect($eventClasses)->toContain(AgentToolCallCompleted::class);
     expect($eventClasses)->toContain(AgentCompleted::class);
 });
 
@@ -289,8 +293,8 @@ it('catches tool errors and sends error result to model', function () {
     expect($toolResult->isError)->toBeTrue();
     expect($toolResult->content)->toBe('Tool exploded');
 
-    // AgentToolErrored event dispatched
-    $errored = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentToolErrored);
+    // AgentToolCallFailed event dispatched
+    $errored = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentToolCallFailed);
     expect($errored)->toHaveCount(1);
 });
 
@@ -465,11 +469,11 @@ it('executes multiple tool calls concurrently with parallelToolCalls true', func
     expect($result->steps[0]->toolResults[1]->content)->toBe('b');
     expect($result->steps[0]->toolResults[2]->content)->toBe('c');
 
-    // Concurrent path fires AgentToolCalling events upfront, then AgentToolCalled after
-    $callingEvents = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentToolCalling);
+    // Concurrent path fires AgentToolCallStarted events upfront, then AgentToolCallCompleted after
+    $callingEvents = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentToolCallStarted);
     expect($callingEvents)->toHaveCount(3);
 
-    $calledEvents = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentToolCalled);
+    $calledEvents = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentToolCallCompleted);
     expect($calledEvents)->toHaveCount(3);
 });
 
@@ -501,7 +505,7 @@ it('handles errors in concurrent path with multiple tools', function () {
     expect($result->steps[0]->toolResults[1]->content)->toBe('Tool exploded');
     expect($result->steps[0]->toolResults[1]->isError)->toBeTrue();
 
-    $erroredEvents = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentToolErrored);
+    $erroredEvents = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentToolCallFailed);
     expect($erroredEvents)->toHaveCount(1);
 });
 
@@ -533,7 +537,7 @@ it('catches all tool errors in concurrent path when every tool fails', function 
     expect($result->steps[0]->toolResults[1]->isError)->toBeTrue();
     expect($result->steps[0]->toolResults[1]->content)->toBe('Tool exploded');
 
-    $erroredEvents = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentToolErrored);
+    $erroredEvents = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentToolCallFailed);
     expect($erroredEvents)->toHaveCount(2);
 });
 
@@ -564,10 +568,10 @@ it('executes multiple tool calls sequentially when parallelToolCalls is false', 
     expect($result->steps[0]->toolResults[0]->content)->toBe('a');
     expect($result->steps[0]->toolResults[1]->content)->toBe('b');
 
-    $callingEvents = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentToolCalling);
+    $callingEvents = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentToolCallStarted);
     expect($callingEvents)->toHaveCount(2);
 
-    $calledEvents = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentToolCalled);
+    $calledEvents = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentToolCallCompleted);
     expect($calledEvents)->toHaveCount(2);
 });
 
@@ -599,7 +603,7 @@ it('handles mixed success and error with multiple sequential tools', function ()
     expect($result->steps[0]->toolResults[1]->content)->toBe('Tool exploded');
     expect($result->steps[0]->toolResults[1]->isError)->toBeTrue();
 
-    $erroredEvents = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentToolErrored);
+    $erroredEvents = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentToolCallFailed);
     expect($erroredEvents)->toHaveCount(1);
 });
 
@@ -665,8 +669,8 @@ it('concurrent closure catch converts exception to error ToolResult via sync dri
     expect($result->steps[0]->toolResults[1]->content)->toBe('Tool exploded');
     expect($result->steps[0]->toolResults[1]->isError)->toBeTrue();
 
-    // AgentToolErrored fires for the failed tool
-    $erroredEvents = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentToolErrored);
+    // AgentToolCallFailed fires for the failed tool
+    $erroredEvents = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentToolCallFailed);
     expect($erroredEvents)->toHaveCount(1);
 });
 
@@ -709,4 +713,131 @@ it('concurrencyDriver returns sync when fork is unavailable', function () {
     expect($result->totalToolCalls())->toBe(2);
     expect($result->steps[0]->toolResults[0]->content)->toBe('a');
     expect($result->steps[0]->toolResults[1]->content)->toBe('b');
+});
+
+// ─── Dispatch-site lifecycle events ─────────────────────────────────────────
+
+it('dispatches AgentStarted before the tool loop', function () {
+    $driver = makeMockDriver([
+        new TextResponse('Done.', new Usage(10, 20), FinishReason::Stop),
+    ]);
+
+    $dispatcher = makeFakeDispatcher();
+    $registry = new ToolRegistry([]);
+    $toolExecutor = new ToolExecutor($registry);
+    $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
+
+    $executor->execute(makeTextRequest(), maxSteps: 10, parallelToolCalls: true, meta: [], agentKey: 'test-agent');
+
+    $started = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentStarted);
+    expect($started)->toHaveCount(1);
+    $event = array_values($started)[0];
+    expect($event->agentKey)->toBe('test-agent');
+    expect($event->maxSteps)->toBe(10);
+    expect($event->parallelToolCalls)->toBeTrue();
+});
+
+it('dispatches AgentStepStarted and AgentStepCompleted for each step', function () {
+    $driver = makeMockDriver([
+        new TextResponse(
+            'Using tool.',
+            new Usage(10, 10),
+            FinishReason::ToolCalls,
+            toolCalls: [new ToolCall('tc-1', 'echo', ['text' => 'a'])],
+        ),
+        new TextResponse('Done.', new Usage(10, 10), FinishReason::Stop),
+    ]);
+
+    $dispatcher = makeFakeDispatcher();
+    $registry = new ToolRegistry([makeEchoTool()]);
+    $toolExecutor = new ToolExecutor($registry);
+    $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
+
+    $executor->execute(makeTextRequest(), maxSteps: 10, parallelToolCalls: true, meta: []);
+
+    $stepStarted = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentStepStarted);
+    $stepCompleted = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentStepCompleted);
+    expect($stepStarted)->toHaveCount(2);
+    expect($stepCompleted)->toHaveCount(2);
+
+    $stepStartedArr = array_values($stepStarted);
+    expect($stepStartedArr[0]->stepNumber)->toBe(1);
+    expect($stepStartedArr[1]->stepNumber)->toBe(2);
+
+    $stepCompletedArr = array_values($stepCompleted);
+    expect($stepCompletedArr[0]->stepNumber)->toBe(1);
+    expect($stepCompletedArr[0]->finishReason)->toBe(FinishReason::ToolCalls);
+    expect($stepCompletedArr[1]->stepNumber)->toBe(2);
+    expect($stepCompletedArr[1]->finishReason)->toBe(FinishReason::Stop);
+});
+
+it('dispatches AgentMaxStepsExceeded before throwing exception', function () {
+    $driver = makeMockDriver([
+        new TextResponse(
+            'Tool 1.',
+            new Usage(10, 10),
+            FinishReason::ToolCalls,
+            toolCalls: [new ToolCall('tc-1', 'echo', ['text' => 'a'])],
+        ),
+        new TextResponse(
+            'Tool 2.',
+            new Usage(10, 10),
+            FinishReason::ToolCalls,
+            toolCalls: [new ToolCall('tc-2', 'echo', ['text' => 'b'])],
+        ),
+    ]);
+
+    $dispatcher = makeFakeDispatcher();
+    $registry = new ToolRegistry([makeEchoTool()]);
+    $toolExecutor = new ToolExecutor($registry);
+    $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
+
+    try {
+        $executor->execute(makeTextRequest(), maxSteps: 2, parallelToolCalls: true, meta: []);
+    } catch (MaxStepsExceededException) {
+        // expected
+    }
+
+    $exceeded = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentMaxStepsExceeded);
+    expect($exceeded)->toHaveCount(1);
+    $event = array_values($exceeded)[0];
+    expect($event->limit)->toBe(2);
+    expect($event->steps)->toHaveCount(2);
+
+    // AgentCompleted fires via finally block even on exception
+    $completed = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentCompleted);
+    expect($completed)->toHaveCount(1);
+});
+
+it('dispatches events in correct lifecycle order', function () {
+    $driver = makeMockDriver([
+        new TextResponse(
+            'Using tool.',
+            new Usage(10, 10),
+            FinishReason::ToolCalls,
+            toolCalls: [new ToolCall('tc-1', 'echo', ['text' => 'a'])],
+        ),
+        new TextResponse('Done.', new Usage(10, 10), FinishReason::Stop),
+    ]);
+
+    $dispatcher = makeFakeDispatcher();
+    $registry = new ToolRegistry([makeEchoTool()]);
+    $toolExecutor = new ToolExecutor($registry);
+    $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
+
+    $executor->execute(makeTextRequest(), maxSteps: 10, parallelToolCalls: true, meta: [], agentKey: 'order-test');
+
+    $eventClasses = array_map(fn ($e) => $e::class, $dispatcher->dispatched);
+
+    // Expected order: AgentStarted → Step1Started → Step1Completed → ToolCallStarted → ToolCallCompleted → Step2Started → Step2Completed → AgentCompleted
+    expect($eventClasses)->toBe([
+        AgentStarted::class,
+        AgentStepStarted::class,
+        AgentStepCompleted::class,
+        AgentToolCallStarted::class,
+        AgentToolCallCompleted::class,
+        AgentStepStarted::class,
+        AgentStepCompleted::class,
+        AgentCompleted::class,
+    ]);
 });

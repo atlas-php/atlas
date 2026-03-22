@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Events\ProviderRequestCompleted;
 use Atlasphp\Atlas\Events\ProviderRequestFailed;
-use Atlasphp\Atlas\Events\ProviderRequesting;
-use Atlasphp\Atlas\Events\ProviderResponded;
+use Atlasphp\Atlas\Events\ProviderRequestStarted;
 use Atlasphp\Atlas\Providers\HttpClient;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Event;
@@ -28,7 +28,7 @@ it('sends a post request and returns json data', function () {
     expect($data)->toBe(['choices' => []]);
 });
 
-it('fires ProviderRequesting before the request', function () {
+it('fires ProviderRequestStarted before the request', function () {
     Http::fake([
         '*' => Http::response(['ok' => true], 200),
     ]);
@@ -38,12 +38,12 @@ it('fires ProviderRequesting before the request', function () {
     $client = app(HttpClient::class);
     $client->post('https://api.test.com/chat', [], ['model' => 'test'], 60);
 
-    Event::assertDispatched(ProviderRequesting::class, function ($event) {
+    Event::assertDispatched(ProviderRequestStarted::class, function ($event) {
         return $event->url === 'https://api.test.com/chat';
     });
 });
 
-it('fires ProviderResponded after a successful response', function () {
+it('fires ProviderRequestCompleted after a successful response', function () {
     Http::fake([
         '*' => Http::response(['data' => 'value'], 200),
     ]);
@@ -53,7 +53,7 @@ it('fires ProviderResponded after a successful response', function () {
     $client = app(HttpClient::class);
     $client->post('https://api.test.com/chat', [], [], 60);
 
-    Event::assertDispatched(ProviderResponded::class, function ($event) {
+    Event::assertDispatched(ProviderRequestCompleted::class, function ($event) {
         return $event->data === ['data' => 'value'];
     });
 });
@@ -92,8 +92,8 @@ it('sends a get request and returns json data', function () {
 
     expect($data)->toBe(['data' => [['id' => 'gpt-4o']]]);
 
-    Event::assertDispatched(ProviderRequesting::class);
-    Event::assertDispatched(ProviderResponded::class);
+    Event::assertDispatched(ProviderRequestStarted::class);
+    Event::assertDispatched(ProviderRequestCompleted::class);
 });
 
 it('fires ProviderRequestFailed on get failure', function () {
@@ -128,8 +128,8 @@ it('sends a postRaw request and returns raw body string', function () {
 
     expect($body)->toBe('binary-audio-data');
 
-    Event::assertDispatched(ProviderRequesting::class);
-    Event::assertDispatched(ProviderResponded::class);
+    Event::assertDispatched(ProviderRequestStarted::class);
+    Event::assertDispatched(ProviderRequestCompleted::class);
 });
 
 it('fires ProviderRequestFailed on postRaw failure', function () {
@@ -170,8 +170,8 @@ it('sends a postMultipart request and returns json data', function () {
 
     expect($data)->toBe(['text' => 'hello']);
 
-    Event::assertDispatched(ProviderRequesting::class);
-    Event::assertDispatched(ProviderResponded::class);
+    Event::assertDispatched(ProviderRequestStarted::class);
+    Event::assertDispatched(ProviderRequestCompleted::class);
 });
 
 it('fires ProviderRequestFailed on postMultipart failure', function () {
@@ -206,8 +206,8 @@ it('sends a get raw request and returns body string', function () {
 
     expect($body)->toBe('binary-video-data');
 
-    Event::assertDispatched(ProviderRequesting::class);
-    Event::assertDispatched(ProviderResponded::class);
+    Event::assertDispatched(ProviderRequestStarted::class);
+    Event::assertDispatched(ProviderRequestCompleted::class);
 });
 
 it('fires ProviderRequestFailed on getRaw failure', function () {
@@ -240,7 +240,7 @@ it('sends a stream request and fires events', function () {
 
     expect($response)->not->toBeNull();
 
-    Event::assertDispatched(ProviderRequesting::class);
+    Event::assertDispatched(ProviderRequestStarted::class);
 });
 
 it('fires ProviderRequestFailed on stream failure', function () {
@@ -259,6 +259,21 @@ it('fires ProviderRequestFailed on stream failure', function () {
     }
 
     Event::assertDispatched(ProviderRequestFailed::class, function ($event) {
+        return $event->url === 'https://api.test.com/chat';
+    });
+});
+
+it('fires ProviderRequestCompleted on successful stream', function () {
+    Http::fake([
+        '*' => Http::response('stream-data', 200),
+    ]);
+
+    Event::fake();
+
+    $client = app(HttpClient::class);
+    $client->stream('https://api.test.com/chat', [], ['model' => 'test'], 60);
+
+    Event::assertDispatched(ProviderRequestCompleted::class, function ($event) {
         return $event->url === 'https://api.test.com/chat';
     });
 });

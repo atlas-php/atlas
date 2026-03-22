@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Pending;
 
 use Atlasphp\Atlas\Concerns\HasQueueDispatch;
+use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Events\ModerationCompleted;
+use Atlasphp\Atlas\Events\ModerationStarted;
 use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
@@ -69,10 +72,16 @@ class ModerateRequest implements QueueableRequest
             return $this->dispatchToQueue('asModeration');
         }
 
+        event(new ModerationStarted(modality: Modality::Moderate, provider: $this->resolveProviderKey(), model: (string) ($this->model ?? '')));
+
         $driver = $this->resolveDriver();
         $this->ensureCapability($driver, 'moderate');
 
-        return $driver->moderate($this->buildRequest());
+        $response = $driver->moderate($this->buildRequest());
+
+        event(new ModerationCompleted(modality: Modality::Moderate, provider: $this->resolveProviderKey(), model: (string) ($this->model ?? '')));
+
+        return $response;
     }
 
     public function buildRequest(): ModerateRequestObject

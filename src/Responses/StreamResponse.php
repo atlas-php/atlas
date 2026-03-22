@@ -8,6 +8,7 @@ use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Events\StreamChunkReceived;
 use Atlasphp\Atlas\Events\StreamCompleted;
+use Atlasphp\Atlas\Events\StreamStarted;
 use Atlasphp\Atlas\Events\StreamToolCallReceived;
 use Atlasphp\Atlas\Messages\ToolCall;
 use Closure;
@@ -95,6 +96,11 @@ class StreamResponse implements IteratorAggregate, Responsable
      */
     public function getIterator(): Generator
     {
+        // Broadcast stream start
+        if ($this->broadcastChannel !== null) {
+            broadcast(new StreamStarted(channel: $this->broadcastChannel));
+        }
+
         foreach ($this->source as $chunk) {
             // 1. Accumulate
             if ($chunk->text !== null) {

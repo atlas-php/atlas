@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Pending;
 
 use Atlasphp\Atlas\Concerns\HasQueueDispatch;
+use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Events\RerankCompleted;
+use Atlasphp\Atlas\Events\RerankStarted;
 use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
@@ -109,15 +112,17 @@ class RerankRequest implements QueueableRequest
             return $this->dispatchToQueue('asReranked');
         }
 
+        event(new RerankStarted(modality: Modality::Rerank, provider: $this->resolveProviderKey(), model: (string) $this->model));
+
         $driver = $this->resolveDriver();
         $this->ensureCapability($driver, 'rerank');
 
         $response = $driver->rerank($this->buildRequest());
 
-        if ($this->minScore !== null) {
-            $filtered = $response->aboveScore($this->minScore);
+        event(new RerankCompleted(modality: Modality::Rerank, provider: $this->resolveProviderKey(), model: (string) $this->model));
 
-            return new RerankResponse($filtered, $response->meta);
+        if ($this->minScore !== null) {
+            return new RerankResponse($response->aboveScore($this->minScore), $response->meta);
         }
 
         return $response;

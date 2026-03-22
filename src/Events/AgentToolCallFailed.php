@@ -9,7 +9,7 @@ use Atlasphp\Atlas\Messages\ToolCall;
 /**
  * Dispatched when a tool throws an exception during an agent loop.
  */
-class AgentToolErrored
+class AgentToolCallFailed
 {
     public function __construct(
         public readonly ToolCall $toolCall,

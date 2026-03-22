@@ -7,7 +7,7 @@ namespace Atlasphp\Atlas\Events;
 /**
  * Dispatched after a successful HTTP response from a provider.
  */
-class ProviderResponded
+class ProviderRequestCompleted
 {
     /**
      * @param  array<string, mixed>  $data

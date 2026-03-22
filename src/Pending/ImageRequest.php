@@ -6,7 +6,10 @@ namespace Atlasphp\Atlas\Pending;
 
 use Atlasphp\Atlas\Concerns\HasQueueDispatch;
 use Atlasphp\Atlas\Concerns\HasVariables;
+use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Events\ImageCompleted;
+use Atlasphp\Atlas\Events\ImageStarted;
 use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
@@ -113,10 +116,16 @@ class ImageRequest implements QueueableRequest
             return $this->dispatchToQueue('asImage');
         }
 
+        event(new ImageStarted(modality: Modality::Image, provider: $this->resolveProviderKey(), model: (string) $this->model));
+
         $driver = $this->resolveDriver();
         $this->ensureCapability($driver, 'image');
 
-        return $driver->image($this->buildRequest());
+        $response = $driver->image($this->buildRequest());
+
+        event(new ImageCompleted(modality: Modality::Image, provider: $this->resolveProviderKey(), model: (string) $this->model));
+
+        return $response;
     }
 
     public function asText(): TextResponse|PendingExecution
@@ -125,10 +134,16 @@ class ImageRequest implements QueueableRequest
             return $this->dispatchToQueue('asText');
         }
 
+        event(new ImageStarted(modality: Modality::ImageToText, provider: $this->resolveProviderKey(), model: (string) $this->model));
+
         $driver = $this->resolveDriver();
         $this->ensureCapability($driver, 'imageToText');
 
-        return $driver->imageToText($this->buildRequest());
+        $response = $driver->imageToText($this->buildRequest());
+
+        event(new ImageCompleted(modality: Modality::ImageToText, provider: $this->resolveProviderKey(), model: (string) $this->model));
+
+        return $response;
     }
 
     public function buildRequest(): ImageRequestObject

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Providers;
 
+use Atlasphp\Atlas\Events\ProviderRequestCompleted;
 use Atlasphp\Atlas\Events\ProviderRequestFailed;
-use Atlasphp\Atlas\Events\ProviderRequesting;
-use Atlasphp\Atlas\Events\ProviderResponded;
+use Atlasphp\Atlas\Events\ProviderRequestStarted;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Support\Facades\Http;
 
@@ -29,7 +29,7 @@ class HttpClient
      */
     public function get(string $url, array $headers, int $timeout): array
     {
-        $this->events->dispatch(new ProviderRequesting($url, []));
+        $this->events->dispatch(new ProviderRequestStarted($url, []));
 
         $response = Http::withHeaders($headers)->timeout($timeout)->get($url);
 
@@ -39,7 +39,7 @@ class HttpClient
         }
 
         $data = $response->json() ?? [];
-        $this->events->dispatch(new ProviderResponded($url, $data));
+        $this->events->dispatch(new ProviderRequestCompleted($url, $data));
 
         return $data;
     }
@@ -53,7 +53,7 @@ class HttpClient
      */
     public function getRaw(string $url, array $headers, int $timeout): string
     {
-        $this->events->dispatch(new ProviderRequesting($url, []));
+        $this->events->dispatch(new ProviderRequestStarted($url, []));
 
         $response = Http::withHeaders($headers)->timeout($timeout)->get($url);
 
@@ -62,7 +62,7 @@ class HttpClient
             $response->throw();
         }
 
-        $this->events->dispatch(new ProviderResponded($url, []));
+        $this->events->dispatch(new ProviderRequestCompleted($url, []));
 
         return $response->body();
     }
@@ -76,7 +76,7 @@ class HttpClient
      */
     public function post(string $url, array $headers, array $body, int $timeout): array
     {
-        $this->events->dispatch(new ProviderRequesting($url, $body));
+        $this->events->dispatch(new ProviderRequestStarted($url, $body));
 
         $response = Http::withHeaders($headers)->timeout($timeout)->post($url, $body);
 
@@ -86,7 +86,7 @@ class HttpClient
         }
 
         $data = $response->json() ?? [];
-        $this->events->dispatch(new ProviderResponded($url, $data));
+        $this->events->dispatch(new ProviderRequestCompleted($url, $data));
 
         return $data;
     }
@@ -101,7 +101,7 @@ class HttpClient
      */
     public function postRaw(string $url, array $headers, array $body, int $timeout): string
     {
-        $this->events->dispatch(new ProviderRequesting($url, $body));
+        $this->events->dispatch(new ProviderRequestStarted($url, $body));
 
         $response = Http::withHeaders($headers)->timeout($timeout)->post($url, $body);
 
@@ -110,7 +110,7 @@ class HttpClient
             $response->throw();
         }
 
-        $this->events->dispatch(new ProviderResponded($url, []));
+        $this->events->dispatch(new ProviderRequestCompleted($url, []));
 
         return $response->body();
     }
@@ -127,7 +127,7 @@ class HttpClient
      */
     public function postMultipart(string $url, array $headers, array $data, array $attachments, int $timeout): array
     {
-        $this->events->dispatch(new ProviderRequesting($url, $data));
+        $this->events->dispatch(new ProviderRequestStarted($url, $data));
 
         $pending = Http::withHeaders($headers)->timeout($timeout);
 
@@ -147,7 +147,7 @@ class HttpClient
         }
 
         $result = $response->json() ?? [];
-        $this->events->dispatch(new ProviderResponded($url, $result));
+        $this->events->dispatch(new ProviderRequestCompleted($url, $result));
 
         return $result;
     }
@@ -160,7 +160,7 @@ class HttpClient
      */
     public function stream(string $url, array $headers, array $body, int $timeout): mixed
     {
-        $this->events->dispatch(new ProviderRequesting($url, $body));
+        $this->events->dispatch(new ProviderRequestStarted($url, $body));
 
         $response = Http::withHeaders($headers)
             ->timeout($timeout)
@@ -171,6 +171,8 @@ class HttpClient
             $this->events->dispatch(new ProviderRequestFailed($url, $response));
             $response->throw();
         }
+
+        $this->events->dispatch(new ProviderRequestCompleted($url, []));
 
         return $response;
     }

@@ -6,7 +6,10 @@ namespace Atlasphp\Atlas\Pending;
 
 use Atlasphp\Atlas\Concerns\HasQueueDispatch;
 use Atlasphp\Atlas\Concerns\HasVariables;
+use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Events\AudioCompleted;
+use Atlasphp\Atlas\Events\AudioStarted;
 use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
@@ -135,10 +138,16 @@ class AudioRequest implements QueueableRequest
             return $this->dispatchToQueue('asAudio');
         }
 
+        event(new AudioStarted(modality: Modality::Audio, provider: $this->resolveProviderKey(), model: (string) $this->model));
+
         $driver = $this->resolveDriver();
         $this->ensureCapability($driver, 'audio');
 
-        return $driver->audio($this->buildRequest());
+        $response = $driver->audio($this->buildRequest());
+
+        event(new AudioCompleted(modality: Modality::Audio, provider: $this->resolveProviderKey(), model: (string) $this->model));
+
+        return $response;
     }
 
     public function asText(): TextResponse|PendingExecution
@@ -147,10 +156,16 @@ class AudioRequest implements QueueableRequest
             return $this->dispatchToQueue('asText');
         }
 
+        event(new AudioStarted(modality: Modality::AudioToText, provider: $this->resolveProviderKey(), model: (string) $this->model));
+
         $driver = $this->resolveDriver();
         $this->ensureCapability($driver, 'audioToText');
 
-        return $driver->audioToText($this->buildRequest());
+        $response = $driver->audioToText($this->buildRequest());
+
+        event(new AudioCompleted(modality: Modality::AudioToText, provider: $this->resolveProviderKey(), model: (string) $this->model));
+
+        return $response;
     }
 
     public function buildRequest(): AudioRequestObject

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Persistence\Middleware;
 
 use Atlasphp\Atlas\Agent;
+use Atlasphp\Atlas\Enums\Role;
+use Atlasphp\Atlas\Events\ConversationMessageStored;
 use Atlasphp\Atlas\Executor\ExecutorResult;
 use Atlasphp\Atlas\Messages\Message;
 use Atlasphp\Atlas\Messages\UserMessage;
@@ -127,8 +129,13 @@ class PersistConversation
 
         $agentKey = $agent->key();
 
+        // Track stored message IDs for post-transaction event dispatch.
+        // Events fire after the transaction commits to prevent listeners from
+        // receiving events for records that may not exist if the transaction rolls back.
+        $userMessageId = null;
+
         /** @var array<int, \Atlasphp\Atlas\Persistence\Models\Message> $storedMessages */
-        $storedMessages = DB::transaction(function () use ($agent, $agentKey, $context, $conversation, $userMessage, $result, $consumerMeta): array {
+        $storedMessages = DB::transaction(function () use ($agent, $agentKey, $context, $conversation, $userMessage, $result, $consumerMeta, &$userMessageId): array {
             $author = $agent->resolveAuthor();
             $parentId = null;
 
@@ -146,6 +153,8 @@ class PersistConversation
                 if ($consumerMeta !== []) {
                     $stored->update(['metadata' => $consumerMeta]);
                 }
+
+                $userMessageId = $stored->id;
                 $parentId = $stored->id;
 
                 // Auto-set conversation title from the first user message
@@ -191,6 +200,25 @@ class PersistConversation
 
             return $storedMessages;
         });
+
+        // ── Dispatch persistence events after transaction commits ─
+        if ($userMessageId !== null) {
+            event(new ConversationMessageStored(
+                conversationId: $conversation->id,
+                messageId: $userMessageId,
+                role: Role::User,
+                agent: $agentKey,
+            ));
+        }
+
+        foreach ($storedMessages as $storedMessage) {
+            event(new ConversationMessageStored(
+                conversationId: $conversation->id,
+                messageId: $storedMessage->id,
+                role: Role::Assistant,
+                agent: $agentKey,
+            ));
+        }
 
         // Attach conversation ID to the response
         $result->conversationId = $conversation->id;

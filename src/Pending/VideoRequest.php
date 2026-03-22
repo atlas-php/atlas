@@ -6,7 +6,10 @@ namespace Atlasphp\Atlas\Pending;
 
 use Atlasphp\Atlas\Concerns\HasQueueDispatch;
 use Atlasphp\Atlas\Concerns\HasVariables;
+use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Events\VideoCompleted;
+use Atlasphp\Atlas\Events\VideoStarted;
 use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
@@ -104,10 +107,16 @@ class VideoRequest implements QueueableRequest
             return $this->dispatchToQueue('asVideo');
         }
 
+        event(new VideoStarted(modality: Modality::Video, provider: $this->resolveProviderKey(), model: (string) $this->model));
+
         $driver = $this->resolveDriver();
         $this->ensureCapability($driver, 'video');
 
-        return $driver->video($this->buildRequest());
+        $response = $driver->video($this->buildRequest());
+
+        event(new VideoCompleted(modality: Modality::Video, provider: $this->resolveProviderKey(), model: (string) $this->model));
+
+        return $response;
     }
 
     public function asText(): TextResponse|PendingExecution
@@ -116,10 +125,16 @@ class VideoRequest implements QueueableRequest
             return $this->dispatchToQueue('asText');
         }
 
+        event(new VideoStarted(modality: Modality::VideoToText, provider: $this->resolveProviderKey(), model: (string) $this->model));
+
         $driver = $this->resolveDriver();
         $this->ensureCapability($driver, 'videoToText');
 
-        return $driver->videoToText($this->buildRequest());
+        $response = $driver->videoToText($this->buildRequest());
+
+        event(new VideoCompleted(modality: Modality::VideoToText, provider: $this->resolveProviderKey(), model: (string) $this->model));
+
+        return $response;
     }
 
     public function buildRequest(): VideoRequestObject

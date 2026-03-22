@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Pending;
 
 use Atlasphp\Atlas\Concerns\HasQueueDispatch;
+use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Events\EmbeddingsCompleted;
+use Atlasphp\Atlas\Events\EmbeddingsStarted;
 use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
@@ -69,10 +72,16 @@ class EmbedRequest implements QueueableRequest
             return $this->dispatchToQueue('asEmbeddings');
         }
 
+        event(new EmbeddingsStarted(modality: Modality::Embed, provider: $this->resolveProviderKey(), model: (string) $this->model));
+
         $driver = $this->resolveDriver();
         $this->ensureCapability($driver, 'embed');
 
-        return $driver->embed($this->buildRequest());
+        $response = $driver->embed($this->buildRequest());
+
+        event(new EmbeddingsCompleted(modality: Modality::Embed, provider: $this->resolveProviderKey(), model: (string) $this->model));
+
+        return $response;
     }
 
     public function buildRequest(): EmbedRequestObject

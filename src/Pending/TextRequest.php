@@ -7,7 +7,10 @@ namespace Atlasphp\Atlas\Pending;
 use Atlasphp\Atlas\Concerns\HasQueueDispatch;
 use Atlasphp\Atlas\Concerns\HasVariables;
 use Atlasphp\Atlas\Concerns\NormalizesMessages;
+use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Events\TextCompleted;
+use Atlasphp\Atlas\Events\TextStarted;
 use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Executor\AgentExecutor;
 use Atlasphp\Atlas\Executor\ToolExecutor;
@@ -190,14 +193,24 @@ class TextRequest implements QueueableRequest
             return $this->dispatchToQueue('asText');
         }
 
+        event(new TextStarted(modality: Modality::Text, provider: $this->resolveProviderKey(), model: (string) $this->model));
+
         if ($this->hasTools()) {
-            return $this->executeWithTools();
+            $response = $this->executeWithTools();
+
+            event(new TextCompleted(modality: Modality::Text, provider: $this->resolveProviderKey(), model: (string) $this->model));
+
+            return $response;
         }
 
         $driver = $this->resolveDriver();
         $this->ensureCapability($driver, 'text');
 
-        return $driver->text($this->buildRequest());
+        $response = $driver->text($this->buildRequest());
+
+        event(new TextCompleted(modality: Modality::Text, provider: $this->resolveProviderKey(), model: (string) $this->model));
+
+        return $response;
     }
 
     public function asStream(): StreamResponse|PendingExecution
@@ -206,6 +219,8 @@ class TextRequest implements QueueableRequest
             return $this->dispatchToQueue('asStream');
         }
 
+        event(new TextStarted(modality: Modality::Stream, provider: $this->resolveProviderKey(), model: (string) $this->model));
+
         if ($this->hasTools()) {
             throw new AtlasException('Streaming with tools is not yet supported. Use asText() for tool-enabled requests.');
         }
@@ -213,7 +228,19 @@ class TextRequest implements QueueableRequest
         $driver = $this->resolveDriver();
         $this->ensureCapability($driver, 'stream');
 
-        return $driver->stream($this->buildRequest());
+        $provider = $this->resolveProviderKey();
+        $model = (string) $this->model;
+
+        $response = $driver->stream($this->buildRequest());
+
+        // TextCompleted fires after the stream is fully consumed, not when the
+        // response object is created. The then() callback runs at the end of
+        // StreamResponse::getIterator() after all chunks have been yielded.
+        $response->then(function () use ($provider, $model) {
+            event(new TextCompleted(modality: Modality::Stream, provider: $provider, model: $model));
+        });
+
+        return $response;
     }
 
     public function asStructured(): StructuredResponse|PendingExecution
@@ -222,10 +249,16 @@ class TextRequest implements QueueableRequest
             return $this->dispatchToQueue('asStructured');
         }
 
+        event(new TextStarted(modality: Modality::Structured, provider: $this->resolveProviderKey(), model: (string) $this->model));
+
         $driver = $this->resolveDriver();
         $this->ensureCapability($driver, 'structured');
 
-        return $driver->structured($this->buildRequest());
+        $response = $driver->structured($this->buildRequest());
+
+        event(new TextCompleted(modality: Modality::Structured, provider: $this->resolveProviderKey(), model: (string) $this->model));
+
+        return $response;
     }
 
     protected function hasTools(): bool
@@ -257,6 +290,7 @@ class TextRequest implements QueueableRequest
             maxSteps: $this->maxSteps,
             parallelToolCalls: $this->parallelToolCalls,
             meta: $this->meta,
+            agentKey: null,
         );
 
         return new TextResponse(

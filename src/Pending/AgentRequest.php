@@ -630,6 +630,7 @@ class AgentRequest implements QueueableRequest
             maxSteps: $maxSteps,
             parallelToolCalls: $parallelToolCalls,
             meta: $this->meta,
+            agentKey: $agent->key(),
         );
     }
 

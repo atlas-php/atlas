@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Events\StreamChunkReceived;
 use Atlasphp\Atlas\Events\StreamCompleted;
+use Atlasphp\Atlas\Events\StreamStarted;
 use Atlasphp\Atlas\Events\StreamToolCallReceived;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\PrivateChannel;
@@ -124,4 +125,45 @@ it('StreamToolCallReceived broadcastAs returns StreamToolCallReceived', function
     $event = new StreamToolCallReceived(channel: new Channel('test'), toolCalls: []);
 
     expect($event->broadcastAs())->toBe('StreamToolCallReceived');
+});
+
+// ─── StreamStarted ─────────────────────────────────────────────────────────
+
+it('StreamStarted implements ShouldBroadcastNow', function () {
+    $event = new StreamStarted(channel: new Channel('test'));
+
+    expect($event)->toBeInstanceOf(ShouldBroadcastNow::class);
+});
+
+it('StreamStarted broadcastOn returns channel when provided', function () {
+    $channel = new PrivateChannel('stream.1');
+    $event = new StreamStarted(channel: $channel);
+
+    expect($event->broadcastOn())->toHaveCount(1);
+    expect($event->broadcastOn()[0])->toBe($channel);
+});
+
+it('StreamStarted broadcastOn returns empty when no channel', function () {
+    $event = new StreamStarted;
+
+    expect($event->broadcastOn())->toBe([]);
+});
+
+it('StreamStarted broadcastAs returns StreamStarted', function () {
+    $event = new StreamStarted(channel: new Channel('test'));
+
+    expect($event->broadcastAs())->toBe('StreamStarted');
+});
+
+it('StreamStarted broadcastWhen returns true with channel', function () {
+    $channel = new PrivateChannel('test');
+    $event = new StreamStarted(channel: $channel);
+
+    expect($event->broadcastWhen())->toBeTrue();
+});
+
+it('StreamStarted broadcastWhen returns false without channel', function () {
+    $event = new StreamStarted;
+
+    expect($event->broadcastWhen())->toBeFalse();
 });

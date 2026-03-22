@@ -6,6 +6,7 @@ use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Events\StreamChunkReceived;
 use Atlasphp\Atlas\Events\StreamCompleted;
+use Atlasphp\Atlas\Events\StreamStarted;
 use Atlasphp\Atlas\Events\StreamToolCallReceived;
 use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Responses\StreamChunk;
@@ -142,4 +143,38 @@ it('StreamCompleted broadcastOn returns the channel', function () {
     $event = new StreamCompleted($channel, 'done', ['input_tokens' => 10, 'output_tokens' => 5], FinishReason::Stop);
 
     expect($event->broadcastOn())->toBe($channel);
+});
+
+// ─── StreamStarted broadcast ────────────────────────────────────────────────
+
+it('broadcasts StreamStarted before chunks when channel is set', function () {
+    Event::fake();
+
+    $stream = new StreamResponse((function () {
+        yield new StreamChunk(ChunkType::Text, text: 'Hello');
+        yield new StreamChunk(ChunkType::Done);
+    })());
+
+    $stream->broadcastOn(new Channel('chat.1'));
+
+    foreach ($stream as $chunk) {
+        // consume
+    }
+
+    Event::assertDispatched(StreamStarted::class);
+});
+
+it('does not broadcast StreamStarted when no channel set', function () {
+    Event::fake();
+
+    $stream = new StreamResponse((function () {
+        yield new StreamChunk(ChunkType::Text, text: 'Hello');
+        yield new StreamChunk(ChunkType::Done);
+    })());
+
+    foreach ($stream as $chunk) {
+        // consume
+    }
+
+    Event::assertNotDispatched(StreamStarted::class);
 });
