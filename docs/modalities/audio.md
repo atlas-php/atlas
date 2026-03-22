@@ -151,6 +151,48 @@ Sound effects and music are dispatched through the same `Atlas::audio()` builder
 | `meta` | `array` | Additional metadata |
 | `asset` | `?Asset` | Linked asset (when persistence enabled) |
 
+## Persisted Asset
+
+When [persistence](/advanced/persistence) is enabled, generated audio is automatically stored to disk:
+
+```php
+$response = Atlas::audio('openai', 'tts-1')
+    ->instructions('Welcome to Atlas')
+    ->withVoice('alloy')
+    ->asAudio();
+
+if ($response->asset) {
+    $response->asset->path;       // Storage path
+    $response->asset->mime_type;  // "audio/mpeg"
+    $response->asset->disk;       // Filesystem disk
+}
+```
+
+See [Media & Assets](/guides/media-storage) for the complete storage guide.
+
+## Queue Support
+
+```php
+Atlas::audio('openai', 'tts-1')
+    ->instructions('Generate a long audiobook chapter')
+    ->withVoice('nova')
+    ->queue()
+    ->asAudio()
+    ->then(function ($response) {
+        $path = $response->store('public');
+        notify($user, "Audio ready: {$path}");
+    });
+```
+
+```php
+// Transcription in background
+Atlas::audio('openai', 'whisper-1')
+    ->withMedia([Audio::fromStorage('recordings/meeting.mp3')])
+    ->queue()
+    ->asText()
+    ->then(fn ($response) => Transcript::create(['text' => $response->text]));
+```
+
 ## Builder Reference
 
 | Method | Description |

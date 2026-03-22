@@ -18,11 +18,11 @@ Fired by the shared `HttpClient` on every API call to a provider.
 
 <div class="full-width-table">
 
-| Event | Properties | When |
-|-------|-----------|------|
-| `ProviderRequestStarted` | `string $url`, `array $body` | Before the HTTP request is sent |
-| `ProviderRequestCompleted` | `string $url`, `array $data` | After a successful response is parsed |
-| `ProviderRequestFailed` | `string $url`, `mixed $response` | When the HTTP request fails |
+| Event | Properties |
+|-------|-----------|
+| `ProviderRequestStarted`<br><small>Before the HTTP request is sent</small> | `string $url`, `array $body` |
+| `ProviderRequestCompleted`<br><small>After a successful response is parsed</small> | `string $url`, `array $data` |
+| `ProviderRequestFailed`<br><small>When the HTTP request fails</small> | `string $url`, `mixed $response` |
 
 </div>
 
@@ -32,16 +32,16 @@ Fired by the executor during the agent tool loop.
 
 <div class="full-width-table">
 
-| Event | Properties | When |
-|-------|-----------|------|
-| `AgentStarted` | `?string $agentKey`, `?int $maxSteps`, `bool $concurrent` | Agent execution begins |
-| `AgentStepStarted` | `int $stepNumber`, `?string $agentKey` | Before each step in the tool loop |
-| `AgentStepCompleted` | `int $stepNumber`, `FinishReason $finishReason`, `Usage $usage`, `?string $agentKey` | After each step completes |
-| `AgentToolCallStarted` | `ToolCall $toolCall`, `?string $agentKey`, `?int $stepNumber` | Before a tool is invoked |
-| `AgentToolCallCompleted` | `ToolCall $toolCall`, `ToolResult $result`, `?string $agentKey`, `?int $stepNumber` | After a tool returns a result |
-| `AgentToolCallFailed` | `ToolCall $toolCall`, `Throwable $exception`, `?string $agentKey`, `?int $stepNumber` | When a tool throws an exception |
-| `AgentCompleted` | `array $steps`, `Usage $usage`, `?string $agentKey` | Agent execution finishes successfully |
-| `AgentMaxStepsExceeded` | `int $limit`, `array $steps`, `?string $agentKey` | Agent hit the max steps limit |
+| Event | Properties |
+|-------|-----------|
+| `AgentStarted`<br><small>Agent execution begins</small> | `?string $agentKey`, `?int $maxSteps`, `bool $concurrent` |
+| `AgentStepStarted`<br><small>Before each step in the tool loop</small> | `int $stepNumber`, `?string $agentKey` |
+| `AgentStepCompleted`<br><small>After each step completes</small> | `int $stepNumber`, `FinishReason $finishReason`, `Usage $usage`, `?string $agentKey` |
+| `AgentToolCallStarted`<br><small>Before a tool is invoked</small> | `ToolCall $toolCall`, `?string $agentKey`, `?int $stepNumber` |
+| `AgentToolCallCompleted`<br><small>After a tool returns a result</small> | `ToolCall $toolCall`, `ToolResult $result`, `?string $agentKey`, `?int $stepNumber` |
+| `AgentToolCallFailed`<br><small>When a tool throws an exception</small> | `ToolCall $toolCall`, `Throwable $exception`, `?string $agentKey`, `?int $stepNumber` |
+| `AgentCompleted`<br><small>Agent execution finishes (always fires, even on error)</small> | `array $steps`, `Usage $usage`, `?string $agentKey` |
+| `AgentMaxStepsExceeded`<br><small>Agent hit the max steps limit</small> | `int $limit`, `array $steps`, `?string $agentKey` |
 
 </div>
 
@@ -51,13 +51,13 @@ Fired during streaming responses. All stream events implement `ShouldBroadcastNo
 
 <div class="full-width-table">
 
-| Event | Properties | When |
-|-------|-----------|------|
-| `StreamStarted` | `?Channel $channel` | Stream connection opens |
-| `StreamChunkReceived` | `Channel $channel`, `string $text` | A text chunk arrives |
-| `StreamToolCallReceived` | `Channel $channel`, `array $toolCalls` | Tool calls arrive in the stream |
-| `StreamThinkingReceived` | `Channel $channel`, `string $text` | A thinking/reasoning chunk arrives |
-| `StreamCompleted` | `Channel $channel`, `string $text`, `?array $usage`, `?FinishReason`, `?string $error` | Stream finishes |
+| Event | Properties |
+|-------|-----------|
+| `StreamStarted`<br><small>Stream iteration begins</small> | `?Channel $channel` |
+| `StreamChunkReceived`<br><small>A text chunk arrives</small> | `Channel $channel`, `string $text` |
+| `StreamToolCallReceived`<br><small>Tool calls arrive in the stream</small> | `Channel $channel`, `array $toolCalls` |
+| `StreamThinkingReceived`<br><small>A thinking/reasoning chunk arrives</small> | `Channel $channel`, `string $text` |
+| `StreamCompleted`<br><small>Stream finishes</small> | `Channel $channel`, `string $text`, `?array $usage`, `?FinishReason`, `?string $error` |
 
 </div>
 
@@ -67,10 +67,10 @@ Fired when a modality handler (text, object, image, audio, embedding) processes 
 
 <div class="full-width-table">
 
-| Event | Properties | When |
-|-------|-----------|------|
-| `ModalityStarted` | `Modality $modality`, `string $provider`, `string $model` | Before the modality handler runs |
-| `ModalityCompleted` | `Modality $modality`, `string $provider`, `string $model`, `?Usage $usage` | After the modality handler returns |
+| Event | Properties |
+|-------|-----------|
+| `ModalityStarted`<br><small>Before the modality handler runs</small> | `Modality $modality`, `string $provider`, `string $model` |
+| `ModalityCompleted`<br><small>After the modality handler returns</small> | `Modality $modality`, `string $provider`, `string $model`, `?Usage $usage` |
 
 </div>
 
@@ -80,12 +80,12 @@ Fired during queued agent execution. All execution events implement `ShouldBroad
 
 <div class="full-width-table">
 
-| Event | Properties | When |
-|-------|-----------|------|
-| `ExecutionQueued` | `?int $executionId`, `?Channel $channel` | Job is dispatched to the queue |
-| `ExecutionProcessing` | `?int $executionId`, `?Channel $channel` | Job starts processing |
-| `ExecutionCompleted` | `?int $executionId`, `?Channel $channel` | Job finishes successfully |
-| `ExecutionFailed` | `?int $executionId`, `string $error`, `?Channel $channel` | Job fails |
+| Event | Properties |
+|-------|-----------|
+| `ExecutionQueued`<br><small>Job is dispatched to the queue</small> | `?int $executionId`, `?Channel $channel` |
+| `ExecutionProcessing`<br><small>Job starts processing in the worker</small> | `?int $executionId`, `?Channel $channel` |
+| `ExecutionCompleted`<br><small>Job finishes successfully</small> | `?int $executionId`, `?Channel $channel` |
+| `ExecutionFailed`<br><small>Job fails after all retries</small> | `?int $executionId`, `string $error`, `?Channel $channel` |
 
 </div>
 
@@ -95,9 +95,9 @@ Fired when conversation messages are stored to the database.
 
 <div class="full-width-table">
 
-| Event | Properties | When |
-|-------|-----------|------|
-| `ConversationMessageStored` | `int $conversationId`, `int $messageId`, `Role $role`, `?string $agent` | After a message is persisted |
+| Event | Properties |
+|-------|-----------|
+| `ConversationMessageStored`<br><small>After a message is persisted to a conversation</small> | `int $conversationId`, `int $messageId`, `Role $role`, `?string $agent` |
 
 </div>
 

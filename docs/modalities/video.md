@@ -88,6 +88,41 @@ $path = $response->storeAs('videos/generated.mp4', 'public');
 | `meta` | `array` | Additional metadata |
 | `asset` | `?Asset` | Linked asset (when persistence enabled) |
 
+## Persisted Asset
+
+When [persistence](/advanced/persistence) is enabled, generated video is automatically stored:
+
+```php
+$response = Atlas::video('xai', 'grok-2-video')
+    ->instructions('A drone flyover of a city')
+    ->asVideo();
+
+if ($response->asset) {
+    $response->asset->path;       // Storage path
+    $response->asset->mime_type;  // "video/mp4"
+}
+```
+
+See [Media & Assets](/guides/media-storage) for the complete storage guide.
+
+## Queue Support
+
+Video generation can take significant time. Queue it to avoid blocking:
+
+```php
+Atlas::video('xai', 'grok-2-video')
+    ->instructions('A timelapse of a sunset')
+    ->withDuration(15)
+    ->queue()
+    ->asVideo()
+    ->then(function ($response) {
+        logger()->info('Video ready', ['url' => $response->url]);
+    })
+    ->catch(function ($e) {
+        logger()->error('Video failed', ['error' => $e->getMessage()]);
+    });
+```
+
 ## Builder Reference
 
 | Method | Description |

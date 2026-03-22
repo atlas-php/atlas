@@ -130,6 +130,35 @@ foreach ($stream as $chunk) {
 }
 ```
 
+### With Media
+
+Send images, documents, audio, or video alongside your message. The agent's provider processes the media inline (e.g. vision for images, transcription for audio):
+
+```php
+use Atlasphp\Atlas\Input\Image;
+use Atlasphp\Atlas\Input\Document;
+
+// Send an image for the agent to analyze
+$response = Atlas::agent('support')
+    ->message('What does this receipt show?', Image::fromUpload($request->file('receipt')))
+    ->asText();
+
+// Send a document for context
+$response = Atlas::agent('analyst')
+    ->message('Summarize this report', Document::fromStorage('reports/q4.pdf'))
+    ->asText();
+
+// Multiple attachments
+$response = Atlas::agent('reviewer')
+    ->message('Compare these two images', [
+        Image::fromUrl('https://example.com/before.jpg'),
+        Image::fromUrl('https://example.com/after.jpg'),
+    ])
+    ->asText();
+```
+
+Media can be loaded from uploads, URLs, local paths, Laravel storage, or base64. See [Message Attachments](/guides/conversations#message-attachments) for persistence and how agent-generated files are tracked.
+
 ### Structured Output
 
 ```php
@@ -211,6 +240,68 @@ class ResearchAgent extends Agent
 ```
 
 Use `maxSteps()` to limit tool loop iterations and prevent runaway execution.
+
+## Concurrent Tool Execution
+
+By default, tool calls execute **sequentially** — one at a time. This is the safest option and works with all configurations including persistence tracking.
+
+### Enabling Concurrency
+
+Override `concurrent()` in your agent to run tool calls in parallel:
+
+```php
+class ResearchAgent extends Agent
+{
+    public function concurrent(): bool
+    {
+        return true;
+    }
+
+    // ...
+}
+```
+
+Or enable at call time:
+
+```php
+$response = Atlas::agent('research')
+    ->withConcurrent()
+    ->message('Research these three topics')
+    ->asText();
+```
+
+### How It Works
+
+When the model requests multiple tool calls in a single step, Atlas runs them simultaneously using Laravel's `Concurrency` facade:
+
+- **With `spatie/fork` + `pcntl`** — true parallel execution via OS-level forking
+- **Without** — falls back to sequential execution through the sync driver
+
+### Requirements
+
+For true parallelism, install:
+
+```bash
+composer require spatie/fork
+```
+
+The `pcntl` PHP extension must also be available (standard on most Linux/macOS setups, not available on Windows).
+
+### When to Use
+
+Enable concurrency when:
+- Tools are **independent** and don't depend on each other's results
+- Tools make **external API calls** where parallelism reduces wall-clock time
+- You're **not using persistence** or understand the fork-safety implications
+
+Keep sequential (default) when:
+- Tools have **side effects** that depend on execution order
+- You need **reliable persistence tracking** for every tool call
+- You're running on Windows or an environment without `pcntl`
+
+::: warning Fork Safety
+When using the fork driver with persistence enabled, tool call tracking runs inside forked child processes. Database connections are not fork-safe — the child inherits the parent's TCP socket. For production use with persistence, prefer sequential execution or ensure your database driver handles reconnection after fork.
+:::
 
 ## Conversations (Optional)
 

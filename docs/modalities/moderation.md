@@ -81,6 +81,20 @@ if ($moderation->flagged) {
 | `categories` | `array` | Per-category results with scores and flags |
 | `meta` | `array` | Additional metadata |
 
+## Queue Support
+
+```php
+Atlas::moderate()
+    ->fromInput($userContent)
+    ->queue()
+    ->asModeration()
+    ->then(function ($response) {
+        if ($response->flagged) {
+            FlaggedContent::create(['content' => $userContent, 'categories' => $response->categories]);
+        }
+    });
+```
+
 ## Builder Reference
 
 | Method | Description |

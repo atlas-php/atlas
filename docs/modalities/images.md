@@ -115,6 +115,56 @@ $path = $response->storeAs('images/robot.png', 'public');
 | `meta` | `array` | Additional metadata |
 | `asset` | `?Asset` | Linked asset (when persistence enabled) |
 
+## Persisted Asset
+
+When [persistence](/advanced/persistence) is enabled, generated images are automatically stored to disk and an `Asset` record is created. Access it directly from the response:
+
+```php
+$response = Atlas::image('openai', 'dall-e-3')
+    ->instructions('A cute robot')
+    ->asImage();
+
+if ($response->asset) {
+    $response->asset->id;           // Asset record ID
+    $response->asset->path;         // Storage path on disk
+    $response->asset->disk;         // Laravel filesystem disk
+    $response->asset->mime_type;    // "image/png"
+    $response->asset->size_bytes;   // File size
+    $response->asset->content_hash; // SHA-256 for deduplication
+}
+```
+
+Without persistence, `$response->asset` is `null`. You can still store manually with `$response->store()`.
+
+See [Media & Assets](/guides/media-storage) for the complete storage guide.
+
+## Queue Support
+
+Dispatch image generation to a queue. The terminal method returns a `PendingExecution` instead of the response:
+
+```php
+Atlas::image('openai', 'dall-e-3')
+    ->instructions('A landscape painting')
+    ->queue()
+    ->asImage()
+    ->then(function ($response) {
+        // Runs in the queue worker after generation completes
+        logger()->info('Image generated', ['url' => $response->url]);
+    })
+    ->catch(function ($e) {
+        logger()->error('Image generation failed', ['error' => $e->getMessage()]);
+    });
+```
+
+```php
+// With queue options
+Atlas::image('openai', 'dall-e-3')
+    ->instructions('A detailed portrait')
+    ->queue('atlas-media')
+    ->onConnection('redis')
+    ->asImage();
+```
+
 ## Builder Reference
 
 | Method | Description |

@@ -82,6 +82,106 @@ The message limit can also be set:
 - On the agent class via the `HasConversations` trait
 - Per-call via `->withMessageLimit()`
 
+## Message Attachments
+
+Messages in a conversation can have file attachments — both from user input and from agent-generated content.
+
+### User Attachments
+
+When a user sends a message with media (images, documents, audio), the media is part of the message sent to the provider. The provider processes it inline (e.g. vision for images, transcription for audio):
+
+```php
+use Atlasphp\Atlas\Input\Image;
+
+$response = Atlas::agent('support')
+    ->forConversation($conversationId)
+    ->message('What does this receipt show?', Image::fromUpload($request->file('receipt')))
+    ->asText();
+```
+
+To persist the uploaded file as a tracked asset, store it before or after the call:
+
+```php
+$image = Image::fromUpload($request->file('photo'));
+$path = $image->store('public');  // Store to disk
+
+$response = Atlas::agent('support')
+    ->forConversation($conversationId)
+    ->message('Describe this photo', $image)
+    ->asText();
+```
+
+### Agent-Generated Attachments
+
+When a tool generates files during an agent execution — images, audio, PDFs, reports — those files are automatically attached to the assistant message in the conversation.
+
+```php
+// Inside a tool's handle() method
+use Atlasphp\Atlas\Persistence\ToolAssets;
+
+class GenerateChartTool extends Tool
+{
+    public function handle(array $args, array $context): mixed
+    {
+        $chartImage = $this->renderChart($args['data']);
+
+        $asset = ToolAssets::store($chartImage, [
+            'type' => 'image',
+            'mime_type' => 'image/png',
+            'description' => 'Sales chart',
+        ]);
+
+        return "Chart generated: {$asset->path}";
+    }
+}
+```
+
+When the agent execution completes, Atlas links the tool-generated asset to the stored assistant message via `MessageAttachment`. This happens automatically — no extra code needed.
+
+### Media from Atlas Modality Calls
+
+If a tool calls an Atlas modality (e.g. `Atlas::image()` inside a tool), the generated file is also auto-attached:
+
+```php
+class CreateImageTool extends Tool
+{
+    public function handle(array $args, array $context): mixed
+    {
+        $response = Atlas::image('openai', 'dall-e-3')
+            ->instructions($args['prompt'])
+            ->asImage();
+
+        return "Image created at: {$response->asset->path}";
+    }
+}
+```
+
+### Querying Attachments
+
+Retrieve attachments from a conversation message:
+
+```php
+$message = Message::find($messageId);
+
+foreach ($message->attachments as $attachment) {
+    $asset = $attachment->asset;
+
+    $asset->type;       // "image", "audio", "document"
+    $asset->mime_type;  // "image/png"
+    $asset->path;       // Storage path
+    $asset->disk;       // Filesystem disk
+
+    // Generate a URL
+    $url = Storage::disk($asset->disk)->url($asset->path);
+}
+
+// Attachment metadata shows which tool produced it
+$attachment->metadata;
+// ['tool_call_id' => 'call_abc123', 'tool_name' => 'generate_chart']
+```
+
+See [Media & Assets](/guides/media-storage) for the complete storage guide including manual storage, auto-storage configuration, and ToolAssets API.
+
 ## Respond Mode
 
 Have the agent respond to a conversation thread without a new user message. The agent sees the full conversation history and generates a response as if continuing the thread.

@@ -127,6 +127,19 @@ $response->reorder($items);  // Re-sort an array by relevance
 | `document` | `string` | The document text |
 | `score` | `float` | Relevance score (0-1) |
 
+## Queue Support
+
+```php
+Atlas::rerank('cohere', 'rerank-v3.5')
+    ->query($searchQuery)
+    ->documents($candidates)
+    ->queue()
+    ->asReranked()
+    ->then(function ($response) {
+        cache()->put("ranked:{$searchQuery}", $response->results, 3600);
+    });
+```
+
 ## Builder Reference
 
 | Method | Description |

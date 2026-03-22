@@ -70,6 +70,22 @@ $response = Atlas::embed()
 | `embeddings` | `array` | Array of embedding vectors (array of floats) |
 | `usage` | `Usage` | Token counts |
 
+## Queue Support
+
+Dispatch embedding generation to a queue for large batches:
+
+```php
+Atlas::embed('openai', 'text-embedding-3-small')
+    ->fromInput($largeDocumentBatch)
+    ->queue()
+    ->asEmbeddings()
+    ->then(function ($response) {
+        foreach ($response->embeddings as $i => $vector) {
+            Document::find($ids[$i])->update(['embedding' => $vector]);
+        }
+    });
+```
+
 ## Builder Reference
 
 | Method | Description |
