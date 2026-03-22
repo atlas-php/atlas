@@ -193,6 +193,46 @@ class Message extends Model
         return null;
     }
 
+    /**
+     * Unified author info for the UI.
+     *
+     * Returns a consistent structure regardless of whether the author
+     * is a human (model) or an agent (key string):
+     *   ['type' => 'user', 'id' => 1, 'name' => 'Tim']
+     *   ['type' => 'agent', 'key' => 'assistant', 'name' => 'assistant']
+     *
+     * @return array{type: string, id: int|null, key: string|null, name: string|null}
+     */
+    public function authorInfo(): array
+    {
+        if ($this->agent !== null) {
+            return [
+                'type' => 'agent',
+                'id' => null,
+                'key' => $this->agent,
+                'name' => $this->agent,
+            ];
+        }
+
+        if ($this->author_type !== null) {
+            $author = $this->author;
+
+            return [
+                'type' => 'user',
+                'id' => $this->author_id,
+                'key' => null,
+                'name' => $author->name ?? null,
+            ];
+        }
+
+        return [
+            'type' => 'unknown',
+            'id' => null,
+            'key' => null,
+            'name' => null,
+        ];
+    }
+
     // ─── Conversion ─────────────────────────────────────────────
 
     /**
