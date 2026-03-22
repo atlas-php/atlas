@@ -7,14 +7,21 @@ namespace App\Http\Controllers;
 use App\Http\Resources\MessageResource;
 use App\Models\User;
 use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Input\Image;
+use Atlasphp\Atlas\Messages\UserMessage;
+use Atlasphp\Atlas\Persistence\Enums\AssetType;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
+use Atlasphp\Atlas\Persistence\Models\Asset;
 use Atlasphp\Atlas\Persistence\Models\Conversation;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\Message;
+use Atlasphp\Atlas\Persistence\Models\MessageAttachment;
 use Atlasphp\Atlas\Persistence\Services\ConversationService;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /**
  * API controller for the sandbox chat interface.
@@ -33,36 +40,102 @@ class ChatController
     /**
      * Send a message to the assistant agent.
      *
-     * Uses Atlas's built-in queue() to dispatch async execution.
-     * PersistConversation middleware handles all message storage.
-     * Broadcasting on the conversation channel notifies the UI.
+     * Pre-resolves the conversation so the UI always has an ID to subscribe to
+     * for broadcasting. Dispatches execution to the queue asynchronously.
      */
     public function chat(Request $request): JsonResponse
     {
         $request->validate([
             'message' => 'required|string',
             'conversation_id' => 'nullable|integer',
+            'attachments' => 'nullable|array',
+            'attachments.*.base64' => 'required_with:attachments|string',
+            'attachments.*.mime' => 'required_with:attachments|string',
+            'attachments.*.name' => 'required_with:attachments|string',
         ]);
 
         $user = User::findOrFail(1);
-
-        $agentRequest = Atlas::agent('assistant')
-            ->for($user)
-            ->message($request->string('message')->toString())
-            ->queue();
-
         $conversationId = $request->integer('conversation_id');
 
-        if ($conversationId > 0) {
-            $agentRequest->forConversation($conversationId);
+        // Create a new conversation or continue an existing one
+        if ($conversationId <= 0) {
+            $conversation = Conversation::create([
+                'owner_type' => $user->getMorphClass(),
+                'owner_id' => $user->getKey(),
+                'agent' => 'assistant',
+                'title' => $this->generateTitle($request->string('message')->toString()),
+            ]);
+            $conversationId = $conversation->id;
         }
 
-        $agentRequest->broadcastOn(new Channel('conversation.'.$conversationId));
+        $conversation = Conversation::findOrFail($conversationId);
+        $rawAttachments = $request->input('attachments', []);
+
+        // Store user message in the conversation
+        $userMsg = $this->conversations->addMessage(
+            $conversation,
+            new UserMessage(content: $request->string('message')->toString()),
+            author: $user,
+        );
+        $userMsg->markAsRead();
+
+        // Save attachments as assets and link to the user message
+        $media = [];
+
+        foreach ($rawAttachments as $att) {
+            $isImage = str_starts_with($att['mime'], 'image/');
+            $content = base64_decode($att['base64']);
+            $ext = $this->mimeToExtension($att['mime']);
+            $filename = Str::random(40).'.'.$ext;
+            $disk = config('atlas.storage.disk') ?? config('filesystems.default');
+            $path = (config('atlas.storage.prefix', 'atlas')).'/uploads/'.$filename;
+
+            Storage::disk($disk)->put($path, $content);
+
+            $asset = Asset::create([
+                'type' => $isImage ? AssetType::Image : AssetType::Document,
+                'mime_type' => $att['mime'],
+                'filename' => $filename,
+                'original_filename' => $att['name'],
+                'path' => $path,
+                'disk' => $disk,
+                'size_bytes' => strlen($content),
+                'content_hash' => hash('sha256', $content),
+                'author_type' => $user->getMorphClass(),
+                'author_id' => $user->getKey(),
+            ]);
+
+            MessageAttachment::create([
+                'message_id' => $userMsg->id,
+                'asset_id' => $asset->id,
+            ]);
+
+            if ($isImage) {
+                $media[] = Image::fromBase64($att['base64'], $att['mime']);
+            }
+        }
+
+        // Auto-set title from first message if blank
+        if ($conversation->title === null || $conversation->title === '') {
+            $conversation->update([
+                'title' => $this->generateTitle($request->string('message')->toString()),
+            ]);
+        }
+
+        // Dispatch in respond mode — user message is already stored
+        $agentRequest = Atlas::agent('assistant')
+            ->for($user)
+            ->message($request->string('message')->toString(), $media)
+            ->queue()
+            ->forConversation($conversationId)
+            ->respond()
+            ->broadcastOn(new Channel('conversation.'.$conversationId));
 
         $pending = $agentRequest->asText();
 
         return new JsonResponse([
             'execution_id' => $pending->executionId,
+            'conversation_id' => $conversationId,
         ], 202);
     }
 
@@ -162,18 +235,52 @@ class ChatController
 
     /**
      * Retry the last assistant response in a conversation.
+     *
+     * Reconstructs media from saved assets on the parent user message
+     * so the AI sees the same images on retry.
      */
     public function retry(int $conversationId): JsonResponse
     {
         $user = User::findOrFail(1);
+        $conversation = Conversation::findOrFail($conversationId);
 
-        $pending = Atlas::agent('assistant')
+        // Find the last assistant message to get its parent (user message)
+        $lastAssistant = Message::where('conversation_id', $conversationId)
+            ->where('is_active', true)
+            ->where('role', 'assistant')
+            ->latest('sequence')
+            ->first();
+
+        // Rebuild media from the parent user message's assets
+        $media = [];
+
+        if ($lastAssistant?->parent_id) {
+            $parentMsg = Message::with('attachments.asset')->find($lastAssistant->parent_id);
+
+            if ($parentMsg) {
+                foreach ($parentMsg->attachments as $att) {
+                    if ($att->asset->type === AssetType::Image) {
+                        $disk = $att->asset->disk ?? config('filesystems.default');
+                        $media[] = Image::fromStorage($att->asset->path, $disk);
+                    }
+                }
+            }
+        }
+
+        $agentRequest = Atlas::agent('assistant')
             ->for($user)
             ->forConversation($conversationId)
             ->retry()
             ->queue()
-            ->broadcastOn(new Channel('conversation.'.$conversationId))
-            ->asText();
+            ->broadcastOn(new Channel('conversation.'.$conversationId));
+
+        if ($media !== []) {
+            // Re-send the parent user message text with its media
+            $parentContent = Message::find($lastAssistant->parent_id)?->content ?? '';
+            $agentRequest->message($parentContent, $media);
+        }
+
+        $pending = $agentRequest->asText();
 
         return new JsonResponse([
             'execution_id' => $pending->executionId,
@@ -302,5 +409,23 @@ class ChatController
         }
 
         return $title;
+    }
+
+    /**
+     * Resolve a file extension from a MIME type.
+     */
+    protected function mimeToExtension(string $mime): string
+    {
+        return match ($mime) {
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/gif' => 'gif',
+            'image/webp' => 'webp',
+            'application/pdf' => 'pdf',
+            'text/plain' => 'txt',
+            'text/markdown' => 'md',
+            'text/csv' => 'csv',
+            default => 'bin',
+        };
     }
 }

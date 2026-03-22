@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 @theme {
     --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
@@ -6,6 +7,7 @@
     --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
         "Courier New", monospace;
 
+    /* ─── Surface tokens ──────────────────────────────── */
     --color-background: var(--color-zinc-950);
     --color-foreground: var(--color-zinc-50);
     --color-muted: var(--color-zinc-800);
@@ -26,6 +28,19 @@
     --color-popover: var(--color-zinc-950);
     --color-popover-foreground: var(--color-zinc-50);
 
+    /* ─── Brand tokens ────────────────────────────────── */
+    --color-brand: var(--color-violet-600);
+    --color-brand-foreground: var(--color-white);
+    --color-brand-bubble: var(--color-violet-600);
+
+    /* ─── Sidebar tokens ──────────────────────────────── */
+    --color-sidebar: var(--color-zinc-900);
+    --color-sidebar-foreground: var(--color-zinc-300);
+    --color-sidebar-border: var(--color-zinc-800);
+    --color-sidebar-accent: var(--color-zinc-800);
+    --color-sidebar-accent-foreground: var(--color-zinc-50);
+
+    /* ─── Radii ───────────────────────────────────────── */
     --radius-sm: 0.25rem;
     --radius-md: 0.375rem;
     --radius-lg: 0.5rem;
@@ -40,4 +55,95 @@
     body {
         @apply bg-background text-foreground;
     }
+
+    button,
+    [role="button"],
+    summary {
+        cursor: pointer;
+    }
+}
+
+/* ─── Custom scrollbar ────────────────────────────────── */
+@layer utilities {
+    .scrollbar-thin {
+        scrollbar-width: thin;
+        scrollbar-color: var(--color-zinc-700) transparent;
+    }
+
+    .scrollbar-thin::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .scrollbar-thin::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .scrollbar-thin::-webkit-scrollbar-thumb {
+        background-color: var(--color-zinc-700);
+        border-radius: 3px;
+    }
+}
+
+/* ─── Typing dots animation ──────────────────────────── */
+@keyframes typing-bounce {
+    0%, 60%, 100% {
+        transform: translateY(0);
+        opacity: 0.4;
+    }
+    30% {
+        transform: translateY(-4px);
+        opacity: 1;
+    }
+}
+
+.typing-dot {
+    animation: typing-bounce 1.4s ease-in-out infinite;
+}
+
+.typing-dot:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.typing-dot:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+/* ─── Streaming cursor blink ─────────────────────────── */
+@keyframes cursor-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+
+.streaming-cursor::after {
+    content: "▊";
+    animation: cursor-blink 1s step-end infinite;
+    color: var(--color-zinc-400);
+    margin-left: 1px;
+}
+
+/* ─── Prose overrides for markdown ────────────────────── */
+.prose img {
+    max-height: 400px;
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+}
+
+.prose pre {
+    background-color: var(--color-zinc-900);
+    border: 1px solid var(--color-zinc-700);
+}
+
+.prose code:not(pre code) {
+    background-color: var(--color-zinc-800);
+    padding: 0.125rem 0.375rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.875em;
+}
+
+.prose a {
+    color: var(--color-violet-400);
+}
+
+.prose a:hover {
+    color: var(--color-violet-300);
 }

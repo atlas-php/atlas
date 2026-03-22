@@ -708,6 +708,16 @@ class AgentRequest implements QueueableRequest
             'message_limit' => $this->runtimeMessageLimit,
             'respond_mode' => $this->respondMode,
             'retry_mode' => $this->retryMode,
+            'message_media' => array_map(fn (Input $input) => [
+                'class' => $input::class,
+                'mime' => $input->mimeType(),
+                'base64' => $input->isBase64() ? $input->data() : null,
+                'url' => $input->isUrl() ? $input->url() : null,
+                'storage_path' => $input->isStorage() ? $input->storagePath() : null,
+                'storage_disk' => $input->isStorage() ? $input->storageDisk() : null,
+                'path' => $input->isPath() ? $input->path() : null,
+                'file_id' => $input->isFileId() ? $input->fileId() : null,
+            ], $this->messageMedia),
         ];
     }
 
@@ -728,7 +738,8 @@ class AgentRequest implements QueueableRequest
         $request = Atlas::agent($payload['key']);
 
         if ($payload['message'] !== null) {
-            $request->message($payload['message']);
+            $media = self::restoreMedia($payload['message_media'] ?? []);
+            $request->message($payload['message'], $media);
         }
 
         if ($payload['instructions'] !== null) {
@@ -806,6 +817,64 @@ class AgentRequest implements QueueableRequest
             'asStructured' => $request->asStructured(),
             default => throw new \InvalidArgumentException("Unknown terminal method: {$terminal}"),
         };
+    }
+
+    /**
+     * Rebuild Input objects from serialized media array.
+     *
+     * @param  array<int, array<string, mixed>>  $items
+     * @return array<int, Input>
+     */
+    protected static function restoreMedia(array $items): array
+    {
+        $media = [];
+
+        foreach ($items as $item) {
+            $input = self::restoreMediaItem($item);
+
+            if ($input !== null) {
+                $media[] = $input;
+            }
+        }
+
+        return $media;
+    }
+
+    /**
+     * Restore a single media input from its serialized form.
+     *
+     * @param  array<string, mixed>  $item
+     */
+    protected static function restoreMediaItem(array $item): ?Input
+    {
+        /** @var class-string<Input> $class */
+        $class = $item['class'];
+
+        if (! is_subclass_of($class, Input::class)) {
+            return null;
+        }
+
+        if ($item['base64'] !== null && method_exists($class, 'fromBase64')) {
+            return $class::fromBase64($item['base64'], $item['mime']);
+        }
+
+        if ($item['storage_path'] !== null && method_exists($class, 'fromStorage')) {
+            return $class::fromStorage($item['storage_path'], $item['storage_disk']);
+        }
+
+        if ($item['url'] !== null && method_exists($class, 'fromUrl')) {
+            return $class::fromUrl($item['url']);
+        }
+
+        if ($item['path'] !== null && method_exists($class, 'fromPath')) {
+            return $class::fromPath($item['path']);
+        }
+
+        if ($item['file_id'] !== null && method_exists($class, 'fromFileId')) {
+            return $class::fromFileId($item['file_id']);
+        }
+
+        return null;
     }
 
     /**

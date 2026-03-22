@@ -14,7 +14,7 @@ return [
     */
 
     'defaults' => [
-        'text' => ['provider' => env('ATLAS_TEXT_PROVIDER', 'openai'), 'model' => env('ATLAS_TEXT_MODEL', 'gpt-4o')],
+        'text' => ['provider' => env('ATLAS_TEXT_PROVIDER', 'openai'), 'model' => env('ATLAS_TEXT_MODEL', 'gpt-5.2')],
         'image' => ['provider' => env('ATLAS_IMAGE_PROVIDER', 'xai'), 'model' => env('ATLAS_IMAGE_MODEL', 'grok-imagine-image')],
         'video' => ['provider' => env('ATLAS_VIDEO_PROVIDER', 'xai'), 'model' => env('ATLAS_VIDEO_MODEL', 'grok-imagine-video')],
         'embed' => ['provider' => env('ATLAS_EMBED_PROVIDER', 'openai'), 'model' => env('ATLAS_EMBED_MODEL', 'text-embedding-3-small')],

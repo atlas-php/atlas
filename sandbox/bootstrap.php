@@ -12,6 +12,8 @@ declare(strict_types=1);
 use App\Providers\SandboxServiceProvider;
 use Atlasphp\Atlas\AtlasServiceProvider;
 use Dotenv\Dotenv;
+use Laravel\Reverb\ApplicationManagerServiceProvider;
+use Laravel\Reverb\ReverbServiceProvider;
 use Orchestra\Testbench\Foundation\Application;
 
 // Load the appropriate autoloader
@@ -47,6 +49,8 @@ $app['config']->set('database', require $sandboxPath.'/config/database.php');
 $app['config']->set('session', require $sandboxPath.'/config/session.php');
 $app['config']->set('queue', require $sandboxPath.'/config/queue.php');
 $app['config']->set('broadcasting', require $sandboxPath.'/config/broadcasting.php');
+$app['config']->set('reverb', require $sandboxPath.'/config/reverb.php');
+$app['config']->set('cache', require $sandboxPath.'/config/cache.php');
 $app['config']->set('filesystems', require $sandboxPath.'/config/filesystems.php');
 $app['config']->set('atlas', require $sandboxPath.'/config/atlas.php');
 
@@ -55,6 +59,8 @@ $app['config']->set('atlas', require $sandboxPath.'/config/atlas.php');
 // missed the window (Application::create boots immediately), so
 // SandboxServiceProvider handles middleware registration.
 $app->register(AtlasServiceProvider::class);
+$app->register(ApplicationManagerServiceProvider::class);
+$app->register(ReverbServiceProvider::class);
 $app->register(SandboxServiceProvider::class);
 
 return $app;
