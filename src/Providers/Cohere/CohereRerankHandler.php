@@ -6,7 +6,6 @@ namespace Atlasphp\Atlas\Providers\Cohere;
 
 use Atlasphp\Atlas\Providers\Handlers\AbstractRerankHandler;
 use Atlasphp\Atlas\Requests\RerankRequest;
-use Atlasphp\Atlas\Responses\RerankResponse;
 
 /**
  * Cohere rerank handler using the /v2/rerank endpoint.
@@ -20,11 +19,25 @@ class CohereRerankHandler extends AbstractRerankHandler
 
     /**
      * @param  array<string, mixed>  $data
-     * @param  array<int, string|array<string, string>>  $documents
+     * @return array<string, mixed>
      */
-    protected function parseResponse(array $data, array $documents): RerankResponse
+    protected function parseMeta(array $data): array
     {
-        return CohereResponseParser::parse($data, $documents);
+        $meta = [];
+
+        if (isset($data['id'])) {
+            $meta['id'] = $data['id'];
+        }
+
+        if (isset($data['meta']['api_version'])) {
+            $meta['api_version'] = $data['meta']['api_version'];
+        }
+
+        if (isset($data['meta']['billed_units'])) {
+            $meta['billed_units'] = $data['meta']['billed_units'];
+        }
+
+        return $meta;
     }
 
     /**

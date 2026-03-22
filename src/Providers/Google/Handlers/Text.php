@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Providers\Google\Handlers;
 
+use Atlasphp\Atlas\Providers\Google\BuildsGoogleHeaders;
 use Atlasphp\Atlas\Providers\Google\MediaResolver;
 use Atlasphp\Atlas\Providers\Google\MessageFactory;
 use Atlasphp\Atlas\Providers\Google\ResponseParser;
@@ -26,6 +27,8 @@ use Generator;
  */
 class Text implements TextHandler
 {
+    use BuildsGoogleHeaders;
+
     public function __construct(
         protected readonly ProviderConfig $config,
         protected readonly HttpClient $http,
@@ -160,16 +163,5 @@ class Text implements TextHandler
     protected function endpoint(string $model, string $method): string
     {
         return "{$this->config->baseUrl}/v1beta/models/{$model}:{$method}";
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    protected function headers(): array
-    {
-        return [
-            'x-goog-api-key' => $this->config->apiKey,
-            'Content-Type' => 'application/json',
-        ];
     }
 }

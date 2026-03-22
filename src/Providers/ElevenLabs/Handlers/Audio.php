@@ -6,6 +6,8 @@ namespace Atlasphp\Atlas\Providers\ElevenLabs\Handlers;
 
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Input\Input;
+use Atlasphp\Atlas\Providers\Concerns\ResolvesAudioFile;
+use Atlasphp\Atlas\Providers\ElevenLabs\BuildsElevenLabsHeaders;
 use Atlasphp\Atlas\Providers\Handlers\AudioHandler;
 use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderConfig;
@@ -23,6 +25,8 @@ use Atlasphp\Atlas\Responses\Usage;
  */
 class Audio implements AudioHandler
 {
+    use BuildsElevenLabsHeaders, ResolvesAudioFile;
+
     private const DEFAULT_VOICE_ID = '21m00Tcm4TlvDq8ikWAM'; // Rachel
 
     public function __construct(
@@ -124,66 +128,5 @@ class Audio implements AudioHandler
             usage: new Usage(inputTokens: 0, outputTokens: 0),
             finishReason: FinishReason::Stop,
         );
-    }
-
-    // ─── Helpers ─────────────────────────────────────────────────────
-
-    /**
-     * @return array<string, string>
-     */
-    protected function headers(): array
-    {
-        return [
-            'xi-api-key' => $this->config->apiKey,
-            'Content-Type' => 'application/json',
-        ];
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    protected function headersWithoutContentType(): array
-    {
-        return [
-            'xi-api-key' => $this->config->apiKey,
-        ];
-    }
-
-    /**
-     * Extract the codec portion from an ElevenLabs output_format string.
-     * e.g., 'mp3_44100_128' → 'mp3', 'pcm_16000' → 'pcm'
-     */
-    private function extractFormatCodec(string $format): string
-    {
-        return explode('_', $format)[0];
-    }
-
-    private function resolveAudioFile(Input $media): string
-    {
-        if ($media->isPath()) {
-            $raw = file_get_contents($media->path());
-
-            if ($raw === false) {
-                throw new \InvalidArgumentException("Cannot read audio file: {$media->path()}");
-            }
-
-            return $raw;
-        }
-
-        if ($media->isBase64()) {
-            return base64_decode($media->data());
-        }
-
-        if ($media->isUrl()) {
-            $raw = file_get_contents($media->url());
-
-            if ($raw === false) {
-                throw new \InvalidArgumentException("Cannot fetch audio from URL: {$media->url()}");
-            }
-
-            return $raw;
-        }
-
-        throw new \InvalidArgumentException('Cannot resolve audio input — no supported source set.');
     }
 }

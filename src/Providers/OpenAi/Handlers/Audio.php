@@ -7,6 +7,7 @@ namespace Atlasphp\Atlas\Providers\OpenAi\Handlers;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Input\Input;
 use Atlasphp\Atlas\Providers\Concerns\BuildsHeaders;
+use Atlasphp\Atlas\Providers\Concerns\ResolvesAudioFile;
 use Atlasphp\Atlas\Providers\Handlers\AudioHandler;
 use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\OpenAi\HasOrganizationHeader;
@@ -24,7 +25,7 @@ use Atlasphp\Atlas\Responses\Usage;
  */
 class Audio implements AudioHandler
 {
-    use BuildsHeaders, HasOrganizationHeader {
+    use BuildsHeaders, HasOrganizationHeader, ResolvesAudioFile {
         HasOrganizationHeader::extraHeaders insteadof BuildsHeaders;
     }
 
@@ -60,8 +61,13 @@ class Audio implements AudioHandler
 
     public function audioToText(AudioRequest $request): TextResponse
     {
-        /** @var Input $media */
+        /** @var Input|null $media */
         $media = $request->media[0] ?? null;
+
+        if ($media === null) {
+            throw new \InvalidArgumentException('Audio input is required for transcription.');
+        }
+
         $fileContents = $this->resolveAudioFile($media);
 
         $fields = array_filter([
@@ -93,50 +99,14 @@ class Audio implements AudioHandler
     /**
      * Determine the filename to send with the multipart upload.
      */
-    private function resolveFilename(?Input $media, ?string $format): string
+    private function resolveFilename(Input $media, ?string $format): string
     {
-        if ($media !== null && $media->isPath()) {
+        if ($media->isPath()) {
             return basename($media->path());
         }
 
         $extension = $format ?? 'wav';
 
         return "audio.{$extension}";
-    }
-
-    /**
-     * Resolve audio file contents from an Input object.
-     */
-    private function resolveAudioFile(?Input $media): string
-    {
-        if ($media === null) {
-            throw new \InvalidArgumentException('Audio input is required for transcription.');
-        }
-
-        if ($media->isPath()) {
-            $raw = file_get_contents($media->path());
-
-            if ($raw === false) {
-                throw new \InvalidArgumentException("Cannot read audio file: {$media->path()}");
-            }
-
-            return $raw;
-        }
-
-        if ($media->isBase64()) {
-            return base64_decode($media->data());
-        }
-
-        if ($media->isUrl()) {
-            $raw = file_get_contents($media->url());
-
-            if ($raw === false) {
-                throw new \InvalidArgumentException("Cannot fetch audio from URL: {$media->url()}");
-            }
-
-            return $raw;
-        }
-
-        throw new \InvalidArgumentException('Cannot resolve audio input — no supported source set.');
     }
 }

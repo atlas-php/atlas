@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Providers\Jina;
 
 use Atlasphp\Atlas\Providers\Handlers\AbstractRerankHandler;
-use Atlasphp\Atlas\Responses\RerankResponse;
 
 /**
  * Jina rerank handler using the /v1/rerank endpoint.
@@ -19,10 +18,10 @@ class JinaRerankHandler extends AbstractRerankHandler
 
     /**
      * @param  array<string, mixed>  $data
-     * @param  array<int, string|array<string, string>>  $documents
+     * @return array<string, mixed>
      */
-    protected function parseResponse(array $data, array $documents): RerankResponse
+    protected function parseMeta(array $data): array
     {
-        return JinaResponseParser::parse($data, $documents);
+        return isset($data['usage']) ? ['usage' => $data['usage']] : [];
     }
 }

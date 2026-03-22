@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Providers\Google\Handlers;
 
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
+use Atlasphp\Atlas\Providers\Google\BuildsGoogleHeaders;
 use Atlasphp\Atlas\Providers\Handlers\ImageHandler;
 use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderConfig;
@@ -17,6 +18,8 @@ use Atlasphp\Atlas\Responses\TextResponse;
  */
 class Image implements ImageHandler
 {
+    use BuildsGoogleHeaders;
+
     public function __construct(
         protected readonly ProviderConfig $config,
         protected readonly HttpClient $http,
@@ -73,16 +76,5 @@ class Image implements ImageHandler
     public function imageToText(ImageRequest $request): TextResponse
     {
         throw UnsupportedFeatureException::make('imageToText', 'google');
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    protected function headers(): array
-    {
-        return [
-            'x-goog-api-key' => $this->config->apiKey,
-            'Content-Type' => 'application/json',
-        ];
     }
 }

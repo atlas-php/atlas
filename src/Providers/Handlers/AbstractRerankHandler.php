@@ -9,11 +9,12 @@ use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Requests\RerankRequest;
 use Atlasphp\Atlas\Responses\RerankResponse;
+use Atlasphp\Atlas\Responses\RerankResult;
 
 /**
- * Shared rerank handler with provider-specific endpoint and parsing.
+ * Shared rerank handler with provider-specific endpoint and meta parsing.
  *
- * Subclasses provide the endpoint path and response parser.
+ * Subclasses provide the endpoint path and meta extraction.
  * Override appendProviderBody() to add provider-specific fields.
  */
 abstract class AbstractRerankHandler implements RerankHandler
@@ -52,6 +53,39 @@ abstract class AbstractRerankHandler implements RerankHandler
     }
 
     /**
+     * Parse the provider response into a RerankResponse.
+     *
+     * @param  array<string, mixed>  $data
+     * @param  array<int, string|array<string, string>>  $documents
+     */
+    protected function parseResponse(array $data, array $documents): RerankResponse
+    {
+        /** @var array<int, array<string, mixed>> $results */
+        $results = $data['results'] ?? [];
+
+        $rerankResults = array_map(function (array $result) use ($documents): RerankResult {
+            $index = (int) ($result['index'] ?? 0);
+            $score = (float) ($result['relevance_score'] ?? 0.0);
+            $document = $this->resolveDocument($result, $documents, $index);
+
+            return new RerankResult($index, $score, $document);
+        }, $results);
+
+        return new RerankResponse($rerankResults, $this->parseMeta($data));
+    }
+
+    /**
+     * Extract provider-specific metadata from the response.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    protected function parseMeta(array $data): array
+    {
+        return [];
+    }
+
+    /**
      * Format documents for the rerank API.
      *
      * String documents pass through directly. Associative array documents
@@ -67,12 +101,7 @@ abstract class AbstractRerankHandler implements RerankHandler
                 return $doc;
             }
 
-            $lines = [];
-            foreach ($doc as $key => $value) {
-                $lines[] = "{$key}: {$value}";
-            }
-
-            return implode("\n", $lines);
+            return $this->serializeDocument($doc);
         }, $documents);
     }
 
@@ -82,20 +111,50 @@ abstract class AbstractRerankHandler implements RerankHandler
     abstract protected function endpoint(): string;
 
     /**
-     * Parse the provider response into a RerankResponse.
-     *
-     * @param  array<string, mixed>  $data
-     * @param  array<int, string|array<string, string>>  $documents
-     */
-    abstract protected function parseResponse(array $data, array $documents): RerankResponse;
-
-    /**
      * Add provider-specific fields to the request body.
+     *
+     * Called before providerOptions merge, so providerOptions take precedence.
      *
      * @param  array<string, mixed>  $body
      */
     protected function appendProviderBody(RerankRequest $request, array &$body): void
     {
         // Override in subclasses for provider-specific fields
+    }
+
+    /**
+     * Resolve the document text from the response or original request.
+     *
+     * @param  array<string, mixed>  $result
+     * @param  array<int, string|array<string, string>>  $originalDocuments
+     */
+    protected function resolveDocument(array $result, array $originalDocuments, int $index): string
+    {
+        if (isset($result['document']['text'])) {
+            return (string) $result['document']['text'];
+        }
+
+        $original = $originalDocuments[$index] ?? '';
+
+        if (is_array($original)) {
+            return $this->serializeDocument($original);
+        }
+
+        return $original;
+    }
+
+    /**
+     * Serialize an associative array document to key: value lines.
+     *
+     * @param  array<string, string>  $doc
+     */
+    private function serializeDocument(array $doc): string
+    {
+        $lines = [];
+        foreach ($doc as $key => $value) {
+            $lines[] = "{$key}: {$value}";
+        }
+
+        return implode("\n", $lines);
     }
 }

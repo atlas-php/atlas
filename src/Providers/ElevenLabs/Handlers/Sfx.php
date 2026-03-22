@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Providers\ElevenLabs\Handlers;
 
+use Atlasphp\Atlas\Providers\ElevenLabs\BuildsElevenLabsHeaders;
 use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Requests\AudioRequest;
@@ -17,6 +18,8 @@ use Atlasphp\Atlas\Responses\AudioResponse;
  */
 class Sfx
 {
+    use BuildsElevenLabsHeaders;
+
     public function __construct(
         protected readonly ProviderConfig $config,
         protected readonly HttpClient $http,
@@ -50,17 +53,14 @@ class Sfx
 
         $binary = $this->http->postRaw(
             url: $url,
-            headers: [
-                'xi-api-key' => $this->config->apiKey,
-                'Content-Type' => 'application/json',
-            ],
+            headers: $this->headers(),
             body: $body,
             timeout: $this->config->mediaTimeout,
         );
 
         return new AudioResponse(
             data: base64_encode($binary),
-            format: explode('_', $format)[0],
+            format: $this->extractFormatCodec($format),
         );
     }
 }
