@@ -27,4 +27,5 @@ Route::get('/executions/{id}', [ChatController::class, 'executionStatus']);
 Route::get('/conversations/{conversationId}/processing', [ChatController::class, 'processingStatus']);
 
 // ─── Assets (file proxy) ────────────────────────────────────
+Route::get('/assets/{id}.{extension}', [AssetController::class, 'show']);
 Route::get('/assets/{id}', [AssetController::class, 'show']);

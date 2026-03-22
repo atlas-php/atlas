@@ -11,16 +11,15 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 /**
  * Proxy controller for serving stored assets from disk.
  *
- * Provider URLs (xAI, ElevenLabs, etc.) are temporary. Assets are stored
- * to local disk by TrackProviderCall middleware. This endpoint serves
- * them back to the UI by reading from storage.
+ * Supports both /api/assets/1 and /api/assets/1.png for cleaner URLs.
+ * The extension is cosmetic — Content-Type is always from the asset record.
  */
 class AssetController
 {
     /**
      * Stream an asset file from storage.
      */
-    public function show(int $id): StreamedResponse
+    public function show(int $id, ?string $extension = null): StreamedResponse
     {
         $asset = Asset::findOrFail($id);
 

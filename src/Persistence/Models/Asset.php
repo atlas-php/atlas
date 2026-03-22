@@ -112,6 +112,23 @@ class Asset extends Model
     // ─── Helpers ────────────────────────────────────────────────
 
     /**
+     * Get the file extension from the stored path.
+     */
+    public function extension(): string
+    {
+        return pathinfo($this->path, PATHINFO_EXTENSION) ?: 'bin';
+    }
+
+    /**
+     * Get the proxy URL for this asset (e.g. /api/assets/1.png).
+     * Consumers can override the prefix for custom routing.
+     */
+    public function url(string $prefix = '/api/assets'): string
+    {
+        return "{$prefix}/{$this->id}.{$this->extension()}";
+    }
+
+    /**
      * Determine if this asset is a media type (image, audio, or video).
      */
     public function isMedia(): bool

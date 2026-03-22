@@ -49,7 +49,7 @@ class GenerateSpeechTool extends Tool
             ->asAudio();
 
         if ($response->asset) {
-            return "[Audio: speech](/api/assets/{$response->asset->id})";
+            return "[Audio: speech]({$response->asset->url()})";
         }
 
         return 'Speech audio generated.';

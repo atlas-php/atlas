@@ -48,7 +48,7 @@ class GenerateImageTool extends Tool
             ->asImage();
 
         if ($response->asset) {
-            return "![{$prompt}](/api/assets/{$response->asset->id})";
+            return "![{$prompt}]({$response->asset->url()})";
         }
 
         $url = is_array($response->url) ? $response->url[0] : $response->url;

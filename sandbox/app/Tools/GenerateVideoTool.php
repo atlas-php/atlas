@@ -52,7 +52,7 @@ class GenerateVideoTool extends Tool
             ->asVideo();
 
         if ($response->asset) {
-            return "[Video: {$prompt}](/api/assets/{$response->asset->id})";
+            return "[Video: {$prompt}]({$response->asset->url()})";
         }
 
         return "[Video: {$prompt}]({$response->url})";

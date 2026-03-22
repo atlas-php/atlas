@@ -328,7 +328,7 @@ class ChatController
             $data['attachments'] = $msg->attachments->map(fn ($att) => [
                 'id' => $att->asset->id,
                 'type' => $att->asset->type->value,
-                'url' => '/api/assets/'.$att->asset->id,
+                'url' => $att->asset->url(),
                 'mime_type' => $att->asset->mime_type,
                 'description' => $att->asset->description,
             ])->all();
