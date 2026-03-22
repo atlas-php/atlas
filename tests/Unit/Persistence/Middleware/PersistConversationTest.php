@@ -253,11 +253,10 @@ it('stores assistant messages from steps', function () {
         ->orderBy('sequence')
         ->get();
 
-    expect($assistantMessages)->toHaveCount(2)
-        ->and($assistantMessages[0]->content)->toBe('Step one response')
-        ->and($assistantMessages[0]->agent)->toBe('test-agent')
-        ->and($assistantMessages[1]->content)->toBe('Step two response')
-        ->and($assistantMessages[1]->agent)->toBe('test-agent');
+    // Only the final response text is stored as a message
+    expect($assistantMessages)->toHaveCount(1)
+        ->and($assistantMessages[0]->content)->toBe('Test response')
+        ->and($assistantMessages[0]->agent)->toBe('test-agent');
 });
 
 // ─── Retry mode ────────────────────────────────────────────────────
@@ -309,7 +308,8 @@ it('deactivates current response and sets retryParentId in retry mode', function
         ->where('is_active', true)
         ->get();
 
-    expect($newMsgs)->toHaveCount(2);
+    // Only the final response text is stored as a message
+    expect($newMsgs)->toHaveCount(1);
     expect($newMsgs->first()->parent_id)->toBe($userMsg->id);
 });
 

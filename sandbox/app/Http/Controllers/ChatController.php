@@ -104,14 +104,14 @@ class ChatController
             $messages = array_slice($messages, -$limit);
         }
 
-        $processing = $this->conversations->hasActiveExecution($conversation);
+        $typing = $this->conversations->hasActiveExecution($conversation);
 
         return new JsonResponse([
             'id' => $conversation->id,
             'title' => $conversation->title,
             'agent' => $conversation->agent,
             'created_at' => $conversation->created_at,
-            'processing' => $processing,
+            'typing' => $typing,
             'messages' => $messages,
             'has_more' => $hasMore,
         ]);
@@ -246,7 +246,7 @@ class ChatController
     {
         Conversation::findOrFail($conversationId);
 
-        $activeExecution = Execution::where('conversation_id', $conversationId)
+        $execution = Execution::where('conversation_id', $conversationId)
             ->whereIn('status', [
                 ExecutionStatus::Pending,
                 ExecutionStatus::Queued,
@@ -256,9 +256,10 @@ class ChatController
             ->first();
 
         return new JsonResponse([
-            'processing' => $activeExecution !== null,
-            'execution_id' => $activeExecution?->id,
-            'status' => $activeExecution?->status->label(),
+            'typing' => $execution?->status === ExecutionStatus::Processing,
+            'queued' => $execution !== null && $execution->status !== ExecutionStatus::Processing,
+            'execution_id' => $execution?->id,
+            'status' => $execution?->status->label(),
         ]);
     }
 

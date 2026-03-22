@@ -80,16 +80,11 @@ abstract class Tool
             }
         }
 
-        $schema = [
+        return [
             'type' => 'object',
             'properties' => $properties,
+            'required' => $required,
             'additionalProperties' => false,
         ];
-
-        if ($required !== []) {
-            $schema['required'] = $required;
-        }
-
-        return $schema;
     }
 }

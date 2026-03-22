@@ -30,7 +30,7 @@ class TrackToolCall
         }
 
         // ── Create tool call in pending, begin processing ────────
-        $record = $this->tracker->createToolCall($context->toolCall);
+        $record = $this->tracker->createToolCall($context->toolCall, meta: $context->meta);
         $startTime = $this->tracker->beginToolCall($record);
 
         try {

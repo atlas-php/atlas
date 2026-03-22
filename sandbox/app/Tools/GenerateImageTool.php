@@ -32,7 +32,6 @@ class GenerateImageTool extends Tool
     {
         return [
             new StringField('prompt', 'A detailed description of the image to generate'),
-            (new StringField('size', 'Image dimensions (e.g. 1024x1024, 1024x768)'))->optional(),
         ];
     }
 
@@ -43,11 +42,9 @@ class GenerateImageTool extends Tool
     public function handle(array $args, array $context): string
     {
         $prompt = $args['prompt'];
-        $size = $args['size'] ?? '1024x1024';
 
         $response = Atlas::image()
             ->instructions($prompt)
-            ->withSize($size)
             ->asImage();
 
         if ($response->asset) {

@@ -25,13 +25,45 @@ class ToolMapper implements ToolMapperContract
      */
     public function mapTools(array $tools): array
     {
-        return array_map(fn (ToolDefinition $tool) => [
-            'type' => 'function',
-            'name' => $tool->name,
-            'description' => $tool->description,
-            'parameters' => $tool->parameters !== [] ? $tool->parameters : (object) [],
-            'strict' => true,
-        ], $tools);
+        return array_map(function (ToolDefinition $tool) {
+            $mapped = [
+                'type' => 'function',
+                'name' => $tool->name,
+                'description' => $tool->description,
+                'parameters' => $tool->parameters !== [] ? $tool->parameters : (object) [],
+            ];
+
+            // Strict mode requires ALL properties in required — only enable
+            // when every property is required (no optional parameters).
+            if ($this->canBeStrict($tool->parameters)) {
+                $mapped['strict'] = true;
+            }
+
+            return $mapped;
+        }, $tools);
+    }
+
+    /**
+     * Determine if tool parameters qualify for strict mode.
+     * Strict requires all properties listed in required.
+     *
+     * @param  array<string, mixed>  $parameters
+     */
+    protected function canBeStrict(array $parameters): bool
+    {
+        if ($parameters === []) {
+            return true;
+        }
+
+        // No required key means all properties are implicitly required (strict OK)
+        if (! array_key_exists('required', $parameters)) {
+            return true;
+        }
+
+        $properties = $parameters['properties'] ?? [];
+        $required = $parameters['required'] ?? [];
+
+        return count($properties) === count($required);
     }
 
     /**

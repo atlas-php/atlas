@@ -14,9 +14,9 @@ return [
     */
 
     'defaults' => [
-        'text' => ['provider' => env('ATLAS_TEXT_PROVIDER', 'anthropic'), 'model' => env('ATLAS_TEXT_MODEL', 'claude-sonnet-4-20250514')],
-        'image' => ['provider' => env('ATLAS_IMAGE_PROVIDER', 'xai'), 'model' => env('ATLAS_IMAGE_MODEL', 'grok-2-image')],
-        'video' => ['provider' => env('ATLAS_VIDEO_PROVIDER', 'xai'), 'model' => env('ATLAS_VIDEO_MODEL', 'grok-2-video')],
+        'text' => ['provider' => env('ATLAS_TEXT_PROVIDER', 'openai'), 'model' => env('ATLAS_TEXT_MODEL', 'gpt-4o')],
+        'image' => ['provider' => env('ATLAS_IMAGE_PROVIDER', 'xai'), 'model' => env('ATLAS_IMAGE_MODEL', 'grok-imagine-image')],
+        'video' => ['provider' => env('ATLAS_VIDEO_PROVIDER', 'xai'), 'model' => env('ATLAS_VIDEO_MODEL', 'grok-imagine-video')],
         'embed' => ['provider' => env('ATLAS_EMBED_PROVIDER', 'openai'), 'model' => env('ATLAS_EMBED_MODEL', 'text-embedding-3-small')],
         'moderate' => ['provider' => env('ATLAS_MODERATE_PROVIDER', 'openai'), 'model' => env('ATLAS_MODERATE_MODEL', 'omni-moderation-latest')],
         'rerank' => ['provider' => env('ATLAS_RERANK_PROVIDER'), 'model' => env('ATLAS_RERANK_MODEL')],

@@ -110,8 +110,8 @@ it('builds correct parameter schema in definition', function () {
             'a' => ['type' => 'number', 'description' => 'First number'],
             'b' => ['type' => 'number', 'description' => 'Second number'],
         ],
-        'additionalProperties' => false,
         'required' => ['a', 'b'],
+        'additionalProperties' => false,
     ]);
 });
 

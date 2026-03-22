@@ -7,6 +7,13 @@ namespace App\Providers;
 use App\Agents\AssistantAgent;
 use App\Console\FreshCommand;
 use Atlasphp\Atlas\Agents\AgentRegistry;
+use Atlasphp\Atlas\Embeddings\VectorQueryMacros;
+use Atlasphp\Atlas\Persistence\Middleware\PersistConversation;
+use Atlasphp\Atlas\Persistence\Middleware\TrackExecution;
+use Atlasphp\Atlas\Persistence\Middleware\TrackProviderCall;
+use Atlasphp\Atlas\Persistence\Middleware\TrackStep;
+use Atlasphp\Atlas\Persistence\Middleware\TrackToolCall;
+use Atlasphp\Atlas\Persistence\Middleware\WireMemory;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
@@ -14,7 +21,10 @@ use Illuminate\Support\ServiceProvider;
  * Service provider for the Atlas sandbox environment.
  *
  * Registers sandbox-specific configuration, routes, views, migrations,
- * and commands for testing Atlas v3 functionality against real AI providers.
+ * commands, and persistence middleware. Middleware is registered here
+ * because Orchestra Testbench boots providers before sandbox config
+ * is loaded, so AtlasServiceProvider's auto-registration misses the
+ * persistence.enabled flag.
  */
 class SandboxServiceProvider extends ServiceProvider
 {
@@ -23,11 +33,7 @@ class SandboxServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->booted(function () {
-            /** @var AgentRegistry $registry */
-            $registry = $this->app->make(AgentRegistry::class);
-            $registry->register(AssistantAgent::class);
-        });
+        //
     }
 
     /**
@@ -39,6 +45,75 @@ class SandboxServiceProvider extends ServiceProvider
         $this->registerViews();
         $this->loadMigrations();
         $this->registerCommands();
+        $this->registerAgents();
+        $this->registerPersistenceMiddleware();
+    }
+
+    /**
+     * Register agents with the registry.
+     */
+    protected function registerAgents(): void
+    {
+        /** @var AgentRegistry $registry */
+        $registry = $this->app->make(AgentRegistry::class);
+        $registry->register(AssistantAgent::class);
+    }
+
+    /**
+     * Register persistence and memory middleware.
+     *
+     * AtlasServiceProvider auto-registers these when persistence.enabled
+     * is true during boot — but in the sandbox, Orchestra Testbench boots
+     * before our config override is applied. So we wire them explicitly.
+     */
+    protected function registerPersistenceMiddleware(): void
+    {
+        if (! config('atlas.persistence.enabled')) {
+            return;
+        }
+
+        // Memory middleware (before PersistConversation for variable registration)
+        $agentMiddleware = config('atlas.middleware.agent', []);
+
+        if (! in_array(WireMemory::class, $agentMiddleware, true)) {
+            array_unshift($agentMiddleware, WireMemory::class);
+        }
+
+        if (! in_array(PersistConversation::class, $agentMiddleware, true)) {
+            $agentMiddleware[] = PersistConversation::class;
+        }
+
+        if (! in_array(TrackExecution::class, $agentMiddleware, true)) {
+            $agentMiddleware[] = TrackExecution::class;
+        }
+
+        config(['atlas.middleware.agent' => $agentMiddleware]);
+
+        $stepMiddleware = config('atlas.middleware.step', []);
+
+        if (! in_array(TrackStep::class, $stepMiddleware, true)) {
+            $stepMiddleware[] = TrackStep::class;
+        }
+
+        config(['atlas.middleware.step' => $stepMiddleware]);
+
+        $toolMiddleware = config('atlas.middleware.tool', []);
+
+        if (! in_array(TrackToolCall::class, $toolMiddleware, true)) {
+            $toolMiddleware[] = TrackToolCall::class;
+        }
+
+        config(['atlas.middleware.tool' => $toolMiddleware]);
+
+        $providerMiddleware = config('atlas.middleware.provider', []);
+
+        if (! in_array(TrackProviderCall::class, $providerMiddleware, true)) {
+            $providerMiddleware[] = TrackProviderCall::class;
+        }
+
+        config(['atlas.middleware.provider' => $providerMiddleware]);
+
+        VectorQueryMacros::register();
     }
 
     /**
@@ -77,14 +152,12 @@ class SandboxServiceProvider extends ServiceProvider
      */
     protected function loadMigrations(): void
     {
-        // Atlas package migrations (conversations, messages, executions, etc.)
         $packageMigrations = dirname(__DIR__, 3).'/database/migrations';
 
         if (is_dir($packageMigrations)) {
             $this->loadMigrationsFrom($packageMigrations);
         }
 
-        // Sandbox-specific migrations (users, jobs)
         $sandboxMigrations = dirname(__DIR__, 2).'/database/migrations';
 
         if (is_dir($sandboxMigrations)) {

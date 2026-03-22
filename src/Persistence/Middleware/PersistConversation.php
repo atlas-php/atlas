@@ -67,7 +67,14 @@ class PersistConversation
         }
 
         // ── Capture the user message BEFORE prepending history
+        // Check context->messages first (from withMessages), then the request
+        // message (from ->message('text')). The latter is the common case for
+        // agents called via Atlas::agent()->message()->asText().
         $userMessage = $this->findUserMessage($context->messages);
+
+        if ($userMessage === null && $context->request->message !== null) {
+            $userMessage = new UserMessage(content: $context->request->message);
+        }
 
         // ── Load conversation history into context
         // Role remapping happens inside for group conversations.
@@ -76,6 +83,11 @@ class PersistConversation
 
         if (! empty($history)) {
             $context->messages = array_merge($history, $context->messages);
+        }
+
+        // Store consumer metadata on the conversation if it has none yet
+        if ($conversation->metadata === null && $context->meta !== []) {
+            $conversation->update(['metadata' => $context->meta]);
         }
 
         // Inject conversation_id into meta so delegation tools can access it
@@ -106,28 +118,51 @@ class PersistConversation
                     author: $author,
                 );
                 $stored->markAsRead(); // Agent already processed it
+                $stored->update(['metadata' => $context->meta]);
                 $parentId = $stored->id;
+
+                // Auto-set conversation title from the first user message
+                if ($conversation->title === null || $conversation->title === '') {
+                    $title = str_replace("\n", ' ', $userMessage->content ?? '');
+                    $conversation->update([
+                        'title' => mb_strlen($title) > 60 ? mb_substr($title, 0, 57).'...' : $title,
+                    ]);
+                }
 
             } else {
                 // Respond mode — find the last active user message as parent
                 $parentId = $this->conversations->lastUserMessageId($conversation);
             }
 
-            // ── Store one assistant message per step ─────────────
-            // Each step's visible text becomes an assistant message row.
-            // Tool call data lives in execution tables — NOT duplicated here.
-            // The step_id FK links each message to its execution step so
-            // loadMessages() can reconstruct tool calls at read time.
+            // ── Store the final assistant response as a single message ─
+            // Intermediate steps (tool calls) live in execution tables.
+            // Only the final text becomes a conversation message.
 
             $executionId = $context->meta['execution_id'] ?? null;
-            $stepData = $this->buildStepData($result, $executionId);
+            $lastStepId = null;
 
-            return $this->conversations->addAssistantMessages(
+            if ($executionId !== null) {
+                $stepModel = config('atlas.persistence.models.execution_step', ExecutionStep::class);
+                $lastStepId = $stepModel::where('execution_id', $executionId)
+                    ->orderByDesc('sequence')
+                    ->value('id');
+            }
+
+            $storedMessages = $this->conversations->addAssistantMessages(
                 $conversation,
-                $stepData,
+                [['text' => $result->text, 'step_id' => $lastStepId]],
                 agent: $agentKey,
                 parentId: $parentId,
             );
+
+            // Link the assistant message to its execution
+            $execution = $this->executionService->getExecution();
+
+            if ($execution !== null && $storedMessages !== []) {
+                $execution->update(['message_id' => $storedMessages[0]->id]);
+            }
+
+            return $storedMessages;
         });
 
         // Attach conversation ID to the response
@@ -258,39 +293,5 @@ class PersistConversation
         }
 
         return null;
-    }
-
-    /**
-     * Build step data for storing assistant messages.
-     *
-     * Each step becomes one assistant message. If execution tracking is active,
-     * we look up the DB step IDs so messages link to their execution steps.
-     * This enables loadMessages() to reconstruct tool calls from execution data.
-     *
-     * @return array<array{text: string, step_id: int|null}>
-     */
-    protected function buildStepData(ExecutorResult $result, ?int $executionId): array
-    {
-        // If execution tracking is active, look up step IDs by sequence
-        $stepIds = [];
-
-        if ($executionId !== null) {
-            $stepModel = config('atlas.persistence.models.execution_step', ExecutionStep::class);
-            $stepIds = $stepModel::where('execution_id', $executionId)
-                ->orderBy('sequence')
-                ->pluck('id')
-                ->all();
-        }
-
-        $data = [];
-
-        foreach ($result->steps as $index => $step) {
-            $data[] = [
-                'text' => $step->text,
-                'step_id' => $stepIds[$index] ?? null,
-            ];
-        }
-
-        return $data;
     }
 }

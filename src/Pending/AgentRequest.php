@@ -358,26 +358,29 @@ class AgentRequest implements QueueableRequest
         $driver = $this->resolveDriver($agent);
         $request = $this->buildRequest($agent, $tools);
 
-        return $this->dispatchAgentMiddleware($agent, $request, $tools, function (AgentContext $ctx) use ($driver, $agent, $tools) {
-            if ($tools === []) {
+        if ($tools === []) {
+            return $this->dispatchAgentMiddleware($agent, $request, $tools, function (AgentContext $ctx) use ($driver) {
                 return $driver->text($ctx->request);
-            }
+            });
+        }
 
-            $result = $this->executeWithTools($driver, $ctx->request, $agent, $tools);
-
-            return new TextResponse(
-                text: $result->text,
-                usage: $result->usage,
-                finishReason: $result->finishReason,
-                toolCalls: $result->allToolCalls(),
-                reasoning: $result->reasoning,
-                steps: $result->steps,
-                meta: array_merge($result->meta, [
-                    'conversation_id' => $result->conversationId,
-                    'execution_id' => $result->executionId,
-                ]),
-            );
+        /** @var ExecutorResult $result */
+        $result = $this->dispatchAgentMiddleware($agent, $request, $tools, function (AgentContext $ctx) use ($driver, $agent, $tools) {
+            return $this->executeWithTools($driver, $ctx->request, $agent, $tools);
         });
+
+        return new TextResponse(
+            text: $result->text,
+            usage: $result->usage,
+            finishReason: $result->finishReason,
+            toolCalls: $result->allToolCalls(),
+            reasoning: $result->reasoning,
+            steps: $result->steps,
+            meta: array_merge($result->meta, [
+                'conversation_id' => $result->conversationId,
+                'execution_id' => $result->executionId,
+            ]),
+        );
     }
 
     /**
@@ -394,16 +397,18 @@ class AgentRequest implements QueueableRequest
         $driver = $this->resolveDriver($agent);
         $request = $this->buildRequest($agent, $tools);
 
-        return $this->dispatchAgentMiddleware($agent, $request, $tools, function (AgentContext $ctx) use ($driver, $agent, $tools) {
-            if ($tools === []) {
+        if ($tools === []) {
+            return $this->dispatchAgentMiddleware($agent, $request, $tools, function (AgentContext $ctx) use ($driver) {
                 return $driver->stream($ctx->request);
-            }
+            });
+        }
 
-            // Streaming with tools falls back to non-streaming, wraps result as chunks
-            $result = $this->executeWithTools($driver, $ctx->request, $agent, $tools);
-
-            return new StreamResponse($this->resultToChunks($result));
+        /** @var ExecutorResult $result */
+        $result = $this->dispatchAgentMiddleware($agent, $request, $tools, function (AgentContext $ctx) use ($driver, $agent, $tools) {
+            return $this->executeWithTools($driver, $ctx->request, $agent, $tools);
         });
+
+        return new StreamResponse($this->resultToChunks($result));
     }
 
     /**

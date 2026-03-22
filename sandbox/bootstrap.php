@@ -15,7 +15,6 @@ use Dotenv\Dotenv;
 use Orchestra\Testbench\Foundation\Application;
 
 // Load the appropriate autoloader
-// Prefer sandbox's own vendor if it exists, otherwise fall back to parent
 $sandboxVendor = __DIR__.'/vendor/autoload.php';
 $parentVendor = __DIR__.'/../vendor/autoload.php';
 
@@ -35,24 +34,14 @@ if (file_exists(__DIR__.'/.env')) {
     $dotenv->load();
 }
 
-// Define the sandbox base path
 $sandboxPath = __DIR__;
 
-// Create the application using Orchestra Testbench
 /** @var Illuminate\Foundation\Application $app */
 $app = Application::create($sandboxPath);
 
-// Set storage path
 $app->useStoragePath($sandboxPath.'/storage');
 
-// Register the service providers
-$app->register(AtlasServiceProvider::class);
-$app->register(SandboxServiceProvider::class);
-
-// Boot the application
-$app->boot();
-
-// Load configuration from sandbox config directory
+// Load sandbox config (overrides package defaults set by mergeConfigFrom)
 $app['config']->set('app', require $sandboxPath.'/config/app.php');
 $app['config']->set('database', require $sandboxPath.'/config/database.php');
 $app['config']->set('session', require $sandboxPath.'/config/session.php');
@@ -60,5 +49,12 @@ $app['config']->set('queue', require $sandboxPath.'/config/queue.php');
 $app['config']->set('broadcasting', require $sandboxPath.'/config/broadcasting.php');
 $app['config']->set('filesystems', require $sandboxPath.'/config/filesystems.php');
 $app['config']->set('atlas', require $sandboxPath.'/config/atlas.php');
+
+// Register providers — AtlasServiceProvider's mergeConfigFrom won't overwrite
+// our values. But registerPersistenceMiddleware's booted() callback already
+// missed the window (Application::create boots immediately), so
+// SandboxServiceProvider handles middleware registration.
+$app->register(AtlasServiceProvider::class);
+$app->register(SandboxServiceProvider::class);
 
 return $app;

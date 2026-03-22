@@ -31,7 +31,7 @@ class TrackStep
         }
 
         // ── Create step in pending, begin processing ─────────────
-        $this->tracker->createStep();
+        $this->tracker->createStep($context->meta);
         $this->tracker->beginStep();
 
         try {

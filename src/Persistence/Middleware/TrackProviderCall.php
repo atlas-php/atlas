@@ -104,7 +104,7 @@ class TrackProviderCall
 
         try {
             $contents = $response->contents();
-            $mimeType = $this->resolveMimeType($response);
+            $mimeType = $this->resolveMimeType($response, $assetType);
             $disk = config('atlas.storage.disk') ?? config('filesystems.default', 'local');
             $prefix = config('atlas.storage.prefix', 'atlas');
             $visibility = config('atlas.storage.visibility', 'private');
@@ -156,9 +156,36 @@ class TrackProviderCall
         }
     }
 
-    protected function resolveMimeType(mixed $response): ?string
+    protected function resolveMimeType(mixed $response, AssetType $assetType): ?string
     {
-        return method_exists($response, 'mimeType') ? $response->mimeType() : null;
+        // Explicit method on response takes priority
+        if (method_exists($response, 'mimeType')) {
+            return $response->mimeType();
+        }
+
+        // Infer from response format property
+        $format = $response->format ?? null;
+
+        if ($format !== null) {
+            $map = [
+                'png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg',
+                'webp' => 'image/webp', 'gif' => 'image/gif',
+                'mp3' => 'audio/mpeg', 'wav' => 'audio/wav', 'ogg' => 'audio/ogg',
+                'mp4' => 'video/mp4', 'webm' => 'video/webm',
+            ];
+
+            if (isset($map[$format])) {
+                return $map[$format];
+            }
+        }
+
+        // Fall back to default mime type for the asset type
+        return match ($assetType) {
+            AssetType::Image => 'image/png',
+            AssetType::Audio => 'audio/mpeg',
+            AssetType::Video => 'video/mp4',
+            default => null,
+        };
     }
 
     protected function resolveExtension(AssetType $assetType, ?string $mimeType): string

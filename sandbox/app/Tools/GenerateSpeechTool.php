@@ -44,7 +44,7 @@ class GenerateSpeechTool extends Tool
     {
         $text = $args['text'];
 
-        $response = Atlas::audio(Provider::xAI)
+        $response = Atlas::audio(Provider::xAI, 'tts-1')
             ->instructions($text)
             ->asAudio();
 

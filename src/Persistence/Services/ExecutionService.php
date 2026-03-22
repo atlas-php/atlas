@@ -170,7 +170,10 @@ class ExecutionService
     /**
      * Create a new step in pending state. Called BEFORE the provider call.
      */
-    public function createStep(): ExecutionStep
+    /**
+     * @param  array<string, mixed>  $meta
+     */
+    public function createStep(array $meta = []): ExecutionStep
     {
         if ($this->execution === null) {
             throw new \RuntimeException('Cannot create a step without an active execution.');
@@ -182,6 +185,7 @@ class ExecutionService
             'execution_id' => $this->execution->id,
             'sequence' => $this->stepSequence++,
             'status' => ExecutionStatus::Pending,
+            'metadata' => $meta !== [] ? $meta : null,
         ]);
 
         return $this->currentStep;
@@ -219,7 +223,11 @@ class ExecutionService
             : null;
 
         $this->currentStep->markCompleted($durationMs);
-        $this->currentStep = null;
+
+        // Do NOT null currentStep here — tool execution happens AFTER
+        // the step middleware completes. TrackToolCall needs currentStep
+        // to link tool calls to their step. The reference is cleared
+        // when createStep() starts the next step or reset() is called.
     }
 
     // ─── Tool Call Lifecycle ────────────────────────────────────
@@ -229,7 +237,10 @@ class ExecutionService
      * Arguments captured immediately — you know what was requested
      * even if the tool never starts.
      */
-    public function createToolCall(ToolCall $toolCall, ToolCallType $type = ToolCallType::Atlas): ExecutionToolCall
+    /**
+     * @param  array<string, mixed>  $meta
+     */
+    public function createToolCall(ToolCall $toolCall, ToolCallType $type = ToolCallType::Atlas, array $meta = []): ExecutionToolCall
     {
         if ($this->execution === null || $this->currentStep === null) {
             throw new \RuntimeException('Cannot track a tool call without an active execution and step.');
@@ -245,6 +256,7 @@ class ExecutionService
             'type' => $type,
             'status' => ExecutionStatus::Pending,
             'arguments' => $toolCall->arguments,
+            'metadata' => $meta !== [] ? $meta : null,
         ]);
 
         return $this->currentToolCall;

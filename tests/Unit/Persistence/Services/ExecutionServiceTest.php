@@ -185,7 +185,7 @@ it('transitions step to processing', function () {
 
 // ─── completeStep ──────────────────────────────────────────────────
 
-it('transitions step to completed and clears currentStep', function () {
+it('transitions step to completed and retains reference for tool calls', function () {
     $this->service->createExecution(provider: 'openai', model: 'gpt-5');
     $step = $this->service->createStep();
     $this->service->beginStep();
@@ -194,9 +194,11 @@ it('transitions step to completed and clears currentStep', function () {
 
     $step->refresh();
 
+    // Step is completed but reference retained for tool call linkage
     expect($step->status)->toBe(ExecutionStatus::Completed)
         ->and($step->completed_at)->not->toBeNull()
-        ->and($this->service->currentStep())->toBeNull();
+        ->and($this->service->currentStep())->not->toBeNull()
+        ->and($this->service->currentStep()->id)->toBe($step->id);
 });
 
 // ─── createToolCall ────────────────────────────────────────────────
