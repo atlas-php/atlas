@@ -32,12 +32,12 @@ use Illuminate\Support\Facades\Facade;
 /**
  * Facade for the Atlas manager.
  *
- * @method static TextRequest text(Provider|string $provider, string $model)
- * @method static ImageRequest image(Provider|string $provider, string $model)
- * @method static AudioRequest audio(Provider|string $provider, string $model)
- * @method static VideoRequest video(Provider|string $provider, string $model)
- * @method static EmbedRequest embed(Provider|string $provider, string $model)
- * @method static ModerateRequest moderate(Provider|string $provider, string $model)
+ * @method static TextRequest text(Provider|string|null $provider = null, ?string $model = null)
+ * @method static ImageRequest image(Provider|string|null $provider = null, ?string $model = null)
+ * @method static AudioRequest audio(Provider|string|null $provider = null, ?string $model = null)
+ * @method static VideoRequest video(Provider|string|null $provider = null, ?string $model = null)
+ * @method static EmbedRequest embed(Provider|string|null $provider = null, ?string $model = null)
+ * @method static ModerateRequest moderate(Provider|string|null $provider = null, ?string $model = null)
  * @method static RerankRequest rerank(Provider|string|null $provider = null, ?string $model = null)
  * @method static ProviderRequest provider(Provider|string $provider)
  * @method static AgentRequest agent(string $key)

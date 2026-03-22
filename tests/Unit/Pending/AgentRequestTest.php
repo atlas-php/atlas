@@ -175,6 +175,15 @@ it('returns self from all fluent methods', function () {
     expect($request->onQueue('high'))->toBe($request);
 });
 
+it('withMaxSteps accepts null to disable step limit', function () {
+    registerTestAgent(RequestTestMinimalAgent::class);
+
+    $request = makeAgentRequest('minimal')->withMaxSteps(null);
+
+    $ref = new ReflectionProperty($request, 'maxStepsOverride');
+    expect($ref->getValue($request))->toBeNull();
+});
+
 // ─── asText() — no tools ───────────────────────────────────────────────────
 
 it('executes asText without tools via direct driver call', function () {

@@ -162,6 +162,191 @@ it('query returns a scoped builder with agent and namespace', function () {
     expect($results)->toHaveCount(1);
 });
 
+it('forget returns false for non-existent ID', function () {
+    $result = $this->builder->forget(9999);
+
+    expect($result)->toBeFalse();
+});
+
+it('forgetWhere uses scoped namespace as fallback', function () {
+    Memory::factory()->create([
+        'memoryable_type' => 'App\\Models\\User',
+        'memoryable_id' => 42,
+        'namespace' => 'work',
+    ]);
+    Memory::factory()->create([
+        'memoryable_type' => 'App\\Models\\User',
+        'memoryable_id' => 42,
+        'namespace' => 'personal',
+    ]);
+
+    $deleted = $this->builder->for($this->owner)->namespace('work')->forgetWhere();
+
+    expect($deleted)->toBe(1)
+        ->and(Memory::count())->toBe(1)
+        ->and(Memory::first()->namespace)->toBe('personal');
+});
+
+it('forgetWhere explicit namespace overrides scoped namespace', function () {
+    Memory::factory()->create([
+        'memoryable_type' => 'App\\Models\\User',
+        'memoryable_id' => 42,
+        'namespace' => 'explicit',
+    ]);
+    Memory::factory()->create([
+        'memoryable_type' => 'App\\Models\\User',
+        'memoryable_id' => 42,
+        'namespace' => 'scoped',
+    ]);
+
+    $deleted = $this->builder->for($this->owner)->namespace('scoped')->forgetWhere(namespace: 'explicit');
+
+    expect($deleted)->toBe(1)
+        ->and(Memory::count())->toBe(1)
+        ->and(Memory::first()->namespace)->toBe('scoped');
+});
+
+it('forgetWhere uses scoped agent', function () {
+    Memory::factory()->create([
+        'memoryable_type' => 'App\\Models\\User',
+        'memoryable_id' => 42,
+        'agent' => 'support',
+    ]);
+    Memory::factory()->create([
+        'memoryable_type' => 'App\\Models\\User',
+        'memoryable_id' => 42,
+        'agent' => 'sales',
+    ]);
+
+    $deleted = $this->builder->for($this->owner)->agent('support')->forgetWhere();
+
+    expect($deleted)->toBe(1)
+        ->and(Memory::count())->toBe(1);
+});
+
+it('forgetWhere filters by key', function () {
+    Memory::factory()->create([
+        'memoryable_type' => 'App\\Models\\User',
+        'memoryable_id' => 42,
+        'key' => 'target',
+    ]);
+    Memory::factory()->create([
+        'memoryable_type' => 'App\\Models\\User',
+        'memoryable_id' => 42,
+        'key' => 'keep',
+    ]);
+
+    $deleted = $this->builder->for($this->owner)->forgetWhere(key: 'target');
+
+    expect($deleted)->toBe(1)
+        ->and(Memory::first()->key)->toBe('keep');
+});
+
+it('recall with key delegates to service', function () {
+    Memory::factory()->create([
+        'memoryable_type' => 'App\\Models\\User',
+        'memoryable_id' => 42,
+        'type' => 'doc',
+        'key' => 'intro',
+        'content' => 'Intro',
+    ]);
+    Memory::factory()->create([
+        'memoryable_type' => 'App\\Models\\User',
+        'memoryable_id' => 42,
+        'type' => 'doc',
+        'key' => 'outro',
+        'content' => 'Outro',
+    ]);
+
+    $result = $this->builder->for($this->owner)->recall('doc', key: 'intro');
+
+    expect($result)->not->toBeNull()
+        ->and($result->content)->toBe('Intro');
+});
+
+it('recall returns null when not found', function () {
+    $result = $this->builder->for($this->owner)->recall('nonexistent');
+
+    expect($result)->toBeNull();
+});
+
+it('search delegates to service with scoped params', function () {
+    // search() requires pgvector (whereVectorSimilarTo), so we mock the service
+    $mockService = Mockery::mock(MemoryModelService::class);
+    $mockService->shouldReceive('search')
+        ->with(
+            Mockery::type(Model::class),  // owner
+            'test query',                  // query
+            'fact',                        // type
+            'work',                        // namespace (from scoped)
+            'support',                     // agent (from scoped)
+            0.7,                           // minSimilarity
+            5,                             // limit
+        )
+        ->once()
+        ->andReturn(collect([
+            (object) ['content' => 'result 1'],
+        ]));
+
+    $builder = new MemoryBuilder($mockService);
+
+    $results = $builder
+        ->for($this->owner)
+        ->agent('support')
+        ->namespace('work')
+        ->search('test query', type: 'fact', minSimilarity: 0.7, limit: 5);
+
+    expect($results)->toHaveCount(1);
+});
+
+it('search uses scoped namespace as fallback', function () {
+    $mockService = Mockery::mock(MemoryModelService::class);
+    $mockService->shouldReceive('search')
+        ->withArgs(function ($owner, $query, $type, $namespace) {
+            return $namespace === 'scoped-ns';
+        })
+        ->once()
+        ->andReturn(collect());
+
+    $builder = new MemoryBuilder($mockService);
+
+    $builder->namespace('scoped-ns')->search('query');
+});
+
+it('search explicit namespace overrides scoped', function () {
+    $mockService = Mockery::mock(MemoryModelService::class);
+    $mockService->shouldReceive('search')
+        ->withArgs(function ($owner, $query, $type, $namespace) {
+            return $namespace === 'explicit-ns';
+        })
+        ->once()
+        ->andReturn(collect());
+
+    $builder = new MemoryBuilder($mockService);
+
+    $builder->namespace('scoped-ns')->search('query', namespace: 'explicit-ns');
+});
+
+it('search passes default parameters', function () {
+    $mockService = Mockery::mock(MemoryModelService::class);
+    $mockService->shouldReceive('search')
+        ->with(
+            null,    // owner
+            'q',     // query
+            null,    // type
+            null,    // namespace
+            null,    // agent
+            0.5,     // default minSimilarity
+            10,      // default limit
+        )
+        ->once()
+        ->andReturn(collect());
+
+    $builder = new MemoryBuilder($mockService);
+
+    $builder->search('q');
+});
+
 it('decay delegates to service', function () {
     Memory::factory()->create([
         'memoryable_type' => 'App\\Models\\User',

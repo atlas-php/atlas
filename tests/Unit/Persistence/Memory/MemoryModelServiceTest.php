@@ -90,6 +90,68 @@ it('stores all provided attributes', function () {
         ->and($memory->metadata)->toBe(['category' => 'test']);
 });
 
+it('creates document memory on first call with key (no existing)', function () {
+    $memory = $this->service->remember(
+        $this->owner, 'First version', type: 'doc', key: 'intro'
+    );
+
+    expect(Memory::count())->toBe(1)
+        ->and($memory->key)->toBe('intro')
+        ->and($memory->content)->toBe('First version');
+});
+
+it('upsert is scoped by agent — different agents same key coexist', function () {
+    $this->service->remember(
+        $this->owner, 'Support profile', type: 'profile', key: 'main', agent: 'support'
+    );
+    $this->service->remember(
+        $this->owner, 'Sales profile', type: 'profile', key: 'main', agent: 'sales'
+    );
+
+    expect(Memory::count())->toBe(2);
+
+    // Upsert within the same agent scope
+    $this->service->remember(
+        $this->owner, 'Updated support', type: 'profile', key: 'main', agent: 'support'
+    );
+
+    expect(Memory::count())->toBe(2);
+    expect(Memory::where('agent', 'support')->first()->content)->toBe('Updated support');
+});
+
+it('upsert is scoped by type — different types same key coexist', function () {
+    $this->service->remember(
+        $this->owner, 'Profile main', type: 'profile', key: 'main'
+    );
+    $this->service->remember(
+        $this->owner, 'Config main', type: 'config', key: 'main'
+    );
+
+    expect(Memory::count())->toBe(2);
+});
+
+it('upsert is scoped by owner — different owners same key coexist', function () {
+    $otherOwner = new class extends Model
+    {
+        protected $table = 'users';
+
+        public function getMorphClass(): string
+        {
+            return 'App\\Models\\User';
+        }
+
+        public function getKey(): mixed
+        {
+            return 99;
+        }
+    };
+
+    $this->service->remember($this->owner, 'Owner 42', type: 'doc', key: 'main');
+    $this->service->remember($otherOwner, 'Owner 99', type: 'doc', key: 'main');
+
+    expect(Memory::count())->toBe(2);
+});
+
 // ─── Forget ─────────────────────────────────────────────────
 
 it('soft-deletes a memory by ID', function () {
@@ -132,6 +194,93 @@ it('forgetFor deletes by criteria', function () {
     );
 
     expect($deleted)->toBe(2)
+        ->and(Memory::count())->toBe(1);
+});
+
+it('forgetFor with owner only deletes all for that owner', function () {
+    Memory::factory()->create([
+        'memoryable_type' => 'App\\Models\\User',
+        'memoryable_id' => 42,
+    ]);
+    Memory::factory()->create([
+        'memoryable_type' => 'App\\Models\\User',
+        'memoryable_id' => 42,
+    ]);
+    Memory::factory()->create([
+        'memoryable_type' => 'App\\Models\\User',
+        'memoryable_id' => 99,
+    ]);
+
+    $deleted = $this->service->forgetFor(owner: $this->owner);
+
+    expect($deleted)->toBe(2)
+        ->and(Memory::count())->toBe(1);
+});
+
+it('forgetFor with null owner deletes global memories', function () {
+    Memory::factory()->create([
+        'memoryable_type' => null,
+        'memoryable_id' => null,
+    ]);
+    Memory::factory()->create([
+        'memoryable_type' => 'App\\Models\\User',
+        'memoryable_id' => 42,
+    ]);
+
+    $deleted = $this->service->forgetFor(owner: null);
+
+    expect($deleted)->toBe(1)
+        ->and(Memory::count())->toBe(1);
+});
+
+it('forgetFor filters by key', function () {
+    Memory::factory()->create([
+        'memoryable_type' => 'App\\Models\\User',
+        'memoryable_id' => 42,
+        'key' => 'target',
+    ]);
+    Memory::factory()->create([
+        'memoryable_type' => 'App\\Models\\User',
+        'memoryable_id' => 42,
+        'key' => 'keep',
+    ]);
+
+    $deleted = $this->service->forgetFor(owner: $this->owner, key: 'target');
+
+    expect($deleted)->toBe(1)
+        ->and(Memory::count())->toBe(1)
+        ->and(Memory::first()->key)->toBe('keep');
+});
+
+it('forgetFor filters by agent', function () {
+    Memory::factory()->create([
+        'memoryable_type' => 'App\\Models\\User',
+        'memoryable_id' => 42,
+        'agent' => 'support',
+    ]);
+    Memory::factory()->create([
+        'memoryable_type' => 'App\\Models\\User',
+        'memoryable_id' => 42,
+        'agent' => 'sales',
+    ]);
+
+    $deleted = $this->service->forgetFor(owner: $this->owner, agent: 'support');
+
+    expect($deleted)->toBe(1)
+        ->and(Memory::count())->toBe(1)
+        ->and(Memory::first()->agent)->toBe('sales');
+});
+
+it('forgetFor returns 0 when nothing matches', function () {
+    Memory::factory()->create([
+        'memoryable_type' => 'App\\Models\\User',
+        'memoryable_id' => 42,
+        'type' => 'fact',
+    ]);
+
+    $deleted = $this->service->forgetFor(owner: $this->owner, type: 'nonexistent');
+
+    expect($deleted)->toBe(0)
         ->and(Memory::count())->toBe(1);
 });
 
@@ -214,6 +363,142 @@ it('recall filters by agent', function () {
     // When agent is null, forAgent scope is not applied — returns the latest of all
     expect($result)->not->toBeNull()
         ->and($result->content)->toBe('Agent-specific');
+});
+
+it('recall filters by key', function () {
+    Memory::factory()->create([
+        'memoryable_type' => 'App\\Models\\User',
+        'memoryable_id' => 42,
+        'type' => 'doc',
+        'key' => 'intro',
+        'content' => 'Intro content',
+    ]);
+    Memory::factory()->create([
+        'memoryable_type' => 'App\\Models\\User',
+        'memoryable_id' => 42,
+        'type' => 'doc',
+        'key' => 'outro',
+        'content' => 'Outro content',
+    ]);
+
+    $result = $this->service->recall($this->owner, 'doc', key: 'intro');
+
+    expect($result)->not->toBeNull()
+        ->and($result->content)->toBe('Intro content');
+});
+
+it('recall returns latest when multiple exist for same type', function () {
+    Memory::factory()->create([
+        'memoryable_type' => 'App\\Models\\User',
+        'memoryable_id' => 42,
+        'type' => 'fact',
+        'content' => 'First',
+        'created_at' => now()->subHour(),
+    ]);
+    Memory::factory()->create([
+        'memoryable_type' => 'App\\Models\\User',
+        'memoryable_id' => 42,
+        'type' => 'fact',
+        'content' => 'Latest',
+        'created_at' => now(),
+    ]);
+
+    $result = $this->service->recall($this->owner, 'fact');
+
+    expect($result->content)->toBe('Latest');
+});
+
+it('recall global returns only ownerless memories', function () {
+    Memory::factory()->create([
+        'memoryable_type' => null,
+        'memoryable_id' => null,
+        'type' => 'setting',
+        'content' => 'Global setting',
+    ]);
+    Memory::factory()->create([
+        'memoryable_type' => 'App\\Models\\User',
+        'memoryable_id' => 42,
+        'type' => 'setting',
+        'content' => 'User setting',
+    ]);
+
+    $result = $this->service->recall(null, 'setting');
+
+    expect($result)->not->toBeNull()
+        ->and($result->content)->toBe('Global setting');
+});
+
+it('recall does not touch last_accessed_at when not found', function () {
+    $result = $this->service->recall($this->owner, 'nonexistent');
+
+    expect($result)->toBeNull();
+});
+
+it('recallMany filters by agent', function () {
+    Memory::factory()->create([
+        'memoryable_type' => 'App\\Models\\User',
+        'memoryable_id' => 42,
+        'type' => 'profile',
+        'agent' => 'support',
+    ]);
+    Memory::factory()->create([
+        'memoryable_type' => 'App\\Models\\User',
+        'memoryable_id' => 42,
+        'type' => 'profile',
+        'agent' => 'sales',
+    ]);
+
+    $results = $this->service->recallMany($this->owner, ['profile'], agent: 'support');
+
+    expect($results)->toHaveCount(1)
+        ->and($results->first()->agent)->toBe('support');
+});
+
+it('recallMany returns empty collection when no matches', function () {
+    $results = $this->service->recallMany($this->owner, ['nonexistent']);
+
+    expect($results)->toBeEmpty();
+});
+
+it('recallMany does not touch when empty', function () {
+    $results = $this->service->recallMany($this->owner, ['nonexistent']);
+
+    expect($results)->toBeEmpty();
+});
+
+it('recallMany excludes expired memories', function () {
+    Memory::factory()->create([
+        'memoryable_type' => 'App\\Models\\User',
+        'memoryable_id' => 42,
+        'type' => 'fact',
+    ]);
+    Memory::factory()->expired()->create([
+        'memoryable_type' => 'App\\Models\\User',
+        'memoryable_id' => 42,
+        'type' => 'fact',
+    ]);
+
+    $results = $this->service->recallMany($this->owner, ['fact']);
+
+    expect($results)->toHaveCount(1);
+});
+
+it('recallMany global returns only ownerless memories', function () {
+    Memory::factory()->create([
+        'memoryable_type' => null,
+        'memoryable_id' => null,
+        'type' => 'setting',
+    ]);
+    Memory::factory()->create([
+        'memoryable_type' => 'App\\Models\\User',
+        'memoryable_id' => 42,
+        'type' => 'setting',
+    ]);
+
+    $results = $this->service->recallMany(null, ['setting']);
+
+    expect($results)->toHaveCount(1)
+        ->and($results->first()->memoryable_type)->toBeNull();
 });
 
 it('recallMany fetches multiple types', function () {
@@ -330,8 +615,77 @@ it('decay multiplies importance by factor', function () {
         ->and($memories[2]->importance)->toBe(1.0);
 });
 
+it('decay clamps factor above 1.0 to 1.0', function () {
+    Memory::factory()->create([
+        'memoryable_type' => 'App\\Models\\User',
+        'memoryable_id' => 42,
+        'importance' => 1.0,
+    ]);
+
+    Memory::query()->toBase()->update(['updated_at' => now()->subMonths(4)]);
+
+    $this->service->decay($this->owner, now()->subMonths(3), 1.5);
+
+    // Factor clamped to 1.0 — importance unchanged
+    expect(Memory::first()->importance)->toBe(1.0);
+});
+
+it('decay clamps factor below 0.0 to 0.0', function () {
+    Memory::factory()->create([
+        'memoryable_type' => 'App\\Models\\User',
+        'memoryable_id' => 42,
+        'importance' => 0.8,
+    ]);
+
+    Memory::query()->toBase()->update(['updated_at' => now()->subMonths(4)]);
+
+    $this->service->decay($this->owner, now()->subMonths(3), -0.5);
+
+    // Factor clamped to 0.0 — importance zeroed
+    expect(Memory::first()->importance)->toBe(0.0);
+});
+
+it('decay skips memories with zero importance', function () {
+    Memory::factory()->create([
+        'memoryable_type' => 'App\\Models\\User',
+        'memoryable_id' => 42,
+        'importance' => 0.0,
+    ]);
+
+    Memory::query()->toBase()->update(['updated_at' => now()->subMonths(4)]);
+
+    $affected = $this->service->decay($this->owner, now()->subMonths(3), 0.5);
+
+    expect($affected)->toBe(0);
+});
+
+it('decay without owner applies to all memories', function () {
+    Memory::factory()->create([
+        'memoryable_type' => 'App\\Models\\User',
+        'memoryable_id' => 42,
+        'importance' => 1.0,
+    ]);
+    Memory::factory()->create([
+        'memoryable_type' => 'App\\Models\\User',
+        'memoryable_id' => 99,
+        'importance' => 1.0,
+    ]);
+
+    Memory::query()->toBase()->update(['updated_at' => now()->subMonths(4)]);
+
+    $affected = $this->service->decay(null, now()->subMonths(3), 0.5);
+
+    expect($affected)->toBe(2);
+});
+
 // ─── Model Resolution ───────────────────────────────────────
 
 it('resolves model from config', function () {
     expect($this->service->resolveModel())->toBe(Memory::class);
+});
+
+it('resolves model from config override', function () {
+    config(['atlas.persistence.models.memory' => 'App\\Models\\CustomMemory']);
+
+    expect($this->service->resolveModel())->toBe('App\\Models\\CustomMemory');
 });

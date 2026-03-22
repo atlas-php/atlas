@@ -55,8 +55,8 @@ class AudioRequest implements QueueableRequest
     protected array $providerOptions = [];
 
     public function __construct(
-        protected Provider|string|null $provider,
-        protected ?string $model,
+        protected readonly Provider|string|null $provider,
+        protected readonly ?string $model,
         protected readonly ProviderRegistryContract $registry,
     ) {}
 

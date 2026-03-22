@@ -214,9 +214,9 @@ class AgentRequest implements QueueableRequest
     /**
      * Override the agent's max steps in the tool loop.
      */
-    public function withMaxSteps(int $steps): static
+    public function withMaxSteps(?int $maxSteps): static
     {
-        $this->maxStepsOverride = $steps;
+        $this->maxStepsOverride = $maxSteps;
 
         return $this;
     }
