@@ -35,6 +35,18 @@ it('resolves ChunkType enum from string values', function () {
     expect(ChunkType::from('done'))->toBe(ChunkType::Done);
 });
 
+it('normalizes Provider enum to string', function () {
+    expect(Provider::normalize(Provider::OpenAI))->toBe('openai');
+    expect(Provider::normalize(Provider::Anthropic))->toBe('anthropic');
+    expect(Provider::normalize(Provider::Google))->toBe('google');
+    expect(Provider::normalize(Provider::xAI))->toBe('xai');
+});
+
+it('normalizes Provider string passthrough', function () {
+    expect(Provider::normalize('openai'))->toBe('openai');
+    expect(Provider::normalize('custom-provider'))->toBe('custom-provider');
+});
+
 it('returns null for invalid enum values', function () {
     expect(Provider::tryFrom('invalid'))->toBeNull();
     expect(Role::tryFrom('invalid'))->toBeNull();

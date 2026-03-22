@@ -175,16 +175,6 @@ trait HasQueueDispatch
     }
 
     /**
-     * Get metadata for the execution record.
-     *
-     * @return array<string, mixed>
-     */
-    protected function getQueueMeta(): array
-    {
-        return [];
-    }
-
-    /**
      * Resolve the execution type from a terminal method name.
      */
     protected function resolveExecutionType(string $terminal): ExecutionType

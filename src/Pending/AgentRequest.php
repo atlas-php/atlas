@@ -7,6 +7,7 @@ namespace Atlasphp\Atlas\Pending;
 use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\Agents\AgentRegistry;
 use Atlasphp\Atlas\Concerns\HasQueueDispatch;
+use Atlasphp\Atlas\Concerns\HasVariables;
 use Atlasphp\Atlas\Concerns\NormalizesMessages;
 use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Enums\Provider;
@@ -19,6 +20,7 @@ use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Input\Input;
 use Atlasphp\Atlas\Middleware\AgentContext;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
+use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
 use Atlasphp\Atlas\Persistence\Concerns\HasConversations;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
@@ -32,8 +34,6 @@ use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Schema\Schema;
-use Atlasphp\Atlas\Support\VariableInterpolator;
-use Atlasphp\Atlas\Support\VariableRegistry;
 use Atlasphp\Atlas\Tools\Tool;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Contracts\Events\Dispatcher;
@@ -49,8 +49,10 @@ use Illuminate\Database\Eloquent\Model;
  */
 class AgentRequest implements QueueableRequest
 {
+    use HasMeta;
     use HasMiddleware;
     use HasQueueDispatch;
+    use HasVariables;
     use NormalizesMessages;
 
     // ─── Runtime overrides ──────────────────────────────────────────
@@ -65,17 +67,11 @@ class AgentRequest implements QueueableRequest
     /** @var array<int, mixed> */
     protected array $messages = [];
 
-    /** @var array<string, mixed> */
-    protected array $variables = [];
-
     /** @var array<int, Tool|string> */
     protected array $additionalTools = [];
 
     /** @var array<int, ProviderTool> */
     protected array $additionalProviderTools = [];
-
-    /** @var array<string, mixed> */
-    protected array $meta = [];
 
     protected ?Schema $schema = null;
 
@@ -113,7 +109,6 @@ class AgentRequest implements QueueableRequest
         protected readonly string $key,
         protected readonly AgentRegistry $agentRegistry,
         protected readonly ProviderRegistryContract $providerRegistry,
-        protected readonly VariableRegistry $variableRegistry,
         protected readonly Application $app,
         protected readonly Dispatcher $events,
     ) {}
@@ -153,30 +148,6 @@ class AgentRequest implements QueueableRequest
     public function withMessages(array $messages): static
     {
         $this->messages = $this->normalizeMessages($messages);
-
-        return $this;
-    }
-
-    /**
-     * Set per-call variable overrides (highest priority in interpolation).
-     *
-     * @param  array<string, mixed>  $variables
-     */
-    public function withVariables(array $variables): static
-    {
-        $this->variables = $variables;
-
-        return $this;
-    }
-
-    /**
-     * Set metadata passed through to executor and tool context.
-     *
-     * @param  array<string, mixed>  $meta
-     */
-    public function withMeta(array $meta): static
-    {
-        $this->meta = $meta;
 
         return $this;
     }
@@ -501,7 +472,7 @@ class AgentRequest implements QueueableRequest
             throw AtlasException::missingDefault('agent');
         }
 
-        $key = $provider instanceof Provider ? $provider->value : $provider;
+        $key = Provider::normalize($provider);
 
         return $this->providerRegistry->resolve($key);
     }
@@ -550,17 +521,7 @@ class AgentRequest implements QueueableRequest
     {
         // Resolve instructions with variable interpolation
         $rawInstructions = $this->instructionsOverride ?? $agent->instructions();
-        $instructions = null;
-
-        if ($rawInstructions !== null) {
-            $mergedVariables = $this->variableRegistry->merge($this->variables, $this->meta);
-
-            if (VariableInterpolator::hasPlaceholders($rawInstructions)) {
-                $instructions = VariableInterpolator::interpolate($rawInstructions, $mergedVariables);
-            } else {
-                $instructions = $rawInstructions;
-            }
-        }
+        $instructions = $this->interpolate($rawInstructions);
 
         // Resolve model
         $model = $this->modelOverride
@@ -719,9 +680,9 @@ class AgentRequest implements QueueableRequest
             'instructions' => $this->instructionsOverride,
             'variables' => $this->variables,
             'meta' => $this->meta,
-            'provider' => $this->providerOverride instanceof Provider
-                ? $this->providerOverride->value
-                : $this->providerOverride,
+            'provider' => $this->providerOverride !== null
+                ? Provider::normalize($this->providerOverride)
+                : null,
             'model' => $this->modelOverride,
             'max_tokens' => $this->maxTokensOverride,
             'temperature' => $this->temperatureOverride,
@@ -920,16 +881,14 @@ class AgentRequest implements QueueableRequest
     protected function resolveProviderKey(): string
     {
         if ($this->providerOverride !== null) {
-            return $this->providerOverride instanceof Provider
-                ? $this->providerOverride->value
-                : (string) $this->providerOverride;
+            return Provider::normalize($this->providerOverride);
         }
 
         $agent = $this->agentRegistry->resolve($this->key);
         $provider = $agent->provider();
 
         if ($provider !== null) {
-            return $provider instanceof Provider ? $provider->value : (string) $provider;
+            return Provider::normalize($provider);
         }
 
         return (string) config('atlas.defaults.text.provider', 'openai');
@@ -947,15 +906,5 @@ class AgentRequest implements QueueableRequest
         $agent = $this->agentRegistry->resolve($this->key);
 
         return $agent->model() ?? (string) config('atlas.defaults.text.model', '');
-    }
-
-    /**
-     * Get metadata for the execution record when queuing.
-     *
-     * @return array<string, mixed>
-     */
-    protected function getQueueMeta(): array
-    {
-        return $this->meta;
     }
 }

@@ -295,7 +295,7 @@ class AudioRequest implements QueueableRequest
      */
     protected function resolveProviderKey(): string
     {
-        return $this->provider instanceof Provider ? $this->provider->value : (string) $this->provider;
+        return Provider::normalize($this->provider);
     }
 
     /**
@@ -304,15 +304,5 @@ class AudioRequest implements QueueableRequest
     protected function resolveModelKey(): string
     {
         return (string) $this->model;
-    }
-
-    /**
-     * Get metadata for the execution record when queuing.
-     *
-     * @return array<string, mixed>
-     */
-    protected function getQueueMeta(): array
-    {
-        return $this->meta;
     }
 }

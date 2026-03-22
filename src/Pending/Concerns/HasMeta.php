@@ -24,4 +24,14 @@ trait HasMeta
 
         return $this;
     }
+
+    /**
+     * Get metadata for the execution record when queuing.
+     *
+     * @return array<string, mixed>
+     */
+    protected function getQueueMeta(): array
+    {
+        return $this->meta;
+    }
 }

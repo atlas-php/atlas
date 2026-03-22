@@ -14,4 +14,12 @@ enum Provider: string
     case Google = 'google';
     case xAI = 'xai';
     case ElevenLabs = 'elevenlabs';
+
+    /**
+     * Normalize a Provider enum or string to a string key.
+     */
+    public static function normalize(self|string $provider): string
+    {
+        return $provider instanceof self ? $provider->value : (string) $provider;
+    }
 }

@@ -18,7 +18,6 @@ use Atlasphp\Atlas\Pending\TextRequest;
 use Atlasphp\Atlas\Pending\VideoRequest;
 use Atlasphp\Atlas\Persistence\Memory\MemoryBuilder;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
-use Atlasphp\Atlas\Support\VariableRegistry;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
 
@@ -100,7 +99,6 @@ class AtlasManager
             key: $key,
             agentRegistry: $this->app->make(AgentRegistry::class),
             providerRegistry: $this->providerRegistry,
-            variableRegistry: $this->app->make(VariableRegistry::class),
             app: $this->app,
             events: $this->app->make(Dispatcher::class),
         );

@@ -136,7 +136,6 @@ function makeAgentRequest(string $key): AgentRequest
         key: $key,
         agentRegistry: app(AgentRegistry::class),
         providerRegistry: app(ProviderRegistryContract::class),
-        variableRegistry: app(VariableRegistry::class),
         app: app(),
         events: app(Dispatcher::class),
     );
@@ -419,6 +418,41 @@ it('passes meta through to the request', function () {
 
     $recorded = $fake->recorded();
     expect($recorded[0]->request->meta)->toBe(['user_id' => 42]);
+});
+
+it('withMeta merges multiple calls', function () {
+    registerTestAgent(RequestTestMinimalAgent::class);
+
+    $fake = new AtlasFake(app(ProviderRegistryContract::class), [
+        TextResponseFake::make()->withText('Hi'),
+    ]);
+
+    config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+
+    makeAgentRequest('minimal')
+        ->withMeta(['user_id' => 42])
+        ->withMeta(['session_id' => 'abc'])
+        ->message('Hello')
+        ->asText();
+
+    $recorded = $fake->recorded();
+    expect($recorded[0]->request->meta)->toBe(['user_id' => 42, 'session_id' => 'abc']);
+});
+
+it('withVariables merges multiple calls recursively', function () {
+    registerTestAgent(RequestTestMinimalAgent::class);
+
+    config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+
+    $request = makeAgentRequest('minimal')
+        ->withVariables(['user' => ['name' => 'Tim']])
+        ->withVariables(['user' => ['role' => 'admin']]);
+
+    // Use reflection to check merged state
+    $ref = new ReflectionProperty($request, 'variables');
+    $variables = $ref->getValue($request);
+
+    expect($variables)->toBe(['user' => ['name' => 'Tim', 'role' => 'admin']]);
 });
 
 // ─── asStream() ─────────────────────────────────────────────────────────────

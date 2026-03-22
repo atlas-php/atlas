@@ -17,11 +17,7 @@ trait ResolvesProvider
 {
     protected function resolveDriver(): Driver
     {
-        $key = $this->provider instanceof Provider
-            ? $this->provider->value
-            : $this->provider;
-
-        return $this->registry->resolve($key);
+        return $this->registry->resolve(Provider::normalize($this->provider));
     }
 
     /**
