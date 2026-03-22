@@ -24,9 +24,9 @@ class TrackExecution
     ) {}
 
     /**
-     * @param  Closure(AgentContext): ExecutorResult  $next
+     * @param  Closure(AgentContext): mixed  $next
      */
-    public function handle(AgentContext $context, Closure $next): ExecutorResult
+    public function handle(AgentContext $context, Closure $next): mixed
     {
         $agent = $context->agent;
 
@@ -61,7 +61,10 @@ class TrackExecution
 
             // ── Finalize on success ──────────────────────────────
             $this->tracker->completeExecution();
-            $result->executionId = $execution->id;
+
+            if ($result instanceof ExecutorResult) {
+                $result->executionId = $execution->id;
+            }
 
             return $result;
 

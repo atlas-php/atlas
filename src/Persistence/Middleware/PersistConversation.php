@@ -19,7 +19,6 @@ use Atlasphp\Atlas\Persistence\Models\MessageAttachment;
 use Atlasphp\Atlas\Persistence\ProcessQueuedMessage;
 use Atlasphp\Atlas\Persistence\Services\ConversationService;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
-use Atlasphp\Atlas\Requests\TextRequest;
 use Closure;
 use Illuminate\Support\Facades\DB;
 
@@ -38,9 +37,9 @@ class PersistConversation
     ) {}
 
     /**
-     * @param  Closure(AgentContext): ExecutorResult  $next
+     * @param  Closure(AgentContext): mixed  $next
      */
-    public function handle(AgentContext $context, Closure $next): ExecutorResult
+    public function handle(AgentContext $context, Closure $next): mixed
     {
         $agent = $context->agent;
 
@@ -95,21 +94,7 @@ class PersistConversation
             // Replace request messages with history + existing so the
             // driver sends conversation context to the provider.
             $merged = array_merge($history, $context->request->messages);
-            $context->request = new TextRequest(
-                model: $context->request->model,
-                instructions: $context->request->instructions,
-                message: $context->request->message,
-                messageMedia: $context->request->messageMedia,
-                messages: $merged,
-                maxTokens: $context->request->maxTokens,
-                temperature: $context->request->temperature,
-                schema: $context->request->schema,
-                tools: $context->request->tools,
-                providerTools: $context->request->providerTools,
-                providerOptions: $context->request->providerOptions,
-                middleware: $context->request->middleware,
-                meta: $context->request->meta,
-            );
+            $context->request = $context->request->withReplacedMessages($merged);
         }
 
         // Store consumer metadata on the conversation if it has none yet
@@ -122,6 +107,12 @@ class PersistConversation
 
         // ── Execute the agent ────────────────────────────────────
         $result = $next($context);
+
+        // Conversation persistence only applies to ExecutorResult (agent with tools).
+        // Tool-free agent calls return TextResponse and skip persistence here.
+        if (! $result instanceof ExecutorResult) {
+            return $result;
+        }
 
         // ── Store messages after execution (atomic) ──────────────
         // Wrapped in a transaction to prevent sequence collisions

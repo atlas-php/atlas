@@ -37,6 +37,7 @@ use Atlasphp\Atlas\Support\VariableInterpolator;
 use Atlasphp\Atlas\Tools\Tool;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Contracts\Events\Dispatcher;
+use Illuminate\Contracts\Foundation\Application;
 
 /**
  * Fluent builder for text generation, streaming, and structured output requests.
@@ -86,6 +87,8 @@ class TextRequest implements QueueableRequest
         protected readonly Provider|string $provider,
         protected readonly ?string $model,
         protected readonly ProviderRegistryContract $registry,
+        protected readonly ?Application $app = null,
+        protected readonly ?Dispatcher $events = null,
     ) {}
 
     public function instructions(string $instructions): static
@@ -273,14 +276,17 @@ class TextRequest implements QueueableRequest
         $driver = $this->resolveDriver();
         $this->ensureCapability($driver, 'text');
 
+        // ToolRegistry is a stateless value object (immutable map) and ToolExecutor
+        // is a thin wrapper with no external dependencies — direct instantiation is
+        // intentional here to avoid unnecessary container overhead.
         $toolRegistry = new ToolRegistry($resolvedTools);
         $toolExecutor = new ToolExecutor($toolRegistry);
 
         $executor = new AgentExecutor(
             driver: $driver,
             toolExecutor: $toolExecutor,
-            events: app(Dispatcher::class),
-            middlewareStack: app(MiddlewareStack::class),
+            events: $this->events ?? app(Dispatcher::class),
+            middlewareStack: $this->app?->make(MiddlewareStack::class) ?? app(MiddlewareStack::class),
         );
 
         $request = $this->buildRequestWithTools($resolvedTools);
@@ -379,6 +385,7 @@ class TextRequest implements QueueableRequest
                 'data' => $this->schema->toArray(),
             ] : null,
             'providerOptions' => $this->providerOptions,
+            'middleware' => array_map(fn (mixed $m): string => is_string($m) ? $m : $m::class, $this->middleware),
             'meta' => $this->meta,
             'variables' => $this->variables,
             'interpolate_messages' => $this->interpolateMessages,
@@ -439,6 +446,10 @@ class TextRequest implements QueueableRequest
 
         if (! empty($payload['providerOptions'])) {
             $request->withProviderOptions($payload['providerOptions']);
+        }
+
+        if (! empty($payload['middleware'])) {
+            $request->withMiddleware($payload['middleware']);
         }
 
         if (! empty($payload['schema'])) {

@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Responses;
 
 use Atlasphp\Atlas\Concerns\StoresMedia;
+use Atlasphp\Atlas\Providers\Contracts\HasContents;
 
 /**
  * Response from a video generation request.
  */
-class VideoResponse
+class VideoResponse implements HasContents
 {
     use StoresMedia;
 

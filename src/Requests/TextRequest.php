@@ -59,4 +59,28 @@ final class TextRequest
             meta: $this->meta,
         );
     }
+
+    /**
+     * Return a copy with the messages array replaced entirely.
+     *
+     * @param  array<int, mixed>  $messages
+     */
+    public function withReplacedMessages(array $messages): self
+    {
+        return new self(
+            model: $this->model,
+            instructions: $this->instructions,
+            message: $this->message,
+            messageMedia: $this->messageMedia,
+            messages: $messages,
+            maxTokens: $this->maxTokens,
+            temperature: $this->temperature,
+            schema: $this->schema,
+            tools: $this->tools,
+            providerTools: $this->providerTools,
+            providerOptions: $this->providerOptions,
+            middleware: $this->middleware,
+            meta: $this->meta,
+        );
+    }
 }

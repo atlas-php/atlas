@@ -98,8 +98,8 @@ class AgentExecutor
                 }
 
                 $toolResults = $parallelToolCalls
-                    ? $this->executeToolsConcurrently($response->toolCalls, $meta)
-                    : $this->executeToolsSequentially($response->toolCalls, $meta);
+                    ? $this->executeToolsConcurrently($response->toolCalls, $meta, $stepCount, $agentKey)
+                    : $this->executeToolsSequentially($response->toolCalls, $meta, $stepCount, $agentKey);
 
                 $step = new Step(
                     text: $response->text,
@@ -180,7 +180,7 @@ class AgentExecutor
      *
      * @param  array<string, mixed>  $meta
      */
-    protected function dispatchTool(ToolCall $toolCall, array $meta): ToolResult
+    protected function dispatchTool(ToolCall $toolCall, array $meta, ?int $stepNumber = null, ?string $agentKey = null): ToolResult
     {
         if ($this->middlewareStack === null) {
             return $this->toolExecutor->execute($toolCall, $meta);
@@ -195,6 +195,8 @@ class AgentExecutor
         $context = new ToolContext(
             toolCall: $toolCall,
             meta: $meta,
+            stepNumber: $stepNumber,
+            agentKey: $agentKey,
         );
 
         return $this->middlewareStack->run(
@@ -213,12 +215,12 @@ class AgentExecutor
      * @param  array<string, mixed>  $meta
      * @return array<int, ToolResult>
      */
-    protected function executeToolsSequentially(array $toolCalls, array $meta): array
+    protected function executeToolsSequentially(array $toolCalls, array $meta, ?int $stepNumber = null, ?string $agentKey = null): array
     {
         $results = [];
 
         foreach ($toolCalls as $toolCall) {
-            $results[] = $this->executeSingleTool($toolCall, $meta);
+            $results[] = $this->executeSingleTool($toolCall, $meta, $stepNumber, $agentKey);
         }
 
         return $results;
@@ -240,10 +242,10 @@ class AgentExecutor
      * @param  array<string, mixed>  $meta
      * @return array<int, ToolResult>
      */
-    protected function executeToolsConcurrently(array $toolCalls, array $meta): array
+    protected function executeToolsConcurrently(array $toolCalls, array $meta, ?int $stepNumber = null, ?string $agentKey = null): array
     {
         if (count($toolCalls) === 1) {
-            return $this->executeToolsSequentially($toolCalls, $meta);
+            return $this->executeToolsSequentially($toolCalls, $meta, $stepNumber, $agentKey);
         }
 
         $toolCalls = array_values($toolCalls);
@@ -256,9 +258,9 @@ class AgentExecutor
         // Build closures that always return ToolResult — never Throwable.
         // This ensures return values serialize cleanly across fork boundaries.
         $tasks = array_map(
-            fn (ToolCall $toolCall) => function () use ($toolCall, $meta): ToolResult {
+            fn (ToolCall $toolCall) => function () use ($toolCall, $meta, $stepNumber, $agentKey): ToolResult {
                 try {
-                    return $this->dispatchTool($toolCall, $meta);
+                    return $this->dispatchTool($toolCall, $meta, $stepNumber, $agentKey);
                 } catch (\Throwable $e) {
                     return new ToolResult(
                         toolCall: $toolCall,
@@ -314,12 +316,12 @@ class AgentExecutor
      *
      * @param  array<string, mixed>  $meta
      */
-    protected function executeSingleTool(ToolCall $toolCall, array $meta): ToolResult
+    protected function executeSingleTool(ToolCall $toolCall, array $meta, ?int $stepNumber = null, ?string $agentKey = null): ToolResult
     {
         $this->events->dispatch(new AgentToolCallStarted($toolCall));
 
         try {
-            $result = $this->dispatchTool($toolCall, $meta);
+            $result = $this->dispatchTool($toolCall, $meta, $stepNumber, $agentKey);
 
             $this->events->dispatch(new AgentToolCallCompleted($toolCall, $result));
 

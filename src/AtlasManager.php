@@ -40,7 +40,13 @@ class AtlasManager
     {
         [$provider, $model] = $this->resolveDefaults('text', $provider, $model);
 
-        return new TextRequest($provider, $model, $this->providerRegistry);
+        return new TextRequest(
+            $provider,
+            $model,
+            $this->providerRegistry,
+            $this->app,
+            $this->app->make(Dispatcher::class),
+        );
     }
 
     public function image(Provider|string|null $provider = null, ?string $model = null): ImageRequest

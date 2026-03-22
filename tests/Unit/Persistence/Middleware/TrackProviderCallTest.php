@@ -11,6 +11,7 @@ use Atlasphp\Atlas\Persistence\Middleware\TrackProviderCall;
 use Atlasphp\Atlas\Persistence\Models\Asset;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
+use Atlasphp\Atlas\Providers\Contracts\HasContents;
 use Illuminate\Support\Facades\Storage;
 
 it('skips execution creation when agent execution is active', function () {
@@ -103,7 +104,7 @@ it('stores asset for image response', function () {
         meta: [],
     );
 
-    $response = new class
+    $response = new class implements HasContents
     {
         public object $usage;
 
@@ -153,7 +154,7 @@ it('stores asset for audio response', function () {
         meta: [],
     );
 
-    $response = new class
+    $response = new class implements HasContents
     {
         public object $usage;
 
@@ -225,7 +226,7 @@ it('respects auto_store_assets config', function () {
         meta: [],
     );
 
-    $response = new class
+    $response = new class implements HasContents
     {
         public object $usage;
 
@@ -276,7 +277,7 @@ it('still stores assets when inside agent execution', function () {
         meta: [],
     );
 
-    $response = new class
+    $response = new class implements HasContents
     {
         public object $usage;
 
@@ -318,7 +319,7 @@ it('stores asset for video response', function () {
         meta: [],
     );
 
-    $response = new class
+    $response = new class implements HasContents
     {
         public object $usage;
 
@@ -439,7 +440,7 @@ it('resolves default extension for unknown mime type', function () {
         meta: [],
     );
 
-    $response = new class
+    $response = new class implements HasContents
     {
         public object $usage;
 
@@ -485,7 +486,7 @@ it('resolves png extension for image/png mime type', function () {
         meta: [],
     );
 
-    $response = new class
+    $response = new class implements HasContents
     {
         public object $usage;
 
@@ -550,7 +551,7 @@ it('links asset to current tool call when inside tool execution', function () {
         meta: [],
     );
 
-    $response = new class
+    $response = new class implements HasContents
     {
         public object $usage;
 
@@ -600,7 +601,7 @@ it('resolves mp3 extension for audio response with unknown mime type', function 
         meta: [],
     );
 
-    $response = new class
+    $response = new class implements HasContents
     {
         public object $usage;
 
@@ -644,7 +645,7 @@ it('resolves mp4 extension for video response with unknown mime type', function 
         meta: [],
     );
 
-    $response = new class
+    $response = new class implements HasContents
     {
         public object $usage;
 
@@ -688,7 +689,7 @@ it('resolves known mime type extensions in middleware', function (string $method
         meta: [],
     );
 
-    $response = new class($mimeType)
+    $response = new class($mimeType) implements HasContents
     {
         public object $usage;
 
@@ -742,7 +743,7 @@ it('sets asset on response when response has asset property', function () {
     );
 
     // Use a response with an asset property (like ImageResponse/VideoResponse/AudioResponse)
-    $response = new class
+    $response = new class implements HasContents
     {
         public ?object $asset = null;
 
@@ -790,7 +791,7 @@ it('does not set asset on response without asset property', function () {
     );
 
     // Response WITHOUT an asset property — no crash
-    $response = new class
+    $response = new class implements HasContents
     {
         public object $usage;
 
@@ -834,7 +835,7 @@ it('makes asset available via ExecutionService getLastAsset', function () {
         meta: [],
     );
 
-    $response = new class
+    $response = new class implements HasContents
     {
         public ?object $asset = null;
 
@@ -886,7 +887,7 @@ it('getLastAsset is cleared on execution service reset', function () {
         meta: [],
     );
 
-    $response = new class
+    $response = new class implements HasContents
     {
         public ?object $asset = null;
 

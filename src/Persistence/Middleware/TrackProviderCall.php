@@ -9,6 +9,7 @@ use Atlasphp\Atlas\Persistence\Enums\AssetType;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
 use Atlasphp\Atlas\Persistence\Models\Asset;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
+use Atlasphp\Atlas\Providers\Contracts\HasContents;
 use Closure;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -81,7 +82,7 @@ class TrackProviderCall
 
     protected function isStorableResponse(mixed $response): bool
     {
-        return method_exists($response, 'contents');
+        return $response instanceof HasContents;
     }
 
     /**

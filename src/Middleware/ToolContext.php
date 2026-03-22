@@ -19,5 +19,7 @@ class ToolContext
     public function __construct(
         public readonly ToolCall $toolCall,
         public array $meta = [],
+        public readonly ?int $stepNumber = null,
+        public readonly ?string $agentKey = null,
     ) {}
 }

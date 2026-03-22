@@ -19,6 +19,7 @@ use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Input\Input;
 use Atlasphp\Atlas\Middleware\AgentContext;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
+use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
 use Atlasphp\Atlas\Persistence\Concerns\HasConversations;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Driver;
@@ -48,6 +49,7 @@ use Illuminate\Database\Eloquent\Model;
  */
 class AgentRequest implements QueueableRequest
 {
+    use HasMiddleware;
     use HasQueueDispatch;
     use NormalizesMessages;
 
@@ -592,6 +594,7 @@ class AgentRequest implements QueueableRequest
             providerOptions: $this->providerOptionsOverride !== []
                 ? $this->providerOptionsOverride
                 : $agent->providerOptions(),
+            middleware: $this->middleware,
             meta: $this->meta,
         );
     }
@@ -609,6 +612,9 @@ class AgentRequest implements QueueableRequest
         Agent $agent,
         array $tools,
     ): ExecutorResult {
+        // ToolRegistry is a stateless value object (immutable map) and ToolExecutor
+        // is a thin wrapper with no external dependencies — direct instantiation is
+        // intentional here to avoid unnecessary container overhead.
         $toolRegistry = new ToolRegistry($tools);
         $toolExecutor = new ToolExecutor($toolRegistry);
 
@@ -740,6 +746,7 @@ class AgentRequest implements QueueableRequest
                 'path' => $input->isPath() ? $input->path() : null,
                 'file_id' => $input->isFileId() ? $input->fileId() : null,
             ], $this->messageMedia),
+            'middleware' => array_map(fn (mixed $m): string => is_string($m) ? $m : $m::class, $this->middleware),
         ];
     }
 
@@ -804,6 +811,10 @@ class AgentRequest implements QueueableRequest
 
         if (! empty($payload['provider_options'])) {
             $request->withProviderOptions($payload['provider_options']);
+        }
+
+        if (! empty($payload['middleware'])) {
+            $request->withMiddleware($payload['middleware']);
         }
 
         // Restore conversation state
