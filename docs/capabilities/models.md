@@ -1,124 +1,80 @@
-# Models
+# Models & Provider Info
 
-List available models from AI provider APIs with automatic caching.
+Query providers for their available models, voices, and capabilities.
 
-::: tip First of Its Kind
-Neither Prism nor any other PHP AI SDK provides a way to list available models from providers. Atlas is the first to ship this capability.
-:::
-
-## Supported Providers
-
-<div class="full-width-table">
-
-| Provider | Supported | Format |
-|----------|-----------|--------|
-| OpenAI | Yes | OpenAI-compatible |
-| Anthropic | Yes | Anthropic |
-| Gemini | Yes | Gemini |
-| Ollama | Yes | OpenAI-compatible with native fallback |
-| DeepSeek | Yes | OpenAI-compatible |
-| Mistral | Yes | OpenAI-compatible |
-| Groq | Yes | OpenAI-compatible |
-| XAI | Yes | OpenAI-compatible |
-| OpenRouter | Yes | OpenAI-compatible |
-| ElevenLabs | Yes | ElevenLabs |
-| Perplexity | No | No models endpoint |
-| VoyageAI | No | No models endpoint |
-| Z | No | No models endpoint |
-
-</div>
-
-## Basic Usage
+## List Models
 
 ```php
-use Atlasphp\Atlas\Atlas;
+use Atlasphp\Atlas\Facades\Atlas;
 
-// List models from a specific provider
-$models = Atlas::models('openai')->all();
+$models = Atlas::provider('openai')->models();
 
-// Returns a simple sorted list of model identifiers
 foreach ($models as $model) {
-    echo $model; // e.g., "gpt-4o"
+    echo $model->id . "\n";
 }
 ```
 
-## Using Prism Provider Enum
+## List Voices
 
 ```php
-use Prism\Prism\Enums\Provider;
+$voices = Atlas::provider('openai')->voices();
 
-$models = Atlas::models(Provider::Anthropic)->all();
+foreach ($voices as $voice) {
+    echo "{$voice->id}: {$voice->name}\n";
+}
 ```
 
-## Check Provider Support
+## Validate Provider
+
+Check if a provider is correctly configured and reachable:
 
 ```php
-if (Atlas::models('elevenlabs')->has()) {
-    // Won't reach here — ElevenLabs has no models endpoint
+$valid = Atlas::provider('openai')->validate();
+
+if ($valid) {
+    echo 'Provider is configured and reachable.';
 }
+```
+
+## Check Capabilities
+
+```php
+$capabilities = Atlas::provider('openai')->capabilities();
+
+$capabilities->supports('text');       // true
+$capabilities->supports('image');      // true
+$capabilities->supports('audio');      // true
+$capabilities->supports('embed');      // true
+$capabilities->supports('rerank');     // false
+```
+
+## Provider Name
+
+```php
+$name = Atlas::provider('openai')->name();  // 'openai'
 ```
 
 ## Caching
 
-Model lists are cached by default since they change infrequently. Configure in `config/atlas.php`:
+Model and voice listings are cached by default:
 
-```php
-'models' => [
-    'cache' => [
-        'enabled' => true,    // Enable/disable caching
-        'store' => null,      // null = default cache store
-        'ttl' => 3600,        // Cache lifetime in seconds
-    ],
-],
+```env
+ATLAS_CACHE_MODELS_TTL=86400   # 24 hours
+ATLAS_CACHE_VOICES_TTL=3600    # 1 hour
 ```
 
-### Force Refresh
+Set TTL to 0 to disable caching.
 
-```php
-// Bypass cache and fetch fresh from the API
-$models = Atlas::models('openai')->refresh();
-```
+## Supported Providers
 
-### Clear Cache
-
-```php
-// Clear cached models for a specific provider
-Atlas::models('openai')->clear();
-```
-
-## Return Format
-
-All methods return `list<string>` — a sorted list of model identifier strings (e.g., `['gpt-3.5-turbo', 'gpt-4o']`). These are the identifiers you pass to `->using()` when making API calls.
-
-## OpenAI-Compatible Providers
-
-Most providers (Groq, DeepSeek, Mistral, XAI, OpenRouter, Perplexity, VoyageAI) use the OpenAI-compatible `/v1/models` endpoint format. If you're using a custom OpenAI-compatible provider, it will work automatically as long as it follows the same response format.
+All configured providers support `models()` and `validate()`. Voice listing is available on providers that support audio (OpenAI, ElevenLabs).
 
 ## API Reference
 
-```php
-// All methods require a provider
-Atlas::models(Provider|string $provider)
-
-// Get models (cached or fresh)
-->all(): ?array
-
-// Check if provider supports model listing
-->has(): bool
-
-// Force refresh from API
-->refresh(): ?array
-
-// Clear cached models
-->clear(): void
-```
-
-## Pipeline Hooks
-
-Model listing does not currently participate in the pipeline system. This may be added in a future version if observability hooks around model fetching prove useful.
-
-## Next Steps
-
-- [Chat](/capabilities/chat) — Use listed models for chat requests
-- [Embeddings](/capabilities/embeddings) — Use listed models for embeddings
-- [Pipelines](/core-concepts/pipelines) — Add observability hooks
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `models()` | `ModelList` | List available models |
+| `voices()` | `VoiceList` | List available voices |
+| `validate()` | `bool` | Check provider connectivity |
+| `capabilities()` | `ProviderCapabilities` | Check supported features |
+| `name()` | `string` | Provider identifier |

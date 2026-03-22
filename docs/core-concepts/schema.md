@@ -246,3 +246,8 @@ The `->build()` method converts the fluent object builder into a `Schema` value 
 | `->object($name, $desc, $callback)` | Add a nested object property |
 | `->optional()` | Mark last added property as optional |
 | `->build()` | Convert to `Schema` value object |
+
+## Next Steps
+
+- [Tools](/core-concepts/tools) — Use schema fields for tool parameters
+- [Text](/capabilities/text) — Structured output with `->withSchema()` and `->asStructured()`

@@ -578,7 +578,7 @@ it('links asset to current tool call when inside tool execution', function () {
     expect($asset)->not->toBeNull();
     expect($asset->metadata)->toBeArray();
     expect($asset->metadata['source'])->toBe('tool_execution');
-    expect($asset->metadata['tool_call_id'])->toBe($toolCallRecord->id);
+    expect($asset->metadata['tool_call_id'])->toBe($toolCallRecord->tool_call_id);
     expect($asset->metadata['tool_name'])->toBe('generate_image');
 });
 

@@ -73,7 +73,7 @@ it('sets tool_call_id in metadata from active tool call', function () {
     ]);
 
     $toolCallRecord = $service->getCurrentToolCall();
-    expect($asset->metadata)->toHaveKey('tool_call_id', $toolCallRecord->id)
+    expect($asset->metadata)->toHaveKey('tool_call_id', $toolCallRecord->tool_call_id)
         ->and($asset->metadata)->toHaveKey('tool_name', 'generate_csv');
 });
 

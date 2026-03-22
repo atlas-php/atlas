@@ -42,24 +42,23 @@ export default defineConfig({
                 ]
             },
             {
-                text: 'Capabilities',
+                text: 'Modalities',
                 items: [
-                    { text: 'Chat', link: '/capabilities/chat' },
                     { text: 'Text', link: '/capabilities/text' },
                     { text: 'Images', link: '/capabilities/images' },
                     { text: 'Audio', link: '/capabilities/audio' },
-                    { text: 'Models', link: '/capabilities/models' },
+                    { text: 'Video', link: '/capabilities/video' },
                     { text: 'Embeddings', link: '/capabilities/embeddings' },
-                    { text: 'Structured', link: '/capabilities/structured-output' },
-                    { text: 'Streaming', link: '/capabilities/streaming' },
+                    { text: 'Reranking', link: '/capabilities/reranking' },
                     { text: 'Moderation', link: '/capabilities/moderation' },
-                    { text: 'MCP', link: '/capabilities/mcp' },
+                    { text: 'Models', link: '/capabilities/models' },
                 ]
             },
             {
                 text: 'Guides',
                 collapsed: true,
                 items: [
+                    { text: 'Custom Providers', link: '/guides/custom-providers' },
                     { text: 'Artisan Commands', link: '/guides/artisan-commands' },
                 ]
             },
@@ -69,7 +68,6 @@ export default defineConfig({
                 items: [
                     { text: 'Events', link: '/advanced/events' },
                     { text: 'Testing', link: '/advanced/testing' },
-                    { text: 'Custom Providers', link: '/advanced/custom-providers' },
                     { text: 'Error Handling', link: '/advanced/error-handling' },
                 ]
             },

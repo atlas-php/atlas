@@ -172,7 +172,32 @@ public function instructions(): ?string
 }
 ```
 
+## API Reference
+
+### Variable Syntax
+
+| Syntax | Example | Description |
+|--------|---------|-------------|
+| `{KEY}` | `{APP_NAME}` | Flat variable lookup |
+| `{KEY.SUB}` | `{COMPANY.NAME}` | Dot notation for nested arrays |
+
+### Variable Priority (highest wins)
+
+| Source | Set Via | Priority |
+|--------|---------|----------|
+| Config variables | `config/atlas.php` → `variables` | Lowest |
+| Global registry | `VariableRegistry::register()` | Medium |
+| Per-call | `->withVariables([...])` | Highest |
+
+### Builder Methods
+
+| Method | Description |
+|--------|-------------|
+| `->withVariables(array $variables)` | Set per-call variable overrides |
+| `->withMessageInterpolation()` | Also interpolate variables in user messages |
+
 ## Next Steps
 
-- [Agents](/core-concepts/agents) -- Agent configuration
-- [Middleware](/core-concepts/pipelines) -- Extend behavior with middleware
+- [Agents](/core-concepts/agents) — Agent configuration
+- [Schema](/core-concepts/schema) — Field types for structured output
+- [Middleware](/core-concepts/pipelines) — Extend behavior with middleware

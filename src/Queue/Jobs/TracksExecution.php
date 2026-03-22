@@ -26,34 +26,21 @@ trait TracksExecution
      */
     protected function transitionToProcessing(): void
     {
-        if ($this->executionId === null) {
+        $execution = $this->resolveTrackedExecution();
+
+        if ($execution === null || $execution->status !== ExecutionStatus::Queued) {
             return;
         }
 
-        if (! config('atlas.persistence.enabled', false)) {
-            return;
-        }
+        $execution->update([
+            'status' => ExecutionStatus::Processing,
+            'started_at' => now(),
+        ]);
 
-        /** @var class-string<Execution> $executionModel */
-        $executionModel = config('atlas.persistence.models.execution', Execution::class);
-
-        $execution = $executionModel::find($this->executionId);
-
-        if ($execution === null) {
-            return;
-        }
-
-        if ($execution->status === ExecutionStatus::Queued) {
-            $execution->update([
-                'status' => ExecutionStatus::Processing,
-                'started_at' => now(),
-            ]);
-
-            event(new ExecutionProcessing(
-                executionId: $this->executionId,
-                channel: $this->broadcastChannel,
-            ));
-        }
+        event(new ExecutionProcessing(
+            executionId: $this->executionId,
+            channel: $this->broadcastChannel,
+        ));
     }
 
     /**
@@ -62,18 +49,7 @@ trait TracksExecution
      */
     protected function markExecutionFailed(\Throwable $exception): void
     {
-        if ($this->executionId === null) {
-            return;
-        }
-
-        if (! config('atlas.persistence.enabled', false)) {
-            return;
-        }
-
-        /** @var class-string<Execution> $executionModel */
-        $executionModel = config('atlas.persistence.models.execution', Execution::class);
-
-        $execution = $executionModel::find($this->executionId);
+        $execution = $this->resolveTrackedExecution();
 
         if ($execution === null) {
             return;
@@ -83,5 +59,24 @@ trait TracksExecution
             get_class($exception).': '.$exception->getMessage(),
             null,
         );
+    }
+
+    /**
+     * Resolve the tracked execution if persistence is enabled and the record exists.
+     */
+    private function resolveTrackedExecution(): ?Execution
+    {
+        if ($this->executionId === null) {
+            return null;
+        }
+
+        if (! config('atlas.persistence.enabled', false)) {
+            return null;
+        }
+
+        /** @var class-string<Execution> $executionModel */
+        $executionModel = config('atlas.persistence.models.execution', Execution::class);
+
+        return $executionModel::find($this->executionId);
     }
 }

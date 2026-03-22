@@ -275,7 +275,52 @@ class AuthorizeToolCall
 }
 ```
 
+## API Reference
+
+### Middleware Layers
+
+| Layer | Config Key | Context Object | Wraps |
+|-------|-----------|----------------|-------|
+| Agent | `atlas.middleware.agent` | `AgentContext` | Entire agent execution |
+| Step | `atlas.middleware.step` | `StepContext` | Each round trip in tool loop |
+| Tool | `atlas.middleware.tool` | `ToolContext` | Each tool execution |
+| Provider | `atlas.middleware.provider` | `ProviderContext` | Every HTTP call to provider |
+
+### Context Properties
+
+| AgentContext | Type | Mutable |
+|-------------|------|---------|
+| `request` | `TextRequest` | Yes |
+| `agent` | `?Agent` | No |
+| `messages` | `array` | Yes |
+| `tools` | `array` | Yes |
+| `meta` | `array` | Yes |
+
+| StepContext | Type | Mutable |
+|------------|------|---------|
+| `stepNumber` | `int` | No |
+| `request` | `TextRequest` | Yes |
+| `accumulatedUsage` | `Usage` | No |
+| `previousSteps` | `array` | No |
+| `meta` | `array` | Yes |
+| `agentKey` | `?string` | No |
+
+| ToolContext | Type | Mutable |
+|-----------|------|---------|
+| `toolCall` | `ToolCall` | No |
+| `meta` | `array` | Yes |
+| `stepNumber` | `?int` | No |
+| `agentKey` | `?string` | No |
+
+| ProviderContext | Type | Mutable |
+|----------------|------|---------|
+| `provider` | `string` | No |
+| `model` | `string` | No |
+| `method` | `string` | No |
+| `request` | `mixed` | Yes |
+| `meta` | `array` | Yes |
+
 ## Next Steps
 
-- [Agents](/core-concepts/agents) -- Agent configuration
-- [Tools](/core-concepts/tools) -- Tool definitions and parameters
+- [Agents](/core-concepts/agents) — Agent configuration
+- [Tools](/core-concepts/tools) — Tool definitions and parameters

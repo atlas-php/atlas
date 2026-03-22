@@ -28,12 +28,28 @@ use Illuminate\Support\Facades\DB;
  */
 class ConversationService
 {
+    /** @var class-string<Conversation> */
+    private readonly string $conversationModel;
+
+    /** @var class-string<Message> */
+    private readonly string $messageModel;
+
+    /** @var class-string<Execution> */
+    private readonly string $executionModel;
+
+    public function __construct()
+    {
+        $this->conversationModel = config('atlas.persistence.models.conversation', Conversation::class);
+        $this->messageModel = config('atlas.persistence.models.message', Message::class);
+        $this->executionModel = config('atlas.persistence.models.execution', Execution::class);
+    }
+
     /**
      * Find or create a conversation for an owner + agent combination.
      */
     public function findOrCreate(Model $owner, ?string $agent = null): Conversation
     {
-        $model = config('atlas.persistence.models.conversation', Conversation::class);
+        $model = $this->conversationModel;
 
         return $model::firstOrCreate([
             'owner_type' => $owner->getMorphClass(),
@@ -47,7 +63,7 @@ class ConversationService
      */
     public function find(int $conversationId): Conversation
     {
-        $model = config('atlas.persistence.models.conversation', Conversation::class);
+        $model = $this->conversationModel;
 
         return $model::findOrFail($conversationId);
     }
@@ -183,7 +199,7 @@ class ConversationService
         ?int $parentId = null,
         ?int $stepId = null,
     ): Message {
-        $messageModel = config('atlas.persistence.models.message', Message::class);
+        $messageModel = $this->messageModel;
 
         return $messageModel::fromAtlasMessage(
             message: $message,
@@ -213,7 +229,7 @@ class ConversationService
         ?int $parentId = null,
     ): array {
         $stored = [];
-        $messageModel = config('atlas.persistence.models.message', Message::class);
+        $messageModel = $this->messageModel;
         $sequence = $conversation->nextSequence();
 
         foreach ($steps as $step) {
@@ -249,7 +265,7 @@ class ConversationService
     {
         return DB::transaction(function () use ($conversation): int {
             /** @var class-string<Message> $messageModel */
-            $messageModel = config('atlas.persistence.models.message', Message::class);
+            $messageModel = $this->messageModel;
 
             // Find the last active assistant message
             $lastAssistant = $messageModel::where('conversation_id', $conversation->id)
@@ -295,7 +311,7 @@ class ConversationService
     public function cycleSibling(Conversation $conversation, int $parentId, int $index): void
     {
         DB::transaction(function () use ($conversation, $parentId, $index): void {
-            $messageModel = config('atlas.persistence.models.message', Message::class);
+            $messageModel = $this->messageModel;
 
             // Get a child message to access siblingGroups()
             $anyChild = $messageModel::where('parent_id', $parentId)->first();
@@ -357,7 +373,7 @@ class ConversationService
      */
     public function markAsRead(Conversation $conversation, ?int $upToSequence = null): int
     {
-        $messageModel = config('atlas.persistence.models.message', Message::class);
+        $messageModel = $this->messageModel;
 
         $query = $messageModel::where('conversation_id', $conversation->id)
             ->whereNull('read_at');
@@ -374,7 +390,7 @@ class ConversationService
      */
     public function unreadCount(Conversation $conversation): int
     {
-        $messageModel = config('atlas.persistence.models.message', Message::class);
+        $messageModel = $this->messageModel;
 
         return $messageModel::where('conversation_id', $conversation->id)
             ->where('is_active', true)
@@ -400,21 +416,23 @@ class ConversationService
         ?Model $author = null,
         array $requestContext = [],
     ): Message {
-        $messageModel = config('atlas.persistence.models.message', Message::class);
+        $messageModel = $this->messageModel;
 
-        $stored = $messageModel::fromAtlasMessage(
-            message: $message,
-            conversationId: $conversation->id,
-            sequence: $conversation->nextSequence(),
-            author: $author,
-            status: MessageStatus::Queued,
-        );
+        return DB::transaction(function () use ($conversation, $message, $author, $requestContext, $messageModel): Message {
+            $stored = $messageModel::fromAtlasMessage(
+                message: $message,
+                conversationId: $conversation->id,
+                sequence: $conversation->nextSequence(),
+                author: $author,
+                status: MessageStatus::Queued,
+            );
 
-        if ($requestContext !== []) {
-            $stored->update(['metadata' => $requestContext]);
-        }
+            if ($requestContext !== []) {
+                $stored->update(['metadata' => $requestContext]);
+            }
 
-        return $stored;
+            return $stored;
+        });
     }
 
     /**
@@ -424,7 +442,7 @@ class ConversationService
     public function lastUserMessageId(Conversation $conversation): ?int
     {
         /** @var class-string<Message> $messageModel */
-        $messageModel = config('atlas.persistence.models.message', Message::class);
+        $messageModel = $this->messageModel;
 
         return $messageModel::where('conversation_id', $conversation->id)
             ->where('role', MessageRole::User)
@@ -438,7 +456,7 @@ class ConversationService
      */
     public function hasActiveExecution(Conversation $conversation): bool
     {
-        $executionModel = config('atlas.persistence.models.execution', Execution::class);
+        $executionModel = $this->executionModel;
 
         return $executionModel::where('conversation_id', $conversation->id)
             ->where('status', ExecutionStatus::Processing)
@@ -451,7 +469,7 @@ class ConversationService
      */
     public function nextQueuedMessage(Conversation $conversation): ?Message
     {
-        $messageModel = config('atlas.persistence.models.message', Message::class);
+        $messageModel = $this->messageModel;
 
         return $messageModel::where('conversation_id', $conversation->id)
             ->where('status', MessageStatus::Queued)

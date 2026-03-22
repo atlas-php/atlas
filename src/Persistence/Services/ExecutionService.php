@@ -43,6 +43,22 @@ class ExecutionService
     /** @var float Precise start time for current step duration */
     protected float $stepStartTime = 0;
 
+    /** @var class-string<Execution> */
+    private readonly string $executionModel;
+
+    /** @var class-string<ExecutionStep> */
+    private readonly string $stepModel;
+
+    /** @var class-string<ExecutionToolCall> */
+    private readonly string $toolCallModel;
+
+    public function __construct()
+    {
+        $this->executionModel = config('atlas.persistence.models.execution', Execution::class);
+        $this->stepModel = config('atlas.persistence.models.execution_step', ExecutionStep::class);
+        $this->toolCallModel = config('atlas.persistence.models.execution_tool_call', ExecutionToolCall::class);
+    }
+
     // ─── Execution Lifecycle ────────────────────────────────────
     //
     // Every level follows the same pattern:
@@ -71,7 +87,7 @@ class ExecutionService
         ?int $messageId = null,
         ?ExecutionType $type = null,
     ): Execution {
-        $executionModel = config('atlas.persistence.models.execution', Execution::class);
+        $executionModel = $this->executionModel;
 
         $this->execution = $executionModel::create([
             'conversation_id' => $conversationId,
@@ -131,11 +147,7 @@ class ExecutionService
             return;
         }
 
-        $durationMs = $this->executionStartTime > 0
-            ? (int) ((microtime(true) - $this->executionStartTime) * 1000)
-            : null;
-
-        $this->execution->markCompleted($durationMs);
+        $this->execution->markCompleted($this->elapsedMs($this->executionStartTime));
     }
 
     /**
@@ -147,16 +159,11 @@ class ExecutionService
             return;
         }
 
-        $durationMs = $this->executionStartTime > 0
-            ? (int) ((microtime(true) - $this->executionStartTime) * 1000)
-            : null;
+        $durationMs = $this->elapsedMs($this->executionStartTime);
 
         // Mark the in-flight step as failed too — you know exactly where it died
         if ($this->currentStep?->status === ExecutionStatus::Processing) {
-            $stepDurationMs = $this->stepStartTime > 0
-                ? (int) ((microtime(true) - $this->stepStartTime) * 1000)
-                : null;
-            $this->currentStep->markFailed($exception->getMessage(), $stepDurationMs);
+            $this->currentStep->markFailed($exception->getMessage(), $this->elapsedMs($this->stepStartTime));
         }
 
         $this->execution->markFailed(
@@ -178,7 +185,7 @@ class ExecutionService
             throw new \RuntimeException('Cannot create a step without an active execution.');
         }
 
-        $stepModel = config('atlas.persistence.models.execution_step', ExecutionStep::class);
+        $stepModel = $this->stepModel;
 
         $this->currentStep = $stepModel::create([
             'execution_id' => $this->execution->id,
@@ -217,11 +224,7 @@ class ExecutionService
             return;
         }
 
-        $durationMs = $this->stepStartTime > 0
-            ? (int) ((microtime(true) - $this->stepStartTime) * 1000)
-            : null;
-
-        $this->currentStep->markCompleted($durationMs);
+        $this->currentStep->markCompleted($this->elapsedMs($this->stepStartTime));
 
         // Do NOT null currentStep here — tool execution happens AFTER
         // the step middleware completes. TrackToolCall needs currentStep
@@ -244,7 +247,7 @@ class ExecutionService
             throw new \RuntimeException('Cannot track a tool call without an active execution and step.');
         }
 
-        $toolCallModel = config('atlas.persistence.models.execution_tool_call', ExecutionToolCall::class);
+        $toolCallModel = $this->toolCallModel;
 
         $this->currentToolCall = $toolCallModel::create([
             'execution_id' => $this->execution->id,
@@ -281,8 +284,7 @@ class ExecutionService
      */
     public function completeToolCall(ExecutionToolCall $record, float $startTime, string $result): void
     {
-        $durationMs = (int) ((microtime(true) - $startTime) * 1000);
-        $record->markCompleted($result, $durationMs);
+        $record->markCompleted($result, $this->elapsedMs($startTime) ?? 0);
         $this->currentToolCall = null;
     }
 
@@ -291,8 +293,7 @@ class ExecutionService
      */
     public function failToolCall(ExecutionToolCall $record, float $startTime, string $error): void
     {
-        $durationMs = (int) ((microtime(true) - $startTime) * 1000);
-        $record->markFailed($error, $durationMs);
+        $record->markFailed($error, $this->elapsedMs($startTime) ?? 0);
         $this->currentToolCall = null;
     }
 
@@ -308,16 +309,12 @@ class ExecutionService
             return;
         }
 
-        $durationMs = $this->executionStartTime > 0
-            ? (int) ((microtime(true) - $this->executionStartTime) * 1000)
-            : null;
-
         $this->execution->update([
             'status' => ExecutionStatus::Completed,
             'total_input_tokens' => $inputTokens,
             'total_output_tokens' => $outputTokens,
             'completed_at' => now(),
-            'duration_ms' => $durationMs,
+            'duration_ms' => $this->elapsedMs($this->executionStartTime),
         ]);
     }
 
@@ -391,5 +388,15 @@ class ExecutionService
         $this->stepSequence = 0;
         $this->executionStartTime = 0;
         $this->stepStartTime = 0;
+    }
+
+    /**
+     * Calculate elapsed milliseconds from a start time, or null if not started.
+     */
+    private function elapsedMs(float $startTime): ?int
+    {
+        return $startTime > 0
+            ? (int) ((microtime(true) - $startTime) * 1000)
+            : null;
     }
 }

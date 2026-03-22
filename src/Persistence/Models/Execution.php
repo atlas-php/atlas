@@ -142,25 +142,43 @@ class Execution extends Model
 
     public function markCompleted(?int $durationMs): void
     {
+        $tokens = $this->aggregateStepTokens();
+
         $this->update([
             'status' => ExecutionStatus::Completed,
             'completed_at' => now(),
             'duration_ms' => $durationMs,
-            'total_input_tokens' => $this->steps()->sum('input_tokens'),
-            'total_output_tokens' => $this->steps()->sum('output_tokens'),
+            'total_input_tokens' => $tokens->input,
+            'total_output_tokens' => $tokens->output,
         ]);
     }
 
     public function markFailed(string $error, ?int $durationMs): void
     {
+        $tokens = $this->aggregateStepTokens();
+
         $this->update([
             'status' => ExecutionStatus::Failed,
             'completed_at' => now(),
             'duration_ms' => $durationMs,
             'error' => $error,
-            'total_input_tokens' => $this->steps()->sum('input_tokens'),
-            'total_output_tokens' => $this->steps()->sum('output_tokens'),
+            'total_input_tokens' => $tokens->input,
+            'total_output_tokens' => $tokens->output,
         ]);
+    }
+
+    /**
+     * Aggregate input and output token counts from all steps in a single query.
+     */
+    /**
+     * @return object{input: int, output: int}
+     */
+    private function aggregateStepTokens(): object
+    {
+        return $this->steps()
+            ->reorder()
+            ->selectRaw('COALESCE(SUM(input_tokens), 0) as input, COALESCE(SUM(output_tokens), 0) as output')
+            ->first() ?? (object) ['input' => 0, 'output' => 0];
     }
 
     // ─── Accessors ──────────────────────────────────────────────

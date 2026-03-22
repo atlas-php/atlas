@@ -63,7 +63,7 @@ class ToolAssets
         ]);
 
         if ($toolCall !== null) {
-            $metadata['tool_call_id'] = $toolCall->id;
+            $metadata['tool_call_id'] = $toolCall->tool_call_id;
             $metadata['tool_name'] = $toolCall->name;
         }
 

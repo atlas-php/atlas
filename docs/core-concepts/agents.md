@@ -252,14 +252,6 @@ Agents are automatically discovered from your configured directory. Set the path
 
 Any class extending `Agent` in that directory is registered and available via `Atlas::agent('key')`.
 
-## Artisan Command
-
-Scaffold a new agent class:
-
-```bash
-php artisan make:agent SupportAgent
-```
-
 ## API Reference
 
 ### Agent Methods
@@ -320,10 +312,16 @@ Returned by `Atlas::agent('key')`. Chain these before a terminal method.
 
 </div>
 
+## Artisan Command
+
+```bash
+php artisan make:agent SupportAgent
+```
+
 ## Next Steps
 
 - [Instructions](/core-concepts/instructions) — Variable interpolation in instructions
 - [Tools](/core-concepts/tools) — Build tools agents can call
-- [Chat](/capabilities/chat) — Text generation and conversations
-- [Structured Output](/capabilities/structured-output) — Schema-based responses
-- [Persistence](/core-concepts/persistence) — Conversation history and execution tracking
+- [Text](/capabilities/text) — Text generation, streaming, and structured output
+- [Schema](/core-concepts/schema) — Schema fields for structured output
+- [Middleware](/core-concepts/pipelines) — Add middleware to agent execution

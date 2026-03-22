@@ -1,156 +1,83 @@
 # Moderation
 
-Content moderation for detecting potentially harmful or inappropriate content.
+Analyze text content for policy violations and harmful content.
 
-::: tip Prism Reference
-Atlas moderation wraps Prism's moderation API. For detailed documentation including categories and response objects, see [Prism Moderation](https://prismphp.com/core-concepts/moderation.html).
-:::
-
-## Basic Usage
+## Quick Example
 
 ```php
-use Atlasphp\Atlas\Atlas;
+use Atlasphp\Atlas\Facades\Atlas;
 
-$response = Atlas::moderation()
-    ->using('openai', 'omni-moderation-latest')
-    ->withInput('Text to check for violations')
+$response = Atlas::moderate('openai', 'omni-moderation-latest')
+    ->fromInput('This is a normal message.')
     ->asModeration();
 
-if ($response->isFlagged()) {
-    // Content was flagged
-}
+echo $response->flagged ? 'Flagged' : 'Safe';  // "Safe"
 ```
 
-::: warning Provider Support
-Currently only OpenAI supports content moderation. Other providers will throw an unsupported exception.
-:::
-
-## Batch Moderation
-
-Moderate multiple inputs in a single request:
+## Checking Content
 
 ```php
-$response = Atlas::moderation()
-    ->using('openai', 'omni-moderation-latest')
-    ->withInput([
-        'First piece of content',
-        'Second piece of content',
-        'Third piece of content',
-    ])
+$response = Atlas::moderate('openai', 'omni-moderation-latest')
+    ->fromInput('Some user-generated content to check...')
     ->asModeration();
 
-if ($response->isFlagged()) {
-    foreach ($response->flagged() as $flaggedResult) {
-        // Handle flagged content
-    }
-}
+$response->flagged;      // bool — whether content was flagged
+$response->categories;   // array — category scores and flags
 ```
 
-## Example: Comment Moderation
+## Category Details
+
+The categories array contains per-category flagging:
 
 ```php
-class CommentController extends Controller
-{
-    public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'body' => 'required|string|max:5000',
+$response = Atlas::moderate('openai', 'omni-moderation-latest')
+    ->fromInput($userInput)
+    ->asModeration();
+
+foreach ($response->categories as $category => $data) {
+    if ($data['flagged']) {
+        logger()->warning("Content flagged for: {$category}", [
+            'score' => $data['score'],
         ]);
-
-        $moderation = Atlas::moderation()
-            ->using('openai', 'omni-moderation-latest')
-            ->withInput($validated['body'])
-            ->asModeration();
-
-        if ($moderation->isFlagged()) {
-            return back()->withErrors([
-                'body' => 'Your comment violates our community guidelines.',
-            ]);
-        }
-
-        Comment::create([
-            'user_id' => auth()->id(),
-            'body' => $validated['body'],
-        ]);
-
-        return redirect()->back();
     }
 }
 ```
 
-## Pipeline Hooks
+## Practical Usage
 
-Moderation supports pipeline middleware for observability:
-
-<div class="full-width-table">
-
-| Pipeline | Trigger |
-|----------|---------|
-| `moderation.before_moderation` | Before content moderation |
-| `moderation.after_moderation` | After moderation completes |
-
-</div>
+### Middleware
 
 ```php
-use Atlasphp\Atlas\Contracts\PipelineContract;
+// In a controller or middleware
+$moderation = Atlas::moderate('openai', 'omni-moderation-latest')
+    ->fromInput($request->input('message'))
+    ->asModeration();
 
-class LogFlaggedContent implements PipelineContract
-{
-    public function handle(mixed $data, Closure $next): mixed
-    {
-        $result = $next($data);
-
-        if ($result['response']->isFlagged()) {
-            Log::warning('Content flagged', [
-                'user_id' => $data['metadata']['user_id'] ?? null,
-            ]);
-        }
-
-        return $result;
-    }
+if ($moderation->flagged) {
+    return response()->json(['error' => 'Content violates policy'], 422);
 }
-
-$registry->register('moderation.after_moderation', LogFlaggedContent::class);
 ```
 
-## API Reference
+## Supported Providers
 
-```php
-// Moderation fluent API
-Atlas::moderation()
-    ->using(string $provider, string $model)              // Set provider and model
-    ->withInput(string|Image|array ...$inputs)            // Content to moderate
-    ->withProviderOptions(array $options)                 // Provider-specific options
-    ->withMetadata(array $metadata)                       // Pipeline metadata
-    ->asModeration(): ModerationResponse;
+| Provider | Models |
+|----------|--------|
+| OpenAI | omni-moderation-latest, text-moderation-latest, text-moderation-stable |
 
-// Response properties (ModerationResponse)
-$response->isFlagged(): bool;        // True if any content flagged
-$response->results;                  // Array of ModerationResult objects
-$response->flagged(): array;         // Only flagged results
+## ModerationResponse
 
-// ModerationResult properties
-$result->flagged;                    // bool - Whether this input was flagged
-$result->categories;                 // array - Category flags (e.g., 'violence' => true)
-$result->categoryScores;             // array - Category scores (e.g., 'violence' => 0.92)
+| Property | Type | Description |
+|----------|------|-------------|
+| `flagged` | `bool` | Whether the content was flagged |
+| `categories` | `array` | Per-category results with scores and flags |
+| `meta` | `array` | Additional metadata |
 
-// Available models
-->using('openai', 'omni-moderation-latest')   // Latest omni model (recommended)
-->using('openai', 'text-moderation-latest')   // Text-only model
-->using('openai', 'text-moderation-stable')   // Stable text model
+## Builder Reference
 
-// Single vs batch input
-->withInput('Single text to moderate')
-->withInput(['Text one', 'Text two', 'Text three'])  // Batch (more efficient)
-
-// Common categories (OpenAI)
-// harassment, harassment/threatening, hate, hate/threatening,
-// illicit, illicit/violent, self-harm, self-harm/intent,
-// self-harm/instructions, sexual, sexual/minors, violence,
-// violence/graphic
-```
-
-## Next Steps
-
-- [Prism Moderation](https://prismphp.com/core-concepts/moderation.html) — Complete moderation reference
-- [Pipelines](/core-concepts/pipelines) — Add logging and metrics
+| Method | Description |
+|--------|-------------|
+| `fromInput(string\|array)` | Content to moderate |
+| `withProviderOptions(array)` | Provider-specific options |
+| `withMeta(array)` | Metadata for middleware/events |
+| `withMiddleware(array)` | Per-request provider middleware |
+| `queue()` | Dispatch to queue |

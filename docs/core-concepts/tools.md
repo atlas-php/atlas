@@ -290,9 +290,30 @@ class ResearchAgent extends Agent
 | `FileSearch` | `file_search` | Search vector stores. Options: `stores`, `maxResults` |
 | `CodeInterpreter` | `code_interpreter` | Execute code in a sandbox |
 
-## Artisan Command
+## API Reference
 
-Generate a new tool class with the Artisan command:
+### Tool Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `name()` | `string` | Tool name the model uses to call it |
+| `description()` | `string` | When and how the model should use this tool |
+| `parameters()` | `array<Field>` | Parameter definitions using Schema fields |
+| `handle(array $args, array $context)` | `mixed` | Execute the tool — return value auto-serialized |
+
+### Return Value Serialization
+
+| Return Type | Serialized As |
+|-------------|---------------|
+| `string` | Passed through as-is |
+| `array` or `object` | JSON encoded |
+| `bool` | `'true'` or `'false'` |
+| `int` or `float` | Cast to string |
+| `null` | `'No result returned.'` |
+| Object with `toArray()` | JSON encoded via `toArray()` |
+| Object with `toJson()` | Passed through as JSON string |
+
+## Artisan Command
 
 ```bash
 php artisan make:tool LookupOrderTool
@@ -300,6 +321,6 @@ php artisan make:tool LookupOrderTool
 
 ## Next Steps
 
-- [Agents](/core-concepts/agents) -- Add tools to agents
-- [MCP](/capabilities/mcp) -- External tools from MCP servers
-- [Middleware](/core-concepts/pipelines) -- Add middleware to tool execution
+- [Schema](/core-concepts/schema) — Field types for tool parameters
+- [Agents](/core-concepts/agents) — Add tools to agents
+- [Middleware](/core-concepts/pipelines) — Add middleware to tool execution
