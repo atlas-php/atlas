@@ -32,6 +32,10 @@ $response->finishReason;  // FinishReason enum (Stop, Length, ToolCalls, etc.)
 
 ### With Conversation History
 
+When using [conversations](/guides/conversations), Atlas automatically loads message history — you don't need to manage it yourself. Just use `->for($user)` or `->forConversation($id)` on an agent and Atlas handles the rest.
+
+For stateless usage without persistence, you can manually pass conversation history:
+
 ```php
 use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Messages\AssistantMessage;
@@ -45,6 +49,10 @@ $response = Atlas::text('openai', 'gpt-4o')
     ->message('Tell me more about its history.')
     ->asText();
 ```
+
+::: tip Automatic History
+Most applications should use [conversations](/guides/conversations) instead of `withMessages()`. Atlas loads history, manages limits, and persists new messages automatically. Use `withMessages()` only when you need full manual control over what the model sees.
+:::
 
 ### With Media Input (Vision)
 

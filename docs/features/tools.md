@@ -2,9 +2,6 @@
 
 Tools let agents call your PHP code. Define typed parameters, implement a handler, and Atlas manages the tool call loop.
 
-::: info External Tools
-For tools from external MCP servers, see [MCP Integration](/modalities/mcp).
-:::
 
 ## Defining a Tool
 
