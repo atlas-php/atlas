@@ -18,37 +18,37 @@ use Atlasphp\Atlas\Responses\Usage;
 
 // ─── AgentStarted ──────────────────────────────────────────────────────────
 
-it('AgentStarted stores agentKey, maxSteps, parallelToolCalls', function () {
+it('AgentStarted stores agentKey, maxSteps, concurrent', function () {
     $event = new AgentStarted(
         agentKey: 'my-agent',
         maxSteps: 10,
-        parallelToolCalls: true,
+        concurrent: true,
     );
 
     expect($event->agentKey)->toBe('my-agent')
         ->and($event->maxSteps)->toBe(10)
-        ->and($event->parallelToolCalls)->toBeTrue();
+        ->and($event->concurrent)->toBeTrue();
 });
 
 it('AgentStarted accepts null agentKey and maxSteps', function () {
     $event = new AgentStarted(
         agentKey: null,
         maxSteps: null,
-        parallelToolCalls: true,
+        concurrent: true,
     );
 
     expect($event->agentKey)->toBeNull()
         ->and($event->maxSteps)->toBeNull();
 });
 
-it('AgentStarted stores parallelToolCalls as false', function () {
+it('AgentStarted stores concurrent as false', function () {
     $event = new AgentStarted(
         agentKey: 'sequential-agent',
         maxSteps: 5,
-        parallelToolCalls: false,
+        concurrent: false,
     );
 
-    expect($event->parallelToolCalls)->toBeFalse();
+    expect($event->concurrent)->toBeFalse();
 });
 
 // ─── AgentStepStarted ──────────────────────────────────────────────────────

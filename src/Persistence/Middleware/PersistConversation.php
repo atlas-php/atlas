@@ -14,7 +14,6 @@ use Atlasphp\Atlas\Middleware\AgentContext;
 use Atlasphp\Atlas\Persistence\Concerns\HasConversations;
 use Atlasphp\Atlas\Persistence\Models\Asset;
 use Atlasphp\Atlas\Persistence\Models\Execution;
-use Atlasphp\Atlas\Persistence\Models\ExecutionStep;
 use Atlasphp\Atlas\Persistence\Models\MessageAttachment;
 use Atlasphp\Atlas\Persistence\ProcessQueuedMessage;
 use Atlasphp\Atlas\Persistence\Services\ConversationService;
@@ -126,7 +125,7 @@ class PersistConversation
         $userMessageId = null;
 
         /** @var array<int, \Atlasphp\Atlas\Persistence\Models\Message> $storedMessages */
-        $storedMessages = DB::transaction(function () use ($agent, $agentKey, $context, $conversation, $userMessage, $result, $consumerMeta, &$userMessageId): array {
+        $storedMessages = DB::transaction(function () use ($agent, $agentKey, $conversation, $userMessage, $result, $consumerMeta, &$userMessageId): array {
             $author = $agent->resolveAuthor();
             $parentId = null;
 
@@ -165,15 +164,9 @@ class PersistConversation
             // Intermediate steps (tool calls) live in execution tables.
             // Only the final text becomes a conversation message.
 
-            $executionId = $context->meta['execution_id'] ?? null;
-            $lastStepId = null;
-
-            if ($executionId !== null) {
-                $stepModel = config('atlas.persistence.models.execution_step', ExecutionStep::class);
-                $lastStepId = $stepModel::where('execution_id', $executionId)
-                    ->orderByDesc('sequence')
-                    ->value('id');
-            }
+            // Safe to access here: completeStep() retains the reference, and
+            // this middleware wraps TrackExecution so the scoped service is still active.
+            $lastStepId = $this->executionService->currentStep()?->id;
 
             $storedMessages = $this->conversations->addAssistantMessages(
                 $conversation,

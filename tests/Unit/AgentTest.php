@@ -70,7 +70,7 @@ class CustomizedAgent extends Agent
         return 10;
     }
 
-    public function parallelToolCalls(): bool
+    public function concurrent(): bool
     {
         return false;
     }
@@ -223,14 +223,14 @@ it('allows overriding maxSteps', function () {
     expect((new CustomizedAgent)->maxSteps())->toBe(10);
 });
 
-// ─── parallelToolCalls() ────────────────────────────────────────────────────
+// ─── concurrent() ───────────────────────────────────────────────────────────
 
-it('defaults parallelToolCalls to true', function () {
-    expect((new SupportAgent)->parallelToolCalls())->toBeTrue();
+it('defaults concurrent to false', function () {
+    expect((new SupportAgent)->concurrent())->toBeFalse();
 });
 
-it('allows overriding parallelToolCalls to false', function () {
-    expect((new CustomizedAgent)->parallelToolCalls())->toBeFalse();
+it('allows overriding concurrent to false', function () {
+    expect((new CustomizedAgent)->concurrent())->toBeFalse();
 });
 
 // ─── providerOptions() ─────────────────────────────────────────────────────

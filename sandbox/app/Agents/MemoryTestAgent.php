@@ -45,11 +45,6 @@ class MemoryTestAgent extends Agent
         return 10;
     }
 
-    public function parallelToolCalls(): bool
-    {
-        return false;
-    }
-
     public function temperature(): ?float
     {
         return 0.0;

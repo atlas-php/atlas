@@ -44,7 +44,7 @@ it('TextRequest toQueuePayload serializes all properties', function () {
         ->and($payload['tools'])->toBe([])
         ->and($payload['providerTools'])->toBe([])
         ->and($payload['maxSteps'])->toBe(200)
-        ->and($payload['parallelToolCalls'])->toBeTrue()
+        ->and($payload['concurrent'])->toBeFalse()
         ->and($payload['schema'])->toBeNull()
         ->and($payload['providerOptions'])->toBe([])
         ->and($payload['meta'])->toBe([]);
@@ -77,7 +77,7 @@ it('TextRequest executeFromPayload rebuilds and executes asText', function () {
             'tools' => [],
             'providerTools' => [],
             'maxSteps' => null,
-            'parallelToolCalls' => true,
+            'concurrent' => true,
             'schema' => null,
             'providerOptions' => [],
             'meta' => [],
@@ -104,7 +104,7 @@ it('TextRequest executeFromPayload rebuilds and executes asStructured', function
             'tools' => [],
             'providerTools' => [],
             'maxSteps' => null,
-            'parallelToolCalls' => true,
+            'concurrent' => true,
             'schema' => null,
             'providerOptions' => [],
             'meta' => [],
@@ -131,7 +131,7 @@ it('TextRequest executeFromPayload throws on unknown terminal', function () {
             'tools' => [],
             'providerTools' => [],
             'maxSteps' => null,
-            'parallelToolCalls' => true,
+            'concurrent' => true,
             'schema' => null,
             'providerOptions' => [],
             'meta' => [],
@@ -472,7 +472,7 @@ it('TextRequest executeFromPayload injects executionId into meta', function () {
             'instructions' => null, 'message' => 'Hello', 'messageMedia' => [],
             'messages' => [], 'maxTokens' => null, 'temperature' => null,
             'tools' => [], 'providerTools' => [], 'maxSteps' => null,
-            'parallelToolCalls' => true, 'schema' => null,
+            'concurrent' => true, 'schema' => null,
             'providerOptions' => [], 'meta' => [],
         ],
         terminal: 'asText',
@@ -491,7 +491,7 @@ it('TextRequest executeFromPayload applies maxTokens and temperature', function 
             'instructions' => null, 'message' => 'Hello', 'messageMedia' => [],
             'messages' => [], 'maxTokens' => 500, 'temperature' => 0.8,
             'tools' => [], 'providerTools' => [], 'maxSteps' => null,
-            'parallelToolCalls' => true, 'schema' => null,
+            'concurrent' => true, 'schema' => null,
             'providerOptions' => [], 'meta' => [],
         ],
         terminal: 'asText',
@@ -509,7 +509,7 @@ it('TextRequest executeFromPayload applies providerOptions', function () {
             'instructions' => null, 'message' => 'Hello', 'messageMedia' => [],
             'messages' => [], 'maxTokens' => null, 'temperature' => null,
             'tools' => [], 'providerTools' => [], 'maxSteps' => null,
-            'parallelToolCalls' => true, 'schema' => null,
+            'concurrent' => true, 'schema' => null,
             'providerOptions' => ['top_p' => 0.9], 'meta' => [],
         ],
         terminal: 'asText',
@@ -527,7 +527,7 @@ it('TextRequest executeFromPayload applies schema', function () {
             'instructions' => null, 'message' => 'Hello', 'messageMedia' => [],
             'messages' => [], 'maxTokens' => null, 'temperature' => null,
             'tools' => [], 'providerTools' => [], 'maxSteps' => null,
-            'parallelToolCalls' => true,
+            'concurrent' => true,
             'schema' => ['name' => 'result', 'description' => 'The result', 'data' => ['type' => 'object']],
             'providerOptions' => [], 'meta' => [],
         ],
@@ -546,7 +546,7 @@ it('TextRequest executeFromPayload applies variables and interpolation', functio
             'instructions' => 'Hello {NAME}', 'message' => null, 'messageMedia' => [],
             'messages' => [], 'maxTokens' => null, 'temperature' => null,
             'tools' => [], 'providerTools' => [], 'maxSteps' => null,
-            'parallelToolCalls' => true, 'schema' => null,
+            'concurrent' => true, 'schema' => null,
             'providerOptions' => [], 'meta' => [],
             'variables' => ['NAME' => 'Tim'],
             'interpolate_messages' => true,
@@ -566,7 +566,7 @@ it('TextRequest executeFromPayload handles asStream terminal', function () {
             'instructions' => null, 'message' => 'Hello', 'messageMedia' => [],
             'messages' => [], 'maxTokens' => null, 'temperature' => null,
             'tools' => [], 'providerTools' => [], 'maxSteps' => null,
-            'parallelToolCalls' => true, 'schema' => null,
+            'concurrent' => true, 'schema' => null,
             'providerOptions' => [], 'meta' => [],
         ],
         terminal: 'asStream',

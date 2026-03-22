@@ -169,8 +169,7 @@ class ExecutionService
 
     /**
      * Create a new step in pending state. Called BEFORE the provider call.
-     */
-    /**
+     *
      * @param  array<string, mixed>  $meta
      */
     public function createStep(array $meta = []): ExecutionStep
@@ -236,8 +235,7 @@ class ExecutionService
      * Create a tool call record in pending state.
      * Arguments captured immediately — you know what was requested
      * even if the tool never starts.
-     */
-    /**
+     *
      * @param  array<string, mixed>  $meta
      */
     public function createToolCall(ToolCall $toolCall, ToolCallType $type = ToolCallType::Atlas, array $meta = []): ExecutionToolCall

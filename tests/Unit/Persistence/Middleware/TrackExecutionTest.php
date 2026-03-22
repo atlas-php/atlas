@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\Enums\FinishReason;
+use Atlasphp\Atlas\Exceptions\MaxStepsExceededException;
 use Atlasphp\Atlas\Executor\ExecutorResult;
 use Atlasphp\Atlas\Middleware\AgentContext;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
@@ -182,6 +183,29 @@ it('falls back to config defaults when agent provider and model are null', funct
 
     expect($execution->provider)->toBe('config-provider')
         ->and($execution->model)->toBe('config-model');
+});
+
+it('marks execution failed when MaxStepsExceededException is thrown', function () {
+    $middleware = app(TrackExecution::class);
+
+    $context = new AgentContext(
+        request: makeExecutionTextRequest(),
+        meta: [],
+    );
+
+    try {
+        $middleware->handle($context, function () {
+            throw new MaxStepsExceededException(limit: 2, current: 3);
+        });
+    } catch (MaxStepsExceededException) {
+        // expected
+    }
+
+    $execution = Execution::latest('id')->first();
+
+    expect($execution)->not->toBeNull();
+    expect($execution->status)->toBe(ExecutionStatus::Failed);
+    expect($execution->error)->toContain('exceeded the maximum of 2 steps');
 });
 
 it('attaches executionId to result', function () {

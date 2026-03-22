@@ -917,3 +917,47 @@ it('getLastAsset is cleared on execution service reset', function () {
 
     expect($service->getLastAsset())->toBeNull();
 });
+
+it('resolves mime type from response format property when mimeType method is absent', function () {
+    Storage::fake('local');
+    config()->set('atlas.storage.disk', 'local');
+    config()->set('atlas.storage.prefix', 'atlas');
+    config()->set('atlas.persistence.auto_store_assets', true);
+
+    $service = new ExecutionService;
+    $middleware = new TrackProviderCall($service);
+
+    $context = new ProviderContext(
+        provider: 'openai',
+        model: 'dall-e-3',
+        method: 'image',
+        request: new stdClass,
+        meta: [],
+    );
+
+    // Response with ->format property but no mimeType() method
+    $response = new class implements HasContents
+    {
+        public string $format = 'webp';
+
+        public object $usage;
+
+        public function __construct()
+        {
+            $this->usage = (object) ['inputTokens' => 10, 'outputTokens' => 0];
+        }
+
+        public function contents(): string
+        {
+            return 'fake-webp-bytes';
+        }
+    };
+
+    $middleware->handle($context, fn () => $response);
+
+    $asset = Asset::latest('id')->first();
+
+    expect($asset)->not->toBeNull();
+    expect($asset->mime_type)->toBe('image/webp');
+    expect($asset->path)->toEndWith('.webp');
+});

@@ -169,7 +169,7 @@ it('handles single round trip with no tools', function () {
     $toolExecutor = new ToolExecutor($registry);
     $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
 
-    $result = $executor->execute(makeTextRequest(), maxSteps: 10, parallelToolCalls: true, meta: []);
+    $result = $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: true, meta: []);
 
     expect($result->text)->toBe('Hello!');
     expect($result->totalSteps())->toBe(1);
@@ -200,7 +200,7 @@ it('handles one tool call across two round trips', function () {
     $toolExecutor = new ToolExecutor($registry);
     $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
 
-    $result = $executor->execute(makeTextRequest(), maxSteps: 10, parallelToolCalls: true, meta: []);
+    $result = $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: true, meta: []);
 
     expect($result->text)->toBe('The result is hello.');
     expect($result->totalSteps())->toBe(2);
@@ -233,7 +233,7 @@ it('executes multiple tool calls in single response sequentially', function () {
     $toolExecutor = new ToolExecutor($registry);
     $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
 
-    $result = $executor->execute(makeTextRequest(), maxSteps: 10, parallelToolCalls: false, meta: []);
+    $result = $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: false, meta: []);
 
     expect($result->totalSteps())->toBe(2);
     expect($result->totalToolCalls())->toBe(3);
@@ -259,8 +259,8 @@ it('falls back to sequential for single concurrent tool call', function () {
     $toolExecutor = new ToolExecutor($registry);
     $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
 
-    // parallelToolCalls: true with a single tool call falls back to sequential
-    $result = $executor->execute(makeTextRequest(), maxSteps: 10, parallelToolCalls: true, meta: []);
+    // concurrent: true with a single tool call falls back to sequential
+    $result = $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: true, meta: []);
 
     expect($result->totalSteps())->toBe(2);
     expect($result->totalToolCalls())->toBe(1);
@@ -283,7 +283,7 @@ it('catches tool errors and sends error result to model', function () {
     $toolExecutor = new ToolExecutor($registry);
     $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
 
-    $result = $executor->execute(makeTextRequest(), maxSteps: 10, parallelToolCalls: true, meta: []);
+    $result = $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: true, meta: []);
 
     expect($result->text)->toBe('I see the tool failed.');
     expect($result->totalSteps())->toBe(2);
@@ -320,7 +320,7 @@ it('throws MaxStepsExceededException when limit reached', function () {
     $toolExecutor = new ToolExecutor($registry);
     $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
 
-    $executor->execute(makeTextRequest(), maxSteps: 2, parallelToolCalls: true, meta: []);
+    $executor->execute(makeTextRequest(), maxSteps: 2, concurrent: true, meta: []);
 })->throws(MaxStepsExceededException::class);
 
 it('allows unlimited steps when maxSteps is null', function () {
@@ -345,7 +345,7 @@ it('allows unlimited steps when maxSteps is null', function () {
     $toolExecutor = new ToolExecutor($registry);
     $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
 
-    $result = $executor->execute(makeTextRequest(), maxSteps: null, parallelToolCalls: true, meta: []);
+    $result = $executor->execute(makeTextRequest(), maxSteps: null, concurrent: true, meta: []);
 
     expect($result->totalSteps())->toBe(3);
 });
@@ -366,7 +366,7 @@ it('appends AssistantMessage and ToolResultMessages to next request', function (
     $toolExecutor = new ToolExecutor($registry);
     $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
 
-    $executor->execute(makeTextRequest(), maxSteps: 10, parallelToolCalls: true, meta: []);
+    $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: true, meta: []);
 
     // Second request should have messages appended
     $secondRequest = $driver->receivedRequests[1];
@@ -404,7 +404,7 @@ it('merges usage across all steps', function () {
     $toolExecutor = new ToolExecutor($registry);
     $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
 
-    $result = $executor->execute(makeTextRequest(), maxSteps: 10, parallelToolCalls: true, meta: []);
+    $result = $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: true, meta: []);
 
     expect($result->usage->inputTokens)->toBe(300);
     expect($result->usage->outputTokens)->toBe(125);
@@ -437,10 +437,10 @@ it('propagates provider exceptions', function () {
     $toolExecutor = new ToolExecutor($registry);
     $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
 
-    $executor->execute(makeTextRequest(), maxSteps: 10, parallelToolCalls: true, meta: []);
+    $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: true, meta: []);
 })->throws(AtlasException::class, 'Provider failed');
 
-it('executes multiple tool calls concurrently with parallelToolCalls true', function () {
+it('executes multiple tool calls concurrently with concurrent true', function () {
     $driver = makeMockDriver([
         new TextResponse(
             'Running tools.',
@@ -460,7 +460,7 @@ it('executes multiple tool calls concurrently with parallelToolCalls true', func
     $toolExecutor = new ToolExecutor($registry);
     $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
 
-    $result = $executor->execute(makeTextRequest(), maxSteps: 10, parallelToolCalls: true, meta: []);
+    $result = $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: true, meta: []);
 
     expect($result->totalSteps())->toBe(2);
     expect($result->totalToolCalls())->toBe(3);
@@ -496,7 +496,7 @@ it('handles errors in concurrent path with multiple tools', function () {
     $toolExecutor = new ToolExecutor($registry);
     $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
 
-    $result = $executor->execute(makeTextRequest(), maxSteps: 10, parallelToolCalls: true, meta: []);
+    $result = $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: true, meta: []);
 
     expect($result->totalSteps())->toBe(2);
     expect($result->steps[0]->toolResults)->toHaveCount(2);
@@ -528,7 +528,7 @@ it('catches all tool errors in concurrent path when every tool fails', function 
     $toolExecutor = new ToolExecutor($registry);
     $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
 
-    $result = $executor->execute(makeTextRequest(), maxSteps: 10, parallelToolCalls: true, meta: []);
+    $result = $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: true, meta: []);
 
     expect($result->totalSteps())->toBe(2);
     expect($result->steps[0]->toolResults)->toHaveCount(2);
@@ -541,7 +541,7 @@ it('catches all tool errors in concurrent path when every tool fails', function 
     expect($erroredEvents)->toHaveCount(2);
 });
 
-it('executes multiple tool calls sequentially when parallelToolCalls is false', function () {
+it('executes multiple tool calls sequentially when concurrent is false', function () {
     $driver = makeMockDriver([
         new TextResponse(
             'Running tools.',
@@ -560,7 +560,7 @@ it('executes multiple tool calls sequentially when parallelToolCalls is false', 
     $toolExecutor = new ToolExecutor($registry);
     $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
 
-    $result = $executor->execute(makeTextRequest(), maxSteps: 10, parallelToolCalls: false, meta: []);
+    $result = $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: false, meta: []);
 
     expect($result->totalSteps())->toBe(2);
     expect($result->totalToolCalls())->toBe(2);
@@ -594,7 +594,7 @@ it('handles mixed success and error with multiple sequential tools', function ()
     $toolExecutor = new ToolExecutor($registry);
     $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
 
-    $result = $executor->execute(makeTextRequest(), maxSteps: 10, parallelToolCalls: false, meta: []);
+    $result = $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: false, meta: []);
 
     expect($result->totalSteps())->toBe(2);
     expect($result->steps[0]->toolResults)->toHaveCount(2);
@@ -623,7 +623,7 @@ it('dispatches AgentCompleted with correct steps', function () {
     $toolExecutor = new ToolExecutor($registry);
     $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
 
-    $result = $executor->execute(makeTextRequest(), maxSteps: 10, parallelToolCalls: true, meta: []);
+    $result = $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: true, meta: []);
 
     $completed = array_values(array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentCompleted));
     expect($completed)->toHaveCount(1);
@@ -660,7 +660,7 @@ it('concurrent closure catch converts exception to error ToolResult via sync dri
         }
     };
 
-    $result = $executor->execute(makeTextRequest(), maxSteps: 10, parallelToolCalls: true, meta: []);
+    $result = $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: true, meta: []);
 
     // The failing tool's exception is caught inside the closure, returned as ToolResult
     expect($result->steps[0]->toolResults)->toHaveCount(2);
@@ -706,7 +706,7 @@ it('concurrencyDriver returns sync when fork is unavailable', function () {
         }
     };
 
-    $result = $executor->execute(makeTextRequest(), maxSteps: 10, parallelToolCalls: true, meta: []);
+    $result = $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: true, meta: []);
 
     // Tools still execute correctly via sync driver
     expect($result->totalSteps())->toBe(2);
@@ -727,14 +727,14 @@ it('dispatches AgentStarted before the tool loop', function () {
     $toolExecutor = new ToolExecutor($registry);
     $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
 
-    $executor->execute(makeTextRequest(), maxSteps: 10, parallelToolCalls: true, meta: [], agentKey: 'test-agent');
+    $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: true, meta: [], agentKey: 'test-agent');
 
     $started = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentStarted);
     expect($started)->toHaveCount(1);
     $event = array_values($started)[0];
     expect($event->agentKey)->toBe('test-agent');
     expect($event->maxSteps)->toBe(10);
-    expect($event->parallelToolCalls)->toBeTrue();
+    expect($event->concurrent)->toBeTrue();
 });
 
 it('dispatches AgentStepStarted and AgentStepCompleted for each step', function () {
@@ -753,7 +753,7 @@ it('dispatches AgentStepStarted and AgentStepCompleted for each step', function 
     $toolExecutor = new ToolExecutor($registry);
     $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
 
-    $executor->execute(makeTextRequest(), maxSteps: 10, parallelToolCalls: true, meta: []);
+    $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: true, meta: []);
 
     $stepStarted = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentStepStarted);
     $stepCompleted = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentStepCompleted);
@@ -795,7 +795,7 @@ it('dispatches AgentMaxStepsExceeded before throwing exception', function () {
     $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
 
     try {
-        $executor->execute(makeTextRequest(), maxSteps: 2, parallelToolCalls: true, meta: []);
+        $executor->execute(makeTextRequest(), maxSteps: 2, concurrent: true, meta: []);
     } catch (MaxStepsExceededException) {
         // expected
     }
@@ -827,7 +827,7 @@ it('dispatches events in correct lifecycle order', function () {
     $toolExecutor = new ToolExecutor($registry);
     $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
 
-    $executor->execute(makeTextRequest(), maxSteps: 10, parallelToolCalls: true, meta: [], agentKey: 'order-test');
+    $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: true, meta: [], agentKey: 'order-test');
 
     $eventClasses = array_map(fn ($e) => $e::class, $dispatcher->dispatched);
 

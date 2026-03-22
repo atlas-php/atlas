@@ -71,7 +71,7 @@ class RequestTestConfiguredAgent extends Agent
         return 5;
     }
 
-    public function parallelToolCalls(): bool
+    public function concurrent(): bool
     {
         return false;
     }
@@ -165,7 +165,7 @@ it('returns self from all fluent methods', function () {
     expect($request->withMaxSteps(10))->toBe($request);
     expect($request->withSchema(new Schema('test', 'test', [])))->toBe($request);
     expect($request->withProviderOptions([]))->toBe($request);
-    expect($request->withParallelToolCalls(false))->toBe($request);
+    expect($request->withConcurrent(false))->toBe($request);
     expect($request->forConversation(1))->toBe($request);
     expect($request->withMessageLimit(10))->toBe($request);
     expect($request->respond())->toBe($request);
@@ -781,7 +781,7 @@ it('toQueuePayload serializes all overrides', function () {
         ->withMaxTokens(500)
         ->withTemperature(0.9)
         ->withMaxSteps(5)
-        ->withParallelToolCalls(false)
+        ->withConcurrent(false)
         ->withProviderOptions(['top_k' => 10])
         ->forConversation(99)
         ->withMessageLimit(20);
@@ -798,7 +798,7 @@ it('toQueuePayload serializes all overrides', function () {
         ->and($payload['max_tokens'])->toBe(500)
         ->and($payload['temperature'])->toBe(0.9)
         ->and($payload['max_steps'])->toBe(5)
-        ->and($payload['parallel_tool_calls'])->toBeFalse()
+        ->and($payload['concurrent'])->toBeFalse()
         ->and($payload['provider_options'])->toBe(['top_k' => 10])
         ->and($payload['conversation_id'])->toBe(99)
         ->and($payload['message_limit'])->toBe(20);
@@ -849,7 +849,7 @@ it('executeFromPayload rebuilds and executes asText', function () {
             'max_tokens' => null,
             'temperature' => null,
             'max_steps' => null,
-            'parallel_tool_calls' => null,
+            'concurrent' => null,
             'provider_options' => [],
             'conversation_id' => null,
             'owner_type' => null,
@@ -886,7 +886,7 @@ it('executeFromPayload applies overrides', function () {
             'max_tokens' => 100,
             'temperature' => 0.5,
             'max_steps' => 3,
-            'parallel_tool_calls' => false,
+            'concurrent' => false,
             'provider_options' => ['top_p' => 0.9],
             'conversation_id' => null,
             'owner_type' => null,
@@ -930,7 +930,7 @@ it('executeFromPayload throws on unknown terminal', function () {
             'max_tokens' => null,
             'temperature' => null,
             'max_steps' => null,
-            'parallel_tool_calls' => null,
+            'concurrent' => null,
             'provider_options' => [],
             'conversation_id' => null,
             'owner_type' => null,

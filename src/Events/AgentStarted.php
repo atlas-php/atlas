@@ -12,6 +12,6 @@ class AgentStarted
     public function __construct(
         public readonly ?string $agentKey,
         public readonly ?int $maxSteps,
-        public readonly bool $parallelToolCalls,
+        public readonly bool $concurrent,
     ) {}
 }

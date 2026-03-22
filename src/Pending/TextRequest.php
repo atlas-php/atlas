@@ -81,7 +81,7 @@ class TextRequest implements QueueableRequest
 
     protected ?int $maxSteps = 200;
 
-    protected bool $parallelToolCalls = true;
+    protected bool $concurrent = false;
 
     public function __construct(
         protected readonly Provider|string $provider,
@@ -183,9 +183,9 @@ class TextRequest implements QueueableRequest
         return $this;
     }
 
-    public function withParallelToolCalls(bool $parallel = true): static
+    public function withConcurrent(bool $concurrent = true): static
     {
-        $this->parallelToolCalls = $parallel;
+        $this->concurrent = $concurrent;
 
         return $this;
     }
@@ -294,7 +294,7 @@ class TextRequest implements QueueableRequest
         $result = $executor->execute(
             request: $request,
             maxSteps: $this->maxSteps,
-            parallelToolCalls: $this->parallelToolCalls,
+            concurrent: $this->concurrent,
             meta: $this->meta,
             agentKey: null,
         );
@@ -378,7 +378,7 @@ class TextRequest implements QueueableRequest
             'tools' => array_map(fn (Tool|string $tool): string => is_string($tool) ? $tool : $tool::class, $this->tools),
             'providerTools' => $this->providerTools,
             'maxSteps' => $this->maxSteps,
-            'parallelToolCalls' => $this->parallelToolCalls,
+            'concurrent' => $this->concurrent,
             'schema' => $this->schema !== null ? [
                 'name' => $this->schema->name(),
                 'description' => $this->schema->description(),
@@ -440,8 +440,8 @@ class TextRequest implements QueueableRequest
             $request->withMaxSteps($payload['maxSteps']);
         }
 
-        if (array_key_exists('parallelToolCalls', $payload)) {
-            $request->withParallelToolCalls($payload['parallelToolCalls']);
+        if (array_key_exists('concurrent', $payload)) {
+            $request->withConcurrent($payload['concurrent']);
         }
 
         if (! empty($payload['providerOptions'])) {

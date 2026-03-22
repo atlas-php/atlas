@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Middleware;
 
-use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Middleware\StepContext;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 use Atlasphp\Atlas\Responses\TextResponse;
@@ -39,9 +38,7 @@ class TrackStep
             $response = $next($context);
 
             // ── Record response data from the TextResponse ───────────
-            $finishReason = $response->hasToolCalls()
-                ? FinishReason::ToolCalls->value
-                : FinishReason::Stop->value;
+            $finishReason = $response->finishReason->value;
 
             $this->tracker->currentStep()?->recordResponse(
                 content: $response->text,

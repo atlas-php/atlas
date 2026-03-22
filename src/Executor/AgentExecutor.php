@@ -52,7 +52,7 @@ class AgentExecutor
     public function execute(
         TextRequest $request,
         ?int $maxSteps,
-        bool $parallelToolCalls = true,
+        bool $concurrent = false,
         array $meta = [],
         ?string $agentKey = null,
     ): ExecutorResult {
@@ -63,7 +63,7 @@ class AgentExecutor
         $this->events->dispatch(new AgentStarted(
             agentKey: $agentKey,
             maxSteps: $maxSteps,
-            parallelToolCalls: $parallelToolCalls,
+            concurrent: $concurrent,
         ));
 
         try {
@@ -98,7 +98,7 @@ class AgentExecutor
                     break;
                 }
 
-                $toolResults = $parallelToolCalls
+                $toolResults = $concurrent
                     ? $this->executeToolsConcurrently($response->toolCalls, $meta, $stepCount, $agentKey)
                     : $this->executeToolsSequentially($response->toolCalls, $meta, $stepCount, $agentKey);
 

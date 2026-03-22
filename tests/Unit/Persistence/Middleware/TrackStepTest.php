@@ -8,6 +8,7 @@ use Atlasphp\Atlas\Middleware\StepContext;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
 use Atlasphp\Atlas\Persistence\Middleware\TrackStep;
+use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\ExecutionStep;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 use Atlasphp\Atlas\Requests\TextRequest;
@@ -42,12 +43,12 @@ function makeStepContext(): StepContext
     );
 }
 
-function makeTextResponse(array $toolCalls = [], ?string $reasoning = null): TextResponse
+function makeTextResponse(array $toolCalls = [], ?string $reasoning = null, ?FinishReason $finishReason = null): TextResponse
 {
     return new TextResponse(
         text: 'Hello world',
         usage: new Usage(10, 5),
-        finishReason: FinishReason::Stop,
+        finishReason: $finishReason ?? ($toolCalls !== [] ? FinishReason::ToolCalls : FinishReason::Stop),
         toolCalls: $toolCalls,
         reasoning: $reasoning,
     );
@@ -148,3 +149,26 @@ it('re-throws exceptions', function () {
         throw new RuntimeException('Step failed');
     });
 })->throws(RuntimeException::class, 'Step failed');
+
+it('step is marked failed when execution fails after step exception', function () {
+    $service = makeServiceWithExecution();
+    $middleware = new TrackStep($service);
+    $context = makeStepContext();
+
+    try {
+        $middleware->handle($context, function () {
+            throw new RuntimeException('Provider crashed');
+        });
+    } catch (RuntimeException) {
+        // Expected — step middleware re-throws
+    }
+
+    // Simulate what TrackExecution would do on catching the exception
+    $service->failExecution(new RuntimeException('Provider crashed'));
+
+    $step = ExecutionStep::latest('id')->first();
+    expect($step->status)->toBe(ExecutionStatus::Failed);
+
+    $execution = Execution::latest('id')->first();
+    expect($execution->status)->toBe(ExecutionStatus::Failed);
+});

@@ -77,11 +77,6 @@ class AssistantAgent extends Agent
         return 10;
     }
 
-    public function parallelToolCalls(): bool
-    {
-        return false;
-    }
-
     /**
      * @return array<int, ProviderTool>
      */

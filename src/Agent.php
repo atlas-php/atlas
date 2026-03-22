@@ -131,12 +131,12 @@ abstract class Agent
     }
 
     /**
-     * Run tool calls concurrently. True by default.
-     * Set to false when tools depend on each other's side effects.
+     * Execute tool calls concurrently. False by default for safe persistence tracking.
+     * Set to true when tools are independent and you want concurrent execution.
      */
-    public function parallelToolCalls(): bool
+    public function concurrent(): bool
     {
-        return true;
+        return false;
     }
 
     /**

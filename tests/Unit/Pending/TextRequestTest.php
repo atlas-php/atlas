@@ -158,10 +158,10 @@ it('withMaxSteps returns $this for chaining', function () {
     expect($pending->withMaxSteps(10))->toBe($pending);
 });
 
-it('withParallelToolCalls returns $this for chaining', function () {
+it('withConcurrent returns $this for chaining', function () {
     $pending = createTextPending();
 
-    expect($pending->withParallelToolCalls(false))->toBe($pending);
+    expect($pending->withConcurrent(false))->toBe($pending);
 });
 
 it('withTools includes tool definitions in built request', function () {

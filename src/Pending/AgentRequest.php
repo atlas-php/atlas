@@ -87,7 +87,7 @@ class AgentRequest implements QueueableRequest
 
     protected ?int $maxStepsOverride = null;
 
-    protected ?bool $parallelToolCallsOverride = null;
+    protected ?bool $concurrentOverride = null;
 
     /** @var array<string, mixed> */
     protected array $providerOptionsOverride = [];
@@ -222,11 +222,11 @@ class AgentRequest implements QueueableRequest
     }
 
     /**
-     * Override parallel tool call execution for this call.
+     * Override concurrent tool call execution for this call.
      */
-    public function withParallelToolCalls(bool $parallel = true): static
+    public function withConcurrent(bool $concurrent = true): static
     {
-        $this->parallelToolCallsOverride = $parallel;
+        $this->concurrentOverride = $concurrent;
 
         return $this;
     }
@@ -600,12 +600,12 @@ class AgentRequest implements QueueableRequest
 
         $maxSteps = $this->maxStepsOverride ?? $agent->maxSteps();
 
-        $parallelToolCalls = $this->parallelToolCallsOverride ?? $agent->parallelToolCalls();
+        $concurrent = $this->concurrentOverride ?? $agent->concurrent();
 
         return $agentExecutor->execute(
             request: $request,
             maxSteps: $maxSteps,
-            parallelToolCalls: $parallelToolCalls,
+            concurrent: $concurrent,
             meta: $meta,
             agentKey: $agent->key(),
         );
@@ -697,7 +697,7 @@ class AgentRequest implements QueueableRequest
             'max_tokens' => $this->maxTokensOverride,
             'temperature' => $this->temperatureOverride,
             'max_steps' => $this->maxStepsOverride,
-            'parallel_tool_calls' => $this->parallelToolCallsOverride,
+            'concurrent' => $this->concurrentOverride,
             'provider_options' => $this->providerOptionsOverride,
             'conversation_id' => $this->conversationId,
             'owner_type' => $this->conversationOwner?->getMorphClass(),
@@ -776,8 +776,8 @@ class AgentRequest implements QueueableRequest
             $request->withMaxSteps($payload['max_steps']);
         }
 
-        if ($payload['parallel_tool_calls'] !== null) {
-            $request->withParallelToolCalls($payload['parallel_tool_calls']);
+        if ($payload['concurrent'] !== null) {
+            $request->withConcurrent($payload['concurrent']);
         }
 
         if (! empty($payload['provider_options'])) {

@@ -154,7 +154,7 @@ it('runs step middleware on each step', function () {
     $dispatcher = makeMiddlewareExecutorDispatcher();
 
     $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher, app(MiddlewareStack::class));
-    $executor->execute(makeMiddlewareExecutorRequest(), maxSteps: 10, parallelToolCalls: false);
+    $executor->execute(makeMiddlewareExecutorRequest(), maxSteps: 10, concurrent: false);
 
     expect($stepNumbers)->toBe([1, 2]);
 
@@ -197,7 +197,7 @@ it('step middleware receives accumulated usage', function () {
 
     $registry = new ToolRegistry([makeMiddlewareEchoTool()]);
     $executor = new AgentExecutor($driver, new ToolExecutor($registry), makeMiddlewareExecutorDispatcher(), app(MiddlewareStack::class));
-    $executor->execute(makeMiddlewareExecutorRequest(), maxSteps: 10, parallelToolCalls: false);
+    $executor->execute(makeMiddlewareExecutorRequest(), maxSteps: 10, concurrent: false);
 
     expect($receivedUsage)->not->toBeNull();
     expect($receivedUsage->inputTokens)->toBe(100);
@@ -239,7 +239,7 @@ it('runs tool middleware on each tool call', function () {
 
     $registry = new ToolRegistry([makeMiddlewareEchoTool()]);
     $executor = new AgentExecutor($driver, new ToolExecutor($registry), makeMiddlewareExecutorDispatcher(), app(MiddlewareStack::class));
-    $executor->execute(makeMiddlewareExecutorRequest(), maxSteps: 10, parallelToolCalls: false);
+    $executor->execute(makeMiddlewareExecutorRequest(), maxSteps: 10, concurrent: false);
 
     expect($toolNames)->toBe(['echo']);
 
@@ -279,8 +279,8 @@ it('runs tool middleware in sequential path with single tool (parallel flag true
 
     $registry = new ToolRegistry([makeMiddlewareEchoTool()]);
     $executor = new AgentExecutor($driver, new ToolExecutor($registry), makeMiddlewareExecutorDispatcher(), app(MiddlewareStack::class));
-    // parallelToolCalls: true with single tool falls back to sequential
-    $executor->execute(makeMiddlewareExecutorRequest(), maxSteps: 10, parallelToolCalls: true);
+    // concurrent: true with single tool falls back to sequential
+    $executor->execute(makeMiddlewareExecutorRequest(), maxSteps: 10, concurrent: true);
 
     expect($toolNames)->toBe(['echo']);
 
@@ -347,7 +347,7 @@ it('calls tool executor directly when middleware stack exists but tool middlewar
     $registry = new ToolRegistry([makeMiddlewareEchoTool()]);
     $executor = new AgentExecutor($driver, new ToolExecutor($registry), makeMiddlewareExecutorDispatcher(), app(MiddlewareStack::class));
 
-    $result = $executor->execute(makeMiddlewareExecutorRequest(), maxSteps: 10, parallelToolCalls: false);
+    $result = $executor->execute(makeMiddlewareExecutorRequest(), maxSteps: 10, concurrent: false);
 
     expect($result->text)->toBe('done');
     expect($result->totalSteps())->toBe(2);
