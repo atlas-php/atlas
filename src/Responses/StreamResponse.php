@@ -9,6 +9,7 @@ use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Events\StreamChunkReceived;
 use Atlasphp\Atlas\Events\StreamCompleted;
 use Atlasphp\Atlas\Events\StreamStarted;
+use Atlasphp\Atlas\Events\StreamThinkingReceived;
 use Atlasphp\Atlas\Events\StreamToolCallReceived;
 use Atlasphp\Atlas\Messages\ToolCall;
 use Closure;
@@ -30,6 +31,8 @@ class StreamResponse implements IteratorAggregate, Responsable
 {
     protected string $accumulatedText = '';
 
+    protected string $accumulatedReasoning = '';
+
     protected ?Usage $usage = null;
 
     protected ?FinishReason $finishReason = null;
@@ -41,7 +44,8 @@ class StreamResponse implements IteratorAggregate, Responsable
 
     protected ?Closure $onChunkCallback = null;
 
-    protected ?Closure $thenCallback = null;
+    /** @var array<int, Closure> */
+    protected array $thenCallbacks = [];
 
     /**
      * @param  iterable<StreamChunk>  $source
@@ -77,11 +81,11 @@ class StreamResponse implements IteratorAggregate, Responsable
 
     /**
      * Register a callback invoked after the stream completes.
-     * Receives the StreamResponse with accumulated data.
+     * Multiple callbacks can be registered — they fire in order.
      */
     public function then(Closure $callback): static
     {
-        $this->thenCallback = $callback;
+        $this->thenCallbacks[] = $callback;
 
         return $this;
     }
@@ -106,6 +110,10 @@ class StreamResponse implements IteratorAggregate, Responsable
                 // 1. Accumulate
                 if ($chunk->text !== null) {
                     $this->accumulatedText .= $chunk->text;
+                }
+
+                if ($chunk->reasoning !== null) {
+                    $this->accumulatedReasoning .= $chunk->reasoning;
                 }
 
                 if ($chunk->toolCalls !== []) {
@@ -153,17 +161,14 @@ class StreamResponse implements IteratorAggregate, Responsable
             broadcast(new StreamCompleted(
                 channel: $this->broadcastChannel,
                 text: $this->accumulatedText,
-                usage: $this->usage !== null ? [
-                    'input_tokens' => $this->usage->inputTokens,
-                    'output_tokens' => $this->usage->outputTokens,
-                ] : null,
+                usage: $this->serializeUsage(),
                 finishReason: $this->finishReason,
             ));
         }
 
-        // 6. Post-stream callback
-        if ($this->thenCallback !== null) {
-            ($this->thenCallback)($this);
+        // 6. Post-stream callbacks
+        foreach ($this->thenCallbacks as $callback) {
+            $callback($this);
         }
     }
 
@@ -176,15 +181,15 @@ class StreamResponse implements IteratorAggregate, Responsable
                 channel: $this->broadcastChannel,
                 text: $chunk->text ?? '',
             )),
+            ChunkType::Thinking => broadcast(new StreamThinkingReceived(
+                channel: $this->broadcastChannel,
+                text: $chunk->reasoning ?? '',
+            )),
             ChunkType::ToolCall => broadcast(new StreamToolCallReceived(
                 channel: $this->broadcastChannel,
-                toolCalls: array_map(fn (ToolCall $tc) => [
-                    'id' => $tc->id,
-                    'name' => $tc->name,
-                    'arguments' => $tc->arguments,
-                ], $chunk->toolCalls),
+                toolCalls: array_map($this->serializeToolCall(...), $chunk->toolCalls),
             )),
-            default => null,
+            ChunkType::Done => null, // StreamCompleted fires after the loop
         };
     }
 
@@ -218,37 +223,22 @@ class StreamResponse implements IteratorAggregate, Responsable
                 'type' => 'chunk',
                 'text' => $chunk->text,
             ],
+            ChunkType::Thinking => [
+                'type' => 'thinking',
+                'text' => $chunk->reasoning,
+            ],
             ChunkType::ToolCall => [
                 'type' => 'tool_call',
-                'toolCalls' => array_map(fn (ToolCall $tc) => [
-                    'id' => $tc->id,
-                    'name' => $tc->name,
-                    'arguments' => $tc->arguments,
-                ], $chunk->toolCalls),
+                'toolCalls' => array_map($this->serializeToolCall(...), $chunk->toolCalls),
             ],
             ChunkType::Done => [
                 'type' => 'done',
                 'text' => $this->accumulatedText,
-                'usage' => $this->usage !== null ? [
-                    'input_tokens' => $this->usage->inputTokens,
-                    'output_tokens' => $this->usage->outputTokens,
-                ] : null,
+                'usage' => $this->serializeUsage(),
             ],
-            default => null,
         };
 
-        if ($data === null) {
-            return;
-        }
-
-        $eventName = match ($chunk->type) {
-            ChunkType::Text => 'chunk',
-            ChunkType::ToolCall => 'tool_call',
-            ChunkType::Done => 'done',
-            default => 'chunk',
-        };
-
-        echo "event: {$eventName}\n";
+        echo "event: {$data['type']}\n";
         echo 'data: '.json_encode($data, JSON_THROW_ON_ERROR)."\n\n";
 
         if (ob_get_level() > 0) {
@@ -266,6 +256,14 @@ class StreamResponse implements IteratorAggregate, Responsable
     public function getText(): string
     {
         return $this->accumulatedText;
+    }
+
+    /**
+     * Get the accumulated reasoning/thinking content after iteration.
+     */
+    public function getReasoning(): string
+    {
+        return $this->accumulatedReasoning;
     }
 
     /**
@@ -292,5 +290,34 @@ class StreamResponse implements IteratorAggregate, Responsable
     public function getToolCalls(): array
     {
         return $this->toolCalls;
+    }
+
+    // ─── Private Helpers ────────────────────────────────────────────
+
+    /**
+     * Serialize a ToolCall for broadcast and SSE delivery.
+     *
+     * @return array<string, mixed>
+     */
+    private function serializeToolCall(ToolCall $tc): array
+    {
+        return ['id' => $tc->id, 'name' => $tc->name, 'arguments' => $tc->arguments];
+    }
+
+    /**
+     * Serialize usage data to a simple array for broadcast and SSE delivery.
+     *
+     * @return array<string, int>|null
+     */
+    private function serializeUsage(): ?array
+    {
+        if ($this->usage === null) {
+            return null;
+        }
+
+        return [
+            'input_tokens' => $this->usage->inputTokens,
+            'output_tokens' => $this->usage->outputTokens,
+        ];
     }
 }

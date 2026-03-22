@@ -11,8 +11,8 @@ use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Events\ModalityCompleted;
 use Atlasphp\Atlas\Events\ModalityStarted;
-use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Executor\AgentExecutor;
+use Atlasphp\Atlas\Executor\ExecutorResult;
 use Atlasphp\Atlas\Executor\ToolExecutor;
 use Atlasphp\Atlas\Executor\ToolRegistry;
 use Atlasphp\Atlas\Facades\Atlas;
@@ -21,6 +21,7 @@ use Atlasphp\Atlas\Messages\AssistantMessage;
 use Atlasphp\Atlas\Messages\SystemMessage;
 use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
+use Atlasphp\Atlas\Pending\Concerns\ConvertsResultToChunks;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
 use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
@@ -47,6 +48,7 @@ use Illuminate\Contracts\Foundation\Application;
  */
 class TextRequest implements QueueableRequest
 {
+    use ConvertsResultToChunks;
     use HasMeta;
     use HasMiddleware;
     use HasQueueDispatch;
@@ -203,7 +205,16 @@ class TextRequest implements QueueableRequest
 
         try {
             if ($this->hasTools()) {
-                $response = $this->executeWithTools();
+                $result = $this->executeWithTools();
+                $response = new TextResponse(
+                    text: $result->text,
+                    usage: $result->usage,
+                    finishReason: $result->finishReason,
+                    toolCalls: $result->allToolCalls(),
+                    reasoning: $result->reasoning,
+                    steps: $result->steps,
+                    meta: $result->meta,
+                );
             } else {
                 $driver = $this->resolveDriver();
                 $this->ensureCapability($driver, 'text');
@@ -232,14 +243,17 @@ class TextRequest implements QueueableRequest
         event(new ModalityStarted(modality: Modality::Stream, provider: $provider, model: $model));
 
         try {
-            if ($this->hasTools()) {
-                throw new AtlasException('Streaming with tools is not yet supported. Use asText() for tool-enabled requests.');
+            if ($this->tools !== []) {
+                // Atlas tools require the executor loop — stream the result
+                $result = $this->executeWithTools();
+                $response = new StreamResponse($this->resultToChunks($result));
+            } else {
+                // No Atlas tools — stream directly from the provider
+                // (provider tools are handled server-side in the stream)
+                $driver = $this->resolveDriver();
+                $this->ensureCapability($driver, 'stream');
+                $response = $driver->stream($this->buildRequest());
             }
-
-            $driver = $this->resolveDriver();
-            $this->ensureCapability($driver, 'stream');
-
-            $response = $driver->stream($this->buildRequest());
         } catch (\Throwable $e) {
             event(new ModalityCompleted(modality: Modality::Stream, provider: $provider, model: $model));
 
@@ -287,7 +301,7 @@ class TextRequest implements QueueableRequest
         return $this->tools !== [] || $this->providerTools !== [];
     }
 
-    protected function executeWithTools(): TextResponse
+    protected function executeWithTools(): ExecutorResult
     {
         $resolvedTools = $this->resolveTools();
 
@@ -309,22 +323,12 @@ class TextRequest implements QueueableRequest
 
         $request = $this->buildRequestWithTools($resolvedTools);
 
-        $result = $executor->execute(
+        return $executor->execute(
             request: $request,
             maxSteps: $this->maxSteps,
             concurrent: $this->concurrent,
             meta: $this->meta,
             agentKey: null,
-        );
-
-        return new TextResponse(
-            text: $result->text,
-            usage: $result->usage,
-            finishReason: $result->finishReason,
-            toolCalls: $result->allToolCalls(),
-            reasoning: $result->reasoning,
-            steps: $result->steps,
-            meta: $result->meta,
         );
     }
 

@@ -83,8 +83,8 @@ class SupportAgent extends Agent
 
 ```php
 $response = Atlas::agent('support')
-    ->message('Where is my order?')
     ->withVariables(['company' => 'Acme'])
+    ->message('Where is my order?')
     ->asText();
 ```
 

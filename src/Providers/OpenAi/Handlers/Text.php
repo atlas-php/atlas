@@ -13,13 +13,13 @@ use Atlasphp\Atlas\Providers\OpenAi\MediaResolver;
 use Atlasphp\Atlas\Providers\OpenAi\ResponseParser;
 use Atlasphp\Atlas\Providers\OpenAi\ToolMapper;
 use Atlasphp\Atlas\Providers\ProviderConfig;
+use Atlasphp\Atlas\Providers\SseParser;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\StreamChunk;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Generator;
-use Psr\Http\Message\StreamInterface;
 
 /**
  * OpenAI text handler using the Responses API.
@@ -152,41 +152,8 @@ class Text implements TextHandler
      */
     protected function parseSSE(mixed $rawResponse): Generator
     {
-        /** @var StreamInterface $body */
-        $body = $rawResponse->getBody();
-        $buffer = '';
-        $currentEvent = '';
-
-        while (! $body->eof()) {
-            $buffer .= $body->read(8192);
-
-            while (($pos = strpos($buffer, "\n\n")) !== false) {
-                $raw = substr($buffer, 0, $pos);
-                $buffer = substr($buffer, $pos + 2);
-
-                foreach (explode("\n", $raw) as $line) {
-                    if (str_starts_with($line, 'event: ')) {
-                        $currentEvent = substr($line, 7);
-                    } elseif (str_starts_with($line, 'data: ')) {
-                        $json = substr($line, 6);
-
-                        if ($json === '[DONE]') {
-                            return;
-                        }
-
-                        $data = json_decode($json, true);
-
-                        if ($data !== null) {
-                            yield $this->parser->parseStreamChunk([
-                                'event' => $currentEvent,
-                                'data' => $data,
-                            ]);
-                        }
-                    }
-                }
-
-                $currentEvent = '';
-            }
+        foreach (SseParser::parse($rawResponse) as $event) {
+            yield $this->parser->parseStreamChunk($event);
         }
     }
 }

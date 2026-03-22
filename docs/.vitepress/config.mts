@@ -32,12 +32,13 @@ export default defineConfig({
                 ]
             },
             {
-                text: 'Core Concepts',
+                text: 'Features',
                 items: [
                     { text: 'Agents', link: '/core-concepts/agents' },
                     { text: 'Tools', link: '/core-concepts/tools' },
-                    { text: 'System Prompts', link: '/core-concepts/system-prompts' },
-                    { text: 'Pipelines', link: '/core-concepts/pipelines' },
+                    { text: 'Instructions', link: '/core-concepts/instructions' },
+                    { text: 'Schema', link: '/core-concepts/schema' },
+                    { text: 'Middleware', link: '/core-concepts/pipelines' },
                 ]
             },
             {

@@ -7,6 +7,7 @@ use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Events\StreamChunkReceived;
 use Atlasphp\Atlas\Events\StreamCompleted;
 use Atlasphp\Atlas\Events\StreamStarted;
+use Atlasphp\Atlas\Events\StreamThinkingReceived;
 use Atlasphp\Atlas\Events\StreamToolCallReceived;
 use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Responses\StreamChunk;
@@ -64,6 +65,26 @@ it('broadcasts StreamToolCallReceived for tool call chunks', function () {
 
     Event::assertDispatched(StreamToolCallReceived::class, function ($event) {
         return $event->toolCalls[0]['name'] === 'search';
+    });
+});
+
+it('broadcasts StreamThinkingReceived for thinking chunks', function () {
+    Event::fake();
+
+    $stream = new StreamResponse((function () {
+        yield new StreamChunk(ChunkType::Thinking, reasoning: 'Let me reason...');
+        yield new StreamChunk(ChunkType::Text, text: 'Answer');
+        yield new StreamChunk(ChunkType::Done);
+    })());
+
+    $stream->broadcastOn(new Channel('chat.1'));
+
+    foreach ($stream as $chunk) {
+        // consume
+    }
+
+    Event::assertDispatched(StreamThinkingReceived::class, function ($event) {
+        return $event->text === 'Let me reason...';
     });
 });
 

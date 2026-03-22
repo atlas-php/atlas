@@ -125,3 +125,26 @@ it('then returns $this for chaining', function () {
 
     expect($result)->toBe($stream);
 });
+
+it('multiple then callbacks fire in order', function () {
+    $stream = new StreamResponse((function () {
+        yield new StreamChunk(ChunkType::Text, text: 'Hello');
+        yield new StreamChunk(ChunkType::Done);
+    })());
+
+    $order = [];
+
+    $stream->then(function () use (&$order) {
+        $order[] = 'first';
+    });
+
+    $stream->then(function () use (&$order) {
+        $order[] = 'second';
+    });
+
+    foreach ($stream as $chunk) {
+        // consume
+    }
+
+    expect($order)->toBe(['first', 'second']);
+});

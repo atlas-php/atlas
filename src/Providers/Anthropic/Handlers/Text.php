@@ -13,6 +13,7 @@ use Atlasphp\Atlas\Providers\Anthropic\ToolMapper;
 use Atlasphp\Atlas\Providers\Handlers\TextHandler;
 use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderConfig;
+use Atlasphp\Atlas\Providers\SseParser;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\StreamChunk;
 use Atlasphp\Atlas\Responses\StreamResponse;
@@ -20,7 +21,6 @@ use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\Usage;
 use Generator;
-use Psr\Http\Message\StreamInterface;
 
 /**
  * Anthropic text handler using the Messages API.
@@ -142,127 +142,94 @@ class Text implements TextHandler
      */
     protected function parseSSE(mixed $rawResponse): Generator
     {
-        /** @var StreamInterface $body */
-        $body = $rawResponse->getBody();
-        $buffer = '';
-        $currentEvent = '';
-
         /** @var array<int, array{id: string, name: string, json: string}> $toolBlocks */
         $toolBlocks = [];
 
         // Input tokens arrive in message_start, output tokens in message_delta.
         // Stash input count here so the Done chunk has the full picture.
-        // If message_start is missing (e.g. reconnect), defaults to 0.
         $stashedInputTokens = 0;
 
-        while (! $body->eof()) {
-            $buffer .= $body->read(8192);
+        foreach (SseParser::parse($rawResponse) as ['event' => $event, 'data' => $data]) {
+            // Capture input tokens from message_start (not in message_delta)
+            if ($event === 'message_start') {
+                $stashedInputTokens = (int) ($data['message']['usage']['input_tokens'] ?? 0);
 
-            while (($pos = strpos($buffer, "\n\n")) !== false) {
-                $raw = substr($buffer, 0, $pos);
-                $buffer = substr($buffer, $pos + 2);
+                continue;
+            }
 
-                foreach (explode("\n", $raw) as $line) {
-                    if (str_starts_with($line, 'event: ')) {
-                        $currentEvent = substr($line, 7);
-                    } elseif (str_starts_with($line, 'data: ')) {
-                        $json = substr($line, 6);
+            // Track tool_use block starts
+            if ($event === 'content_block_start') {
+                $block = $data['content_block'] ?? [];
 
-                        if ($json === '[DONE]') {
-                            return;
-                        }
-
-                        $data = json_decode($json, true);
-
-                        if ($data === null) {
-                            continue;
-                        }
-
-                        // Capture input tokens from message_start (not in message_delta)
-                        if ($currentEvent === 'message_start') {
-                            $stashedInputTokens = (int) ($data['message']['usage']['input_tokens'] ?? 0);
-
-                            continue;
-                        }
-
-                        // Track tool_use block starts
-                        if ($currentEvent === 'content_block_start') {
-                            $block = $data['content_block'] ?? [];
-
-                            if (($block['type'] ?? '') === 'tool_use') {
-                                $index = $data['index'] ?? 0;
-                                $toolBlocks[$index] = [
-                                    'id' => $block['id'] ?? '',
-                                    'name' => $block['name'] ?? '',
-                                    'json' => '',
-                                ];
-                            }
-
-                            continue;
-                        }
-
-                        // Accumulate tool call JSON
-                        if ($currentEvent === 'content_block_delta') {
-                            $delta = $data['delta'] ?? [];
-
-                            if (($delta['type'] ?? '') === 'input_json_delta') {
-                                $index = $data['index'] ?? 0;
-
-                                if (isset($toolBlocks[$index])) {
-                                    $toolBlocks[$index]['json'] .= $delta['partial_json'] ?? '';
-                                }
-
-                                continue;
-                            }
-                        }
-
-                        // Emit Done chunk with full usage on message_delta
-                        if ($currentEvent === 'message_delta') {
-                            $delta = $data['delta'] ?? [];
-                            $usage = $data['usage'] ?? [];
-
-                            yield new StreamChunk(
-                                type: ChunkType::Done,
-                                usage: $usage !== [] ? new Usage(
-                                    inputTokens: $stashedInputTokens,
-                                    outputTokens: (int) ($usage['output_tokens'] ?? 0),
-                                ) : null,
-                                finishReason: isset($delta['stop_reason'])
-                                    ? $this->parser->parseFinishReason(['stop_reason' => $delta['stop_reason']])
-                                    : null,
-                            );
-
-                            continue;
-                        }
-
-                        // Emit completed tool call on block stop
-                        if ($currentEvent === 'content_block_stop') {
-                            $index = $data['index'] ?? 0;
-
-                            if (isset($toolBlocks[$index])) {
-                                $block = $toolBlocks[$index];
-                                $arguments = json_decode($block['json'], true) ?? [];
-
-                                yield new StreamChunk(
-                                    type: ChunkType::ToolCall,
-                                    toolCalls: [new ToolCall($block['id'], $block['name'], $arguments)],
-                                );
-
-                                unset($toolBlocks[$index]);
-
-                                continue;
-                            }
-                        }
-
-                        yield $this->parser->parseStreamChunk([
-                            'event' => $currentEvent,
-                            'data' => $data,
-                        ]);
-                    }
+                if (($block['type'] ?? '') === 'tool_use') {
+                    $index = $data['index'] ?? 0;
+                    $toolBlocks[$index] = [
+                        'id' => $block['id'] ?? '',
+                        'name' => $block['name'] ?? '',
+                        'json' => '',
+                    ];
                 }
 
-                $currentEvent = '';
+                continue;
             }
+
+            // Accumulate tool call JSON
+            if ($event === 'content_block_delta') {
+                $delta = $data['delta'] ?? [];
+
+                if (($delta['type'] ?? '') === 'input_json_delta') {
+                    $index = $data['index'] ?? 0;
+
+                    if (isset($toolBlocks[$index])) {
+                        $toolBlocks[$index]['json'] .= $delta['partial_json'] ?? '';
+                    }
+
+                    continue;
+                }
+            }
+
+            // Emit Done chunk with full usage on message_delta
+            if ($event === 'message_delta') {
+                $delta = $data['delta'] ?? [];
+                $usage = $data['usage'] ?? [];
+
+                yield new StreamChunk(
+                    type: ChunkType::Done,
+                    usage: $usage !== [] ? new Usage(
+                        inputTokens: $stashedInputTokens,
+                        outputTokens: (int) ($usage['output_tokens'] ?? 0),
+                    ) : null,
+                    finishReason: isset($delta['stop_reason'])
+                        ? $this->parser->parseFinishReason(['stop_reason' => $delta['stop_reason']])
+                        : null,
+                );
+
+                continue;
+            }
+
+            // Emit completed tool call on block stop
+            if ($event === 'content_block_stop') {
+                $index = $data['index'] ?? 0;
+
+                if (isset($toolBlocks[$index])) {
+                    $block = $toolBlocks[$index];
+                    $arguments = json_decode($block['json'], true) ?? [];
+
+                    yield new StreamChunk(
+                        type: ChunkType::ToolCall,
+                        toolCalls: [new ToolCall($block['id'], $block['name'], $arguments)],
+                    );
+
+                    unset($toolBlocks[$index]);
+
+                    continue;
+                }
+            }
+
+            yield $this->parser->parseStreamChunk([
+                'event' => $event,
+                'data' => $data,
+            ]);
         }
     }
 

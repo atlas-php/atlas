@@ -16,8 +16,8 @@ class SupportAgent extends Agent
 
 // Use anywhere
 $response = Atlas::agent('support')
-    ->message('I need help with my order')
     ->withVariables(['user_name' => 'Sarah'])
+    ->message('I need help with my order')
     ->asText();
 
 $response->text;       // Generated text

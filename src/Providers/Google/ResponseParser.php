@@ -142,6 +142,17 @@ class ResponseParser implements ResponseParserContract
             }
 
             if (isset($part['text'])) {
+                // If this is the final chunk (has finishReason), mark it as Done
+                // so StreamResponse can capture usage and finishReason.
+                if ($finishReason !== null) {
+                    return new StreamChunk(
+                        type: ChunkType::Done,
+                        text: $part['text'],
+                        usage: $usage,
+                        finishReason: $this->parseFinishReason($data),
+                    );
+                }
+
                 return new StreamChunk(
                     type: ChunkType::Text,
                     text: $part['text'],
@@ -154,6 +165,7 @@ class ResponseParser implements ResponseParserContract
             return new StreamChunk(
                 type: ChunkType::Done,
                 usage: $usage,
+                finishReason: $this->parseFinishReason($data),
             );
         }
 

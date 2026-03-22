@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Enums\Provider;
-use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
+use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Pending\TextRequest;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
@@ -18,6 +18,8 @@ use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\Usage;
 use Atlasphp\Atlas\Schema\Schema;
+use Atlasphp\Atlas\Testing\StreamResponseFake;
+use Atlasphp\Atlas\Testing\TextResponseFake;
 use Atlasphp\Atlas\Tools\Tool;
 
 function createTextPending(
@@ -296,7 +298,11 @@ it('hasTools is true when only providerTools are set', function () {
     expect($result->text)->toBe('provider tool response');
 });
 
-it('throws AtlasException when streaming with tools', function () {
+it('asStream with tools returns StreamResponse via executor', function () {
+    Atlas::fake([
+        TextResponseFake::make()->withText('tool result'),
+    ]);
+
     $tool = new class extends Tool
     {
         public function name(): string
@@ -315,12 +321,20 @@ it('throws AtlasException when streaming with tools', function () {
         }
     };
 
-    createTextPending()->withTools([$tool])->asStream();
-})->throws(AtlasException::class, 'Streaming with tools is not yet supported');
+    $response = Atlas::text('openai', 'gpt-4o')->withTools([$tool])->asStream();
 
-it('throws AtlasException when streaming with provider tools', function () {
-    createTextPending()->withProviderTools([new WebSearch])->asStream();
-})->throws(AtlasException::class, 'Streaming with tools is not yet supported');
+    expect($response)->toBeInstanceOf(StreamResponse::class);
+});
+
+it('asStream with provider tools returns StreamResponse', function () {
+    Atlas::fake([
+        StreamResponseFake::make()->withText('streamed'),
+    ]);
+
+    $response = Atlas::text('openai', 'gpt-4o')->withProviderTools([new WebSearch])->asStream();
+
+    expect($response)->toBeInstanceOf(StreamResponse::class);
+});
 
 it('resolves tool class strings from the container', function () {
     $toolClass = get_class(new class extends Tool

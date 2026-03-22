@@ -9,7 +9,6 @@ use Atlasphp\Atlas\Agents\AgentRegistry;
 use Atlasphp\Atlas\Concerns\HasQueueDispatch;
 use Atlasphp\Atlas\Concerns\HasVariables;
 use Atlasphp\Atlas\Concerns\NormalizesMessages;
-use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Events\ModalityCompleted;
@@ -32,7 +31,6 @@ use Atlasphp\Atlas\Providers\Tools\ProviderTool;
 use Atlasphp\Atlas\Queue\PendingExecution;
 use Atlasphp\Atlas\Queue\QueueableRequest;
 use Atlasphp\Atlas\Requests\TextRequest;
-use Atlasphp\Atlas\Responses\StreamChunk;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
@@ -52,6 +50,7 @@ use Illuminate\Database\Eloquent\Model;
  */
 class AgentRequest implements QueueableRequest
 {
+    use Concerns\ConvertsResultToChunks;
     use HasMeta;
     use HasMiddleware;
     use HasQueueDispatch;
@@ -689,35 +688,6 @@ class AgentRequest implements QueueableRequest
             $context,
             $middleware,
             fn (AgentContext $ctx) => $destination($ctx),
-        );
-    }
-
-    /**
-     * Convert an ExecutorResult into a generator of StreamChunks.
-     *
-     * Yields the text in small segments to simulate streaming for tool-based
-     * agent executions. Each segment is broadcast as a StreamChunkReceived
-     * event, giving the UI a word-by-word typing effect.
-     */
-    protected function resultToChunks(ExecutorResult $result): \Generator
-    {
-        if ($result->text !== '') {
-            // Split on word boundaries, preserving whitespace
-            $segments = preg_split('/(?<=\s)/', $result->text, -1, PREG_SPLIT_NO_EMPTY) ?: [$result->text];
-
-            foreach ($segments as $segment) {
-                yield new StreamChunk(
-                    type: ChunkType::Text,
-                    text: $segment,
-                );
-
-                // Small delay between chunks for visual effect
-                usleep(15_000);
-            }
-        }
-
-        yield new StreamChunk(
-            type: ChunkType::Done,
         );
     }
 

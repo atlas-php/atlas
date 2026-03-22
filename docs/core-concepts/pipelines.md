@@ -1,147 +1,48 @@
-# Pipelines
+# Middleware
 
-Pipelines provide a middleware system for extending Atlas and Prism without modifying core code. Add logging, authentication, metrics, and more through composable handlers.
+Atlas uses a four-layer middleware system for observability, authentication, rate limiting, and custom logic. Middleware follows the standard Laravel pipeline pattern -- implement a `handle` method that receives a context object and a `$next` closure.
 
-::: tip Extending Prism
-Atlas pipelines are designed to extend Prism's capabilities. Since Atlas wraps Prism, pipelines give you hooks into all Prism operations (text generation, embeddings, images, audio, and moderation) allowing you to add observability, validation, and custom logic around any AI operation.
-:::
-
-## How Pipelines Work
-
-Pipelines intercept key operations and allow you to:
-- Execute code before/after operations
-- Modify data flowing through the system
-- Short-circuit execution with custom responses
-- Add cross-cutting concerns like logging
-
-## Available Pipelines
-
-### Agent Pipelines
+## Four Layers
 
 <div class="full-width-table">
 
-| Pipeline | Trigger |
-|----------|---------|
-| `agent.before_execute` | Before agent execution starts |
-| `agent.context.validate` | After before_execute, before building the request (validate/modify context) |
-| `agent.tools.merged` | After all tools are merged, before sending to Prism (filter/audit/inject tools) |
-| `agent.after_execute` | After agent execution completes |
-| `agent.stream.after` | After streaming completes (success or error) |
-| `agent.system_prompt.before_build` | Before building system prompt |
-| `agent.system_prompt.after_build` | After building system prompt |
-| `agent.on_error` | When agent execution fails (supports recovery responses) |
+| Layer | Wraps | Context Object | Config Key |
+|-------|-------|----------------|------------|
+| Agent | Entire agent execution | `AgentContext` | `atlas.middleware.agent` |
+| Step | Each round trip in the tool loop | `StepContext` | `atlas.middleware.step` |
+| Tool | Each individual tool execution | `ToolContext` | `atlas.middleware.tool` |
+| Provider | Every HTTP call to a provider | `ProviderContext` | `atlas.middleware.provider` |
 
 </div>
 
-### Tool Pipelines
+```
+Agent middleware
+  └─ Step middleware (per round trip)
+       ├─ Tool middleware (per tool call)
+       └─ Provider middleware (per HTTP request)
+```
 
-<div class="full-width-table">
+## Writing Middleware
 
-| Pipeline | Trigger |
-|----------|---------|
-| `tool.before_resolve` | Before tools are built for an agent (filter/modify tool list) |
-| `tool.after_resolve` | After tools are built, before execution (audit/modify Prism tools) |
-| `tool.before_execute` | Before tool execution |
-| `tool.after_execute` | After tool execution |
-| `tool.on_error` | When tool execution fails |
-
-</div>
-
-### Text Pipelines
-
-<div class="full-width-table">
-
-| Pipeline | Trigger |
-|----------|---------|
-| `text.before_text` | Before text generation |
-| `text.after_text` | After text generation |
-| `text.before_stream` | Before streaming starts |
-| `text.after_stream` | After streaming completes |
-
-</div>
-
-### Structured Pipelines
-
-<div class="full-width-table">
-
-| Pipeline | Trigger |
-|----------|---------|
-| `structured.before_structured` | Before structured output generation |
-| `structured.after_structured` | After structured output generation |
-
-</div>
-
-### Embeddings Pipelines
-
-<div class="full-width-table">
-
-| Pipeline | Trigger |
-|----------|---------|
-| `embeddings.before_embeddings` | Before generating embeddings |
-| `embeddings.after_embeddings` | After generating embeddings |
-
-</div>
-
-### Image Pipelines
-
-<div class="full-width-table">
-
-| Pipeline | Trigger |
-|----------|---------|
-| `image.before_generate` | Before generating an image |
-| `image.after_generate` | After generating an image |
-
-</div>
-
-### Audio Pipelines
-
-<div class="full-width-table">
-
-| Pipeline | Trigger |
-|----------|---------|
-| `audio.before_audio` | Before text-to-speech conversion |
-| `audio.after_audio` | After text-to-speech conversion |
-| `audio.before_text` | Before speech-to-text transcription |
-| `audio.after_text` | After speech-to-text transcription |
-
-</div>
-
-### Moderation Pipelines
-
-<div class="full-width-table">
-
-| Pipeline | Trigger |
-|----------|---------|
-| `moderation.before_moderation` | Before content moderation |
-| `moderation.after_moderation` | After content moderation |
-
-</div>
-
-## Creating a Handler
-
-Pipeline handlers must implement `PipelineContract`:
+Middleware receives a typed context object and a `$next` closure. Call `$next($context)` to continue the pipeline:
 
 ```php
-use Atlasphp\Atlas\Contracts\PipelineContract;
+use Atlasphp\Atlas\Middleware\AgentContext;
 use Closure;
-use Illuminate\Support\Facades\Log;
 
-class LogAgentExecution implements PipelineContract
+class LogAgentExecution
 {
-    public function handle(mixed $data, Closure $next): mixed
+    public function handle(AgentContext $context, Closure $next): mixed
     {
-        // Before execution
-        Log::info('Agent execution started', [
-            'agent' => $data['agent']->key(),
-            'input_length' => strlen($data['input']),
+        Log::info('Agent starting', [
+            'agent' => $context->agent?->key(),
+            'meta' => $context->meta,
         ]);
 
-        // Continue pipeline
-        $result = $next($data);
+        $result = $next($context);
 
-        // After execution (for agent.after_execute, $result contains 'response')
-        Log::info('Agent execution completed', [
-            'agent' => $data['agent']->key(),
+        Log::info('Agent completed', [
+            'agent' => $context->agent?->key(),
         ]);
 
         return $result;
@@ -149,966 +50,232 @@ class LogAgentExecution implements PipelineContract
 }
 ```
 
-## Registering Handlers
+## Context Objects
 
-Register handlers in a service provider:
+Each middleware layer receives a dedicated context object with the data relevant to that scope.
 
-```php
-use Atlasphp\Atlas\Pipelines\PipelineRegistry;
+### AgentContext
 
-public function boot(): void
-{
-    $registry = app(PipelineRegistry::class);
-
-    $registry->register(
-        'agent.after_execute',
-        LogAgentExecution::class,
-        priority: 100,
-    );
-}
-```
-
-### Using Instances
-
-You can also register handler instances directly:
+Wraps the entire agent execution from first message to final result.
 
 ```php
-$registry->register('agent.after_execute', new AuditLogHandler(), priority: 50);
+use Atlasphp\Atlas\Middleware\AgentContext;
 ```
 
-### Defining Pipelines
+| Property | Type | Description |
+|----------|------|-------------|
+| `request` | `TextRequest` | The pending text request (mutable) |
+| `agent` | `?Agent` | The agent instance, `null` for direct calls |
+| `messages` | `array` | Conversation message history |
+| `tools` | `array` | Resolved tool instances |
+| `meta` | `array` | Metadata from `withMeta()` |
 
-Optionally define pipelines with metadata:
+### StepContext
+
+Wraps each round trip in the executor's tool call loop.
 
 ```php
-$registry->define('agent.before_execute', 'Runs before agent execution', active: true);
+use Atlasphp\Atlas\Middleware\StepContext;
 ```
 
-### Conditional Execution
+| Property | Type | Description |
+|----------|------|-------------|
+| `stepNumber` | `int` | Current step number (1-based) |
+| `request` | `TextRequest` | The request for this step (mutable) |
+| `accumulatedUsage` | `Usage` | Token usage from all prior completed steps |
+| `previousSteps` | `array` | Array of completed `Step` objects |
+| `meta` | `array` | Metadata from the executor |
+| `agentKey` | `?string` | Key of the executing agent |
 
-Register handlers that only run when a condition is met:
+### ToolContext
+
+Wraps each individual tool execution.
 
 ```php
-$registry->registerWhen(
-    'agent.before_execute',
-    PremiumOnlyHandler::class,
-    fn(array $data) => $data['context']->getMeta('tier') === 'premium',
-    priority: 100,
-);
+use Atlasphp\Atlas\Middleware\ToolContext;
 ```
 
-The condition callback receives the pipeline data and should return `true` if the handler should run:
+| Property | Type | Description |
+|----------|------|-------------|
+| `toolCall` | `ToolCall` | The tool call with name and arguments |
+| `meta` | `array` | Metadata from the execution context |
+| `stepNumber` | `?int` | Step in which this tool was called |
+| `agentKey` | `?string` | Key of the executing agent |
+
+### ProviderContext
+
+Wraps every HTTP call to an AI provider, across all modalities (text, image, audio, embeddings, etc.).
 
 ```php
-// Only run for specific agents
-$registry->registerWhen(
-    'agent.after_execute',
-    SpecialAgentLogger::class,
-    fn(array $data) => $data['agent']->key() === 'special-agent',
-);
-
-// Only run for authenticated users
-$registry->registerWhen(
-    'tool.before_execute',
-    AuditToolUsage::class,
-    fn(array $data) => $data['context']->getMeta('user_id') !== null,
-);
-
-// Only run for large inputs
-$registry->registerWhen(
-    'text.before_text',
-    LogLargeRequests::class,
-    fn(array $data) => strlen($data['metadata']['prompt'] ?? '') > 1000,
-);
+use Atlasphp\Atlas\Middleware\ProviderContext;
 ```
 
-Conditional handlers can be mixed with regular handlers and respect priority ordering.
-
-### Querying the Registry
-
-```php
-// Check if a pipeline has handlers
-$registry->has('agent.before_execute');
-
-// Get all registered pipeline names
-$registry->pipelines();
-
-// Get all pipeline definitions
-$registry->definitions();
-
-// Check if a pipeline is active
-$registry->active('agent.before_execute');
-```
-
-## Priority
-
-Handlers run in priority order (highest first):
-
-```php
-$registry->register('agent.after_execute', HighPriorityHandler::class, priority: 200);
-$registry->register('agent.after_execute', LowPriorityHandler::class, priority: 50);
-// HighPriorityHandler runs before LowPriorityHandler
-```
-
-## Pipeline Data
-
-Each pipeline receives specific data:
-
-### agent.before_execute
-
-```php
-[
-    'agent' => AgentContract,
-    'input' => string,
-    'context' => AgentContext,
-]
-```
-
-### agent.context.validate
-
-Runs after `agent.before_execute` but before building the system prompt or request. Use this pipeline specifically for validation and context requirements.
-
-```php
-[
-    'agent' => AgentContract,
-    'input' => string,
-    'context' => AgentContext,
-]
-```
-
-**When to use `agent.context.validate` vs `agent.before_execute`:**
-
-| Pipeline | Purpose | Examples |
-|----------|---------|----------|
-| `agent.before_execute` | General setup, observability, authentication | Logging, auth checks, rate limiting, metrics |
-| `agent.context.validate` | Validation, ensure required data exists | Require user_id, validate variables, inject defaults |
-
-Use `agent.context.validate` when you need to:
-- Validate that required metadata exists (e.g., user_id, session_id)
-- Ensure system prompt variables are present before interpolation
-- Inject default values that later handlers depend on
-- Throw early if the context is misconfigured
-
-**Example: Require User ID**
-
-```php
-class RequireUserIdHandler implements PipelineContract
-{
-    public function handle(mixed $data, Closure $next): mixed
-    {
-        $userId = $data['context']->getMeta('user_id');
-
-        if ($userId === null) {
-            throw new InvalidArgumentException(
-                'AgentContext must include user_id in metadata.'
-            );
-        }
-
-        return $next($data);
-    }
-}
-
-$registry->register('agent.context.validate', RequireUserIdHandler::class, priority: 100);
-```
-
-**Example: Inject Default Variables**
-
-```php
-class InjectDefaultsHandler implements PipelineContract
-{
-    public function handle(mixed $data, Closure $next): mixed
-    {
-        $context = $data['context'];
-
-        // Ensure timezone variable exists for system prompt
-        if (! $context->hasVariable('timezone')) {
-            $data['context'] = $context->mergeVariables([
-                'timezone' => 'UTC',
-            ]);
-        }
-
-        // Add validation timestamp to metadata
-        $data['context'] = $data['context']->mergeMetadata([
-            'validated_at' => now()->toIso8601String(),
-        ]);
-
-        return $next($data);
-    }
-}
-
-$registry->register('agent.context.validate', InjectDefaultsHandler::class, priority: 50);
-```
-
-You can modify the context by replacing it in the data array:
-
-```php
-class InjectMetadataHandler implements PipelineContract
-{
-    public function handle(mixed $data, Closure $next): mixed
-    {
-        // Modify context with injected metadata
-        $data['context'] = new AgentContext(
-            messages: $data['context']->messages,
-            variables: $data['context']->variables,
-            metadata: array_merge($data['context']->metadata, [
-                'validated_at' => now()->toIso8601String(),
-            ]),
-        );
-
-        return $next($data);
-    }
-}
-```
-
-### agent.after_execute
-
-```php
-[
-    'agent' => AgentContract,
-    'input' => string,
-    'context' => AgentContext,
-    'response' => PrismResponse|StructuredResponse,
-    'system_prompt' => ?string,
-]
-```
-
-### agent.stream.after
-
-Fires when streaming completes (whether successful or with an error). Useful for analytics, logging stream completion, and cleanup.
-
-```php
-[
-    'agent' => AgentContract,
-    'input' => string,
-    'context' => AgentContext,
-    'system_prompt' => ?string,
-    'events' => array,     // All stream events collected
-    'error' => ?Throwable, // Exception if streaming failed, null on success
-]
-```
-
-The `AgentContext` provides access to:
-- `messages` — Conversation history (may include attachments per message)
-- `variables` — System prompt variables
-- `metadata` — Execution metadata (user_id, session_id, etc.)
-- `prismMedia` — Prism media objects for current input (images, documents, audio, video)
-- `tools` — Runtime Atlas tool class names (from `withTools()`)
-- `mcpTools` — Runtime MCP Tool instances (from `withMcpTools()`)
-
-See [AgentContext Reference](#agentcontext-reference) for the complete API.
-
-### agent.system_prompt.before_build
-
-```php
-[
-    'agent' => AgentContract,
-    'context' => AgentContext,
-    'variables' => array,  // Merged global and context variables
-]
-```
-
-### agent.system_prompt.after_build
-
-```php
-[
-    'agent' => AgentContract,
-    'context' => AgentContext,
-    'prompt' => string,  // The built prompt
-]
-```
-
-### agent.tools.merged
-
-Fires after all tools from all sources are merged, before sending to Prism. Provides complete visibility into the tool set and allows filtering, auditing, or injecting tools.
-
-```php
-[
-    'agent' => AgentContract,
-    'context' => AgentContext,
-    'tool_context' => ToolContext,
-    'agent_tools' => array,      // Native Atlas tools (from tools() + withTools())
-    'agent_mcp_tools' => array,  // MCP tools (from mcpTools() + withMcpTools())
-    'tools' => array,            // Final merged array (modify this to change tools sent to Prism)
-]
-```
-
-Modify `tools` to filter, reorder, or inject tools:
-
-```php
-class FilterToolsByPermission implements PipelineContract
-{
-    public function handle(mixed $data, Closure $next): mixed
-    {
-        $userId = $data['context']->getMeta('user_id');
-        $allowedToolNames = $this->getUserAllowedTools($userId);
-
-        // Filter tools to only include allowed tools
-        $data['tools'] = array_filter(
-            $data['tools'],
-            fn ($tool) => in_array($tool->name(), $allowedToolNames)
-        );
-
-        return $next($data);
-    }
-}
-```
-
-Use individual arrays to audit tool types:
-
-```php
-class AuditToolSources implements PipelineContract
-{
-    public function handle(mixed $data, Closure $next): mixed
-    {
-        Log::info('Tools for agent execution', [
-            'agent' => $data['agent']->key(),
-            'native_tools' => count($data['agent_tools']),
-            'mcp_tools' => count($data['agent_mcp_tools']),
-            'total_tools' => count($data['tools']),
-        ]);
-
-        return $next($data);
-    }
-}
-```
-
-### tool.before_resolve
-
-Fires before tools are built for an agent. Allows filtering or modifying which tools are available.
-
-```php
-[
-    'agent' => AgentContract,
-    'tools' => array,  // Array of tool class names
-    'context' => ToolContext,
-]
-```
-
-Modify `tools` to filter which tools are available:
-
-```php
-class FilterToolsForUser implements PipelineContract
-{
-    public function handle(mixed $data, Closure $next): mixed
-    {
-        $allowedTools = $this->getUserAllowedTools($data['context']->getMeta('user_id'));
-
-        $data['tools'] = array_filter(
-            $data['tools'],
-            fn ($tool) => in_array($tool, $allowedTools)
-        );
-
-        return $next($data);
-    }
-}
-```
-
-### tool.after_resolve
-
-Fires after tools are built into Prism tool objects. Allows auditing or modifying the final tool list.
-
-```php
-[
-    'agent' => AgentContract,
-    'tools' => array,    // Original tool class names
-    'prism_tools' => array,     // Built Prism Tool objects
-    'context' => ToolContext,
-]
-```
-
-::: warning Tool Pipeline Scope
-The `tool.before_resolve` and `tool.after_resolve` pipelines only run for tools defined in the agent's `tools()` method. Runtime tools added via `withTools()` or `withMcpTools()` are **not** processed by these pipelines.
-
-To intercept **all** tools (including runtime tools), use the `agent.tools.merged` pipeline instead, which fires after all tools from all sources are combined.
-:::
-
-### tool.before_execute / tool.after_execute
-
-```php
-[
-    'tool' => ToolContract,
-    'params' => array,
-    'context' => ToolContext,
-]
-```
-
-After execute also includes:
-- `result` — The ToolResult object
-
-### agent.on_error
-
-```php
-[
-    'agent' => AgentContract,
-    'input' => string,
-    'context' => AgentContext,
-    'system_prompt' => ?string,
-    'exception' => Throwable,
-]
-```
-
-**Recovery Support:** You can return a recovery response instead of letting the exception propagate:
-
-```php
-class ErrorRecoveryHandler implements PipelineContract
-{
-    public function handle(mixed $data, Closure $next): mixed
-    {
-        // Optionally provide a recovery response
-        if ($this->shouldRecover($data['exception'])) {
-            $data['recovery'] = $this->createFallbackResponse();
-        }
-
-        return $next($data);
-    }
-
-    protected function createFallbackResponse(): PrismResponse
-    {
-        return new PrismResponse(
-            steps: collect([]),
-            text: 'I apologize, but I encountered an issue. Please try again.',
-            finishReason: FinishReason::Stop,
-            toolCalls: [],
-            toolResults: [],
-            usage: new Usage(0, 0),
-            meta: new Meta('fallback', 'fallback'),
-            messages: collect([]),
-            additionalContent: [],
-        );
-    }
-}
-```
-
-When a `recovery` key is set with a valid `PrismResponse` or `StructuredResponse`, the exception will not be thrown and the recovery response will be returned instead.
-
-::: tip Recovery Response Types
-Only `PrismResponse` (from `Prism\Prism\Text\Response`) and `StructuredResponse` (from `Prism\Prism\Structured\Response`) are accepted as recovery values. Other types will be silently ignored and the exception will be rethrown.
-:::
-
-### tool.on_error
-
-```php
-[
-    'tool' => ToolContract,
-    'params' => array,
-    'context' => ToolContext,
-    'exception' => Throwable,
-]
-```
-
-### Prism Proxy Pipelines
-
-All Prism proxy pipelines (text, structured, embeddings, image, audio, moderation) receive:
-
-```php
-[
-    'pipeline' => string,      // The module name (e.g., 'text', 'image')
-    'metadata' => array,       // Custom metadata passed via withMetadata()
-    'request' => object,       // The Prism pending request object
-]
-```
-
-After pipelines also include:
-- `response` — The Prism response object
-
-## Example: Audit Logging
-
-```php
-use Atlasphp\Atlas\Contracts\PipelineContract;
-use Closure;
-
-class AuditMiddleware implements PipelineContract
-{
-    public function handle(mixed $data, Closure $next): mixed
-    {
-        $result = $next($data);
-
-        AuditLog::create([
-            'type' => 'agent_execution',
-            'agent' => $data['agent']->key(),
-            'user_id' => $data['context']?->getMeta('user_id'),
-            'created_at' => now(),
-        ]);
-
-        return $result;
-    }
-}
-```
-
-## Example: Dynamic System Prompt
-
-```php
-use Atlasphp\Atlas\Contracts\PipelineContract;
-use Closure;
-
-class AddTimestampToPrompt implements PipelineContract
-{
-    public function handle(mixed $data, Closure $next): mixed
-    {
-        // Modify the built prompt
-        $timestamp = now()->toDateTimeString();
-        $data['prompt'] .= "\n\nCurrent time: {$timestamp}";
-
-        return $next($data);
-    }
-}
-
-$registry->register('agent.system_prompt.after_build', AddTimestampToPrompt::class);
-```
-
-## Example: Tool Rate Limiting
-
-```php
-use Atlasphp\Atlas\Contracts\PipelineContract;
-use Atlasphp\Atlas\Tools\Support\ToolResult;
-use Closure;
-use Illuminate\Support\Facades\RateLimiter;
-
-class RateLimitTools implements PipelineContract
-{
-    public function handle(mixed $data, Closure $next): mixed
-    {
-        $userId = $data['context']->getMeta('user_id');
-        $toolName = $data['tool']->name();
-        $key = "tool:{$userId}:{$toolName}";
-
-        if (RateLimiter::tooManyAttempts($key, maxAttempts: 10)) {
-            $data['result'] = ToolResult::error('Rate limit exceeded. Try again later.');
-            return $data;
-        }
-
-        RateLimiter::hit($key, decaySeconds: 60);
-
-        return $next($data);
-    }
-}
-
-$registry->register('tool.before_execute', RateLimitTools::class);
-```
-
-## Example: Authentication Check
-
-```php
-use Atlasphp\Atlas\Contracts\PipelineContract;
-use Closure;
-
-class RequireAuthentication implements PipelineContract
-{
-    public function handle(mixed $data, Closure $next): mixed
-    {
-        $userId = $data['context']?->getMeta('user_id');
-
-        if (! $userId) {
-            throw new UnauthorizedException('User must be authenticated');
-        }
-
-        return $next($data);
-    }
-}
-
-$registry->register('agent.before_execute', RequireAuthentication::class, priority: 1000);
-```
-
-## Example: Attachment Auditing
-
-Log multimodal attachments (images, documents, audio, video) for compliance and monitoring:
-
-```php
-use Atlasphp\Atlas\Contracts\PipelineContract;
-use Closure;
-
-class AuditAttachments implements PipelineContract
-{
-    public function handle(mixed $data, Closure $next): mixed
-    {
-        $context = $data['context'];
-
-        // Log current input attachments (Prism media objects)
-        if ($context?->hasAttachments()) {
-            foreach ($context->prismMedia as $media) {
-                AuditLog::create([
-                    'type' => 'attachment_sent',
-                    'media_type' => get_class($media),
-                    'user_id' => $context->getMeta('user_id'),
-                    'agent' => $data['agent']->key(),
-                    'timestamp' => now(),
-                ]);
-            }
-        }
-
-        return $next($data);
-    }
-}
-
-$registry->register('agent.before_execute', AuditAttachments::class, priority: 500);
-```
-
-See [Chat Attachments](/capabilities/chat#attachments) for complete attachment documentation.
-
-## Example: Token Usage Logging
-
-Log token usage for direct Prism text generation:
-
-```php
-use Atlasphp\Atlas\Contracts\PipelineContract;
-use Closure;
-use Illuminate\Support\Facades\Log;
-
-class LogTokenUsage implements PipelineContract
-{
-    public function handle(mixed $data, Closure $next): mixed
-    {
-        $result = $next($data);
-
-        $response = $result['response'];
-        $metadata = $data['metadata'];
-
-        Log::channel('usage')->info('Text generation completed', [
-            'user_id' => $metadata['user_id'] ?? null,
-            'prompt_tokens' => $response->usage->promptTokens,
-            'completion_tokens' => $response->usage->completionTokens,
-            'total_tokens' => $response->usage->promptTokens + $response->usage->completionTokens,
-        ]);
-
-        return $result;
-    }
-}
-
-$registry->register('text.after_text', LogTokenUsage::class);
-```
-
-Usage with metadata:
-
-```php
-$response = Atlas::text()
-    ->using('openai', 'gpt-4o')
-    ->withMetadata(['user_id' => auth()->id()])
-    ->withPrompt('Explain quantum computing')
-    ->asText();
-```
-
-## Built-in: Embedding Cache Middleware
-
-Atlas ships with `CacheEmbeddings` pipeline middleware that caches embedding responses automatically. Enable it via config — no custom code needed:
+| Property | Type | Description |
+|----------|------|-------------|
+| `provider` | `string` | Provider name (e.g. `'openai'`, `'anthropic'`) |
+| `model` | `string` | Model name (e.g. `'gpt-4o'`) |
+| `method` | `string` | Modality method (e.g. `'text'`, `'stream'`, `'image'`) |
+| `request` | `mixed` | The provider request payload (mutable) |
+| `meta` | `array` | Metadata from the request object |
+
+## Registration
+
+### Global via Config
+
+Register middleware globally in `config/atlas.php`. These run on every request at their respective layer:
 
 ```php
 // config/atlas.php
-'embeddings' => [
-    'cache' => [
-        'enabled' => true,
-        'store' => null,    // null = default cache store
-        'ttl' => 3600,
+'middleware' => [
+    'agent' => [
+        LogAgentExecution::class,
+    ],
+    'step' => [],
+    'tool' => [],
+    'provider' => [
+        RateLimitProvider::class,
     ],
 ],
 ```
 
-When enabled, the middleware is auto-registered on `embeddings.before_embeddings` with high priority (runs first). It short-circuits the pipeline when a cached response exists.
+### Per-Request
 
-Per-request overrides are supported via metadata:
-
-```php
-// Disable cache for this call
-Atlas::embeddings()
-    ->using('openai', 'text-embedding-3-small')
-    ->withMetadata(['cache' => false])
-    ->fromInput($text)
-    ->asEmbeddings();
-
-// Use explicit cache key
-Atlas::embeddings()
-    ->using('openai', 'text-embedding-3-small')
-    ->withMetadata(['cache_key' => 'product-42'])
-    ->fromInput($text)
-    ->asEmbeddings();
-```
-
-See [Embeddings — Caching](/capabilities/embeddings#caching) for full details.
-
-## Disabling Pipelines
-
-Temporarily disable a pipeline:
+Attach middleware to a single request using `withMiddleware()`:
 
 ```php
-$registry->setActive('agent.before_execute', false);
-
-// Pipeline won't run
-$response = Atlas::agent('agent')->chat('input');
-
-// Re-enable
-$registry->setActive('agent.before_execute', true);
+Atlas::text('openai', 'gpt-4o')
+    ->withMiddleware([CacheResponse::class])
+    ->message('Hello')
+    ->asText();
 ```
 
-## Runtime Middleware
+Per-request middleware runs after global middleware for that layer.
 
-Attach middleware to a single request without global registration. Runtime middleware is perfect for request-specific concerns like per-user validation, conditional logging, or on-demand auditing.
+## Built-in Middleware (Persistence)
 
-### Basic Usage
+When persistence is enabled, Atlas auto-registers middleware at each layer to track executions, steps, tool calls, and provider calls. You do not need to register these manually.
+
+<div class="full-width-table">
+
+| Middleware | Layer | Description |
+|------------|-------|-------------|
+| `TrackExecution` | Agent | Creates and tracks execution records through pending, processing, completed, and failed states |
+| `TrackStep` | Step | Records each round trip with response text, reasoning, token usage, and finish reason |
+| `TrackToolCall` | Tool | Records each tool call with its result or error and wall-clock duration |
+| `TrackProviderCall` | Provider | Tracks standalone provider calls and stores file-producing response assets |
+| `PersistConversation` | Agent | Loads conversation history before execution and stores user/assistant messages after |
+| `WireMemory` | Agent | Wires memory tools, variables, and context onto agents that use the `HasMemory` trait |
+
+</div>
+
+## Examples
+
+### Logging Middleware
 
 ```php
-Atlas::agent('my-agent')
-    ->middleware([
-        'agent.before_execute' => ValidateInputMiddleware::class,
-        'agent.after_execute' => LogResponseMiddleware::class,
-    ])
-    ->chat($input);
-```
+use Atlasphp\Atlas\Middleware\AgentContext;
+use Closure;
+use Illuminate\Support\Facades\Log;
 
-### Multiple Handlers Per Event
-
-```php
-->middleware([
-    'agent.before_execute' => [
-        AuthMiddleware::class,
-        RateLimitMiddleware::class,
-    ],
-    'agent.after_execute' => AuditMiddleware::class,
-])
-```
-
-### Handler Instances
-
-Pass configured instances instead of class names for runtime configuration:
-
-```php
-->middleware([
-    'agent.after_execute' => new MetricsMiddleware($statsd),
-])
-```
-
-### Accumulating Middleware
-
-Multiple `middleware()` calls merge handlers:
-
-```php
-->middleware(['agent.before_execute' => AuthMiddleware::class])
-->middleware(['agent.after_execute' => LogMiddleware::class])
-// Both middleware are applied
-```
-
-You can also accumulate handlers for the same event:
-
-```php
-->middleware(['agent.before_execute' => FirstHandler::class])
-->middleware(['agent.before_execute' => SecondHandler::class])
-// Both handlers run for agent.before_execute
-```
-
-### Removing Middleware
-
-Clear all runtime middleware:
-
-```php
-->withoutMiddleware()
-```
-
-### Available Events
-
-Runtime middleware can be attached to any agent pipeline event:
-
-- `agent.before_execute` — Before agent execution
-- `agent.context.validate` — Context validation
-- `agent.tools.merged` — After tools merged
-- `agent.after_execute` — After execution completes
-- `agent.stream.after` — After streaming completes
-- `agent.on_error` — Error handling (supports recovery responses)
-
-### Execution Order
-
-Runtime middleware merges with global handlers by priority:
-
-1. Global handlers run first (sorted by their registered priority)
-2. Runtime handlers run after globals (in registration order, all with priority 0)
-
-```
-Global: HandlerA (priority: 50), HandlerB (priority: 10)
-Runtime: HandlerC, HandlerD (both priority: 0)
-
-Execution order: HandlerA(50) → HandlerB(10) → HandlerC(0) → HandlerD(0)
-```
-
-This ensures global middleware (auth, rate limiting) runs before request-specific middleware.
-
-### Example: Per-Request Validation
-
-```php
-class RequireUserIdMiddleware implements PipelineContract
+class AuditAgentExecution
 {
-    public function handle(mixed $data, Closure $next): mixed
+    public function handle(AgentContext $context, Closure $next): mixed
     {
-        if ($data['context']->getMeta('user_id') === null) {
-            throw new InvalidArgumentException('user_id is required');
+        $result = $next($context);
+
+        Log::info('Agent executed', [
+            'agent' => $context->agent?->key(),
+            'user_id' => $context->meta['user_id'] ?? null,
+        ]);
+
+        return $result;
+    }
+}
+```
+
+### Rate Limiting
+
+```php
+use Atlasphp\Atlas\Middleware\ProviderContext;
+use Closure;
+use Illuminate\Support\Facades\RateLimiter;
+
+class RateLimitProvider
+{
+    public function handle(ProviderContext $context, Closure $next): mixed
+    {
+        $key = "atlas:{$context->provider}:{$context->model}";
+
+        if (RateLimiter::tooManyAttempts($key, maxAttempts: 60)) {
+            throw new \RuntimeException('Provider rate limit exceeded');
         }
 
-        return $next($data);
+        RateLimiter::hit($key, decaySeconds: 60);
+
+        return $next($context);
     }
 }
-
-// Only apply validation to specific requests
-Atlas::agent('sensitive-agent')
-    ->middleware([
-        'agent.context.validate' => new RequireUserIdMiddleware(),
-    ])
-    ->withMetadata(['user_id' => auth()->id()])
-    ->chat($input);
 ```
 
-### Example: Runtime Error Recovery
+### Cost Tracking
 
 ```php
-class FallbackRecoveryMiddleware implements PipelineContract
+use Atlasphp\Atlas\Middleware\StepContext;
+use Closure;
+
+class TrackCost
 {
-    public function handle(mixed $data, Closure $next): mixed
+    public function handle(StepContext $context, Closure $next): mixed
     {
-        // Provide a recovery response for this specific request
-        $data['recovery'] = new PrismResponse(
-            steps: collect([]),
-            text: 'Service temporarily unavailable. Please try again.',
-            finishReason: FinishReason::Stop,
-            toolCalls: [],
-            toolResults: [],
-            usage: new Usage(0, 0),
-            meta: new Meta('fallback', 'fallback'),
-            messages: collect([]),
-            additionalContent: [],
-        );
+        $result = $next($context);
 
-        return $next($data);
-    }
-}
+        $usage = $context->accumulatedUsage;
+        $userId = $context->meta['user_id'] ?? null;
 
-Atlas::agent('my-agent')
-    ->middleware([
-        'agent.on_error' => new FallbackRecoveryMiddleware(),
-    ])
-    ->chat($input);
-```
-
-### Serialization
-
-When using `AgentContext::toArray()` for queue transport, only class-string handlers are serialized. Handler instances are excluded since they cannot be serialized:
-
-```php
-$context = new AgentContext(middleware: [
-    'agent.before_execute' => [
-        ['handler' => AuthMiddleware::class, 'priority' => 0],           // Serialized
-        ['handler' => new LoggingMiddleware($logger), 'priority' => 0], // Excluded
-    ],
-]);
-
-$serialized = $context->toArray();
-// Only AuthMiddleware is included in serialized middleware
-```
-
-## AgentContext Reference
-
-The `AgentContext` object is available in most agent pipelines and provides access to the full request configuration:
-
-```php
-// Properties
-$context->messages;          // array - Conversation history (array format)
-$context->prismMessages;     // array - Conversation history (Prism message objects)
-$context->variables;         // array - System prompt variables
-$context->metadata;          // array - Execution metadata
-$context->providerOverride;  // ?string - Provider override
-$context->modelOverride;     // ?string - Model override
-$context->prismCalls;        // array - Captured Prism method calls
-$context->prismMedia;        // array - Prism media objects (Image, Document, Audio, Video)
-$context->tools;             // array - Runtime Atlas tool class names (from withTools())
-$context->mcpTools;          // array - Runtime MCP Tool instances (from withMcpTools())
-$context->middleware;        // array - Runtime middleware handlers (from middleware())
-
-// Helper methods
-$context->hasMessages(): bool;         // Has conversation history (either format)
-$context->hasPrismMessages(): bool;    // Has Prism message objects specifically
-$context->hasAttachments(): bool;      // Has media attachments for current input
-$context->hasTools(): bool;            // Has runtime Atlas tools
-$context->hasMcpTools(): bool;         // Has runtime MCP tools
-$context->hasMiddleware(): bool;       // Has runtime middleware
-$context->hasProviderOverride(): bool; // Has provider override
-$context->hasModelOverride(): bool;    // Has model override
-$context->hasPrismCalls(): bool;       // Has captured Prism calls
-$context->hasSchemaCall(): bool;       // Has withSchema() in Prism calls
-
-// Value accessors
-$context->getVariable(string $key, mixed $default = null): mixed;
-$context->getMeta(string $key, mixed $default = null): mixed;
-$context->hasVariable(string $key): bool;
-$context->hasMeta(string $key): bool;
-$context->getSchemaFromCalls(): ?Schema;
-$context->getPrismCallsWithoutSchema(): array;
-$context->getMiddlewareFor(string $event): array;   // Get middleware for pipeline event
-
-// Context manipulation (returns new instance - for pipeline modification)
-$context->withVariables(array $variables): self;   // Replace variables
-$context->mergeVariables(array $variables): self;  // Merge variables
-$context->clearVariables(): self;                  // Clear variables
-$context->withMetadata(array $metadata): self;     // Replace metadata
-$context->mergeMetadata(array $metadata): self;    // Merge metadata
-$context->clearMetadata(): self;                   // Clear metadata
-```
-
-### Example: Checking for Tools
-
-```php
-class ToolAwareHandler implements PipelineContract
-{
-    public function handle(mixed $data, Closure $next): mixed
-    {
-        $context = $data['context'];
-
-        // Check if any runtime tools are configured
-        if ($context->hasTools()) {
-            Log::info('Runtime tools added', [
-                'tools' => $context->tools,
+        if ($userId) {
+            UsageLog::create([
+                'user_id' => $userId,
+                'agent' => $context->agentKey,
+                'step' => $context->stepNumber,
+                'prompt_tokens' => $usage->promptTokens,
+                'completion_tokens' => $usage->completionTokens,
             ]);
         }
 
-        // Check if MCP tools are configured
-        if ($context->hasMcpTools()) {
-            Log::info('MCP tools added', [
-                'count' => count($context->mcpTools),
-            ]);
-        }
-
-        return $next($data);
+        return $result;
     }
 }
 ```
 
-## ToolContext Reference
-
-The `ToolContext` object is available in tool pipelines and provides access to execution metadata:
+### Tool Authorization
 
 ```php
-// Methods
-$toolContext->getMeta(string $key, mixed $default = null): mixed;
-$toolContext->hasMeta(string $key): bool;
-```
+use Atlasphp\Atlas\Middleware\ToolContext;
+use Closure;
 
-The tool context receives metadata from `AgentContext->metadata`, allowing tools to access request-level information like user IDs, session data, or feature flags.
-
-## API Reference
-
-```php
-// PipelineRegistry methods
-$registry = app(PipelineRegistry::class);
-
-$registry->define(string $pipeline, string $description, bool $active = true): void;
-$registry->register(string $pipeline, string|PipelineContract $handler, int $priority = 0): void;
-$registry->registerWhen(string $pipeline, string|PipelineContract $handler, callable $condition, int $priority = 0): void;
-$registry->has(string $pipeline): bool;
-$registry->pipelines(): array;
-$registry->definitions(): array;
-$registry->active(string $pipeline): bool;
-$registry->setActive(string $pipeline, bool $active): void;
-
-// PipelineContract interface
-interface PipelineContract
+class AuthorizeToolCall
 {
-    public function handle(mixed $data, Closure $next): mixed;
+    public function handle(ToolContext $context, Closure $next): mixed
+    {
+        $userId = $context->meta['user_id'] ?? null;
+        $toolName = $context->toolCall->name;
+
+        if (! $this->userCanUseTool($userId, $toolName)) {
+            throw new \RuntimeException("User {$userId} is not authorized to use tool {$toolName}");
+        }
+
+        return $next($context);
+    }
+
+    private function userCanUseTool(?int $userId, string $toolName): bool
+    {
+        // Your authorization logic
+        return true;
+    }
 }
 ```
 
 ## Next Steps
 
-- [Error Handling](/advanced/error-handling) — Handle pipeline errors
+- [Agents](/core-concepts/agents) -- Agent configuration
+- [Tools](/core-concepts/tools) -- Tool definitions and parameters

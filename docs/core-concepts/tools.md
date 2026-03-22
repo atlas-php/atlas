@@ -1,30 +1,20 @@
 # Tools
 
-Tools are functions that agents can invoke during execution. They connect AI agents to your application's business logic, databases, and external services.
-
-::: tip Prism Reference
-Atlas tools wrap Prism's tool system. For underlying tool concepts, schemas, and function calling details, see the [Prism Tools documentation](https://prismphp.com/core-concepts/tools-function-calling.html).
-:::
+Tools let agents call your PHP code. Define typed parameters, implement a handler, and Atlas manages the tool call loop.
 
 ::: info External Tools
 For tools from external MCP servers, see [MCP Integration](/capabilities/mcp).
 :::
 
-## What is a Tool?
+## Defining a Tool
 
-A tool defines:
-- **Name** — Unique identifier for the function
-- **Description** — What the tool does (helps the AI decide when to use it)
-- **Parameters** — Typed inputs with JSON Schema validation
-- **Handler** — The function that executes when called
+Extend the `Tool` base class and implement the four methods:
 
 ```php
-use Atlasphp\Atlas\Tools\ToolDefinition;
-use Atlasphp\Atlas\Tools\Support\ToolContext;
-use Atlasphp\Atlas\Tools\Support\ToolParameter;
-use Atlasphp\Atlas\Tools\Support\ToolResult;
+use Atlasphp\Atlas\Tools\Tool;
+use Atlasphp\Atlas\Schema\Fields\StringField;
 
-class LookupOrderTool extends ToolDefinition
+class LookupOrderTool extends Tool
 {
     public function name(): string
     {
@@ -39,922 +29,277 @@ class LookupOrderTool extends ToolDefinition
     public function parameters(): array
     {
         return [
-            ToolParameter::string('order_id', 'The order ID to look up', required: true),
+            new StringField('order_id', 'The order ID to look up'),
         ];
     }
 
-    public function handle(array $params, ToolContext $context): ToolResult
+    public function handle(array $args, array $context): mixed
     {
-        $order = Order::find($params['order_id']);
+        $order = Order::find($args['order_id']);
 
-        if (! $order) {
-            return ToolResult::error('Order not found');
-        }
-
-        return ToolResult::json([
-            'id' => $order->id,
-            'status' => $order->status,
-            'total' => $order->total,
-        ]);
+        return $order ? $order->toArray() : 'Order not found';
     }
 }
 ```
 
-## Tool Registry
+## Return Values
 
-Tools are automatically discovered and registered from your configured directory (default: `app/Tools`). Just create your tool class and it's ready to use:
+The `handle()` method can return any type. Atlas automatically serializes the return value to a string the model can read using `ToolSerializer`:
+
+| Return Type | Serialization |
+|-------------|---------------|
+| `string` | Passed through as-is |
+| `array` | JSON encoded |
+| `JsonSerializable` | JSON encoded |
+| Object with `toArray()` | Calls `toArray()`, then JSON encodes |
+| Object with `toJson()` | Calls `toJson()` |
+| `bool` | `'true'` or `'false'` |
+| `int` / `float` | Cast to string |
+| `null` | `'No result returned.'` |
+| Other objects | Cast to array, then JSON encoded |
 
 ```php
-// app/Tools/LookupOrderTool.php
-class LookupOrderTool extends ToolDefinition
-{
-    // ... tool definition
-}
-
-// Use immediately in agents - no manual registration needed
-public function tools(): array
-{
-    return [LookupOrderTool::class];
-}
+// All valid return values
+return 'Order not found';                    // string passthrough
+return $order->toArray();                    // array → JSON
+return Order::where('active', true)->get();  // Collection → toJson()
+return true;                                 // → 'true'
+return null;                                 // → 'No result returned.'
 ```
 
-Configure auto-discovery in `config/atlas.php`:
+## Parameters (Schema Fields)
+
+Define tool parameters using schema field classes from `Atlasphp\Atlas\Schema\Fields\`. All fields are **required by default** -- call `->optional()` to make them optional.
+
+### Available Field Types
 
 ```php
-'tools' => [
-    'path' => app_path('Tools'),
-    'namespace' => 'App\\Tools',
-],
-```
-
-### Manual Registration
-
-If you prefer manual control or need to register tools from other locations:
-
-```php
-use Atlasphp\Atlas\Tools\Contracts\ToolRegistryContract;
-
-$registry = app(ToolRegistryContract::class);
-
-// Register by class
-$registry->register(LookupOrderTool::class);
-
-// Register instance
-$registry->registerInstance(new LookupOrderTool());
-
-// Query tools
-$registry->has('lookup_order');
-$registry->get('lookup_order');
-$registry->all();
-$registry->only(['lookup_order', 'search']);
-```
-
-## Adding Tools to Agents
-
-Reference tools in your agent's `tools()` method:
-
-```php
-public function tools(): array
-{
-    return [
-        LookupOrderTool::class,
-        SearchProductsTool::class,
-        CalculatorTool::class,
-    ];
-}
-```
-
-## Parameter Types
-
-Atlas provides `ToolParameter` as a convenience factory for creating Prism schemas.
-
-```php
-use Atlasphp\Atlas\Tools\Support\ToolParameter;
+use Atlasphp\Atlas\Schema\Fields\StringField;
+use Atlasphp\Atlas\Schema\Fields\IntegerField;
+use Atlasphp\Atlas\Schema\Fields\NumberField;
+use Atlasphp\Atlas\Schema\Fields\BooleanField;
+use Atlasphp\Atlas\Schema\Fields\EnumField;
+use Atlasphp\Atlas\Schema\Fields\ArrayField;
+use Atlasphp\Atlas\Schema\Fields\ObjectField;
 
 public function parameters(): array
 {
     return [
-        ToolParameter::string('query', 'The search query'),
-        ToolParameter::integer('limit', 'Maximum results'),
-        ToolParameter::number('price', 'Item price'),
-        ToolParameter::boolean('include_details', 'Include full details'),
-        ToolParameter::enum('status', 'Order status', ['pending', 'shipped', 'delivered']),
+        new StringField('query', 'The search query'),
+        new IntegerField('limit', 'Maximum number of results'),
+        new NumberField('min_price', 'Minimum price filter'),
+        new BooleanField('include_details', 'Include full details'),
+        new EnumField('status', 'Order status', ['pending', 'shipped', 'delivered']),
     ];
 }
 ```
 
-### Available Types
-
-<div class="full-width-table">
-
-| Method | Description |
-|--------|-------------|
-| `ToolParameter::string($name, $description, $required)` | Text values |
-| `ToolParameter::number($name, $description, $required)` | Float/decimal values |
-| `ToolParameter::integer($name, $description, $required)` | Integer values (alias for number) |
-| `ToolParameter::boolean($name, $description, $required)` | True/false values |
-| `ToolParameter::enum($name, $description, $options, $required)` | Predefined set of options |
-| `ToolParameter::array($name, $description, $items, $required, $minItems, $maxItems)` | List of items with optional size constraints |
-| `ToolParameter::object($name, $description, $properties, $requiredFields, $allowAdditionalProperties)` | Nested object |
-
-</div>
-
-### Required Parameters
-
-By default, parameters are optional. Use `required: true` to mark required parameters:
+You can also use the `Schema` builder for a more compact syntax:
 
 ```php
-// Required
-ToolParameter::string('query', 'The search query', required: true),
+use Atlasphp\Atlas\Schema\Schema;
 
-// Optional (default)
-ToolParameter::string('notes', 'Optional notes'),
+public function parameters(): array
+{
+    return [
+        Schema::string('query', 'The search query'),
+        Schema::integer('limit', 'Maximum number of results')->optional(),
+        Schema::number('min_price', 'Minimum price filter')->optional(),
+        Schema::boolean('include_details', 'Include full details')->optional(),
+        Schema::enum('status', 'Order status', ['pending', 'shipped', 'delivered']),
+    ];
+}
 ```
 
-### Array Parameters
+### Required vs Optional
+
+Fields are required by default. Call `->optional()` to mark a field as optional:
+
+```php
+Schema::string('query', 'The search query'),              // required
+Schema::integer('limit', 'Max results')->optional(),      // optional
+```
+
+### Array Fields
 
 ```php
 // Array of strings
-ToolParameter::array('tags', 'List of tags', ToolParameter::string('tag', 'A tag'));
+ArrayField::ofStrings('tags', 'List of tags'),
+
+// Array of numbers
+ArrayField::ofNumbers('scores', 'Score values'),
 
 // Array of objects
-ToolParameter::array('items', 'Order items', ToolParameter::object('item', 'An item', [
-    ToolParameter::string('name', 'Item name'),
-    ToolParameter::number('quantity', 'Quantity'),
-]));
+ArrayField::ofObjects('items', 'Order items', function ($builder) {
+    $builder->string('name', 'Item name');
+    $builder->number('quantity', 'Quantity');
+}),
 ```
 
-### Object Parameters
+### Object Fields
 
 ```php
-ToolParameter::object('address', 'Shipping address', [
-    ToolParameter::string('street', 'Street address'),
-    ToolParameter::string('city', 'City'),
-    ToolParameter::string('zip', 'ZIP code'),
-], requiredFields: ['street', 'city', 'zip']);
+new ObjectField('address', 'Shipping address', function ($obj) {
+    $obj->string('street', 'Street address');
+    $obj->string('city', 'City');
+    $obj->string('zip', 'ZIP code');
+    $obj->string('notes', 'Delivery notes')->optional();
+}),
 ```
 
-## Using Prism Schemas Directly
+`ObjectField` supports a fluent builder with `->string()`, `->integer()`, `->number()`, `->boolean()`, `->enum()`, `->stringArray()`, `->numberArray()`, `->array()`, and `->object()` methods for defining nested properties.
 
-You can also use Prism schema classes directly instead of `ToolParameter`:
+## Dependency Injection
 
-```php
-use Prism\Prism\Schema\StringSchema;
-use Prism\Prism\Schema\NumberSchema;
-use Prism\Prism\Schema\BooleanSchema;
-use Prism\Prism\Schema\EnumSchema;
-use Prism\Prism\Schema\ArraySchema;
-use Prism\Prism\Schema\ObjectSchema;
-
-public function parameters(): array
-{
-    return [
-        new StringSchema('query', 'The search query'),
-        new NumberSchema('limit', 'Maximum results'),
-        new BooleanSchema('active', 'Is active'),
-        new EnumSchema('status', 'Status', ['pending', 'complete']),
-    ];
-}
-```
-
-## Tool Results
-
-Return results using the `ToolResult` class:
-
-### Text Result
+Tools are resolved from Laravel's container, so constructor injection works naturally:
 
 ```php
-return ToolResult::text('Operation completed successfully');
-```
-
-### JSON Result
-
-```php
-return ToolResult::json([
-    'status' => 'success',
-    'data' => $results,
-]);
-```
-
-### Error Result
-
-```php
-return ToolResult::error('Failed to process: invalid input');
-```
-
-### Accessing Results
-
-```php
-$result->toText();    // String representation (JSON encoded if array)
-$result->toArray();   // Array data, or ['text' => $data] for text results
-$result->succeeded(); // true if not an error
-$result->failed();    // true if error
-```
-
-## Tool Context
-
-Access execution metadata and the invoking agent via `ToolContext`. Metadata is passed from the agent using `withMetadata()`:
-
-```php
-// When calling the agent
-Atlas::agent('support')->withMetadata(['user_id' => 1, 'tenant_id' => 5])->chat('...');
-```
-
-```php
-// Inside your tool
-public function handle(array $params, ToolContext $context): ToolResult
-{
-    // Access the agent that invoked this tool
-    $agent = $context->getAgent();
-    $agentKey = $agent?->key();
-
-    // Get metadata passed from execution context
-    $userId = $context->getMeta('user_id');
-    $tenantId = $context->getMeta('tenant_id');
-
-    // Get with default value
-    $limit = $context->getMeta('limit', 100);
-
-    // Check if metadata exists
-    if ($context->hasMeta('session_id')) {
-        $sessionId = $context->getMeta('session_id');
-    }
-
-    // Use metadata in your logic
-    $orders = Order::where('user_id', $userId)->limit($limit)->get();
-
-    return ToolResult::json($orders);
-}
-```
-
-## Example: Tool with Dependencies
-
-Tools can use dependency injection via Laravel's container:
-
-```php
-use Atlasphp\Atlas\Tools\ToolDefinition;
-use Atlasphp\Atlas\Tools\Support\ToolContext;
-use Atlasphp\Atlas\Tools\Support\ToolParameter;
-use Atlasphp\Atlas\Tools\Support\ToolResult;
+use Atlasphp\Atlas\Tools\Tool;
 use Illuminate\Database\ConnectionInterface;
 
-class DatabaseQueryTool extends ToolDefinition
+class DatabaseQueryTool extends Tool
 {
     public function __construct(
         private ConnectionInterface $db,
     ) {}
 
-    public function name(): string
-    {
-        return 'query_database';
-    }
-
-    public function description(): string
-    {
-        return 'Query the database for records';
-    }
+    public function name(): string { return 'query_database'; }
+    public function description(): string { return 'Query the database for records'; }
 
     public function parameters(): array
     {
         return [
-            ToolParameter::string('table', 'Table name'),
-            ToolParameter::integer('limit', 'Max records', required: false),
+            Schema::string('table', 'Table name'),
+            Schema::integer('limit', 'Max records')->optional(),
         ];
     }
 
-    public function handle(array $params, ToolContext $context): ToolResult
+    public function handle(array $args, array $context): mixed
     {
-        try {
-            $results = $this->db
-                ->table($params['table'])
-                ->limit($params['limit'] ?? 100)
-                ->get();
-
-            return ToolResult::json($results->toArray());
-        } catch (\Exception $e) {
-            return ToolResult::error("Query failed: {$e->getMessage()}");
-        }
-    }
-}
-```
-
-## Example: Order Lookup Tool
-
-A tool for retrieving order details, commonly used in sales and support agents.
-
-```php
-class LookupOrderTool extends ToolDefinition
-{
-    public function name(): string { return 'lookup_order'; }
-    public function description(): string { return 'Look up order details by order ID'; }
-
-    public function parameters(): array
-    {
-        return [
-            ToolParameter::string('order_id', 'The order ID to look up', required: true),
-        ];
-    }
-
-    public function handle(array $params, ToolContext $context): ToolResult
-    {
-        $userId = $context->getMeta('user_id');
-
-        $order = Order::where('id', $params['order_id'])
-            ->where('user_id', $userId)
-            ->first();
-
-        if (! $order) {
-            return ToolResult::error('Order not found');
-        }
-
-        return ToolResult::json([
-            'id' => $order->id,
-            'status' => $order->status,
-            'total' => $order->total,
-            'items' => $order->items->count(),
-            'created_at' => $order->created_at->toDateString(),
-        ]);
-    }
-}
-```
-
-## Example: Search Knowledge Base Tool
-
-A tool for searching FAQs and help articles, useful for customer service agents.
-
-```php
-class SearchKnowledgeBaseTool extends ToolDefinition
-{
-    public function __construct(private KnowledgeBaseService $kb) {}
-
-    public function name(): string { return 'search_knowledge_base'; }
-    public function description(): string { return 'Search FAQs and help articles for answers'; }
-
-    public function parameters(): array
-    {
-        return [
-            ToolParameter::string('query', 'The search query'),
-            ToolParameter::integer('limit', 'Maximum results to return', required: false),
-        ];
-    }
-
-    public function handle(array $params, ToolContext $context): ToolResult
-    {
-        $results = $this->kb->search(
-            query: $params['query'],
-            limit: $params['limit'] ?? 5
-        );
-
-        if ($results->isEmpty()) {
-            return ToolResult::text('No articles found matching your query.');
-        }
-
-        return ToolResult::json($results->map(fn ($article) => [
-            'title' => $article->title,
-            'summary' => Str::limit($article->content, 200),
-            'url' => $article->url,
-        ])->toArray());
-    }
-}
-```
-
-## Example: Create Support Ticket Tool
-
-A tool for creating support tickets, with input validation and context awareness.
-
-```php
-class CreateTicketTool extends ToolDefinition
-{
-    public function name(): string { return 'create_ticket'; }
-    public function description(): string { return 'Create a support ticket for issues requiring follow-up'; }
-
-    public function parameters(): array
-    {
-        return [
-            ToolParameter::string('subject', 'Brief description of the issue'),
-            ToolParameter::string('description', 'Detailed description of the problem'),
-            ToolParameter::enum('priority', 'Ticket priority', ['low', 'medium', 'high']),
-            ToolParameter::string('category', 'Issue category', required: false),
-        ];
-    }
-
-    public function handle(array $params, ToolContext $context): ToolResult
-    {
-        $userId = $context->getMeta('user_id');
-
-        if (! $userId) {
-            return ToolResult::error('User authentication required');
-        }
-
-        $ticket = Ticket::create([
-            'user_id' => $userId,
-            'subject' => $params['subject'],
-            'description' => $params['description'],
-            'priority' => $params['priority'],
-            'category' => $params['category'] ?? 'general',
-            'status' => 'open',
-        ]);
-
-        return ToolResult::json([
-            'ticket_id' => $ticket->id,
-            'message' => "Ticket #{$ticket->id} created successfully",
-        ]);
-    }
-}
-```
-
-## Example: Send Notification Tool
-
-A tool for sending notifications via multiple channels.
-
-```php
-class SendNotificationTool extends ToolDefinition
-{
-    public function name(): string { return 'send_notification'; }
-    public function description(): string { return 'Send a notification to the user via email or SMS'; }
-
-    public function parameters(): array
-    {
-        return [
-            ToolParameter::enum('channel', 'Notification channel', ['email', 'sms']),
-            ToolParameter::string('subject', 'Notification subject (email only)', required: false),
-            ToolParameter::string('message', 'The notification message'),
-        ];
-    }
-
-    public function handle(array $params, ToolContext $context): ToolResult
-    {
-        $user = User::find($context->getMeta('user_id'));
-
-        if (! $user) {
-            return ToolResult::error('User not found');
-        }
-
-        match ($params['channel']) {
-            'email' => $user->notify(new GenericEmailNotification(
-                subject: $params['subject'] ?? 'Notification',
-                message: $params['message']
-            )),
-            'sms' => $user->notify(new SmsNotification($params['message'])),
-        };
-
-        return ToolResult::text("Notification sent via {$params['channel']}");
-    }
-}
-```
-
-## Example: Agent Delegation Tools
-
-Build a delegation system where an orchestrator agent can list available agents and delegate tasks to specialized agents. This pattern is useful for building multi-agent systems where a coordinator routes requests to the most appropriate specialist.
-
-### ListAgentsTool
-
-Lists all registered agents so the AI can decide which agent to delegate to:
-
-```php
-use Atlasphp\Atlas\Agents\Contracts\AgentRegistryContract;
-use Atlasphp\Atlas\Tools\ToolDefinition;
-use Atlasphp\Atlas\Tools\Support\ToolContext;
-use Atlasphp\Atlas\Tools\Support\ToolResult;
-
-class ListAgentsTool extends ToolDefinition
-{
-    public function __construct(
-        private AgentRegistryContract $agentRegistry,
-    ) {}
-
-    public function name(): string
-    {
-        return 'list_agents';
-    }
-
-    public function description(): string
-    {
-        return 'List all available agents that can be delegated to. Returns agent keys, names, and descriptions.';
-    }
-
-    public function parameters(): array
-    {
-        return [];
-    }
-
-    public function handle(array $params, ToolContext $context): ToolResult
-    {
-        $currentAgentKey = $context->getAgent()?->key();
-
-        $agents = collect($this->agentRegistry->all())
-            ->filter(fn ($agent) => $agent->key() !== $currentAgentKey) // Exclude self
-            ->map(fn ($agent) => [
-                'key' => $agent->key(),
-                'name' => $agent->name(),
-                'description' => $agent->description(),
-            ])
-            ->values()
+        return $this->db
+            ->table($args['table'])
+            ->limit($args['limit'] ?? 100)
+            ->get()
             ->toArray();
-
-        if (empty($agents)) {
-            return ToolResult::text('No other agents available for delegation.');
-        }
-
-        return ToolResult::json([
-            'agents' => $agents,
-            'count' => count($agents),
-        ]);
     }
 }
 ```
 
-### DelegateToAgentTool
+## Context
 
-Delegates a task to another agent and returns its response:
+The `$context` array in `handle()` receives metadata passed via `withMeta()`. Use it for user identity, tenant isolation, feature flags, and other request-scoped data:
 
 ```php
-use Atlasphp\Atlas\Atlas;
-use Atlasphp\Atlas\Agents\Contracts\AgentRegistryContract;
-use Atlasphp\Atlas\Tools\ToolDefinition;
-use Atlasphp\Atlas\Tools\Support\ToolContext;
-use Atlasphp\Atlas\Tools\Support\ToolParameter;
-use Atlasphp\Atlas\Tools\Support\ToolResult;
+// When calling the agent
+Atlas::agent('support')
+    ->withMeta(['user_id' => 1, 'tenant_id' => 5])
+    ->message('What is the status of my order?')
+    ->asText();
+```
 
-class DelegateToAgentTool extends ToolDefinition
+```php
+// Inside your tool
+public function handle(array $args, array $context): mixed
 {
-    public function __construct(
-        private AgentRegistryContract $agentRegistry,
-    ) {}
+    $userId = $context['user_id'] ?? null;
+    $tenantId = $context['tenant_id'] ?? null;
 
-    public function name(): string
-    {
-        return 'delegate_to_agent';
-    }
+    $order = Order::where('user_id', $userId)
+        ->where('tenant_id', $tenantId)
+        ->where('id', $args['order_id'])
+        ->first();
 
-    public function description(): string
-    {
-        return 'Delegate a task to a specialized agent. Use list_agents first to see available agents.';
-    }
-
-    public function parameters(): array
-    {
-        return [
-            ToolParameter::string('agent_key', 'The key of the agent to delegate to', required: true),
-            ToolParameter::string('task', 'The task or question to send to the agent', required: true),
-        ];
-    }
-
-    public function handle(array $params, ToolContext $context): ToolResult
-    {
-        $agentKey = $params['agent_key'];
-        $task = $params['task'];
-
-        // Verify agent exists
-        if (! $this->agentRegistry->has($agentKey)) {
-            return ToolResult::error("Agent '{$agentKey}' not found. Use list_agents to see available agents.");
-        }
-
-        // Prevent self-delegation
-        $currentAgentKey = $context->getAgent()?->key();
-        if ($agentKey === $currentAgentKey) {
-            return ToolResult::error('Cannot delegate to self. Choose a different agent.');
-        }
-
-        try {
-            // Delegate to the target agent, passing through relevant metadata
-            $response = Atlas::agent($agentKey)
-                ->withMetadata([
-                    'delegated_from' => $currentAgentKey,
-                    'user_id' => $context->getMeta('user_id'),
-                    'session_id' => $context->getMeta('session_id'),
-                ])
-                ->chat($task);
-
-            return ToolResult::json([
-                'agent' => $agentKey,
-                'response' => $response->text(),
-            ]);
-        } catch (\Exception $e) {
-            return ToolResult::error("Delegation failed: {$e->getMessage()}");
-        }
-    }
+    return $order ? $order->toArray() : 'Order not found';
 }
 ```
 
-### Orchestrator Agent
+## Using Tools with Agents
 
-Create an orchestrator agent that uses delegation tools:
+Reference tools in your agent's `tools()` method. Atlas resolves them from the container and manages the tool call loop automatically:
 
 ```php
-use Atlasphp\Atlas\Agents\AgentDefinition;
+use Atlasphp\Atlas\Agent;
 
-class OrchestratorAgent extends AgentDefinition
+class SupportAgent extends Agent
 {
-    public function key(): string
-    {
-        return 'orchestrator';
-    }
-
-    public function name(): string
-    {
-        return 'Orchestrator';
-    }
-
-    public function description(): string
-    {
-        return 'Coordinates tasks by delegating to specialized agents';
-    }
-
-    public function systemPrompt(): string
-    {
-        return <<<'PROMPT'
-            You are an orchestrator that routes requests to specialized agents.
-
-            When a user asks a question:
-            1. Use list_agents to see what specialists are available
-            2. Determine which agent is best suited for the task
-            3. Use delegate_to_agent to send the task to that agent
-            4. Return the specialist's response to the user
-
-            If no suitable agent exists, handle the request yourself.
-            PROMPT;
-    }
-
     public function tools(): array
     {
         return [
-            ListAgentsTool::class,
-            DelegateToAgentTool::class,
+            LookupOrderTool::class,
+            SearchProductsTool::class,
+            CreateTicketTool::class,
         ];
     }
+
+    // ... other agent methods
 }
 ```
 
-### Usage
+When the model decides to call a tool, Atlas executes the handler, sends the result back, and continues the conversation until the model produces a final text response.
+
+## Using Tools with Direct Calls
+
+You can also attach tools to direct (non-agent) text requests:
 
 ```php
-// The orchestrator will automatically route to the best agent
-$response = Atlas::agent('orchestrator')
-    ->withMetadata(['user_id' => auth()->id()])
-    ->chat('What is the status of order #12345?');
+use Atlasphp\Atlas\Facades\Atlas;
 
-// Orchestrator flow:
-// 1. Calls list_agents -> sees 'support-agent', 'sales-agent', etc.
-// 2. Determines 'support-agent' handles order inquiries
-// 3. Calls delegate_to_agent(agent_key: 'support-agent', task: '...')
-// 4. Returns the support agent's response
+$response = Atlas::text('openai', 'gpt-4o')
+    ->withTools([LookupOrderTool::class])
+    ->withMeta(['user_id' => auth()->id()])
+    ->message('Look up order ORD-123456')
+    ->asText();
 ```
 
-### Advanced: Filtered Agent List
+## Provider Tools
 
-You can filter which agents are available for delegation based on context:
-
-```php
-public function handle(array $params, ToolContext $context): ToolResult
-{
-    $userTier = $context->getMeta('user_tier', 'basic');
-    $currentAgentKey = $context->getAgent()?->key();
-
-    $agents = collect($this->agentRegistry->all())
-        ->filter(fn ($agent) => $agent->key() !== $currentAgentKey)
-        ->filter(function ($agent) use ($userTier) {
-            // Only show premium agents to premium users
-            $premiumAgents = ['advanced-analyst', 'priority-support'];
-            if (in_array($agent->key(), $premiumAgents)) {
-                return $userTier === 'premium';
-            }
-            return true;
-        })
-        ->map(fn ($agent) => [
-            'key' => $agent->key(),
-            'name' => $agent->name(),
-            'description' => $agent->description(),
-        ])
-        ->values()
-        ->toArray();
-
-    return ToolResult::json(['agents' => $agents]);
-}
-```
-
-## Security
-
-Tools execute real operations on behalf of users. Implement proper security measures.
-
-### Authorization
-
-Always verify the user has permission:
+Provider tools are native capabilities offered by AI providers (not your PHP code). They run server-side at the provider level. Atlas includes configuration objects for common provider tools:
 
 ```php
-public function handle(array $params, ToolContext $context): ToolResult
+use Atlasphp\Atlas\Providers\Tools\WebSearch;
+use Atlasphp\Atlas\Providers\Tools\FileSearch;
+use Atlasphp\Atlas\Providers\Tools\CodeInterpreter;
+
+// Add to a direct request
+$response = Atlas::text('openai', 'gpt-4o')
+    ->withProviderTools([
+        new WebSearch(maxResults: 5, locale: 'en-US'),
+    ])
+    ->message('What are the latest Laravel releases?')
+    ->asText();
+
+// Add to an agent
+class ResearchAgent extends Agent
 {
-    $userId = $context->getMeta('user_id');
-
-    if (! $userId) {
-        return ToolResult::error('Authentication required');
-    }
-
-    $order = Order::find($params['order_id']);
-
-    if (! $order || $order->user_id !== $userId) {
-        return ToolResult::error('Order not found');
-    }
-
-    return ToolResult::json($order);
-}
-```
-
-### Input Validation
-
-Validate inputs beyond basic parameter types:
-
-```php
-public function handle(array $params, ToolContext $context): ToolResult
-{
-    $orderId = $params['order_id'];
-
-    if (! preg_match('/^[A-Z]{2}-\d{6}$/', $orderId)) {
-        return ToolResult::error('Invalid order ID format');
-    }
-
-    if ($params['quantity'] > 100) {
-        return ToolResult::error('Quantity exceeds maximum allowed');
-    }
-
-    // Continue processing...
-}
-```
-
-### Multi-Tenant Isolation
-
-Ensure data isolation in multi-tenant applications:
-
-```php
-public function handle(array $params, ToolContext $context): ToolResult
-{
-    $tenantId = $context->getMeta('tenant_id');
-
-    if (! $tenantId) {
-        return ToolResult::error('Tenant context required');
-    }
-
-    $order = Order::where('tenant_id', $tenantId)
-        ->where('id', $params['order_id'])
-        ->first();
-
-    if (! $order) {
-        return ToolResult::error('Order not found');
-    }
-
-    return ToolResult::json($order);
-}
-```
-
-## Pipeline Hooks
-
-Tool execution supports pipeline middleware:
-
-<div class="full-width-table">
-
-| Pipeline | Trigger |
-|----------|---------|
-| `tool.before_resolve` | Before tool is resolved from registry |
-| `tool.after_resolve` | After tool is resolved, before building |
-| `tool.before_execute` | Before tool execution |
-| `tool.after_execute` | After tool execution |
-| `tool.on_error` | When tool execution fails |
-
-</div>
-
-```php
-use Atlasphp\Atlas\Contracts\PipelineContract;
-
-class LogToolExecution implements PipelineContract
-{
-    public function handle(mixed $data, Closure $next): mixed
-    {
-        $result = $next($data);
-
-        Log::info('Tool executed', [
-            'tool' => $data['tool']->name(),
-            'success' => $result['result']->succeeded(),
-        ]);
-
-        return $result;
-    }
-}
-
-$registry->register('tool.after_execute', LogToolExecution::class);
-```
-
-## Advanced Prism Configuration
-
-For advanced use cases, implement `ConfiguresPrismTool` to access the full Prism Tool API directly. This gives you control over error handling, provider options, and other Prism-specific features.
-
-```php
-use Atlasphp\Atlas\Tools\ToolDefinition;
-use Atlasphp\Atlas\Tools\Contracts\ConfiguresPrismTool;
-use Atlasphp\Atlas\Tools\Support\ToolContext;
-use Atlasphp\Atlas\Tools\Support\ToolParameter;
-use Atlasphp\Atlas\Tools\Support\ToolResult;
-use Prism\Prism\Tool as PrismTool;
-use Illuminate\Support\Facades\Log;
-
-class RiskyOperationTool extends ToolDefinition implements ConfiguresPrismTool
-{
-    public function name(): string
-    {
-        return 'risky_operation';
-    }
-
-    public function description(): string
-    {
-        return 'Performs an operation that may fail';
-    }
-
-    public function parameters(): array
+    public function providerTools(): array
     {
         return [
-            ToolParameter::string('input', 'The input data'),
+            new WebSearch,
+            new CodeInterpreter,
+            new FileSearch(stores: ['vs_abc123'], maxResults: 10),
         ];
-    }
-
-    public function handle(array $params, ToolContext $context): ToolResult
-    {
-        // Your tool logic here
-        return ToolResult::text('Operation completed');
-    }
-
-    public function configurePrismTool(PrismTool $tool): PrismTool
-    {
-        return $tool->failed(function ($error) {
-            Log::warning('Tool failed', ['error' => $error]);
-            return 'Tool encountered an error, please try again.';
-        });
     }
 }
 ```
 
-### Available Prism Tool Methods
+### Available Provider Tools
 
-The `configurePrismTool` method gives you access to:
+| Class | Type | Description |
+|-------|------|-------------|
+| `WebSearch` | `web_search` | Search the web. Options: `maxResults`, `locale` |
+| `FileSearch` | `file_search` | Search vector stores. Options: `stores`, `maxResults` |
+| `CodeInterpreter` | `code_interpreter` | Execute code in a sandbox |
 
-- `failed(callable $handler)` — Custom error handling with user-friendly messages
-- `withErrorHandling()` / `withoutErrorHandling()` — Toggle automatic error handling
-- `withProviderOptions(array $options)` — Provider-specific tool configuration
+## Artisan Command
 
-See [Prism Tools documentation](https://prismphp.com/core-concepts/tools-function-calling.html) for the full API.
+Generate a new tool class with the Artisan command:
 
-## API Reference
-
-```php
-// ToolDefinition methods (override in your tool class)
-public function name(): string;
-public function description(): string;
-public function parameters(): array;
-public function handle(array $params, ToolContext $context): ToolResult;
-
-// ToolParameter factory methods (parameters are optional by default)
-ToolParameter::string(string $name, string $description, bool $required = false);
-ToolParameter::number(string $name, string $description, bool $required = false);
-ToolParameter::integer(string $name, string $description, bool $required = false);
-ToolParameter::boolean(string $name, string $description, bool $required = false);
-ToolParameter::enum(string $name, string $description, array $options, bool $required = false);
-ToolParameter::array(string $name, string $description, Schema $items, bool $required = false, ?int $minItems = null, ?int $maxItems = null);
-ToolParameter::object(string $name, string $description, array $properties, array $requiredFields = [], bool $allowAdditionalProperties = false);
-
-// ToolResult factory methods
-ToolResult::text(string $text): ToolResult;
-ToolResult::json(array $data): ToolResult;
-ToolResult::error(string $message): ToolResult;
-
-// ToolResult instance methods
-$result->toText(): string;   // String representation (JSON encoded if array)
-$result->toArray(): array;   // Array data, or ['text' => $data] for text results
-$result->succeeded(): bool;
-$result->failed(): bool;
-
-// ToolContext methods
-$context->getAgent(): ?AgentContract;
-$context->getMeta(string $key, mixed $default = null): mixed;
-$context->hasMeta(string $key): bool;
-$context->withMetadata(array $metadata): self;   // Replace metadata (returns new instance)
-$context->mergeMetadata(array $metadata): self;  // Merge metadata (returns new instance)
-$context->clearMetadata(): self;                 // Clear metadata (returns new instance)
-
-// ToolRegistryContract methods
-$registry->register(string $class): void;
-$registry->registerInstance(ToolContract $tool): void;
-$registry->has(string $name): bool;
-$registry->get(string $name): ToolContract;
-$registry->all(): array;
-$registry->only(array $names): array;
-
-// Runtime tools on PendingAgentRequest
-->withTools(array $tools): static;  // Add tools at runtime, accumulates across calls
-
-// ConfiguresPrismTool interface (optional)
-public function configurePrismTool(PrismTool $tool): PrismTool;
+```bash
+php artisan make:tool LookupOrderTool
 ```
 
 ## Next Steps
 
-- [Agents](/core-concepts/agents) — Add tools to agents
-- [MCP](/capabilities/mcp) — External tools from MCP servers
-- [Pipelines](/core-concepts/pipelines) — Add middleware to tool execution
+- [Agents](/core-concepts/agents) -- Add tools to agents
+- [MCP](/capabilities/mcp) -- External tools from MCP servers
+- [Middleware](/core-concepts/pipelines) -- Add middleware to tool execution

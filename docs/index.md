@@ -46,7 +46,7 @@ features:
       alt: Dynamic Prompts
     title: Dynamic Prompts
     details: "Instructions with {variable} interpolation. Inject user context, session data, or custom values at runtime."
-    link: /core-concepts/system-prompts
+    link: /core-concepts/instructions
   - icon:
       src: /icons/pipeline.svg
       alt: Middleware & Events
