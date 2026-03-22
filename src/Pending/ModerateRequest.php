@@ -79,7 +79,7 @@ class ModerateRequest implements QueueableRequest
 
         $response = $driver->moderate($this->buildRequest());
 
-        event(new ModerationCompleted(modality: Modality::Moderate, provider: $this->resolveProviderKey(), model: (string) ($this->model ?? '')));
+        event(new ModerationCompleted(modality: Modality::Moderate, provider: $this->resolveProviderKey(), model: (string) ($this->model ?? ''), usage: null));
 
         return $response;
     }

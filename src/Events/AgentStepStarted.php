@@ -11,5 +11,6 @@ class AgentStepStarted
 {
     public function __construct(
         public readonly int $stepNumber,
+        public readonly ?string $agentKey = null,
     ) {}
 }

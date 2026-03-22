@@ -56,7 +56,8 @@ it('AgentStarted stores parallelToolCalls as false', function () {
 it('AgentStepStarted stores stepNumber', function () {
     $event = new AgentStepStarted(stepNumber: 3);
 
-    expect($event->stepNumber)->toBe(3);
+    expect($event->stepNumber)->toBe(3)
+        ->and($event->agentKey)->toBeNull();
 });
 
 // ─── AgentStepCompleted ────────────────────────────────────────────────────
@@ -72,7 +73,8 @@ it('AgentStepCompleted stores stepNumber, finishReason, usage', function () {
 
     expect($event->stepNumber)->toBe(2)
         ->and($event->finishReason)->toBe(FinishReason::Stop)
-        ->and($event->usage)->toBe($usage);
+        ->and($event->usage)->toBe($usage)
+        ->and($event->agentKey)->toBeNull();
 });
 
 it('AgentStepCompleted stores ToolCalls finish reason', function () {
@@ -97,14 +99,16 @@ it('AgentMaxStepsExceeded stores limit and steps', function () {
 
     expect($event->limit)->toBe(5)
         ->and($event->steps)->toBe($steps)
-        ->and($event->steps)->toHaveCount(1);
+        ->and($event->steps)->toHaveCount(1)
+        ->and($event->agentKey)->toBeNull();
 });
 
 it('AgentMaxStepsExceeded accepts empty steps array', function () {
     $event = new AgentMaxStepsExceeded(limit: 3, steps: []);
 
     expect($event->limit)->toBe(3)
-        ->and($event->steps)->toBe([]);
+        ->and($event->steps)->toBe([])
+        ->and($event->agentKey)->toBeNull();
 });
 
 // ─── AgentCompleted ────────────────────────────────────────────────────────
@@ -113,16 +117,21 @@ it('AgentCompleted stores steps', function () {
     $step = new Step(text: 'done', toolCalls: [], toolResults: [], usage: new Usage(10, 20));
     $steps = [$step];
 
-    $event = new AgentCompleted(steps: $steps);
+    $usage = new Usage(10, 20);
+    $event = new AgentCompleted(steps: $steps, usage: $usage);
 
     expect($event->steps)->toBe($steps)
-        ->and($event->steps)->toHaveCount(1);
+        ->and($event->steps)->toHaveCount(1)
+        ->and($event->usage)->toBe($usage)
+        ->and($event->agentKey)->toBeNull();
 });
 
 it('AgentCompleted accepts empty steps array', function () {
-    $event = new AgentCompleted(steps: []);
+    $event = new AgentCompleted(steps: [], usage: new Usage(0, 0), agentKey: 'test-agent');
 
-    expect($event->steps)->toBe([]);
+    expect($event->steps)->toBe([])
+        ->and($event->usage->inputTokens)->toBe(0)
+        ->and($event->agentKey)->toBe('test-agent');
 });
 
 // ─── AgentToolCallStarted ──────────────────────────────────────────────────
@@ -135,7 +144,9 @@ it('AgentToolCallStarted stores toolCall', function () {
     expect($event->toolCall)->toBe($toolCall)
         ->and($event->toolCall->id)->toBe('tc-1')
         ->and($event->toolCall->name)->toBe('search')
-        ->and($event->toolCall->arguments)->toBe(['q' => 'test']);
+        ->and($event->toolCall->arguments)->toBe(['q' => 'test'])
+        ->and($event->agentKey)->toBeNull()
+        ->and($event->stepNumber)->toBeNull();
 });
 
 // ─── AgentToolCallCompleted ────────────────────────────────────────────────
@@ -149,7 +160,9 @@ it('AgentToolCallCompleted stores toolCall and result', function () {
     expect($event->toolCall)->toBe($toolCall)
         ->and($event->result)->toBe($result)
         ->and($event->result->content)->toBe('result')
-        ->and($event->result->isError)->toBeFalse();
+        ->and($event->result->isError)->toBeFalse()
+        ->and($event->agentKey)->toBeNull()
+        ->and($event->stepNumber)->toBeNull();
 });
 
 it('AgentToolCallCompleted stores error result', function () {
@@ -172,7 +185,9 @@ it('AgentToolCallFailed stores toolCall and exception', function () {
 
     expect($event->toolCall)->toBe($toolCall)
         ->and($event->exception)->toBe($exception)
-        ->and($event->exception->getMessage())->toBe('Tool execution failed');
+        ->and($event->exception->getMessage())->toBe('Tool execution failed')
+        ->and($event->agentKey)->toBeNull()
+        ->and($event->stepNumber)->toBeNull();
 });
 
 it('AgentToolCallFailed accepts any Throwable', function () {
@@ -183,4 +198,15 @@ it('AgentToolCallFailed accepts any Throwable', function () {
 
     expect($event->exception)->toBeInstanceOf(Throwable::class)
         ->and($event->exception->getMessage())->toBe('Division by zero');
+});
+
+// ─── AgentCompleted with agentKey ─────────────────────────────────────────
+
+it('AgentCompleted stores agentKey and usage', function () {
+    $usage = new Usage(100, 200);
+    $event = new AgentCompleted(steps: [], usage: $usage, agentKey: 'my-agent');
+
+    expect($event->agentKey)->toBe('my-agent')
+        ->and($event->usage->inputTokens)->toBe(100)
+        ->and($event->usage->outputTokens)->toBe(200);
 });

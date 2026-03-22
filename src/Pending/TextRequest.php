@@ -201,7 +201,7 @@ class TextRequest implements QueueableRequest
         if ($this->hasTools()) {
             $response = $this->executeWithTools();
 
-            event(new TextCompleted(modality: Modality::Text, provider: $this->resolveProviderKey(), model: (string) $this->model));
+            event(new TextCompleted(modality: Modality::Text, provider: $this->resolveProviderKey(), model: (string) $this->model, usage: $response->usage));
 
             return $response;
         }
@@ -211,7 +211,7 @@ class TextRequest implements QueueableRequest
 
         $response = $driver->text($this->buildRequest());
 
-        event(new TextCompleted(modality: Modality::Text, provider: $this->resolveProviderKey(), model: (string) $this->model));
+        event(new TextCompleted(modality: Modality::Text, provider: $this->resolveProviderKey(), model: (string) $this->model, usage: $response->usage));
 
         return $response;
     }
@@ -239,8 +239,8 @@ class TextRequest implements QueueableRequest
         // TextCompleted fires after the stream is fully consumed, not when the
         // response object is created. The then() callback runs at the end of
         // StreamResponse::getIterator() after all chunks have been yielded.
-        $response->then(function () use ($provider, $model) {
-            event(new TextCompleted(modality: Modality::Stream, provider: $provider, model: $model));
+        $response->then(function () use ($response, $provider, $model) {
+            event(new TextCompleted(modality: Modality::Stream, provider: $provider, model: $model, usage: $response->getUsage()));
         });
 
         return $response;
@@ -259,7 +259,7 @@ class TextRequest implements QueueableRequest
 
         $response = $driver->structured($this->buildRequest());
 
-        event(new TextCompleted(modality: Modality::Structured, provider: $this->resolveProviderKey(), model: (string) $this->model));
+        event(new TextCompleted(modality: Modality::Structured, provider: $this->resolveProviderKey(), model: (string) $this->model, usage: $response->usage));
 
         return $response;
     }

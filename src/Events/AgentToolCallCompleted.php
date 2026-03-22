@@ -15,5 +15,7 @@ class AgentToolCallCompleted
     public function __construct(
         public readonly ToolCall $toolCall,
         public readonly ToolResult $result,
+        public readonly ?string $agentKey = null,
+        public readonly ?int $stepNumber = null,
     ) {}
 }

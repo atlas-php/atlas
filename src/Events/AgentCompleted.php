@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Events;
 
 use Atlasphp\Atlas\Executor\Step;
+use Atlasphp\Atlas\Responses\Usage;
 
 /**
  * Dispatched when the agent executor finishes all steps.
@@ -16,5 +17,7 @@ class AgentCompleted
      */
     public function __construct(
         public readonly array $steps,
+        public readonly Usage $usage,
+        public readonly ?string $agentKey = null,
     ) {}
 }

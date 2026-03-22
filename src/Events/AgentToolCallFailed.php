@@ -14,5 +14,7 @@ class AgentToolCallFailed
     public function __construct(
         public readonly ToolCall $toolCall,
         public readonly \Throwable $exception,
+        public readonly ?string $agentKey = null,
+        public readonly ?int $stepNumber = null,
     ) {}
 }

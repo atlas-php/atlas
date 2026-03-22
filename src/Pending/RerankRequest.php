@@ -119,7 +119,7 @@ class RerankRequest implements QueueableRequest
 
         $response = $driver->rerank($this->buildRequest());
 
-        event(new RerankCompleted(modality: Modality::Rerank, provider: $this->resolveProviderKey(), model: (string) $this->model));
+        event(new RerankCompleted(modality: Modality::Rerank, provider: $this->resolveProviderKey(), model: (string) $this->model, usage: null));
 
         if ($this->minScore !== null) {
             return new RerankResponse($response->aboveScore($this->minScore), $response->meta);

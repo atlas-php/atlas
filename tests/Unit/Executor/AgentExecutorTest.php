@@ -761,12 +761,14 @@ it('dispatches AgentStepStarted and AgentStepCompleted for each step', function 
     expect($stepCompleted)->toHaveCount(2);
 
     $stepStartedArr = array_values($stepStarted);
-    expect($stepStartedArr[0]->stepNumber)->toBe(1);
+    expect($stepStartedArr[0]->stepNumber)->toBe(1)
+        ->and($stepStartedArr[0]->agentKey)->toBeNull();
     expect($stepStartedArr[1]->stepNumber)->toBe(2);
 
     $stepCompletedArr = array_values($stepCompleted);
     expect($stepCompletedArr[0]->stepNumber)->toBe(1);
     expect($stepCompletedArr[0]->finishReason)->toBe(FinishReason::ToolCalls);
+    expect($stepCompletedArr[0]->agentKey)->toBeNull();
     expect($stepCompletedArr[1]->stepNumber)->toBe(2);
     expect($stepCompletedArr[1]->finishReason)->toBe(FinishReason::Stop);
 });
@@ -840,4 +842,9 @@ it('dispatches events in correct lifecycle order', function () {
         AgentStepCompleted::class,
         AgentCompleted::class,
     ]);
+
+    // Verify AgentCompleted carries agentKey and usage
+    $completed = array_values(array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentCompleted));
+    expect($completed[0]->agentKey)->toBe('order-test');
+    expect($completed[0]->usage->inputTokens)->toBe(20);  // 10 + 10 from two steps
 });

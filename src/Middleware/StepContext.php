@@ -26,5 +26,6 @@ class StepContext
         public readonly Usage $accumulatedUsage,
         public readonly array $previousSteps = [],
         public array $meta = [],
+        public readonly ?string $agentKey = null,
     ) {}
 }

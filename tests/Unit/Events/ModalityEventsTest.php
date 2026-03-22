@@ -17,6 +17,7 @@ use Atlasphp\Atlas\Events\TextCompleted;
 use Atlasphp\Atlas\Events\TextStarted;
 use Atlasphp\Atlas\Events\VideoCompleted;
 use Atlasphp\Atlas\Events\VideoStarted;
+use Atlasphp\Atlas\Responses\Usage;
 
 // ─── TextStarted ───────────────────────────────────────────────────────────
 
@@ -43,7 +44,8 @@ it('TextCompleted stores modality, provider, and model', function () {
 
     expect($event->modality)->toBe(Modality::Text)
         ->and($event->provider)->toBe('openai')
-        ->and($event->model)->toBe('gpt-4');
+        ->and($event->model)->toBe('gpt-4')
+        ->and($event->usage)->toBeNull();
 });
 
 // ─── ImageStarted ──────────────────────────────────────────────────────────
@@ -71,7 +73,8 @@ it('ImageCompleted stores modality, provider, and model', function () {
 
     expect($event->modality)->toBe(Modality::Image)
         ->and($event->provider)->toBe('openai')
-        ->and($event->model)->toBe('dall-e-3');
+        ->and($event->model)->toBe('dall-e-3')
+        ->and($event->usage)->toBeNull();
 });
 
 // ─── AudioStarted ──────────────────────────────────────────────────────────
@@ -99,7 +102,8 @@ it('AudioCompleted stores modality, provider, and model', function () {
 
     expect($event->modality)->toBe(Modality::Audio)
         ->and($event->provider)->toBe('openai')
-        ->and($event->model)->toBe('whisper-1');
+        ->and($event->model)->toBe('whisper-1')
+        ->and($event->usage)->toBeNull();
 });
 
 // ─── VideoStarted ──────────────────────────────────────────────────────────
@@ -127,7 +131,8 @@ it('VideoCompleted stores modality, provider, and model', function () {
 
     expect($event->modality)->toBe(Modality::Video)
         ->and($event->provider)->toBe('google')
-        ->and($event->model)->toBe('veo-2');
+        ->and($event->model)->toBe('veo-2')
+        ->and($event->usage)->toBeNull();
 });
 
 // ─── EmbeddingsStarted ────────────────────────────────────────────────────
@@ -155,7 +160,8 @@ it('EmbeddingsCompleted stores modality, provider, and model', function () {
 
     expect($event->modality)->toBe(Modality::Embed)
         ->and($event->provider)->toBe('openai')
-        ->and($event->model)->toBe('text-embedding-3-small');
+        ->and($event->model)->toBe('text-embedding-3-small')
+        ->and($event->usage)->toBeNull();
 });
 
 // ─── ModerationStarted ────────────────────────────────────────────────────
@@ -183,7 +189,8 @@ it('ModerationCompleted stores modality, provider, and model', function () {
 
     expect($event->modality)->toBe(Modality::Moderate)
         ->and($event->provider)->toBe('openai')
-        ->and($event->model)->toBe('omni-moderation-latest');
+        ->and($event->model)->toBe('omni-moderation-latest')
+        ->and($event->usage)->toBeNull();
 });
 
 // ─── RerankStarted ─────────────────────────────────────────────────────────
@@ -211,5 +218,21 @@ it('RerankCompleted stores modality, provider, and model', function () {
 
     expect($event->modality)->toBe(Modality::Rerank)
         ->and($event->provider)->toBe('cohere')
-        ->and($event->model)->toBe('rerank-v3.5');
+        ->and($event->model)->toBe('rerank-v3.5')
+        ->and($event->usage)->toBeNull();
+});
+
+// ─── TextCompleted with usage ─────────────────────────────────────────────
+
+it('TextCompleted carries usage when provided', function () {
+    $usage = new Usage(50, 100);
+    $event = new TextCompleted(
+        modality: Modality::Text,
+        provider: 'openai',
+        model: 'gpt-4o',
+        usage: $usage,
+    );
+
+    expect($event->usage)->toBe($usage)
+        ->and($event->usage->inputTokens)->toBe(50);
 });

@@ -123,7 +123,7 @@ class ImageRequest implements QueueableRequest
 
         $response = $driver->image($this->buildRequest());
 
-        event(new ImageCompleted(modality: Modality::Image, provider: $this->resolveProviderKey(), model: (string) $this->model));
+        event(new ImageCompleted(modality: Modality::Image, provider: $this->resolveProviderKey(), model: (string) $this->model, usage: null));
 
         return $response;
     }
@@ -141,7 +141,7 @@ class ImageRequest implements QueueableRequest
 
         $response = $driver->imageToText($this->buildRequest());
 
-        event(new ImageCompleted(modality: Modality::ImageToText, provider: $this->resolveProviderKey(), model: (string) $this->model));
+        event(new ImageCompleted(modality: Modality::ImageToText, provider: $this->resolveProviderKey(), model: (string) $this->model, usage: $response->usage));
 
         return $response;
     }

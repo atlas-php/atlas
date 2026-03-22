@@ -16,5 +16,6 @@ class AgentStepCompleted
         public readonly int $stepNumber,
         public readonly FinishReason $finishReason,
         public readonly Usage $usage,
+        public readonly ?string $agentKey = null,
     ) {}
 }

@@ -145,7 +145,7 @@ class AudioRequest implements QueueableRequest
 
         $response = $driver->audio($this->buildRequest());
 
-        event(new AudioCompleted(modality: Modality::Audio, provider: $this->resolveProviderKey(), model: (string) $this->model));
+        event(new AudioCompleted(modality: Modality::Audio, provider: $this->resolveProviderKey(), model: (string) $this->model, usage: null));
 
         return $response;
     }
@@ -163,7 +163,7 @@ class AudioRequest implements QueueableRequest
 
         $response = $driver->audioToText($this->buildRequest());
 
-        event(new AudioCompleted(modality: Modality::AudioToText, provider: $this->resolveProviderKey(), model: (string) $this->model));
+        event(new AudioCompleted(modality: Modality::AudioToText, provider: $this->resolveProviderKey(), model: (string) $this->model, usage: $response->usage));
 
         return $response;
     }

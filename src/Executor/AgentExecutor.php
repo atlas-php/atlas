@@ -71,19 +71,20 @@ class AgentExecutor
                 $stepCount++;
 
                 if ($maxSteps !== null && $stepCount > $maxSteps) {
-                    $this->events->dispatch(new AgentMaxStepsExceeded($maxSteps, $steps));
+                    $this->events->dispatch(new AgentMaxStepsExceeded($maxSteps, $steps, agentKey: $agentKey));
 
                     throw new MaxStepsExceededException($maxSteps, $stepCount);
                 }
 
-                $this->events->dispatch(new AgentStepStarted($stepCount));
+                $this->events->dispatch(new AgentStepStarted($stepCount, agentKey: $agentKey));
 
-                $response = $this->dispatchStep($request, $stepCount, $steps, $accumulatedUsage, $meta);
+                $response = $this->dispatchStep($request, $stepCount, $steps, $accumulatedUsage, $meta, $agentKey);
 
                 $this->events->dispatch(new AgentStepCompleted(
                     stepNumber: $stepCount,
                     finishReason: $response->finishReason,
                     usage: $response->usage,
+                    agentKey: $agentKey,
                 ));
 
                 if ($response->finishReason !== FinishReason::ToolCalls) {
@@ -120,16 +121,22 @@ class AgentExecutor
                 $request = $request->withAppendedMessages($messagesToAppend);
             }
 
+            $totalUsage = $this->mergeUsage($steps);
+
             return new ExecutorResult(
                 text: $response->text,
                 reasoning: $response->reasoning,
                 steps: $steps,
-                usage: $this->mergeUsage($steps),
+                usage: $totalUsage,
                 finishReason: $response->finishReason,
                 meta: $response->meta,
             );
         } finally {
-            $this->events->dispatch(new AgentCompleted($steps));
+            $this->events->dispatch(new AgentCompleted(
+                steps: $steps,
+                usage: $totalUsage ?? $this->mergeUsage($steps),
+                agentKey: $agentKey,
+            ));
         }
     }
 
@@ -147,6 +154,7 @@ class AgentExecutor
         array $previousSteps,
         Usage $accumulatedUsage,
         array $meta,
+        ?string $agentKey = null,
     ): TextResponse {
         if ($this->middlewareStack === null) {
             return $this->driver->text($request);
@@ -164,6 +172,7 @@ class AgentExecutor
             accumulatedUsage: $accumulatedUsage,
             previousSteps: $previousSteps,
             meta: $meta,
+            agentKey: $agentKey,
         );
 
         return $this->middlewareStack->run(
@@ -252,7 +261,7 @@ class AgentExecutor
 
         // Fire AgentToolCallStarted events upfront for all tools
         foreach ($toolCalls as $toolCall) {
-            $this->events->dispatch(new AgentToolCallStarted($toolCall));
+            $this->events->dispatch(new AgentToolCallStarted($toolCall, agentKey: $agentKey, stepNumber: $stepNumber));
         }
 
         // Build closures that always return ToolResult — never Throwable.
@@ -278,9 +287,9 @@ class AgentExecutor
         // Post-process: fire completion or error events
         foreach ($results as $result) {
             if ($result->isError) {
-                $this->events->dispatch(new AgentToolCallFailed($result->toolCall, new \RuntimeException($result->content)));
+                $this->events->dispatch(new AgentToolCallFailed($result->toolCall, new \RuntimeException($result->content), agentKey: $agentKey, stepNumber: $stepNumber));
             } else {
-                $this->events->dispatch(new AgentToolCallCompleted($result->toolCall, $result));
+                $this->events->dispatch(new AgentToolCallCompleted($result->toolCall, $result, agentKey: $agentKey, stepNumber: $stepNumber));
             }
         }
 
@@ -318,16 +327,16 @@ class AgentExecutor
      */
     protected function executeSingleTool(ToolCall $toolCall, array $meta, ?int $stepNumber = null, ?string $agentKey = null): ToolResult
     {
-        $this->events->dispatch(new AgentToolCallStarted($toolCall));
+        $this->events->dispatch(new AgentToolCallStarted($toolCall, agentKey: $agentKey, stepNumber: $stepNumber));
 
         try {
             $result = $this->dispatchTool($toolCall, $meta, $stepNumber, $agentKey);
 
-            $this->events->dispatch(new AgentToolCallCompleted($toolCall, $result));
+            $this->events->dispatch(new AgentToolCallCompleted($toolCall, $result, agentKey: $agentKey, stepNumber: $stepNumber));
 
             return $result;
         } catch (\Throwable $e) {
-            $this->events->dispatch(new AgentToolCallFailed($toolCall, $e));
+            $this->events->dispatch(new AgentToolCallFailed($toolCall, $e, agentKey: $agentKey, stepNumber: $stepNumber));
 
             return new ToolResult(
                 toolCall: $toolCall,

@@ -357,3 +357,91 @@ it('calls tool executor directly when middleware stack exists but tool middlewar
     config()->set('atlas.middleware.step', []);
     config()->set('atlas.middleware.tool', []);
 });
+
+it('step middleware can mutate the request before the driver sees it', function () {
+    $originalInstructions = 'Be helpful';
+    $mutatedInstructions = 'Be extremely helpful and detailed';
+
+    config()->set('atlas.middleware.step', [
+        new class($mutatedInstructions)
+        {
+            public function __construct(private string $newInstructions) {}
+
+            public function handle(StepContext $context, Closure $next)
+            {
+                // Mutate the request's instructions via a new TextRequest instance
+                $context->request = new TextRequest(
+                    model: $context->request->model,
+                    instructions: $this->newInstructions,
+                    message: $context->request->message,
+                    messageMedia: $context->request->messageMedia,
+                    messages: $context->request->messages,
+                    maxTokens: $context->request->maxTokens,
+                    temperature: $context->request->temperature,
+                    schema: $context->request->schema,
+                    tools: $context->request->tools,
+                    providerTools: $context->request->providerTools,
+                    providerOptions: $context->request->providerOptions,
+                );
+
+                return $next($context);
+            }
+        },
+    ]);
+
+    $receivedInstructions = null;
+
+    $driver = new class($receivedInstructions) extends Driver
+    {
+        private ?string $receivedInstructions;
+
+        public function __construct(?string &$receivedInstructions)
+        {
+            $this->receivedInstructions = &$receivedInstructions;
+        }
+
+        public function name(): string
+        {
+            return 'mock';
+        }
+
+        public function capabilities(): ProviderCapabilities
+        {
+            return new ProviderCapabilities(text: true);
+        }
+
+        public function text(TextRequest $request): TextResponse
+        {
+            $this->receivedInstructions = $request->instructions;
+
+            return new TextResponse(
+                text: 'ok',
+                usage: new Usage(10, 5),
+                finishReason: FinishReason::Stop,
+            );
+        }
+    };
+
+    $registry = new ToolRegistry([makeMiddlewareEchoTool()]);
+    $executor = new AgentExecutor($driver, new ToolExecutor($registry), makeMiddlewareExecutorDispatcher(), app(MiddlewareStack::class));
+
+    $request = new TextRequest(
+        model: 'gpt-4o',
+        instructions: $originalInstructions,
+        message: 'Hello',
+        messageMedia: [],
+        messages: [],
+        maxTokens: null,
+        temperature: null,
+        schema: null,
+        tools: [],
+        providerTools: [],
+        providerOptions: [],
+    );
+
+    $executor->execute($request, maxSteps: 10);
+
+    expect($receivedInstructions)->toBe($mutatedInstructions);
+
+    config()->set('atlas.middleware.step', []);
+});

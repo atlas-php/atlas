@@ -103,7 +103,12 @@ it('dispatches asStream to driver', function () {
 it('dispatches asStructured to driver', function () {
     $driver = Mockery::mock(Driver::class);
     $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(structured: true));
-    $driver->shouldReceive('structured')->once()->andReturn(Mockery::mock(StructuredResponse::class));
+    $structuredResponse = new StructuredResponse(
+        structured: ['key' => 'value'],
+        usage: new Usage(10, 20),
+        finishReason: FinishReason::Stop,
+    );
+    $driver->shouldReceive('structured')->once()->andReturn($structuredResponse);
 
     createTextPending($driver)->asStructured();
 });

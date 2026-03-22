@@ -17,5 +17,6 @@ class AgentMaxStepsExceeded
     public function __construct(
         public readonly int $limit,
         public readonly array $steps,
+        public readonly ?string $agentKey = null,
     ) {}
 }

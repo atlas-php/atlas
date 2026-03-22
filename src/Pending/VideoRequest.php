@@ -114,7 +114,7 @@ class VideoRequest implements QueueableRequest
 
         $response = $driver->video($this->buildRequest());
 
-        event(new VideoCompleted(modality: Modality::Video, provider: $this->resolveProviderKey(), model: (string) $this->model));
+        event(new VideoCompleted(modality: Modality::Video, provider: $this->resolveProviderKey(), model: (string) $this->model, usage: null));
 
         return $response;
     }
@@ -132,7 +132,7 @@ class VideoRequest implements QueueableRequest
 
         $response = $driver->videoToText($this->buildRequest());
 
-        event(new VideoCompleted(modality: Modality::VideoToText, provider: $this->resolveProviderKey(), model: (string) $this->model));
+        event(new VideoCompleted(modality: Modality::VideoToText, provider: $this->resolveProviderKey(), model: (string) $this->model, usage: $response->usage));
 
         return $response;
     }

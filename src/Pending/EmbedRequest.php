@@ -79,7 +79,7 @@ class EmbedRequest implements QueueableRequest
 
         $response = $driver->embed($this->buildRequest());
 
-        event(new EmbeddingsCompleted(modality: Modality::Embed, provider: $this->resolveProviderKey(), model: (string) $this->model));
+        event(new EmbeddingsCompleted(modality: Modality::Embed, provider: $this->resolveProviderKey(), model: (string) $this->model, usage: $response->usage));
 
         return $response;
     }
