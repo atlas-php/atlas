@@ -17,37 +17,35 @@ composer require atlas-php/atlas
 ## Publish Configuration
 
 ```bash
-# Publish Atlas configuration
 php artisan vendor:publish --tag=atlas-config
-
-# Publish Prism configuration (if not already published)
-php artisan vendor:publish --tag=prism-config
 ```
 
-This creates `config/atlas.php` and `config/prism.php` with all configurable options.
+This creates `config/atlas.php` with all configurable options. Atlas manages its own provider configuration — no external config files needed.
 
 ## Configure Provider Credentials
 
 Add your AI provider credentials to `.env`:
 
 ```env
-# OpenAI (required for default configuration)
+# OpenAI
 OPENAI_API_KEY=sk-...
 
-# Anthropic (optional)
+# or Anthropic
 ANTHROPIC_API_KEY=sk-ant-...
 ```
+
+See [Configuration](/getting-started/configuration) for the full list of supported providers and their environment variables.
 
 ## Verify Installation
 
 Test that Atlas is working correctly:
 
 ```php
-use Atlasphp\Atlas\Atlas;
+$response = Atlas::text('openai', 'gpt-4o')
+    ->message('Hello, Atlas!')
+    ->asText();
 
-// Test embedding generation
-$embedding = Atlas::embeddings()->generate('Hello, world!');
-dd(count($embedding)); // Should output: 1536
+echo $response->text; // "Hello! How can I help you?"
 ```
 
 ## Quick Start
@@ -55,49 +53,60 @@ dd(count($embedding)); // Should output: 1536
 ### Define an Agent
 
 ```php
-use Atlasphp\Atlas\Agents\AgentDefinition;
+use Atlasphp\Atlas\Agent;
 
-class SupportAgent extends AgentDefinition
+class SupportAgent extends Agent
 {
-    public function provider(): string
+    public function provider(): ?string
     {
         return 'openai';
     }
 
-    public function model(): string
+    public function model(): ?string
     {
         return 'gpt-4o';
     }
 
-    public function systemPrompt(): string
+    public function instructions(): ?string
     {
-        return 'You help customers for {company}.';
+        return 'You are a helpful support agent for {company}.';
     }
 
     public function tools(): array
     {
-        return [
-            LookupOrderTool::class
-        ];
+        return [LookupOrderTool::class];
     }
 }
 ```
 
-### Register and Use
+### Use the Agent
 
 ```php
-use Atlasphp\Atlas\Agents\Contracts\AgentRegistryContract;
-use Atlasphp\Atlas\Atlas;
-
-// Register in a service provider
-$registry = app(AgentRegistryContract::class);
-$registry->register(SupportAgent::class);
-
-// Use the agent
 $response = Atlas::agent('support')
+    ->message('Where is my order?')
     ->withVariables(['company' => 'Acme'])
-    ->chat('Where is my order?');
+    ->asText();
 ```
+
+### Artisan Commands
+
+Scaffold agents and tools with Artisan:
+
+```bash
+php artisan make:agent SupportAgent
+php artisan make:tool LookupOrderTool
+```
+
+## Optional: Enable Persistence
+
+Atlas works fully stateless by default. To enable conversation persistence and execution tracking:
+
+```bash
+php artisan vendor:publish --tag=atlas-migrations
+php artisan migrate
+```
+
+Then set `ATLAS_PERSISTENCE_ENABLED=true` in your `.env`.
 
 ## Common Issues
 
@@ -105,15 +114,9 @@ $response = Atlas::agent('support')
 
 If you see "Provider not configured" errors:
 
-1. Ensure you've published Prism config: `php artisan vendor:publish --tag=prism-config`
-2. Verify the API key environment variable is set in `.env`
+1. Verify the API key environment variable is set in `.env`
+2. Check that the provider is configured in `config/atlas.php` under `providers`
 3. Run `php artisan config:clear` after changes
-
-Provider configuration is handled by Prism. See [Prism Configuration](https://prismphp.com/getting-started/configuration.html) for details.
-
-### Rate Limiting
-
-For high-volume applications, implement rate limiting middleware or use queued operations.
 
 ### Missing Dependencies
 

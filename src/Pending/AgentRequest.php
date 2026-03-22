@@ -451,7 +451,7 @@ class AgentRequest implements QueueableRequest
             throw $e;
         }
 
-        event(new ModalityCompleted(modality: Modality::Structured, provider: $provider, model: $model));
+        event(new ModalityCompleted(modality: Modality::Structured, provider: $provider, model: $model, usage: $result->usage ?? null));
 
         return $result;
     }

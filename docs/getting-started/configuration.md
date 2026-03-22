@@ -2,217 +2,345 @@
 
 Complete reference for configuring Atlas in your Laravel application.
 
-::: tip Prism Configuration
-Provider credentials, models, and API settings are configured in Prism. See the [Prism Configuration documentation](https://prismphp.com/getting-started/configuration.html) for provider setup.
-:::
+## Overview
 
-## Atlas Configuration File
+All Atlas configuration lives in a single file: `config/atlas.php`. Publish it with:
 
-After publishing, you'll find the Atlas configuration at `config/atlas.php`:
+```bash
+php artisan vendor:publish --tag=atlas-config
+```
+
+Atlas manages its own provider connections, timeouts, middleware, and persistence. No external configuration files are needed.
+
+## Full Configuration File
+
+After publishing, you'll find the complete configuration at `config/atlas.php`:
 
 ```php
+<?php
+
+declare(strict_types=1);
+
 return [
 
     /*
     |--------------------------------------------------------------------------
-    | Pipelines Configuration
+    | Default Provider & Model
     |--------------------------------------------------------------------------
     |
-    | Control whether Atlas pipelines are enabled. Pipelines provide
-    | middleware hooks for observability, logging, and custom processing
-    | during agent execution and API operations.
+    | The default provider and model used when none is explicitly specified.
     |
     */
 
-    'pipelines' => [
-        'enabled' => env('ATLAS_PIPELINES_ENABLED', true),
+    'defaults' => [
+        'text' => ['provider' => env('ATLAS_TEXT_PROVIDER'), 'model' => env('ATLAS_TEXT_MODEL')],
+        'image' => ['provider' => env('ATLAS_IMAGE_PROVIDER'), 'model' => env('ATLAS_IMAGE_MODEL')],
+        'video' => ['provider' => env('ATLAS_VIDEO_PROVIDER'), 'model' => env('ATLAS_VIDEO_MODEL')],
+        'embed' => ['provider' => env('ATLAS_EMBED_PROVIDER'), 'model' => env('ATLAS_EMBED_MODEL')],
+        'moderate' => ['provider' => env('ATLAS_MODERATE_PROVIDER'), 'model' => env('ATLAS_MODERATE_MODEL')],
+        'rerank' => ['provider' => env('ATLAS_RERANK_PROVIDER'), 'model' => env('ATLAS_RERANK_MODEL')],
     ],
 
     /*
     |--------------------------------------------------------------------------
-    | Events Configuration
+    | Agents
     |--------------------------------------------------------------------------
     |
-    | Control whether Atlas dispatches Laravel events at lifecycle points.
-    | Events are informational (observe-only) and fire AFTER pipelines.
-    | Disable to eliminate event overhead when not using listeners.
-    |
-    */
-
-    'events' => [
-        'enabled' => env('ATLAS_EVENTS_ENABLED', true),
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Agents Configuration (auto-discovery) *optional
-    |--------------------------------------------------------------------------
-    |
-    | Configure where Atlas should look for agent definitions.
-    | Agents can also be registered programmatically via the AgentRegistry.
+    | Auto-discovery path and namespace for agent classes. Agents found in
+    | the configured directory are automatically registered at boot time.
     |
     */
 
     'agents' => [
-        'path' => app_path('Agents'),
-        'namespace' => 'App\\Agents',
+        'path' => null,
+        'namespace' => null,
     ],
 
     /*
     |--------------------------------------------------------------------------
-    | Tools Configuration (auto-discovery) *optional
+    | Provider Configurations
     |--------------------------------------------------------------------------
     |
-    | Configure where Atlas should look for tool definitions.
-    | Tools can also be registered programmatically via the ToolRegistry.
+    | Configuration for each AI provider. Each provider requires at minimum
+    | an API key. Additional provider-specific options can be set here.
     |
     */
 
-    'tools' => [
-        'path' => app_path('Tools'),
-        'namespace' => 'App\\Tools',
+    'providers' => [
+
+        'openai' => [
+            'api_key' => env('OPENAI_API_KEY'),
+            'url' => env('OPENAI_URL', 'https://api.openai.com/v1'),
+            'organization' => env('OPENAI_ORGANIZATION'),
+        ],
+
+        'anthropic' => [
+            'api_key' => env('ANTHROPIC_API_KEY'),
+            'url' => env('ANTHROPIC_URL', 'https://api.anthropic.com/v1'),
+            'version' => env('ANTHROPIC_VERSION', '2024-10-22'),
+        ],
+
+        'google' => [
+            'api_key' => env('GOOGLE_API_KEY'),
+            'url' => env('GOOGLE_URL', 'https://generativelanguage.googleapis.com'),
+        ],
+
+        'xai' => [
+            'api_key' => env('XAI_API_KEY'),
+            'url' => env('XAI_URL', 'https://api.x.ai/v1'),
+        ],
+
+        'cohere' => [
+            'api_key' => env('COHERE_API_KEY'),
+            'url' => env('COHERE_URL', 'https://api.cohere.com'),
+        ],
+
+        'jina' => [
+            'api_key' => env('JINA_API_KEY'),
+            'url' => env('JINA_URL', 'https://api.jina.ai'),
+        ],
+
+        'elevenlabs' => [
+            'api_key' => env('ELEVENLABS_API_KEY'),
+            'url' => env('ELEVENLABS_URL', 'https://api.elevenlabs.io/v1'),
+            'media_timeout' => 300,
+        ],
+
+        // ─── Custom Providers (Chat Completions compatible) ─────────────
+        //
+        // Add a 'driver' key to use a named driver or custom class.
+        // Available named drivers: 'chat_completions', 'responses'
+        //
+        // 'ollama' => [
+        //     'driver'   => 'chat_completions',
+        //     'api_key'  => env('OLLAMA_API_KEY', 'ollama'),
+        //     'base_url' => env('OLLAMA_URL', 'http://localhost:11434/v1'),
+        // ],
+        //
+        // 'lmstudio' => [
+        //     'driver'   => 'chat_completions',
+        //     'api_key'  => env('LMSTUDIO_API_KEY', 'lm-studio'),
+        //     'base_url' => env('LMSTUDIO_URL', 'http://localhost:1234/v1'),
+        // ],
+        //
+        // 'groq' => [
+        //     'driver'   => 'chat_completions',
+        //     'api_key'  => env('GROQ_API_KEY'),
+        //     'base_url' => 'https://api.groq.com/openai/v1',
+        // ],
+        //
+        // 'together' => [
+        //     'driver'   => 'chat_completions',
+        //     'api_key'  => env('TOGETHER_API_KEY'),
+        //     'base_url' => 'https://api.together.xyz/v1',
+        // ],
+        //
+        // 'deepseek' => [
+        //     'driver'   => 'chat_completions',
+        //     'api_key'  => env('DEEPSEEK_API_KEY'),
+        //     'base_url' => 'https://api.deepseek.com/v1',
+        // ],
+        //
+        // 'openrouter' => [
+        //     'driver'   => 'chat_completions',
+        //     'api_key'  => env('OPENROUTER_API_KEY'),
+        //     'base_url' => 'https://openrouter.ai/api/v1',
+        // ],
+
     ],
 
     /*
     |--------------------------------------------------------------------------
-    | Models Configuration
+    | Timeout Configuration
     |--------------------------------------------------------------------------
     |
-    | Configure caching for the provider model listing service. When enabled,
-    | fetched model lists are cached to minimize API calls. Models don't
-    | change frequently, so a longer TTL is recommended.
+    | Request timeout values in seconds for different operation types.
     |
     */
 
-    'models' => [
-        'cache' => [
-            'enabled' => env('ATLAS_MODELS_CACHE_ENABLED', true),
-            'store' => env('ATLAS_MODELS_CACHE_STORE'),
-            'ttl' => (int) env('ATLAS_MODELS_CACHE_TTL', 3600),
+    'timeout' => [
+        'default' => (int) env('ATLAS_TIMEOUT', 60),
+        'reasoning' => (int) env('ATLAS_TIMEOUT_REASONING', 300),
+        'media' => (int) env('ATLAS_TIMEOUT_MEDIA', 120),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Middleware
+    |--------------------------------------------------------------------------
+    |
+    | Global middleware applied at each layer of Atlas execution.
+    | Provider middleware runs on every HTTP call to an AI provider.
+    | Step middleware runs on each executor round trip.
+    | Tool middleware runs on each tool execution.
+    | Agent middleware runs on each agent execution.
+    |
+    */
+
+    'middleware' => [
+        'provider' => [],
+        'step' => [],
+        'tool' => [],
+        'agent' => [],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Variables
+    |--------------------------------------------------------------------------
+    |
+    | Static variables available in all instructions across all modalities.
+    | These are the lowest priority — global registry and withVariables()
+    | override them.
+    |
+    | Supports flat keys and nested arrays:
+    |   'APP_NAME' => 'My App'
+    |   'COMPANY' => ['NAME' => 'Acme', 'SUPPORT_EMAIL' => 'help@acme.com']
+    |
+    | Access flat: {APP_NAME}
+    | Access nested: {COMPANY.NAME}, {COMPANY.SUPPORT_EMAIL}
+    |
+    */
+
+    'variables' => [
+        'APP_NAME' => env('APP_NAME', 'Laravel'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Queue
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for queued Atlas executions. Use ->queue() on any
+    | pending request to dispatch it asynchronously.
+    |
+    */
+
+    'queue' => [
+        'connection' => env('ATLAS_QUEUE_CONNECTION'),
+        'queue' => env('ATLAS_QUEUE', 'default'),
+        'tries' => (int) env('ATLAS_QUEUE_TRIES', 3),
+        'backoff' => (int) env('ATLAS_QUEUE_BACKOFF', 30),
+        'timeout' => (int) env('ATLAS_QUEUE_TIMEOUT', 300),
+        'after_commit' => (bool) env('ATLAS_QUEUE_AFTER_COMMIT', true),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Media Storage
+    |--------------------------------------------------------------------------
+    |
+    | Configure how Atlas stores media files (images, audio, video).
+    | Used by Input::store() and Response::store() methods.
+    |
+    */
+
+    'storage' => [
+        'disk' => env('ATLAS_STORAGE_DISK'),
+        'prefix' => 'atlas',
+        'visibility' => 'private',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Embeddings
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for embedding generation. The dimensions value controls
+    | vector column size in migrations. For embedding caching, see the
+    | 'cache' section below (atlas.cache.ttl.embeddings).
+    |
+    | Note: 'dimensions' was previously at 'persistence.embedding_dimensions'.
+    | The old location is still supported as a fallback in migrations.
+    |
+    */
+
+    'embeddings' => [
+        'dimensions' => (int) env('ATLAS_EMBEDDING_DIMENSIONS', 1536),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Cache
+    |--------------------------------------------------------------------------
+    |
+    | Unified caching for provider data (models, voices) and embeddings.
+    | Set any TTL to 0 to disable caching for that type.
+    |
+    */
+
+    'cache' => [
+        'store' => env('ATLAS_CACHE_STORE'),
+        'prefix' => 'atlas',
+        'ttl' => [
+            'models' => (int) env('ATLAS_CACHE_MODELS_TTL', 86400),        // 24 hours
+            'voices' => (int) env('ATLAS_CACHE_VOICES_TTL', 3600),         // 1 hour
+            'embeddings' => (int) env('ATLAS_CACHE_EMBEDDINGS_TTL', 0),    // disabled by default
         ],
     ],
 
     /*
     |--------------------------------------------------------------------------
-    | Embeddings Configuration
+    | Persistence
     |--------------------------------------------------------------------------
     |
-    | Configure default provider/model for embeddings and optional caching.
-    | When provider and model are set, Atlas::embeddings() uses them
-    | automatically. Users can still override with ->using().
+    | Optional conversation persistence and execution tracking. If you don't
+    | publish the migrations, Atlas works fully stateless. When enabled,
+    | execution tracking is always active — conversations with tools require
+    | execution data for replay.
     |
     */
 
-    'embeddings' => [
-        'provider' => env('ATLAS_EMBEDDING_PROVIDER'),
-        'model' => env('ATLAS_EMBEDDING_MODEL'),
-        'cache' => [
-            'enabled' => env('ATLAS_EMBEDDING_CACHE_ENABLED', false),
-            'store' => env('ATLAS_EMBEDDING_CACHE_STORE'),
-            'ttl' => (int) env('ATLAS_EMBEDDING_CACHE_TTL', 3600),
+    'persistence' => [
+        'enabled' => env('ATLAS_PERSISTENCE_ENABLED', false),
+        'table_prefix' => env('ATLAS_TABLE_PREFIX', 'atlas_'),
+        'message_limit' => (int) env('ATLAS_MESSAGE_LIMIT', 50),
+
+        // Auto-store generated files (images, audio, video) as assets.
+        // Only applies to direct calls tracked by TrackProviderCall.
+        // Tool-generated assets use ToolAssets::store() explicitly.
+        'auto_store_assets' => env('ATLAS_AUTO_STORE_ASSETS', true),
+
+        // Auto-embed memories on create/update via HasVectorEmbeddings.
+        // Disable if you want to embed asynchronously via a job.
+        'memory_auto_embed' => env('ATLAS_MEMORY_AUTO_EMBED', true),
+
+        // Model overrides — extend base models with your own
+        'models' => [
+            // 'conversation'        => \Atlasphp\Atlas\Persistence\Models\Conversation::class,
+            // 'message'             => \Atlasphp\Atlas\Persistence\Models\Message::class,
+            // 'asset'               => \Atlasphp\Atlas\Persistence\Models\Asset::class,
+            // 'message_attachment'   => \Atlasphp\Atlas\Persistence\Models\MessageAttachment::class,
+            // 'execution'           => \Atlasphp\Atlas\Persistence\Models\Execution::class,
+            // 'execution_step'      => \Atlasphp\Atlas\Persistence\Models\ExecutionStep::class,
+            // 'execution_tool_call' => \Atlasphp\Atlas\Persistence\Models\ExecutionToolCall::class,
+            // 'memory'              => \Atlasphp\Atlas\Persistence\Models\Memory::class,
         ],
     ],
 
 ];
 ```
 
-## Configuration Options
+## Configuration Sections
 
-### Pipelines
+### Default Providers
 
-Control the pipeline middleware system:
-
-```env
-ATLAS_PIPELINES_ENABLED=true
-```
-
-When enabled, pipelines provide hooks for:
-- Logging agent executions
-- Adding authentication/authorization
-- Collecting metrics and observability data
-- Custom pre/post processing
-
-See [Pipelines](/core-concepts/pipelines) for available hooks.
-
-### Events
-
-Control whether Atlas dispatches Laravel events at agent and tool lifecycle points:
+Set default providers and models per modality so you don't have to specify them on every call:
 
 ```env
-ATLAS_EVENTS_ENABLED=true
+ATLAS_TEXT_PROVIDER=openai
+ATLAS_TEXT_MODEL=gpt-4o
+ATLAS_IMAGE_PROVIDER=openai
+ATLAS_IMAGE_MODEL=dall-e-3
+ATLAS_EMBED_PROVIDER=openai
+ATLAS_EMBED_MODEL=text-embedding-3-small
 ```
 
-Events are informational — they observe execution but cannot modify it. They fire after pipelines have processed. Disable to eliminate event dispatch overhead when you have no listeners.
+Atlas supports six modalities: `text`, `image`, `video`, `embed`, `moderate`, and `rerank`. Each can have its own default provider and model.
 
-See [Events](/advanced/events) for available events and listener examples.
+### Provider Credentials
 
-### Agent Auto-Discovery
-
-Atlas can automatically discover and register agents from a configured directory:
-
-```php
-'agents' => [
-    'path' => app_path('Agents'),      // Directory to scan
-    'namespace' => 'App\\Agents',       // PSR-4 namespace
-],
-```
-
-Place your agent classes in `app/Agents/` and they'll be registered automatically. Set `path` to `null` to disable auto-discovery.
-
-### Tool Auto-Discovery
-
-Similarly, tools can be auto-discovered:
-
-```php
-'tools' => [
-    'path' => app_path('Tools'),       // Directory to scan
-    'namespace' => 'App\\Tools',        // PSR-4 namespace
-],
-```
-
-Place your tool classes in `app/Tools/` and they'll be registered automatically. Set `path` to `null` to disable auto-discovery.
-
-### Models Cache
-
-Cache provider model listings to reduce API calls:
-
-```env
-ATLAS_MODELS_CACHE_ENABLED=true
-ATLAS_MODELS_CACHE_STORE=        # Cache store (default: app default)
-ATLAS_MODELS_CACHE_TTL=3600      # TTL in seconds (default: 1 hour)
-```
-
-When enabled, calls to list available models from providers are cached. Models don't change frequently, so a longer TTL is recommended.
-
-See [Models](/capabilities/models) for usage details.
-
-### Embeddings
-
-Configure default provider and model for embeddings, with optional caching:
-
-```env
-ATLAS_EMBEDDING_PROVIDER=        # Default provider (e.g. openai)
-ATLAS_EMBEDDING_MODEL=           # Default model (e.g. text-embedding-3-small)
-ATLAS_EMBEDDING_CACHE_ENABLED=false
-ATLAS_EMBEDDING_CACHE_STORE=     # Cache store (default: app default)
-ATLAS_EMBEDDING_CACHE_TTL=3600   # TTL in seconds (default: 1 hour)
-```
-
-When `provider` and `model` are set, `Atlas::embeddings()` uses them automatically. You can still override per-call with `->using()`.
-
-See [Embeddings](/capabilities/embeddings) for usage details.
-
-## Provider Configuration
-
-Atlas uses [Prism](https://prismphp.com) for provider connectivity. All provider credentials and settings live in Prism's `config/prism.php`. Publish it with:
-
-```bash
-php artisan vendor:publish --tag=prism-config
-```
-
-### Supported Providers
-
-Atlas supports **13 providers** out of the box through Prism:
+Atlas ships with built-in support for seven providers. Add the relevant API keys to your `.env`:
 
 #### OpenAI
 
@@ -220,7 +348,6 @@ Atlas supports **13 providers** out of the box through Prism:
 OPENAI_API_KEY=sk-...
 OPENAI_URL=https://api.openai.com/v1          # optional, custom endpoint
 OPENAI_ORGANIZATION=org-...                    # optional
-OPENAI_PROJECT=proj-...                        # optional
 ```
 
 #### Anthropic
@@ -228,305 +355,242 @@ OPENAI_PROJECT=proj-...                        # optional
 ```env
 ANTHROPIC_API_KEY=sk-ant-...
 ANTHROPIC_URL=https://api.anthropic.com/v1     # optional, custom endpoint
-ANTHROPIC_API_VERSION=2023-06-01               # optional
-ANTHROPIC_DEFAULT_THINKING_BUDGET=1024         # optional, for extended thinking
-ANTHROPIC_BETA=                                # optional, comma-separated beta features
+ANTHROPIC_VERSION=2024-10-22                   # optional
 ```
 
-#### Gemini
+#### Google
 
 ```env
-GEMINI_API_KEY=...
-GEMINI_URL=https://generativelanguage.googleapis.com/v1beta/models  # optional
-```
-
-#### DeepSeek
-
-```env
-DEEPSEEK_API_KEY=...
-DEEPSEEK_URL=https://api.deepseek.com/v1       # optional
-```
-
-#### Mistral
-
-```env
-MISTRAL_API_KEY=...
-MISTRAL_URL=https://api.mistral.ai/v1          # optional
-```
-
-#### Groq
-
-```env
-GROQ_API_KEY=gsk_...
-GROQ_URL=https://api.groq.com/openai/v1        # optional
+GOOGLE_API_KEY=...
+GOOGLE_URL=https://generativelanguage.googleapis.com  # optional
 ```
 
 #### xAI (Grok)
 
 ```env
 XAI_API_KEY=...
-XAI_URL=https://api.x.ai/v1                    # optional
+XAI_URL=https://api.x.ai/v1                   # optional
 ```
 
-#### OpenRouter
+#### Cohere
 
 ```env
-OPENROUTER_API_KEY=sk-or-...
-OPENROUTER_URL=https://openrouter.ai/api/v1    # optional
-OPENROUTER_SITE_HTTP_REFERER=                  # optional, for rankings
-OPENROUTER_SITE_X_TITLE=                       # optional, for rankings
+COHERE_API_KEY=...
 ```
 
-#### Perplexity
+#### Jina
 
 ```env
-PERPLEXITY_API_KEY=pplx-...
-PERPLEXITY_URL=https://api.perplexity.ai       # optional
-```
-
-#### Ollama (Local)
-
-No API key required — just point to your running Ollama instance:
-
-```env
-OLLAMA_URL=http://localhost:11434
+JINA_API_KEY=...
 ```
 
 #### ElevenLabs
 
 ```env
 ELEVENLABS_API_KEY=...
-ELEVENLABS_URL=https://api.elevenlabs.io/v1/   # optional
 ```
 
-#### VoyageAI
+### Custom Providers (Chat Completions Compatible)
 
-```env
-VOYAGEAI_API_KEY=...
-VOYAGEAI_URL=https://api.voyageai.com/v1       # optional
-```
-
-#### Z
-
-```env
-Z_API_KEY=...
-Z_URL=https://api.z.ai/api/paas/v4            # optional
-```
-
-### Prism Config File
-
-The full `config/prism.php` structure with all providers:
+Any service that exposes an OpenAI-compatible Chat Completions API can be added as a custom provider. Add a `driver` key set to `'chat_completions'` and a `base_url`:
 
 ```php
-return [
-    'prism_server' => [
-        'middleware' => [],
-        'enabled' => env('PRISM_SERVER_ENABLED', false),
-    ],
+// config/atlas.php — inside 'providers' array
 
-    'request_timeout' => env('PRISM_REQUEST_TIMEOUT', 30),
+'ollama' => [
+    'driver'   => 'chat_completions',
+    'api_key'  => env('OLLAMA_API_KEY', 'ollama'),
+    'base_url' => env('OLLAMA_URL', 'http://localhost:11434/v1'),
+],
 
-    'providers' => [
-        'openai' => [
-            'url' => env('OPENAI_URL', 'https://api.openai.com/v1'),
-            'api_key' => env('OPENAI_API_KEY', ''),
-            'organization' => env('OPENAI_ORGANIZATION', null),
-            'project' => env('OPENAI_PROJECT', null),
-        ],
-        'anthropic' => [
-            'api_key' => env('ANTHROPIC_API_KEY', ''),
-            'version' => env('ANTHROPIC_API_VERSION', '2023-06-01'),
-            'url' => env('ANTHROPIC_URL', 'https://api.anthropic.com/v1'),
-            'default_thinking_budget' => env('ANTHROPIC_DEFAULT_THINKING_BUDGET', 1024),
-            'anthropic_beta' => env('ANTHROPIC_BETA', null),
-        ],
-        'ollama' => [
-            'url' => env('OLLAMA_URL', 'http://localhost:11434'),
-        ],
-        'mistral' => [
-            'api_key' => env('MISTRAL_API_KEY', ''),
-            'url' => env('MISTRAL_URL', 'https://api.mistral.ai/v1'),
-        ],
-        'groq' => [
-            'api_key' => env('GROQ_API_KEY', ''),
-            'url' => env('GROQ_URL', 'https://api.groq.com/openai/v1'),
-        ],
-        'xai' => [
-            'api_key' => env('XAI_API_KEY', ''),
-            'url' => env('XAI_URL', 'https://api.x.ai/v1'),
-        ],
-        'gemini' => [
-            'api_key' => env('GEMINI_API_KEY', ''),
-            'url' => env('GEMINI_URL', 'https://generativelanguage.googleapis.com/v1beta/models'),
-        ],
-        'deepseek' => [
-            'api_key' => env('DEEPSEEK_API_KEY', ''),
-            'url' => env('DEEPSEEK_URL', 'https://api.deepseek.com/v1'),
-        ],
-        'elevenlabs' => [
-            'api_key' => env('ELEVENLABS_API_KEY', ''),
-            'url' => env('ELEVENLABS_URL', 'https://api.elevenlabs.io/v1/'),
-        ],
-        'voyageai' => [
-            'api_key' => env('VOYAGEAI_API_KEY', ''),
-            'url' => env('VOYAGEAI_URL', 'https://api.voyageai.com/v1'),
-        ],
-        'openrouter' => [
-            'api_key' => env('OPENROUTER_API_KEY', ''),
-            'url' => env('OPENROUTER_URL', 'https://openrouter.ai/api/v1'),
-            'site' => [
-                'http_referer' => env('OPENROUTER_SITE_HTTP_REFERER', null),
-                'x_title' => env('OPENROUTER_SITE_X_TITLE', null),
-            ],
-        ],
-        'perplexity' => [
-            'api_key' => env('PERPLEXITY_API_KEY', ''),
-            'url' => env('PERPLEXITY_URL', 'https://api.perplexity.ai'),
-        ],
-        'z' => [
-            'url' => env('Z_URL', 'https://api.z.ai/api/paas/v4'),
-            'api_key' => env('Z_API_KEY', ''),
-        ],
-    ],
-];
+'lmstudio' => [
+    'driver'   => 'chat_completions',
+    'api_key'  => env('LMSTUDIO_API_KEY', 'lm-studio'),
+    'base_url' => env('LMSTUDIO_URL', 'http://localhost:1234/v1'),
+],
+
+'groq' => [
+    'driver'   => 'chat_completions',
+    'api_key'  => env('GROQ_API_KEY'),
+    'base_url' => 'https://api.groq.com/openai/v1',
+],
+
+'deepseek' => [
+    'driver'   => 'chat_completions',
+    'api_key'  => env('DEEPSEEK_API_KEY'),
+    'base_url' => 'https://api.deepseek.com/v1',
+],
+
+'openrouter' => [
+    'driver'   => 'chat_completions',
+    'api_key'  => env('OPENROUTER_API_KEY'),
+    'base_url' => 'https://openrouter.ai/api/v1',
+],
 ```
+
+Available named drivers: `chat_completions` and `responses`. You can also pass a custom driver class.
 
 ### Using Multiple Providers
 
-You can configure as many providers as you need simultaneously. Just add the API keys for each provider you want to use, and switch between them per-request:
+Configure as many providers as you need and switch between them per request:
 
 ```php
-use Atlasphp\Atlas\Facades\Atlas;
-use PrismPHP\Prism\Enums\Provider;
+// Use OpenAI for text
+$text = Atlas::text('openai', 'gpt-4o')->message('Hello')->asText();
 
-// Use OpenAI for chat
-$response = Atlas::chat()
-    ->using(Provider::OpenAI, 'gpt-4o')
-    ->withPrompt('Explain quantum computing')
-    ->generate();
+// Use Anthropic for another task
+$text = Atlas::text('anthropic', 'claude-sonnet-4-20250514')->message('Hello')->asText();
 
-// Use Anthropic for a different task
-$response = Atlas::chat()
-    ->using(Provider::Anthropic, 'claude-sonnet-4-20250514')
-    ->withPrompt('Review this code')
-    ->generate();
-
-// Use Ollama for local inference
-$response = Atlas::chat()
-    ->using(Provider::Ollama, 'llama3')
-    ->withPrompt('Summarize this document')
-    ->generate();
+// Use a custom provider
+$text = Atlas::text('ollama', 'llama3')->message('Hello')->asText();
 ```
 
-### Custom & OpenAI-Compatible Providers
+### Timeout
 
-Many local inference servers (LM Studio, LocalAI, vLLM, text-generation-webui) expose an OpenAI-compatible API. You can add them as custom provider entries in your `config/prism.php` with their own env variables:
+Request timeout values in seconds, tuned for different operation types:
 
 ```env
-# LM Studio
-LMSTUDIO_URL=http://localhost:1234/v1
-LMSTUDIO_API_KEY=lm-studio
-
-# LocalAI
-LOCALAI_URL=http://localhost:8080/v1
-LOCALAI_API_KEY=not-needed
-
-# vLLM
-VLLM_URL=http://localhost:8000/v1
-VLLM_API_KEY=not-needed
+ATLAS_TIMEOUT=60              # Default timeout
+ATLAS_TIMEOUT_REASONING=300   # Extended thinking models
+ATLAS_TIMEOUT_MEDIA=120       # Image/audio/video generation
 ```
 
-Then register them as providers in `config/prism.php`:
+### Middleware
+
+Atlas provides four middleware layers, each running at a different point in the execution lifecycle:
 
 ```php
-'providers' => [
-    // ... built-in providers ...
+'middleware' => [
+    'provider' => [],   // Runs on every HTTP call to an AI provider
+    'step' => [],       // Runs on each executor round trip
+    'tool' => [],       // Runs on each tool execution
+    'agent' => [],      // Runs on each agent execution
+],
+```
 
-    'lmstudio' => [
-        'url' => env('LMSTUDIO_URL', 'http://localhost:1234/v1'),
-        'api_key' => env('LMSTUDIO_API_KEY', 'lm-studio'),
+Register middleware classes in each array. They execute in order for every request at that layer.
+
+```php
+'middleware' => [
+    'provider' => [
+        \App\Atlas\Middleware\LogProviderCalls::class,
+        \App\Atlas\Middleware\RateLimiter::class,
     ],
-    'localai' => [
-        'url' => env('LOCALAI_URL', 'http://localhost:8080/v1'),
-        'api_key' => env('LOCALAI_API_KEY', ''),
-    ],
-    'vllm' => [
-        'url' => env('VLLM_URL', 'http://localhost:8000/v1'),
-        'api_key' => env('VLLM_API_KEY', ''),
+    'agent' => [
+        \App\Atlas\Middleware\AuditAgentRuns::class,
     ],
 ],
 ```
 
-Use them alongside your cloud providers without any conflicts:
+### Variables
+
+Define global instruction variables that are available across all modalities. Use `{VARIABLE_NAME}` syntax in any instruction string:
 
 ```php
-// Cloud provider
-$response = Atlas::chat()
-    ->using(Provider::OpenAI, 'gpt-4o')
-    ->withPrompt('Hello from OpenAI')
-    ->generate();
-
-// Local LM Studio
-$response = Atlas::chat()
-    ->using('lmstudio', 'my-local-model')
-    ->withPrompt('Hello from local inference')
-    ->generate();
+'variables' => [
+    'APP_NAME' => env('APP_NAME', 'Laravel'),
+    'COMPANY' => [
+        'NAME' => 'Acme',
+        'SUPPORT_EMAIL' => 'help@acme.com',
+    ],
+],
 ```
 
-## Manual Registration
+Access flat variables with `{APP_NAME}` and nested variables with `{COMPANY.NAME}`. These are the lowest priority — values passed via `->withVariables()` or the global variable registry take precedence.
 
-If you prefer manual registration over auto-discovery, register agents and tools in a service provider:
+### Queue
+
+Configuration for asynchronous execution via `->queue()`:
+
+```env
+ATLAS_QUEUE_CONNECTION=        # Queue connection (default: app default)
+ATLAS_QUEUE=default            # Queue name
+ATLAS_QUEUE_TRIES=3            # Max retry attempts
+ATLAS_QUEUE_BACKOFF=30         # Seconds between retries
+ATLAS_QUEUE_TIMEOUT=300        # Job timeout in seconds
+ATLAS_QUEUE_AFTER_COMMIT=true  # Dispatch after DB commit
+```
+
+### Storage
+
+Configure how Atlas stores media files (images, audio, video):
+
+```env
+ATLAS_STORAGE_DISK=            # Filesystem disk (default: app default)
+```
 
 ```php
-<?php
-
-namespace App\Providers;
-
-use Atlasphp\Atlas\Agents\Contracts\AgentRegistryContract;
-use Atlasphp\Atlas\Tools\Contracts\ToolRegistryContract;
-use Illuminate\Support\ServiceProvider;
-
-class AtlasServiceProvider extends ServiceProvider
-{
-    public function boot(): void
-    {
-        // Register agents
-        $agents = app(AgentRegistryContract::class);
-        $agents->register(\App\Agents\SupportAgent::class);
-        $agents->register(\App\Agents\AnalysisAgent::class);
-
-        // Register tools
-        $tools = app(ToolRegistryContract::class);
-        $tools->register(\App\Tools\LookupOrderTool::class);
-        $tools->register(\App\Tools\SearchTool::class);
-    }
-}
+'storage' => [
+    'disk' => env('ATLAS_STORAGE_DISK'),
+    'prefix' => 'atlas',
+    'visibility' => 'private',
+],
 ```
 
-## Pipeline Registration
+### Embeddings
 
-Register pipeline middleware for extensibility:
+Configure the vector dimensions for embedding storage:
+
+```env
+ATLAS_EMBEDDING_DIMENSIONS=1536
+```
+
+This value controls vector column size in persistence migrations. The default of 1536 matches OpenAI's `text-embedding-3-small`.
+
+### Cache
+
+Unified caching for provider data and embeddings. Set any TTL to `0` to disable caching for that type:
+
+```env
+ATLAS_CACHE_STORE=             # Cache store (default: app default)
+ATLAS_CACHE_MODELS_TTL=86400   # Model list cache: 24 hours
+ATLAS_CACHE_VOICES_TTL=3600    # Voice list cache: 1 hour
+ATLAS_CACHE_EMBEDDINGS_TTL=0   # Embedding cache: disabled by default
+```
+
+### Persistence
+
+Optional conversation persistence and execution tracking. Atlas works fully stateless by default.
+
+```env
+ATLAS_PERSISTENCE_ENABLED=false
+ATLAS_TABLE_PREFIX=atlas_
+ATLAS_MESSAGE_LIMIT=50
+ATLAS_AUTO_STORE_ASSETS=true
+ATLAS_MEMORY_AUTO_EMBED=true
+```
+
+To enable persistence:
+
+1. Publish and run migrations:
+   ```bash
+   php artisan vendor:publish --tag=atlas-migrations
+   php artisan migrate
+   ```
+
+2. Set `ATLAS_PERSISTENCE_ENABLED=true` in `.env`
+
+You can override any persistence model by uncommenting and replacing the class in the `models` array.
+
+### Agent Auto-Discovery
+
+Configure a directory for Atlas to scan and auto-register agent classes at boot:
 
 ```php
-use Atlasphp\Atlas\Foundation\Services\PipelineRegistry;
-
-public function boot(): void
-{
-    $registry = app(PipelineRegistry::class);
-
-    // Add logging to all agent executions
-    $registry->register(
-        'agent.after_execute',
-        \App\Pipelines\LogAgentExecution::class,
-        priority: 100,
-    );
-}
+'agents' => [
+    'path' => app_path('Agents'),
+    'namespace' => 'App\\Agents',
+],
 ```
 
-See [Pipelines](/core-concepts/pipelines) for available hooks.
+Both values are `null` by default (auto-discovery disabled). Set them to enable scanning. You can also scaffold agents with:
+
+```bash
+php artisan make:agent SupportAgent
+```
 
 ## Next Steps
 
 - [Agents](/core-concepts/agents) — Understand the agent system
 - [Tools](/core-concepts/tools) — Learn about typed tools
-- [Chat](/capabilities/chat) — Start using agents
+- [Middleware](/core-concepts/middleware) — Add middleware to execution layers

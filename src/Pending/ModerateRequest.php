@@ -156,6 +156,7 @@ class ModerateRequest implements QueueableRequest
         };
     }
 
+    /** Resolve the model as a string key for queue serialization. */
     protected function resolveModelKey(): string
     {
         return (string) ($this->model ?? '');

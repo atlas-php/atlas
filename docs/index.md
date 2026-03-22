@@ -3,7 +3,7 @@ layout: home
 
 hero:
   text: "AI Agents <span class='text-laravel'>for Laravel</span>"
-  tagline: The architecture layer for crafting AI-powered Laravel applications.
+  tagline: A unified AI execution layer for Laravel.
   image:
     light: /atlas-logo-5.png
     dark: /atlas-logo-2.png
@@ -21,19 +21,19 @@ features:
       src: /icons/agent.svg
       alt: Agent Registry
     title: Agent Registry
-    details: Create AI agents with custom personalities, tools, and behaviors. Define once, reuse everywhere.
+    details: Reusable agent classes that encapsulate provider, model, instructions, tools, and behavior. Define once, use anywhere.
     link: /core-concepts/agents
   - icon:
       src: /icons/tool.svg
       alt: Tool Registry
     title: Tool Registry
-    details: Let AI call your PHP code. Define typed tools that interact with your database, APIs, and services.
+    details: Typed tool classes with parameter schemas and dependency injection. Let AI call your PHP code safely.
     link: /core-concepts/tools
   - icon:
-      src: /icons/prism-logo.webp
-      alt: Built on Prism
-    title: Built on Prism
-    details: Full access to Prism's multi-provider support, streaming, and multimodal capabilities. Atlas organizes without limiting.
+      src: /icons/multi-provider.svg
+      alt: Multi-Modal
+    title: Multi-Modal
+    details: "Text, images, audio, video, embeddings, moderation, and reranking — all through one consistent API."
     link: /getting-started/introduction
   - icon:
       src: /icons/structured.svg
@@ -45,12 +45,12 @@ features:
       src: /icons/streaming.svg
       alt: Dynamic Prompts
     title: Dynamic Prompts
-    details: System prompts with {variable} interpolation. Inject user context, session data, or custom values at runtime.
+    details: "Instructions with {variable} interpolation. Inject user context, session data, or custom values at runtime."
     link: /core-concepts/system-prompts
   - icon:
       src: /icons/pipeline.svg
-      alt: Extensible Pipelines
-    title: Extensible Pipelines
-    details: Hook into every operation with middleware pipelines. Add logging, authentication, caching, or custom logic anywhere.
-    link: /core-concepts/pipelines
+      alt: Middleware & Events
+    title: Middleware & Events
+    details: Four middleware layers and 34 lifecycle events. Full observability from request to response.
+    link: /advanced/events
 ---
