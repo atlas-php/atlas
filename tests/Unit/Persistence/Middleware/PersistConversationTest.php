@@ -6,6 +6,7 @@ use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Executor\ExecutorResult;
 use Atlasphp\Atlas\Executor\Step;
+use Atlasphp\Atlas\Messages\AssistantMessage;
 use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Middleware\AgentContext;
 use Atlasphp\Atlas\Persistence\Concerns\HasConversations;
@@ -464,4 +465,204 @@ it('uses last user message as parentId in respond mode', function () {
         ->first();
 
     expect($assistantMsg->parent_id)->toBe($userMsg->id);
+});
+
+// ─── History injection into request ─────────────────────────────────
+
+it('prepends conversation history into the request messages', function () {
+    $middleware = app(PersistConversation::class);
+
+    $conversation = Conversation::create(['agent' => 'test-agent']);
+
+    // Seed two prior messages
+    Message::factory()->fromUser()->create([
+        'conversation_id' => $conversation->id,
+        'content' => 'Prior question',
+        'sequence' => 0,
+    ]);
+
+    Message::factory()->fromAssistant('test-agent')->create([
+        'conversation_id' => $conversation->id,
+        'content' => 'Prior answer',
+        'sequence' => 1,
+    ]);
+
+    $agent = makeTestAgent();
+    $agent->forConversation($conversation->id);
+
+    $capturedRequest = null;
+
+    $context = new AgentContext(
+        request: makePersistConversationRequest(),
+        agent: $agent,
+        messages: [],
+        meta: [],
+    );
+
+    $middleware->handle($context, function (AgentContext $ctx) use (&$capturedRequest) {
+        $capturedRequest = $ctx->request;
+
+        return makeFakeExecutorResult();
+    });
+
+    // History (2 seeded messages) should be in the request
+    expect($capturedRequest)->not->toBeNull();
+    expect($capturedRequest->messages)->toHaveCount(2);
+
+    // Both a user and assistant message should be present
+    $types = array_map(fn ($m) => get_class($m), $capturedRequest->messages);
+    expect($types)->toContain(UserMessage::class);
+    expect($types)->toContain(AssistantMessage::class);
+});
+
+it('grows request messages as conversation history accumulates', function () {
+    $middleware = app(PersistConversation::class);
+
+    $conversation = Conversation::create(['agent' => 'test-agent']);
+
+    $agent = makeTestAgent();
+    $agent->forConversation($conversation->id);
+
+    // Turn 1 — no history yet
+    $capturedRequest1 = null;
+
+    $context1 = new AgentContext(
+        request: makePersistConversationRequest(),
+        agent: $agent,
+        messages: [],
+        meta: [],
+    );
+
+    $middleware->handle($context1, function (AgentContext $ctx) use (&$capturedRequest1) {
+        $capturedRequest1 = $ctx->request;
+
+        return makeFakeExecutorResult();
+    });
+
+    // First turn: no prior history, request messages should be empty
+    expect($capturedRequest1->messages)->toHaveCount(0);
+
+    // Turn 2 — should see turn 1's user + assistant messages
+    $agent2 = makeTestAgent();
+    $agent2->forConversation($conversation->id);
+
+    $capturedRequest2 = null;
+
+    $context2 = new AgentContext(
+        request: makePersistConversationRequest(),
+        agent: $agent2,
+        messages: [],
+        meta: [],
+    );
+
+    $middleware->handle($context2, function (AgentContext $ctx) use (&$capturedRequest2) {
+        $capturedRequest2 = $ctx->request;
+
+        return makeFakeExecutorResult();
+    });
+
+    // Second turn: should have 2 messages from turn 1 (user + assistant)
+    expect($capturedRequest2->messages)->toHaveCount(2);
+});
+
+it('prepends history before existing request messages without duplication', function () {
+    $middleware = app(PersistConversation::class);
+
+    $conversation = Conversation::create(['agent' => 'test-agent']);
+
+    Message::factory()->fromUser()->create([
+        'conversation_id' => $conversation->id,
+        'content' => 'Prior question',
+        'sequence' => 0,
+    ]);
+
+    Message::factory()->fromAssistant('test-agent')->create([
+        'conversation_id' => $conversation->id,
+        'content' => 'Prior answer',
+        'sequence' => 1,
+    ]);
+
+    $agent = makeTestAgent();
+    $agent->forConversation($conversation->id);
+
+    $requestWithMessages = new TextRequest(
+        model: 'gpt-5',
+        instructions: null,
+        message: 'New message',
+        messageMedia: [],
+        messages: [new UserMessage(content: 'Manual context')],
+        maxTokens: null,
+        temperature: null,
+        schema: null,
+        tools: [],
+        providerTools: [],
+        providerOptions: [],
+    );
+
+    $capturedRequest = null;
+
+    $context = new AgentContext(
+        request: $requestWithMessages,
+        agent: $agent,
+        messages: [new UserMessage(content: 'Manual context')],
+        meta: [],
+    );
+
+    $middleware->handle($context, function (AgentContext $ctx) use (&$capturedRequest) {
+        $capturedRequest = $ctx->request;
+
+        return makeFakeExecutorResult();
+    });
+
+    // History (2) + existing manual message (1) = 3
+    expect($capturedRequest->messages)->toHaveCount(3);
+
+    // History (2) prepended before manual context (1)
+    // Manual context should be last
+    expect($capturedRequest->messages[2]->content)->toBe('Manual context');
+});
+
+it('respects message limit when loading history', function () {
+    $middleware = app(PersistConversation::class);
+
+    $conversation = Conversation::create(['agent' => 'test-agent']);
+
+    // Seed 5 messages
+    for ($i = 0; $i < 5; $i++) {
+        $factory = $i % 2 === 0
+            ? Message::factory()->fromUser()
+            : Message::factory()->fromAssistant('test-agent');
+
+        $factory->create([
+            'conversation_id' => $conversation->id,
+            'content' => "Message {$i}",
+            'sequence' => $i,
+        ]);
+    }
+
+    // Agent with message limit of 2
+    $agent = makeTestAgent();
+    $agent->forConversation($conversation->id);
+    $agent->withMessageLimit(2);
+
+    $capturedRequest = null;
+
+    $context = new AgentContext(
+        request: makePersistConversationRequest(),
+        agent: $agent,
+        messages: [],
+        meta: [],
+    );
+
+    $middleware->handle($context, function (AgentContext $ctx) use (&$capturedRequest) {
+        $capturedRequest = $ctx->request;
+
+        return makeFakeExecutorResult();
+    });
+
+    // Only the 2 most recent messages should be loaded (not all 5)
+    expect($capturedRequest->messages)->toHaveCount(2);
+
+    // Should NOT have all 5 — limit of 2 was applied
+    expect($capturedRequest->messages)->not->toHaveCount(5);
 });

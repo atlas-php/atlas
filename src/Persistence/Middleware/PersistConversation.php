@@ -17,6 +17,7 @@ use Atlasphp\Atlas\Persistence\Models\MessageAttachment;
 use Atlasphp\Atlas\Persistence\ProcessQueuedMessage;
 use Atlasphp\Atlas\Persistence\Services\ConversationService;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
+use Atlasphp\Atlas\Requests\TextRequest;
 use Closure;
 use Illuminate\Support\Facades\DB;
 
@@ -76,13 +77,32 @@ class PersistConversation
             $userMessage = new UserMessage(content: $context->request->message);
         }
 
-        // ── Load conversation history into context
+        // ── Load conversation history into context and request
         // Role remapping happens inside for group conversations.
         // In retry mode, the old response is now inactive — only the active thread loads.
         $history = $agent->conversationMessages();
 
         if (! empty($history)) {
             $context->messages = array_merge($history, $context->messages);
+
+            // Replace request messages with history + existing so the
+            // driver sends conversation context to the provider.
+            $merged = array_merge($history, $context->request->messages);
+            $context->request = new TextRequest(
+                model: $context->request->model,
+                instructions: $context->request->instructions,
+                message: $context->request->message,
+                messageMedia: $context->request->messageMedia,
+                messages: $merged,
+                maxTokens: $context->request->maxTokens,
+                temperature: $context->request->temperature,
+                schema: $context->request->schema,
+                tools: $context->request->tools,
+                providerTools: $context->request->providerTools,
+                providerOptions: $context->request->providerOptions,
+                middleware: $context->request->middleware,
+                meta: $context->request->meta,
+            );
         }
 
         // Store consumer metadata on the conversation if it has none yet
