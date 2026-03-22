@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Persistence\Models;
 
 use Atlasphp\Atlas\Database\Factories\AssetFactory;
 use Atlasphp\Atlas\Persistence\Concerns\HasAtlasTable;
+use Atlasphp\Atlas\Persistence\Concerns\HasAuthor;
 use Atlasphp\Atlas\Persistence\Enums\AssetType;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -13,7 +14,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 
@@ -44,7 +44,7 @@ use Illuminate\Support\Carbon;
 class Asset extends Model
 {
     /** @use HasFactory<Factory<static>> */
-    use HasAtlasTable, HasFactory, SoftDeletes;
+    use HasAtlasTable, HasAuthor, HasFactory, SoftDeletes;
 
     protected static function newFactory(): AssetFactory
     {
@@ -94,12 +94,6 @@ class Asset extends Model
         return $this->hasMany($model);
     }
 
-    /** @return MorphTo<Model, $this> */
-    public function author(): MorphTo
-    {
-        return $this->morphTo();
-    }
-
     /** @return BelongsTo<Execution, $this> */
     public function execution(): BelongsTo
     {
@@ -136,45 +130,7 @@ class Asset extends Model
         return $this->type->isMedia();
     }
 
-    public function isHumanAuthored(): bool
-    {
-        return $this->author_type !== null && $this->author_id !== null;
-    }
-
-    public function isAgentAuthored(): bool
-    {
-        return $this->agent !== null;
-    }
-
-    public function authorName(): ?string
-    {
-        if ($this->isAgentAuthored()) {
-            return $this->agent;
-        }
-
-        if ($this->isHumanAuthored()) {
-            $author = $this->author;
-
-            return $author !== null && isset($author->name) ? (string) $author->name : null;
-        }
-
-        return null;
-    }
-
-    // ─── Scopes ─────────────────────────────────────────────────
-
-    /** @param Builder<static> $query */
-    public function scopeByAuthor(Builder $query, Model $author): void
-    {
-        $query->where('author_type', $author->getMorphClass())
-            ->where('author_id', $author->getKey());
-    }
-
-    /** @param Builder<static> $query */
-    public function scopeByAgent(Builder $query, string $agentKey): void
-    {
-        $query->where('agent', $agentKey);
-    }
+    // ─── Scopes (byAuthor + byAgent provided by HasAuthor) ─────
 
     /** @param Builder<static> $query */
     public function scopeForExecution(Builder $query, int $executionId): void

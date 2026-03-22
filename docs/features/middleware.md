@@ -322,5 +322,5 @@ class AuthorizeToolCall
 
 ## Next Steps
 
-- [Agents](/core-concepts/agents) — Agent configuration
-- [Tools](/core-concepts/tools) — Tool definitions and parameters
+- [Agents](/features/agents) — Agent configuration
+- [Tools](/features/tools) — Tool definitions and parameters

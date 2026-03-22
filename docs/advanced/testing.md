@@ -1,690 +1,602 @@
 # Testing
 
-Strategies for testing Atlas-powered applications.
+Atlas provides a first-class testing system built around `Atlas::fake()`. Fake the entire provider layer, queue up custom responses, and assert against recorded requests — no HTTP calls, no API keys.
 
-## Testing Philosophy
+## Quick Start
 
-Atlas is designed for testability:
+```php
+use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Testing\TextResponseFake;
 
-- **Stateless agents** — No hidden state to manage
-- **Dependency injection** — All services are injectable
-- **Contract-based** — Mock interfaces, not implementations
-- **Pipeline system** — Intercept and modify behavior in tests
+public function test_support_agent_responds(): void
+{
+    $fake = Atlas::fake([
+        TextResponseFake::make()->withText('How can I help?'),
+    ]);
 
-## Unit Testing Agents
+    $response = Atlas::text('openai', 'gpt-4o')
+        ->message('Hello')
+        ->asText();
 
-### Testing Agent Configuration
+    $this->assertEquals('How can I help?', $response->text);
+
+    $fake->assertSent();
+    $fake->assertSentCount(1);
+    $fake->assertMessageContains('Hello');
+}
+```
+
+`Atlas::fake()` replaces all provider drivers with fakes, records every request, and returns an `AtlasFake` instance you use for assertions.
+
+## Custom Responses
+
+### Providing Responses
+
+Pass response fakes to `Atlas::fake()` as an array. They are consumed in sequence — each call gets the next response. When the sequence is exhausted, the last response repeats.
+
+```php
+$fake = Atlas::fake([
+    TextResponseFake::make()->withText('First'),
+    TextResponseFake::make()->withText('Second'),
+]);
+
+Atlas::text('openai', 'gpt-4o')->message('A')->asText(); // "First"
+Atlas::text('openai', 'gpt-4o')->message('B')->asText(); // "Second"
+Atlas::text('openai', 'gpt-4o')->message('C')->asText(); // "Second" (repeats)
+```
+
+### Default Responses
+
+Call `Atlas::fake()` with no arguments to use sensible defaults for every modality:
+
+```php
+$fake = Atlas::fake();
+
+// Text calls return empty text with Usage(10, 20) and FinishReason::Stop
+// Image calls return 'https://fake.atlas/image.png'
+// Audio calls return base64-encoded 'fake-audio' in mp3 format
+// Embeddings return [[0.1, 0.2, 0.3]]
+// And so on — every modality has a zero-config default
+```
+
+### Response Fake Builders
+
+Each modality has a fluent builder. Call `make()` to start, chain `with*()` methods to customize, and either pass the builder directly to `Atlas::fake()` or call `toResponse()` when you need the response object.
+
+#### TextResponseFake
+
+```php
+use Atlasphp\Atlas\Testing\TextResponseFake;
+use Atlasphp\Atlas\Enums\FinishReason;
+use Atlasphp\Atlas\Responses\Usage;
+
+TextResponseFake::make()
+    ->withText('Hello world')
+    ->withUsage(new Usage(15, 30))
+    ->withFinishReason(FinishReason::Stop)
+    ->withToolCalls([$toolCall])
+    ->withReasoning('Let me think...')
+    ->withMeta(['id' => 'chatcmpl-123']);
+```
+
+Default: `text=''`, `usage=Usage(10, 20)`, `finishReason=Stop`
+
+#### StreamResponseFake
+
+```php
+use Atlasphp\Atlas\Testing\StreamResponseFake;
+
+StreamResponseFake::make()
+    ->withText('Streamed content here')
+    ->withChunkSize(10)
+    ->withUsage(new Usage(15, 30))
+    ->withFinishReason(FinishReason::Stop);
+```
+
+Splits text into chunks of `chunkSize` characters, then emits a final `Done` chunk with usage and finish reason. Default: `text=''`, `chunkSize=5`
+
+#### StructuredResponseFake
+
+```php
+use Atlasphp\Atlas\Testing\StructuredResponseFake;
+
+StructuredResponseFake::make()
+    ->withStructured(['sentiment' => 'positive', 'score' => 0.95])
+    ->withUsage(new Usage(10, 20))
+    ->withFinishReason(FinishReason::Stop);
+```
+
+#### ImageResponseFake
+
+```php
+use Atlasphp\Atlas\Testing\ImageResponseFake;
+
+ImageResponseFake::make()
+    ->withUrl('https://example.com/generated.png')
+    ->withRevisedPrompt('A scenic mountain landscape at sunset')
+    ->withMeta(['model' => 'dall-e-3']);
+```
+
+Default: `url='https://fake.atlas/image.png'`
+
+#### AudioResponseFake
+
+```php
+use Atlasphp\Atlas\Testing\AudioResponseFake;
+
+AudioResponseFake::make()
+    ->withData(base64_encode('custom-audio-data'))
+    ->withFormat('wav')
+    ->withMeta(['duration' => 3.5]);
+```
+
+Default: `data=base64('fake-audio')`, `format='mp3'`
+
+#### VideoResponseFake
+
+```php
+use Atlasphp\Atlas\Testing\VideoResponseFake;
+
+VideoResponseFake::make()
+    ->withUrl('https://example.com/video.mp4')
+    ->withDuration(30)
+    ->withMeta(['resolution' => '1080p']);
+```
+
+Default: `url='https://fake.atlas/video.mp4'`
+
+#### EmbeddingsResponseFake
+
+```php
+use Atlasphp\Atlas\Testing\EmbeddingsResponseFake;
+
+EmbeddingsResponseFake::make()
+    ->withEmbeddings([
+        [0.1, 0.2, 0.3, 0.4],
+        [0.5, 0.6, 0.7, 0.8],
+    ])
+    ->withUsage(new Usage(10, 0));
+```
+
+Default: `embeddings=[[0.1, 0.2, 0.3]]`, `usage=Usage(5, 0)`
+
+#### ModerationResponseFake
+
+```php
+use Atlasphp\Atlas\Testing\ModerationResponseFake;
+
+ModerationResponseFake::make()
+    ->withFlagged(true)
+    ->withCategories(['hate' => true, 'violence' => false])
+    ->withMeta(['model' => 'text-moderation-latest']);
+```
+
+Default: `flagged=false`, `categories=[]`
+
+#### RerankResponseFake
+
+```php
+use Atlasphp\Atlas\Testing\RerankResponseFake;
+use Atlasphp\Atlas\Responses\RerankResult;
+
+// Using defaults (3 results with scores 0.95, 0.80, 0.60)
+RerankResponseFake::make();
+
+// Custom count with auto-generated scores
+RerankResponseFake::withCount(5);
+
+// Custom count with specific scores
+RerankResponseFake::withCount(3, [0.99, 0.75, 0.50]);
+
+// Full control
+RerankResponseFake::make()
+    ->withResults([
+        new RerankResult(0, 0.99, 'Most relevant document'),
+        new RerankResult(2, 0.85, 'Second most relevant'),
+    ])
+    ->withMeta(['model' => 'rerank-v3']);
+```
+
+Default: 3 results with scores 0.95, 0.80, 0.60
+
+## Assertions
+
+All assertion methods are on the `AtlasFake` instance returned by `Atlas::fake()`.
+
+```php
+$fake = Atlas::fake();
+
+// ... make calls ...
+
+// Was anything sent?
+$fake->assertSent();
+$fake->assertNothingSent();
+$fake->assertSentCount(3);
+
+// Match requests with a callback
+$fake->assertSentWith(fn (RecordedRequest $r) => $r->method === 'text');
+
+// Assert provider and model
+$fake->assertSentTo('openai', 'gpt-4o');
+
+// Assert a specific method was called
+$fake->assertMethodCalled('text');
+$fake->assertMethodCalled('image');
+$fake->assertMethodCalled('embed');
+
+// Assert instructions content
+$fake->assertInstructionsContain('You are a helpful assistant');
+
+// Assert message content
+$fake->assertMessageContains('hello');
+```
+
+## Testing Agents
+
+### Agent Configuration
+
+Test agent properties directly — no faking needed:
 
 ```php
 use App\Agents\CustomerSupportAgent;
-use PHPUnit\Framework\TestCase;
 
-class CustomerSupportAgentTest extends TestCase
-{
-    public function test_agent_has_correct_configuration(): void
-    {
-        $agent = new CustomerSupportAgent();
-
-        $this->assertEquals('customer-support', $agent->key());
-        $this->assertEquals('openai', $agent->provider());
-        $this->assertEquals('gpt-4o', $agent->model());
-        $this->assertStringContainsString('customer support', $agent->systemPrompt());
-    }
-
-    public function test_agent_has_required_tools(): void
-    {
-        $agent = new CustomerSupportAgent();
-        $tools = $agent->tools();
-
-        $this->assertContains(LookupOrderTool::class, $tools);
-        $this->assertContains(SearchProductsTool::class, $tools);
-    }
-}
-```
-
-### Testing System Prompt Variables
-
-```php
-public function test_system_prompt_contains_expected_variables(): void
+public function test_agent_configuration(): void
 {
     $agent = new CustomerSupportAgent();
-    $prompt = $agent->systemPrompt();
 
-    $this->assertStringContainsString('{user_name}', $prompt);
-    $this->assertStringContainsString('{customer_name}', $prompt);
+    $this->assertEquals('customer-support', $agent->key());
+    $this->assertEquals('openai', $agent->provider());
+    $this->assertEquals('gpt-4o', $agent->model());
+    $this->assertStringContainsString('customer support', $agent->systemPrompt());
+}
+
+public function test_agent_has_required_tools(): void
+{
+    $agent = new CustomerSupportAgent();
+
+    $this->assertContains(LookupOrderTool::class, $agent->tools());
+    $this->assertContains(SearchProductsTool::class, $agent->tools());
 }
 ```
 
-## Unit Testing Tools
+### Agent Execution
 
-### Testing Tool Logic
+Fake Atlas, run the agent through the normal flow, and assert:
+
+```php
+public function test_agent_responds_to_user(): void
+{
+    $fake = Atlas::fake([
+        TextResponseFake::make()->withText('I can help with your order.'),
+    ]);
+
+    $response = Atlas::agent('support')
+        ->for($this->user)
+        ->message('Where is my order?')
+        ->asText();
+
+    $this->assertEquals('I can help with your order.', $response->text);
+    $fake->assertSent();
+    $fake->assertMethodCalled('text');
+}
+```
+
+## Testing Tools
+
+Test tool `handle()` methods directly as unit tests. Tools are plain classes — no provider interaction needed.
 
 ```php
 use App\Tools\LookupOrderTool;
-use Atlasphp\Atlas\Tools\Support\ToolContext;
-use PHPUnit\Framework\TestCase;
 
-class LookupOrderToolTest extends TestCase
+public function test_returns_order_when_found(): void
 {
-    public function test_returns_order_when_found(): void
-    {
-        // Create a mock order
-        $order = Order::factory()->create([
-            'id' => 'ORD-123',
-            'status' => 'shipped',
-        ]);
+    $order = Order::factory()->create([
+        'id' => 'ORD-123',
+        'status' => 'shipped',
+    ]);
 
-        $tool = new LookupOrderTool();
-        $context = new ToolContext([]);
+    $tool = new LookupOrderTool();
+    $result = $tool->handle(['order_id' => 'ORD-123']);
 
-        $result = $tool->handle(['order_id' => 'ORD-123'], $context);
-
-        $this->assertTrue($result->succeeded());
-        $this->assertStringContainsString('shipped', $result->toText());
-    }
-
-    public function test_returns_error_when_not_found(): void
-    {
-        $tool = new LookupOrderTool();
-        $context = new ToolContext([]);
-
-        $result = $tool->handle(['order_id' => 'INVALID'], $context);
-
-        $this->assertTrue($result->failed());
-        $this->assertStringContainsString('not found', $result->toText());
-    }
-
-    public function test_uses_context_metadata_for_authorization(): void
-    {
-        $user = User::factory()->create();
-        $order = Order::factory()->create(['user_id' => $user->id]);
-
-        $tool = new LookupOrderTool();
-        $context = new ToolContext(['user_id' => $user->id]);
-
-        $result = $tool->handle(['order_id' => $order->id], $context);
-
-        $this->assertTrue($result->succeeded());
-    }
+    $this->assertTrue($result->succeeded());
+    $this->assertStringContainsString('shipped', $result->toText());
 }
-```
 
-### Testing Tool Parameters
-
-```php
-public function test_tool_has_correct_parameters(): void
+public function test_returns_error_when_not_found(): void
 {
     $tool = new LookupOrderTool();
-    $params = $tool->parameters();
+    $result = $tool->handle(['order_id' => 'INVALID']);
 
-    $this->assertCount(1, $params);
-    $this->assertEquals('order_id', $params[0]->name);
-    $this->assertFalse($params[0]->nullable);
-}
-```
-
-## Integration Testing
-
-### Mocking the AtlasManager
-
-```php
-use Atlasphp\Atlas\Providers\Services\AtlasManager;
-use Mockery;
-
-class ChatControllerTest extends TestCase
-{
-    public function test_chat_endpoint_returns_response(): void
-    {
-        // Use Atlas::fake() instead - see "Faking Atlas" section
-        Atlas::fake();
-
-        $response = $this->postJson('/api/chat', [
-            'message' => 'Hello',
-        ]);
-
-        $response->assertOk();
-        Atlas::assertCalled('support-agent');
-    }
-}
-```
-
-### Testing with Real Responses
-
-For integration tests that need real AI responses:
-
-```php
-/**
- * @group integration
- * @group requires-api-key
- */
-class AtlasIntegrationTest extends TestCase
-{
-    public function test_simple_chat_returns_response(): void
-    {
-        $response = Atlas::agent('test-agent')->chat('Say hello');
-
-        $this->assertTrue($response->hasText());
-        $this->assertNotEmpty($response->text);
-    }
-}
-```
-
-## Faking Atlas
-
-Atlas provides a built-in `Atlas::fake()` method for testing, following Laravel's `Http::fake()` pattern:
-
-### Basic Usage
-
-```php
-use Atlasphp\Atlas\Atlas;
-use Atlasphp\Atlas\Testing\Support\FakeResponseSequence;
-use Prism\Prism\Text\Response as PrismResponse;
-use Prism\Prism\Enums\FinishReason;
-use Prism\Prism\ValueObjects\Usage;
-
-public function test_chat_returns_expected_response(): void
-{
-    // Enable fake mode with a default response
-    Atlas::fake([
-        new PrismResponse(
-            text: 'Hello! How can I help?',
-            finishReason: FinishReason::Stop,
-            usage: new Usage(promptTokens: 10, completionTokens: 20),
-        ),
-    ]);
-
-    // Call your code that uses Atlas
-    $response = Atlas::agent('support-agent')->chat('Hello');
-
-    // Assert the response (returns AgentResponse which wraps PrismResponse)
-    $this->assertEquals('Hello! How can I help?', $response->text());
-
-    // Assert the agent was called
-    Atlas::assertCalled('support-agent');
-}
-```
-
-### Agent-Specific Responses
-
-Configure different responses for different agents:
-
-```php
-use Prism\Prism\Text\Response as PrismResponse;
-use Prism\Prism\Enums\FinishReason;
-use Prism\Prism\ValueObjects\Usage;
-
-// Helper to create responses
-$makeResponse = fn(string $text) => new PrismResponse(
-    text: $text,
-    finishReason: FinishReason::Stop,
-    usage: new Usage(promptTokens: 10, completionTokens: 20),
-);
-
-Atlas::fake()
-    ->forAgent('billing-agent', $makeResponse('Your balance is $100'))
-    ->forAgent('support-agent', $makeResponse('How can I help?'));
-
-$billing = Atlas::agent('billing-agent')->chat('Balance?');
-$support = Atlas::agent('support-agent')->chat('Help');
-
-Atlas::assertCalled('billing-agent');
-Atlas::assertCalled('support-agent');
-```
-
-### Sequential Responses
-
-Return different responses for consecutive calls:
-
-```php
-use Prism\Prism\Text\Response as PrismResponse;
-use Prism\Prism\Enums\FinishReason;
-use Prism\Prism\ValueObjects\Usage;
-
-$makeResponse = fn(string $text) => new PrismResponse(
-    text: $text,
-    finishReason: FinishReason::Stop,
-    usage: new Usage(promptTokens: 10, completionTokens: 20),
-);
-
-Atlas::fake()
-    ->forAgent('assistant')
-    ->sequence([
-        $makeResponse('First response'),
-        $makeResponse('Second response'),
-        $makeResponse('Third response'),
-    ]);
-
-// Each call returns the next response in sequence
-$first = Atlas::agent('assistant')->chat('1');   // "First response"
-$second = Atlas::agent('assistant')->chat('2');  // "Second response"
-$third = Atlas::agent('assistant')->chat('3');   // "Third response"
-```
-
-### Conditional Responses
-
-Return responses based on input content:
-
-```php
-use Prism\Prism\Text\Response as PrismResponse;
-use Prism\Prism\Enums\FinishReason;
-use Prism\Prism\ValueObjects\Usage;
-
-$makeResponse = fn(string $text) => new PrismResponse(
-    text: $text,
-    finishReason: FinishReason::Stop,
-    usage: new Usage(promptTokens: 10, completionTokens: 20),
-);
-
-Atlas::fake()
-    ->forAgent('assistant')
-    ->when(
-        fn($agent, $input) => str_contains($input, 'order'),
-        $makeResponse('I can help with your order')
-    )
-    ->when(
-        fn($agent, $input) => str_contains($input, 'refund'),
-        $makeResponse('I can process your refund')
-    );
-```
-
-### Dynamic Response Factories
-
-Use `respondUsing()` for closure-based response generation. The closure receives a `RecordedRequest` and should return a response text string or a `PrismResponse`:
-
-```php
-use Atlasphp\Atlas\Testing\Support\RecordedRequest;
-
-Atlas::fake()->respondUsing('support-agent', function (RecordedRequest $request) {
-    return "Echo: {$request->input}";
-});
-
-$response = Atlas::agent('support-agent')->chat('Hello');
-$this->assertEquals('Echo: Hello', $response->text());
-```
-
-This is useful when fake responses need to vary based on the input or context of each request.
-
-### Testing Exceptions
-
-Test error handling by throwing exceptions:
-
-```php
-use Atlasphp\Atlas\Providers\Exceptions\RateLimitedException;
-
-Atlas::fake()
-    ->forAgent('assistant')
-    ->throw(new RateLimitedException([], 60));
-
-$this->expectException(RateLimitedException::class);
-Atlas::agent('assistant')->chat('Hello');
-```
-
-### Streaming Fakes
-
-Create fake streaming responses:
-
-```php
-use Atlasphp\Atlas\Testing\Support\StreamEventFactory;
-
-Atlas::fake([
-    StreamEventFactory::fromText('Hello, this is streamed!'),
-]);
-
-$stream = Atlas::agent('assistant')->chat('Hello', stream: true);
-
-foreach ($stream as $event) {
-    // Process events...
-}
-```
-
-### Assertion Methods
-
-```php
-// Assert an agent was called
-Atlas::assertCalled('support-agent');
-
-// Assert an agent was called a specific number of times
-Atlas::assertCalledTimes('support-agent', 3);
-
-// Assert an agent was NOT called
-Atlas::assertNotCalled('billing-agent');
-
-// Assert nothing was called
-Atlas::assertNothingCalled();
-
-// Assert with input matching
-Atlas::assertCalled('support-agent', fn($recorded) =>
-    str_contains($recorded->input, 'order')
-);
-
-// Assert with context matching
-Atlas::assertSentWithContext('support-agent', fn($context) =>
-    $context->metadata['user_id'] === 123
-);
-
-// Assert schema was used
-Atlas::assertSentWithSchema('analyzer', fn($schema) =>
-    $schema->name === 'sentiment'
-);
-
-// Assert streaming was used
-Atlas::assertStreamed('support-agent');
-Atlas::assertNotStreamed('support-agent');
-
-// Assert context details
-Atlas::assertCalledWithVariables('support-agent', ['user' => 'John']);
-Atlas::assertCalledWithProvider('support-agent', 'openai');
-Atlas::assertCalledWithModel('support-agent', 'gpt-4o');
-Atlas::assertCalledWithTools('support-agent', [LookupOrderTool::class]);
-```
-
-### Accessing Recorded Requests
-
-```php
-Atlas::fake();  // Uses empty response by default
-
-Atlas::agent('assistant')->chat('Hello');
-Atlas::agent('assistant')->chat('How are you?');
-
-// Get all recorded requests
-$recorded = Atlas::recorded();
-
-// Get requests for a specific agent
-$assistantRequests = Atlas::recordedFor('assistant');
-
-foreach ($assistantRequests as $request) {
-    echo $request->agentKey();   // Agent key
-    echo $request->input;        // User input
-    $request->context;           // AgentContext
-    $request->response;          // AgentResponse (wraps PrismResponse)
-    $request->timestamp;         // When it was called
-    $request->wasStreamed;       // Whether streaming was used
-}
-```
-
-### Preventing Stray Requests
-
-Fail tests if an unexpected agent is called:
-
-```php
-use Prism\Prism\Text\Response as PrismResponse;
-use Prism\Prism\Enums\FinishReason;
-use Prism\Prism\ValueObjects\Usage;
-
-Atlas::fake()
-    ->forAgent('support-agent', new PrismResponse(
-        text: 'OK',
-        finishReason: FinishReason::Stop,
-        usage: new Usage(promptTokens: 10, completionTokens: 5),
-    ))
-    ->preventStrayRequests();
-
-// This will pass
-Atlas::agent('support-agent')->chat('Hello');
-
-// This will throw an exception - no fake configured for 'other-agent'
-Atlas::agent('other-agent')->chat('Hello');  // Throws!
-```
-
-### Cleanup
-
-Always restore Atlas after tests:
-
-```php
-protected function tearDown(): void
-{
-    Atlas::unfake();
-    parent::tearDown();
-}
-
-// Or use the trait
-use Atlasphp\Atlas\Testing\Concerns\InteractsWithAtlasFake;
-
-class MyTest extends TestCase
-{
-    use InteractsWithAtlasFake;  // Automatically unfakes after each test
-}
-```
-
-## Testing Pipelines
-
-### Testing Pipeline Handlers
-
-```php
-use Atlasphp\Atlas\Agents\Support\AgentResponse;
-use Atlasphp\Atlas\Agents\Support\AgentContext;
-use Prism\Prism\Text\Response as PrismResponse;
-use Prism\Prism\Enums\FinishReason;
-use Prism\Prism\ValueObjects\Usage;
-
-class LogAgentExecutionTest extends TestCase
-{
-    public function test_logs_execution_details(): void
-    {
-        Log::shouldReceive('info')
-            ->twice()
-            ->withArgs(function ($message, $context) {
-                return str_contains($message, 'Agent execution');
-            });
-
-        $handler = new LogAgentExecution();
-        $agent = new TestAgent();
-
-        $handler([
-            'agent' => $agent,
-            'input' => 'Hello',
-            'context' => new AgentContext(),
-        ], fn($data) => new AgentResponse(
-            response: new PrismResponse(
-                text: 'Hi',
-                finishReason: FinishReason::Stop,
-                usage: new Usage(promptTokens: 10, completionTokens: 5),
-            ),
-            agent: $agent,
-            input: 'Hello',
-            systemPrompt: null,
-            context: $data['context'],
-        ));
-    }
-}
-```
-
-### Disabling Pipelines in Tests
-
-```php
-public function setUp(): void
-{
-    parent::setUp();
-
-    // Disable pipelines for isolated testing
-    $registry = app(PipelineRegistry::class);
-    $registry->setActive('agent.before_execute', false);
-    $registry->setActive('agent.after_execute', false);
+    $this->assertTrue($result->failed());
+    $this->assertStringContainsString('not found', $result->toText());
 }
 ```
 
 ## Testing Structured Output
 
 ```php
-use Atlasphp\Atlas\Schema\Schema;
-use Prism\Prism\Structured\Response as StructuredResponse;
-use Prism\Prism\Enums\FinishReason;
-use Prism\Prism\ValueObjects\Usage;
+use Atlasphp\Atlas\Testing\StructuredResponseFake;
 
-public function test_extracts_structured_data(): void
+public function test_extracts_sentiment(): void
 {
-    // Create a fake structured response
-    $structuredResponse = new StructuredResponse(
-        text: '{"sentiment": "positive"}',
-        structured: ['sentiment' => 'positive'],
-        finishReason: FinishReason::Stop,
-        usage: new Usage(promptTokens: 10, completionTokens: 20),
-    );
+    $fake = Atlas::fake([
+        StructuredResponseFake::make()->withStructured([
+            'sentiment' => 'positive',
+            'confidence' => 0.95,
+        ]),
+    ]);
 
-    // Use Atlas::fake() for testing
-    Atlas::fake([$structuredResponse]);
-
-    $response = Atlas::agent('analyzer')
-        ->withSchema(
-            Schema::object('sentiment', 'Sentiment result')
-                ->string('sentiment', 'The sentiment')
+    $response = Atlas::structured('openai', 'gpt-4o')
+        ->schema(
+            Schema::object('analysis')
+                ->string('sentiment', 'The detected sentiment')
+                ->number('confidence', 'Confidence score')
         )
-        ->chat('Great product!');
+        ->message('This product is amazing!')
+        ->asStructured();
 
-    $this->assertTrue($response->isStructured());
-    $this->assertEquals('positive', $response->structured()['sentiment']);
+    $this->assertEquals('positive', $response->structured['sentiment']);
+    $fake->assertMethodCalled('structured');
 }
 ```
 
-## Best Practices
-
-### 1. Use Factories for Test Data
+## Testing Streaming
 
 ```php
-use Prism\Prism\Text\Response as PrismResponse;
-use Prism\Prism\Enums\FinishReason;
-use Prism\Prism\ValueObjects\Usage;
+use Atlasphp\Atlas\Testing\StreamResponseFake;
 
-// PrismResponseFactory.php - Helper for creating test responses
-class PrismResponseFactory
+public function test_streaming_response(): void
 {
-    public static function text(string $text): PrismResponse
-    {
-        return new PrismResponse(
-            text: $text,
-            finishReason: FinishReason::Stop,
-            usage: new Usage(promptTokens: 10, completionTokens: 20),
-        );
+    $fake = Atlas::fake([
+        StreamResponseFake::make()
+            ->withText('Hello, this is a streamed response!')
+            ->withChunkSize(10),
+    ]);
+
+    $response = Atlas::text('openai', 'gpt-4o')
+        ->message('Hello')
+        ->asStream();
+
+    $chunks = [];
+    foreach ($response as $chunk) {
+        if ($chunk->text !== null) {
+            $chunks[] = $chunk->text;
+        }
     }
 
-    public static function withUsage(string $text, int $promptTokens, int $completionTokens): PrismResponse
-    {
-        return new PrismResponse(
-            text: $text,
-            finishReason: FinishReason::Stop,
-            usage: new Usage(promptTokens: $promptTokens, completionTokens: $completionTokens),
-        );
-    }
+    $this->assertNotEmpty($chunks);
+    $fake->assertMethodCalled('stream');
 }
 ```
 
-### 2. Test Error Scenarios
+A `TextResponseFake` passed to a stream call is automatically converted to a `StreamResponseFake`, so you can use either.
+
+## Testing All Modalities
+
+### Image Generation
 
 ```php
-public function test_handles_provider_errors(): void
+use Atlasphp\Atlas\Testing\ImageResponseFake;
+
+public function test_image_generation(): void
 {
-    $mockManager = Mockery::mock(AtlasManager::class);
-    $mockManager->shouldReceive('chat')
-        ->andThrow(new ProviderException('Rate limit exceeded'));
+    $fake = Atlas::fake([
+        ImageResponseFake::make()
+            ->withUrl('https://example.com/cat.png')
+            ->withRevisedPrompt('A fluffy orange cat'),
+    ]);
 
-    $this->app->instance(AtlasManager::class, $mockManager);
+    $response = Atlas::image('openai', 'dall-e-3')
+        ->prompt('Draw a cat')
+        ->asImage();
 
-    $response = $this->postJson('/api/chat', ['message' => 'Hello']);
-
-    $response->assertStatus(503)
-        ->assertJson(['error' => 'Service temporarily unavailable']);
+    $this->assertEquals('https://example.com/cat.png', $response->url);
+    $fake->assertMethodCalled('image');
 }
 ```
 
-### 3. Separate Unit and Integration Tests
+### Audio Generation
 
 ```php
-// phpunit.xml
-<testsuites>
-    <testsuite name="Unit">
-        <directory>tests/Unit</directory>
-    </testsuite>
-    <testsuite name="Integration">
-        <directory>tests/Integration</directory>
-    </testsuite>
-</testsuites>
+use Atlasphp\Atlas\Testing\AudioResponseFake;
 
-<groups>
-    <exclude>
-        <group>requires-api-key</group>
-    </exclude>
-</groups>
+public function test_audio_generation(): void
+{
+    $fake = Atlas::fake([
+        AudioResponseFake::make()
+            ->withFormat('mp3')
+            ->withData(base64_encode('test-audio')),
+    ]);
+
+    $response = Atlas::audio('openai', 'tts-1')
+        ->input('Hello world')
+        ->asAudio();
+
+    $this->assertEquals('mp3', $response->format);
+    $fake->assertMethodCalled('audio');
+}
+```
+
+### Video Generation
+
+```php
+use Atlasphp\Atlas\Testing\VideoResponseFake;
+
+public function test_video_generation(): void
+{
+    $fake = Atlas::fake([
+        VideoResponseFake::make()
+            ->withUrl('https://example.com/video.mp4')
+            ->withDuration(15),
+    ]);
+
+    $response = Atlas::video('openai', 'sora')
+        ->prompt('A sunset over the ocean')
+        ->asVideo();
+
+    $this->assertEquals('https://example.com/video.mp4', $response->url);
+    $fake->assertMethodCalled('video');
+}
+```
+
+### Embeddings
+
+```php
+use Atlasphp\Atlas\Testing\EmbeddingsResponseFake;
+
+public function test_embeddings(): void
+{
+    $fake = Atlas::fake([
+        EmbeddingsResponseFake::make()->withEmbeddings([
+            [0.1, 0.2, 0.3],
+            [0.4, 0.5, 0.6],
+        ]),
+    ]);
+
+    $response = Atlas::embed('openai', 'text-embedding-3-small')
+        ->input(['Hello', 'World'])
+        ->asEmbeddings();
+
+    $this->assertCount(2, $response->embeddings);
+    $fake->assertMethodCalled('embed');
+}
+```
+
+### Moderation
+
+```php
+use Atlasphp\Atlas\Testing\ModerationResponseFake;
+
+public function test_moderation(): void
+{
+    $fake = Atlas::fake([
+        ModerationResponseFake::make()
+            ->withFlagged(true)
+            ->withCategories(['hate' => true]),
+    ]);
+
+    $response = Atlas::moderate('openai', 'text-moderation-latest')
+        ->input('Some content')
+        ->asModeration();
+
+    $this->assertTrue($response->flagged);
+    $fake->assertMethodCalled('moderate');
+}
+```
+
+### Reranking
+
+```php
+use Atlasphp\Atlas\Testing\RerankResponseFake;
+
+public function test_reranking(): void
+{
+    $fake = Atlas::fake([
+        RerankResponseFake::withCount(3, [0.95, 0.80, 0.60]),
+    ]);
+
+    $response = Atlas::rerank('cohere', 'rerank-v3')
+        ->query('What is Laravel?')
+        ->documents(['Laravel is a framework', 'PHP is a language', 'Dogs are pets'])
+        ->asRerank();
+
+    $this->assertCount(3, $response->results);
+    $this->assertEquals(0.95, $response->results[0]->score);
+    $fake->assertMethodCalled('rerank');
+}
+```
+
+## Recorded Requests
+
+Every call through `Atlas::fake()` is recorded as a `RecordedRequest`. Use this for fine-grained inspection.
+
+```php
+$fake = Atlas::fake();
+
+Atlas::text('openai', 'gpt-4o')->message('Hello')->asText();
+Atlas::text('anthropic', 'claude-4-sonnet')->message('Hi')->asText();
+
+$recorded = $fake->recorded(); // Array of RecordedRequest
+
+$recorded[0]->method;    // 'text'
+$recorded[0]->provider;  // 'openai'
+$recorded[0]->model;     // 'gpt-4o'
+$recorded[0]->request;   // The TextRequest object
+```
+
+### Per-Driver Access
+
+Access the fake driver for a specific provider to inspect only that provider's requests:
+
+```php
+$fake = Atlas::fake();
+
+Atlas::text('openai', 'gpt-4o')->message('Hello')->asText();
+Atlas::text('anthropic', 'claude-4-sonnet')->message('Hi')->asText();
+
+$openaiDriver = $fake->driver('openai');
+$openaiRecorded = $openaiDriver->recorded();
+
+$this->assertCount(1, $openaiRecorded);
+$this->assertEquals('gpt-4o', $openaiRecorded[0]->model);
 ```
 
 ## API Reference
 
-```php
-// Enabling fake mode
-$fake = Atlas::fake();                              // Returns AtlasFake instance
-$fake = Atlas::fake([PrismResponse $response]);     // With default response
+### Atlas::fake()
 
-// Configuring fake responses
-$fake->response(string $agentKey): PendingFakeRequest;
-$fake->response(string $agentKey, PrismResponse $response): AtlasFake;
-$fake->respondUsing(string $agentKey, Closure $factory): AtlasFake;  // Dynamic responses
-$fake->sequence(array $responses): AtlasFake;       // Default sequence for any agent
-$fake->preventStrayRequests(): AtlasFake;           // Fail on unconfigured agents
-$fake->allowStrayRequests(): AtlasFake;             // Allow unconfigured agents
-$fake->reset(): AtlasFake;                          // Clear recorded requests
+| Signature | Returns | Description |
+|-----------|---------|-------------|
+| `Atlas::fake()` | `AtlasFake` | Fake with default responses for all modalities |
+| `Atlas::fake(array $responses)` | `AtlasFake` | Fake with custom response sequence |
 
-// PendingFakeRequest fluent API
-$fake->response('agent-key')
-    ->return(PrismResponse $response): AtlasFake;
-    ->returnSequence(array $responses): AtlasFake;
-    ->throw(Throwable $exception): AtlasFake;
-    ->whenEmpty(PrismResponse|Throwable $response): PendingFakeRequest;
+### AtlasFake Assertions
 
-// Creating fake Prism responses
-use Prism\Prism\Text\Response as PrismResponse;
-use Prism\Prism\ValueObjects\Usage;
-use Prism\Prism\Enums\FinishReason;
+| Method | Description |
+|--------|-------------|
+| `assertSent()` | At least one request was sent |
+| `assertNothingSent()` | No requests were sent |
+| `assertSentCount(int $count)` | Exact number of requests sent |
+| `assertSentWith(Closure $callback)` | A request matching the callback was sent |
+| `assertSentTo(string $provider, string $model)` | Request sent to specific provider and model |
+| `assertMethodCalled(string $method)` | A specific method was called (text, stream, image, etc.) |
+| `assertInstructionsContain(string $text)` | A request's instructions contain the given text |
+| `assertMessageContains(string $text)` | A request's message contains the given text |
 
-// Simple text response
-new PrismResponse(
-    text: 'Hello! How can I help?',
-    finishReason: FinishReason::Stop,
-    usage: new Usage(promptTokens: 10, completionTokens: 20),
-);
+### AtlasFake Access
 
-// Assertion methods
-$fake->assertCalled(): void;                        // Any agent called
-$fake->assertCalled(string $agentKey): void;        // Specific agent called
-$fake->assertCalledTimes(string $agentKey, int $times): void;
-$fake->assertNotCalled(string $agentKey): void;
-$fake->assertNothingCalled(): void;
-$fake->assertSent(Closure $callback): void;         // Custom assertion
-$fake->assertSentWithContext(string $key, mixed $value = null): void;
-$fake->assertSentWithSchema(): void;
-$fake->assertSentWithInput(string $needle): void;
-$fake->assertStreamed(?string $agentKey): void;     // Streaming was used
-$fake->assertNotStreamed(string $agentKey): void;   // Streaming was NOT used
-$fake->assertCalledWithVariables(string $agentKey, array $variables): void;
-$fake->assertCalledWithProvider(string $agentKey, string $provider): void;
-$fake->assertCalledWithModel(string $agentKey, string $model): void;
-$fake->assertCalledWithTools(string $agentKey, array $toolClasses): void;
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `recorded()` | `array<RecordedRequest>` | All recorded requests across all drivers |
+| `driver(string $provider)` | `FakeDriver` | Access a specific provider's fake driver |
 
-// Accessing recorded requests
-$fake->recorded(): array;                           // All RecordedRequest objects
-$fake->recordedFor(string $agentKey): array;        // For specific agent
+### RecordedRequest Properties
 
-// RecordedRequest properties and methods
-$request->agent;                                    // AgentContract instance
-$request->input;                                    // User input string
-$request->context;                                  // AgentContext
-$request->response;                                 // AgentResponse (wraps PrismResponse)
-$request->timestamp;                                // Unix timestamp
-$request->wasStreamed;                              // bool — whether streaming was used
-$request->agentKey(): string;
-$request->inputContains(string $needle): bool;
-$request->hasMetadata(string $key, mixed $value = null): bool;
-$request->hasPrismCall(string $method): bool;
-$request->getPrismCallArgs(string $method): ?array;
+| Property | Type | Description |
+|----------|------|-------------|
+| `method` | `string` | The method called (text, stream, structured, image, audio, video, embed, moderate, rerank) |
+| `provider` | `string` | Provider name (openai, anthropic, etc.) |
+| `model` | `string` | Model identifier |
+| `request` | `mixed` | The original request object (TextRequest, ImageRequest, etc.) |
 
-// Cleanup
-Atlas::unfake();                                    // Restore real executor
-$fake->restore();                                   // Alternative restore method
+### Response Fake Builders
 
-// Auto-cleanup trait
-use Atlasphp\Atlas\Testing\Concerns\InteractsWithAtlasFake;
-```
+| Builder | Primary Methods | Default |
+|---------|----------------|---------|
+| `TextResponseFake` | `withText`, `withUsage`, `withFinishReason`, `withToolCalls`, `withReasoning`, `withMeta` | text='', usage=Usage(10,20) |
+| `StreamResponseFake` | `withText`, `withChunkSize`, `withUsage`, `withFinishReason` | text='', chunkSize=5 |
+| `StructuredResponseFake` | `withStructured`, `withUsage`, `withFinishReason` | structured=[], usage=Usage(10,20) |
+| `ImageResponseFake` | `withUrl`, `withRevisedPrompt`, `withMeta` | url='https://fake.atlas/image.png' |
+| `AudioResponseFake` | `withData`, `withFormat`, `withMeta` | data=base64('fake-audio'), format='mp3' |
+| `VideoResponseFake` | `withUrl`, `withDuration`, `withMeta` | url='https://fake.atlas/video.mp4' |
+| `EmbeddingsResponseFake` | `withEmbeddings`, `withUsage` | embeddings=[[0.1,0.2,0.3]], usage=Usage(5,0) |
+| `ModerationResponseFake` | `withFlagged`, `withCategories`, `withMeta` | flagged=false |
+| `RerankResponseFake` | `withCount`, `withResults`, `withMeta` | 3 results (0.95, 0.80, 0.60) |
+
+All builders expose `make()` (static constructor) and `toResponse()` (build the response object).
 
 ## Next Steps
 
-- [Agents](/core-concepts/agents) — Build testable agents
-- [Tools](/core-concepts/tools) — Build testable tools
+- [Agents](/features/agents) — Build testable agents
+- [Tools](/features/tools) — Build testable tools
 - [Error Handling](/advanced/error-handling) — Test error scenarios

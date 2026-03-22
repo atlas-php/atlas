@@ -260,5 +260,5 @@ $name = Atlas::provider('openai')->name();
 ## Next Steps
 
 - [Configuration](/getting-started/configuration) — Full configuration reference
-- [Agents](/core-concepts/agents) — Create agents with specific providers
-- [Chat](/capabilities/chat) — Text generation and conversations
+- [Agents](/features/agents) — Create agents with specific providers
+- [Text](/modalities/text) — Text generation and streaming

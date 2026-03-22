@@ -591,6 +591,6 @@ php artisan make:agent SupportAgent
 
 ## Next Steps
 
-- [Agents](/core-concepts/agents) — Understand the agent system
-- [Tools](/core-concepts/tools) — Learn about typed tools
-- [Middleware](/core-concepts/middleware) — Add middleware to execution layers
+- [Agents](/features/agents) — Understand the agent system
+- [Tools](/features/tools) — Learn about typed tools
+- [Middleware](/features/middleware) — Add middleware to execution layers

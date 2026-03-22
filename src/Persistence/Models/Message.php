@@ -12,6 +12,7 @@ use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Messages\ToolResultMessage;
 use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Persistence\Concerns\HasAtlasTable;
+use Atlasphp\Atlas\Persistence\Concerns\HasAuthor;
 use Atlasphp\Atlas\Persistence\Enums\MessageRole;
 use Atlasphp\Atlas\Persistence\Enums\MessageStatus;
 use Illuminate\Database\Eloquent\Builder;
@@ -20,7 +21,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
@@ -51,7 +51,7 @@ use Illuminate\Support\Collection;
 class Message extends Model
 {
     /** @use HasFactory<Factory<static>> */
-    use HasAtlasTable, HasFactory;
+    use HasAtlasTable, HasAuthor, HasFactory;
 
     protected static function newFactory(): MessageFactory
     {
@@ -150,16 +150,6 @@ class Message extends Model
         return $this->hasMany(static::class, 'parent_id');
     }
 
-    /**
-     * The human who authored this message. Null for agent-authored messages.
-     *
-     * @return MorphTo<Model, $this>
-     */
-    public function author(): MorphTo
-    {
-        return $this->morphTo();
-    }
-
     /** @return HasMany<MessageAttachment, $this> */
     public function attachments(): HasMany
     {
@@ -169,30 +159,7 @@ class Message extends Model
         return $this->hasMany($model);
     }
 
-    // ─── Authorship Helpers ─────────────────────────────────────
-
-    public function isHumanAuthored(): bool
-    {
-        return $this->author_type !== null;
-    }
-
-    public function isAgentAuthored(): bool
-    {
-        return $this->agent !== null;
-    }
-
-    public function authorName(): ?string
-    {
-        if ($this->agent !== null) {
-            return $this->agent;
-        }
-
-        if ($this->author !== null) {
-            return $this->author->name ?? null;
-        }
-
-        return null;
-    }
+    // ─── Authorship — provided by HasAuthor trait ──────────────
 
     /**
      * Unified author info for the UI.
@@ -276,19 +243,10 @@ class Message extends Model
             return [$this->toAtlasMessage()];
         }
 
-        // No step link or step has no tool calls — simple text message
-        /** @var ExecutionStep|null $step */
-        $step = $this->step;
+        // No step link or no tool calls — simple text message
+        $toolCallRecords = $this->step?->toolCalls()->orderBy('id')->get();
 
-        if ($step === null) {
-            return [new AssistantMessage(content: $this->content)];
-        }
-
-        $toolCallRecords = $step->toolCalls()
-            ->orderBy('id')
-            ->get();
-
-        if ($toolCallRecords->isEmpty()) {
+        if ($toolCallRecords === null || $toolCallRecords->isEmpty()) {
             return [new AssistantMessage(content: $this->content)];
         }
 
@@ -386,19 +344,6 @@ class Message extends Model
     public function scopeActive(Builder $query): void
     {
         $query->where('is_active', true);
-    }
-
-    /** @param Builder<static> $query */
-    public function scopeByAuthor(Builder $query, Model $author): void
-    {
-        $query->where('author_type', $author->getMorphClass())
-            ->where('author_id', $author->getKey());
-    }
-
-    /** @param Builder<static> $query */
-    public function scopeByAgent(Builder $query, string $agent): void
-    {
-        $query->where('agent', $agent);
     }
 
     // ─── Read Status ────────────────────────────────────────────

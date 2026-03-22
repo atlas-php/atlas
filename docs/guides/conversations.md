@@ -115,7 +115,7 @@ Atlas::agent('support')
     ->forConversation($conversationId)
     ->respond()
     ->queue()
-    ->dispatch();
+    ->asText();
 ```
 
 ## Retry Mode
@@ -201,17 +201,50 @@ This deactivates all siblings and activates only the target group. Subsequent co
 
 ## Read Status
 
-Track which messages have been read:
+Every message has a `read_at` timestamp that tracks whether it has been seen. Atlas uses this in two ways:
+
+### Agent Read Tracking
+
+When an agent processes a user message, Atlas automatically marks it as read — the agent has "seen" and responded to it. This happens inside the `PersistConversation` middleware, so you don't need to do anything.
+
+### User Read Tracking
+
+For tracking whether a **user** has read the agent's responses, call `markAsRead()` from your application — typically when the user opens the conversation or scrolls to a message:
 
 ```php
+// Mark a single message as read
 $message->markAsRead();
 
-// Query unread messages
-$unread = $conversation->messages()
+// Mark all unread messages in a conversation as read
+$conversation->messages()
     ->where('is_active', true)
+    ->whereNull('read_at')
+    ->update(['read_at' => now()]);
+```
+
+### Unread Counts
+
+Use `read_at` for notification badges, unread indicators, or any visibility tracking:
+
+```php
+// Count unread assistant messages (agent responses the user hasn't seen)
+$unreadFromAgent = $conversation->messages()
+    ->where('is_active', true)
+    ->where('role', 'assistant')
+    ->whereNull('read_at')
+    ->count();
+
+// Count unread user messages (messages the agent hasn't processed yet)
+$unreadFromUsers = $conversation->messages()
+    ->where('is_active', true)
+    ->where('role', 'user')
     ->whereNull('read_at')
     ->count();
 ```
+
+::: tip Build Your Own
+Atlas provides the `read_at` column and `markAsRead()` method — what you build on top is up to you. Common patterns include push notifications for unread agent responses, badge counts in a sidebar, or "new messages" indicators in a chat UI.
+:::
 
 ## Queued Messages
 
@@ -231,36 +264,72 @@ When an agent execution completes, Atlas automatically checks for queued message
 
 ## Multi-Agent Conversations
 
-Multiple agents can share a conversation. Atlas remaps message roles so each agent sees a consistent view:
+Multiple agents can share a conversation thread. Atlas automatically remaps message roles so each agent sees a consistent view of the conversation from its own perspective.
 
-- Messages from the current agent → `assistant` role
-- Messages from other agents → `user` role with `[AgentName]:` prefix
-- Tool results from other agents → `user` role with context
+### Multi-Agent Collaboration
 
-This allows agent-to-agent collaboration within a single conversation thread.
+Two or more agents can participate in the same conversation. Each agent reads the thread, sees its own messages as `assistant`, and sees other agents' messages as `user` with a name prefix.
+
+```php
+// Support agent handles the initial request
+$response = Atlas::agent('support')
+    ->for($user)
+    ->asUser($user)
+    ->message('I need a refund for order #123')
+    ->asText();
+
+// Billing agent responds in the same thread
+$response = Atlas::agent('billing')
+    ->forConversation($conversationId)
+    ->respond()
+    ->asText();
+```
+
+When the billing agent reads the thread, the support agent's messages appear as user messages with a `[Support]:` prefix. The billing agent treats these as context from another participant — it knows what was said, but sees itself as the assistant in the conversation. The support agent's earlier assistant responses are remapped to `user` role so the billing agent's provider receives a well-formed message history.
+
+### Multi-User Conversations
+
+Multiple users can participate in a single conversation with the same agent. Use `asUser()` to identify who is sending each message.
+
+```php
+// User A sends a message
+Atlas::agent('team-assistant')
+    ->forConversation($conversationId)
+    ->asUser($userA)
+    ->message('Can someone review the Q4 report?')
+    ->asText();
+
+// User B sends a message in the same thread
+Atlas::agent('team-assistant')
+    ->forConversation($conversationId)
+    ->asUser($userB)
+    ->message('I can take a look at it.')
+    ->asText();
+```
+
+The agent sees both messages as `user` role in the conversation history. The `asUser()` call tracks authorship in the database (the `author` relationship on the message model) so your application can display who said what, but from the agent's perspective they are all user messages in a single thread.
+
+### How Role Remapping Works
+
+When multiple agents share a conversation, Atlas remaps roles before sending history to the provider. Each agent gets a perspective where it is the assistant and everyone else is a user.
+
+| Message Source | What the Current Agent Sees | Example |
+|---|---|---|
+| Current agent's messages | `assistant` role (unchanged) | `assistant: "I've processed the refund."` |
+| Other agent's messages | `user` role with `[AgentName]:` prefix | `user: "[Support]: The customer wants a refund."` |
+| Other agent's tool results | `user` role with `[AgentName tool:name]:` prefix | `user: "[Support tool:lookup_order]: Order #123 is eligible."` |
+| User messages | `user` role (unchanged) | `user: "I need a refund for order #123"` |
+| System messages | `system` role (unchanged) | Always passed through as-is |
+
+This remapping happens transparently in the persistence layer when loading conversation history. The original messages in the database are unchanged — only the view sent to the provider is transformed.
+
+::: tip Why Remap?
+AI providers expect a strict alternating pattern of `user` and `assistant` messages. Without remapping, a conversation with two agents would have multiple consecutive `assistant` messages, which most providers reject or handle poorly. Remapping ensures every agent gets a valid message history from its own perspective.
+:::
 
 ## Database Schema
 
-### Key Columns (Messages Table)
-
-| Column | Type | Purpose |
-|--------|------|---------|
-| `parent_id` | `bigint nullable` | Links responses to their parent message (enables siblings) |
-| `is_active` | `boolean` | Controls which sibling is visible in history |
-| `sequence` | `int` | Ordering within the conversation |
-| `role` | `string` | user, assistant, system |
-| `status` | `string` | delivered, queued |
-| `agent` | `string nullable` | Which agent authored this message |
-| `step_id` | `bigint nullable` | Links to execution step for tool call reconstruction |
-| `read_at` | `timestamp nullable` | When the message was read |
-
-### Relationships
-
-- Conversation → has many Messages
-- Conversation → has many Executions
-- Message → belongs to Conversation
-- Message → has many siblings (same parent_id)
-- Message → has many responses (children where parent_id = this.id)
+For the complete database schema including all tables, columns, and relationships, see the [Persistence Reference](/advanced/persistence).
 
 ## API Reference
 
@@ -299,5 +368,5 @@ This allows agent-to-agent collaboration within a single conversation thread.
 
 ## Next Steps
 
-- [Agents](/core-concepts/agents) — Agent configuration and usage
-- [Middleware](/core-concepts/pipelines) — Add middleware to agent execution
+- [Agents](/features/agents) — Agent configuration and usage
+- [Middleware](/features/middleware) — Add middleware to agent execution

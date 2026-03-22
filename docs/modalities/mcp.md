@@ -228,6 +228,6 @@ Relay::tool(string $serverName, string $toolName): Tool;  // Get specific tool
 
 ## Next Steps
 
-- [Tools](/core-concepts/tools) - Native Atlas tool definitions
+- [Tools](/features/tools) - Native Atlas tool definitions
 - [Prism Relay](https://github.com/prism-php/relay) - Complete MCP server configuration
-- [Chat](/capabilities/chat) - Using tools in conversations
+- [Chat](/modalities/chat) - Using tools in conversations

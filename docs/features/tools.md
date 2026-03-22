@@ -3,7 +3,7 @@
 Tools let agents call your PHP code. Define typed parameters, implement a handler, and Atlas manages the tool call loop.
 
 ::: info External Tools
-For tools from external MCP servers, see [MCP Integration](/capabilities/mcp).
+For tools from external MCP servers, see [MCP Integration](/modalities/mcp).
 :::
 
 ## Defining a Tool
@@ -321,6 +321,6 @@ php artisan make:tool LookupOrderTool
 
 ## Next Steps
 
-- [Schema](/core-concepts/schema) — Field types for tool parameters
-- [Agents](/core-concepts/agents) — Add tools to agents
-- [Middleware](/core-concepts/pipelines) — Add middleware to tool execution
+- [Schema](/features/schema) — Field types for tool parameters
+- [Agents](/features/agents) — Add tools to agents
+- [Middleware](/features/middleware) — Add middleware to tool execution

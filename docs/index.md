@@ -22,13 +22,13 @@ features:
       alt: Agent Registry
     title: Agent Registry
     details: Reusable agent classes that encapsulate provider, model, instructions, tools, and behavior. Define once, use anywhere.
-    link: /core-concepts/agents
+    link: /features/agents
   - icon:
       src: /icons/tool.svg
       alt: Tool Registry
     title: Tool Registry
     details: Typed tool classes with parameter schemas and dependency injection. Let AI call your PHP code safely.
-    link: /core-concepts/tools
+    link: /features/tools
   - icon:
       src: /icons/multi-provider.svg
       alt: Multi-Modal
@@ -40,13 +40,13 @@ features:
       alt: Structured Output
     title: Structured Output
     details: Extract typed data from AI responses. Get arrays, objects, or custom schemas instead of raw strings.
-    link: /capabilities/structured-output
+    link: /modalities/text
   - icon:
       src: /icons/streaming.svg
       alt: Dynamic Prompts
     title: Dynamic Prompts
     details: "Instructions with {variable} interpolation. Inject user context, session data, or custom values at runtime."
-    link: /core-concepts/instructions
+    link: /features/instructions
   - icon:
       src: /icons/pipeline.svg
       alt: Middleware & Events

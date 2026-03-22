@@ -4,20 +4,22 @@ Strategies for handling errors in Atlas-powered applications.
 
 ## Exception Hierarchy
 
-Atlas maps all provider HTTP errors to typed exceptions:
+Atlas maps provider HTTP errors and configuration problems to typed exceptions:
 
 ```
-AtlasException (base — catch all Atlas errors)
+AtlasException (base — extends RuntimeException, catch all Atlas errors)
 ├── AuthenticationException        (401 — invalid API key)
 ├── AuthorizationException         (403 — model access denied)
-├── RateLimitException             (429 — rate limit with retry-after)
+├── RateLimitException             (429 — rate limit with retry info)
 ├── ProviderException              (all other HTTP errors)
-├── UnsupportedFeatureException    (provider doesn't support this modality)
+├── UnsupportedFeatureException    (modality not supported by provider)
 ├── ProviderNotFoundException      (provider key not registered)
-├── AgentNotFoundException         (agent key not registered)
+├── AgentNotFoundException         (agent key not found)
 ├── ToolNotFoundException          (tool name not in registry)
-└── MaxStepsExceededException      (agent tool loop exceeded limit)
+└── MaxStepsExceededException      (executor exceeded step limit)
 ```
+
+All exceptions live in `Atlasphp\Atlas\Exceptions`.
 
 ## Provider Exceptions
 
@@ -66,38 +68,74 @@ try {
 
 ## Agent & Configuration Exceptions
 
+### Agent Not Found
+
 ```php
 use Atlasphp\Atlas\Exceptions\AgentNotFoundException;
-use Atlasphp\Atlas\Exceptions\MaxStepsExceededException;
-use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 
 try {
     $response = Atlas::agent('unknown-agent')->message('Hi')->asText();
 } catch (AgentNotFoundException $e) {
     // "Agent [unknown-agent] is not registered."
 }
+```
+
+### Max Steps Exceeded
+
+```php
+use Atlasphp\Atlas\Exceptions\MaxStepsExceededException;
 
 try {
     $response = Atlas::agent('assistant')->message('Hi')->asText();
 } catch (MaxStepsExceededException $e) {
-    // Agent tool loop exceeded the configured max steps
-    // "Agent executor exceeded the maximum of 10 steps..."
+    // Agent executor exceeded the configured step limit
+    // $e->limit — the max steps value
+    // $e->steps — the steps completed before exceeding
 }
 ```
 
-## Credential Validation
-
-Check if provider credentials are valid before making requests:
+### Unsupported Feature
 
 ```php
-$isValid = Atlas::provider('openai')->validate();
+use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 
-if (! $isValid) {
-    // API key is invalid or provider is unreachable
+try {
+    $response = Atlas::image(Provider::Anthropic, 'claude-sonnet-4-5-20250929')
+        ->prompt('Draw a cat')
+        ->asImage();
+} catch (UnsupportedFeatureException $e) {
+    // Provider does not support this modality
 }
 ```
 
-`validate()` returns `true` on success and `false` on failure — it never throws.
+### Tool Not Found
+
+```php
+use Atlasphp\Atlas\Exceptions\ToolNotFoundException;
+
+try {
+    $response = Atlas::agent('assistant')
+        ->tools(['nonexistent_tool'])
+        ->message('Hi')
+        ->asText();
+} catch (ToolNotFoundException $e) {
+    // "Tool [nonexistent_tool] is not registered."
+}
+```
+
+### Provider Not Found
+
+```php
+use Atlasphp\Atlas\Exceptions\ProviderNotFoundException;
+
+try {
+    $response = Atlas::text('invalid-provider', 'some-model')
+        ->message('Hello')
+        ->asText();
+} catch (ProviderNotFoundException $e) {
+    // Provider key not registered in config
+}
+```
 
 ## Tool Error Handling
 
@@ -115,9 +153,33 @@ public function handle(array $args, array $context): mixed
 }
 ```
 
-When a tool returns an error string, the AI can try a different approach. Throwing exceptions stops the entire agent loop.
+When a tool returns an error string, the AI can try a different approach. Throwing exceptions stops the entire agent loop and fires the `AgentToolCallFailed` event.
+
+## Rate Limit Handling
+
+The `RateLimitException` includes retry information from the provider:
+
+```php
+use Atlasphp\Atlas\Exceptions\RateLimitException;
+
+try {
+    $response = Atlas::text(Provider::OpenAI, 'gpt-4o')
+        ->message('Hello')
+        ->asText();
+} catch (RateLimitException $e) {
+    $seconds = $e->retryAfter;
+
+    if ($seconds) {
+        // Queue a retry after the specified delay
+        dispatch(fn () => $this->retry($input))
+            ->delay(now()->addSeconds($seconds));
+    }
+}
+```
 
 ## Provider Fallback
+
+Build resilience by falling back across providers:
 
 ```php
 class ResilientService
@@ -148,7 +210,43 @@ class ResilientService
 }
 ```
 
+## Laravel Exception Handler
+
+Integrate Atlas exceptions into your application's exception handler for consistent error responses:
+
+```php
+use Atlasphp\Atlas\Exceptions\AtlasException;
+use Atlasphp\Atlas\Exceptions\RateLimitException;
+use Atlasphp\Atlas\Exceptions\AuthenticationException;
+
+// In bootstrap/app.php or your exception handler
+->withExceptions(function (Exceptions $exceptions) {
+    $exceptions->render(function (RateLimitException $e) {
+        return response()->json([
+            'error' => 'Service temporarily unavailable. Please retry.',
+            'retry_after' => $e->retryAfter,
+        ], 429);
+    });
+
+    $exceptions->render(function (AuthenticationException $e) {
+        Log::critical('AI provider authentication failed', [
+            'message' => $e->getMessage(),
+        ]);
+
+        return response()->json([
+            'error' => 'AI service configuration error.',
+        ], 500);
+    });
+
+    $exceptions->render(function (AtlasException $e) {
+        return response()->json([
+            'error' => 'An error occurred processing your request.',
+        ], 500);
+    });
+})
+```
+
 ## Next Steps
 
 - [Testing](/advanced/testing) — Test error scenarios with Atlas::fake()
-- [Middleware](/core-concepts/middleware) — Add error handling middleware
+- [Pipelines](/features/middleware) — Add error handling in pipeline hooks

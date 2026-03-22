@@ -129,5 +129,5 @@ composer dump-autoload
 ## Next Steps
 
 - [Configuration](/getting-started/configuration) — Complete configuration reference
-- [Agents](/core-concepts/agents) — Build your first AI agent
-- [Tools](/core-concepts/tools) — Add callable tools for agents
+- [Agents](/features/agents) — Build your first AI agent
+- [Tools](/features/tools) — Add callable tools for agents

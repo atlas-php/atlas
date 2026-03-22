@@ -34,25 +34,25 @@ export default defineConfig({
             {
                 text: 'Features',
                 items: [
-                    { text: 'Agents', link: '/core-concepts/agents' },
-                    { text: 'Tools', link: '/core-concepts/tools' },
-                    { text: 'Instructions', link: '/core-concepts/instructions' },
-                    { text: 'Schema', link: '/core-concepts/schema' },
-                    { text: 'Middleware', link: '/core-concepts/pipelines' },
+                    { text: 'Agents', link: '/features/agents' },
+                    { text: 'Tools', link: '/features/tools' },
+                    { text: 'Instructions', link: '/features/instructions' },
+                    { text: 'Schema', link: '/features/schema' },
+                    { text: 'Middleware', link: '/features/middleware' },
                 ]
             },
             {
                 text: 'Modalities',
                 items: [
-                    { text: 'Text', link: '/capabilities/text' },
-                    { text: 'Images', link: '/capabilities/images' },
-                    { text: 'Audio', link: '/capabilities/audio' },
-                    { text: 'Video', link: '/capabilities/video' },
-                    { text: 'Embeddings', link: '/capabilities/embeddings' },
-                    { text: 'Reranking', link: '/capabilities/reranking' },
-                    { text: 'Moderation', link: '/capabilities/moderation' },
-                    { text: 'Models', link: '/capabilities/models' },
-                    { text: 'Voices', link: '/capabilities/voices' },
+                    { text: 'Text', link: '/modalities/text' },
+                    { text: 'Images', link: '/modalities/images' },
+                    { text: 'Audio', link: '/modalities/audio' },
+                    { text: 'Video', link: '/modalities/video' },
+                    { text: 'Embeddings', link: '/modalities/embeddings' },
+                    { text: 'Reranking', link: '/modalities/reranking' },
+                    { text: 'Moderation', link: '/modalities/moderation' },
+                    { text: 'Models', link: '/modalities/models' },
+                    { text: 'Voices', link: '/modalities/voices' },
                 ]
             },
             {
@@ -68,6 +68,7 @@ export default defineConfig({
                 text: 'Advanced',
                 collapsed: true,
                 items: [
+                    { text: 'Persistence', link: '/advanced/persistence' },
                     { text: 'Events', link: '/advanced/events' },
                     { text: 'Testing', link: '/advanced/testing' },
                     { text: 'Error Handling', link: '/advanced/error-handling' },

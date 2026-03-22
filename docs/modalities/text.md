@@ -227,7 +227,7 @@ $data = $response->structured;
 // ['sentiment' => 'positive', 'confidence' => 0.95, 'keywords' => ['product', 'shipping', 'quality']]
 ```
 
-See [Schema](/core-concepts/schema) for the full field type reference.
+See [Schema](/features/schema) for the full field type reference.
 
 ## Tool Calling
 
@@ -246,16 +246,80 @@ $response->steps;  // Each round trip in the tool loop
 
 ## Queue Support
 
-Dispatch any request to a queue:
+Dispatch any request to a queue by calling `->queue()` before the terminal method. The terminal method (`asText`, `asStream`, etc.) returns a `PendingExecution` instead of a response:
 
 ```php
 $pending = Atlas::text('openai', 'gpt-4o')
     ->message('Write a long essay about AI')
     ->queue()
-    ->then(fn ($response) => logger()->info($response->text))
-    ->dispatch();
+    ->asText();
 
-$pending->executionId;  // Track the execution
+$pending->executionId;  // Available immediately for UI tracking
+```
+
+The job dispatches automatically when `$pending` goes out of scope. You can also chain callbacks or dispatch explicitly:
+
+```php
+Atlas::text('openai', 'gpt-4o')
+    ->message('Write a long essay about AI')
+    ->queue()
+    ->asText()
+    ->then(fn ($response) => logger()->info($response->text))
+    ->catch(fn ($e) => logger()->error($e->getMessage()));
+```
+
+### Queue Options
+
+```php
+// Custom queue name
+Atlas::text('openai', 'gpt-4o')
+    ->message('Generate report')
+    ->queue('atlas-heavy')
+    ->asText();
+
+// Shorthand — queue() accepts a queue name
+Atlas::text('openai', 'gpt-4o')
+    ->message('Generate report')
+    ->queue('atlas-heavy')
+    ->asText();
+
+// Custom connection
+Atlas::text('openai', 'gpt-4o')
+    ->message('Generate report')
+    ->queue()
+    ->onConnection('redis')
+    ->asText();
+
+// Delay execution
+Atlas::text('openai', 'gpt-4o')
+    ->queue()
+    ->withDelay(300)
+    ->message('Follow up in 5 minutes')
+    ->asText();
+
+// Broadcast results to a WebSocket channel
+use Illuminate\Broadcasting\Channel;
+
+Atlas::text('openai', 'gpt-4o')
+    ->message('Analyze this data')
+    ->queue()
+    ->broadcastOn(new Channel('execution.' . $user->id))
+    ->asText();
+```
+
+### Queue Configuration
+
+Default queue settings in `config/atlas.php`:
+
+```php
+'queue' => [
+    'connection' => env('ATLAS_QUEUE_CONNECTION'),  // null = default
+    'queue' => env('ATLAS_QUEUE', 'default'),
+    'tries' => (int) env('ATLAS_QUEUE_TRIES', 3),
+    'backoff' => (int) env('ATLAS_QUEUE_BACKOFF', 30),
+    'timeout' => (int) env('ATLAS_QUEUE_TIMEOUT', 300),
+    'after_commit' => (bool) env('ATLAS_QUEUE_AFTER_COMMIT', true),
+],
 ```
 
 ## Provider Options

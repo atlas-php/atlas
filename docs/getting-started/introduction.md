@@ -74,5 +74,5 @@ Atlas v3 is **batteries included, batteries optional**:
 
 - [Installation](/getting-started/installation) — Get Atlas set up in your Laravel app
 - [Configuration](/getting-started/configuration) — Configure providers and defaults
-- [Agents](/core-concepts/agents) — Define reusable AI agent classes
-- [Tools](/core-concepts/tools) — Add callable tools to agents
+- [Agents](/features/agents) — Define reusable AI agent classes
+- [Tools](/features/tools) — Add callable tools to agents

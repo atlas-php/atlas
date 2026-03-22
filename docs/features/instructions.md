@@ -198,6 +198,6 @@ public function instructions(): ?string
 
 ## Next Steps
 
-- [Agents](/core-concepts/agents) — Agent configuration
-- [Schema](/core-concepts/schema) — Field types for structured output
-- [Middleware](/core-concepts/pipelines) — Extend behavior with middleware
+- [Agents](/features/agents) — Agent configuration
+- [Schema](/features/schema) — Field types for structured output
+- [Middleware](/features/middleware) — Extend behavior with middleware

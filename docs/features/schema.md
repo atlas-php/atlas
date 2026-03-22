@@ -195,8 +195,8 @@ $schema = Schema::object('analysis', 'Sentiment analysis result')
     ->build();
 
 $response = Atlas::agent('analyst')
-    ->message('Analyze this review: "Great product, fast shipping!"')
     ->withSchema($schema)
+    ->message('Analyze this review: "Great product, fast shipping!"')
     ->asStructured();
 
 $data = $response->structured;
@@ -249,5 +249,5 @@ The `->build()` method converts the fluent object builder into a `Schema` value 
 
 ## Next Steps
 
-- [Tools](/core-concepts/tools) — Use schema fields for tool parameters
-- [Text](/capabilities/text) — Structured output with `->withSchema()` and `->asStructured()`
+- [Tools](/features/tools) — Use schema fields for tool parameters
+- [Text](/modalities/text) — Structured output with `->withSchema()` and `->asStructured()`

@@ -142,8 +142,8 @@ $schema = Schema::object('sentiment', 'Sentiment analysis result')
     ->build();
 
 $response = Atlas::agent('analyzer')
-    ->message('I love this product!')
     ->withSchema($schema)
+    ->message('I love this product!')
     ->asStructured();
 
 $response->structured['sentiment'];   // "positive"
@@ -156,19 +156,19 @@ Every agent configuration can be overridden at call time via fluent methods on `
 
 ```php
 $response = Atlas::agent('support')
-    ->message('Hello')
     ->withProvider('openai', 'gpt-4o')
     ->withMaxTokens(500)
     ->withTemperature(0.3)
     ->withMaxSteps(5)
     ->withConcurrent()
     ->withTools([ExtraTool::class])
-    ->withProviderTools([ProviderTool::webSearch()])
+    ->withProviderTools([new WebSearch])
     ->withProviderOptions(['seed' => 12345])
     ->withVariables(['customer_name' => 'John'])
     ->withMeta(['user_id' => 123])
     ->withMessages($conversationHistory)
     ->withSchema($schema)
+    ->message('Hello')
     ->asText();
 ```
 
@@ -214,7 +214,7 @@ Use `maxSteps()` to limit tool loop iterations and prevent runaway execution.
 
 ## Conversations (Optional)
 
-For persistent conversations, use `->for()` and `->forConversation()`. Requires [persistence](/core-concepts/persistence) to be enabled.
+For persistent conversations, use `->for()` and `->forConversation()`. Requires [persistence](/guides/conversations#setup) to be enabled.
 
 ```php
 // Start a new conversation for a user
@@ -380,8 +380,8 @@ php artisan make:agent SupportAgent
 
 ## Next Steps
 
-- [Instructions](/core-concepts/instructions) — Variable interpolation in instructions
-- [Tools](/core-concepts/tools) — Build tools agents can call
-- [Text](/capabilities/text) — Text generation, streaming, and structured output
-- [Schema](/core-concepts/schema) — Schema fields for structured output
-- [Middleware](/core-concepts/pipelines) — Add middleware to agent execution
+- [Instructions](/features/instructions) — Variable interpolation in instructions
+- [Tools](/features/tools) — Build tools agents can call
+- [Text](/modalities/text) — Text generation, streaming, and structured output
+- [Schema](/features/schema) — Schema fields for structured output
+- [Middleware](/features/middleware) — Add middleware to agent execution
