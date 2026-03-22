@@ -139,7 +139,7 @@ Sound effects and music are dispatched through the same `Atlas::audio()` builder
 | Provider | TTS | STT | SFX | Music | Features |
 |----------|-----|-----|-----|-------|----------|
 | OpenAI | tts-1, tts-1-hd | whisper-1 | — | — | Voices, speed, format |
-| ElevenLabs | eleven_multilingual_v2 | — | eleven_text_to_sound_v2 | music endpoint | Voices, cloning, languages, SFX, music |
+| ElevenLabs | eleven_multilingual_v2 | Yes | eleven_text_to_sound_v2 | Yes | Voices, cloning, languages, SFX, music |
 | xAI | grok-2-audio | — | — | — | TTS |
 
 ## AudioResponse

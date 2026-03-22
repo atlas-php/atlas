@@ -109,39 +109,18 @@ class ConversationService
         $result = [];
 
         foreach ($messages as $message) {
-            if ($forAgent !== null && ! $message->isSystem()) {
-                // Group remapping — expand each message with tool reconstruction + remap
-                $expanded = $this->expandWithTools($message);
+            $expanded = $message->isFromAssistant()
+                ? $message->toAtlasMessagesWithTools()
+                : [$message->toAtlasMessage()];
 
-                foreach ($expanded as $atlasMessage) {
-                    $result[] = $this->remapAtlasMessage($atlasMessage, $message, $forAgent);
-                }
-            } else {
-                // 1:1 — expand with tool reconstruction, no remapping
-                foreach ($this->expandWithTools($message) as $atlasMessage) {
-                    $result[] = $atlasMessage;
-                }
+            foreach ($expanded as $atlasMessage) {
+                $result[] = ($forAgent !== null && ! $message->isSystem())
+                    ? $this->remapAtlasMessage($atlasMessage, $message, $forAgent)
+                    : $atlasMessage;
             }
         }
 
         return $result;
-    }
-
-    /**
-     * Expand a stored message into Atlas typed messages.
-     * For assistant messages with tool-call steps, this returns:
-     *   [AssistantMessage(toolCalls), ToolResultMessage, ToolResultMessage, ...]
-     * For everything else, returns [single message].
-     *
-     * @return array<int, AtlasMessage>
-     */
-    protected function expandWithTools(Message $message): array
-    {
-        if ($message->isFromAssistant()) {
-            return $message->toAtlasMessagesWithTools();
-        }
-
-        return [$message->toAtlasMessage()];
     }
 
     /**

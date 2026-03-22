@@ -11,8 +11,8 @@ Atlas has its own provider layer with first-party drivers for major AI services.
 | OpenAI | `openai` | Text, stream, structured, image, audio, video, embed, moderate, vision, tool calling |
 | Anthropic | `anthropic` | Text, stream, structured, vision, tool calling |
 | Google | `google` | Text, stream, structured, image, embed, vision, tool calling |
-| xAI | `xai` | Text, stream, structured, audio, video, vision, tool calling |
-| ElevenLabs | `elevenlabs` | Audio (TTS, sound effects, music) |
+| xAI | `xai` | Text, stream, structured, image, audio, video, vision, tool calling |
+| ElevenLabs | `elevenlabs` | Audio (TTS, STT, sound effects, music) |
 | Cohere | `cohere` | Reranking |
 | Jina | `jina` | Reranking, content extraction |
 

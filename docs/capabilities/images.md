@@ -102,6 +102,7 @@ $path = $response->storeAs('images/robot.png', 'public');
 |----------|--------|-------------|
 | OpenAI | dall-e-3, dall-e-2, gpt-image-1 | Generation, sizes, quality, format |
 | Google | gemini-2.0-flash | Generation |
+| xAI | grok-2-image | Generation |
 
 ## ImageResponse
 

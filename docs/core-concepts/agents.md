@@ -239,6 +239,66 @@ $response = Atlas::agent('support')
     ->asText();
 ```
 
+### Respond Without User Message
+
+Proactively have the agent respond in a conversation thread without a new user message. Useful for scheduled follow-ups, background task results, or proactive notifications.
+
+```php
+// Agent responds to the thread without a new user message
+$response = Atlas::agent('support')
+    ->forConversation($conversationId)
+    ->respond()
+    ->asText();
+```
+
+::: warning Requires Existing Conversation
+`respond()` requires `forConversation($id)`. The agent must join an existing conversation — there's no user message to create one.
+:::
+
+### Retry Last Response
+
+Regenerate the last assistant response to get a different answer — like hitting "regenerate" in a chat UI.
+
+```php
+$response = Atlas::agent('support')
+    ->forConversation($conversationId)
+    ->retry()
+    ->asText();
+```
+
+When you retry:
+1. The current active response is deactivated (`is_active = false`)
+2. A new response is generated with the same conversation context
+3. The new response shares the same `parent_id` as the original — creating a **sibling**
+4. Only the latest response is active and included in future conversation history
+
+You can retry multiple times. Each retry creates another sibling. Only one is active at a time.
+
+::: tip Can Retry?
+A response can only be retried if no user message was sent after it. Once the conversation continues, earlier responses are locked.
+:::
+
+### Sibling Messages
+
+Retries create sibling messages — multiple responses to the same user message. Only one sibling group is active at a time.
+
+For chat UIs that show "1 of 3" navigation between response alternatives:
+
+```php
+use Atlasphp\Atlas\Persistence\Services\ConversationService;
+
+$service = app(ConversationService::class);
+
+// Get sibling info for a message
+$info = $service->siblingInfo($message);
+// ['current' => 2, 'total' => 3, 'groups' => [...]]
+
+// Switch to a different sibling
+$service->cycleSibling($conversation, $message->parent_id, $targetIndex);
+```
+
+See the [Conversations Guide](/guides/conversations) for the full persistence system.
+
 ## Auto-Discovery
 
 Agents are automatically discovered from your configured directory. Set the path and namespace in `config/atlas.php`:

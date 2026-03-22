@@ -1,6 +1,6 @@
-# Models & Provider Info
+# Models
 
-Query providers for their available models, voices, and capabilities.
+List available models from any configured provider. Useful for building model selectors, validating configurations, and checking provider capabilities.
 
 ## List Models
 
@@ -11,16 +11,6 @@ $models = Atlas::provider('openai')->models();
 
 foreach ($models as $model) {
     echo $model->id . "\n";
-}
-```
-
-## List Voices
-
-```php
-$voices = Atlas::provider('openai')->voices();
-
-foreach ($voices as $voice) {
-    echo "{$voice->id}: {$voice->name}\n";
 }
 ```
 
@@ -37,6 +27,8 @@ if ($valid) {
 ```
 
 ## Check Capabilities
+
+Query what a provider supports before making calls:
 
 ```php
 $capabilities = Atlas::provider('openai')->capabilities();
@@ -56,25 +48,29 @@ $name = Atlas::provider('openai')->name();  // 'openai'
 
 ## Caching
 
-Model and voice listings are cached by default:
+Model listings are cached by default to minimize API calls:
 
 ```env
-ATLAS_CACHE_MODELS_TTL=86400   # 24 hours
-ATLAS_CACHE_VOICES_TTL=3600    # 1 hour
+ATLAS_CACHE_MODELS_TTL=86400   # 24 hours (default)
 ```
 
-Set TTL to 0 to disable caching.
+Set TTL to `0` to disable caching.
 
 ## Supported Providers
 
-All configured providers support `models()` and `validate()`. Voice listing is available on providers that support audio (OpenAI, ElevenLabs).
+| Provider | Models | Validate |
+|----------|--------|----------|
+| OpenAI | Yes | Yes |
+| Anthropic | Yes | Yes |
+| Google | Yes | Yes |
+| xAI | Yes | Yes |
+| ElevenLabs | Yes | Yes |
 
 ## API Reference
 
 | Method | Returns | Description |
 |--------|---------|-------------|
 | `models()` | `ModelList` | List available models |
-| `voices()` | `VoiceList` | List available voices |
 | `validate()` | `bool` | Check provider connectivity |
 | `capabilities()` | `ProviderCapabilities` | Check supported features |
 | `name()` | `string` | Provider identifier |

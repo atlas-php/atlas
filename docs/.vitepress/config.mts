@@ -52,12 +52,14 @@ export default defineConfig({
                     { text: 'Reranking', link: '/capabilities/reranking' },
                     { text: 'Moderation', link: '/capabilities/moderation' },
                     { text: 'Models', link: '/capabilities/models' },
+                    { text: 'Voices', link: '/capabilities/voices' },
                 ]
             },
             {
                 text: 'Guides',
                 collapsed: true,
                 items: [
+                    { text: 'Conversations', link: '/guides/conversations' },
                     { text: 'Custom Providers', link: '/guides/custom-providers' },
                     { text: 'Artisan Commands', link: '/guides/artisan-commands' },
                 ]

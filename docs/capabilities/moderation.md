@@ -7,17 +7,26 @@ Analyze text content for policy violations and harmful content.
 ```php
 use Atlasphp\Atlas\Facades\Atlas;
 
-$response = Atlas::moderate('openai', 'omni-moderation-latest')
+$response = Atlas::moderate()
     ->fromInput('This is a normal message.')
     ->asModeration();
 
 echo $response->flagged ? 'Flagged' : 'Safe';  // "Safe"
 ```
 
+::: tip Default Provider
+Configure a default moderation provider in your `.env` to avoid specifying it on every call:
+```env
+ATLAS_MODERATE_PROVIDER=openai
+ATLAS_MODERATE_MODEL=omni-moderation-latest
+```
+Or pass it explicitly: `Atlas::moderate()`
+:::
+
 ## Checking Content
 
 ```php
-$response = Atlas::moderate('openai', 'omni-moderation-latest')
+$response = Atlas::moderate()
     ->fromInput('Some user-generated content to check...')
     ->asModeration();
 
@@ -30,7 +39,7 @@ $response->categories;   // array — category scores and flags
 The categories array contains per-category flagging:
 
 ```php
-$response = Atlas::moderate('openai', 'omni-moderation-latest')
+$response = Atlas::moderate()
     ->fromInput($userInput)
     ->asModeration();
 
@@ -49,7 +58,7 @@ foreach ($response->categories as $category => $data) {
 
 ```php
 // In a controller or middleware
-$moderation = Atlas::moderate('openai', 'omni-moderation-latest')
+$moderation = Atlas::moderate()
     ->fromInput($request->input('message'))
     ->asModeration();
 

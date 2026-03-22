@@ -75,8 +75,8 @@ $path = $response->storeAs('videos/generated.mp4', 'public');
 
 | Provider | Models | Capabilities |
 |----------|--------|-------------|
-| xAI | grok-2-video | Generation, image-to-video, video-to-text |
-| OpenAI | sora (when available) | Generation |
+| OpenAI | sora | Generation |
+| xAI | grok-2-video | Generation, image-to-video |
 
 ## VideoResponse
 

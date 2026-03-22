@@ -101,9 +101,12 @@ class ProcessQueuedMessage implements ShouldBeUnique, ShouldQueue
     {
         $context = $message->metadata ?? [];
 
+        // Use respond() — the user message is already delivered in the conversation
+        // by deliverNextQueued(). This prevents PersistConversation from storing
+        // a duplicate user message, especially critical on job retries.
         $request = Atlas::agent($this->agentKey)
             ->forConversation($this->conversationId)
-            ->message($message->content ?? '');
+            ->respond();
 
         if (isset($context['variables']) && $context['variables'] !== []) {
             $request->withVariables($context['variables']);

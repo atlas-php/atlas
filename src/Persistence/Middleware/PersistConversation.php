@@ -7,6 +7,7 @@ namespace Atlasphp\Atlas\Persistence\Middleware;
 use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\Enums\Role;
 use Atlasphp\Atlas\Events\ConversationMessageStored;
+use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Executor\ExecutorResult;
 use Atlasphp\Atlas\Messages\Message;
 use Atlasphp\Atlas\Messages\UserMessage;
@@ -51,7 +52,7 @@ class PersistConversation
 
         // Validate conversation exists for respond/retry modes
         if (($agent->isRespondMode() || $agent->isRetrying()) && $agent->resolveConversation() === null) {
-            throw new \RuntimeException(
+            throw new AtlasException(
                 'respond() and retry() require forConversation($id).'
             );
         }
@@ -86,6 +87,15 @@ class PersistConversation
         // Role remapping happens inside for group conversations.
         // In retry mode, the old response is now inactive — only the active thread loads.
         $history = $agent->conversationMessages();
+
+        // Guard: respond() and retry() require at least one message in the conversation.
+        // Without history, the provider receives no input and returns a 400 error.
+        if (empty($history) && ($agent->isRespondMode() || $agent->isRetrying()) && $userMessage === null) {
+            throw new AtlasException(
+                'respond() and retry() require at least one message in the conversation. '
+                .'Use message() to send the first message.'
+            );
+        }
 
         if (! empty($history)) {
             $context->messages = array_merge($history, $context->messages);

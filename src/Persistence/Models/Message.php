@@ -136,7 +136,8 @@ class Message extends Model
      */
     public function siblings(): HasMany
     {
-        return $this->hasMany(static::class, 'parent_id', 'parent_id');
+        return $this->hasMany(static::class, 'parent_id', 'parent_id')
+            ->where($this->getTable().'.id', '!=', $this->id);
     }
 
     /**

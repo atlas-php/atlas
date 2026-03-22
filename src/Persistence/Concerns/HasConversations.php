@@ -225,13 +225,12 @@ trait HasConversations
             return $this->conversation;
         }
 
-        $service = app(ConversationService::class);
+        $service = $this->conversationService();
 
         if ($this->conversationId !== null) {
             $this->conversation = $service->find($this->conversationId);
         } elseif ($this->conversationOwner !== null) {
-            $agentKey = method_exists($this, 'key') ? $this->key() : null;
-            $this->conversation = $service->findOrCreate($this->conversationOwner, $agentKey);
+            $this->conversation = $service->findOrCreate($this->conversationOwner, $this->agentKey());
         }
 
         return $this->conversation;
@@ -253,9 +252,24 @@ trait HasConversations
             return [];
         }
 
-        $agentKey = method_exists($this, 'key') ? $this->key() : null;
+        return $this->conversationService()
+            ->loadMessages($conversation, $this->resolveMessageLimit(), $this->agentKey());
+    }
 
-        return app(ConversationService::class)
-            ->loadMessages($conversation, $this->resolveMessageLimit(), $agentKey);
+    /**
+     * Resolve the conversation service from the container.
+     */
+    protected function conversationService(): ConversationService
+    {
+        /** @phpstan-ignore-next-line */
+        return app(ConversationService::class);
+    }
+
+    /**
+     * Get the agent key if available on the host class.
+     */
+    protected function agentKey(): ?string
+    {
+        return method_exists($this, 'key') ? $this->key() : null;
     }
 }

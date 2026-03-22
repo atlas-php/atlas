@@ -506,5 +506,6 @@ it('siblings relationship returns messages with same parent', function () {
         'sequence' => 2,
     ]);
 
-    expect($sibling1->siblings)->toHaveCount(2);
+    // siblings excludes self — only peer messages with the same parent
+    expect($sibling1->siblings)->toHaveCount(1);
 });
