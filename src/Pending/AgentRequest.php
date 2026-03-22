@@ -833,7 +833,7 @@ class AgentRequest implements QueueableRequest
         }
 
         if ($broadcastChannel !== null) {
-            $request->broadcastChannel = $broadcastChannel;
+            $request->broadcastOn($broadcastChannel);
         }
 
         return match ($terminal) {

@@ -433,22 +433,18 @@ class TextRequest implements QueueableRequest
             $request->withMessageInterpolation();
         }
 
-        if ($terminal === 'asStream' && $broadcastChannel !== null) {
-            $stream = $request->asStream()->broadcastOn($broadcastChannel);
-
-            foreach ($stream as $chunk) {
-                // Iterating triggers broadcasting
-            }
-
-            return $stream;
-        }
-
-        return match ($terminal) {
+        $result = match ($terminal) {
             'asText' => $request->asText(),
             'asStream' => $request->asStream(),
             'asStructured' => $request->asStructured(),
             default => throw new \InvalidArgumentException("Unknown terminal method: {$terminal}"),
         };
+
+        if ($result instanceof StreamResponse && $broadcastChannel !== null) {
+            $result->broadcastOn($broadcastChannel);
+        }
+
+        return $result;
     }
 
     /**

@@ -74,16 +74,12 @@ class ExecuteAtlasJob implements ShouldQueue
             broadcastChannel: $this->broadcastChannel,
         );
 
-        // StreamResponse is a generator — must be consumed for broadcasting
-        // to fire. Some request classes (TextRequest) consume internally,
-        // but AgentRequest returns an unconsumed stream that needs iteration.
+        // StreamResponse must be consumed for broadcasting to fire.
+        // All request classes return unconsumed streams; iteration here
+        // handles consumption uniformly.
         if ($result instanceof StreamResponse) {
-            try {
-                foreach ($result as $chunk) {
-                    // Chunks are consumed; broadcasting happens inside the iterator
-                }
-            } catch (Throwable) {
-                // Generator may already be closed if consumed by executeFromPayload
+            foreach ($result as $chunk) {
+                // Broadcasting happens inside the iterator
             }
         }
 

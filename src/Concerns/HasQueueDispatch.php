@@ -69,7 +69,7 @@ trait HasQueueDispatch
      */
     public function withDelay(int $seconds): static
     {
-        $this->queueDelay = $seconds;
+        $this->queueDelay = max(0, $seconds);
 
         return $this;
     }

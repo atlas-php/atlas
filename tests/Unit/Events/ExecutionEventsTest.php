@@ -16,18 +16,16 @@ it('ExecutionQueued implements ShouldBroadcastNow', function () {
     expect($event)->toBeInstanceOf(ShouldBroadcastNow::class);
 });
 
-it('ExecutionQueued stores executionId and meta', function () {
-    $event = new ExecutionQueued(executionId: 42, meta: ['key' => 'value']);
+it('ExecutionQueued stores executionId', function () {
+    $event = new ExecutionQueued(executionId: 42);
 
     expect($event->executionId)->toBe(42);
-    expect($event->meta)->toBe(['key' => 'value']);
 });
 
 it('ExecutionQueued accepts null executionId', function () {
     $event = new ExecutionQueued(executionId: null);
 
     expect($event->executionId)->toBeNull();
-    expect($event->meta)->toBe([]);
 });
 
 it('ExecutionQueued broadcastOn returns channel when provided', function () {

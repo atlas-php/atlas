@@ -7,12 +7,16 @@ namespace Atlasphp\Atlas\Queue\Jobs;
 use Atlasphp\Atlas\Events\ExecutionProcessing;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Models\Execution;
+use Illuminate\Broadcasting\Channel;
 
 /**
  * Shared persistence lifecycle for queued Atlas jobs.
  *
  * All DB operations are guarded behind persistence-enabled checks,
  * so queue works without persistence.
+ *
+ * @property-read int|null $executionId
+ * @property-read Channel|null $broadcastChannel
  */
 trait TracksExecution
 {
@@ -45,12 +49,10 @@ trait TracksExecution
                 'started_at' => now(),
             ]);
 
-            if ($this instanceof ExecuteAtlasJob) {
-                event(new ExecutionProcessing(
-                    executionId: $this->executionId,
-                    channel: $this->broadcastChannel,
-                ));
-            }
+            event(new ExecutionProcessing(
+                executionId: $this->executionId,
+                channel: $this->broadcastChannel,
+            ));
         }
     }
 

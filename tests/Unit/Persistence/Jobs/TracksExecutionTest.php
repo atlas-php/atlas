@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Queue\Jobs\TracksExecution;
+use Illuminate\Broadcasting\Channel;
 
 function createTracksExecutionHarness(?int $executionId): object
 {
@@ -12,7 +13,12 @@ function createTracksExecutionHarness(?int $executionId): object
     {
         use TracksExecution;
 
-        public function __construct(public readonly ?int $executionId) {}
+        public readonly ?Channel $broadcastChannel;
+
+        public function __construct(public readonly ?int $executionId)
+        {
+            $this->broadcastChannel = null;
+        }
 
         // Expose protected methods for testing
         public function callTransitionToProcessing(): void

@@ -14,8 +14,6 @@ class ExecutionQueued implements ShouldBroadcastNow
 {
     public function __construct(
         public readonly ?int $executionId,
-        /** @var array<string, mixed> */
-        public readonly array $meta = [],
         protected readonly ?Channel $channel = null,
     ) {}
 
