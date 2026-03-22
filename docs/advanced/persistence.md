@@ -235,6 +235,180 @@ Memory
 └── belongs to Owner (polymorphic)
 ```
 
+## Models
+
+All persistence models live in the `Atlasphp\Atlas\Persistence\Models` namespace.
+
+### Conversation
+
+`Atlasphp\Atlas\Persistence\Models\Conversation`
+
+A conversation thread owned by a polymorphic model (User, Team, etc.).
+
+| Relationship | Type | Description |
+|-------------|------|-------------|
+| `owner()` | `MorphTo` | The owning model |
+| `messages()` | `HasMany` | All messages in the conversation |
+| `executions()` | `HasMany` | All executions linked to this conversation |
+
+| Method | Description |
+|--------|-------------|
+| `recentMessages(int $limit)` | Get the last N active, delivered messages |
+| `nextSequence()` | Get the next message sequence number |
+
+| Scope | Description |
+|-------|-------------|
+| `forOwner(Model $owner)` | Filter by polymorphic owner |
+| `forAgent(string $agent)` | Filter by agent key |
+
+### Message
+
+`Atlasphp\Atlas\Persistence\Models\Message`
+
+A single message in a conversation — user input, assistant response, or system message. Supports sibling branching for retry/regenerate.
+
+| Relationship | Type | Description |
+|-------------|------|-------------|
+| `conversation()` | `BelongsTo` | Parent conversation |
+| `parent()` | `BelongsTo` | The message this is a response to |
+| `siblings()` | `HasMany` | All messages sharing the same parent (retry alternatives) |
+| `responses()` | `HasMany` | Child messages (responses to this message) |
+| `attachments()` | `HasMany` | Linked file assets (images, audio, documents) |
+| `step()` | `BelongsTo` | Linked execution step (for tool call reconstruction) |
+
+| Method | Description |
+|--------|-------------|
+| `canRetry()` | Whether this message can be retried (no later user message exists) |
+| `siblingGroups()` | Group siblings by execution (multi-step responses stay together) |
+| `siblingIndex()` | 1-based index in the sibling list |
+| `markAsRead()` | Set `read_at` to now |
+| `toAtlasMessage()` | Convert to a typed message object for the provider |
+
+| Scope | Description |
+|-------|-------------|
+| `active()` | Only active messages (`is_active = true`) |
+| `byAgent(string $agent)` | Filter by agent key |
+| `byAuthor(Model $author)` | Filter by polymorphic author |
+| `read()` / `unread()` | Filter by read status |
+| `delivered()` / `queued()` | Filter by delivery status |
+
+### Execution
+
+`Atlasphp\Atlas\Persistence\Models\Execution`
+
+A tracked AI provider call — agent execution or direct modality call — with tokens, timing, and status.
+
+| Relationship | Type | Description |
+|-------------|------|-------------|
+| `conversation()` | `BelongsTo` | Linked conversation (null for standalone calls) |
+| `triggerMessage()` | `BelongsTo` | The assistant message this execution produced |
+| `steps()` | `HasMany` | Round trips in the tool call loop |
+| `toolCalls()` | `HasMany` | All tool invocations across all steps |
+| `asset()` | `BelongsTo` | Generated file (image, audio, video) |
+
+| Method | Description |
+|--------|-------------|
+| `markQueued()` | Transition to queued status |
+| `markCompleted(?int $durationMs)` | Transition to completed with duration |
+| `markFailed(string $error, ?int $durationMs)` | Transition to failed with error |
+
+### ExecutionStep
+
+`Atlasphp\Atlas\Persistence\Models\ExecutionStep`
+
+A single round trip in the agent's tool call loop — one provider call and its response.
+
+| Relationship | Type | Description |
+|-------------|------|-------------|
+| `execution()` | `BelongsTo` | Parent execution |
+| `toolCalls()` | `HasMany` | Tool calls made during this step |
+
+| Method | Description |
+|--------|-------------|
+| `recordResponse(...)` | Record the provider response (content, tokens, finish reason) |
+| `markCompleted(?int $durationMs)` | Transition to completed |
+| `markFailed(string $error, ?int $durationMs)` | Transition to failed |
+| `hasToolCalls()` | Whether this step triggered tool calls |
+| `totalTokens` | Attribute: input + output tokens |
+
+| Scope | Description |
+|-------|-------------|
+| `pending()` / `processing()` / `completed()` | Filter by status |
+
+### ExecutionToolCall
+
+`Atlasphp\Atlas\Persistence\Models\ExecutionToolCall`
+
+An individual tool invocation with arguments, result, and timing.
+
+| Relationship | Type | Description |
+|-------------|------|-------------|
+| `execution()` | `BelongsTo` | Parent execution |
+| `step()` | `BelongsTo` | The step that triggered this call |
+
+| Method | Description |
+|--------|-------------|
+| `markCompleted(string $result, int $durationMs)` | Record result and complete |
+| `markFailed(string $error, int $durationMs)` | Record error and fail |
+
+| Scope | Description |
+|-------|-------------|
+| `pending()` / `processing()` / `completed()` / `failed()` | Filter by status |
+| `forTool(string $name)` | Filter by tool name |
+
+### Asset
+
+`Atlasphp\Atlas\Persistence\Models\Asset`
+
+A stored file (image, audio, video, document) with content hashing for deduplication.
+
+| Relationship | Type | Description |
+|-------------|------|-------------|
+| `attachments()` | `HasMany` | Messages this asset is attached to |
+| `execution()` | `BelongsTo` | The execution that produced this asset |
+
+| Method | Description |
+|--------|-------------|
+| `url(string $prefix)` | Generate a URL for this asset |
+| `extension()` | Get the file extension |
+| `isMedia()` | Whether this is an image, audio, or video |
+
+| Scope | Description |
+|-------|-------------|
+| `forExecution(int $executionId)` | Filter by execution |
+
+### MessageAttachment
+
+`Atlasphp\Atlas\Persistence\Models\MessageAttachment`
+
+Join model linking a message to an asset. Carries metadata about which tool produced it.
+
+| Relationship | Type | Description |
+|-------------|------|-------------|
+| `message()` | `BelongsTo` | The message |
+| `asset()` | `BelongsTo` | The asset |
+
+### Memory
+
+`Atlasphp\Atlas\Persistence\Models\Memory`
+
+A persistent memory entry scoped to an owner and/or agent. Supports vector embeddings for semantic search (PostgreSQL).
+
+| Relationship | Type | Description |
+|-------------|------|-------------|
+| `memoryable()` | `MorphTo` | The owner of this memory |
+
+| Scope | Description |
+|-------|-------------|
+| `forOwner(Model $owner)` | Filter by polymorphic owner |
+| `global()` | Memories without an owner |
+| `forAgent(string $agent)` | Scoped to a specific agent |
+| `agentAgnostic()` | Shared across agents |
+| `ofType(string $type)` | Filter by memory type |
+| `inNamespace(string $namespace)` | Filter by namespace |
+| `active()` | Non-expired memories |
+| `expired()` | Past expiration date |
+
 ## Model Overrides
 
 Extend the base models with your own:

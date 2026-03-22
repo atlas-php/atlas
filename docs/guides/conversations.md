@@ -2,6 +2,10 @@
 
 Atlas provides optional conversation persistence — store message history, track executions, and enable features like retry and respond mode.
 
+::: info Persistence Reference
+For the complete database schema, table details, model overrides, and configuration options, see the [Persistence Reference](/advanced/persistence).
+:::
+
 ## Setup
 
 ### 1. Enable Persistence

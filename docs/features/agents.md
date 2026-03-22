@@ -279,13 +279,7 @@ When the model requests multiple tool calls in a single step, Atlas runs them si
 
 ### Requirements
 
-For true parallelism, install:
-
-```bash
-composer require spatie/fork
-```
-
-The `pcntl` PHP extension must also be available (standard on most Linux/macOS setups, not available on Windows).
+Atlas ships with `spatie/fork` as a dependency — no extra installation needed. However, true parallelism requires the `pcntl` PHP extension, which is standard on most Linux/macOS setups but **not available on Windows**. Without `pcntl`, concurrent mode falls back to sequential execution.
 
 ### When to Use
 

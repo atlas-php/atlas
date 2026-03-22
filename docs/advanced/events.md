@@ -2,8 +2,8 @@
 
 Observe the full lifecycle of providers, agents, tools, streams, and queued executions with Laravel events.
 
-::: tip Events vs Pipelines
-**Pipelines** modify behavior — they wrap execution and can change inputs/outputs. **Events** observe behavior — they fire at specific lifecycle points and are purely informational. Use pipelines when you need to intercept or transform; use events when you need to log, broadcast, or react.
+::: tip Events vs Middleware
+**[Middleware](/features/middleware)** modifies behavior — it wraps execution and can change inputs/outputs. **Events** observe behavior — they fire at specific lifecycle points and are purely informational. Use middleware when you need to intercept or transform; use events when you need to log, broadcast, or react.
 :::
 
 ## Overview
@@ -361,6 +361,6 @@ All 23 events at a glance:
 
 ## Next Steps
 
-- [Pipelines](/features/middleware) — Modify behavior with pipeline hooks
+- [Middleware](/features/middleware) — Modify behavior with middleware
 - [Streaming](/modalities/text) — Real-time streaming with broadcast events
 - [Testing](/advanced/testing) — Test agent execution

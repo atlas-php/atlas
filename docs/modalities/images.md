@@ -91,10 +91,14 @@ $response = Atlas::image('openai', 'dall-e-3')
     ->instructions('A cute robot')
     ->asImage();
 
-// Store to disk
+// Store to disk manually
 $path = $response->store('public');        // Returns storage path
 $path = $response->storeAs('images/robot.png', 'public');
 ```
+
+::: tip Automatic Storage
+When [persistence](/advanced/persistence) is enabled, generated images are automatically stored to disk and tracked as `Asset` records — no manual `store()` call needed. Access the asset via `$response->asset`. See [Media & Assets](/guides/media-storage) for details.
+:::
 
 ## Supported Providers
 

@@ -67,9 +67,14 @@ Video::fromUpload($request->file('video'))
 ## Storing Videos
 
 ```php
+// Store to disk manually
 $path = $response->store('public');
 $path = $response->storeAs('videos/generated.mp4', 'public');
 ```
+
+::: tip Automatic Storage
+When [persistence](/advanced/persistence) is enabled, generated video is automatically stored to disk and tracked as an `Asset` record — no manual `store()` call needed. Access the asset via `$response->asset`. See [Media & Assets](/guides/media-storage) for details.
+:::
 
 ## Supported Providers
 

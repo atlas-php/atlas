@@ -249,4 +249,4 @@ use Atlasphp\Atlas\Exceptions\AuthenticationException;
 ## Next Steps
 
 - [Testing](/advanced/testing) — Test error scenarios with Atlas::fake()
-- [Pipelines](/features/middleware) — Add error handling in pipeline hooks
+- [Middleware](/features/middleware) — Add error handling middleware

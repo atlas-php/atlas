@@ -159,65 +159,169 @@ $response = Atlas::text('groq', 'llama-3.3-70b-versatile')
     ->asText();
 ```
 
-## Configuration
+## Provider Reference
 
-Provider credentials are configured in `config/atlas.php`:
+Each provider is configured in `config/atlas.php` under the `providers` key. Add your API key to `.env` and you're ready to go.
 
-```php
-'providers' => [
+---
 
-    'openai' => [
-        'api_key'      => env('OPENAI_API_KEY'),
-        'url'          => env('OPENAI_URL', 'https://api.openai.com/v1'),
-        'organization' => env('OPENAI_ORGANIZATION'),
-    ],
+### OpenAI
 
-    'anthropic' => [
-        'api_key' => env('ANTHROPIC_API_KEY'),
-        'url'     => env('ANTHROPIC_URL', 'https://api.anthropic.com/v1'),
-        'version' => env('ANTHROPIC_VERSION', '2024-10-22'),
-    ],
+Text, images, audio, video, embeddings, moderation, structured output, streaming, vision, tool calling.
 
-    'google' => [
-        'api_key' => env('GOOGLE_API_KEY'),
-        'url'     => env('GOOGLE_URL', 'https://generativelanguage.googleapis.com'),
-    ],
-
-    'xai' => [
-        'api_key' => env('XAI_API_KEY'),
-        'url'     => env('XAI_URL', 'https://api.x.ai/v1'),
-    ],
-
-    'elevenlabs' => [
-        'api_key'       => env('ELEVENLABS_API_KEY'),
-        'url'           => env('ELEVENLABS_URL', 'https://api.elevenlabs.io/v1'),
-        'media_timeout' => 300,
-    ],
-
-    'cohere' => [
-        'api_key' => env('COHERE_API_KEY'),
-        'url'     => env('COHERE_URL', 'https://api.cohere.com'),
-    ],
-
-    'jina' => [
-        'api_key' => env('JINA_API_KEY'),
-        'url'     => env('JINA_URL', 'https://api.jina.ai'),
-    ],
-
-],
-```
-
-Set API keys in your `.env` file:
+**Get your key:** [platform.openai.com/api-keys](https://platform.openai.com/api-keys) · [Docs](https://platform.openai.com/docs)
 
 ```env
 OPENAI_API_KEY=sk-...
-ANTHROPIC_API_KEY=sk-ant-...
-GOOGLE_API_KEY=...
-XAI_API_KEY=...
-ELEVENLABS_API_KEY=...
-COHERE_API_KEY=...
-JINA_API_KEY=...
+OPENAI_ORGANIZATION=org-...     # optional
+OPENAI_URL=https://api.openai.com/v1  # optional, custom endpoint
 ```
+
+```php
+// config/atlas.php → providers
+'openai' => [
+    'api_key'      => env('OPENAI_API_KEY'),
+    'url'          => env('OPENAI_URL', 'https://api.openai.com/v1'),
+    'organization' => env('OPENAI_ORGANIZATION'),
+],
+```
+
+**Popular models:** `gpt-4o`, `gpt-4o-mini`, `o3-mini`, `dall-e-3`, `tts-1`, `whisper-1`, `text-embedding-3-small`
+
+---
+
+### Anthropic
+
+Text, structured output, streaming, vision, tool calling.
+
+**Get your key:** [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) · [Docs](https://docs.anthropic.com)
+
+```env
+ANTHROPIC_API_KEY=sk-ant-...
+ANTHROPIC_VERSION=2024-10-22    # optional, API version
+ANTHROPIC_URL=https://api.anthropic.com/v1  # optional
+```
+
+```php
+'anthropic' => [
+    'api_key' => env('ANTHROPIC_API_KEY'),
+    'url'     => env('ANTHROPIC_URL', 'https://api.anthropic.com/v1'),
+    'version' => env('ANTHROPIC_VERSION', '2024-10-22'),
+],
+```
+
+**Popular models:** `claude-sonnet-4-20250514`, `claude-opus-4-20250514`, `claude-haiku-3-5-20241022`
+
+---
+
+### Google (Gemini)
+
+Text, images, embeddings, structured output, streaming, vision, tool calling.
+
+**Get your key:** [aistudio.google.com/apikey](https://aistudio.google.com/apikey) · [Docs](https://ai.google.dev/docs)
+
+```env
+GOOGLE_API_KEY=...
+GOOGLE_URL=https://generativelanguage.googleapis.com  # optional
+```
+
+```php
+'google' => [
+    'api_key' => env('GOOGLE_API_KEY'),
+    'url'     => env('GOOGLE_URL', 'https://generativelanguage.googleapis.com'),
+],
+```
+
+**Popular models:** `gemini-2.5-flash`, `gemini-2.5-pro`, `text-embedding-004`
+
+---
+
+### xAI (Grok)
+
+Text, images, audio, video, structured output, streaming, vision, tool calling.
+
+**Get your key:** [console.x.ai](https://console.x.ai) · [Docs](https://docs.x.ai)
+
+```env
+XAI_API_KEY=...
+XAI_URL=https://api.x.ai/v1  # optional
+```
+
+```php
+'xai' => [
+    'api_key' => env('XAI_API_KEY'),
+    'url'     => env('XAI_URL', 'https://api.x.ai/v1'),
+],
+```
+
+**Popular models:** `grok-3`, `grok-3-mini`, `grok-2-image`, `grok-2-video`
+
+---
+
+### ElevenLabs
+
+Text-to-speech, speech-to-text, sound effects, music generation, voice cloning.
+
+**Get your key:** [elevenlabs.io/app/settings/api-keys](https://elevenlabs.io/app/settings/api-keys) · [Docs](https://elevenlabs.io/docs)
+
+```env
+ELEVENLABS_API_KEY=...
+ELEVENLABS_URL=https://api.elevenlabs.io/v1  # optional
+```
+
+```php
+'elevenlabs' => [
+    'api_key'       => env('ELEVENLABS_API_KEY'),
+    'url'           => env('ELEVENLABS_URL', 'https://api.elevenlabs.io/v1'),
+    'media_timeout' => 300,  // longer timeout for audio/music generation
+],
+```
+
+**Popular models:** `eleven_multilingual_v2`, `eleven_turbo_v2_5`
+
+---
+
+### Cohere
+
+Semantic reranking for RAG and search quality.
+
+**Get your key:** [dashboard.cohere.com/api-keys](https://dashboard.cohere.com/api-keys) · [Docs](https://docs.cohere.com)
+
+```env
+COHERE_API_KEY=...
+COHERE_URL=https://api.cohere.com  # optional
+```
+
+```php
+'cohere' => [
+    'api_key' => env('COHERE_API_KEY'),
+    'url'     => env('COHERE_URL', 'https://api.cohere.com'),
+],
+```
+
+**Popular models:** `rerank-v3.5`, `rerank-english-v3.0`, `rerank-multilingual-v3.0`
+
+---
+
+### Jina
+
+Semantic reranking and content extraction.
+
+**Get your key:** [jina.ai/api](https://jina.ai/api) · [Docs](https://docs.jina.ai)
+
+```env
+JINA_API_KEY=...
+JINA_URL=https://api.jina.ai  # optional
+```
+
+```php
+'jina' => [
+    'api_key' => env('JINA_API_KEY'),
+    'url'     => env('JINA_URL', 'https://api.jina.ai'),
+],
+```
+
+**Popular models:** `jina-reranker-v2-base-multilingual`
 
 ### Default Provider & Model
 

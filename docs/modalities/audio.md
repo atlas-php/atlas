@@ -66,9 +66,14 @@ $response = Atlas::audio('openai', 'tts-1')
     ->withVoice('alloy')
     ->asAudio();
 
+// Store to disk manually
 $path = $response->store('public');
 $path = $response->storeAs('audio/greeting.mp3', 'public');
 ```
+
+::: tip Automatic Storage
+When [persistence](/advanced/persistence) is enabled, generated audio is automatically stored to disk and tracked as an `Asset` record — no manual `store()` call needed. Access the asset via `$response->asset`. See [Media & Assets](/guides/media-storage) for details.
+:::
 
 ## Sound Effects
 

@@ -57,7 +57,6 @@ export default defineConfig({
             },
             {
                 text: 'Guides',
-                collapsed: true,
                 items: [
                     { text: 'Conversations', link: '/guides/conversations' },
                     { text: 'Media & Assets', link: '/guides/media-storage' },
@@ -67,7 +66,6 @@ export default defineConfig({
             },
             {
                 text: 'Advanced',
-                collapsed: true,
                 items: [
                     { text: 'Persistence', link: '/advanced/persistence' },
                     { text: 'Events', link: '/advanced/events' },
