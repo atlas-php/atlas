@@ -210,21 +210,23 @@ class PersistConversation
     }
 
     /**
-     * Attach assets created during tool execution to their corresponding assistant messages.
+     * Attach assets created during tool execution to the assistant message.
      *
-     * Assets produced by tools are linked via execution_id and metadata.tool_call_id
-     * (not a direct FK on tool_calls — tools can produce multiple assets).
-     * Each assistant message has a step_id. Tool calls belong to steps.
-     * We match assets to messages by tracing: asset → tool_call (via metadata) → step → message.
+     * All tool-created assets from this execution are linked to the single
+     * stored assistant message. Asset metadata carries tool_call_id and
+     * tool_name for tracing which tool produced the asset.
      *
      * @param  array<int, \Atlasphp\Atlas\Persistence\Models\Message>  $storedMessages
      */
     protected function attachToolAssets(Execution $execution, array $storedMessages): void
     {
+        if ($storedMessages === []) {
+            return;
+        }
+
         /** @var class-string<Asset> $assetModel */
         $assetModel = config('atlas.persistence.models.asset', Asset::class);
 
-        // Find all assets created during this execution by tool calls
         $toolAssets = $assetModel::where('execution_id', $execution->id)
             ->whereJsonContains('metadata->source', 'tool_execution')
             ->get();
@@ -233,49 +235,22 @@ class PersistConversation
             return;
         }
 
-        // Build a map of step_id → tool call IDs for matching
-        $stepToolCallIds = [];
-
-        foreach ($execution->toolCalls()->get() as $toolCall) {
-            $stepToolCallIds[$toolCall->step_id][] = $toolCall->id;
-        }
-
         $attachmentModel = config(
             'atlas.persistence.models.message_attachment',
             MessageAttachment::class,
         );
 
-        foreach ($storedMessages as $message) {
-            if ($message->step_id === null) {
-                continue;
-            }
+        $message = $storedMessages[0];
 
-            // Get the tool call IDs that belong to this message's step
-            $toolCallIdsForStep = $stepToolCallIds[$message->step_id] ?? [];
-
-            if ($toolCallIdsForStep === []) {
-                continue;
-            }
-
-            // Find assets whose metadata.tool_call_id matches any tool call in this step
-            $stepAssets = $toolAssets->filter(
-                fn (Asset $asset) => in_array(
-                    $asset->metadata['tool_call_id'] ?? null,
-                    $toolCallIdsForStep,
-                    true,
-                )
-            );
-
-            foreach ($stepAssets as $asset) {
-                $attachmentModel::create([
-                    'message_id' => $message->id,
-                    'asset_id' => $asset->id,
-                    'metadata' => [
-                        'tool_call_id' => $asset->metadata['tool_call_id'] ?? null,
-                        'tool_name' => $asset->metadata['tool_name'] ?? null,
-                    ],
-                ]);
-            }
+        foreach ($toolAssets as $asset) {
+            $attachmentModel::create([
+                'message_id' => $message->id,
+                'asset_id' => $asset->id,
+                'metadata' => [
+                    'tool_call_id' => $asset->metadata['tool_call_id'] ?? null,
+                    'tool_name' => $asset->metadata['tool_name'] ?? null,
+                ],
+            ]);
         }
     }
 

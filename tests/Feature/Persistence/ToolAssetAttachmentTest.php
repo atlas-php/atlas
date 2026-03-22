@@ -253,27 +253,22 @@ it('attaches to correct message when multiple steps exist', function () {
         ],
     ]);
 
-    // Messages linked to their respective steps
-    $message1 = Message::factory()->fromAssistant('test-agent')->create([
-        'conversation_id' => $conversation->id,
-        'step_id' => $step1->id,
-        'sequence' => 0,
-    ]);
-
-    $message2 = Message::factory()->fromAssistant('test-agent')->create([
+    // Single assistant message (final response) — all assets attach to it
+    $message = Message::factory()->fromAssistant('test-agent')->create([
         'conversation_id' => $conversation->id,
         'step_id' => $step2->id,
         'sequence' => 1,
     ]);
 
-    callAttachToolAssets($execution, [$message1, $message2]);
+    callAttachToolAssets($execution, [$message]);
 
     expect(MessageAttachment::count())->toBe(2);
 
-    // Verify correct asset→message linkage
-    $attachment1 = MessageAttachment::where('message_id', $message1->id)->first();
-    expect($attachment1->asset_id)->toBe($asset1->id);
+    // Both assets attached to the single assistant message
+    $attachments = MessageAttachment::where('message_id', $message->id)
+        ->orderBy('id')
+        ->get();
 
-    $attachment2 = MessageAttachment::where('message_id', $message2->id)->first();
-    expect($attachment2->asset_id)->toBe($asset2->id);
+    expect($attachments[0]->asset_id)->toBe($asset1->id);
+    expect($attachments[1]->asset_id)->toBe($asset2->id);
 });

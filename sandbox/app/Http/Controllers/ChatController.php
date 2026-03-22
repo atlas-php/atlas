@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\MessageResource;
 use App\Models\User;
 use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
@@ -274,7 +275,7 @@ class ChatController
     {
         $query = Message::where('conversation_id', $conversation->id)
             ->where('is_active', true)
-            ->with(['step.toolCalls', 'attachments.asset']);
+            ->with(['attachments.asset']);
 
         if ($beforeId !== null) {
             $query->where('id', '<', $beforeId);
@@ -285,62 +286,8 @@ class ChatController
             ->get()
             ->reverse()
             ->values()
-            ->map(fn (Message $msg) => $this->formatMessage($msg))
+            ->map(fn (Message $msg) => MessageResource::make($msg))
             ->all();
-    }
-
-    /**
-     * Format a message for API response.
-     *
-     * @return array<string, mixed>
-     */
-    protected function formatMessage(Message $msg): array
-    {
-        $data = [
-            'id' => $msg->id,
-            'role' => $msg->role->value,
-            'status' => $msg->status->value,
-            'content' => $msg->content,
-            'agent' => $msg->agent,
-            'parent_id' => $msg->parent_id,
-            'sequence' => $msg->sequence,
-            'created_at' => $msg->created_at,
-        ];
-
-        // Include tool calls from linked execution step
-        if ($msg->isFromAssistant() && $msg->step !== null) {
-            $toolCalls = $msg->step->toolCalls->map(fn ($tc) => [
-                'id' => $tc->id,
-                'name' => $tc->name,
-                'arguments' => $tc->arguments,
-                'result' => $tc->result,
-                'status' => $tc->status->label(),
-                'duration_ms' => $tc->duration_ms,
-            ])->all();
-
-            if ($toolCalls !== []) {
-                $data['tool_calls'] = $toolCalls;
-            }
-        }
-
-        // Include attachments with proxy URLs
-        if ($msg->relationLoaded('attachments') && $msg->attachments->isNotEmpty()) {
-            $data['attachments'] = $msg->attachments->map(fn ($att) => [
-                'id' => $att->asset->id,
-                'type' => $att->asset->type->value,
-                'url' => $att->asset->url(),
-                'mime_type' => $att->asset->mime_type,
-                'description' => $att->asset->description,
-            ])->all();
-        }
-
-        // Include sibling info for retry navigation
-        if ($msg->isFromAssistant() && $msg->parent_id !== null) {
-            $data['sibling_count'] = $msg->siblingCount();
-            $data['sibling_index'] = $msg->siblingIndex();
-        }
-
-        return $data;
     }
 
     /**
