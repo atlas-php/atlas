@@ -155,6 +155,21 @@ it('parses empty delta as text chunk with null text', function () {
     expect($chunk->text)->toBeNull();
 });
 
+it('parses trailing usage-only chunk without finish_reason', function () {
+    $parser = makeCcParser();
+
+    $chunk = $parser->parseStreamChunk([
+        'choices' => [['delta' => [], 'finish_reason' => null]],
+        'usage' => ['prompt_tokens' => 15, 'completion_tokens' => 8],
+    ]);
+
+    expect($chunk->type)->toBe(ChunkType::Done);
+    expect($chunk->usage)->not->toBeNull();
+    expect($chunk->usage->inputTokens)->toBe(15);
+    expect($chunk->usage->outputTokens)->toBe(8);
+    expect($chunk->finishReason)->toBeNull();
+});
+
 it('defaults unknown finish_reason to stop', function () {
     $parser = makeCcParser();
 

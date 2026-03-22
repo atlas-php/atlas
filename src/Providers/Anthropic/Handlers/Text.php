@@ -18,6 +18,7 @@ use Atlasphp\Atlas\Responses\StreamChunk;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
+use Atlasphp\Atlas\Responses\Usage;
 use Generator;
 use Psr\Http\Message\StreamInterface;
 
@@ -148,6 +149,11 @@ class Text implements TextHandler
         /** @var array<int, array{id: string, name: string, json: string}> $toolBlocks */
         $toolBlocks = [];
 
+        // Input tokens arrive in message_start, output tokens in message_delta.
+        // Stash input count here so the Done chunk has the full picture.
+        // If message_start is missing (e.g. reconnect), defaults to 0.
+        $stashedInputTokens = 0;
+
         while (! $body->eof()) {
             $buffer .= $body->read(8192);
 
@@ -168,6 +174,13 @@ class Text implements TextHandler
                         $data = json_decode($json, true);
 
                         if ($data === null) {
+                            continue;
+                        }
+
+                        // Capture input tokens from message_start (not in message_delta)
+                        if ($currentEvent === 'message_start') {
+                            $stashedInputTokens = (int) ($data['message']['usage']['input_tokens'] ?? 0);
+
                             continue;
                         }
 
@@ -200,6 +213,25 @@ class Text implements TextHandler
 
                                 continue;
                             }
+                        }
+
+                        // Emit Done chunk with full usage on message_delta
+                        if ($currentEvent === 'message_delta') {
+                            $delta = $data['delta'] ?? [];
+                            $usage = $data['usage'] ?? [];
+
+                            yield new StreamChunk(
+                                type: ChunkType::Done,
+                                usage: $usage !== [] ? new Usage(
+                                    inputTokens: $stashedInputTokens,
+                                    outputTokens: (int) ($usage['output_tokens'] ?? 0),
+                                ) : null,
+                                finishReason: isset($delta['stop_reason'])
+                                    ? $this->parser->parseFinishReason(['stop_reason' => $delta['stop_reason']])
+                                    : null,
+                            );
+
+                            continue;
                         }
 
                         // Emit completed tool call on block stop

@@ -202,6 +202,11 @@ test('stream accumulates full text', function () {
 
     $text = $r->getText();
     assert_true(str_contains(strtolower($text), 'quick brown fox'), "Stream text should contain the pangram, got: {$text}");
+
+    $usage = $r->getUsage();
+    assert_true($usage !== null, 'Stream should have usage after iteration');
+    assert_true($usage->inputTokens > 0, "Stream inputTokens should be > 0, got: {$usage->inputTokens}");
+    assert_true($usage->outputTokens > 0, "Stream outputTokens should be > 0, got: {$usage->outputTokens}");
 });
 
 // ── Structured Output ────────────────────────────────────────────────────────

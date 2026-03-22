@@ -48,9 +48,12 @@ class Embed implements EmbedHandler
             timeout: $this->config->timeout,
         );
 
+        // Gemini returns totalTokenCount with no input/output split — embeddings have no output tokens
+        $totalTokens = (int) ($data['usageMetadata']['totalTokenCount'] ?? 0);
+
         return new EmbeddingsResponse(
             embeddings: [$data['embedding']['values'] ?? []],
-            usage: new Usage(0, 0),
+            usage: new Usage(inputTokens: $totalTokens, outputTokens: 0),
         );
     }
 
@@ -85,9 +88,11 @@ class Embed implements EmbedHandler
             $data['embeddings'] ?? [],
         );
 
+        $totalTokens = (int) ($data['usageMetadata']['totalTokenCount'] ?? 0);
+
         return new EmbeddingsResponse(
             embeddings: $embeddings,
-            usage: new Usage(0, 0),
+            usage: new Usage(inputTokens: $totalTokens, outputTokens: 0),
         );
     }
 }

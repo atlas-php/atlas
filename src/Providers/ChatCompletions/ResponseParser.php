@@ -112,6 +112,14 @@ class ResponseParser implements ResponseParserContract
             );
         }
 
+        // Some providers emit usage in a trailing chunk after finish_reason
+        if (isset($data['usage'])) {
+            return new StreamChunk(
+                type: ChunkType::Done,
+                usage: $this->parseUsage($data),
+            );
+        }
+
         return new StreamChunk(type: ChunkType::Text, text: null);
     }
 }

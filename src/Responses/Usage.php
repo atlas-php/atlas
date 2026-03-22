@@ -14,6 +14,7 @@ final class Usage
         public readonly int $outputTokens,
         public readonly ?int $reasoningTokens = null,
         public readonly ?int $cachedTokens = null,
+        public readonly ?int $cacheWriteTokens = null,
     ) {}
 
     /**
@@ -31,12 +32,14 @@ final class Usage
     {
         $reasoningTokens = ($this->reasoningTokens ?? 0) + ($other->reasoningTokens ?? 0);
         $cachedTokens = ($this->cachedTokens ?? 0) + ($other->cachedTokens ?? 0);
+        $cacheWriteTokens = ($this->cacheWriteTokens ?? 0) + ($other->cacheWriteTokens ?? 0);
 
         return new self(
             inputTokens: $this->inputTokens + $other->inputTokens,
             outputTokens: $this->outputTokens + $other->outputTokens,
             reasoningTokens: ($this->reasoningTokens !== null || $other->reasoningTokens !== null) ? $reasoningTokens : null,
             cachedTokens: ($this->cachedTokens !== null || $other->cachedTokens !== null) ? $cachedTokens : null,
+            cacheWriteTokens: ($this->cacheWriteTokens !== null || $other->cacheWriteTokens !== null) ? $cacheWriteTokens : null,
         );
     }
 }

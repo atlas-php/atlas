@@ -118,12 +118,18 @@ class ResponseParser implements ResponseParserContract
     {
         $candidate = $data['candidates'][0] ?? [];
         $parts = $candidate['content']['parts'] ?? [];
+        $finishReason = $candidate['finishReason'] ?? null;
+
+        // Gemini's final chunk often carries both text content AND finishReason + usageMetadata.
+        // Extract usage from the terminal chunk regardless of content.
+        $usage = $finishReason !== null ? $this->parseUsage($data) : null;
 
         foreach ($parts as $part) {
             if (isset($part['functionCall'])) {
                 return new StreamChunk(
                     type: ChunkType::ToolCall,
                     toolCalls: $this->toolMapper->parseToolCalls([$part]),
+                    usage: $usage,
                 );
             }
 
@@ -131,6 +137,7 @@ class ResponseParser implements ResponseParserContract
                 return new StreamChunk(
                     type: ChunkType::Thinking,
                     reasoning: $part['text'],
+                    usage: $usage,
                 );
             }
 
@@ -138,14 +145,16 @@ class ResponseParser implements ResponseParserContract
                 return new StreamChunk(
                     type: ChunkType::Text,
                     text: $part['text'],
+                    usage: $usage,
                 );
             }
         }
 
-        $finishReason = $candidate['finishReason'] ?? null;
-
         if ($finishReason !== null) {
-            return new StreamChunk(type: ChunkType::Done);
+            return new StreamChunk(
+                type: ChunkType::Done,
+                usage: $usage,
+            );
         }
 
         return new StreamChunk(type: ChunkType::Text, text: null);

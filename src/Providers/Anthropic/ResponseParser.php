@@ -73,6 +73,7 @@ class ResponseParser implements ResponseParserContract
             inputTokens: (int) ($usage['input_tokens'] ?? 0),
             outputTokens: (int) ($usage['output_tokens'] ?? 0),
             cachedTokens: isset($usage['cache_read_input_tokens']) ? (int) $usage['cache_read_input_tokens'] : null,
+            cacheWriteTokens: isset($usage['cache_creation_input_tokens']) ? (int) $usage['cache_creation_input_tokens'] : null,
         );
     }
 
@@ -113,6 +114,9 @@ class ResponseParser implements ResponseParserContract
             }
         }
 
+        // Note: In production streaming, message_delta is handled directly by
+        // Text::parseSSE() which combines stashed input tokens from message_start.
+        // This branch is retained for direct parseStreamChunk() callers and tests.
         if ($event === 'message_delta') {
             $delta = $payload['delta'] ?? [];
             $usage = $payload['usage'] ?? [];
