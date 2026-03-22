@@ -287,6 +287,25 @@ class ResearchAgent extends Agent
 | `FileSearch` | `file_search` | Search vector stores. Options: `stores`, `maxResults` |
 | `CodeInterpreter` | `code_interpreter` | Execute code in a sandbox |
 
+### Observability
+
+Provider tool invocations are captured on the response for inspection:
+
+```php
+$response = Atlas::text('openai', 'gpt-4o')
+    ->withProviderTools([new WebSearch])
+    ->message('What is the latest PHP version?')
+    ->asText();
+
+// Raw provider tool call data (web_search_call, code_interpreter_call, etc.)
+$response->providerToolCalls;
+
+// Content annotations (url_citation, file_citation) from provider responses
+$response->annotations;
+```
+
+When [persistence](/advanced/persistence) is enabled, provider tool calls are automatically logged as `ExecutionToolCall` records with `type = provider`.
+
 ## API Reference
 
 ### Tool Methods

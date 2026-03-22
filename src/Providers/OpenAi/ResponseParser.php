@@ -35,12 +35,16 @@ class ResponseParser implements ResponseParserContract
         $text = '';
         $reasoning = null;
         $functionCalls = [];
+        $providerToolCalls = [];
+        $annotations = [];
 
         foreach ($output as $item) {
             $type = $item['type'] ?? null;
 
             if ($type === 'message') {
-                $text .= $this->extractMessageText($item);
+                $extracted = $this->extractMessageContent($item);
+                $text .= $extracted['text'];
+                $annotations = array_merge($annotations, $extracted['annotations']);
             }
 
             if ($type === 'reasoning') {
@@ -49,6 +53,12 @@ class ResponseParser implements ResponseParserContract
 
             if ($type === 'function_call') {
                 $functionCalls[] = $item;
+            }
+
+            // Provider-executed tool types (web_search_call, code_interpreter_call, etc.)
+            // all end with '_call'. Exclude function_call, which is a user-defined tool.
+            if (is_string($type) && str_ends_with($type, '_call') && $type !== 'function_call') {
+                $providerToolCalls[] = $item;
             }
         }
 
@@ -66,6 +76,8 @@ class ResponseParser implements ResponseParserContract
                 'id' => $data['id'] ?? null,
                 'model' => $data['model'] ?? null,
             ],
+            providerToolCalls: $providerToolCalls,
+            annotations: $annotations,
         );
     }
 
@@ -183,13 +195,15 @@ class ResponseParser implements ResponseParserContract
     }
 
     /**
-     * Extract text from a message output item.
+     * Extract text and annotations from a message output item.
      *
      * @param  array<string, mixed>  $item
+     * @return array{text: string, annotations: array<int, array<string, mixed>>}
      */
-    private function extractMessageText(array $item): string
+    private function extractMessageContent(array $item): array
     {
         $text = '';
+        $annotations = [];
 
         /** @var array<int, array<string, mixed>> $content */
         $content = $item['content'] ?? [];
@@ -197,10 +211,14 @@ class ResponseParser implements ResponseParserContract
         foreach ($content as $part) {
             if (($part['type'] ?? null) === 'output_text') {
                 $text .= (string) ($part['text'] ?? '');
+
+                if (isset($part['annotations']) && $part['annotations'] !== []) {
+                    $annotations = array_merge($annotations, $part['annotations']);
+                }
             }
         }
 
-        return $text;
+        return ['text' => $text, 'annotations' => $annotations];
     }
 
     /**

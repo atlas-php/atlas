@@ -304,6 +304,9 @@ test('web search provider tool (grok-4)', function () {
 
     assert_true($r->text !== '', 'Should return a response with web data');
     assert_true($r->finishReason === FinishReason::Stop, 'Should finish with Stop');
+    // Provider tool calls should be captured
+    assert_true($r->providerToolCalls !== [], 'Should capture provider tool calls');
+    assert_true($r->providerToolCalls[0]['type'] === 'web_search_call', 'Should be web_search_call type');
 });
 
 test('X search provider tool (grok-4)', function () {

@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Executor;
 
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Messages\ToolCall;
+use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\Usage;
 
 /**
@@ -25,6 +26,8 @@ class ExecutorResult
     /**
      * @param  array<int, Step>  $steps
      * @param  array<string, mixed>  $meta
+     * @param  array<int, array<string, mixed>>  $providerToolCalls
+     * @param  array<int, array<string, mixed>>  $annotations
      */
     public function __construct(
         public readonly string $text,
@@ -33,6 +36,8 @@ class ExecutorResult
         public readonly Usage $usage,
         public readonly FinishReason $finishReason,
         public readonly array $meta,
+        public readonly array $providerToolCalls = [],
+        public readonly array $annotations = [],
     ) {}
 
     /**
@@ -55,6 +60,26 @@ class ExecutorResult
         }
 
         return $count;
+    }
+
+    /**
+     * Convert this executor result to a TextResponse.
+     *
+     * @param  array<string, mixed>  $extraMeta  Additional meta to merge (e.g. conversation_id, execution_id)
+     */
+    public function toTextResponse(array $extraMeta = []): TextResponse
+    {
+        return new TextResponse(
+            text: $this->text,
+            usage: $this->usage,
+            finishReason: $this->finishReason,
+            toolCalls: $this->allToolCalls(),
+            reasoning: $this->reasoning,
+            steps: $this->steps,
+            meta: $extraMeta !== [] ? array_merge($this->meta, $extraMeta) : $this->meta,
+            providerToolCalls: $this->providerToolCalls,
+            annotations: $this->annotations,
+        );
     }
 
     /**

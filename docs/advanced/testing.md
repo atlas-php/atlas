@@ -76,7 +76,9 @@ TextResponseFake::make()
     ->withFinishReason(FinishReason::Stop)
     ->withToolCalls([$toolCall])
     ->withReasoning('Let me think...')
-    ->withMeta(['id' => 'chatcmpl-123']);
+    ->withMeta(['id' => 'chatcmpl-123'])
+    ->withProviderToolCalls([['type' => 'web_search_call', 'id' => 'ws_1', 'status' => 'completed']])
+    ->withAnnotations([['type' => 'url_citation', 'url' => 'https://example.com', 'title' => 'Example']]);
 ```
 
 Default: `text=''`, `usage=Usage(10, 20)`, `finishReason=Stop`
@@ -583,7 +585,7 @@ $this->assertEquals('gpt-4o', $openaiRecorded[0]->model);
 
 | Builder | Primary Methods | Default |
 |---------|----------------|---------|
-| `TextResponseFake` | `withText`, `withUsage`, `withFinishReason`, `withToolCalls`, `withReasoning`, `withMeta` | text='', usage=Usage(10,20) |
+| `TextResponseFake` | `withText`, `withUsage`, `withFinishReason`, `withToolCalls`, `withReasoning`, `withMeta`, `withProviderToolCalls`, `withAnnotations` | text='', usage=Usage(10,20) |
 | `StreamResponseFake` | `withText`, `withChunkSize`, `withUsage`, `withFinishReason` | text='', chunkSize=5 |
 | `StructuredResponseFake` | `withStructured`, `withUsage`, `withFinishReason` | structured=[], usage=Usage(10,20) |
 | `ImageResponseFake` | `withUrl`, `withRevisedPrompt`, `withMeta` | url='https://fake.atlas/image.png' |

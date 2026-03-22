@@ -28,6 +28,12 @@ class TextResponseFake
     /** @var array<string, mixed> */
     protected array $meta = [];
 
+    /** @var array<int, array<string, mixed>> */
+    protected array $providerToolCalls = [];
+
+    /** @var array<int, array<string, mixed>> */
+    protected array $annotations = [];
+
     public function __construct()
     {
         $this->usage = new Usage(10, 20);
@@ -87,6 +93,26 @@ class TextResponseFake
         return $this;
     }
 
+    /**
+     * @param  array<int, array<string, mixed>>  $providerToolCalls
+     */
+    public function withProviderToolCalls(array $providerToolCalls): static
+    {
+        $this->providerToolCalls = $providerToolCalls;
+
+        return $this;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $annotations
+     */
+    public function withAnnotations(array $annotations): static
+    {
+        $this->annotations = $annotations;
+
+        return $this;
+    }
+
     public function toResponse(): TextResponse
     {
         return new TextResponse(
@@ -96,6 +122,8 @@ class TextResponseFake
             toolCalls: $this->toolCalls,
             reasoning: $this->reasoning,
             meta: $this->meta,
+            providerToolCalls: $this->providerToolCalls,
+            annotations: $this->annotations,
         );
     }
 }

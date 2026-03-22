@@ -59,6 +59,8 @@ class AgentExecutor
         $steps = [];
         $stepCount = 0;
         $accumulatedUsage = new Usage(0, 0);
+        $allProviderToolCalls = [];
+        $allAnnotations = [];
 
         $this->events->dispatch(new AgentStarted(
             agentKey: $agentKey,
@@ -86,6 +88,10 @@ class AgentExecutor
                     usage: $response->usage,
                     agentKey: $agentKey,
                 ));
+
+                // Accumulate provider tool calls and annotations across all steps
+                $allProviderToolCalls = array_merge($allProviderToolCalls, $response->providerToolCalls);
+                $allAnnotations = array_merge($allAnnotations, $response->annotations);
 
                 if ($response->finishReason !== FinishReason::ToolCalls) {
                     $steps[] = new Step(
@@ -130,6 +136,8 @@ class AgentExecutor
                 usage: $totalUsage,
                 finishReason: $response->finishReason,
                 meta: $response->meta,
+                providerToolCalls: $allProviderToolCalls,
+                annotations: $allAnnotations,
             );
         } finally {
             $this->events->dispatch(new AgentCompleted(

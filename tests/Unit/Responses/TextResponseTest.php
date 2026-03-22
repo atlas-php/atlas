@@ -43,3 +43,46 @@ it('converts to an AssistantMessage', function () {
     expect($message->content)->toBe('The answer is 42.');
     expect($message->reasoning)->toBe('I calculated it.');
 });
+
+it('defaults providerToolCalls and annotations to empty arrays', function () {
+    $response = new TextResponse(
+        text: 'Hello',
+        usage: new Usage(10, 20),
+        finishReason: FinishReason::Stop,
+    );
+
+    expect($response->providerToolCalls)->toBe([]);
+    expect($response->annotations)->toBe([]);
+});
+
+it('stores provider tool calls', function () {
+    $providerToolCalls = [
+        ['type' => 'web_search_call', 'id' => 'ws_1', 'status' => 'completed'],
+    ];
+
+    $response = new TextResponse(
+        text: 'Result',
+        usage: new Usage(10, 20),
+        finishReason: FinishReason::Stop,
+        providerToolCalls: $providerToolCalls,
+    );
+
+    expect($response->providerToolCalls)->toHaveCount(1);
+    expect($response->providerToolCalls[0]['type'])->toBe('web_search_call');
+});
+
+it('stores annotations', function () {
+    $annotations = [
+        ['type' => 'url_citation', 'url' => 'https://example.com', 'title' => 'Example'],
+    ];
+
+    $response = new TextResponse(
+        text: 'Result',
+        usage: new Usage(10, 20),
+        finishReason: FinishReason::Stop,
+        annotations: $annotations,
+    );
+
+    expect($response->annotations)->toHaveCount(1);
+    expect($response->annotations[0]['url'])->toBe('https://example.com');
+});

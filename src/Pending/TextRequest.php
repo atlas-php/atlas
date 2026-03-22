@@ -206,15 +206,7 @@ class TextRequest implements QueueableRequest
         try {
             if ($this->hasTools()) {
                 $result = $this->executeWithTools();
-                $response = new TextResponse(
-                    text: $result->text,
-                    usage: $result->usage,
-                    finishReason: $result->finishReason,
-                    toolCalls: $result->allToolCalls(),
-                    reasoning: $result->reasoning,
-                    steps: $result->steps,
-                    meta: $result->meta,
-                );
+                $response = $result->toTextResponse();
             } else {
                 $driver = $this->resolveDriver();
                 $this->ensureCapability($driver, 'text');

@@ -204,3 +204,183 @@ it('returns empty text chunk for unknown events', function () {
     expect($chunk->type)->toBe(ChunkType::Text);
     expect($chunk->text)->toBeNull();
 });
+
+it('captures provider tool calls from output', function () {
+    $parser = makeParser();
+
+    $data = [
+        'status' => 'completed',
+        'output' => [
+            ['type' => 'web_search_call', 'id' => 'ws_1', 'status' => 'completed', 'action' => ['type' => 'search', 'query' => 'PHP 8.4']],
+            ['type' => 'message', 'content' => [['type' => 'output_text', 'text' => 'PHP 8.4 was released.']]],
+        ],
+        'usage' => ['input_tokens' => 10, 'output_tokens' => 5],
+    ];
+
+    $response = $parser->parseText($data);
+
+    expect($response->providerToolCalls)->toHaveCount(1);
+    expect($response->providerToolCalls[0]['type'])->toBe('web_search_call');
+    expect($response->providerToolCalls[0]['id'])->toBe('ws_1');
+    expect($response->providerToolCalls[0]['status'])->toBe('completed');
+    expect($response->text)->toBe('PHP 8.4 was released.');
+});
+
+it('captures multiple provider tool calls', function () {
+    $parser = makeParser();
+
+    $data = [
+        'status' => 'completed',
+        'output' => [
+            ['type' => 'web_search_call', 'id' => 'ws_1', 'status' => 'completed', 'action' => ['type' => 'search', 'query' => 'test']],
+            ['type' => 'code_interpreter_call', 'id' => 'ci_1', 'status' => 'completed'],
+            ['type' => 'message', 'content' => [['type' => 'output_text', 'text' => 'Result']]],
+        ],
+        'usage' => ['input_tokens' => 10, 'output_tokens' => 5],
+    ];
+
+    $response = $parser->parseText($data);
+
+    expect($response->providerToolCalls)->toHaveCount(2);
+    expect($response->providerToolCalls[0]['type'])->toBe('web_search_call');
+    expect($response->providerToolCalls[1]['type'])->toBe('code_interpreter_call');
+});
+
+it('captures annotations from output_text content', function () {
+    $parser = makeParser();
+
+    $data = [
+        'status' => 'completed',
+        'output' => [
+            ['type' => 'message', 'content' => [[
+                'type' => 'output_text',
+                'text' => 'PHP 8.4 was released.',
+                'annotations' => [
+                    [
+                        'type' => 'url_citation',
+                        'url' => 'https://php.net/releases/8.4',
+                        'title' => 'PHP 8.4 Release',
+                        'start_index' => 0,
+                        'end_index' => 21,
+                    ],
+                ],
+            ]]],
+        ],
+        'usage' => ['input_tokens' => 10, 'output_tokens' => 5],
+    ];
+
+    $response = $parser->parseText($data);
+
+    expect($response->annotations)->toHaveCount(1);
+    expect($response->annotations[0]['type'])->toBe('url_citation');
+    expect($response->annotations[0]['url'])->toBe('https://php.net/releases/8.4');
+    expect($response->annotations[0]['title'])->toBe('PHP 8.4 Release');
+});
+
+it('merges annotations from multiple output_text content blocks', function () {
+    $parser = makeParser();
+
+    $data = [
+        'status' => 'completed',
+        'output' => [
+            ['type' => 'message', 'content' => [
+                [
+                    'type' => 'output_text',
+                    'text' => 'First part.',
+                    'annotations' => [
+                        ['type' => 'url_citation', 'url' => 'https://first.com', 'title' => 'First'],
+                    ],
+                ],
+                [
+                    'type' => 'output_text',
+                    'text' => 'Second part.',
+                    'annotations' => [
+                        ['type' => 'url_citation', 'url' => 'https://second.com', 'title' => 'Second'],
+                    ],
+                ],
+            ]],
+        ],
+        'usage' => ['input_tokens' => 10, 'output_tokens' => 5],
+    ];
+
+    $response = $parser->parseText($data);
+
+    expect($response->text)->toBe('First part.Second part.');
+    expect($response->annotations)->toHaveCount(2);
+    expect($response->annotations[0]['url'])->toBe('https://first.com');
+    expect($response->annotations[1]['url'])->toBe('https://second.com');
+});
+
+it('does not treat function_call as provider tool call', function () {
+    $parser = makeParser();
+
+    $data = [
+        'status' => 'completed',
+        'output' => [
+            ['type' => 'function_call', 'call_id' => 'call_1', 'name' => 'search', 'arguments' => '{"q":"test"}'],
+        ],
+        'usage' => ['input_tokens' => 10, 'output_tokens' => 5],
+    ];
+
+    $response = $parser->parseText($data);
+
+    expect($response->providerToolCalls)->toBe([]);
+    expect($response->toolCalls)->toHaveCount(1);
+});
+
+it('ignores output_text content without annotations', function () {
+    $parser = makeParser();
+
+    $data = [
+        'status' => 'completed',
+        'output' => [
+            ['type' => 'message', 'content' => [
+                ['type' => 'output_text', 'text' => 'No citations here.'],
+                ['type' => 'output_text', 'text' => 'Also none.', 'annotations' => []],
+            ]],
+        ],
+        'usage' => ['input_tokens' => 10, 'output_tokens' => 5],
+    ];
+
+    $response = $parser->parseText($data);
+
+    expect($response->annotations)->toBe([]);
+});
+
+it('captures provider tools alongside function calls', function () {
+    $parser = makeParser();
+
+    $data = [
+        'status' => 'completed',
+        'output' => [
+            ['type' => 'web_search_call', 'id' => 'ws_1', 'status' => 'completed'],
+            ['type' => 'function_call', 'call_id' => 'call_1', 'name' => 'search', 'arguments' => '{"q":"test"}'],
+            ['type' => 'message', 'content' => [['type' => 'output_text', 'text' => 'Result']]],
+        ],
+        'usage' => ['input_tokens' => 10, 'output_tokens' => 5],
+    ];
+
+    $response = $parser->parseText($data);
+
+    expect($response->providerToolCalls)->toHaveCount(1);
+    expect($response->providerToolCalls[0]['type'])->toBe('web_search_call');
+    expect($response->toolCalls)->toHaveCount(1);
+    expect($response->toolCalls[0]->name)->toBe('search');
+});
+
+it('returns empty arrays when no provider tools or annotations', function () {
+    $parser = makeParser();
+
+    $data = [
+        'status' => 'completed',
+        'output' => [
+            ['type' => 'message', 'content' => [['type' => 'output_text', 'text' => 'Hello']]],
+        ],
+        'usage' => ['input_tokens' => 10, 'output_tokens' => 5],
+    ];
+
+    $response = $parser->parseText($data);
+
+    expect($response->providerToolCalls)->toBe([]);
+    expect($response->annotations)->toBe([]);
+});

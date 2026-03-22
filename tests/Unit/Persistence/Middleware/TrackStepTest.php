@@ -7,9 +7,11 @@ use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Middleware\StepContext;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
+use Atlasphp\Atlas\Persistence\Enums\ToolCallType;
 use Atlasphp\Atlas\Persistence\Middleware\TrackStep;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\ExecutionStep;
+use Atlasphp\Atlas\Persistence\Models\ExecutionToolCall;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\TextResponse;
@@ -171,4 +173,96 @@ it('step is marked failed when execution fails after step exception', function (
 
     $execution = Execution::latest('id')->first();
     expect($execution->status)->toBe(ExecutionStatus::Failed);
+});
+
+it('logs provider tool calls from response', function () {
+    $service = makeServiceWithExecution();
+    $middleware = new TrackStep($service);
+
+    $context = makeStepContext();
+    $response = new TextResponse(
+        text: 'PHP 8.4 was released.',
+        usage: new Usage(10, 5),
+        finishReason: FinishReason::Stop,
+        providerToolCalls: [
+            ['type' => 'web_search_call', 'id' => 'ws_1', 'status' => 'completed', 'action' => ['type' => 'search', 'query' => 'PHP 8.4']],
+            ['type' => 'code_interpreter_call', 'id' => 'ci_1', 'status' => 'completed'],
+        ],
+    );
+
+    $middleware->handle($context, fn () => $response);
+
+    $toolCalls = ExecutionToolCall::all();
+
+    expect($toolCalls)->toHaveCount(2);
+
+    expect($toolCalls[0]->name)->toBe('web_search_call');
+    expect($toolCalls[0]->tool_call_id)->toBe('ws_1');
+    expect($toolCalls[0]->type)->toBe(ToolCallType::Provider);
+    expect($toolCalls[0]->status)->toBe(ExecutionStatus::Completed);
+
+    expect($toolCalls[1]->name)->toBe('code_interpreter_call');
+    expect($toolCalls[1]->tool_call_id)->toBe('ci_1');
+    expect($toolCalls[1]->type)->toBe(ToolCallType::Provider);
+    expect($toolCalls[1]->status)->toBe(ExecutionStatus::Completed);
+});
+
+it('marks failed provider tool calls as failed', function () {
+    $service = makeServiceWithExecution();
+    $middleware = new TrackStep($service);
+
+    $context = makeStepContext();
+    $response = new TextResponse(
+        text: 'Search failed.',
+        usage: new Usage(10, 5),
+        finishReason: FinishReason::Stop,
+        providerToolCalls: [
+            ['type' => 'web_search_call', 'id' => 'ws_1', 'status' => 'failed'],
+        ],
+    );
+
+    $middleware->handle($context, fn () => $response);
+
+    $toolCall = ExecutionToolCall::first();
+
+    expect($toolCall)->not->toBeNull();
+    expect($toolCall->type)->toBe(ToolCallType::Provider);
+    expect($toolCall->status)->toBe(ExecutionStatus::Failed);
+});
+
+it('handles provider tool calls with missing optional fields', function () {
+    $service = makeServiceWithExecution();
+    $middleware = new TrackStep($service);
+
+    $context = makeStepContext();
+    $response = new TextResponse(
+        text: 'Result',
+        usage: new Usage(10, 5),
+        finishReason: FinishReason::Stop,
+        providerToolCalls: [
+            ['type' => 'web_search_call'],  // No id or status
+        ],
+    );
+
+    $middleware->handle($context, fn () => $response);
+
+    $toolCall = ExecutionToolCall::first();
+
+    expect($toolCall)->not->toBeNull();
+    expect($toolCall->name)->toBe('web_search_call');
+    expect($toolCall->tool_call_id)->toBe('');
+    expect($toolCall->type)->toBe(ToolCallType::Provider);
+    expect($toolCall->status)->toBe(ExecutionStatus::Completed);
+});
+
+it('skips provider tool logging when no provider tools in response', function () {
+    $service = makeServiceWithExecution();
+    $middleware = new TrackStep($service);
+
+    $context = makeStepContext();
+    $response = makeTextResponse();
+
+    $middleware->handle($context, fn () => $response);
+
+    expect(ExecutionToolCall::count())->toBe(0);
 });

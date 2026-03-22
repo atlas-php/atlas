@@ -183,6 +183,76 @@ it('handles single round trip with no tools', function () {
     expect($completed)->toHaveCount(1);
 });
 
+it('flows provider tool calls and annotations from final response', function () {
+    $driver = makeMockDriver([
+        new TextResponse(
+            'PHP 8.4 was released.',
+            new Usage(10, 20),
+            FinishReason::Stop,
+            providerToolCalls: [
+                ['type' => 'web_search_call', 'id' => 'ws_1', 'status' => 'completed'],
+            ],
+            annotations: [
+                ['type' => 'url_citation', 'url' => 'https://php.net', 'title' => 'PHP'],
+            ],
+        ),
+    ]);
+
+    $dispatcher = makeFakeDispatcher();
+    $registry = new ToolRegistry([]);
+    $toolExecutor = new ToolExecutor($registry);
+    $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
+
+    $result = $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: true, meta: []);
+
+    expect($result->providerToolCalls)->toHaveCount(1);
+    expect($result->providerToolCalls[0]['type'])->toBe('web_search_call');
+    expect($result->annotations)->toHaveCount(1);
+    expect($result->annotations[0]['url'])->toBe('https://php.net');
+});
+
+it('accumulates provider tool calls across multi-step runs', function () {
+    $driver = makeMockDriver([
+        new TextResponse(
+            'Searching...',
+            new Usage(10, 10),
+            FinishReason::ToolCalls,
+            toolCalls: [new ToolCall('tc-1', 'echo', ['text' => 'hello'])],
+            providerToolCalls: [
+                ['type' => 'web_search_call', 'id' => 'ws_1', 'status' => 'completed'],
+            ],
+            annotations: [
+                ['type' => 'url_citation', 'url' => 'https://first.com', 'title' => 'First'],
+            ],
+        ),
+        new TextResponse(
+            'Done.',
+            new Usage(10, 10),
+            FinishReason::Stop,
+            providerToolCalls: [
+                ['type' => 'web_search_call', 'id' => 'ws_2', 'status' => 'completed'],
+            ],
+            annotations: [
+                ['type' => 'url_citation', 'url' => 'https://second.com', 'title' => 'Second'],
+            ],
+        ),
+    ]);
+
+    $dispatcher = makeFakeDispatcher();
+    $registry = new ToolRegistry([makeEchoTool()]);
+    $toolExecutor = new ToolExecutor($registry);
+    $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
+
+    $result = $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: true, meta: []);
+
+    expect($result->providerToolCalls)->toHaveCount(2);
+    expect($result->providerToolCalls[0]['id'])->toBe('ws_1');
+    expect($result->providerToolCalls[1]['id'])->toBe('ws_2');
+    expect($result->annotations)->toHaveCount(2);
+    expect($result->annotations[0]['url'])->toBe('https://first.com');
+    expect($result->annotations[1]['url'])->toBe('https://second.com');
+});
+
 it('handles one tool call across two round trips', function () {
     $driver = makeMockDriver([
         new TextResponse(

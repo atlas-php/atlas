@@ -370,6 +370,9 @@ test('web search provider tool', function () {
     assert_true($r->finishReason === FinishReason::Stop, 'Should finish with Stop');
     // Web search should find current PHP version info
     assert_true(str_contains($r->text, 'PHP') || str_contains($r->text, '8.'), 'Should mention PHP version info');
+    // Provider tool calls should be captured
+    assert_true($r->providerToolCalls !== [], 'Should capture provider tool calls');
+    assert_true($r->providerToolCalls[0]['type'] === 'web_search_call', 'Should be web_search_call type');
 });
 
 // ── Image Generation ─────────────────────────────────────────────────────────

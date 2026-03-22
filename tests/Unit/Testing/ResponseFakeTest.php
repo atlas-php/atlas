@@ -82,6 +82,33 @@ it('overrides meta on TextResponseFake', function () {
     expect($response->meta)->toBe(['key' => 'value']);
 });
 
+it('overrides providerToolCalls on TextResponseFake', function () {
+    $providerToolCalls = [
+        ['type' => 'web_search_call', 'id' => 'ws_1', 'status' => 'completed'],
+    ];
+    $response = TextResponseFake::make()->withProviderToolCalls($providerToolCalls)->toResponse();
+
+    expect($response->providerToolCalls)->toHaveCount(1);
+    expect($response->providerToolCalls[0]['type'])->toBe('web_search_call');
+});
+
+it('overrides annotations on TextResponseFake', function () {
+    $annotations = [
+        ['type' => 'url_citation', 'url' => 'https://example.com', 'title' => 'Example'],
+    ];
+    $response = TextResponseFake::make()->withAnnotations($annotations)->toResponse();
+
+    expect($response->annotations)->toHaveCount(1);
+    expect($response->annotations[0]['url'])->toBe('https://example.com');
+});
+
+it('defaults providerToolCalls and annotations to empty on TextResponseFake', function () {
+    $response = TextResponseFake::make()->toResponse();
+
+    expect($response->providerToolCalls)->toBe([]);
+    expect($response->annotations)->toBe([]);
+});
+
 // ─── StreamResponseFake ──────────────────────────────────────────────────────
 
 it('creates StreamResponse with text chunks', function () {

@@ -360,18 +360,10 @@ class AgentRequest implements QueueableRequest
         /** @var ExecutorResult $result */
         event(new ModalityCompleted(modality: Modality::Text, provider: $provider, model: $model, usage: $result->usage));
 
-        return new TextResponse(
-            text: $result->text,
-            usage: $result->usage,
-            finishReason: $result->finishReason,
-            toolCalls: $result->allToolCalls(),
-            reasoning: $result->reasoning,
-            steps: $result->steps,
-            meta: array_merge($result->meta, [
-                'conversation_id' => $result->conversationId,
-                'execution_id' => $result->executionId,
-            ]),
-        );
+        return $result->toTextResponse([
+            'conversation_id' => $result->conversationId,
+            'execution_id' => $result->executionId,
+        ]);
     }
 
     /**

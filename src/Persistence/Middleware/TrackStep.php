@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Middleware;
 
+use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Middleware\StepContext;
+use Atlasphp\Atlas\Persistence\Enums\ToolCallType;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Closure;
@@ -51,11 +53,51 @@ class TrackStep
             // ── Complete the step ────────────────────────────────────
             $this->tracker->completeStep();
 
+            // ── Log provider tool calls (already executed server-side) ──
+            $this->logProviderToolCalls($response);
+
             return $response;
 
         } catch (\Throwable $e) {
             // failExecution() will mark the in-flight step as failed
             throw $e;
+        }
+    }
+
+    /**
+     * Log provider-executed tool calls (web_search, code_interpreter, etc.)
+     * as ExecutionToolCall records with type=Provider. Respects the provider's
+     * reported status — failed provider tools are recorded as failed.
+     */
+    private function logProviderToolCalls(TextResponse $response): void
+    {
+        if ($response->providerToolCalls === [] || $this->tracker->currentStep() === null) {
+            return;
+        }
+
+        foreach ($response->providerToolCalls as $providerTool) {
+            try {
+                $record = $this->tracker->createToolCall(
+                    new ToolCall(
+                        id: (string) ($providerTool['id'] ?? ''),
+                        name: (string) ($providerTool['type'] ?? 'unknown'),
+                        arguments: [],
+                    ),
+                    type: ToolCallType::Provider,
+                );
+
+                $startTime = $this->tracker->beginToolCall($record);
+                $reportedStatus = (string) ($providerTool['status'] ?? 'completed');
+
+                if ($reportedStatus === 'failed') {
+                    $this->tracker->failToolCall($record, $startTime, $reportedStatus);
+                } else {
+                    $this->tracker->completeToolCall($record, $startTime, $reportedStatus);
+                }
+            } catch (\Throwable) {
+                // Don't let provider tool logging failures break the response flow
+                continue;
+            }
         }
     }
 }

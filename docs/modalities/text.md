@@ -352,6 +352,8 @@ $response = Atlas::text('openai', 'gpt-4o')
 | `reasoning` | `?string` | Reasoning/thinking content (if supported) |
 | `steps` | `array` | Tool loop history (when tools are used) |
 | `meta` | `array` | Additional metadata |
+| `providerToolCalls` | `array` | Provider-executed tool invocations (web_search_call, code_interpreter_call, etc.) |
+| `annotations` | `array` | Content annotations from the provider (url_citation, file_citation) |
 
 ## StreamResponse
 
