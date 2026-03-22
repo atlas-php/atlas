@@ -62,6 +62,11 @@ class PersistConversation
             return $next($context);
         }
 
+        // Capture consumer-provided metadata BEFORE other middleware
+        // (WireMemory etc.) injects internal keys into context->meta.
+        // The request->meta is the original from withMeta().
+        $consumerMeta = $context->request->meta;
+
         // ── Retry preparation — deactivate current response BEFORE loading history
         if ($agent->isRetrying()) {
             $agent->setRetryParentId($this->conversations->prepareRetry($conversation));
@@ -106,8 +111,8 @@ class PersistConversation
         }
 
         // Store consumer metadata on the conversation if it has none yet
-        if ($conversation->metadata === null && $context->meta !== []) {
-            $conversation->update(['metadata' => $context->meta]);
+        if ($conversation->metadata === null && $consumerMeta !== []) {
+            $conversation->update(['metadata' => $consumerMeta]);
         }
 
         // Inject conversation_id into meta so delegation tools can access it
@@ -123,7 +128,7 @@ class PersistConversation
         $agentKey = $agent->key();
 
         /** @var array<int, \Atlasphp\Atlas\Persistence\Models\Message> $storedMessages */
-        $storedMessages = DB::transaction(function () use ($agent, $agentKey, $context, $conversation, $userMessage, $result): array {
+        $storedMessages = DB::transaction(function () use ($agent, $agentKey, $context, $conversation, $userMessage, $result, $consumerMeta): array {
             $author = $agent->resolveAuthor();
             $parentId = null;
 
@@ -138,7 +143,9 @@ class PersistConversation
                     author: $author,
                 );
                 $stored->markAsRead(); // Agent already processed it
-                $stored->update(['metadata' => $context->meta]);
+                if ($consumerMeta !== []) {
+                    $stored->update(['metadata' => $consumerMeta]);
+                }
                 $parentId = $stored->id;
 
                 // Auto-set conversation title from the first user message
