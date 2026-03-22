@@ -35,6 +35,7 @@ pest()->extend(TestCase::class)->in(
     'Feature/ProviderRegistryTest.php',
 );
 pest()->extend(TestCase::class)->in(
+    'Unit/Agents',
     'Unit/AgentTest.php',
     'Unit/Concerns',
     'Unit/Console',

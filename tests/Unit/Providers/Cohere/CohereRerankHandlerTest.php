@@ -133,6 +133,32 @@ it('resolves document text from response when available', function () {
     expect($response->results[0]->document)->toBe('Response doc text');
 });
 
+it('sends max_tokens_per_doc when set', function () {
+    Http::fake([
+        'api.cohere.com/v2/rerank' => Http::response([
+            'results' => [],
+        ]),
+    ]);
+
+    $handler = new CohereRerankHandler(
+        config: ProviderConfig::fromArray(['api_key' => 'test-key', 'url' => 'https://api.cohere.com']),
+        http: app(HttpClient::class),
+    );
+
+    $request = new RerankRequest(
+        model: 'rerank-v3.5',
+        query: 'test',
+        documents: ['doc1'],
+        maxTokensPerDoc: 512,
+    );
+
+    $handler->rerank($request);
+
+    Http::assertSent(function ($request) {
+        return $request['max_tokens_per_doc'] === 512;
+    });
+});
+
 it('merges provider options into request body', function () {
     Http::fake([
         'api.cohere.com/v2/rerank' => Http::response([

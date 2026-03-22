@@ -100,3 +100,93 @@ it('handles missing directory gracefully', function () {
 
     expect($registry->keys())->toBe([]);
 });
+
+it('discovers agent classes from a directory', function () {
+    $dir = sys_get_temp_dir().'/atlas-discover-test-'.uniqid();
+    mkdir($dir);
+    file_put_contents($dir.'/RegistryTestSupportAgent.php', '<?php');
+    file_put_contents($dir.'/RegistryTestBillingAgent.php', '<?php');
+
+    $registry = new AgentRegistry(app());
+    $registry->discover($dir, '');
+
+    expect($registry->keys())->toHaveCount(2)
+        ->and($registry->has('support'))->toBeTrue()
+        ->and($registry->has('billing'))->toBeTrue();
+
+    array_map('unlink', glob($dir.'/*.php'));
+    rmdir($dir);
+});
+
+it('skips non-agent classes during discovery', function () {
+    $dir = sys_get_temp_dir().'/atlas-discover-test-'.uniqid();
+    mkdir($dir);
+    file_put_contents($dir.'/NotAnAgent.php', '<?php');
+    file_put_contents($dir.'/RegistryTestSupportAgent.php', '<?php');
+
+    $registry = new AgentRegistry(app());
+    $registry->discover($dir, '');
+
+    expect($registry->keys())->toBe(['support']);
+
+    array_map('unlink', glob($dir.'/*.php'));
+    rmdir($dir);
+});
+
+it('skips classes that do not exist during discovery', function () {
+    $dir = sys_get_temp_dir().'/atlas-discover-test-'.uniqid();
+    mkdir($dir);
+    file_put_contents($dir.'/NonExistentClassName.php', '<?php');
+
+    $registry = new AgentRegistry(app());
+    $registry->discover($dir, '');
+
+    expect($registry->keys())->toBe([]);
+
+    array_map('unlink', glob($dir.'/*.php'));
+    rmdir($dir);
+});
+
+it('handles empty directory during discovery', function () {
+    $dir = sys_get_temp_dir().'/atlas-discover-test-'.uniqid();
+    mkdir($dir);
+
+    $registry = new AgentRegistry(app());
+    $registry->discover($dir, '');
+
+    expect($registry->keys())->toBe([]);
+
+    rmdir($dir);
+});
+
+it('builds class name from namespace and filename', function () {
+    $dir = sys_get_temp_dir().'/atlas-discover-test-'.uniqid();
+    mkdir($dir);
+    file_put_contents($dir.'/RegistryTestSupportAgent.php', '<?php');
+
+    $registry = new AgentRegistry(app());
+    // The class RegistryTestSupportAgent is in the global namespace,
+    // so passing a non-empty namespace should produce a non-existent class
+    $registry->discover($dir, 'App\\Agents');
+
+    expect($registry->keys())->toBe([]);
+
+    array_map('unlink', glob($dir.'/*.php'));
+    rmdir($dir);
+});
+
+it('ignores non-php files during discovery', function () {
+    $dir = sys_get_temp_dir().'/atlas-discover-test-'.uniqid();
+    mkdir($dir);
+    file_put_contents($dir.'/RegistryTestSupportAgent.php', '<?php');
+    file_put_contents($dir.'/README.md', '# Agents');
+    file_put_contents($dir.'/config.json', '{}');
+
+    $registry = new AgentRegistry(app());
+    $registry->discover($dir, '');
+
+    expect($registry->keys())->toBe(['support']);
+
+    array_map('unlink', glob($dir.'/*'));
+    rmdir($dir);
+});

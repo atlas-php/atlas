@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Providers\Jina;
 
+use Atlasphp\Atlas\Providers\Concerns\ResolvesRerankDocuments;
 use Atlasphp\Atlas\Responses\RerankResponse;
 use Atlasphp\Atlas\Responses\RerankResult;
 
@@ -12,6 +13,8 @@ use Atlasphp\Atlas\Responses\RerankResult;
  */
 class JinaResponseParser
 {
+    use ResolvesRerankDocuments;
+
     /**
      * Parse a Jina rerank response.
      *
@@ -38,31 +41,5 @@ class JinaResponseParser
         }
 
         return new RerankResponse($rerankResults, $meta);
-    }
-
-    /**
-     * Resolve the document text from the response or original request.
-     *
-     * @param  array<string, mixed>  $result
-     * @param  array<int, string|array<string, string>>  $originalDocuments
-     */
-    private static function resolveDocument(array $result, array $originalDocuments, int $index): string
-    {
-        if (isset($result['document']['text'])) {
-            return (string) $result['document']['text'];
-        }
-
-        $original = $originalDocuments[$index] ?? '';
-
-        if (is_array($original)) {
-            $lines = [];
-            foreach ($original as $key => $value) {
-                $lines[] = "{$key}: {$value}";
-            }
-
-            return implode("\n", $lines);
-        }
-
-        return $original;
     }
 }
