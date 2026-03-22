@@ -210,10 +210,11 @@ class ResponseParser implements ResponseParserContract
      */
     private function extractReasoningText(array $item): ?string
     {
+        $text = '';
+
+        // OpenAI uses summary for reasoning output
         /** @var array<int, array<string, mixed>> $summaries */
         $summaries = $item['summary'] ?? [];
-
-        $text = '';
 
         foreach ($summaries as $summary) {
             if (($summary['type'] ?? null) === 'summary_text') {
@@ -221,6 +222,20 @@ class ResponseParser implements ResponseParserContract
 
                 if ($text !== '') {
                     $text .= "\n";
+                }
+            }
+        }
+
+        // xAI and other providers use content for reasoning output
+        if ($text === '') {
+            /** @var array<int, array<string, mixed>> $content */
+            $content = $item['content'] ?? [];
+
+            foreach ($content as $part) {
+                $partText = (string) ($part['text'] ?? '');
+
+                if ($partText !== '') {
+                    $text .= $partText."\n";
                 }
             }
         }
