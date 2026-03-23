@@ -99,7 +99,7 @@ class ExecutionService
             'status' => ExecutionStatus::Pending,
             'total_input_tokens' => 0,
             'total_output_tokens' => 0,
-            'metadata' => ! empty($meta) ? $meta : null,
+            'metadata' => ! empty($meta) ? $this->filterMetaForStorage($meta) : null,
         ]);
 
         $this->stepSequence = 0;
@@ -428,5 +428,23 @@ class ExecutionService
         return $startTime > 0
             ? (int) ((microtime(true) - $startTime) * 1000)
             : null;
+    }
+
+    /**
+     * Filter meta for database storage — remove internal runtime keys
+     * (prefixed with underscore) that are for middleware communication only.
+     *
+     * @param  array<string, mixed>  $meta
+     * @return array<string, mixed>|null
+     */
+    private function filterMetaForStorage(array $meta): ?array
+    {
+        $filtered = array_filter(
+            $meta,
+            fn (mixed $value, string $key): bool => ! str_starts_with($key, '_'),
+            ARRAY_FILTER_USE_BOTH,
+        );
+
+        return $filtered !== [] ? $filtered : null;
     }
 }

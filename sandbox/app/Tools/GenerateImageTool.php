@@ -6,13 +6,18 @@ namespace App\Tools;
 
 use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Input\Image;
-use Atlasphp\Atlas\Schema\Fields\StringField;
+use Atlasphp\Atlas\Persistence\Enums\AssetType;
+use Atlasphp\Atlas\Persistence\Enums\MessageRole;
+use Atlasphp\Atlas\Persistence\Models\MessageAttachment;
+use Atlasphp\Atlas\Schema\Schema;
 use Atlasphp\Atlas\Tools\Tool;
 
 /**
- * Tool for generating or editing images using the configured default image provider.
+ * Tool for generating or editing images.
  *
- * Supports text-to-image generation and image editing with a reference image.
+ * When the model sets reference_last_image to true, the tool
+ * finds the last image the user shared in the conversation
+ * and uses it as a reference for editing.
  */
 class GenerateImageTool extends Tool
 {
@@ -23,19 +28,16 @@ class GenerateImageTool extends Tool
 
     public function description(): string
     {
-        return 'Generate or edit an image. When a reference_image_url is provided, '
-            .'the image will be edited based on the prompt. Otherwise, a new image '
-            .'is generated from scratch. Returns a markdown image tag.';
+        return 'Generate a new image from a text prompt, or edit a reference image. '
+            .'Set reference_last_image to true when the user wants to edit or modify '
+            .'an image they previously shared in the conversation.';
     }
 
-    /**
-     * @return array<int, StringField>
-     */
     public function parameters(): array
     {
         return [
-            new StringField('prompt', 'A detailed description of the image to generate or how to edit the reference image'),
-            (new StringField('reference_image_url', 'URL of a reference image to edit (from conversation attachments)'))->optional(),
+            Schema::string('prompt', 'A detailed description of the image to generate or how to edit the reference image'),
+            Schema::boolean('reference_last_image', 'Set to true to use the last image the user shared as a reference for editing')->optional(),
         ];
     }
 
@@ -46,22 +48,37 @@ class GenerateImageTool extends Tool
     public function handle(array $args, array $context): string
     {
         $prompt = $args['prompt'];
-        $referenceUrl = $args['reference_image_url'] ?? null;
-
         $request = Atlas::image()->instructions($prompt);
 
-        if ($referenceUrl !== null && $referenceUrl !== '') {
-            $request->withMedia([Image::fromUrl($referenceUrl)]);
+        // Use the last user-uploaded image as reference if requested
+        if ($args['reference_last_image'] ?? false) {
+            $conversationId = $context['conversation_id'] ?? null;
+
+            if ($conversationId !== null) {
+                $attachment = MessageAttachment::whereHas('message', fn ($q) => $q->where('conversation_id', $conversationId)->where('role', MessageRole::User))
+                    ->whereHas('asset', fn ($q) => $q->where('type', AssetType::Image))
+                    ->with('asset')
+                    ->latest('id')
+                    ->first();
+
+                if ($attachment?->asset) {
+                    try {
+                        $request->withMedia([Image::fromStorage($attachment->asset->path, $attachment->asset->disk, $attachment->asset->mime_type)]);
+                    } catch (\RuntimeException) {
+                        // Provider may not support reference images — generate from scratch
+                    }
+                }
+            }
         }
 
         $response = $request->asImage();
 
         if ($response->asset) {
-            return "Result:\n![{$prompt}]({$response->asset->url()})";
+            return "Image generated successfully. Display it with: ![image]({$response->asset->url()})";
         }
 
         $url = is_array($response->url) ? $response->url[0] : $response->url;
 
-        return "Result:\n![{$prompt}]({$url})";
+        return "Image generated successfully. Display it with: ![image]({$url})";
     }
 }

@@ -235,7 +235,7 @@ it('resolves base64 image source', function () {
 
     Http::assertSent(function ($request) {
         if ($request->url() === 'https://api.x.ai/v1/videos/generations') {
-            return str_starts_with($request['image'], 'data:image/png;base64,');
+            return is_array($request['image']) && str_starts_with($request['image']['url'], 'data:image/png;base64,');
         }
 
         return true;
@@ -261,7 +261,7 @@ it('resolves file path image source', function () {
 
     Http::assertSent(function ($request) {
         if ($request->url() === 'https://api.x.ai/v1/videos/generations') {
-            return str_contains($request['image'], 'base64,');
+            return is_array($request['image']) && str_contains($request['image']['url'], 'base64,');
         }
 
         return true;

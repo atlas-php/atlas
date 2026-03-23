@@ -112,9 +112,11 @@ it('throws for input with no source set', function () {
     $input->shouldReceive('isUrl')->andReturn(false);
     $input->shouldReceive('isBase64')->andReturn(false);
     $input->shouldReceive('isPath')->andReturn(false);
+    $input->shouldReceive('isStorage')->andReturn(false);
+    $input->shouldReceive('isUpload')->andReturn(false);
 
     $resolver->resolve($input);
-})->throws(InvalidArgumentException::class, 'no source set');
+})->throws(InvalidArgumentException::class, 'no supported source set');
 
 it('throws when path file does not exist', function () {
     $resolver = new MediaResolver;

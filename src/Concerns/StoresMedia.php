@@ -68,7 +68,7 @@ trait StoresMedia
         $source = $this->mediaSource();
 
         return match ($source['type']) {
-            'url' => Http::get($source['value'])->body(),
+            'url' => Http::get($source['value'])->throw()->body(),
             'base64' => base64_decode($source['value']),
             'path' => $this->readFile($source['value']),
             'storage' => $this->readStorage($source['value'], $source['disk'] ?? null),

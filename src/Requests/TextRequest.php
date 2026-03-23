@@ -85,6 +85,31 @@ final class TextRequest
     }
 
     /**
+     * Return a copy with the message and messageMedia cleared.
+     *
+     * Used by the executor to move the user message into the messages
+     * array so it appears in the correct position in conversation history.
+     */
+    public function withClearedMessage(): self
+    {
+        return new self(
+            model: $this->model,
+            instructions: $this->instructions,
+            message: null,
+            messageMedia: [],
+            messages: $this->messages,
+            maxTokens: $this->maxTokens,
+            temperature: $this->temperature,
+            schema: $this->schema,
+            tools: $this->tools,
+            providerTools: $this->providerTools,
+            providerOptions: $this->providerOptions,
+            middleware: $this->middleware,
+            meta: $this->meta,
+        );
+    }
+
+    /**
      * Return a copy with the messages array replaced entirely.
      *
      * @param  array<int, mixed>  $messages

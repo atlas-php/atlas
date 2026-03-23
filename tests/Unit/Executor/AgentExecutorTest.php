@@ -19,6 +19,7 @@ use Atlasphp\Atlas\Executor\ToolRegistry;
 use Atlasphp\Atlas\Messages\AssistantMessage;
 use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Messages\ToolResultMessage;
+use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
 use Atlasphp\Atlas\Requests\TextRequest;
@@ -438,20 +439,29 @@ it('appends AssistantMessage and ToolResultMessages to next request', function (
 
     $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: true, meta: []);
 
-    // Second request should have messages appended
+    // Second request should have messages appended:
+    // UserMessage (moved from request->message), AssistantMessage, ToolResultMessage
     $secondRequest = $driver->receivedRequests[1];
-    expect($secondRequest->messages)->toHaveCount(2);
+    expect($secondRequest->messages)->toHaveCount(3);
 
-    // First appended message is AssistantMessage
-    $assistantMsg = $secondRequest->messages[0];
+    // First is the user message (moved before tool calls for correct ordering)
+    $userMsg = $secondRequest->messages[0];
+    expect($userMsg)->toBeInstanceOf(UserMessage::class);
+    expect($userMsg->content)->toBe('Hello');
+
+    // Second is AssistantMessage with tool calls
+    $assistantMsg = $secondRequest->messages[1];
     expect($assistantMsg)->toBeInstanceOf(AssistantMessage::class);
     expect($assistantMsg->content)->toBe('Using echo.');
 
-    // Second appended message is ToolResultMessage
-    $toolResultMsg = $secondRequest->messages[1];
+    // Third is ToolResultMessage
+    $toolResultMsg = $secondRequest->messages[2];
     expect($toolResultMsg)->toBeInstanceOf(ToolResultMessage::class);
     expect($toolResultMsg->toolCallId)->toBe('tc-1');
     expect($toolResultMsg->content)->toBe('ping');
+
+    // User message should be cleared from request->message (already in messages array)
+    expect($secondRequest->message)->toBeNull();
 });
 
 it('merges usage across all steps', function () {

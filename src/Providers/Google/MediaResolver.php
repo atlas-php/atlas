@@ -30,12 +30,16 @@ class MediaResolver implements MediaResolverContract
                 ];
             }
 
-            $data = base64_encode((string) file_get_contents($url));
+            $raw = @file_get_contents($url);
+
+            if ($raw === false) {
+                throw new InvalidArgumentException('Failed to read media from URL: '.$url);
+            }
 
             return [
                 'inline_data' => [
                     'mime_type' => $input->mimeType(),
-                    'data' => $data,
+                    'data' => base64_encode($raw),
                 ],
             ];
         }
@@ -50,12 +54,34 @@ class MediaResolver implements MediaResolverContract
         }
 
         if ($input->isPath()) {
-            $data = base64_encode((string) file_get_contents((string) $input->path()));
+            $raw = @file_get_contents((string) $input->path());
+
+            if ($raw === false) {
+                throw new InvalidArgumentException('Failed to read media from path: '.$input->path());
+            }
 
             return [
                 'inline_data' => [
                     'mime_type' => $input->mimeType(),
-                    'data' => $data,
+                    'data' => base64_encode($raw),
+                ],
+            ];
+        }
+
+        if ($input->isStorage()) {
+            return [
+                'inline_data' => [
+                    'mime_type' => $input->mimeType(),
+                    'data' => base64_encode($input->contents()),
+                ],
+            ];
+        }
+
+        if ($input->isUpload()) {
+            return [
+                'inline_data' => [
+                    'mime_type' => $input->mimeType(),
+                    'data' => $input->toBase64(),
                 ],
             ];
         }
@@ -69,6 +95,6 @@ class MediaResolver implements MediaResolverContract
             ];
         }
 
-        throw new InvalidArgumentException('Cannot resolve media input — no source set.');
+        throw new InvalidArgumentException('Cannot resolve media input — no supported source set.');
     }
 }

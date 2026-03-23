@@ -55,7 +55,15 @@ class MediaResolver implements MediaResolverContract
             return $this->buildBase64BlockFromData(base64_encode($raw), $input->mimeType(), $isDocument);
         }
 
-        throw new InvalidArgumentException('Cannot resolve media input — no source set.');
+        if ($input->isStorage()) {
+            return $this->buildBase64BlockFromData(base64_encode($input->contents()), $input->mimeType(), $isDocument);
+        }
+
+        if ($input->isUpload()) {
+            return $this->buildBase64BlockFromData($input->toBase64(), $input->mimeType(), $isDocument);
+        }
+
+        throw new InvalidArgumentException('Cannot resolve media input — no supported source set.');
     }
 
     /**

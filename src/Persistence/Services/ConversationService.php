@@ -431,6 +431,21 @@ class ConversationService
     }
 
     /**
+     * Check if a user message has an active assistant reply.
+     */
+    public function hasAssistantReply(Conversation $conversation, int $userMessageId): bool
+    {
+        /** @var class-string<Message> $messageModel */
+        $messageModel = $this->messageModel;
+
+        return $messageModel::where('conversation_id', $conversation->id)
+            ->where('parent_id', $userMessageId)
+            ->where('role', MessageRole::Assistant)
+            ->where('is_active', true)
+            ->exists();
+    }
+
+    /**
      * Check if a conversation has an execution currently processing.
      */
     public function hasActiveExecution(Conversation $conversation): bool

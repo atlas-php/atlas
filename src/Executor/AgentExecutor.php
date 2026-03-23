@@ -15,6 +15,7 @@ use Atlasphp\Atlas\Events\AgentToolCallFailed;
 use Atlasphp\Atlas\Events\AgentToolCallStarted;
 use Atlasphp\Atlas\Exceptions\MaxStepsExceededException;
 use Atlasphp\Atlas\Messages\ToolCall;
+use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
 use Atlasphp\Atlas\Middleware\StepContext;
 use Atlasphp\Atlas\Middleware\ToolContext;
@@ -118,7 +119,22 @@ class AgentExecutor
                 $steps[] = $step;
                 $accumulatedUsage = $accumulatedUsage->merge($step->usage);
 
-                $messagesToAppend = [$response->toMessage()];
+                $messagesToAppend = [];
+
+                // On the first tool loop iteration, move the user message into
+                // the messages array so it appears BEFORE the assistant's tool
+                // calls in conversation history. Without this, collectInputItems
+                // appends the user message AFTER tool results, making the model
+                // think there's a new user request after each tool completion.
+                if ($request->message !== null) {
+                    $messagesToAppend[] = new UserMessage(
+                        $request->message,
+                        $request->messageMedia,
+                    );
+                    $request = $request->withClearedMessage();
+                }
+
+                $messagesToAppend[] = $response->toMessage();
 
                 foreach ($toolResults as $toolResult) {
                     $messagesToAppend[] = $toolResult->toMessage();

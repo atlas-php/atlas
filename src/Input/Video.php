@@ -11,27 +11,30 @@ use Illuminate\Http\UploadedFile;
  */
 class Video extends Input
 {
-    public static function fromUrl(string $url): self
+    public static function fromUrl(string $url, ?string $mimeType = null): self
     {
         $input = new self;
         $input->url = $url;
+        $input->mime = $mimeType;
 
         return $input;
     }
 
-    public static function fromPath(string $path): self
+    public static function fromPath(string $path, ?string $mimeType = null): self
     {
         $input = new self;
         $input->path = $path;
+        $input->mime = $mimeType;
 
         return $input;
     }
 
-    public static function fromStorage(string $path, ?string $disk = null): self
+    public static function fromStorage(string $path, ?string $disk = null, ?string $mimeType = null): self
     {
         $input = new self;
         $input->storagePath = $path;
         $input->disk = $disk;
+        $input->mime = $mimeType;
 
         return $input;
     }

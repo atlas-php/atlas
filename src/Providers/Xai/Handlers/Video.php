@@ -133,15 +133,17 @@ class Video implements VideoHandler
 
     /**
      * Resolve an Input object to an image source for the API.
+     *
+     * @return array{url: string}
      */
-    private function resolveImageSource(Input $input): string
+    private function resolveImageSource(Input $input): array
     {
         if ($input->isUrl()) {
-            return $input->url();
+            return ['url' => $input->url()];
         }
 
         if ($input->isBase64()) {
-            return "data:{$input->mimeType()};base64,".$input->data();
+            return ['url' => "data:{$input->mimeType()};base64,".$input->data()];
         }
 
         if ($input->isPath()) {
@@ -156,7 +158,20 @@ class Video implements VideoHandler
                 );
             }
 
-            return "data:{$input->mimeType()};base64,".base64_encode($raw);
+            return ['url' => "data:{$input->mimeType()};base64,".base64_encode($raw)];
+        }
+
+        if ($input->isStorage()) {
+            try {
+                return ['url' => "data:{$input->mimeType()};base64,".base64_encode($input->contents())];
+            } catch (\RuntimeException $e) {
+                throw new ProviderException(
+                    provider: 'xai',
+                    model: 'video',
+                    statusCode: 400,
+                    providerMessage: 'Cannot read image from storage: '.$e->getMessage(),
+                );
+            }
         }
 
         throw new ProviderException(

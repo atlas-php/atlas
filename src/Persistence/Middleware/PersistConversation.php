@@ -131,39 +131,49 @@ class PersistConversation
             $parentId = $agent->getRetryParentId();
 
         } elseif (! $agent->isRespondMode() && $userMessage !== null) {
-            $stored = $this->conversations->addMessage(
-                $conversation,
-                $userMessage,
-                author: $author,
-            );
-            $stored->markAsRead(); // Agent will process it
-            if ($consumerMeta !== []) {
-                $stored->update(['metadata' => $consumerMeta]);
+            // Check if this is a job retry — the last user message in the
+            // conversation is ours if it has no assistant reply yet.
+            $lastUserMsgId = $this->conversations->lastUserMessageId($conversation);
+
+            if ($lastUserMsgId !== null && ! $this->conversations->hasAssistantReply($conversation, $lastUserMsgId)) {
+                // Already stored on a previous attempt — reuse as parent
+                $userMessageId = $lastUserMsgId;
+                $parentId = $lastUserMsgId;
+            } else {
+                $stored = $this->conversations->addMessage(
+                    $conversation,
+                    $userMessage,
+                    author: $author,
+                );
+                $stored->markAsRead();
+                if ($consumerMeta !== []) {
+                    $stored->update(['metadata' => $consumerMeta]);
+                }
+
+                $userMessageId = $stored->id;
+                $parentId = $stored->id;
+
+                // Store media attachments from the user message
+                if ($userMessage->media !== []) {
+                    $this->storeUserMediaAttachments($stored->id, $userMessage->media, $author);
+                }
+
+                // Auto-set conversation title from the first user message
+                if ($conversation->title === null || $conversation->title === '') {
+                    $title = str_replace("\n", ' ', $userMessage->content ?? '');
+                    $conversation->update([
+                        'title' => mb_strlen($title) > 60 ? mb_substr($title, 0, 57).'...' : $title,
+                    ]);
+                }
+
+                // Dispatch event for the stored user message
+                event(new ConversationMessageStored(
+                    conversationId: $conversation->id,
+                    messageId: $userMessageId,
+                    role: Role::User,
+                    agent: $agentKey,
+                ));
             }
-
-            $userMessageId = $stored->id;
-            $parentId = $stored->id;
-
-            // Store media attachments from the user message
-            if ($userMessage->media !== []) {
-                $this->storeUserMediaAttachments($stored->id, $userMessage->media, $author);
-            }
-
-            // Auto-set conversation title from the first user message
-            if ($conversation->title === null || $conversation->title === '') {
-                $title = str_replace("\n", ' ', $userMessage->content ?? '');
-                $conversation->update([
-                    'title' => mb_strlen($title) > 60 ? mb_substr($title, 0, 57).'...' : $title,
-                ]);
-            }
-
-            // Dispatch event for the stored user message
-            event(new ConversationMessageStored(
-                conversationId: $conversation->id,
-                messageId: $userMessageId,
-                role: Role::User,
-                agent: $agentKey,
-            ));
 
         } else {
             // Respond mode — find the last active user message as parent
@@ -317,9 +327,10 @@ class PersistConversation
 
         foreach ($media as $input) {
             try {
-                // Capture contents before storing for accurate hash and size
-                $contents = $input->contents();
+                // Store first, then read from local disk for hash/size.
+                // For URL inputs: one HTTP fetch (store) + one disk read (contents).
                 $path = $input->store();
+                $contents = $input->contents();
                 $disk = config('atlas.storage.disk') ?? config('filesystems.default', 'local');
                 $mime = $input->mimeType();
 

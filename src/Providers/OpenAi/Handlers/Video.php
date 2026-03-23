@@ -213,6 +213,19 @@ class Video implements VideoHandler
             return ['image_url' => "data:{$input->mimeType()};base64,".base64_encode($raw)];
         }
 
+        if ($input->isStorage()) {
+            try {
+                return ['image_url' => "data:{$input->mimeType()};base64,".base64_encode($input->contents())];
+            } catch (\RuntimeException $e) {
+                throw new ProviderException(
+                    provider: 'openai',
+                    model: 'video',
+                    statusCode: 400,
+                    providerMessage: 'Cannot read image from storage: '.$e->getMessage(),
+                );
+            }
+        }
+
         throw new ProviderException(
             provider: 'openai',
             model: 'video',

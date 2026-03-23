@@ -134,12 +134,7 @@ abstract class Input
 
         Storage::disk($disk)->put($path, $this->contents(), $this->defaultVisibility());
 
-        $this->storagePath = $path;
-        $this->disk = $disk;
-        $this->url = null;
-        $this->path = null;
-        $this->base64Data = null;
-        $this->uploadedFile = null;
+        $this->transitionToStorage($path, $disk);
 
         return $path;
     }
@@ -161,14 +156,23 @@ abstract class Input
 
         Storage::disk($disk)->put($path, $this->contents(), 'public');
 
+        $this->transitionToStorage($path, $disk);
+
+        return $path;
+    }
+
+    /**
+     * Transition the input to a storage-backed reference, clearing other sources.
+     * The mime type is preserved so mimeType() still returns the correct value.
+     */
+    private function transitionToStorage(string $path, string $disk): void
+    {
         $this->storagePath = $path;
         $this->disk = $disk;
         $this->url = null;
         $this->path = null;
         $this->base64Data = null;
         $this->uploadedFile = null;
-
-        return $path;
     }
 
     // ─── StoresMedia Implementation ──────────────────────────────────────
@@ -202,6 +206,13 @@ abstract class Input
 
         if ($this->url !== null) {
             return ['type' => 'url', 'value' => $this->url];
+        }
+
+        if ($this->fileId !== null) {
+            throw new RuntimeException(
+                'Cannot read contents from a fileId-backed input — file IDs are provider-side references. '
+                .'Use the provider API directly to access this file.'
+            );
         }
 
         throw new RuntimeException('Cannot resolve media source — no source set.');
