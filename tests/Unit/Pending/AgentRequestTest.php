@@ -5,9 +5,13 @@ declare(strict_types=1);
 use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\Agents\AgentRegistry;
 use Atlasphp\Atlas\Enums\ChunkType;
+use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Events\ModalityCompleted;
+use Atlasphp\Atlas\Events\ModalityStarted;
 use Atlasphp\Atlas\Exceptions\AgentNotFoundException;
 use Atlasphp\Atlas\Exceptions\AtlasException;
+use Atlasphp\Atlas\Input\Image;
 use Atlasphp\Atlas\Pending\AgentRequest;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Tools\WebSearch;
@@ -22,6 +26,8 @@ use Atlasphp\Atlas\Testing\StructuredResponseFake;
 use Atlasphp\Atlas\Testing\TextResponseFake;
 use Atlasphp\Atlas\Tools\Tool;
 use Illuminate\Contracts\Events\Dispatcher;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
 
 // ─── Test agents ────────────────────────────────────────────────────────────
@@ -986,4 +992,125 @@ it('resolveModelKey falls back through agent then config', function () {
     $overrideRequest = makeAgentRequest('minimal')
         ->withProvider('openai', 'gpt-5');
     expect($method->invoke($overrideRequest))->toBe('gpt-5');
+});
+
+// ─── Conversation support ───────────────────────────────────────────
+
+it('for() sets conversation owner and returns self', function () {
+    $owner = new class extends Model
+    {
+        protected $table = 'users';
+    };
+
+    $request = makeAgentRequest('minimal');
+    $result = $request->for($owner);
+
+    expect($result)->toBe($request);
+});
+
+it('asUser() sets message author and returns self', function () {
+    $author = new class extends Model
+    {
+        protected $table = 'users';
+    };
+
+    $request = makeAgentRequest('minimal');
+    $result = $request->asUser($author);
+
+    expect($result)->toBe($request);
+});
+
+// ─── Modality events on error ───────────────────────────────────────
+
+it('fires ModalityStarted and ModalityCompleted on asText', function () {
+    Event::fake();
+    Atlas::fake([TextResponseFake::make()->withText('ok')]);
+
+    registerTestAgent(RequestTestConfiguredAgent::class);
+    Atlas::agent('configured')->message('hello')->asText();
+
+    Event::assertDispatched(
+        ModalityStarted::class,
+        fn ($e) => $e->modality === Modality::Text
+    );
+    Event::assertDispatched(
+        ModalityCompleted::class,
+        fn ($e) => $e->modality === Modality::Text
+    );
+});
+
+// ─── restoreMediaItem ───────────────────────────────────────────────
+
+it('restoreMediaItem restores base64 image', function () {
+    $method = new ReflectionMethod(AgentRequest::class, 'restoreMediaItem');
+
+    $result = $method->invoke(null, [
+        'class' => Image::class,
+        'mime' => 'image/png',
+        'base64' => 'iVBORw0KGgo=',
+        'url' => null,
+        'storage_path' => null,
+        'storage_disk' => null,
+        'path' => null,
+        'file_id' => null,
+    ]);
+
+    expect($result)->toBeInstanceOf(Image::class)
+        ->and($result->isBase64())->toBeTrue()
+        ->and($result->mimeType())->toBe('image/png');
+});
+
+it('restoreMediaItem returns null for invalid class', function () {
+    $method = new ReflectionMethod(AgentRequest::class, 'restoreMediaItem');
+
+    $result = $method->invoke(null, [
+        'class' => 'NonExistentClass',
+        'mime' => 'image/png',
+        'base64' => null,
+        'url' => null,
+        'storage_path' => null,
+        'storage_disk' => null,
+        'path' => null,
+        'file_id' => null,
+    ]);
+
+    expect($result)->toBeNull();
+});
+
+it('restoreMediaItem restores url image', function () {
+    $method = new ReflectionMethod(AgentRequest::class, 'restoreMediaItem');
+
+    $result = $method->invoke(null, [
+        'class' => Image::class,
+        'mime' => 'image/jpeg',
+        'base64' => null,
+        'url' => 'https://example.com/photo.jpg',
+        'storage_path' => null,
+        'storage_disk' => null,
+        'path' => null,
+        'file_id' => null,
+    ]);
+
+    expect($result)->toBeInstanceOf(Image::class)
+        ->and($result->isUrl())->toBeTrue()
+        ->and($result->url())->toBe('https://example.com/photo.jpg');
+});
+
+it('restoreMediaItem restores storage image', function () {
+    $method = new ReflectionMethod(AgentRequest::class, 'restoreMediaItem');
+
+    $result = $method->invoke(null, [
+        'class' => Image::class,
+        'mime' => 'image/png',
+        'base64' => null,
+        'url' => null,
+        'storage_path' => 'atlas/test.png',
+        'storage_disk' => 'local',
+        'path' => null,
+        'file_id' => null,
+    ]);
+
+    expect($result)->toBeInstanceOf(Image::class)
+        ->and($result->isStorage())->toBeTrue()
+        ->and($result->storagePath())->toBe('atlas/test.png');
 });

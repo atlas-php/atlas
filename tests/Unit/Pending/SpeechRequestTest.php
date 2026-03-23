@@ -3,13 +3,22 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Enums\FinishReason;
+use Atlasphp\Atlas\Enums\Modality;
+use Atlasphp\Atlas\Events\ModalityCompleted;
+use Atlasphp\Atlas\Events\ModalityStarted;
+use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Pending\SpeechRequest;
+use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
+use Atlasphp\Atlas\Queue\PendingExecution;
 use Atlasphp\Atlas\Responses\AudioResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\Usage;
+use Atlasphp\Atlas\Testing\AudioResponseFake;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Queue;
 
 function createSpeechPending(?Driver $driver = null): SpeechRequest
 {
@@ -101,3 +110,121 @@ it('serializes to queue payload', function () {
         'providerOptions' => ['quality' => 'hd'],
     ]);
 });
+
+it('queued dispatch returns PendingExecution', function () {
+    Queue::fake();
+
+    $result = createSpeechPending()->instructions('test')->queue()->asAudio();
+
+    expect($result)->toBeInstanceOf(PendingExecution::class);
+});
+
+it('dispatches Speech modality events for asAudio', function () {
+    Event::fake();
+
+    $response = new AudioResponse('data');
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(audio: true));
+    $driver->shouldReceive('audio')->once()->andReturn($response);
+
+    createSpeechPending($driver)->asAudio();
+
+    Event::assertDispatched(
+        ModalityStarted::class,
+        fn ($e) => $e->modality === Modality::Speech
+    );
+    Event::assertDispatched(
+        ModalityCompleted::class,
+        fn ($e) => $e->modality === Modality::Speech
+    );
+});
+
+it('dispatches SpeechToText modality events for asText', function () {
+    Event::fake();
+
+    $response = new TextResponse('text', new Usage(10, 5), FinishReason::Stop);
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(audioToText: true));
+    $driver->shouldReceive('audioToText')->once()->andReturn($response);
+
+    createSpeechPending($driver)->asText();
+
+    Event::assertDispatched(
+        ModalityStarted::class,
+        fn ($e) => $e->modality === Modality::SpeechToText
+    );
+    Event::assertDispatched(
+        ModalityCompleted::class,
+        fn ($e) => $e->modality === Modality::SpeechToText && $e->usage !== null
+    );
+});
+
+it('fires ModalityCompleted on asAudio error', function () {
+    Event::fake();
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(audio: true));
+    $driver->shouldReceive('audio')->andThrow(new RuntimeException('fail'));
+
+    try {
+        createSpeechPending($driver)->asAudio();
+    } catch (RuntimeException) {
+    }
+
+    Event::assertDispatched(
+        ModalityCompleted::class,
+        fn ($e) => $e->modality === Modality::Speech && $e->usage === null
+    );
+});
+
+it('fires ModalityCompleted on asText error', function () {
+    Event::fake();
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(audioToText: true));
+    $driver->shouldReceive('audioToText')->andThrow(new RuntimeException('fail'));
+
+    try {
+        createSpeechPending($driver)->asText();
+    } catch (RuntimeException) {
+    }
+
+    Event::assertDispatched(
+        ModalityCompleted::class,
+        fn ($e) => $e->modality === Modality::SpeechToText && $e->usage === null
+    );
+});
+
+it('resolveExecutionType returns Speech for asAudio', function () {
+    $pending = createSpeechPending();
+    $reflection = new ReflectionMethod($pending, 'resolveExecutionType');
+
+    expect($reflection->invoke($pending, 'asAudio'))->toBe(ExecutionType::Speech);
+});
+
+it('resolveExecutionType returns AudioToText for asText', function () {
+    $pending = createSpeechPending();
+    $reflection = new ReflectionMethod($pending, 'resolveExecutionType');
+
+    expect($reflection->invoke($pending, 'asText'))->toBe(ExecutionType::AudioToText);
+});
+
+it('executeFromPayload asAudio rebuilds correctly', function () {
+    Atlas::fake([
+        AudioResponseFake::make(),
+    ]);
+
+    $result = SpeechRequest::executeFromPayload(
+        payload: ['provider' => 'openai', 'model' => 'tts-1', 'instructions' => 'hello', 'media' => [], 'voice' => 'alloy', 'voiceClone' => null, 'speed' => 1.0, 'language' => 'en', 'format' => 'mp3', 'providerOptions' => [], 'meta' => [], 'variables' => [], 'interpolate_messages' => false],
+        terminal: 'asAudio',
+    );
+
+    expect($result)->toBeInstanceOf(AudioResponse::class);
+});
+
+it('executeFromPayload throws on unknown terminal', function () {
+    SpeechRequest::executeFromPayload(
+        payload: ['provider' => 'openai', 'model' => 'tts-1', 'instructions' => null, 'media' => [], 'voice' => null, 'voiceClone' => null, 'speed' => null, 'language' => null, 'format' => null, 'providerOptions' => [], 'meta' => [], 'variables' => [], 'interpolate_messages' => false],
+        terminal: 'asImage',
+    );
+})->throws(InvalidArgumentException::class, 'Unknown terminal method');
