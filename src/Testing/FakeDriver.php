@@ -6,10 +6,12 @@ namespace Atlasphp\Atlas\Testing;
 
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
+use Atlasphp\Atlas\Providers\WebSocketConnection;
 use Atlasphp\Atlas\Requests\AudioRequest;
 use Atlasphp\Atlas\Requests\EmbedRequest;
 use Atlasphp\Atlas\Requests\ImageRequest;
 use Atlasphp\Atlas\Requests\ModerateRequest;
+use Atlasphp\Atlas\Requests\RealtimeRequest;
 use Atlasphp\Atlas\Requests\RerankRequest;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Requests\VideoRequest;
@@ -17,6 +19,7 @@ use Atlasphp\Atlas\Responses\AudioResponse;
 use Atlasphp\Atlas\Responses\EmbeddingsResponse;
 use Atlasphp\Atlas\Responses\ImageResponse;
 use Atlasphp\Atlas\Responses\ModerationResponse;
+use Atlasphp\Atlas\Responses\RealtimeSession;
 use Atlasphp\Atlas\Responses\RerankResponse;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
@@ -31,7 +34,7 @@ use Atlasphp\Atlas\Responses\VideoResponse;
  */
 class FakeDriver extends Driver
 {
-    /** @var array<int, TextResponseFake|StreamResponseFake|StructuredResponseFake|ImageResponseFake|AudioResponseFake|VideoResponseFake|EmbeddingsResponseFake|ModerationResponseFake|RerankResponseFake> */
+    /** @var array<int, TextResponseFake|StreamResponseFake|StructuredResponseFake|ImageResponseFake|AudioResponseFake|VideoResponseFake|EmbeddingsResponseFake|ModerationResponseFake|RerankResponseFake|RealtimeSessionFake> */
     private array $responses;
 
     private int $responseIndex = 0;
@@ -40,7 +43,7 @@ class FakeDriver extends Driver
     private array $recorded = [];
 
     /**
-     * @param  array<int, TextResponseFake|StreamResponseFake|StructuredResponseFake|ImageResponseFake|AudioResponseFake|VideoResponseFake|EmbeddingsResponseFake|ModerationResponseFake|RerankResponseFake>  $responses
+     * @param  array<int, TextResponseFake|StreamResponseFake|StructuredResponseFake|ImageResponseFake|AudioResponseFake|VideoResponseFake|EmbeddingsResponseFake|ModerationResponseFake|RerankResponseFake|RealtimeSessionFake>  $responses
      */
     public function __construct(
         private readonly string $providerName,
@@ -70,6 +73,7 @@ class FakeDriver extends Driver
             embed: true,
             moderate: true,
             rerank: true,
+            realtime: true,
             vision: true,
             toolCalling: true,
             providerTools: true,
@@ -166,6 +170,18 @@ class FakeDriver extends Driver
         return $this->nextResponseFor('rerank')->toResponse();
     }
 
+    public function createRealtimeSession(RealtimeRequest $request): RealtimeSession
+    {
+        $this->record('realtime', $request);
+
+        return $this->nextResponseFor('realtime')->toResponse();
+    }
+
+    public function connectRealtime(RealtimeSession $session): WebSocketConnection
+    {
+        throw new \RuntimeException('WebSocket connections are not supported in fake driver.');
+    }
+
     /**
      * @return array<int, RecordedRequest>
      */
@@ -174,7 +190,7 @@ class FakeDriver extends Driver
         return $this->recorded;
     }
 
-    private function record(string $method, TextRequest|ImageRequest|AudioRequest|VideoRequest|EmbedRequest|ModerateRequest|RerankRequest $request): void
+    private function record(string $method, TextRequest|ImageRequest|AudioRequest|VideoRequest|EmbedRequest|ModerateRequest|RerankRequest|RealtimeRequest $request): void
     {
         $this->recorded[] = new RecordedRequest(
             method: $method,
@@ -184,7 +200,7 @@ class FakeDriver extends Driver
         );
     }
 
-    private function nextResponseFor(string $method): TextResponseFake|StreamResponseFake|StructuredResponseFake|ImageResponseFake|AudioResponseFake|VideoResponseFake|EmbeddingsResponseFake|ModerationResponseFake|RerankResponseFake
+    private function nextResponseFor(string $method): TextResponseFake|StreamResponseFake|StructuredResponseFake|ImageResponseFake|AudioResponseFake|VideoResponseFake|EmbeddingsResponseFake|ModerationResponseFake|RerankResponseFake|RealtimeSessionFake
     {
         if ($this->responses === []) {
             return $this->defaultFakeFor($method);
@@ -198,7 +214,7 @@ class FakeDriver extends Driver
         return $this->responses[count($this->responses) - 1];
     }
 
-    private function defaultFakeFor(string $method): TextResponseFake|StreamResponseFake|StructuredResponseFake|ImageResponseFake|AudioResponseFake|VideoResponseFake|EmbeddingsResponseFake|ModerationResponseFake|RerankResponseFake
+    private function defaultFakeFor(string $method): TextResponseFake|StreamResponseFake|StructuredResponseFake|ImageResponseFake|AudioResponseFake|VideoResponseFake|EmbeddingsResponseFake|ModerationResponseFake|RerankResponseFake|RealtimeSessionFake
     {
         return match ($method) {
             'text', 'imageToText', 'audioToText', 'videoToText' => TextResponseFake::make(),
@@ -210,6 +226,7 @@ class FakeDriver extends Driver
             'embed' => EmbeddingsResponseFake::make(),
             'moderate' => ModerationResponseFake::make(),
             'rerank' => RerankResponseFake::make(),
+            'realtime' => RealtimeSessionFake::make(),
             default => TextResponseFake::make(),
         };
     }

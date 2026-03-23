@@ -6,10 +6,12 @@ import ChatInput from './components/ChatInput.vue';
 import ChatTypingIndicator from './components/ChatTypingIndicator.vue';
 import { useChat } from './composables/useChat';
 import { useAttachments } from './composables/useAttachments';
+import { useRealtime } from './composables/useRealtime';
 
 const chat = useChat();
 const { attachments, hasAttachments, canAddMore, addFiles, removeAttachment, clearAttachments, toPayload } =
     useAttachments();
+const realtime = useRealtime();
 
 const chatThreadRef = ref<InstanceType<typeof ChatThread> | null>(null);
 const chatInputRef = ref<InstanceType<typeof ChatInput> | null>(null);
@@ -90,6 +92,18 @@ async function handleDeleteConversation(id: number) {
     await chat.deleteConversation(id);
 }
 
+function handleRealtimeToggle() {
+    if (realtime.sessionStatus.value === 'active') {
+        realtime.stopSession();
+    } else {
+        realtime.startSession({
+            conversation_id: chat.activeConversationId.value,
+        });
+        // Scroll to bottom so the user sees the connecting indicator
+        chatThreadRef.value?.scrollToBottom('smooth');
+    }
+}
+
 function handleRetry() {
     chat.retryLastMessage();
 }
@@ -121,6 +135,10 @@ function handleCycleSibling(messageId: number, index: number) {
                 :is-empty="chat.isEmpty.value"
                 :is-streaming="chat.isStreaming.value"
                 :streaming-text="chat.streamingText.value"
+                :realtime-status="realtime.sessionStatus.value"
+                :realtime-user-transcript="realtime.userTranscript.value"
+                :realtime-assistant-transcript="realtime.assistantTranscript.value"
+                :realtime-is-speaking="realtime.isSpeaking.value"
                 @load-more="chat.loadOlderMessages"
                 @retry="handleRetry"
                 @cycle-sibling="handleCycleSibling"
@@ -143,9 +161,14 @@ function handleCycleSibling(messageId: number, index: number) {
                 :disabled="chat.isTyping.value || chat.isStreaming.value"
                 :attachments="attachments"
                 :can-add-more="canAddMore"
+                :realtime-status="realtime.sessionStatus.value"
+                :realtime-audio-level="realtime.audioLevel.value"
+                :realtime-is-listening="realtime.isListening.value"
+                :realtime-is-speaking="realtime.isSpeaking.value"
                 @send="handleSend"
                 @add-files="addFiles"
                 @remove-attachment="removeAttachment"
+                @realtime-toggle="handleRealtimeToggle"
             />
         </div>
     </div>

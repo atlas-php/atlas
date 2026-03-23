@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\AssetController;
 use App\Http\Controllers\ChatController;
+use App\Http\Controllers\RealtimeController;
 use Illuminate\Support\Facades\Route;
 
 // ─── Chat ────────────────────────────────────────────────────
@@ -25,6 +26,10 @@ Route::post('/conversations/{conversationId}/messages/{messageId}/cycle', [ChatC
 // ─── Execution Status ────────────────────────────────────────
 Route::get('/executions/{id}', [ChatController::class, 'executionStatus']);
 Route::get('/conversations/{conversationId}/processing', [ChatController::class, 'processingStatus']);
+
+// ─── Realtime ───────────────────────────────────────────────
+Route::post('/realtime/session', [RealtimeController::class, 'createSession']);
+Route::post('/realtime/session/{sessionId}/tool-result', [RealtimeController::class, 'submitToolResult']);
 
 // ─── Assets (file proxy) ────────────────────────────────────
 Route::get('/assets/{id}.{extension}', [AssetController::class, 'show']);

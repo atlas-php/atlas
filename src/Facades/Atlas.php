@@ -13,6 +13,7 @@ use Atlasphp\Atlas\Pending\ImageRequest;
 use Atlasphp\Atlas\Pending\ModerateRequest;
 use Atlasphp\Atlas\Pending\MusicRequest;
 use Atlasphp\Atlas\Pending\ProviderRequest;
+use Atlasphp\Atlas\Pending\RealtimeRequest;
 use Atlasphp\Atlas\Pending\RerankRequest;
 use Atlasphp\Atlas\Pending\SfxRequest;
 use Atlasphp\Atlas\Pending\SpeechRequest;
@@ -25,6 +26,7 @@ use Atlasphp\Atlas\Testing\AudioResponseFake;
 use Atlasphp\Atlas\Testing\EmbeddingsResponseFake;
 use Atlasphp\Atlas\Testing\ImageResponseFake;
 use Atlasphp\Atlas\Testing\ModerationResponseFake;
+use Atlasphp\Atlas\Testing\RealtimeSessionFake;
 use Atlasphp\Atlas\Testing\RerankResponseFake;
 use Atlasphp\Atlas\Testing\StreamResponseFake;
 use Atlasphp\Atlas\Testing\StructuredResponseFake;
@@ -44,6 +46,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static VideoRequest video(Provider|string|null $provider = null, ?string $model = null)
  * @method static EmbedRequest embed(Provider|string|null $provider = null, ?string $model = null)
  * @method static ModerateRequest moderate(Provider|string|null $provider = null, ?string $model = null)
+ * @method static RealtimeRequest realtime(Provider|string|null $provider = null, ?string $model = null)
  * @method static RerankRequest rerank(Provider|string|null $provider = null, ?string $model = null)
  * @method static ProviderRequest provider(Provider|string $provider)
  * @method static AgentRequest agent(string $key)
@@ -57,7 +60,7 @@ class Atlas extends Facade
     /**
      * Replace the bound instance with an AtlasFake for testing.
      *
-     * @param  array<int, TextResponseFake|StreamResponseFake|StructuredResponseFake|ImageResponseFake|AudioResponseFake|VideoResponseFake|EmbeddingsResponseFake|ModerationResponseFake|RerankResponseFake>  $responses
+     * @param  array<int, TextResponseFake|StreamResponseFake|StructuredResponseFake|ImageResponseFake|AudioResponseFake|VideoResponseFake|EmbeddingsResponseFake|ModerationResponseFake|RerankResponseFake|RealtimeSessionFake>  $responses
      */
     public static function fake(array $responses = []): AtlasFake
     {

@@ -56,6 +56,7 @@ export default defineConfig({
                         ]
                     },
                     { text: 'Video', link: '/modalities/video' },
+                    { text: 'Realtime', link: '/modalities/realtime' },
                     { text: 'Embeddings', link: '/modalities/embeddings' },
                     { text: 'Reranking', link: '/modalities/reranking' },
                     { text: 'Moderation', link: '/modalities/moderation' },

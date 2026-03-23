@@ -11,6 +11,7 @@ use Atlasphp\Atlas\Pending\ImageRequest;
 use Atlasphp\Atlas\Pending\ModerateRequest;
 use Atlasphp\Atlas\Pending\MusicRequest;
 use Atlasphp\Atlas\Pending\ProviderRequest;
+use Atlasphp\Atlas\Pending\RealtimeRequest;
 use Atlasphp\Atlas\Pending\RerankRequest;
 use Atlasphp\Atlas\Pending\SfxRequest;
 use Atlasphp\Atlas\Pending\SpeechRequest;
@@ -94,6 +95,12 @@ it('speech returns SpeechRequest', function () {
     $manager = app(AtlasManager::class);
 
     expect($manager->speech('openai', 'tts-1'))->toBeInstanceOf(SpeechRequest::class);
+});
+
+it('realtime returns RealtimeRequest', function () {
+    $manager = app(AtlasManager::class);
+
+    expect($manager->realtime('openai', 'gpt-4o-realtime-preview'))->toBeInstanceOf(RealtimeRequest::class);
 });
 
 it('accepts Provider enum', function () {

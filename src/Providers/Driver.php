@@ -17,6 +17,7 @@ use Atlasphp\Atlas\Providers\Handlers\EmbedHandler;
 use Atlasphp\Atlas\Providers\Handlers\ImageHandler;
 use Atlasphp\Atlas\Providers\Handlers\ModerateHandler;
 use Atlasphp\Atlas\Providers\Handlers\ProviderHandler;
+use Atlasphp\Atlas\Providers\Handlers\RealtimeHandler;
 use Atlasphp\Atlas\Providers\Handlers\RerankHandler;
 use Atlasphp\Atlas\Providers\Handlers\TextHandler;
 use Atlasphp\Atlas\Providers\Handlers\VideoHandler;
@@ -24,6 +25,7 @@ use Atlasphp\Atlas\Requests\AudioRequest;
 use Atlasphp\Atlas\Requests\EmbedRequest;
 use Atlasphp\Atlas\Requests\ImageRequest;
 use Atlasphp\Atlas\Requests\ModerateRequest;
+use Atlasphp\Atlas\Requests\RealtimeRequest;
 use Atlasphp\Atlas\Requests\RerankRequest;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Requests\VideoRequest;
@@ -31,6 +33,7 @@ use Atlasphp\Atlas\Responses\AudioResponse;
 use Atlasphp\Atlas\Responses\EmbeddingsResponse;
 use Atlasphp\Atlas\Responses\ImageResponse;
 use Atlasphp\Atlas\Responses\ModerationResponse;
+use Atlasphp\Atlas\Responses\RealtimeSession;
 use Atlasphp\Atlas\Responses\RerankResponse;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
@@ -68,6 +71,7 @@ abstract class Driver
      * - 'embed' → EmbedHandler
      * - 'moderate' → ModerateHandler
      * - 'rerank' → RerankHandler
+     * - 'realtime' → RealtimeHandler (covers createRealtimeSession, connectRealtime)
      * - 'provider' → ProviderHandler (covers models, voices, validate)
      */
     public function withHandler(string $modality, object $handler): static
@@ -148,6 +152,21 @@ abstract class Driver
         return $this->dispatch('rerank', $request, fn (RerankRequest $r) => $this->resolveHandler('rerank', fn () => $this->rerankHandler())->rerank($r));
     }
 
+    public function createRealtimeSession(RealtimeRequest $request): RealtimeSession
+    {
+        return $this->dispatch('realtime', $request, fn (RealtimeRequest $r) => $this->resolveHandler('realtime', fn () => $this->realtimeHandler())->createSession($r));
+    }
+
+    /**
+     * Open a persistent WebSocket connection for an existing realtime session.
+     *
+     * Not dispatched through middleware — this is a follow-up to session creation.
+     */
+    public function connectRealtime(RealtimeSession $session): WebSocketConnection
+    {
+        return $this->resolveHandler('realtime', fn () => $this->realtimeHandler())->connect($session);
+    }
+
     // ─── Middleware Dispatch ─────────────────────────────────────────────
 
     /**
@@ -226,6 +245,11 @@ abstract class Driver
     protected function rerankHandler(): RerankHandler
     {
         throw UnsupportedFeatureException::make('rerank', $this->name());
+    }
+
+    protected function realtimeHandler(): RealtimeHandler
+    {
+        throw UnsupportedFeatureException::make('realtime', $this->name());
     }
 
     // ─── Provider Interrogation ──────────────────────────────────────────

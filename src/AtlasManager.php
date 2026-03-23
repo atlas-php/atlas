@@ -14,6 +14,7 @@ use Atlasphp\Atlas\Pending\ImageRequest;
 use Atlasphp\Atlas\Pending\ModerateRequest;
 use Atlasphp\Atlas\Pending\MusicRequest;
 use Atlasphp\Atlas\Pending\ProviderRequest;
+use Atlasphp\Atlas\Pending\RealtimeRequest;
 use Atlasphp\Atlas\Pending\RerankRequest;
 use Atlasphp\Atlas\Pending\SfxRequest;
 use Atlasphp\Atlas\Pending\SpeechRequest;
@@ -110,6 +111,13 @@ class AtlasManager
         [$provider, $model] = $this->resolveDefaults('rerank', $provider, $model);
 
         return new RerankRequest($provider, $model, $this->providerRegistry);
+    }
+
+    public function realtime(Provider|string|null $provider = null, ?string $model = null): RealtimeRequest
+    {
+        [$provider, $model] = $this->resolveDefaults('realtime', $provider, $model);
+
+        return new RealtimeRequest($provider, $model, $this->providerRegistry);
     }
 
     public function provider(Provider|string $provider): ProviderRequest

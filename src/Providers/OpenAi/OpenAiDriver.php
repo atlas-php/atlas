@@ -10,6 +10,7 @@ use Atlasphp\Atlas\Providers\Handlers\EmbedHandler;
 use Atlasphp\Atlas\Providers\Handlers\ImageHandler;
 use Atlasphp\Atlas\Providers\Handlers\ModerateHandler;
 use Atlasphp\Atlas\Providers\Handlers\ProviderHandler;
+use Atlasphp\Atlas\Providers\Handlers\RealtimeHandler;
 use Atlasphp\Atlas\Providers\Handlers\TextHandler;
 use Atlasphp\Atlas\Providers\Handlers\VideoHandler;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Audio;
@@ -17,6 +18,7 @@ use Atlasphp\Atlas\Providers\OpenAi\Handlers\Embed;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Image;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Moderate;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Provider;
+use Atlasphp\Atlas\Providers\OpenAi\Handlers\Realtime;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Text;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Video;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
@@ -48,6 +50,7 @@ class OpenAiDriver extends Driver
             videoToText: false,
             embed: true,
             moderate: true,
+            realtime: true,
             vision: true,
             toolCalling: true,
             providerTools: true,
@@ -98,5 +101,10 @@ class OpenAiDriver extends Driver
     protected function moderateHandler(): ModerateHandler
     {
         return new Moderate($this->config, $this->http);
+    }
+
+    protected function realtimeHandler(): RealtimeHandler
+    {
+        return new Realtime($this->config, $this->http);
     }
 }

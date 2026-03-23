@@ -4,15 +4,19 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Enums\FinishReason;
+use Atlasphp\Atlas\Enums\RealtimeTransport;
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\Handlers\AudioHandler;
+use Atlasphp\Atlas\Providers\Handlers\RealtimeHandler;
 use Atlasphp\Atlas\Providers\Handlers\TextHandler;
 use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Requests\AudioRequest;
+use Atlasphp\Atlas\Requests\RealtimeRequest;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\AudioResponse;
+use Atlasphp\Atlas\Responses\RealtimeSession;
 use Atlasphp\Atlas\Responses\StreamChunk;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
@@ -164,6 +168,25 @@ it('custom streaming handler yields chunks correctly through StreamResponse', fu
     expect($chunks[1]->text)->toBe(' world');
     expect($chunks[2]->type)->toBe(ChunkType::Done);
     expect($chunks[2]->finishReason)->toBe(FinishReason::Stop);
+});
+
+// ─── Handler adds realtime to a bare driver ─────────────────────────────────
+
+it('adds realtime handler to a bare driver via withHandler', function () {
+    $session = new RealtimeSession(
+        sessionId: 'rt_test',
+        provider: 'test',
+        model: 'model',
+        transport: RealtimeTransport::WebRtc,
+    );
+
+    $realtimeHandler = Mockery::mock(RealtimeHandler::class);
+    $realtimeHandler->shouldReceive('createSession')->once()->andReturn($session);
+
+    $driver = makeBareDriver()->withHandler('realtime', $realtimeHandler);
+
+    $result = $driver->createRealtimeSession(new RealtimeRequest('model', null, null));
+    expect($result->sessionId)->toBe('rt_test');
 });
 
 // ─── Custom handler returns correct response types ──────────────────────────

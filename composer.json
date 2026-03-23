@@ -10,7 +10,8 @@
         "illuminate/http": "^11.0|^12.0",
         "illuminate/pipeline": "^11.0|^12.0",
         "illuminate/support": "^11.0|^12.0",
-        "spatie/fork": "^1.2"
+        "spatie/fork": "^1.2",
+        "textalk/websocket": "^1.6"
     },
     "require-dev": {
         "laravel/pint": "^1.18",

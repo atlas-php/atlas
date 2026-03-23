@@ -20,6 +20,7 @@ return [
         'embed' => ['provider' => env('ATLAS_EMBED_PROVIDER', 'openai'), 'model' => env('ATLAS_EMBED_MODEL', 'text-embedding-3-small')],
         'moderate' => ['provider' => env('ATLAS_MODERATE_PROVIDER', 'openai'), 'model' => env('ATLAS_MODERATE_MODEL', 'omni-moderation-latest')],
         'rerank' => ['provider' => env('ATLAS_RERANK_PROVIDER'), 'model' => env('ATLAS_RERANK_MODEL')],
+        'realtime' => ['provider' => env('ATLAS_REALTIME_PROVIDER', 'openai'), 'model' => env('ATLAS_REALTIME_MODEL', 'gpt-4o-mini-realtime-preview-2024-12-17')],
     ],
 
     /*

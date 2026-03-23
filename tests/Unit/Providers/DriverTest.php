@@ -18,6 +18,7 @@ use Atlasphp\Atlas\Requests\AudioRequest;
 use Atlasphp\Atlas\Requests\EmbedRequest;
 use Atlasphp\Atlas\Requests\ImageRequest;
 use Atlasphp\Atlas\Requests\ModerateRequest;
+use Atlasphp\Atlas\Requests\RealtimeRequest;
 use Atlasphp\Atlas\Requests\RerankRequest;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Requests\VideoRequest;
@@ -105,6 +106,10 @@ it('throws UnsupportedFeatureException for validate on base driver', function ()
 it('throws UnsupportedFeatureException for rerank', function () {
     createTestDriver()->rerank(new RerankRequest('model', 'query', ['doc1', 'doc2']));
 })->throws(UnsupportedFeatureException::class, 'rerank');
+
+it('throws UnsupportedFeatureException for realtime', function () {
+    createTestDriver()->createRealtimeSession(new RealtimeRequest('model', null, null));
+})->throws(UnsupportedFeatureException::class, 'realtime');
 
 // ─── withHandler ────────────────────────────────────────────────────────────
 

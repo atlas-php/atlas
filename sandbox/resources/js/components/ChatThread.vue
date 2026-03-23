@@ -2,8 +2,10 @@
 import { ref, computed, watch, nextTick, onMounted } from 'vue';
 import { Loader2 } from 'lucide-vue-next';
 import ChatMessageBubble from './ChatMessageBubble.vue';
+import RealtimeTranscript from './RealtimeTranscript.vue';
 import { renderMarkdown } from '../utils/markdown';
 import type { ChatMessage } from '../composables/useChat';
+import type { SessionStatus } from '../composables/useRealtime';
 
 const props = defineProps<{
     messages: ChatMessage[];
@@ -12,6 +14,10 @@ const props = defineProps<{
     isEmpty: boolean;
     isStreaming: boolean;
     streamingText: string;
+    realtimeStatus?: SessionStatus;
+    realtimeUserTranscript?: string;
+    realtimeAssistantTranscript?: string;
+    realtimeIsSpeaking?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -148,6 +154,15 @@ defineExpose({ scrollToBottom });
                     </div>
                 </div>
             </div>
+
+            <!-- Realtime transcript -->
+            <RealtimeTranscript
+                v-if="realtimeStatus && realtimeStatus !== 'idle' && realtimeStatus !== 'closed'"
+                :status="realtimeStatus"
+                :user-transcript="realtimeUserTranscript ?? ''"
+                :assistant-transcript="realtimeAssistantTranscript ?? ''"
+                :is-speaking="realtimeIsSpeaking ?? false"
+            />
 
             <!-- Typing indicator slot -->
             <slot name="typing" />

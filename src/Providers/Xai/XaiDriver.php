@@ -8,6 +8,7 @@ use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\Handlers\AudioHandler;
 use Atlasphp\Atlas\Providers\Handlers\ImageHandler;
 use Atlasphp\Atlas\Providers\Handlers\ProviderHandler;
+use Atlasphp\Atlas\Providers\Handlers\RealtimeHandler;
 use Atlasphp\Atlas\Providers\Handlers\TextHandler;
 use Atlasphp\Atlas\Providers\Handlers\VideoHandler;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Image;
@@ -17,6 +18,7 @@ use Atlasphp\Atlas\Providers\OpenAi\ToolMapper;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
 use Atlasphp\Atlas\Providers\Xai\Handlers\Audio;
 use Atlasphp\Atlas\Providers\Xai\Handlers\Provider;
+use Atlasphp\Atlas\Providers\Xai\Handlers\Realtime;
 use Atlasphp\Atlas\Providers\Xai\Handlers\Text;
 use Atlasphp\Atlas\Providers\Xai\Handlers\Video;
 
@@ -48,6 +50,7 @@ class XaiDriver extends Driver
             videoToText: false,
             embed: false,
             moderate: false,
+            realtime: true,
             vision: true,
             toolCalling: true,
             providerTools: true,
@@ -88,5 +91,10 @@ class XaiDriver extends Driver
     protected function videoHandler(): VideoHandler
     {
         return new Video($this->config, $this->http);
+    }
+
+    protected function realtimeHandler(): RealtimeHandler
+    {
+        return new Realtime($this->config, $this->http);
     }
 }

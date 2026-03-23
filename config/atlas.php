@@ -23,6 +23,7 @@ return [
         'music' => ['provider' => env('ATLAS_MUSIC_PROVIDER'), 'model' => env('ATLAS_MUSIC_MODEL')],
         'sfx' => ['provider' => env('ATLAS_SFX_PROVIDER'), 'model' => env('ATLAS_SFX_MODEL')],
         'speech' => ['provider' => env('ATLAS_SPEECH_PROVIDER'), 'model' => env('ATLAS_SPEECH_MODEL')],
+        'realtime' => ['provider' => env('ATLAS_REALTIME_PROVIDER'), 'model' => env('ATLAS_REALTIME_MODEL')],
     ],
 
     /*
