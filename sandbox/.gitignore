@@ -1,6 +1,7 @@
 /vendor/
 /node_modules/
 /public/build/
+/public/hot
 .env
 
 # Storage - ignore generated assets and runtime files

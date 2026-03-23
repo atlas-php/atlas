@@ -41,6 +41,10 @@ trait ConvertsResultToChunks
 
             foreach ($segments as $segment) {
                 yield new StreamChunk(type: ChunkType::Text, text: $segment);
+
+                // Small delay between chunks so broadcast consumers (WebSocket UI)
+                // receive them as a visible typing stream rather than one instant batch.
+                usleep(15_000);
             }
         }
 

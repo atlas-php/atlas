@@ -8,26 +8,21 @@ use App\Http\Resources\MessageResource;
 use App\Models\User;
 use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Input\Image;
-use Atlasphp\Atlas\Messages\UserMessage;
-use Atlasphp\Atlas\Persistence\Enums\AssetType;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
-use Atlasphp\Atlas\Persistence\Models\Asset;
 use Atlasphp\Atlas\Persistence\Models\Conversation;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\Message;
-use Atlasphp\Atlas\Persistence\Models\MessageAttachment;
 use Atlasphp\Atlas\Persistence\Services\ConversationService;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 /**
  * API controller for the sandbox chat interface.
  *
- * Uses Atlas's built-in conversation pipeline for all message handling.
- * PersistConversation middleware owns the persistence lifecycle.
+ * Delegates all conversation and message management to Atlas's built-in
+ * PersistConversation middleware. The controller only handles HTTP
+ * concerns — validation, routing, and JSON responses.
  */
 class ChatController
 {
@@ -40,8 +35,9 @@ class ChatController
     /**
      * Send a message to the assistant agent.
      *
-     * Pre-resolves the conversation so the UI always has an ID to subscribe to
-     * for broadcasting. Dispatches execution to the queue asynchronously.
+     * Atlas handles everything: conversation creation, user message storage,
+     * assistant response storage, and history loading — via PersistConversation
+     * middleware and the HasConversations trait.
      */
     public function chat(Request $request): JsonResponse
     {
@@ -57,81 +53,41 @@ class ChatController
         $user = User::findOrFail(1);
         $conversationId = $request->integer('conversation_id');
 
-        // Create a new conversation or continue an existing one
-        if ($conversationId <= 0) {
-            $conversation = Conversation::create([
-                'owner_type' => $user->getMorphClass(),
-                'owner_id' => $user->getKey(),
-                'agent' => 'assistant',
-                'title' => $this->generateTitle($request->string('message')->toString()),
-            ]);
-            $conversationId = $conversation->id;
-        }
-
-        $conversation = Conversation::findOrFail($conversationId);
-        $rawAttachments = $request->input('attachments', []);
-
-        // Store user message in the conversation
-        $userMsg = $this->conversations->addMessage(
-            $conversation,
-            new UserMessage(content: $request->string('message')->toString()),
-            author: $user,
-        );
-        $userMsg->markAsRead();
-
-        // Save attachments as assets and link to the user message
+        // Build media inputs from attachments
         $media = [];
-
-        foreach ($rawAttachments as $att) {
-            $isImage = str_starts_with($att['mime'], 'image/');
-            $content = base64_decode($att['base64']);
-            $ext = $this->mimeToExtension($att['mime']);
-            $filename = Str::random(40).'.'.$ext;
-            $disk = config('atlas.storage.disk') ?? config('filesystems.default');
-            $path = (config('atlas.storage.prefix', 'atlas')).'/uploads/'.$filename;
-
-            Storage::disk($disk)->put($path, $content);
-
-            $asset = Asset::create([
-                'type' => $isImage ? AssetType::Image : AssetType::Document,
-                'mime_type' => $att['mime'],
-                'filename' => $filename,
-                'original_filename' => $att['name'],
-                'path' => $path,
-                'disk' => $disk,
-                'size_bytes' => strlen($content),
-                'content_hash' => hash('sha256', $content),
-                'author_type' => $user->getMorphClass(),
-                'author_id' => $user->getKey(),
-            ]);
-
-            MessageAttachment::create([
-                'message_id' => $userMsg->id,
-                'asset_id' => $asset->id,
-            ]);
-
-            if ($isImage) {
+        foreach ($request->input('attachments', []) as $att) {
+            if (str_starts_with($att['mime'], 'image/')) {
                 $media[] = Image::fromBase64($att['base64'], $att['mime']);
             }
         }
 
-        // Auto-set title from first message if blank
-        if ($conversation->title === null || $conversation->title === '') {
-            $conversation->update([
-                'title' => $this->generateTitle($request->string('message')->toString()),
-            ]);
-        }
-
-        // Dispatch in respond mode — user message is already stored
-        // 3s delay so UI shows "Delivered" before processing starts
+        // Let Atlas handle everything — conversation creation, message
+        // storage, history loading, and response persistence all happen
+        // automatically via PersistConversation middleware.
         $agentRequest = Atlas::agent('assistant')
             ->for($user)
+            ->asUser($user)
             ->message($request->string('message')->toString(), $media)
             ->queue()
-            ->withDelay(3)
-            ->forConversation($conversationId)
-            ->respond()
-            ->broadcastOn(new Channel('conversation.'.$conversationId));
+            ->withDelay(3);
+
+        if ($conversationId > 0) {
+            // Continue existing conversation
+            $agentRequest->forConversation($conversationId);
+        } else {
+            // New thread — create a fresh conversation for broadcasting.
+            // PersistConversation middleware will use this conversation
+            // since forConversation() is set.
+            $conversation = Conversation::create([
+                'owner_type' => $user->getMorphClass(),
+                'owner_id' => $user->getKey(),
+                'agent' => 'assistant',
+            ]);
+            $conversationId = $conversation->id;
+            $agentRequest->forConversation($conversationId);
+        }
+
+        $agentRequest->broadcastOn(new Channel('conversation.'.$conversationId));
 
         $pending = $agentRequest->asStream();
 
@@ -363,37 +319,5 @@ class ChatController
             ->values()
             ->map(fn (Message $msg) => MessageResource::make($msg))
             ->all();
-    }
-
-    /**
-     * Generate a short title from the first message.
-     */
-    protected function generateTitle(string $message): string
-    {
-        $title = str_replace("\n", ' ', $message);
-
-        if (mb_strlen($title) > 60) {
-            return mb_substr($title, 0, 57).'...';
-        }
-
-        return $title;
-    }
-
-    /**
-     * Resolve a file extension from a MIME type.
-     */
-    protected function mimeToExtension(string $mime): string
-    {
-        return match ($mime) {
-            'image/jpeg' => 'jpg',
-            'image/png' => 'png',
-            'image/gif' => 'gif',
-            'image/webp' => 'webp',
-            'application/pdf' => 'pdf',
-            'text/plain' => 'txt',
-            'text/markdown' => 'md',
-            'text/csv' => 'csv',
-            default => 'bin',
-        };
     }
 }

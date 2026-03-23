@@ -100,9 +100,11 @@ class StreamResponse implements IteratorAggregate, Responsable
      */
     public function getIterator(): Generator
     {
-        // Broadcast stream start
+        // Broadcast stream start — use event() instead of broadcast() for
+        // reliable dispatch inside generators where PendingBroadcast __destruct
+        // timing can be unpredictable.
         if ($this->broadcastChannel !== null) {
-            broadcast(new StreamStarted(channel: $this->broadcastChannel));
+            event(new StreamStarted(channel: $this->broadcastChannel));
         }
 
         try {
@@ -144,7 +146,7 @@ class StreamResponse implements IteratorAggregate, Responsable
         } catch (\Throwable $e) {
             // Broadcast error so frontend clients don't stay in "typing..." state
             if ($this->broadcastChannel !== null) {
-                broadcast(new StreamCompleted(
+                event(new StreamCompleted(
                     channel: $this->broadcastChannel,
                     text: $this->accumulatedText,
                     usage: null,
@@ -158,7 +160,7 @@ class StreamResponse implements IteratorAggregate, Responsable
 
         // 5. Broadcast completion
         if ($this->broadcastChannel !== null) {
-            broadcast(new StreamCompleted(
+            event(new StreamCompleted(
                 channel: $this->broadcastChannel,
                 text: $this->accumulatedText,
                 usage: $this->serializeUsage(),
@@ -176,21 +178,25 @@ class StreamResponse implements IteratorAggregate, Responsable
 
     protected function broadcastChunk(StreamChunk $chunk): void
     {
-        match ($chunk->type) {
-            ChunkType::Text => broadcast(new StreamChunkReceived(
+        $event = match ($chunk->type) {
+            ChunkType::Text => new StreamChunkReceived(
                 channel: $this->broadcastChannel,
                 text: $chunk->text ?? '',
-            )),
-            ChunkType::Thinking => broadcast(new StreamThinkingReceived(
+            ),
+            ChunkType::Thinking => new StreamThinkingReceived(
                 channel: $this->broadcastChannel,
                 text: $chunk->reasoning ?? '',
-            )),
-            ChunkType::ToolCall => broadcast(new StreamToolCallReceived(
+            ),
+            ChunkType::ToolCall => new StreamToolCallReceived(
                 channel: $this->broadcastChannel,
                 toolCalls: array_map($this->serializeToolCall(...), $chunk->toolCalls),
-            )),
-            ChunkType::Done => null, // StreamCompleted fires after the loop
+            ),
+            ChunkType::Done => null,
         };
+
+        if ($event !== null) {
+            event($event);
+        }
     }
 
     // ─── SSE Response (Responsable) ─────────────────────────────────
