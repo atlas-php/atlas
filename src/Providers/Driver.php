@@ -47,6 +47,9 @@ use Illuminate\Http\Client\RequestException;
  */
 abstract class Driver
 {
+    /** @var array<string, object> */
+    private array $handlerOverrides = [];
+
     public function __construct(
         protected readonly ProviderConfig $config,
         protected readonly HttpClient $http,
@@ -54,66 +57,95 @@ abstract class Driver
         protected readonly ?AtlasCache $cache = null,
     ) {}
 
+    /**
+     * Return a new driver instance with a handler override applied.
+     *
+     * Accepted keys map to handler interfaces, not individual methods:
+     * - 'text' → TextHandler (covers text, stream, structured)
+     * - 'image' → ImageHandler (covers image, imageToText)
+     * - 'audio' → AudioHandler (covers audio, audioToText)
+     * - 'video' → VideoHandler (covers video, videoToText)
+     * - 'embed' → EmbedHandler
+     * - 'moderate' → ModerateHandler
+     * - 'rerank' → RerankHandler
+     * - 'provider' → ProviderHandler (covers models, voices, validate)
+     */
+    public function withHandler(string $modality, object $handler): static
+    {
+        $clone = clone $this;
+        $clone->handlerOverrides[$modality] = $handler;
+
+        return $clone;
+    }
+
+    /**
+     * Resolve handler, preferring overrides over the driver's built-in handler.
+     */
+    protected function resolveHandler(string $modality, Closure $default): object
+    {
+        return $this->handlerOverrides[$modality] ?? $default();
+    }
+
     // ─── Modality Methods ────────────────────────────────────────────────
 
     public function text(TextRequest $request): TextResponse
     {
-        return $this->dispatch('text', $request, fn (TextRequest $r) => $this->textHandler()->text($r));
+        return $this->dispatch('text', $request, fn (TextRequest $r) => $this->resolveHandler('text', fn () => $this->textHandler())->text($r));
     }
 
     public function stream(TextRequest $request): StreamResponse
     {
-        return $this->dispatch('stream', $request, fn (TextRequest $r) => $this->textHandler()->stream($r));
+        return $this->dispatch('stream', $request, fn (TextRequest $r) => $this->resolveHandler('text', fn () => $this->textHandler())->stream($r));
     }
 
     public function structured(TextRequest $request): StructuredResponse
     {
-        return $this->dispatch('structured', $request, fn (TextRequest $r) => $this->textHandler()->structured($r));
+        return $this->dispatch('structured', $request, fn (TextRequest $r) => $this->resolveHandler('text', fn () => $this->textHandler())->structured($r));
     }
 
     public function image(ImageRequest $request): ImageResponse
     {
-        return $this->dispatch('image', $request, fn (ImageRequest $r) => $this->imageHandler()->image($r));
+        return $this->dispatch('image', $request, fn (ImageRequest $r) => $this->resolveHandler('image', fn () => $this->imageHandler())->image($r));
     }
 
     public function imageToText(ImageRequest $request): TextResponse
     {
-        return $this->dispatch('imageToText', $request, fn (ImageRequest $r) => $this->imageHandler()->imageToText($r));
+        return $this->dispatch('imageToText', $request, fn (ImageRequest $r) => $this->resolveHandler('image', fn () => $this->imageHandler())->imageToText($r));
     }
 
     public function audio(AudioRequest $request): AudioResponse
     {
-        return $this->dispatch('audio', $request, fn (AudioRequest $r) => $this->audioHandler()->audio($r));
+        return $this->dispatch('audio', $request, fn (AudioRequest $r) => $this->resolveHandler('audio', fn () => $this->audioHandler())->audio($r));
     }
 
     public function audioToText(AudioRequest $request): TextResponse
     {
-        return $this->dispatch('audioToText', $request, fn (AudioRequest $r) => $this->audioHandler()->audioToText($r));
+        return $this->dispatch('audioToText', $request, fn (AudioRequest $r) => $this->resolveHandler('audio', fn () => $this->audioHandler())->audioToText($r));
     }
 
     public function video(VideoRequest $request): VideoResponse
     {
-        return $this->dispatch('video', $request, fn (VideoRequest $r) => $this->videoHandler()->video($r));
+        return $this->dispatch('video', $request, fn (VideoRequest $r) => $this->resolveHandler('video', fn () => $this->videoHandler())->video($r));
     }
 
     public function videoToText(VideoRequest $request): TextResponse
     {
-        return $this->dispatch('videoToText', $request, fn (VideoRequest $r) => $this->videoHandler()->videoToText($r));
+        return $this->dispatch('videoToText', $request, fn (VideoRequest $r) => $this->resolveHandler('video', fn () => $this->videoHandler())->videoToText($r));
     }
 
     public function embed(EmbedRequest $request): EmbeddingsResponse
     {
-        return $this->dispatch('embed', $request, fn (EmbedRequest $r) => $this->embedHandler()->embed($r));
+        return $this->dispatch('embed', $request, fn (EmbedRequest $r) => $this->resolveHandler('embed', fn () => $this->embedHandler())->embed($r));
     }
 
     public function moderate(ModerateRequest $request): ModerationResponse
     {
-        return $this->dispatch('moderate', $request, fn (ModerateRequest $r) => $this->moderateHandler()->moderate($r));
+        return $this->dispatch('moderate', $request, fn (ModerateRequest $r) => $this->resolveHandler('moderate', fn () => $this->moderateHandler())->moderate($r));
     }
 
     public function rerank(RerankRequest $request): RerankResponse
     {
-        return $this->dispatch('rerank', $request, fn (RerankRequest $r) => $this->rerankHandler()->rerank($r));
+        return $this->dispatch('rerank', $request, fn (RerankRequest $r) => $this->resolveHandler('rerank', fn () => $this->rerankHandler())->rerank($r));
     }
 
     // ─── Middleware Dispatch ─────────────────────────────────────────────
@@ -200,17 +232,17 @@ abstract class Driver
 
     public function models(): ModelList
     {
-        return $this->providerHandler('models')->models();
+        return $this->resolveHandler('provider', fn () => $this->providerHandler('models'))->models();
     }
 
     public function voices(): VoiceList
     {
-        return $this->providerHandler('voices')->voices();
+        return $this->resolveHandler('provider', fn () => $this->providerHandler('voices'))->voices();
     }
 
     public function validate(): bool
     {
-        return $this->providerHandler('validate')->validate();
+        return $this->resolveHandler('provider', fn () => $this->providerHandler('validate'))->validate();
     }
 
     /**

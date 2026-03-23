@@ -147,6 +147,19 @@ return [
         //     'base_url' => 'https://openrouter.ai/api/v1',
         // ],
 
+        // ─── Custom Provider (own driver class) ─────────────────────────
+        //
+        // Use a custom driver class for non-OpenAI-compatible providers.
+        // The class receives all driver dependencies (ProviderConfig,
+        // HttpClient, MiddlewareStack, AtlasCache) via constructor injection.
+        //
+        // 'my-provider' => [
+        //     'driver'       => \App\Atlas\MyCustomDriver::class,
+        //     'api_key'      => env('MY_PROVIDER_API_KEY'),
+        //     'base_url'     => 'https://api.my-provider.com/v1',
+        //     'capabilities' => ['text' => true, 'stream' => true],
+        // ],
+
     ],
 
     /*
@@ -428,7 +441,22 @@ Any service that exposes an OpenAI-compatible Chat Completions API can be added 
 ],
 ```
 
-Available named drivers: `chat_completions` and `responses`. You can also pass a custom driver class.
+Available named drivers: `chat_completions` and `responses`. See the [Custom Providers Guide](/guides/custom-providers) for full setup instructions.
+
+### Custom Drivers (Non-Compatible APIs)
+
+For providers that don't follow the OpenAI protocol, use a custom driver class:
+
+```php
+'my-provider' => [
+    'driver'       => \App\Atlas\MyProviderDriver::class,
+    'api_key'      => env('MY_PROVIDER_API_KEY'),
+    'base_url'     => 'https://api.my-provider.com/v1',
+    'capabilities' => ['text' => true, 'stream' => true],
+],
+```
+
+The driver class receives all dependencies (`ProviderConfig`, `HttpClient`, `MiddlewareStack`, `AtlasCache`) via constructor injection. See the [Custom Drivers Guide](/guides/custom-drivers) for creating driver classes and implementing handler interfaces.
 
 ### Using Multiple Providers
 

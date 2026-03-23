@@ -97,7 +97,11 @@ $response = Atlas::agent('support')
 
 ## Custom Providers
 
-Any OpenAI-compatible API (Ollama, LM Studio, Groq, DeepSeek, OpenRouter, etc.) can be added via the `chat_completions` driver:
+Atlas supports two patterns for adding custom providers:
+
+### OpenAI-Compatible APIs
+
+Any service that speaks the OpenAI protocol (Ollama, LM Studio, Groq, DeepSeek, OpenRouter, etc.) can be added with just config — no code required:
 
 ```php
 // config/atlas.php → providers
@@ -115,6 +119,21 @@ $response = Atlas::text('ollama', 'llama3')
 ```
 
 See the [Custom Providers Guide](/guides/custom-providers) for step-by-step setup of Ollama, LM Studio, Groq, Together, DeepSeek, OpenRouter, and more.
+
+### Non-Compatible APIs (Custom Drivers)
+
+For providers that don't follow the OpenAI protocol, create a custom driver class with full control over HTTP calls, payload format, and response parsing:
+
+```php
+'my-provider' => [
+    'driver'       => \App\Atlas\MyProviderDriver::class,
+    'api_key'      => env('MY_PROVIDER_API_KEY'),
+    'base_url'     => 'https://api.my-provider.com/v1',
+    'capabilities' => ['text' => true, 'stream' => true],
+],
+```
+
+See the [Custom Drivers Guide](/guides/custom-drivers) for creating driver classes, implementing handler interfaces, streaming, and handler overrides.
 
 ## Provider Reference
 

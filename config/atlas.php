@@ -131,6 +131,19 @@ return [
         //     'base_url' => 'https://openrouter.ai/api/v1',
         // ],
 
+        // ─── Custom Provider (own driver class) ─────────────────────────
+        //
+        // Use a custom driver class for non-OpenAI-compatible providers.
+        // The class receives all driver dependencies (ProviderConfig,
+        // HttpClient, MiddlewareStack, AtlasCache) via constructor injection.
+        //
+        // 'my-provider' => [
+        //     'driver'       => \App\Atlas\MyCustomDriver::class,
+        //     'api_key'      => env('MY_PROVIDER_API_KEY'),
+        //     'base_url'     => 'https://api.my-provider.com/v1',
+        //     'capabilities' => ['text' => true, 'stream' => true],
+        // ],
+
     ],
 
     /*

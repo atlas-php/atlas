@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Providers;
 
+use Atlasphp\Atlas\Cache\AtlasCache;
 use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Exceptions\ProviderNotFoundException;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
@@ -77,10 +78,17 @@ class ProviderRegistry implements ProviderRegistryContract
         $http = $this->app->make(HttpClient::class);
         $stack = $this->app->make(MiddlewareStack::class);
 
+        // Named drivers are instantiated directly — they have known fixed deps and don't need cache.
+        // Custom driver classes use the container for full constructor injection.
         return match (true) {
             $driver === 'chat_completions' => new ChatCompletionsDriver($providerConfig, $http, $stack),
             $driver === 'responses' => new ResponsesDriver($providerConfig, $http, $stack),
-            is_string($driver) && class_exists($driver) => $this->app->make($driver, ['config' => $providerConfig]),
+            is_string($driver) && class_exists($driver) => $this->app->make($driver, [
+                'config' => $providerConfig,
+                'http' => $http,
+                'middlewareStack' => $stack,
+                'cache' => $this->app->make(AtlasCache::class),
+            ]),
             default => throw AtlasException::unknownDriver($driver, $key),
         };
     }

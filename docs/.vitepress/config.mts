@@ -69,6 +69,7 @@ export default defineConfig({
                     { text: 'Conversations', link: '/guides/conversations' },
                     { text: 'Media & Assets', link: '/guides/media-storage' },
                     { text: 'Custom Providers', link: '/guides/custom-providers' },
+                    { text: 'Custom Drivers', link: '/guides/custom-drivers' },
                     { text: 'Artisan Commands', link: '/guides/artisan-commands' },
                 ]
             },

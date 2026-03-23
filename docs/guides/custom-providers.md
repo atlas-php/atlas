@@ -1,10 +1,12 @@
-# Custom & Local Providers
+# Custom Providers (OpenAI Compatible)
 
-Atlas supports any OpenAI-compatible API through the `chat_completions` driver. This includes local inference servers like Ollama, LM Studio, and cloud services like Groq, Together, DeepSeek, and OpenRouter.
+Atlas supports any OpenAI-compatible API through the `chat_completions` or `responses` drivers. This includes local inference servers like Ollama, LM Studio, and cloud services like Groq, Together, DeepSeek, and OpenRouter.
+
+No custom driver code needed — just add config and go.
 
 ## How It Works
 
-Many AI services expose an OpenAI-compatible `/v1/chat/completions` endpoint. Atlas's `chat_completions` driver speaks this protocol, so any compatible service can be used as a provider — no custom driver code needed.
+Many AI services expose an OpenAI-compatible `/v1/chat/completions` endpoint. Atlas's `chat_completions` driver speaks this protocol, so any compatible service can be used as a provider.
 
 ## Setting Up Ollama (Local)
 

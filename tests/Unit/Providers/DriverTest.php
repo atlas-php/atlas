@@ -2,12 +2,15 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Exceptions\AuthenticationException;
 use Atlasphp\Atlas\Exceptions\AuthorizationException;
 use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Exceptions\RateLimitException;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Providers\Driver;
+use Atlasphp\Atlas\Providers\Handlers\EmbedHandler;
+use Atlasphp\Atlas\Providers\Handlers\TextHandler;
 use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
 use Atlasphp\Atlas\Providers\ProviderConfig;
@@ -18,6 +21,9 @@ use Atlasphp\Atlas\Requests\ModerateRequest;
 use Atlasphp\Atlas\Requests\RerankRequest;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Requests\VideoRequest;
+use Atlasphp\Atlas\Responses\EmbeddingsResponse;
+use Atlasphp\Atlas\Responses\TextResponse;
+use Atlasphp\Atlas\Responses\Usage;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 
@@ -99,6 +105,123 @@ it('throws UnsupportedFeatureException for validate on base driver', function ()
 it('throws UnsupportedFeatureException for rerank', function () {
     createTestDriver()->rerank(new RerankRequest('model', 'query', ['doc1', 'doc2']));
 })->throws(UnsupportedFeatureException::class, 'rerank');
+
+// ─── withHandler ────────────────────────────────────────────────────────────
+
+it('withHandler returns a new instance', function () {
+    $driver = createTestDriver();
+    $handler = Mockery::mock(TextHandler::class);
+
+    $newDriver = $driver->withHandler('text', $handler);
+
+    expect($newDriver)->not->toBe($driver);
+    expect($newDriver)->toBeInstanceOf(Driver::class);
+});
+
+it('withHandler does not affect original instance', function () {
+    $driver = createTestDriver();
+    $handler = Mockery::mock(TextHandler::class);
+
+    $driver->withHandler('text', $handler);
+
+    // Original driver should still throw UnsupportedFeatureException
+    expect(fn () => $driver->text(new TextRequest('model', null, null, [], [], null, null, null, [], [], [])))
+        ->toThrow(UnsupportedFeatureException::class);
+});
+
+it('withHandler makes text handler available on bare driver', function () {
+    $expectedResponse = new TextResponse(
+        text: 'hello',
+        usage: new Usage(10, 5),
+        finishReason: FinishReason::Stop,
+    );
+
+    $handler = Mockery::mock(TextHandler::class);
+    $handler->shouldReceive('text')->once()->andReturn($expectedResponse);
+
+    $driver = createTestDriver()->withHandler('text', $handler);
+    $response = $driver->text(new TextRequest('model', null, null, [], [], null, null, null, [], [], []));
+
+    expect($response->text)->toBe('hello');
+});
+
+it('resolveHandler prefers override over default', function () {
+    $overrideResponse = new TextResponse(
+        text: 'from override',
+        usage: new Usage(10, 5),
+        finishReason: FinishReason::Stop,
+    );
+
+    $handler = Mockery::mock(TextHandler::class);
+    $handler->shouldReceive('text')->once()->andReturn($overrideResponse);
+
+    // Create a driver that has a built-in text handler
+    $config = new ProviderConfig(apiKey: 'test', baseUrl: 'https://api.test.com');
+    $http = Mockery::mock(HttpClient::class);
+
+    $builtInHandler = Mockery::mock(TextHandler::class);
+    $builtInHandler->shouldNotReceive('text');
+
+    $driver = new class($config, $http, $builtInHandler) extends Driver
+    {
+        public function __construct(
+            ProviderConfig $config,
+            HttpClient $http,
+            private readonly TextHandler $builtIn,
+        ) {
+            parent::__construct($config, $http);
+        }
+
+        public function capabilities(): ProviderCapabilities
+        {
+            return new ProviderCapabilities(text: true);
+        }
+
+        public function name(): string
+        {
+            return 'test-with-text';
+        }
+
+        protected function textHandler(): TextHandler
+        {
+            return $this->builtIn;
+        }
+    };
+
+    $overridden = $driver->withHandler('text', $handler);
+    $response = $overridden->text(new TextRequest('model', null, null, [], [], null, null, null, [], [], []));
+
+    expect($response->text)->toBe('from override');
+});
+
+it('multiple withHandler calls stack independently', function () {
+    $textResponse = new TextResponse(
+        text: 'text response',
+        usage: new Usage(10, 5),
+        finishReason: FinishReason::Stop,
+    );
+
+    $embedResponse = new EmbeddingsResponse(
+        embeddings: [[0.1, 0.2]],
+        usage: new Usage(5, 0),
+    );
+
+    $textHandler = Mockery::mock(TextHandler::class);
+    $textHandler->shouldReceive('text')->once()->andReturn($textResponse);
+
+    $embedHandler = Mockery::mock(EmbedHandler::class);
+    $embedHandler->shouldReceive('embed')->once()->andReturn($embedResponse);
+
+    $driver = createTestDriver()
+        ->withHandler('text', $textHandler)
+        ->withHandler('embed', $embedHandler);
+
+    $text = $driver->text(new TextRequest('model', null, null, [], [], null, null, null, [], [], []));
+    $embed = $driver->embed(new EmbedRequest('model', 'text'));
+
+    expect($text->text)->toBe('text response');
+    expect($embed->embeddings)->toBe([[0.1, 0.2]]);
+});
 
 // ─── handleRequestException ─────────────────────────────────────────────────
 

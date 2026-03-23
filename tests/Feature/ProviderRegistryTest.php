@@ -2,15 +2,21 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Exceptions\ProviderNotFoundException;
 use Atlasphp\Atlas\Providers\ChatCompletions\ChatCompletionsDriver;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Driver;
+use Atlasphp\Atlas\Providers\Handlers\TextHandler;
 use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Providers\ResponsesDriver;
+use Atlasphp\Atlas\Requests\TextRequest;
+use Atlasphp\Atlas\Responses\TextResponse;
+use Atlasphp\Atlas\Responses\Usage;
+use Atlasphp\Atlas\Tests\Fixtures\CustomDriverWithDeps;
 
 function createTestDriverInstance(?ProviderConfig $config = null, ?HttpClient $http = null): Driver
 {
@@ -165,4 +171,44 @@ it('caches config-resolved driver instances', function () {
     $second = $this->registry->resolve('ollama');
 
     expect($first)->toBe($second);
+});
+
+// ─── Custom driver class receives all constructor deps ──────────────────────
+
+it('custom driver class via config receives all four constructor deps', function () {
+    config()->set('atlas.providers.custom-full', [
+        'driver' => CustomDriverWithDeps::class,
+        'api_key' => 'test-key',
+        'base_url' => 'https://custom.test.com',
+    ]);
+
+    $driver = $this->registry->resolve('custom-full');
+
+    expect($driver)->toBeInstanceOf(CustomDriverWithDeps::class);
+    expect($driver->hasHttp())->toBeTrue();
+    expect($driver->hasMiddlewareStack())->toBeTrue();
+    expect($driver->hasCache())->toBeTrue();
+    expect($driver->name())->toBe('custom-with-deps');
+});
+
+it('custom driver class resolved from config can execute a modality call', function () {
+    config()->set('atlas.providers.custom-text', [
+        'driver' => CustomDriverWithDeps::class,
+        'api_key' => 'test-key',
+        'base_url' => 'https://custom.test.com',
+    ]);
+
+    $textHandler = Mockery::mock(TextHandler::class);
+    $textHandler->shouldReceive('text')->once()->andReturn(
+        new TextResponse(
+            text: 'custom response',
+            usage: new Usage(10, 5),
+            finishReason: FinishReason::Stop,
+        )
+    );
+
+    $driver = $this->registry->resolve('custom-text')->withHandler('text', $textHandler);
+    $response = $driver->text(new TextRequest('model', null, null, [], [], null, null, null, [], [], []));
+
+    expect($response->text)->toBe('custom response');
 });
