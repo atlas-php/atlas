@@ -108,3 +108,41 @@ it('includes tools in session body', function () {
         tools: [['type' => 'function', 'name' => 'get_weather']],
     ));
 });
+
+it('includes input audio transcription in session body', function () {
+    $http = Mockery::mock(HttpClient::class);
+    $http->shouldReceive('post')
+        ->once()
+        ->withArgs(function (string $url, array $headers, array $body) {
+            return isset($body['input_audio_transcription'])
+                && $body['input_audio_transcription']['model'] === 'whisper-1';
+        })
+        ->andReturn(['id' => 'sess_transcribe']);
+
+    $handler = createOpenAiRealtimeHandler($http);
+
+    $handler->createSession(new RealtimeRequest(
+        model: 'gpt-4o-realtime-preview',
+        instructions: null,
+        voice: null,
+        inputAudioTranscription: 'whisper-1',
+    ));
+});
+
+it('omits input audio transcription when not set', function () {
+    $http = Mockery::mock(HttpClient::class);
+    $http->shouldReceive('post')
+        ->once()
+        ->withArgs(function (string $url, array $headers, array $body) {
+            return ! isset($body['input_audio_transcription']);
+        })
+        ->andReturn(['id' => 'sess_no_transcribe']);
+
+    $handler = createOpenAiRealtimeHandler($http);
+
+    $handler->createSession(new RealtimeRequest(
+        model: 'gpt-4o-realtime-preview',
+        instructions: null,
+        voice: null,
+    ));
+});

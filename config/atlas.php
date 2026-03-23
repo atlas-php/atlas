@@ -303,6 +303,15 @@ return [
         // Disable if you want to embed asynchronously via a job.
         'memory_auto_embed' => env('ATLAS_MEMORY_AUTO_EMBED', true),
 
+        // Realtime transcript persistence — stores voice turns as messages.
+        // Only active when persistence.enabled is true.
+        // IMPORTANT: Configure middleware to protect this route with auth.
+        'realtime_transcripts' => [
+            'enabled' => env('ATLAS_REALTIME_TRANSCRIPTS', true),
+            'middleware' => ['web', 'auth'],
+            'route_prefix' => 'atlas',
+        ],
+
         // Model overrides — extend base models with your own
         'models' => [
             // 'conversation'        => \Atlasphp\Atlas\Persistence\Models\Conversation::class,

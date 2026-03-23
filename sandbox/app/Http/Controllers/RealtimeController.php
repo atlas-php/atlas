@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Persistence\Enums\MessageRole;
 use Atlasphp\Atlas\Persistence\Models\Conversation;
@@ -12,14 +13,16 @@ use Illuminate\Http\Request;
 
 /**
  * Handles realtime voice-to-voice session management for the sandbox.
+ *
+ * Transcript persistence is handled by the Atlas package route.
  */
 class RealtimeController
 {
     /**
      * Create a new realtime session and return the client payload.
      *
-     * When a conversation_id is provided, loads the message history and
-     * injects it into the session instructions so the AI has full context.
+     * Includes author and agent info in the response so the frontend
+     * can pass them to the package transcript endpoint.
      */
     public function createSession(Request $request): JsonResponse
     {
@@ -38,14 +41,14 @@ class RealtimeController
 
         $builder = Atlas::realtime($provider, $model);
 
-        // Build instructions with conversation context
         $instructions = $this->buildInstructions(
             $validated['instructions'] ?? null,
             $validated['conversation_id'] ?? null,
         );
 
         $builder->instructions($instructions);
-        $builder->withVoice($validated['voice'] ?? 'shimmer');
+        $builder->withVoice($validated['voice'] ?? 'marin');
+        $builder->withInputTranscription();
 
         if (($validated['transport'] ?? 'webrtc') === 'websocket') {
             $builder->viaWebSocket();
@@ -57,7 +60,21 @@ class RealtimeController
 
         $session = $builder->createSession();
 
-        return response()->json($session->toClientPayload());
+        $transcriptEndpoint = null;
+        if (config('atlas.persistence.enabled') && config('atlas.persistence.realtime_transcripts.enabled', true)) {
+            $prefix = config('atlas.persistence.realtime_transcripts.route_prefix', 'atlas');
+            $transcriptEndpoint = url("/{$prefix}/realtime/{$session->sessionId}/transcript");
+        }
+
+        $payload = $session->toClientPayload($transcriptEndpoint);
+
+        // Include author and agent info for transcript persistence
+        $user = User::find(1);
+        $payload['author_type'] = $user?->getMorphClass();
+        $payload['author_id'] = $user?->getKey();
+        $payload['agent'] = 'assistant';
+
+        return response()->json($payload);
     }
 
     /**

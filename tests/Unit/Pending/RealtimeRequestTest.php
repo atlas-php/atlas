@@ -39,6 +39,7 @@ it('returns $this from fluent methods', function () {
     expect($pending->withInputFormat('pcm16'))->toBe($pending);
     expect($pending->withOutputFormat('pcm16'))->toBe($pending);
     expect($pending->withProviderOptions([]))->toBe($pending);
+    expect($pending->withInputTranscription('whisper-1'))->toBe($pending);
 });
 
 it('builds request DTO with correct values', function () {
@@ -114,6 +115,22 @@ it('fires ModalityCompleted on createSession error', function () {
         ModalityCompleted::class,
         fn ($e) => $e->modality === Modality::Realtime && $e->usage === null
     );
+});
+
+it('withInputTranscription flows through to request DTO', function () {
+    $request = createRealtimePending()
+        ->withInputTranscription('gpt-4o-transcribe')
+        ->buildRequest();
+
+    expect($request->inputAudioTranscription)->toBe('gpt-4o-transcribe');
+});
+
+it('withInputTranscription defaults to whisper-1', function () {
+    $request = createRealtimePending()
+        ->withInputTranscription()
+        ->buildRequest();
+
+    expect($request->inputAudioTranscription)->toBe('whisper-1');
 });
 
 it('withServerVad sets threshold and silence duration', function () {

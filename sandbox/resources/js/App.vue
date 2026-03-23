@@ -92,9 +92,13 @@ async function handleDeleteConversation(id: number) {
     await chat.deleteConversation(id);
 }
 
-function handleRealtimeToggle() {
+async function handleRealtimeToggle() {
     if (realtime.sessionStatus.value === 'active') {
-        realtime.stopSession();
+        await realtime.stopSession();
+        // Refresh chat to show persisted voice transcripts
+        if (chat.activeConversationId.value) {
+            setTimeout(() => chat.loadConversation(chat.activeConversationId.value!), 500);
+        }
     } else {
         realtime.startSession({
             conversation_id: chat.activeConversationId.value,
@@ -139,6 +143,7 @@ function handleCycleSibling(messageId: number, index: number) {
                 :realtime-user-transcript="realtime.userTranscript.value"
                 :realtime-assistant-transcript="realtime.assistantTranscript.value"
                 :realtime-is-speaking="realtime.isSpeaking.value"
+                :realtime-transcript-history="realtime.transcriptHistory.value"
                 @load-more="chat.loadOlderMessages"
                 @retry="handleRetry"
                 @cycle-sibling="handleCycleSibling"

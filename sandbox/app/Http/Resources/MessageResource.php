@@ -33,6 +33,7 @@ class MessageResource
             'sequence' => $msg->sequence,
             'created_at' => $msg->created_at,
             'read_at' => $msg->read_at,
+            'metadata' => $msg->metadata,
         ];
 
         if ($msg->isFromAssistant()) {

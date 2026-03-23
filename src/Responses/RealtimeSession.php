@@ -52,7 +52,16 @@ class RealtimeSession
      *
      * @return array<string, mixed>
      */
-    public function toClientPayload(): array
+    /**
+     * Return a safe subset of session data for the browser client.
+     *
+     * Excludes sensitive fields like clientSecret that should not
+     * be exposed to the frontend beyond the ephemeral token.
+     *
+     * @param  string|null  $transcriptEndpoint  URL for transcript persistence (set by consumer or package route)
+     * @return array<string, mixed>
+     */
+    public function toClientPayload(?string $transcriptEndpoint = null): array
     {
         return array_filter([
             'session_id' => $this->sessionId,
@@ -62,6 +71,7 @@ class RealtimeSession
             'ephemeral_token' => $this->ephemeralToken,
             'connection_url' => $this->connectionUrl,
             'expires_at' => $this->expiresAt?->format('c'),
+            'transcript_endpoint' => $transcriptEndpoint,
         ], fn (mixed $v): bool => $v !== null);
     }
 }

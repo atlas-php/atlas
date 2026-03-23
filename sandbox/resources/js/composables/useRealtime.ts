@@ -2,6 +2,11 @@ import { ref, readonly } from 'vue';
 
 export type SessionStatus = 'idle' | 'connecting' | 'active' | 'closed';
 
+export interface TranscriptTurn {
+    role: 'user' | 'assistant';
+    text: string;
+}
+
 interface SessionOptions {
     provider?: string;
     model?: string;
@@ -20,13 +25,17 @@ interface SessionPayload {
     ephemeral_token?: string;
     connection_url?: string;
     expires_at?: string;
+    transcript_endpoint?: string;
+    author_type?: string;
+    author_id?: number;
+    agent?: string;
 }
 
 /**
  * Composable managing the entire realtime voice session lifecycle.
  *
  * Handles session creation, WebRTC peer connection setup,
- * audio capture, transcript streaming, and cleanup.
+ * audio capture, transcript streaming, turn persistence, and cleanup.
  */
 export function useRealtime() {
     const sessionStatus = ref<SessionStatus>('idle');
@@ -36,6 +45,7 @@ export function useRealtime() {
     const assistantTranscript = ref('');
     const audioLevel = ref(0);
     const error = ref<string | null>(null);
+    const transcriptHistory = ref<TranscriptTurn[]>([]);
 
     let peerConnection: RTCPeerConnection | null = null;
     let dataChannel: RTCDataChannel | null = null;
@@ -43,6 +53,16 @@ export function useRealtime() {
     let audioContext: AudioContext | null = null;
     let analyser: AnalyserNode | null = null;
     let levelAnimFrame: number | null = null;
+
+    // Turn tracking for transcript persistence
+    let pendingUserTranscript = '';
+    let pendingAssistantTranscript = '';
+    let currentSessionId: string | null = null;
+    let currentConversationId: number | null = null;
+    let transcriptEndpoint: string | null = null;
+    let authorType: string | null = null;
+    let authorId: number | null = null;
+    let agentKey: string | null = null;
 
     async function startSession(options: SessionOptions = {}) {
         if (sessionStatus.value !== 'idle' && sessionStatus.value !== 'closed') return;
@@ -62,6 +82,10 @@ export function useRealtime() {
         error.value = null;
         userTranscript.value = '';
         assistantTranscript.value = '';
+        transcriptHistory.value = [];
+        pendingUserTranscript = '';
+        pendingAssistantTranscript = '';
+        currentConversationId = options.conversation_id ?? null;
 
         try {
             // 1. Create session via backend
@@ -74,6 +98,11 @@ export function useRealtime() {
             if (!res.ok) throw new Error(`Session creation failed: ${res.status}`);
 
             const session: SessionPayload = await res.json();
+            currentSessionId = session.session_id;
+            transcriptEndpoint = session.transcript_endpoint ?? null;
+            authorType = session.author_type ?? null;
+            authorId = session.author_id ?? null;
+            agentKey = session.agent ?? null;
 
             if (session.transport === 'webrtc' && session.ephemeral_token) {
                 await setupWebRtc(session);
@@ -82,6 +111,9 @@ export function useRealtime() {
                 sessionStatus.value = 'active';
                 isListening.value = true;
             }
+
+            // Register beforeunload to save partial turns on tab close
+            window.addEventListener('beforeunload', onBeforeUnload);
         } catch (e) {
             if (e instanceof DOMException && e.name === 'NotAllowedError') {
                 error.value = 'Microphone permission denied. Please allow microphone access to use voice chat.';
@@ -90,6 +122,7 @@ export function useRealtime() {
             } else {
                 error.value = e instanceof Error ? e.message : 'Failed to start session';
             }
+            window.removeEventListener('beforeunload', onBeforeUnload);
             sessionStatus.value = 'closed';
         }
     }
@@ -150,23 +183,94 @@ export function useRealtime() {
             const data = JSON.parse(event.data);
 
             switch (data.type) {
+                case 'conversation.item.input_audio_transcription.completed':
+                    pendingUserTranscript = data.transcript ?? '';
+                    userTranscript.value = pendingUserTranscript;
+                    break;
                 case 'response.audio_transcript.delta':
-                    assistantTranscript.value += data.delta ?? '';
+                    pendingAssistantTranscript += data.delta ?? '';
+                    assistantTranscript.value = pendingAssistantTranscript;
                     isSpeaking.value = true;
                     break;
                 case 'response.audio_transcript.done':
                     isSpeaking.value = false;
                     break;
-                case 'conversation.item.input_audio_transcription.completed':
-                    userTranscript.value = data.transcript ?? '';
-                    break;
                 case 'response.done':
                     isSpeaking.value = false;
+                    // Turn boundary — delay flush slightly to allow the async
+                    // input_audio_transcription.completed event to arrive first
+                    setTimeout(() => flushTurns(), 300);
                     break;
             }
         } catch {
             // Ignore non-JSON messages
         }
+    }
+
+    /**
+     * Save the current pending turn pair to the server and add to history.
+     */
+    async function flushTurns() {
+        const turns: Array<{ role: 'user' | 'assistant'; transcript: string }> = [];
+
+        if (pendingUserTranscript) {
+            turns.push({ role: 'user', transcript: pendingUserTranscript });
+            transcriptHistory.value.push({ role: 'user', text: pendingUserTranscript });
+        }
+        if (pendingAssistantTranscript) {
+            turns.push({ role: 'assistant', transcript: pendingAssistantTranscript });
+            transcriptHistory.value.push({ role: 'assistant', text: pendingAssistantTranscript });
+        }
+
+        // Reset accumulators for the next turn
+        pendingUserTranscript = '';
+        pendingAssistantTranscript = '';
+        userTranscript.value = '';
+        assistantTranscript.value = '';
+
+        if (turns.length === 0 || !currentSessionId || !currentConversationId || !transcriptEndpoint) return;
+
+        try {
+            await fetch(transcriptEndpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                body: JSON.stringify({
+                    conversation_id: currentConversationId,
+                    turns,
+                    agent: agentKey,
+                    author_type: authorType,
+                    author_id: authorId,
+                }),
+            });
+        } catch (e) {
+            console.error('Failed to save transcript turn:', e);
+        }
+    }
+
+    /**
+     * Emergency save on tab close using sendBeacon (fire-and-forget).
+     */
+    function onBeforeUnload() {
+        if (!pendingUserTranscript && !pendingAssistantTranscript) return;
+        if (!currentSessionId || !currentConversationId || !transcriptEndpoint) return;
+
+        const turns: Array<{ role: 'user' | 'assistant'; transcript: string }> = [];
+        if (pendingUserTranscript) turns.push({ role: 'user', transcript: pendingUserTranscript });
+        if (pendingAssistantTranscript) turns.push({ role: 'assistant', transcript: pendingAssistantTranscript });
+
+        navigator.sendBeacon(
+            transcriptEndpoint,
+            new Blob(
+                [JSON.stringify({
+                    conversation_id: currentConversationId,
+                    turns,
+                    agent: agentKey,
+                    author_type: authorType,
+                    author_id: authorId,
+                })],
+                { type: 'application/json' },
+            ),
+        );
     }
 
     function setupAudioMonitoring(stream: MediaStream) {
@@ -190,7 +294,12 @@ export function useRealtime() {
         updateLevel();
     }
 
-    function stopSession() {
+    async function stopSession() {
+        // Flush any remaining transcript before closing
+        await flushTurns();
+
+        window.removeEventListener('beforeunload', onBeforeUnload);
+
         if (levelAnimFrame !== null) {
             cancelAnimationFrame(levelAnimFrame);
             levelAnimFrame = null;
@@ -213,6 +322,12 @@ export function useRealtime() {
         isListening.value = false;
         isSpeaking.value = false;
         audioLevel.value = 0;
+        currentSessionId = null;
+        currentConversationId = null;
+        transcriptEndpoint = null;
+        authorType = null;
+        authorId = null;
+        agentKey = null;
     }
 
     function mute() {
@@ -237,6 +352,7 @@ export function useRealtime() {
         assistantTranscript: readonly(assistantTranscript),
         audioLevel: readonly(audioLevel),
         error: readonly(error),
+        transcriptHistory: readonly(transcriptHistory),
         startSession,
         stopSession,
         mute,

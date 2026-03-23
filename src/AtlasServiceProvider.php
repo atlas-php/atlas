@@ -28,6 +28,7 @@ use Atlasphp\Atlas\Providers\Xai\XaiDriver;
 use Atlasphp\Atlas\Support\VariableRegistry;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
 /**
@@ -104,6 +105,7 @@ class AtlasServiceProvider extends ServiceProvider
         $this->registerBuiltInVariables();
         $this->registerMemoryMiddleware();
         $this->registerPersistenceMiddleware();
+        $this->registerRealtimeRoutes();
         $this->registerVectorMacros();
     }
 
@@ -152,6 +154,34 @@ class AtlasServiceProvider extends ServiceProvider
             $providerMiddleware = config('atlas.middleware.provider', []);
             $providerMiddleware[] = Persistence\Middleware\TrackProviderCall::class;
             config(['atlas.middleware.provider' => $providerMiddleware]);
+        });
+    }
+
+    /**
+     * Register package HTTP routes for realtime transcript persistence.
+     */
+    protected function registerRealtimeRoutes(): void
+    {
+        if (! config('atlas.persistence.enabled')) {
+            return;
+        }
+
+        if (! config('atlas.persistence.realtime_transcripts.enabled', true)) {
+            return;
+        }
+
+        $this->app->booted(function (): void {
+            $prefix = config('atlas.persistence.realtime_transcripts.route_prefix', 'atlas');
+            $middleware = config('atlas.persistence.realtime_transcripts.middleware', []);
+
+            Route::prefix($prefix)
+                ->middleware($middleware)
+                ->group(function (): void {
+                    Route::post(
+                        '/realtime/{sessionId}/transcript',
+                        Persistence\Http\StoreRealtimeTranscriptController::class,
+                    );
+                });
         });
     }
 

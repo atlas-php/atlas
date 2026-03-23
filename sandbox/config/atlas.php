@@ -180,6 +180,11 @@ return [
         'message_limit' => (int) env('ATLAS_MESSAGE_LIMIT', 50),
         'auto_store_assets' => env('ATLAS_AUTO_STORE_ASSETS', true),
         'memory_auto_embed' => env('ATLAS_MEMORY_AUTO_EMBED', true),
+        'realtime_transcripts' => [
+            'enabled' => true,
+            'middleware' => [],
+            'route_prefix' => 'atlas',
+        ],
     ],
 
     /*

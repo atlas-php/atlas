@@ -282,6 +282,9 @@ class Message extends Model
      * Only creates user, assistant, and system messages.
      * Tool interactions are NOT stored as messages — they live in execution tables.
      */
+    /**
+     * @param  array<string, mixed>|null  $metadata
+     */
     public static function fromAtlasMessage(
         AtlasMessage $message,
         int $conversationId,
@@ -291,6 +294,7 @@ class Message extends Model
         ?int $parentId = null,
         ?int $stepId = null,
         MessageStatus $status = MessageStatus::Delivered,
+        ?array $metadata = null,
     ): self {
         $attributes = [
             'conversation_id' => $conversationId,
@@ -302,6 +306,7 @@ class Message extends Model
             'step_id' => $stepId,
             'status' => $status,
             'is_active' => true,
+            'metadata' => $metadata,
         ];
 
         if ($message instanceof UserMessage) {

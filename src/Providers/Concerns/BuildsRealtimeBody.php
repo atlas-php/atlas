@@ -38,6 +38,12 @@ trait BuildsRealtimeBody
             $body['tools'] = $request->tools;
         }
 
+        if ($request->inputAudioTranscription !== null) {
+            $body['input_audio_transcription'] = [
+                'model' => $request->inputAudioTranscription,
+            ];
+        }
+
         return array_merge($body, $request->providerOptions);
     }
 

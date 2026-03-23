@@ -5,7 +5,7 @@ import ChatMessageBubble from './ChatMessageBubble.vue';
 import RealtimeTranscript from './RealtimeTranscript.vue';
 import { renderMarkdown } from '../utils/markdown';
 import type { ChatMessage } from '../composables/useChat';
-import type { SessionStatus } from '../composables/useRealtime';
+import type { SessionStatus, TranscriptTurn } from '../composables/useRealtime';
 
 const props = defineProps<{
     messages: ChatMessage[];
@@ -18,6 +18,7 @@ const props = defineProps<{
     realtimeUserTranscript?: string;
     realtimeAssistantTranscript?: string;
     realtimeIsSpeaking?: boolean;
+    realtimeTranscriptHistory?: TranscriptTurn[];
 }>();
 
 const emit = defineEmits<{
@@ -162,6 +163,7 @@ defineExpose({ scrollToBottom });
                 :user-transcript="realtimeUserTranscript ?? ''"
                 :assistant-transcript="realtimeAssistantTranscript ?? ''"
                 :is-speaking="realtimeIsSpeaking ?? false"
+                :transcript-history="realtimeTranscriptHistory ?? []"
             />
 
             <!-- Typing indicator slot -->

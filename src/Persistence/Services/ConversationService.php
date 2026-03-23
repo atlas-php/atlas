@@ -169,6 +169,8 @@ class ConversationService
      *
      * Only stores user, assistant, and system messages.
      * Tool interactions are NOT stored as messages.
+     *
+     * @param  array<string, mixed>|null  $metadata
      */
     public function addMessage(
         Conversation $conversation,
@@ -177,6 +179,7 @@ class ConversationService
         ?string $agent = null,
         ?int $parentId = null,
         ?int $stepId = null,
+        ?array $metadata = null,
     ): Message {
         $messageModel = $this->messageModel;
 
@@ -188,6 +191,7 @@ class ConversationService
             agent: $agent,
             parentId: $parentId,
             stepId: $stepId,
+            metadata: $metadata,
         );
     }
 

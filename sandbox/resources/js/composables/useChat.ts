@@ -60,6 +60,7 @@ export interface ChatMessage {
     sibling_count?: number;
     sibling_index?: number;
     attachments?: MessageAttachment[];
+    metadata?: Record<string, unknown> | null;
     _optimistic?: boolean;
 }
 

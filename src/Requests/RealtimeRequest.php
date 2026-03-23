@@ -30,6 +30,7 @@ class RealtimeRequest
         public readonly ?string $outputAudioFormat = null,
         public readonly ?float $temperature = null,
         public readonly ?int $maxResponseTokens = null,
+        public readonly ?string $inputAudioTranscription = null,
         public readonly array $tools = [],
         public readonly array $providerOptions = [],
         public readonly array $middleware = [],

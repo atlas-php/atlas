@@ -49,6 +49,8 @@ class RealtimeRequest
 
     protected ?int $maxResponseTokens = null;
 
+    protected ?string $inputAudioTranscription = null;
+
     /** @var array<int, mixed> */
     protected array $tools = [];
 
@@ -153,6 +155,16 @@ class RealtimeRequest
         return $this;
     }
 
+    /**
+     * Enable input audio transcription so the provider sends user speech transcripts.
+     */
+    public function withInputTranscription(string $model = 'whisper-1'): static
+    {
+        $this->inputAudioTranscription = $model;
+
+        return $this;
+    }
+
     public function createSession(): RealtimeSession
     {
         $provider = $this->resolveProviderKey();
@@ -196,6 +208,7 @@ class RealtimeRequest
             outputAudioFormat: $this->outputAudioFormat,
             temperature: $this->temperature,
             maxResponseTokens: $this->maxResponseTokens,
+            inputAudioTranscription: $this->inputAudioTranscription,
             tools: $this->tools,
             providerOptions: $this->providerOptions,
             middleware: $this->middleware,

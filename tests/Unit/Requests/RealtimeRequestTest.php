@@ -56,6 +56,7 @@ it('has sensible defaults', function () {
     expect($request->outputAudioFormat)->toBeNull();
     expect($request->temperature)->toBeNull();
     expect($request->maxResponseTokens)->toBeNull();
+    expect($request->inputAudioTranscription)->toBeNull();
     expect($request->tools)->toBe([]);
     expect($request->providerOptions)->toBe([]);
     expect($request->middleware)->toBe([]);

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { RotateCcw, ChevronLeft, ChevronRight, ChevronDown, Clock, Zap, Copy, Check, FileText, ImageIcon } from 'lucide-vue-next';
+import { RotateCcw, ChevronLeft, ChevronRight, ChevronDown, Clock, Zap, Copy, Check, FileText, ImageIcon, AudioLines } from 'lucide-vue-next';
 import { renderMarkdown } from '../utils/markdown';
 import type { ChatMessage } from '../composables/useChat';
 
@@ -23,6 +23,7 @@ const docAttachments = computed(() =>
     (props.message.attachments ?? []).filter((a) => a.type !== 'image'),
 );
 const hasExecution = computed(() => !!props.message.execution);
+const isRealtime = computed(() => props.message.metadata?.source === 'realtime');
 const hasSiblings = computed(
     () => (props.message.sibling_count ?? 0) > 1,
 );
@@ -125,17 +126,31 @@ function formatTime(dateStr: string): string {
                 />
             </div>
 
-            <!-- User message status (below bubble, last user message only) -->
-            <div v-if="isUser && isLastUser" class="mt-0.5 text-right text-[10px] text-muted-foreground">
-                <template v-if="message.read_at">Read · {{ formatTime(message.read_at) }}</template>
-                <template v-else>Delivered</template>
+            <!-- User message status -->
+            <div v-if="isUser" class="mt-0.5 flex items-center justify-end gap-1.5 text-[10px] text-muted-foreground">
+                <span v-if="isRealtime" class="flex items-center gap-0.5">
+                    <AudioLines class="size-2.5" />
+                    Voice
+                </span>
+                <template v-if="isLastUser">
+                    <span v-if="isRealtime">·</span>
+                    <span v-if="message.read_at">Read · {{ formatTime(message.read_at) }}</span>
+                    <span v-else>Delivered</span>
+                </template>
             </div>
 
             <!-- Action bar (assistant messages) -->
             <div
                 v-if="!isUser && message.content"
-                class="mt-1 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100"
+                class="mt-1 flex items-center gap-1"
+                :class="isRealtime ? '' : 'opacity-0 transition-opacity group-hover:opacity-100'"
             >
+                <!-- Voice badge (always visible for realtime) -->
+                <span v-if="isRealtime" class="flex items-center gap-0.5 px-1 text-[10px] text-muted-foreground">
+                    <AudioLines class="size-3" />
+                    Voice
+                </span>
+
                 <!-- Copy -->
                 <button
                     class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -146,9 +161,9 @@ function formatTime(dateStr: string): string {
                     <Copy v-else class="size-3.5" />
                 </button>
 
-                <!-- Retry -->
+                <!-- Retry (not available for realtime voice messages) -->
                 <button
-                    v-if="isLastAssistant"
+                    v-if="isLastAssistant && !isRealtime"
                     class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
                     title="Retry"
                     @click="emit('retry')"

@@ -6,8 +6,14 @@ Realtime voice-to-voice enables bidirectional speech conversations with AI provi
 
 | Provider | Models | Transport | Pricing |
 |----------|--------|-----------|---------|
-| OpenAI | `gpt-4o-realtime-preview-2024-12-17` | WebRTC, WebSocket | ~$0.30/min |
-| xAI | `grok-2-realtime` | WebSocket | ~$0.05/min |
+| OpenAI | `gpt-4o-realtime-preview`, `gpt-4o-mini-realtime-preview` | WebRTC, WebSocket | ~$0.30/min |
+| xAI | `grok-3-fast-realtime` | WebSocket | ~$0.05/min |
+
+### Voices
+
+Both providers support the same set of voices:
+
+`alloy`, `ash`, `ballad`, `coral`, `echo`, `sage`, `shimmer`, `verse`, `marin`, `cedar`
 
 ## Quick Start
 
@@ -51,7 +57,7 @@ $session = Atlas::realtime()
 | Method | Description |
 |--------|-------------|
 | `instructions(string)` | System instructions for the session |
-| `withVoice(string)` | Voice ID (e.g., `alloy`, `echo`, `shimmer`) |
+| `withVoice(string)` | Voice ID — `alloy`, `ash`, `ballad`, `coral`, `echo`, `sage`, `shimmer`, `verse`, `marin`, `cedar` |
 | `viaWebRtc()` | Use WebRTC transport (default) |
 | `viaWebSocket()` | Use WebSocket proxy transport |
 | `withServerVad(?threshold, ?silenceDuration)` | Enable server-side voice activity detection |
@@ -61,6 +67,7 @@ $session = Atlas::realtime()
 | `withMaxResponseTokens(int)` | Max tokens per response |
 | `withInputFormat(string)` | Input audio format (`pcm16`, `g711_ulaw`, `g711_alaw`) |
 | `withOutputFormat(string)` | Output audio format |
+| `withInputTranscription(string)` | Enable input audio transcription (`whisper-1`, `gpt-4o-transcribe`, etc.) |
 | `withProviderOptions(array)` | Provider-specific options |
 | `withMiddleware(array)` | Provider middleware |
 | `withMeta(array)` | Request metadata |
@@ -198,6 +205,61 @@ Atlas::realtime()
     ->withOutputFormat('pcm16')
     ->createSession();
 ```
+
+## Transcript Persistence
+
+Atlas can automatically persist voice transcripts as conversation messages. When enabled, a package-level HTTP endpoint accepts transcript turns from the browser and stores them in the same conversation thread as text messages. See the [Realtime Integration Guide](/guides/realtime-integration) for full frontend setup.
+
+### Enable Persistence
+
+In `config/atlas.php`, ensure persistence is enabled:
+
+```php
+'persistence' => [
+    'enabled' => true,
+    // ...
+    'realtime_transcripts' => [
+        'enabled' => true,
+        'middleware' => ['web', 'auth'], // your auth middleware
+        'route_prefix' => 'atlas',
+    ],
+],
+```
+
+### Enable Input Transcription
+
+OpenAI only sends user speech transcripts when `input_audio_transcription` is configured:
+
+```php
+$session = Atlas::realtime()
+    ->instructions('You are a helpful assistant.')
+    ->withInputTranscription() // defaults to whisper-1
+    ->createSession();
+```
+
+### Transcript Endpoint
+
+When persistence is enabled, `$session->toClientPayload()` includes a `transcript_endpoint` URL. The browser sends completed turns to this endpoint:
+
+```
+POST /{route_prefix}/realtime/{sessionId}/transcript
+```
+
+**Request body:**
+```json
+{
+    "conversation_id": 42,
+    "turns": [
+        { "role": "user", "transcript": "What's the weather like?" },
+        { "role": "assistant", "transcript": "It's sunny and 72 degrees." }
+    ],
+    "agent": "assistant",
+    "author_type": "App\\Models\\User",
+    "author_id": 1
+}
+```
+
+Stored messages are tagged with `metadata.source = 'realtime'` and `metadata.session_id`, and are automatically marked as read.
 
 ## Events
 
