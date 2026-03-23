@@ -3,14 +3,21 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Enums\FinishReason;
+use Atlasphp\Atlas\Enums\Modality;
+use Atlasphp\Atlas\Events\ModalityCompleted;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
+use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Pending\AudioRequest;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
+use Atlasphp\Atlas\Queue\PendingExecution;
 use Atlasphp\Atlas\Responses\AudioResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\Usage;
+use Atlasphp\Atlas\Testing\AudioResponseFake;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Queue;
 
 function createAudioPending(?Driver $driver = null): AudioRequest
 {
@@ -80,4 +87,74 @@ it('builds request with correct values', function () {
     expect($request->duration)->toBe(30);
     expect($request->format)->toBe('mp3');
     expect($request->providerOptions)->toBe(['key' => 'val']);
+});
+
+it('fires ModalityCompleted on asAudio error', function () {
+    Event::fake();
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(audio: true));
+    $driver->shouldReceive('audio')->andThrow(new RuntimeException('fail'));
+
+    try {
+        createAudioPending($driver)->instructions('test')->asAudio();
+    } catch (RuntimeException) {
+    }
+
+    Event::assertDispatched(
+        ModalityCompleted::class,
+        fn ($e) => $e->modality === Modality::Audio && $e->usage === null
+    );
+});
+
+it('fires ModalityCompleted on asText error', function () {
+    Event::fake();
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(audioToText: true));
+    $driver->shouldReceive('audioToText')->andThrow(new RuntimeException('fail'));
+
+    try {
+        createAudioPending($driver)->instructions('test')->asText();
+    } catch (RuntimeException) {
+    }
+
+    Event::assertDispatched(
+        ModalityCompleted::class,
+        fn ($e) => $e->modality === Modality::AudioToText && $e->usage === null
+    );
+});
+
+it('queued asAudio returns PendingExecution', function () {
+    Queue::fake();
+
+    $result = createAudioPending()->instructions('test')->queue()->asAudio();
+
+    expect($result)->toBeInstanceOf(PendingExecution::class);
+});
+
+it('serializes to queue payload', function () {
+    $payload = createAudioPending()
+        ->instructions('Hello')
+        ->withVoice('alloy')
+        ->withFormat('mp3')
+        ->toQueuePayload();
+
+    expect($payload['provider'])->toBe('openai')
+        ->and($payload['instructions'])->toBe('Hello')
+        ->and($payload['voice'])->toBe('alloy')
+        ->and($payload['format'])->toBe('mp3');
+});
+
+it('executeFromPayload rebuilds and executes', function () {
+    Atlas::fake([
+        AudioResponseFake::make(),
+    ]);
+
+    $result = AudioRequest::executeFromPayload(
+        payload: ['provider' => 'openai', 'model' => 'tts-1', 'instructions' => 'hello', 'media' => [], 'voice' => null, 'voiceClone' => null, 'speed' => null, 'language' => null, 'duration' => null, 'format' => null, 'providerOptions' => [], 'meta' => [], 'variables' => [], 'interpolate_messages' => false],
+        terminal: 'asAudio',
+    );
+
+    expect($result)->toBeInstanceOf(AudioResponse::class);
 });

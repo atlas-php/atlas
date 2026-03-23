@@ -9,8 +9,11 @@ use Atlasphp\Atlas\Pending\AudioRequest;
 use Atlasphp\Atlas\Pending\EmbedRequest;
 use Atlasphp\Atlas\Pending\ImageRequest;
 use Atlasphp\Atlas\Pending\ModerateRequest;
+use Atlasphp\Atlas\Pending\MusicRequest;
 use Atlasphp\Atlas\Pending\ProviderRequest;
 use Atlasphp\Atlas\Pending\RerankRequest;
+use Atlasphp\Atlas\Pending\SfxRequest;
+use Atlasphp\Atlas\Pending\SpeechRequest;
 use Atlasphp\Atlas\Pending\TextRequest;
 use Atlasphp\Atlas\Pending\VideoRequest;
 use Atlasphp\Atlas\Persistence\Memory\MemoryBuilder;
@@ -73,6 +76,24 @@ it('memory returns MemoryBuilder', function () {
     $manager = app(AtlasManager::class);
 
     expect($manager->memory())->toBeInstanceOf(MemoryBuilder::class);
+});
+
+it('music returns MusicRequest', function () {
+    $manager = app(AtlasManager::class);
+
+    expect($manager->music('elevenlabs', 'v2'))->toBeInstanceOf(MusicRequest::class);
+});
+
+it('sfx returns SfxRequest', function () {
+    $manager = app(AtlasManager::class);
+
+    expect($manager->sfx('elevenlabs', 'v2'))->toBeInstanceOf(SfxRequest::class);
+});
+
+it('speech returns SpeechRequest', function () {
+    $manager = app(AtlasManager::class);
+
+    expect($manager->speech('openai', 'tts-1'))->toBeInstanceOf(SpeechRequest::class);
 });
 
 it('accepts Provider enum', function () {

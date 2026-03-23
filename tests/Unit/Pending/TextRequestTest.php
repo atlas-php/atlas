@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Enums\FinishReason;
+use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Events\ModalityCompleted;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Messages\UserMessage;
@@ -21,6 +23,7 @@ use Atlasphp\Atlas\Schema\Schema;
 use Atlasphp\Atlas\Testing\StreamResponseFake;
 use Atlasphp\Atlas\Testing\TextResponseFake;
 use Atlasphp\Atlas\Tools\Tool;
+use Illuminate\Support\Facades\Event;
 
 function createTextPending(
     ?Driver $driver = null,
@@ -403,3 +406,117 @@ it('withMaxSteps passes through to executor', function () {
 
     expect($result->text)->toBe('ok');
 });
+
+// ─── Error event dispatch ──────────────────────────────────────────────────
+
+it('fires ModalityCompleted on asText error', function () {
+    Event::fake();
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
+    $driver->shouldReceive('text')->andThrow(new RuntimeException('API error'));
+
+    try {
+        createTextPending($driver)->message('hi')->asText();
+    } catch (RuntimeException) {
+    }
+
+    Event::assertDispatched(
+        ModalityCompleted::class,
+        fn ($e) => $e->modality === Modality::Text && $e->usage === null
+    );
+});
+
+it('fires ModalityCompleted on asStructured error', function () {
+    Event::fake();
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(structured: true));
+    $driver->shouldReceive('structured')->andThrow(new RuntimeException('API error'));
+
+    try {
+        createTextPending($driver)->message('hi')->asStructured();
+    } catch (RuntimeException) {
+    }
+
+    Event::assertDispatched(
+        ModalityCompleted::class,
+        fn ($e) => $e->modality === Modality::Structured && $e->usage === null
+    );
+});
+
+it('fires ModalityCompleted on asStream error', function () {
+    Event::fake();
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(stream: true));
+    $driver->shouldReceive('stream')->andThrow(new RuntimeException('API error'));
+
+    try {
+        createTextPending($driver)->message('hi')->asStream();
+    } catch (RuntimeException) {
+    }
+
+    Event::assertDispatched(
+        ModalityCompleted::class,
+        fn ($e) => $e->modality === Modality::Stream && $e->usage === null
+    );
+});
+
+// ─── Queue round-trip ──────────────────────────────────────────────────────
+
+it('toQueuePayload serializes all properties', function () {
+    $payload = createTextPending()
+        ->instructions('Be helpful')
+        ->message('Hello')
+        ->withMaxTokens(100)
+        ->withTemperature(0.5)
+        ->withProviderOptions(['seed' => 42])
+        ->toQueuePayload();
+
+    expect($payload['provider'])->toBe('openai')
+        ->and($payload['model'])->toBe('gpt-4o')
+        ->and($payload['instructions'])->toBe('Be helpful')
+        ->and($payload['message'])->toBe('Hello')
+        ->and($payload['maxTokens'])->toBe(100)
+        ->and($payload['temperature'])->toBe(0.5)
+        ->and($payload['providerOptions'])->toBe(['seed' => 42]);
+});
+
+it('executeFromPayload rebuilds and executes asText', function () {
+    Atlas::fake([TextResponseFake::make()->withText('rebuilt')]);
+
+    $result = TextRequest::executeFromPayload(
+        payload: [
+            'provider' => 'openai', 'model' => 'gpt-4o',
+            'instructions' => 'test', 'message' => 'hello',
+            'messageMedia' => [], 'messages' => [],
+            'maxTokens' => null, 'temperature' => null,
+            'tools' => [], 'providerTools' => [],
+            'maxSteps' => null, 'concurrent' => false,
+            'schema' => null, 'providerOptions' => [],
+            'middleware' => [], 'meta' => [],
+            'variables' => [], 'interpolate_messages' => false,
+        ],
+        terminal: 'asText',
+    );
+
+    expect($result)->toBeInstanceOf(TextResponse::class);
+});
+
+it('executeFromPayload throws on unknown terminal', function () {
+    TextRequest::executeFromPayload(
+        payload: [
+            'provider' => 'openai', 'model' => 'gpt-4o',
+            'instructions' => null, 'message' => null,
+            'messageMedia' => [], 'messages' => [],
+            'maxTokens' => null, 'temperature' => null,
+            'tools' => [], 'providerTools' => [],
+            'maxSteps' => null, 'concurrent' => false,
+            'schema' => null, 'providerOptions' => [],
+            'middleware' => [], 'meta' => [],
+            'variables' => [], 'interpolate_messages' => false,
+        ],
+        terminal: 'asImage',
+    );
+})->throws(InvalidArgumentException::class, 'Unknown terminal method');

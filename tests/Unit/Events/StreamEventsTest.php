@@ -6,6 +6,7 @@ use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Events\StreamChunkReceived;
 use Atlasphp\Atlas\Events\StreamCompleted;
 use Atlasphp\Atlas\Events\StreamStarted;
+use Atlasphp\Atlas\Events\StreamThinkingReceived;
 use Atlasphp\Atlas\Events\StreamToolCallReceived;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\PrivateChannel;
@@ -145,4 +146,29 @@ it('StreamStarted broadcastWhen returns false without channel', function () {
     $event = new StreamStarted;
 
     expect($event->broadcastWhen())->toBeFalse();
+});
+
+// ─── StreamThinkingReceived ─────────────────────────────────────────────
+
+it('StreamThinkingReceived implements ShouldBroadcastNow', function () {
+    $event = new StreamThinkingReceived(
+        channel: new Channel('test'),
+        text: 'thinking...',
+    );
+
+    expect($event)->toBeInstanceOf(ShouldBroadcastNow::class);
+});
+
+it('StreamThinkingReceived stores text and channel', function () {
+    $channel = new PrivateChannel('chat.1');
+    $event = new StreamThinkingReceived(channel: $channel, text: 'Let me think...');
+
+    expect($event->text)->toBe('Let me think...')
+        ->and($event->broadcastOn())->toBe([$channel]);
+});
+
+it('StreamThinkingReceived broadcastAs returns StreamThinkingReceived', function () {
+    $event = new StreamThinkingReceived(channel: new Channel('test'), text: 'hmm');
+
+    expect($event->broadcastAs())->toBe('StreamThinkingReceived');
 });

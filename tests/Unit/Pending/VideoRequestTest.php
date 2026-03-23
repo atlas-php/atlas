@@ -3,14 +3,21 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Enums\FinishReason;
+use Atlasphp\Atlas\Enums\Modality;
+use Atlasphp\Atlas\Events\ModalityCompleted;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
+use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Pending\VideoRequest;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
+use Atlasphp\Atlas\Queue\PendingExecution;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\Usage;
 use Atlasphp\Atlas\Responses\VideoResponse;
+use Atlasphp\Atlas\Testing\VideoResponseFake;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Queue;
 
 function createVideoPending(?Driver $driver = null): VideoRequest
 {
@@ -73,4 +80,74 @@ it('builds request with correct values', function () {
     expect($request->ratio)->toBe('16:9');
     expect($request->format)->toBe('mp4');
     expect($request->providerOptions)->toBe(['fps' => 30]);
+});
+
+it('fires ModalityCompleted on asVideo error', function () {
+    Event::fake();
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(video: true));
+    $driver->shouldReceive('video')->andThrow(new RuntimeException('fail'));
+
+    try {
+        createVideoPending($driver)->instructions('test')->asVideo();
+    } catch (RuntimeException) {
+    }
+
+    Event::assertDispatched(
+        ModalityCompleted::class,
+        fn ($e) => $e->modality === Modality::Video && $e->usage === null
+    );
+});
+
+it('fires ModalityCompleted on asText error', function () {
+    Event::fake();
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(videoToText: true));
+    $driver->shouldReceive('videoToText')->andThrow(new RuntimeException('fail'));
+
+    try {
+        createVideoPending($driver)->instructions('test')->asText();
+    } catch (RuntimeException) {
+    }
+
+    Event::assertDispatched(
+        ModalityCompleted::class,
+        fn ($e) => $e->modality === Modality::VideoToText && $e->usage === null
+    );
+});
+
+it('queued asVideo returns PendingExecution', function () {
+    Queue::fake();
+
+    $result = createVideoPending()->instructions('test')->queue()->asVideo();
+
+    expect($result)->toBeInstanceOf(PendingExecution::class);
+});
+
+it('serializes to queue payload', function () {
+    $payload = createVideoPending()
+        ->instructions('A sunrise')
+        ->withDuration(10)
+        ->withRatio('16:9')
+        ->toQueuePayload();
+
+    expect($payload['provider'])->toBe('openai')
+        ->and($payload['instructions'])->toBe('A sunrise')
+        ->and($payload['duration'])->toBe(10)
+        ->and($payload['ratio'])->toBe('16:9');
+});
+
+it('executeFromPayload rebuilds and executes', function () {
+    Atlas::fake([
+        VideoResponseFake::make(),
+    ]);
+
+    $result = VideoRequest::executeFromPayload(
+        payload: ['provider' => 'openai', 'model' => 'sora', 'instructions' => 'clip', 'media' => [], 'duration' => null, 'ratio' => null, 'format' => null, 'providerOptions' => [], 'meta' => [], 'variables' => [], 'interpolate_messages' => false],
+        terminal: 'asVideo',
+    );
+
+    expect($result)->toBeInstanceOf(VideoResponse::class);
 });

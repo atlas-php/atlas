@@ -2,13 +2,20 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Enums\Modality;
+use Atlasphp\Atlas\Events\ModalityCompleted;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
+use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Pending\RerankRequest;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
+use Atlasphp\Atlas\Queue\PendingExecution;
 use Atlasphp\Atlas\Responses\RerankResponse;
 use Atlasphp\Atlas\Responses\RerankResult;
+use Atlasphp\Atlas\Testing\RerankResponseFake;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Queue;
 
 function createRerankPending(?Driver $driver = null): RerankRequest
 {
@@ -124,4 +131,47 @@ it('builds request with correct values', function () {
     expect($request->topN)->toBe(3);
     expect($request->maxTokensPerDoc)->toBe(512);
     expect($request->providerOptions)->toBe(['return_documents' => true]);
+});
+
+it('queued asReranked returns PendingExecution', function () {
+    Queue::fake();
+
+    $result = createRerankPending()
+        ->query('test')
+        ->documents(['doc1'])
+        ->queue()
+        ->asReranked();
+
+    expect($result)->toBeInstanceOf(PendingExecution::class);
+});
+
+it('fires ModalityCompleted on error', function () {
+    Event::fake();
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(rerank: true));
+    $driver->shouldReceive('rerank')->andThrow(new RuntimeException('fail'));
+
+    try {
+        createRerankPending($driver)->query('q')->documents(['d'])->asReranked();
+    } catch (RuntimeException) {
+    }
+
+    Event::assertDispatched(
+        ModalityCompleted::class,
+        fn ($e) => $e->modality === Modality::Rerank && $e->usage === null
+    );
+});
+
+it('executeFromPayload rebuilds and executes', function () {
+    Atlas::fake([
+        RerankResponseFake::make(),
+    ]);
+
+    $result = RerankRequest::executeFromPayload(
+        payload: ['provider' => 'openai', 'model' => 'rerank-v3.5', 'query' => 'test', 'documents' => ['d1'], 'topN' => null, 'maxTokensPerDoc' => null, 'minScore' => null, 'providerOptions' => [], 'meta' => [], 'variables' => [], 'interpolate_messages' => false],
+        terminal: 'asReranked',
+    );
+
+    expect($result)->toBeInstanceOf(RerankResponse::class);
 });

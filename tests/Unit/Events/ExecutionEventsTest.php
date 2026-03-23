@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Events\ExecutionCompleted;
 use Atlasphp\Atlas\Events\ExecutionFailed;
+use Atlasphp\Atlas\Events\ExecutionProcessing;
 use Atlasphp\Atlas\Events\ExecutionQueued;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
@@ -59,6 +60,41 @@ it('ExecutionQueued broadcastWhen returns false without channel', function () {
     $event = new ExecutionQueued(executionId: 1);
 
     expect($event->broadcastWhen())->toBeFalse();
+});
+
+// ─── ExecutionProcessing ───────────────────────────────────────────────────
+
+it('ExecutionProcessing implements ShouldBroadcastNow', function () {
+    $event = new ExecutionProcessing(executionId: 1);
+
+    expect($event)->toBeInstanceOf(ShouldBroadcastNow::class);
+});
+
+it('ExecutionProcessing stores executionId', function () {
+    $event = new ExecutionProcessing(executionId: 55);
+
+    expect($event->executionId)->toBe(55);
+});
+
+it('ExecutionProcessing broadcastAs returns correct event name', function () {
+    $event = new ExecutionProcessing(executionId: 1);
+
+    expect($event->broadcastAs())->toBe('ExecutionProcessing');
+});
+
+it('ExecutionProcessing broadcastOn returns channel when provided', function () {
+    $channel = new PrivateChannel('chat.1');
+    $event = new ExecutionProcessing(executionId: 1, channel: $channel);
+
+    expect($event->broadcastOn())->toHaveCount(1)
+        ->and($event->broadcastOn()[0])->toBe($channel);
+});
+
+it('ExecutionProcessing broadcastWhen returns false without channel', function () {
+    $event = new ExecutionProcessing(executionId: 1);
+
+    expect($event->broadcastWhen())->toBeFalse()
+        ->and($event->broadcastOn())->toBe([]);
 });
 
 // ─── ExecutionCompleted ─────────────────────────────────────────────────────

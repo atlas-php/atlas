@@ -52,3 +52,15 @@ it('throws when storage file does not exist', function () {
 
     $image->contents();
 })->throws(RuntimeException::class, 'Cannot read file from storage: missing/image.jpg');
+
+it('throws when calling contents on fileId-backed input', function () {
+    $image = Image::fromFileId('file-abc123');
+
+    $image->contents();
+})->throws(RuntimeException::class, 'Cannot read contents from a fileId-backed input');
+
+it('throws when calling toBase64 on fileId-backed input', function () {
+    $image = Image::fromFileId('file-abc123');
+
+    $image->toBase64();
+})->throws(RuntimeException::class, 'Cannot read contents from a fileId-backed input');

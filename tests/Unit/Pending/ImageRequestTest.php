@@ -3,14 +3,21 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Enums\FinishReason;
+use Atlasphp\Atlas\Enums\Modality;
+use Atlasphp\Atlas\Events\ModalityCompleted;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
+use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Pending\ImageRequest;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
+use Atlasphp\Atlas\Queue\PendingExecution;
 use Atlasphp\Atlas\Responses\ImageResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\Usage;
+use Atlasphp\Atlas\Testing\ImageResponseFake;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Queue;
 
 function createImagePending(?Driver $driver = null): ImageRequest
 {
@@ -88,4 +95,74 @@ it('builds request with custom count', function () {
         ->buildRequest();
 
     expect($request->count)->toBe(3);
+});
+
+it('fires ModalityCompleted on asImage error', function () {
+    Event::fake();
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(image: true));
+    $driver->shouldReceive('image')->andThrow(new RuntimeException('fail'));
+
+    try {
+        createImagePending($driver)->instructions('test')->asImage();
+    } catch (RuntimeException) {
+    }
+
+    Event::assertDispatched(
+        ModalityCompleted::class,
+        fn ($e) => $e->modality === Modality::Image && $e->usage === null
+    );
+});
+
+it('fires ModalityCompleted on asText error', function () {
+    Event::fake();
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(imageToText: true));
+    $driver->shouldReceive('imageToText')->andThrow(new RuntimeException('fail'));
+
+    try {
+        createImagePending($driver)->instructions('test')->asText();
+    } catch (RuntimeException) {
+    }
+
+    Event::assertDispatched(
+        ModalityCompleted::class,
+        fn ($e) => $e->modality === Modality::ImageToText && $e->usage === null
+    );
+});
+
+it('queued asImage returns PendingExecution', function () {
+    Queue::fake();
+
+    $result = createImagePending()->instructions('test')->queue()->asImage();
+
+    expect($result)->toBeInstanceOf(PendingExecution::class);
+});
+
+it('serializes to queue payload', function () {
+    $payload = createImagePending()
+        ->instructions('A sunset')
+        ->withSize('1024x1024')
+        ->withQuality('hd')
+        ->toQueuePayload();
+
+    expect($payload['provider'])->toBe('openai')
+        ->and($payload['instructions'])->toBe('A sunset')
+        ->and($payload['size'])->toBe('1024x1024')
+        ->and($payload['quality'])->toBe('hd');
+});
+
+it('executeFromPayload rebuilds and executes', function () {
+    Atlas::fake([
+        ImageResponseFake::make(),
+    ]);
+
+    $result = ImageRequest::executeFromPayload(
+        payload: ['provider' => 'openai', 'model' => 'dall-e-3', 'instructions' => 'cat', 'media' => [], 'size' => null, 'quality' => null, 'format' => null, 'count' => 1, 'providerOptions' => [], 'meta' => [], 'variables' => [], 'interpolate_messages' => false],
+        terminal: 'asImage',
+    );
+
+    expect($result)->toBeInstanceOf(ImageResponse::class);
 });
