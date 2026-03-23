@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace App\Tools;
 
 use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Input\Image;
 use Atlasphp\Atlas\Schema\Fields\StringField;
 use Atlasphp\Atlas\Tools\Tool;
 
 /**
- * Tool for generating images using the configured default image provider.
+ * Tool for generating or editing images using the configured default image provider.
  *
- * The response carries the stored asset directly via asset.
+ * Supports text-to-image generation and image editing with a reference image.
  */
 class GenerateImageTool extends Tool
 {
@@ -22,7 +23,9 @@ class GenerateImageTool extends Tool
 
     public function description(): string
     {
-        return 'Generate an image from a text prompt using AI. Returns a markdown image tag.';
+        return 'Generate or edit an image. When a reference_image_url is provided, '
+            .'the image will be edited based on the prompt. Otherwise, a new image '
+            .'is generated from scratch. Returns a markdown image tag.';
     }
 
     /**
@@ -31,7 +34,8 @@ class GenerateImageTool extends Tool
     public function parameters(): array
     {
         return [
-            new StringField('prompt', 'A detailed description of the image to generate'),
+            new StringField('prompt', 'A detailed description of the image to generate or how to edit the reference image'),
+            (new StringField('reference_image_url', 'URL of a reference image to edit (from conversation attachments)'))->optional(),
         ];
     }
 
@@ -42,10 +46,15 @@ class GenerateImageTool extends Tool
     public function handle(array $args, array $context): string
     {
         $prompt = $args['prompt'];
+        $referenceUrl = $args['reference_image_url'] ?? null;
 
-        $response = Atlas::image()
-            ->instructions($prompt)
-            ->asImage();
+        $request = Atlas::image()->instructions($prompt);
+
+        if ($referenceUrl !== null && $referenceUrl !== '') {
+            $request->withMedia([Image::fromUrl($referenceUrl)]);
+        }
+
+        $response = $request->asImage();
 
         if ($response->asset) {
             return "![{$prompt}]({$response->asset->url()})";
@@ -53,6 +62,6 @@ class GenerateImageTool extends Tool
 
         $url = is_array($response->url) ? $response->url[0] : $response->url;
 
-        return "![{$prompt}]({$url})";
+        return "Result:\n![{$prompt}]({$url})";
     }
 }

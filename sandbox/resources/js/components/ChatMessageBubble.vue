@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { RotateCcw, ChevronLeft, ChevronRight, ChevronDown, Clock, Zap, Copy, Check, FileText } from 'lucide-vue-next';
+import { RotateCcw, ChevronLeft, ChevronRight, ChevronDown, Clock, Zap, Copy, Check, FileText, ImageIcon } from 'lucide-vue-next';
 import { renderMarkdown } from '../utils/markdown';
 import type { ChatMessage } from '../composables/useChat';
 
@@ -74,25 +74,35 @@ function formatTime(dateStr: string): string {
     <div class="group flex gap-3 py-2" :class="isUser ? 'justify-end' : 'justify-start'">
         <div :class="isUser ? 'max-w-[80%]' : 'max-w-[85%] w-full'">
             <!-- Attachments (above the bubble) -->
-            <div v-if="imageAttachments.length" class="mb-2 flex flex-wrap gap-1.5" :class="isUser ? 'justify-end' : ''">
-                <img
-                    v-for="att in imageAttachments"
-                    :key="att.id"
-                    :src="att.url"
-                    alt="attachment"
-                    class="max-h-60 max-w-[280px] rounded-xl border border-border object-cover"
-                />
-            </div>
+            <div v-if="message.attachments?.length" class="mb-2 flex flex-wrap gap-1.5" :class="isUser ? 'justify-end' : ''">
+                <template v-for="att in message.attachments" :key="att.id">
+                    <!-- User image attachments: show preview thumbnail -->
+                    <a
+                        v-if="isUser && att.type === 'image' && att.url"
+                        :href="att.url"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        <img
+                            :src="att.url"
+                            alt="attachment"
+                            class="max-h-48 max-w-[220px] rounded-xl border border-border object-cover transition-opacity hover:opacity-80"
+                        />
+                    </a>
 
-            <div v-if="docAttachments.length" class="mb-2 flex flex-wrap gap-1.5" :class="isUser ? 'justify-end' : ''">
-                <div
-                    v-for="att in docAttachments"
-                    :key="att.id"
-                    class="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground"
-                >
-                    <FileText class="size-3.5 shrink-0" />
-                    <span>{{ att.mime_type }}</span>
-                </div>
+                    <!-- All other attachments: chip style with icon + mime -->
+                    <a
+                        v-else
+                        :href="att.url"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground hover:border-foreground/20"
+                    >
+                        <ImageIcon v-if="att.type === 'image'" class="size-3.5 shrink-0" />
+                        <FileText v-else class="size-3.5 shrink-0" />
+                        <span>{{ att.mime_type }}</span>
+                    </a>
+                </template>
             </div>
 
             <!-- Message bubble -->
