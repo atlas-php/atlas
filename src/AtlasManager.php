@@ -12,8 +12,11 @@ use Atlasphp\Atlas\Pending\AudioRequest;
 use Atlasphp\Atlas\Pending\EmbedRequest;
 use Atlasphp\Atlas\Pending\ImageRequest;
 use Atlasphp\Atlas\Pending\ModerateRequest;
+use Atlasphp\Atlas\Pending\MusicRequest;
 use Atlasphp\Atlas\Pending\ProviderRequest;
 use Atlasphp\Atlas\Pending\RerankRequest;
+use Atlasphp\Atlas\Pending\SfxRequest;
+use Atlasphp\Atlas\Pending\SpeechRequest;
 use Atlasphp\Atlas\Pending\TextRequest;
 use Atlasphp\Atlas\Pending\VideoRequest;
 use Atlasphp\Atlas\Persistence\Memory\MemoryBuilder;
@@ -58,6 +61,27 @@ class AtlasManager
     public function audio(Provider|string|null $provider = null, ?string $model = null): AudioRequest
     {
         return new AudioRequest($provider, $model, $this->providerRegistry);
+    }
+
+    public function music(Provider|string|null $provider = null, ?string $model = null): MusicRequest
+    {
+        [$provider, $model] = $this->resolveDefaults('music', $provider, $model);
+
+        return new MusicRequest($provider, $model, $this->providerRegistry);
+    }
+
+    public function sfx(Provider|string|null $provider = null, ?string $model = null): SfxRequest
+    {
+        [$provider, $model] = $this->resolveDefaults('sfx', $provider, $model);
+
+        return new SfxRequest($provider, $model, $this->providerRegistry);
+    }
+
+    public function speech(Provider|string|null $provider = null, ?string $model = null): SpeechRequest
+    {
+        [$provider, $model] = $this->resolveDefaults('speech', $provider, $model);
+
+        return new SpeechRequest($provider, $model, $this->providerRegistry);
     }
 
     public function video(Provider|string|null $provider = null, ?string $model = null): VideoRequest

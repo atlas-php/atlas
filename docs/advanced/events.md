@@ -22,7 +22,7 @@ Fired by the shared `HttpClient` on every API call to a provider.
 |-------|-----------|
 | `ProviderRequestStarted`<br><small>Before the HTTP request is sent</small> | `string $url`, `array $body` |
 | `ProviderRequestCompleted`<br><small>After a successful response is parsed</small> | `string $url`, `array $data` |
-| `ProviderRequestFailed`<br><small>When the HTTP request fails</small> | `string $url`, `mixed $response` |
+| `ProviderRequestFailed`<br><small>When the HTTP request fails</small> | `string $url`, `Response $response` |
 
 </div>
 
@@ -160,7 +160,7 @@ class AgentEventSubscriber
         Log::info('Agent completed', [
             'agent' => $event->agentKey,
             'steps' => count($event->steps),
-            'tokens' => $event->usage->promptTokens + $event->usage->completionTokens,
+            'tokens' => $event->usage->inputTokens + $event->usage->outputTokens,
         ]);
     }
 
@@ -205,8 +205,8 @@ class TrackCosts
         DB::table('usage_logs')->insert([
             'agent' => $event->agentKey,
             'step' => $event->stepNumber,
-            'prompt_tokens' => $event->usage->promptTokens,
-            'completion_tokens' => $event->usage->completionTokens,
+            'input_tokens' => $event->usage->inputTokens,
+            'output_tokens' => $event->usage->outputTokens,
             'created_at' => now(),
         ]);
     }
@@ -293,22 +293,20 @@ Both use the `Channel` object to target the correct broadcast channel. See [Stre
 A typical agent execution with tool calls fires events in this order:
 
 ```
-1. AgentStarted
-2. ModalityStarted
-3. ProviderRequestStarted
-4. ProviderRequestCompleted
-5. ModalityCompleted
-6. AgentStepStarted
+1. ModalityStarted           ← modality wraps the entire execution
+2. AgentStarted
+3. AgentStepStarted
+4.   ProviderRequestStarted
+5.   ProviderRequestCompleted
+6. AgentStepCompleted
 7. AgentToolCallStarted
 8. AgentToolCallCompleted
-9. AgentStepCompleted
-10. ModalityStarted          ← next step begins
-11. ProviderRequestStarted
-12. ProviderRequestCompleted
-13. ModalityCompleted
-14. AgentStepStarted
-15. AgentStepCompleted       ← no more tool calls
-16. AgentCompleted
+9. AgentStepStarted          ← next step begins
+10.  ProviderRequestStarted
+11.  ProviderRequestCompleted
+12. AgentStepCompleted       ← no more tool calls
+13. AgentCompleted
+14. ModalityCompleted         ← modality closes with usage
 ```
 
 For queued executions, the lifecycle is wrapped:

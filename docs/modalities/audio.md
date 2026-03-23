@@ -1,143 +1,58 @@
 # Audio
 
-Convert text to speech (TTS), transcribe audio to text (STT), generate sound effects, and create music.
+Atlas provides three focused audio modalities — speech, music, and sound effects — each with a dedicated API.
 
-## Text-to-Speech
+## Speech (TTS & STT)
+
+Convert text to speech or transcribe audio to text:
 
 ```php
 use Atlasphp\Atlas\Facades\Atlas;
 
-$response = Atlas::audio('openai', 'tts-1')
+$response = Atlas::speech('openai', 'tts-1')
     ->instructions('Hello, welcome to Atlas!')
     ->withVoice('alloy')
     ->asAudio();
-
-// $response->data contains the audio binary
-$response->store('public');  // Store to disk
 ```
 
-### Voice Options
+→ [Full documentation](/modalities/speech)
+
+## Music
+
+Generate music from text prompts:
 
 ```php
-$response = Atlas::audio('openai', 'tts-1-hd')
-    ->instructions('This is high quality speech.')
-    ->withVoice('nova')
-    ->withSpeed(1.2)
-    ->withFormat('mp3')
+$response = Atlas::music('elevenlabs')
+    ->instructions('An upbeat jazz piano track')
+    ->withDuration(30)
     ->asAudio();
 ```
 
-### With ElevenLabs
-
-```php
-$response = Atlas::audio('elevenlabs', 'eleven_multilingual_v2')
-    ->instructions('Welcome to the future of AI.')
-    ->withVoice('Rachel')
-    ->withLanguage('en')
-    ->asAudio();
-```
-
-## Speech-to-Text (Transcription)
-
-```php
-use Atlasphp\Atlas\Input\Audio;
-
-$response = Atlas::audio('openai', 'whisper-1')
-    ->withMedia([Audio::fromPath('/path/to/recording.mp3')])
-    ->asText();
-
-echo $response->text;  // "Hello, this is the transcribed text..."
-```
-
-### From Different Sources
-
-```php
-Audio::fromUrl('https://example.com/audio.mp3')
-Audio::fromPath('/path/to/file.wav')
-Audio::fromStorage('recordings/meeting.mp3')
-Audio::fromUpload($request->file('audio'))
-```
-
-## Storing Audio
-
-```php
-$response = Atlas::audio('openai', 'tts-1')
-    ->instructions('Hello world')
-    ->withVoice('alloy')
-    ->asAudio();
-
-// Store to disk manually
-$path = $response->store('public');
-$path = $response->storeAs('audio/greeting.mp3', 'public');
-```
-
-::: tip Automatic Storage
-When [persistence](/advanced/persistence) is enabled, generated audio is automatically stored to disk and tracked as an `Asset` record — no manual `store()` call needed. Access the asset via `$response->asset`. See [Media & Assets](/guides/media-storage) for details.
-:::
+→ [Full documentation](/modalities/music)
 
 ## Sound Effects
 
-Generate sound effects from text descriptions using ElevenLabs:
+Generate sound effects from text descriptions:
 
 ```php
-$response = Atlas::audio('elevenlabs')
-    ->instructions('A thunderstorm with heavy rain and distant rumbling')
+$response = Atlas::sfx('elevenlabs')
+    ->instructions('Thunder with heavy rain')
     ->withDuration(5)
-    ->withMeta(['_audio_mode' => 'sfx'])
     ->asAudio();
-
-$response->store('public');
 ```
 
-### SFX Options
+→ [Full documentation](/modalities/sound-effects)
+
+## Low-Level API
+
+`Atlas::audio()` is the underlying entry point that all three modalities build on. Use it directly for advanced use cases or future audio capabilities:
 
 ```php
-$response = Atlas::audio('elevenlabs')
-    ->instructions('Footsteps on gravel, slow pace')
-    ->withDuration(3)
-    ->withProviderOptions([
-        'loop' => true,              // Seamless looping
-        'prompt_influence' => 0.8,   // How closely to follow the prompt
-    ])
-    ->withMeta(['_audio_mode' => 'sfx'])
+$response = Atlas::audio('openai', 'tts-1')
+    ->instructions('Direct audio API usage')
+    ->withVoice('alloy')
     ->asAudio();
 ```
-
-## Music Generation
-
-Generate music from text prompts or composition plans using ElevenLabs:
-
-```php
-$response = Atlas::audio('elevenlabs')
-    ->instructions('An upbeat jazz piano track with a walking bass line')
-    ->withDuration(30)
-    ->withMeta(['_audio_mode' => 'music'])
-    ->asAudio();
-
-$response->store('public');
-```
-
-### With Composition Plan
-
-For more control, pass a structured composition plan:
-
-```php
-$response = Atlas::audio('elevenlabs')
-    ->withProviderOptions([
-        'composition_plan' => [
-            ['text' => 'Gentle piano intro', 'duration_ms' => 5000],
-            ['text' => 'Build with drums and bass', 'duration_ms' => 15000],
-            ['text' => 'Fade out', 'duration_ms' => 5000],
-        ],
-        'strict_section_timing' => true,
-    ])
-    ->withMeta(['_audio_mode' => 'music'])
-    ->asAudio();
-```
-
-::: tip Audio Mode
-Sound effects and music are dispatched through the same `Atlas::audio()` builder. Set `'_audio_mode'` in meta to `'sfx'` or `'music'` to route to the appropriate handler. The default mode is `'tts'` (text-to-speech).
-:::
 
 ## Supported Providers
 
@@ -147,25 +62,22 @@ Sound effects and music are dispatched through the same `Atlas::audio()` builder
 | ElevenLabs | eleven_multilingual_v2 | Yes | eleven_text_to_sound_v2 | Yes | Voices, cloning, languages, SFX, music |
 | xAI | grok-2-audio | — | — | — | TTS |
 
-## AudioResponse
+## Storing Audio
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `data` | `string` | Raw audio binary data |
-| `format` | `?string` | Audio format (mp3, wav, etc.) |
-| `meta` | `array` | Additional metadata |
-| `asset` | `?Asset` | Linked asset (when persistence enabled) |
+```php
+$response->store('public');
+$response->storeAs('audio/greeting.mp3', 'public');
+```
+
+::: tip Automatic Storage
+When [persistence](/advanced/persistence) is enabled, generated audio is automatically stored to disk and tracked as an `Asset` record — no manual `store()` call needed. See each sub-page or [Media & Assets](/guides/media-storage) for details.
+:::
 
 ## Persisted Asset
 
 When [persistence](/advanced/persistence) is enabled, generated audio is automatically stored to disk:
 
 ```php
-$response = Atlas::audio('openai', 'tts-1')
-    ->instructions('Welcome to Atlas')
-    ->withVoice('alloy')
-    ->asAudio();
-
 if ($response->asset) {
     $response->asset->path;       // Storage path
     $response->asset->mime_type;  // "audio/mpeg"
@@ -177,41 +89,24 @@ See [Media & Assets](/guides/media-storage) for the complete storage guide.
 
 ## Queue Support
 
+All audio modalities support queue dispatch:
+
 ```php
-Atlas::audio('openai', 'tts-1')
+Atlas::speech('openai', 'tts-1')
     ->instructions('Generate a long audiobook chapter')
     ->withVoice('nova')
     ->queue()
     ->asAudio()
-    ->then(function ($response) {
-        $path = $response->store('public');
-        notify($user, "Audio ready: {$path}");
-    });
+    ->then(fn ($response) => $response->store('public'));
 ```
 
-```php
-// Transcription in background
-Atlas::audio('openai', 'whisper-1')
-    ->withMedia([Audio::fromStorage('recordings/meeting.mp3')])
-    ->queue()
-    ->asText()
-    ->then(fn ($response) => Transcript::create(['text' => $response->text]));
-```
+See [Speech](/modalities/speech), [Music](/modalities/music), and [Sound Effects](/modalities/sound-effects) for modality-specific queue examples.
 
-## Builder Reference
+## AudioResponse
 
-| Method | Description |
-|--------|-------------|
-| `instructions(string)` | Text to convert to speech |
-| `withMedia(array)` | Audio files for transcription |
-| `withVoice(string)` | Voice name or ID |
-| `withVoiceClone(array)` | Voice cloning configuration |
-| `withSpeed(float)` | Playback speed multiplier |
-| `withLanguage(string)` | Language code |
-| `withDuration(int)` | Duration in seconds |
-| `withFormat(string)` | Output format (mp3, wav, ogg, etc.) |
-| `withProviderOptions(array)` | Provider-specific options |
-| `withVariables(array)` | Variables for instruction interpolation |
-| `withMeta(array)` | Metadata for middleware/events |
-| `withMiddleware(array)` | Per-request provider middleware |
-| `queue()` | Dispatch to queue |
+| Property | Type | Description |
+|----------|------|-------------|
+| `data` | `string` | Raw audio binary data |
+| `format` | `?string` | Audio format (mp3, wav, etc.) |
+| `meta` | `array` | Additional metadata |
+| `asset` | `?Asset` | Linked asset (when persistence enabled) |

@@ -11,8 +11,11 @@ use Atlasphp\Atlas\Pending\AudioRequest;
 use Atlasphp\Atlas\Pending\EmbedRequest;
 use Atlasphp\Atlas\Pending\ImageRequest;
 use Atlasphp\Atlas\Pending\ModerateRequest;
+use Atlasphp\Atlas\Pending\MusicRequest;
 use Atlasphp\Atlas\Pending\ProviderRequest;
 use Atlasphp\Atlas\Pending\RerankRequest;
+use Atlasphp\Atlas\Pending\SfxRequest;
+use Atlasphp\Atlas\Pending\SpeechRequest;
 use Atlasphp\Atlas\Pending\TextRequest;
 use Atlasphp\Atlas\Pending\VideoRequest;
 use Atlasphp\Atlas\Persistence\Memory\MemoryBuilder;
@@ -35,6 +38,9 @@ use Illuminate\Support\Facades\Facade;
  * @method static TextRequest text(Provider|string|null $provider = null, ?string $model = null)
  * @method static ImageRequest image(Provider|string|null $provider = null, ?string $model = null)
  * @method static AudioRequest audio(Provider|string|null $provider = null, ?string $model = null)
+ * @method static MusicRequest music(Provider|string|null $provider = null, ?string $model = null)
+ * @method static SfxRequest sfx(Provider|string|null $provider = null, ?string $model = null)
+ * @method static SpeechRequest speech(Provider|string|null $provider = null, ?string $model = null)
  * @method static VideoRequest video(Provider|string|null $provider = null, ?string $model = null)
  * @method static EmbedRequest embed(Provider|string|null $provider = null, ?string $model = null)
  * @method static ModerateRequest moderate(Provider|string|null $provider = null, ?string $model = null)

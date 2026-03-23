@@ -18,6 +18,9 @@ enum ExecutionType: string
     case AudioToText = 'audio_to_text';
     case Video = 'video';
     case VideoToText = 'video_to_text';
+    case Music = 'music';
+    case Sfx = 'sfx';
+    case Speech = 'speech';
     case Embed = 'embed';
     case Moderate = 'moderate';
     case Rerank = 'rerank';
@@ -27,7 +30,7 @@ enum ExecutionType: string
      */
     public function producesFile(): bool
     {
-        return in_array($this, [self::Image, self::Audio, self::Video]);
+        return in_array($this, [self::Image, self::Audio, self::Music, self::Sfx, self::Speech, self::Video]);
     }
 
     /**
@@ -38,6 +41,9 @@ enum ExecutionType: string
         return match ($this) {
             self::Image => AssetType::Image,
             self::Audio => AssetType::Audio,
+            self::Music => AssetType::Audio,
+            self::Sfx => AssetType::Audio,
+            self::Speech => AssetType::Audio,
             self::Video => AssetType::Video,
             default => null,
         };
@@ -58,6 +64,9 @@ enum ExecutionType: string
             'audioToText' => self::AudioToText,
             'video' => self::Video,
             'videoToText' => self::VideoToText,
+            'music' => self::Music,
+            'sfx' => self::Sfx,
+            'speech' => self::Speech,
             'embed' => self::Embed,
             'moderate' => self::Moderate,
             'rerank' => self::Rerank,

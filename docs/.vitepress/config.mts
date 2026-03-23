@@ -46,7 +46,15 @@ export default defineConfig({
                 items: [
                     { text: 'Text', link: '/modalities/text' },
                     { text: 'Images', link: '/modalities/images' },
-                    { text: 'Audio', link: '/modalities/audio' },
+                    {
+                        text: 'Audio',
+                        link: '/modalities/audio',
+                        items: [
+                            { text: 'Speech', link: '/modalities/speech' },
+                            { text: 'Music', link: '/modalities/music' },
+                            { text: 'Sound Effects', link: '/modalities/sound-effects' },
+                        ]
+                    },
                     { text: 'Video', link: '/modalities/video' },
                     { text: 'Embeddings', link: '/modalities/embeddings' },
                     { text: 'Reranking', link: '/modalities/reranking' },

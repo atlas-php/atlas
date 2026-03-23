@@ -210,6 +210,37 @@ $stream->getText();         // Full accumulated text
 $stream->getUsage();        // Usage (available after last chunk)
 $stream->getFinishReason(); // FinishReason
 $stream->getToolCalls();    // Tool calls (if any)
+$stream->getReasoning();    // Thinking/reasoning content (if model supports it)
+```
+
+### Streaming with Tools
+
+When tools are present, `asStream()` runs the tool loop synchronously, then streams the results — yielding tool call chunks followed by text segments:
+
+```php
+$stream = Atlas::text('openai', 'gpt-4o')
+    ->message('What is the weather in NYC?')
+    ->withTools([WeatherTool::class])
+    ->asStream();
+
+foreach ($stream as $chunk) {
+    match ($chunk->type) {
+        ChunkType::ToolCall => handleToolCalls($chunk->toolCalls),
+        ChunkType::Text     => echo $chunk->text,
+        ChunkType::Done     => handleCompletion($chunk->usage),
+        default             => null,
+    };
+}
+```
+
+### Chainable Callbacks
+
+Multiple `then()` callbacks can be registered — they fire in order after the stream completes:
+
+```php
+$stream
+    ->then(fn ($s) => Log::info('Completed', ['tokens' => $s->getUsage()?->totalTokens()]))
+    ->then(fn ($s) => cache()->put('last_response', $s->getText()));
 ```
 
 ## Structured Output
@@ -361,11 +392,12 @@ $response = Atlas::text('openai', 'gpt-4o')
 |--------|---------|-------------|
 | `broadcastOn(Channel)` | `static` | Broadcast chunks to a channel |
 | `onChunk(Closure)` | `static` | Callback for each chunk |
-| `then(Closure)` | `static` | Callback after stream completes |
+| `then(Closure)` | `static` | Callback after stream completes (chainable — multiple allowed) |
 | `getText()` | `string` | Accumulated text (after iteration) |
 | `getUsage()` | `?Usage` | Token usage (after iteration) |
 | `getFinishReason()` | `?FinishReason` | Finish reason (after iteration) |
 | `getToolCalls()` | `array` | Tool calls (after iteration) |
+| `getReasoning()` | `string` | Thinking/reasoning content (after iteration) |
 | `toResponse($request)` | `StreamedResponse` | Convert to SSE HTTP response |
 
 ## StructuredResponse

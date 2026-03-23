@@ -237,8 +237,8 @@ class TrackCost
                 'user_id' => $userId,
                 'agent' => $context->agentKey,
                 'step' => $context->stepNumber,
-                'prompt_tokens' => $usage->promptTokens,
-                'completion_tokens' => $usage->completionTokens,
+                'input_tokens' => $usage->inputTokens,
+                'output_tokens' => $usage->outputTokens,
             ]);
         }
 

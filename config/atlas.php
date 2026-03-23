@@ -20,6 +20,9 @@ return [
         'embed' => ['provider' => env('ATLAS_EMBED_PROVIDER'), 'model' => env('ATLAS_EMBED_MODEL')],
         'moderate' => ['provider' => env('ATLAS_MODERATE_PROVIDER'), 'model' => env('ATLAS_MODERATE_MODEL')],
         'rerank' => ['provider' => env('ATLAS_RERANK_PROVIDER'), 'model' => env('ATLAS_RERANK_MODEL')],
+        'music' => ['provider' => env('ATLAS_MUSIC_PROVIDER'), 'model' => env('ATLAS_MUSIC_MODEL')],
+        'sfx' => ['provider' => env('ATLAS_SFX_PROVIDER'), 'model' => env('ATLAS_SFX_MODEL')],
+        'speech' => ['provider' => env('ATLAS_SPEECH_PROVIDER'), 'model' => env('ATLAS_SPEECH_MODEL')],
     ],
 
     /*

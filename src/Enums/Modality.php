@@ -18,6 +18,10 @@ enum Modality: string
     case AudioToText = 'audio_to_text';
     case Video = 'video';
     case VideoToText = 'video_to_text';
+    case Music = 'music';
+    case Sfx = 'sfx';
+    case Speech = 'speech';
+    case SpeechToText = 'speech_to_text';
     case Embed = 'embed';
     case Moderate = 'moderate';
     case Rerank = 'rerank';
