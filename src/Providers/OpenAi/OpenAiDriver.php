@@ -10,17 +10,17 @@ use Atlasphp\Atlas\Providers\Handlers\EmbedHandler;
 use Atlasphp\Atlas\Providers\Handlers\ImageHandler;
 use Atlasphp\Atlas\Providers\Handlers\ModerateHandler;
 use Atlasphp\Atlas\Providers\Handlers\ProviderHandler;
-use Atlasphp\Atlas\Providers\Handlers\RealtimeHandler;
 use Atlasphp\Atlas\Providers\Handlers\TextHandler;
 use Atlasphp\Atlas\Providers\Handlers\VideoHandler;
+use Atlasphp\Atlas\Providers\Handlers\VoiceHandler;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Audio;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Embed;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Image;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Moderate;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Provider;
-use Atlasphp\Atlas\Providers\OpenAi\Handlers\Realtime;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Text;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Video;
+use Atlasphp\Atlas\Providers\OpenAi\Handlers\Voice;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
 
 /**
@@ -50,7 +50,7 @@ class OpenAiDriver extends Driver
             videoToText: false,
             embed: true,
             moderate: true,
-            realtime: true,
+            voice: true,
             vision: true,
             toolCalling: true,
             providerTools: true,
@@ -103,8 +103,8 @@ class OpenAiDriver extends Driver
         return new Moderate($this->config, $this->http);
     }
 
-    protected function realtimeHandler(): RealtimeHandler
+    protected function voiceHandler(): VoiceHandler
     {
-        return new Realtime($this->config, $this->http);
+        return new Voice($this->config, $this->http);
     }
 }

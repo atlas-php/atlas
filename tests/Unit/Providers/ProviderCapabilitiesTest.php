@@ -5,13 +5,13 @@ declare(strict_types=1);
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
 
 it('returns true for supported features', function () {
-    $caps = new ProviderCapabilities(text: true, stream: true, models: true, voices: true, realtime: true);
+    $caps = new ProviderCapabilities(text: true, stream: true, models: true, voices: true, voice: true);
 
     expect($caps->supports('text'))->toBeTrue();
     expect($caps->supports('stream'))->toBeTrue();
     expect($caps->supports('models'))->toBeTrue();
     expect($caps->supports('voices'))->toBeTrue();
-    expect($caps->supports('realtime'))->toBeTrue();
+    expect($caps->supports('voice'))->toBeTrue();
 });
 
 it('returns false for unsupported features', function () {

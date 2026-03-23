@@ -23,7 +23,7 @@ const docAttachments = computed(() =>
     (props.message.attachments ?? []).filter((a) => a.type !== 'image'),
 );
 const hasExecution = computed(() => !!props.message.execution);
-const isRealtime = computed(() => props.message.metadata?.source === 'realtime');
+const isRealtime = computed(() => props.message.metadata?.source === 'voice');
 const hasSiblings = computed(
     () => (props.message.sibling_count ?? 0) > 1,
 );

@@ -18,10 +18,10 @@ use Atlasphp\Atlas\Requests\AudioRequest;
 use Atlasphp\Atlas\Requests\EmbedRequest;
 use Atlasphp\Atlas\Requests\ImageRequest;
 use Atlasphp\Atlas\Requests\ModerateRequest;
-use Atlasphp\Atlas\Requests\RealtimeRequest;
 use Atlasphp\Atlas\Requests\RerankRequest;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Requests\VideoRequest;
+use Atlasphp\Atlas\Requests\VoiceRequest;
 use Atlasphp\Atlas\Responses\EmbeddingsResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\Usage;
@@ -108,8 +108,8 @@ it('throws UnsupportedFeatureException for rerank', function () {
 })->throws(UnsupportedFeatureException::class, 'rerank');
 
 it('throws UnsupportedFeatureException for realtime', function () {
-    createTestDriver()->createRealtimeSession(new RealtimeRequest('model', null, null));
-})->throws(UnsupportedFeatureException::class, 'realtime');
+    createTestDriver()->createVoiceSession(new VoiceRequest('model', null, null));
+})->throws(UnsupportedFeatureException::class, 'voice');
 
 // ─── withHandler ────────────────────────────────────────────────────────────
 

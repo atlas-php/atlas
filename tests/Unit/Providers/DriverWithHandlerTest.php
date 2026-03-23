@@ -4,24 +4,24 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Enums\FinishReason;
-use Atlasphp\Atlas\Enums\RealtimeTransport;
+use Atlasphp\Atlas\Enums\VoiceTransport;
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\Handlers\AudioHandler;
-use Atlasphp\Atlas\Providers\Handlers\RealtimeHandler;
 use Atlasphp\Atlas\Providers\Handlers\TextHandler;
+use Atlasphp\Atlas\Providers\Handlers\VoiceHandler;
 use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Requests\AudioRequest;
-use Atlasphp\Atlas\Requests\RealtimeRequest;
 use Atlasphp\Atlas\Requests\TextRequest;
+use Atlasphp\Atlas\Requests\VoiceRequest;
 use Atlasphp\Atlas\Responses\AudioResponse;
-use Atlasphp\Atlas\Responses\RealtimeSession;
 use Atlasphp\Atlas\Responses\StreamChunk;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\Usage;
+use Atlasphp\Atlas\Responses\VoiceSession;
 
 function makeTextReq(string $model = 'model'): TextRequest
 {
@@ -173,19 +173,19 @@ it('custom streaming handler yields chunks correctly through StreamResponse', fu
 // ─── Handler adds realtime to a bare driver ─────────────────────────────────
 
 it('adds realtime handler to a bare driver via withHandler', function () {
-    $session = new RealtimeSession(
+    $session = new VoiceSession(
         sessionId: 'rt_test',
         provider: 'test',
         model: 'model',
-        transport: RealtimeTransport::WebRtc,
+        transport: VoiceTransport::WebRtc,
     );
 
-    $realtimeHandler = Mockery::mock(RealtimeHandler::class);
-    $realtimeHandler->shouldReceive('createSession')->once()->andReturn($session);
+    $voiceHandler = Mockery::mock(VoiceHandler::class);
+    $voiceHandler->shouldReceive('createSession')->once()->andReturn($session);
 
-    $driver = makeBareDriver()->withHandler('realtime', $realtimeHandler);
+    $driver = makeBareDriver()->withHandler('voice', $voiceHandler);
 
-    $result = $driver->createRealtimeSession(new RealtimeRequest('model', null, null));
+    $result = $driver->createVoiceSession(new VoiceRequest('model', null, null));
     expect($result->sessionId)->toBe('rt_test');
 });
 

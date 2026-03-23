@@ -20,7 +20,7 @@ return [
         'embed' => ['provider' => env('ATLAS_EMBED_PROVIDER', 'openai'), 'model' => env('ATLAS_EMBED_MODEL', 'text-embedding-3-small')],
         'moderate' => ['provider' => env('ATLAS_MODERATE_PROVIDER', 'openai'), 'model' => env('ATLAS_MODERATE_MODEL', 'omni-moderation-latest')],
         'rerank' => ['provider' => env('ATLAS_RERANK_PROVIDER'), 'model' => env('ATLAS_RERANK_MODEL')],
-        'realtime' => ['provider' => env('ATLAS_REALTIME_PROVIDER', 'openai'), 'model' => env('ATLAS_REALTIME_MODEL', 'gpt-4o-mini-realtime-preview-2024-12-17')],
+        'voice' => ['provider' => env('ATLAS_VOICE_PROVIDER', 'xai'), 'model' => env('ATLAS_VOICE_MODEL', 'grok-3-fast-realtime')],
     ],
 
     /*
@@ -180,7 +180,7 @@ return [
         'message_limit' => (int) env('ATLAS_MESSAGE_LIMIT', 50),
         'auto_store_assets' => env('ATLAS_AUTO_STORE_ASSETS', true),
         'memory_auto_embed' => env('ATLAS_MEMORY_AUTO_EMBED', true),
-        'realtime_transcripts' => [
+        'voice_transcripts' => [
             'enabled' => true,
             'middleware' => [],
             'route_prefix' => 'atlas',

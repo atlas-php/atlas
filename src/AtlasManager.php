@@ -14,12 +14,12 @@ use Atlasphp\Atlas\Pending\ImageRequest;
 use Atlasphp\Atlas\Pending\ModerateRequest;
 use Atlasphp\Atlas\Pending\MusicRequest;
 use Atlasphp\Atlas\Pending\ProviderRequest;
-use Atlasphp\Atlas\Pending\RealtimeRequest;
 use Atlasphp\Atlas\Pending\RerankRequest;
 use Atlasphp\Atlas\Pending\SfxRequest;
 use Atlasphp\Atlas\Pending\SpeechRequest;
 use Atlasphp\Atlas\Pending\TextRequest;
 use Atlasphp\Atlas\Pending\VideoRequest;
+use Atlasphp\Atlas\Pending\VoiceRequest;
 use Atlasphp\Atlas\Persistence\Memory\MemoryBuilder;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Illuminate\Contracts\Events\Dispatcher;
@@ -113,11 +113,11 @@ class AtlasManager
         return new RerankRequest($provider, $model, $this->providerRegistry);
     }
 
-    public function realtime(Provider|string|null $provider = null, ?string $model = null): RealtimeRequest
+    public function voice(Provider|string|null $provider = null, ?string $model = null): VoiceRequest
     {
-        [$provider, $model] = $this->resolveDefaults('realtime', $provider, $model);
+        [$provider, $model] = $this->resolveDefaults('voice', $provider, $model);
 
-        return new RealtimeRequest($provider, $model, $this->providerRegistry);
+        return new VoiceRequest($provider, $model, $this->providerRegistry);
     }
 
     public function provider(Provider|string $provider): ProviderRequest

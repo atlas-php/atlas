@@ -8,7 +8,7 @@ Atlas has its own provider layer with first-party drivers for major AI services.
 
 | Provider | Key | Capabilities |
 |----------|-----|-------------|
-| OpenAI | `openai` | Text, stream, structured, image, audio, video, embed, moderate, realtime, vision, tool calling |
+| OpenAI | `openai` | Text, stream, structured, image, audio, video, embed, moderate, voice, vision, tool calling |
 | Anthropic | `anthropic` | Text, stream, structured, vision, tool calling |
 | Google | `google` | Text, stream, structured, image, embed, vision, tool calling |
 | xAI | `xai` | Text, stream, structured, image, audio, video, realtime, vision, tool calling |

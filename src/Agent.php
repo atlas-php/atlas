@@ -104,6 +104,32 @@ abstract class Agent
         return [];
     }
 
+    // ─── Voice ──────────────────────────────────────────────────────
+
+    /**
+     * Provider for voice sessions. Null falls back to provider() then config default.
+     */
+    public function voiceProvider(): Provider|string|null
+    {
+        return null;
+    }
+
+    /**
+     * Model for voice sessions. Null falls back to config default.
+     */
+    public function voiceModel(): ?string
+    {
+        return null;
+    }
+
+    /**
+     * Voice name for voice sessions (e.g., 'alloy', 'shimmer', 'marin').
+     */
+    public function voice(): ?string
+    {
+        return null;
+    }
+
     // ─── Config ─────────────────────────────────────────────────────
 
     /**

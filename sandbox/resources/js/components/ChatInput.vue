@@ -3,24 +3,24 @@ import { ref, computed, watch, nextTick } from 'vue';
 import { ArrowUp, Paperclip, X, FileText } from 'lucide-vue-next';
 import type { Attachment } from '../composables/useAttachments';
 import { ACCEPTED_TYPES } from '../composables/useAttachments';
-import type { SessionStatus } from '../composables/useRealtime';
-import RealtimeButton from './RealtimeButton.vue';
+import type { SessionStatus } from '../composables/useVoice';
+import VoiceButton from './VoiceButton.vue';
 
 const props = defineProps<{
     disabled: boolean;
     attachments: Attachment[];
     canAddMore: boolean;
-    realtimeStatus?: SessionStatus;
-    realtimeAudioLevel?: number;
-    realtimeIsListening?: boolean;
-    realtimeIsSpeaking?: boolean;
+    voiceStatus?: SessionStatus;
+    voiceAudioLevel?: number;
+    voiceIsListening?: boolean;
+    voiceIsSpeaking?: boolean;
 }>();
 
 const emit = defineEmits<{
     send: [text: string];
     'add-files': [files: FileList];
     'remove-attachment': [index: number];
-    'realtime-toggle': [];
+    'voice-toggle': [];
 }>();
 
 const text = ref('');
@@ -201,13 +201,13 @@ function handleDrop(e: DragEvent) {
 
                     <!-- Right: mic + send -->
                     <div class="flex items-center gap-1">
-                        <RealtimeButton
-                            v-if="realtimeStatus !== undefined"
-                            :status="realtimeStatus ?? 'idle'"
-                            :audio-level="realtimeAudioLevel ?? 0"
-                            :is-listening="realtimeIsListening ?? false"
-                            :is-speaking="realtimeIsSpeaking ?? false"
-                            @toggle="emit('realtime-toggle')"
+                        <VoiceButton
+                            v-if="voiceStatus !== undefined"
+                            :status="voiceStatus ?? 'idle'"
+                            :audio-level="voiceAudioLevel ?? 0"
+                            :is-listening="voiceIsListening ?? false"
+                            :is-speaking="voiceIsSpeaking ?? false"
+                            @toggle="emit('voice-toggle')"
                         />
                         <button
                             class="flex size-8 items-center justify-center rounded-full transition-colors"

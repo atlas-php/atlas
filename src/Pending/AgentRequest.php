@@ -34,12 +34,14 @@ use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
+use Atlasphp\Atlas\Responses\VoiceSession;
 use Atlasphp\Atlas\Schema\Schema;
 use Atlasphp\Atlas\Tools\Tool;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Fluent builder for agent execution requests.
@@ -445,6 +447,94 @@ class AgentRequest implements QueueableRequest
         event(new ModalityCompleted(modality: Modality::Structured, provider: $provider, model: $model, usage: $result->usage ?? null));
 
         return $result;
+    }
+
+    /**
+     * Start a voice session using the agent's config.
+     *
+     * Creates a browser-direct session with the provider, registers the
+     * agent's tools for server-side execution, and returns a VoiceSession
+     * with all endpoints the browser needs.
+     */
+    public function asVoice(): VoiceSession
+    {
+        $agent = $this->resolveAgent();
+        $tools = $this->resolveTools($agent);
+
+        // Resolve voice-specific provider/model
+        $provider = $this->providerOverride
+            ?? $agent->voiceProvider()
+            ?? $agent->provider()
+            ?? config('atlas.defaults.voice.provider');
+
+        if ($provider === null) {
+            throw AtlasException::missingDefault('voice');
+        }
+
+        $model = $this->modelOverride
+            ?? $agent->voiceModel()
+            ?? config('atlas.defaults.voice.model');
+
+        $builder = Atlas::voice($provider, $model);
+
+        $instructions = $this->instructionsOverride ?? $agent->instructions();
+
+        if ($instructions !== null) {
+            $builder->instructions($this->interpolate($instructions));
+        }
+
+        if ($agent->voice() !== null) {
+            $builder->withVoice($agent->voice());
+        }
+
+        if ($agent->temperature() !== null) {
+            $builder->withTemperature($agent->temperature());
+        }
+
+        $builder->withInputTranscription();
+
+        // Register tools in the session
+        $toolMap = [];
+
+        if ($tools !== []) {
+            $toolDefs = [];
+
+            foreach ($tools as $tool) {
+                $def = $tool->toDefinition();
+                $toolDefs[] = [
+                    'type' => 'function',
+                    'name' => $def->name,
+                    'description' => $def->description,
+                    'parameters' => $def->parameters,
+                ];
+                $toolMap[$def->name] = $tool::class;
+            }
+
+            $builder->withTools($toolDefs);
+        }
+
+        // Create the session (gets ephemeral token from provider)
+        $session = $builder->createSession();
+
+        // Store tool class map in cache for the tool execution endpoint
+        if ($toolMap !== []) {
+            Cache::put("voice:{$session->sessionId}:tools", [
+                'tools' => $toolMap,
+                'user_id' => $this->messageAuthor?->getKey(),
+            ], 3600);
+        }
+
+        // Build endpoint URLs (only when persistence is enabled — routes are registered there)
+        $toolEndpoint = null;
+        $transcriptEndpoint = null;
+
+        if (config('atlas.persistence.enabled') && config('atlas.persistence.voice_transcripts.enabled', true)) {
+            $prefix = config('atlas.persistence.voice_transcripts.route_prefix', 'atlas');
+            $toolEndpoint = $toolMap !== [] ? url("/{$prefix}/voice/{$session->sessionId}/tool") : null;
+            $transcriptEndpoint = url("/{$prefix}/voice/{$session->sessionId}/transcript");
+        }
+
+        return $session->withEndpoints($toolEndpoint, $transcriptEndpoint);
     }
 
     // ─── Internal: Resolution ───────────────────────────────────────

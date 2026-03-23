@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Providers;
 
-use Atlasphp\Atlas\Responses\RealtimeEvent;
+use Atlasphp\Atlas\Responses\VoiceEvent;
 use WebSocket\Client;
 use WebSocket\TimeoutException;
 
 /**
- * Wraps a WebSocket client for realtime provider communication.
+ * Wraps a WebSocket client for voice provider communication.
  *
- * Provides typed send/receive of RealtimeEvent objects over a persistent
+ * Provides typed send/receive of VoiceEvent objects over a persistent
  * WebSocket connection.
  */
 class WebSocketConnection
@@ -22,14 +22,14 @@ class WebSocketConnection
     ) {}
 
     /**
-     * Send a realtime event over the WebSocket.
+     * Send a voice event over the WebSocket.
      *
      * Note: `type` and `event_id` are placed before the data spread,
      * so caller-supplied data keys named 'type' or 'event_id' will
      * take precedence. This is intentional — the caller's data is the
      * raw provider payload.
      */
-    public function send(RealtimeEvent $event): void
+    public function send(VoiceEvent $event): void
     {
         $payload = array_filter([
             'type' => $event->type,
@@ -46,7 +46,7 @@ class WebSocketConnection
      * Returns null only when no data is available (timeout). Connection-level
      * errors are re-thrown as WebSocket\ConnectionException or its subtypes.
      */
-    public function receive(): ?RealtimeEvent
+    public function receive(): ?VoiceEvent
     {
         try {
             $message = $this->client->receive();
@@ -63,7 +63,7 @@ class WebSocketConnection
 
             unset($data['type'], $data['event_id']);
 
-            return new RealtimeEvent(
+            return new VoiceEvent(
                 type: $type,
                 eventId: $eventId,
                 data: $data,

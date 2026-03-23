@@ -26,7 +26,7 @@ class ProviderCapabilities
         public readonly bool $toolCalling = false,
         public readonly bool $providerTools = false,
         public readonly bool $models = false,
-        public readonly bool $realtime = false,
+        public readonly bool $voice = false,
         public readonly bool $voices = false,
     ) {}
 

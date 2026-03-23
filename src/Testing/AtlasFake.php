@@ -22,7 +22,7 @@ class AtlasFake extends AtlasManager
     private array $drivers = [];
 
     /**
-     * @param  array<int, TextResponseFake|StreamResponseFake|StructuredResponseFake|ImageResponseFake|AudioResponseFake|VideoResponseFake|EmbeddingsResponseFake|ModerationResponseFake|RerankResponseFake|RealtimeSessionFake>  $responses
+     * @param  array<int, TextResponseFake|StreamResponseFake|StructuredResponseFake|ImageResponseFake|AudioResponseFake|VideoResponseFake|EmbeddingsResponseFake|ModerationResponseFake|RerankResponseFake|VoiceSessionFake>  $responses
      */
     public function __construct(
         ProviderRegistryContract $registry,

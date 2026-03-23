@@ -92,4 +92,9 @@ class AssistantAgent extends Agent
     {
         return 0.7;
     }
+
+    public function voice(): ?string
+    {
+        return 'eve';
+    }
 }

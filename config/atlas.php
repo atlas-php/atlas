@@ -23,7 +23,7 @@ return [
         'music' => ['provider' => env('ATLAS_MUSIC_PROVIDER'), 'model' => env('ATLAS_MUSIC_MODEL')],
         'sfx' => ['provider' => env('ATLAS_SFX_PROVIDER'), 'model' => env('ATLAS_SFX_MODEL')],
         'speech' => ['provider' => env('ATLAS_SPEECH_PROVIDER'), 'model' => env('ATLAS_SPEECH_MODEL')],
-        'realtime' => ['provider' => env('ATLAS_REALTIME_PROVIDER'), 'model' => env('ATLAS_REALTIME_MODEL')],
+        'voice' => ['provider' => env('ATLAS_VOICE_PROVIDER'), 'model' => env('ATLAS_VOICE_MODEL')],
     ],
 
     /*
@@ -303,12 +303,13 @@ return [
         // Disable if you want to embed asynchronously via a job.
         'memory_auto_embed' => env('ATLAS_MEMORY_AUTO_EMBED', true),
 
-        // Realtime transcript persistence — stores voice turns as messages.
+        // Voice routes — transcript persistence and tool execution.
         // Only active when persistence.enabled is true.
-        // IMPORTANT: Configure middleware to protect this route with auth.
-        'realtime_transcripts' => [
-            'enabled' => env('ATLAS_REALTIME_TRANSCRIPTS', true),
-            'middleware' => ['web', 'auth'],
+        // IMPORTANT: Add your auth middleware here (e.g., ['auth:sanctum']).
+        // Avoid 'web' middleware as it includes CSRF which blocks fetch() calls.
+        'voice_transcripts' => [
+            'enabled' => env('ATLAS_VOICE_TRANSCRIPTS', true),
+            'middleware' => [],
             'route_prefix' => 'atlas',
         ],
 

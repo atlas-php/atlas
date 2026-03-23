@@ -4,14 +4,15 @@ import ThreadSidebar from './components/ThreadSidebar.vue';
 import ChatThread from './components/ChatThread.vue';
 import ChatInput from './components/ChatInput.vue';
 import ChatTypingIndicator from './components/ChatTypingIndicator.vue';
+import VoiceWaveVisualizer from './components/VoiceWaveVisualizer.vue';
 import { useChat } from './composables/useChat';
 import { useAttachments } from './composables/useAttachments';
-import { useRealtime } from './composables/useRealtime';
+import { useVoice } from './composables/useVoice';
 
 const chat = useChat();
 const { attachments, hasAttachments, canAddMore, addFiles, removeAttachment, clearAttachments, toPayload } =
     useAttachments();
-const realtime = useRealtime();
+const voice = useVoice();
 
 const chatThreadRef = ref<InstanceType<typeof ChatThread> | null>(null);
 const chatInputRef = ref<InstanceType<typeof ChatInput> | null>(null);
@@ -92,18 +93,17 @@ async function handleDeleteConversation(id: number) {
     await chat.deleteConversation(id);
 }
 
-async function handleRealtimeToggle() {
-    if (realtime.sessionStatus.value === 'active') {
-        await realtime.stopSession();
+async function handleVoiceToggle() {
+    if (voice.sessionStatus.value === 'active') {
+        await voice.stopSession();
         // Refresh chat to show persisted voice transcripts
         if (chat.activeConversationId.value) {
             setTimeout(() => chat.loadConversation(chat.activeConversationId.value!), 500);
         }
     } else {
-        realtime.startSession({
+        voice.startSession({
             conversation_id: chat.activeConversationId.value,
         });
-        // Scroll to bottom so the user sees the connecting indicator
         chatThreadRef.value?.scrollToBottom('smooth');
     }
 }
@@ -139,11 +139,6 @@ function handleCycleSibling(messageId: number, index: number) {
                 :is-empty="chat.isEmpty.value"
                 :is-streaming="chat.isStreaming.value"
                 :streaming-text="chat.streamingText.value"
-                :realtime-status="realtime.sessionStatus.value"
-                :realtime-user-transcript="realtime.userTranscript.value"
-                :realtime-assistant-transcript="realtime.assistantTranscript.value"
-                :realtime-is-speaking="realtime.isSpeaking.value"
-                :realtime-transcript-history="realtime.transcriptHistory.value"
                 @load-more="chat.loadOlderMessages"
                 @retry="handleRetry"
                 @cycle-sibling="handleCycleSibling"
@@ -154,26 +149,40 @@ function handleCycleSibling(messageId: number, index: number) {
             </ChatThread>
 
             <!-- Error banner -->
-            <div v-if="chat.error.value" class="px-4">
+            <div v-if="chat.error.value || voice.error.value" class="px-4">
                 <div class="mx-auto max-w-3xl mb-2 rounded-lg bg-red-950/50 border border-red-800 px-4 py-2 text-sm text-red-300">
-                    {{ chat.error.value }}
+                    {{ chat.error.value || voice.error.value }}
                 </div>
             </div>
 
-            <!-- Input -->
+            <!-- Voice active: wave visualizer replaces input -->
+            <div v-if="voice.sessionStatus.value === 'active' || voice.sessionStatus.value === 'connecting'" class="shrink-0 px-3 pb-4 pt-2 md:px-4">
+                <div class="mx-auto max-w-3xl">
+                    <VoiceWaveVisualizer
+                        :status="voice.sessionStatus.value"
+                        :audio-level="voice.audioLevel.value"
+                        :is-listening="voice.isListening.value"
+                        :is-speaking="voice.isSpeaking.value"
+                        @stop="handleVoiceToggle"
+                    />
+                </div>
+            </div>
+
+            <!-- Normal: chat input -->
             <ChatInput
+                v-else
                 ref="chatInputRef"
                 :disabled="chat.isTyping.value || chat.isStreaming.value"
                 :attachments="attachments"
                 :can-add-more="canAddMore"
-                :realtime-status="realtime.sessionStatus.value"
-                :realtime-audio-level="realtime.audioLevel.value"
-                :realtime-is-listening="realtime.isListening.value"
-                :realtime-is-speaking="realtime.isSpeaking.value"
+                :voice-status="voice.sessionStatus.value"
+                :voice-audio-level="voice.audioLevel.value"
+                :voice-is-listening="voice.isListening.value"
+                :voice-is-speaking="voice.isSpeaking.value"
                 @send="handleSend"
                 @add-files="addFiles"
                 @remove-attachment="removeAttachment"
-                @realtime-toggle="handleRealtimeToggle"
+                @voice-toggle="handleVoiceToggle"
             />
         </div>
     </div>

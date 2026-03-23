@@ -17,28 +17,28 @@ use Atlasphp\Atlas\Providers\Handlers\EmbedHandler;
 use Atlasphp\Atlas\Providers\Handlers\ImageHandler;
 use Atlasphp\Atlas\Providers\Handlers\ModerateHandler;
 use Atlasphp\Atlas\Providers\Handlers\ProviderHandler;
-use Atlasphp\Atlas\Providers\Handlers\RealtimeHandler;
 use Atlasphp\Atlas\Providers\Handlers\RerankHandler;
 use Atlasphp\Atlas\Providers\Handlers\TextHandler;
 use Atlasphp\Atlas\Providers\Handlers\VideoHandler;
+use Atlasphp\Atlas\Providers\Handlers\VoiceHandler;
 use Atlasphp\Atlas\Requests\AudioRequest;
 use Atlasphp\Atlas\Requests\EmbedRequest;
 use Atlasphp\Atlas\Requests\ImageRequest;
 use Atlasphp\Atlas\Requests\ModerateRequest;
-use Atlasphp\Atlas\Requests\RealtimeRequest;
 use Atlasphp\Atlas\Requests\RerankRequest;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Requests\VideoRequest;
+use Atlasphp\Atlas\Requests\VoiceRequest;
 use Atlasphp\Atlas\Responses\AudioResponse;
 use Atlasphp\Atlas\Responses\EmbeddingsResponse;
 use Atlasphp\Atlas\Responses\ImageResponse;
 use Atlasphp\Atlas\Responses\ModerationResponse;
-use Atlasphp\Atlas\Responses\RealtimeSession;
 use Atlasphp\Atlas\Responses\RerankResponse;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\VideoResponse;
+use Atlasphp\Atlas\Responses\VoiceSession;
 use Closure;
 use Illuminate\Http\Client\RequestException;
 
@@ -71,7 +71,7 @@ abstract class Driver
      * - 'embed' → EmbedHandler
      * - 'moderate' → ModerateHandler
      * - 'rerank' → RerankHandler
-     * - 'realtime' → RealtimeHandler (covers createRealtimeSession, connectRealtime)
+     * - 'voice' → VoiceHandler (covers createVoiceSession, connectVoice)
      * - 'provider' → ProviderHandler (covers models, voices, validate)
      */
     public function withHandler(string $modality, object $handler): static
@@ -152,19 +152,19 @@ abstract class Driver
         return $this->dispatch('rerank', $request, fn (RerankRequest $r) => $this->resolveHandler('rerank', fn () => $this->rerankHandler())->rerank($r));
     }
 
-    public function createRealtimeSession(RealtimeRequest $request): RealtimeSession
+    public function createVoiceSession(VoiceRequest $request): VoiceSession
     {
-        return $this->dispatch('realtime', $request, fn (RealtimeRequest $r) => $this->resolveHandler('realtime', fn () => $this->realtimeHandler())->createSession($r));
+        return $this->dispatch('voice', $request, fn (VoiceRequest $r) => $this->resolveHandler('voice', fn () => $this->voiceHandler())->createSession($r));
     }
 
     /**
-     * Open a persistent WebSocket connection for an existing realtime session.
+     * Open a persistent WebSocket connection for an existing voice session.
      *
      * Not dispatched through middleware — this is a follow-up to session creation.
      */
-    public function connectRealtime(RealtimeSession $session): WebSocketConnection
+    public function connectVoice(VoiceSession $session): WebSocketConnection
     {
-        return $this->resolveHandler('realtime', fn () => $this->realtimeHandler())->connect($session);
+        return $this->resolveHandler('voice', fn () => $this->voiceHandler())->connect($session);
     }
 
     // ─── Middleware Dispatch ─────────────────────────────────────────────
@@ -247,9 +247,9 @@ abstract class Driver
         throw UnsupportedFeatureException::make('rerank', $this->name());
     }
 
-    protected function realtimeHandler(): RealtimeHandler
+    protected function voiceHandler(): VoiceHandler
     {
-        throw UnsupportedFeatureException::make('realtime', $this->name());
+        throw UnsupportedFeatureException::make('voice', $this->name());
     }
 
     // ─── Provider Interrogation ──────────────────────────────────────────

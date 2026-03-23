@@ -105,7 +105,7 @@ class AtlasServiceProvider extends ServiceProvider
         $this->registerBuiltInVariables();
         $this->registerMemoryMiddleware();
         $this->registerPersistenceMiddleware();
-        $this->registerRealtimeRoutes();
+        $this->registerVoiceRoutes();
         $this->registerVectorMacros();
     }
 
@@ -158,28 +158,32 @@ class AtlasServiceProvider extends ServiceProvider
     }
 
     /**
-     * Register package HTTP routes for realtime transcript persistence.
+     * Register package HTTP routes for voice sessions and transcript persistence.
      */
-    protected function registerRealtimeRoutes(): void
+    protected function registerVoiceRoutes(): void
     {
         if (! config('atlas.persistence.enabled')) {
             return;
         }
 
-        if (! config('atlas.persistence.realtime_transcripts.enabled', true)) {
+        if (! config('atlas.persistence.voice_transcripts.enabled', true)) {
             return;
         }
 
         $this->app->booted(function (): void {
-            $prefix = config('atlas.persistence.realtime_transcripts.route_prefix', 'atlas');
-            $middleware = config('atlas.persistence.realtime_transcripts.middleware', []);
+            $prefix = config('atlas.persistence.voice_transcripts.route_prefix', 'atlas');
+            $middleware = config('atlas.persistence.voice_transcripts.middleware', []);
 
             Route::prefix($prefix)
                 ->middleware($middleware)
                 ->group(function (): void {
                     Route::post(
-                        '/realtime/{sessionId}/transcript',
-                        Persistence\Http\StoreRealtimeTranscriptController::class,
+                        '/voice/{sessionId}/transcript',
+                        Persistence\Http\StoreVoiceTranscriptController::class,
+                    );
+                    Route::post(
+                        '/voice/{sessionId}/tool',
+                        Voice\Http\VoiceToolController::class,
                     );
                 });
         });

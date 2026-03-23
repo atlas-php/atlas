@@ -24,6 +24,6 @@ enum Modality: string
     case SpeechToText = 'speech_to_text';
     case Embed = 'embed';
     case Moderate = 'moderate';
-    case Realtime = 'realtime';
+    case Voice = 'voice';
     case Rerank = 'rerank';
 }

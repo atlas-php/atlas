@@ -56,7 +56,7 @@ export default defineConfig({
                         ]
                     },
                     { text: 'Video', link: '/modalities/video' },
-                    { text: 'Realtime', link: '/modalities/realtime' },
+                    { text: 'Voice', link: '/modalities/voice' },
                     { text: 'Embeddings', link: '/modalities/embeddings' },
                     { text: 'Reranking', link: '/modalities/reranking' },
                     { text: 'Moderation', link: '/modalities/moderation' },
@@ -69,7 +69,7 @@ export default defineConfig({
                 items: [
                     { text: 'Conversations', link: '/guides/conversations' },
                     { text: 'Media & Assets', link: '/guides/media-storage' },
-                    { text: 'Realtime Integration', link: '/guides/realtime-integration' },
+                    { text: 'Voice Integration', link: '/guides/voice-integration' },
                     { text: 'Custom Providers', link: '/guides/custom-providers' },
                     { text: 'Custom Drivers', link: '/guides/custom-drivers' },
                     { text: 'Artisan Commands', link: '/guides/artisan-commands' },
