@@ -7,6 +7,7 @@ namespace Atlasphp\Atlas\Persistence\Middleware;
 use Atlasphp\Atlas\Executor\ExecutorResult;
 use Atlasphp\Atlas\Middleware\AgentContext;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
+use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 use Closure;
 
@@ -16,6 +17,9 @@ use Closure;
  * Agent-layer middleware that wraps the entire execution to create and track
  * an execution record. Creates the execution in pending state before the agent
  * runs, transitions through processing, and finalizes as completed or failed.
+ *
+ * When running from a queued dispatch, adopts the pre-created execution
+ * record (via _execution_id in meta) instead of creating a duplicate.
  */
 class TrackExecution
 {
@@ -40,16 +44,31 @@ class TrackExecution
         $type = ExecutionType::tryFrom($context->meta['_execution_type'] ?? '')
             ?? ExecutionType::Text;
 
-        // ── Create execution in pending state ────────────────────
-        $execution = $this->tracker->createExecution(
-            provider: $provider,
-            model: $model,
-            meta: $context->meta,
-            agent: $agent?->key(),
-            conversationId: $context->meta['conversation_id'] ?? null,
-            messageId: $context->meta['trigger_message_id'] ?? null,
-            type: $type,
-        );
+        // ── Adopt pre-created execution or create new ─────────────
+        // Queue dispatch pre-creates an execution record so the UI has
+        // an ID immediately. Adopt it here instead of creating a duplicate.
+        $preExistingId = $context->meta['_execution_id'] ?? null;
+
+        if ($preExistingId !== null) {
+            $execution = $this->tracker->adoptExecution(
+                id: (int) $preExistingId,
+                provider: $provider,
+                model: $model,
+                agent: $agent?->key(),
+                conversationId: $context->meta['conversation_id'] ?? null,
+                type: $type,
+            );
+        } else {
+            $execution = $this->tracker->createExecution(
+                provider: $provider,
+                model: $model,
+                meta: $context->meta,
+                agent: $agent?->key(),
+                conversationId: $context->meta['conversation_id'] ?? null,
+                messageId: $context->meta['trigger_message_id'] ?? null,
+                type: $type,
+            );
+        }
 
         $context->meta['execution_id'] = $execution->id;
 

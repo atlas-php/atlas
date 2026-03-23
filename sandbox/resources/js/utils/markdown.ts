@@ -19,7 +19,7 @@ marked.setOptions({
 export function renderMarkdown(text: string): string {
     const html = marked.parse(text) as string;
     return DOMPurify.sanitize(html, {
-        ADD_TAGS: ['audio'],
-        ADD_ATTR: ['target', 'controls', 'src', 'download'],
+        ADD_TAGS: ['audio', 'video'],
+        ADD_ATTR: ['target', 'controls', 'src', 'download', 'autoplay', 'loop', 'muted', 'playsinline'],
     });
 }

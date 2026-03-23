@@ -108,6 +108,36 @@ class ExecutionService
     }
 
     /**
+     * Adopt a pre-created execution record (from queue dispatch).
+     * Updates the record with agent context and sets it as the active execution.
+     */
+    public function adoptExecution(
+        int $id,
+        string $provider,
+        string $model,
+        ?string $agent = null,
+        ?int $conversationId = null,
+        ?ExecutionType $type = null,
+    ): Execution {
+        $executionModel = $this->executionModel;
+
+        $this->execution = $executionModel::findOrFail($id);
+
+        // Update with agent context that wasn't available at queue dispatch time
+        $this->execution->update(array_filter([
+            'provider' => $provider,
+            'model' => $model,
+            'agent' => $agent,
+            'conversation_id' => $conversationId,
+            'type' => $type ?? $this->execution->type,
+        ], fn ($v) => $v !== null));
+
+        $this->stepSequence = 0;
+
+        return $this->execution;
+    }
+
+    /**
      * Transition pending → queued. Called when the execution is
      * dispatched to a queue instead of running inline.
      */

@@ -12,7 +12,7 @@ use Atlasphp\Atlas\Tools\Tool;
 /**
  * Tool for generating speech audio from text via xAI.
  *
- * The response carries the stored asset directly via asset.
+ * Returns an HTML audio element that can be embedded in markdown.
  */
 class GenerateSpeechTool extends Tool
 {
@@ -23,7 +23,7 @@ class GenerateSpeechTool extends Tool
 
     public function description(): string
     {
-        return 'Convert text to speech audio. Returns a link to the audio file.';
+        return 'Convert text to speech audio. Returns an embeddable audio player.';
     }
 
     /**
@@ -49,9 +49,11 @@ class GenerateSpeechTool extends Tool
             ->asAudio();
 
         if ($response->asset) {
-            return "[Audio: speech]({$response->asset->url()})";
+            $url = $response->asset->url();
+
+            return '<audio controls src="'.$url.'"></audio>';
         }
 
-        return 'Speech audio generated.';
+        return 'Speech audio generated but no asset was stored.';
     }
 }

@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Queue\Jobs;
 
 use Atlasphp\Atlas\Events\ExecutionCompleted;
 use Atlasphp\Atlas\Events\ExecutionFailed;
+use Atlasphp\Atlas\Exceptions\MaxStepsExceededException;
 use Atlasphp\Atlas\Queue\QueueableRequest;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Illuminate\Broadcasting\Channel;
@@ -66,13 +67,21 @@ class ExecuteAtlasJob implements ShouldQueue
         // Transition queued → processing in persistence
         $this->transitionToProcessing();
 
-        // Rebuild and execute — the request class knows how
-        $result = ($this->requestClass)::executeFromPayload(
-            payload: $this->payload,
-            terminal: $this->terminal,
-            executionId: $this->executionId,
-            broadcastChannel: $this->broadcastChannel,
-        );
+        try {
+            // Rebuild and execute — the request class knows how
+            $result = ($this->requestClass)::executeFromPayload(
+                payload: $this->payload,
+                terminal: $this->terminal,
+                executionId: $this->executionId,
+                broadcastChannel: $this->broadcastChannel,
+            );
+        } catch (MaxStepsExceededException $e) {
+            // Deterministic failure — retrying will produce the same loop.
+            // Fail immediately instead of burning retries and API credits.
+            $this->fail($e);
+
+            return;
+        }
 
         // StreamResponse must be consumed for broadcasting to fire.
         // All request classes return unconsumed streams; iteration here

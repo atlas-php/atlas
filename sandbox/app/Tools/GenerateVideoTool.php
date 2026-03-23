@@ -12,7 +12,7 @@ use Atlasphp\Atlas\Tools\Tool;
 /**
  * Tool for generating videos using the configured default video provider.
  *
- * The response carries the stored asset directly via asset.
+ * Returns an HTML video element that can be embedded in markdown.
  */
 class GenerateVideoTool extends Tool
 {
@@ -23,7 +23,7 @@ class GenerateVideoTool extends Tool
 
     public function description(): string
     {
-        return 'Generate a short video from a text prompt. Returns a link to the video.';
+        return 'Generate a short video from a text prompt. Returns an embeddable video player.';
     }
 
     /**
@@ -52,9 +52,13 @@ class GenerateVideoTool extends Tool
             ->asVideo();
 
         if ($response->asset) {
-            return "[Video: {$prompt}]({$response->asset->url()})";
+            $url = $response->asset->url();
+
+            return '<video controls src="'.$url.'"></video>';
         }
 
-        return "[Video: {$prompt}]({$response->url})";
+        $url = $response->url;
+
+        return '<video controls src="'.$url.'"></video>';
     }
 }

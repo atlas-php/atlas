@@ -131,11 +131,10 @@ function handleCycleSibling(messageId: number, index: number) {
             </ChatThread>
 
             <!-- Error banner -->
-            <div
-                v-if="chat.error.value"
-                class="mx-4 mb-2 rounded-lg bg-red-950/50 border border-red-800 px-4 py-2 text-sm text-red-300"
-            >
-                {{ chat.error.value }}
+            <div v-if="chat.error.value" class="px-4">
+                <div class="mx-auto max-w-3xl mb-2 rounded-lg bg-red-950/50 border border-red-800 px-4 py-2 text-sm text-red-300">
+                    {{ chat.error.value }}
+                </div>
             </div>
 
             <!-- Input -->

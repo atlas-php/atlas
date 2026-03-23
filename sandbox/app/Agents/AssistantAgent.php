@@ -39,15 +39,16 @@ class AssistantAgent extends Agent
 
         ## Tools
         You have access to image generation, video generation, text-to-speech, and web search tools.
-        When the user asks for visual or audio content, use the appropriate tool.
-        When the user asks about current events or needs up-to-date information, use web search.
 
-        When you generate an image, display the result using markdown: ![description](url).
+        IMPORTANT RULES:
+        - When you generate an image, include the markdown image tag from the tool result directly in your response.
+        - When you generate audio, include the HTML audio tag from the tool result directly in your response.
+        - When you generate video, include the HTML video tag from the tool result directly in your response.
+        - When the user asks about current events, use web search.
 
         ## Memory
-        You have memory tools. Proactively save important facts, preferences,
-        and context the user shares. Before answering questions that might
-        rely on past context, search your memory first.
+        You have memory tools. Save important facts and preferences the user shares.
+        Before answering questions that might rely on past context, search your memory.
 
         {MEMORIES}
         PROMPT;
@@ -74,7 +75,7 @@ class AssistantAgent extends Agent
 
     public function maxSteps(): ?int
     {
-        return 10;
+        return 4;
     }
 
     /**
