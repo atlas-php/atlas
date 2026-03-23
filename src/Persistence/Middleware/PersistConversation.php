@@ -9,10 +9,12 @@ use Atlasphp\Atlas\Enums\Role;
 use Atlasphp\Atlas\Events\ConversationMessageStored;
 use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Executor\ExecutorResult;
+use Atlasphp\Atlas\Input\Input;
 use Atlasphp\Atlas\Messages\Message;
 use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Middleware\AgentContext;
 use Atlasphp\Atlas\Persistence\Concerns\HasConversations;
+use Atlasphp\Atlas\Persistence\Enums\AssetType;
 use Atlasphp\Atlas\Persistence\Models\Asset;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\MessageAttachment;
@@ -20,6 +22,7 @@ use Atlasphp\Atlas\Persistence\ProcessQueuedMessage;
 use Atlasphp\Atlas\Persistence\Services\ConversationService;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 use Closure;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -80,7 +83,10 @@ class PersistConversation
         $userMessage = $this->findUserMessage($context->messages);
 
         if ($userMessage === null && $context->request->message !== null) {
-            $userMessage = new UserMessage(content: $context->request->message);
+            $userMessage = new UserMessage(
+                content: $context->request->message,
+                media: $context->request->messageMedia,
+            );
         }
 
         // ── Load conversation history into context and request
@@ -114,6 +120,56 @@ class PersistConversation
         // Inject conversation_id into meta so delegation tools can access it
         $context->meta['conversation_id'] = $conversation->id;
 
+        $agentKey = $agent->key();
+        $author = $agent->resolveAuthor();
+        $parentId = null;
+        $userMessageId = null;
+
+        // ── Store user message BEFORE execution ──────────────────
+        // The user message must persist even if the agent fails.
+        if ($agent->isRetrying()) {
+            $parentId = $agent->getRetryParentId();
+
+        } elseif (! $agent->isRespondMode() && $userMessage !== null) {
+            $stored = $this->conversations->addMessage(
+                $conversation,
+                $userMessage,
+                author: $author,
+            );
+            $stored->markAsRead(); // Agent will process it
+            if ($consumerMeta !== []) {
+                $stored->update(['metadata' => $consumerMeta]);
+            }
+
+            $userMessageId = $stored->id;
+            $parentId = $stored->id;
+
+            // Store media attachments from the user message
+            if ($userMessage->media !== []) {
+                $this->storeUserMediaAttachments($stored->id, $userMessage->media, $author);
+            }
+
+            // Auto-set conversation title from the first user message
+            if ($conversation->title === null || $conversation->title === '') {
+                $title = str_replace("\n", ' ', $userMessage->content ?? '');
+                $conversation->update([
+                    'title' => mb_strlen($title) > 60 ? mb_substr($title, 0, 57).'...' : $title,
+                ]);
+            }
+
+            // Dispatch event for the stored user message
+            event(new ConversationMessageStored(
+                conversationId: $conversation->id,
+                messageId: $userMessageId,
+                role: Role::User,
+                agent: $agentKey,
+            ));
+
+        } else {
+            // Respond mode — find the last active user message as parent
+            $parentId = $this->conversations->lastUserMessageId($conversation);
+        }
+
         // ── Execute the agent ────────────────────────────────────
         $result = $next($context);
 
@@ -123,57 +179,10 @@ class PersistConversation
             return $result;
         }
 
-        // ── Store messages after execution (atomic) ──────────────
-        // Wrapped in a transaction to prevent sequence collisions
-        // under concurrent load and ensure all-or-nothing writes.
-
-        $agentKey = $agent->key();
-
-        // Track stored message IDs for post-transaction event dispatch.
-        // Events fire after the transaction commits to prevent listeners from
-        // receiving events for records that may not exist if the transaction rolls back.
-        $userMessageId = null;
+        // ── Store assistant response after execution (atomic) ────
 
         /** @var array<int, \Atlasphp\Atlas\Persistence\Models\Message> $storedMessages */
-        $storedMessages = DB::transaction(function () use ($agent, $agentKey, $conversation, $userMessage, $result, $consumerMeta, &$userMessageId): array {
-            $author = $agent->resolveAuthor();
-            $parentId = null;
-
-            if ($agent->isRetrying()) {
-                $parentId = $agent->getRetryParentId();
-
-            } elseif (! $agent->isRespondMode() && $userMessage !== null) {
-                // Store the user message, use its ID as parent
-                $stored = $this->conversations->addMessage(
-                    $conversation,
-                    $userMessage,
-                    author: $author,
-                );
-                $stored->markAsRead(); // Agent already processed it
-                if ($consumerMeta !== []) {
-                    $stored->update(['metadata' => $consumerMeta]);
-                }
-
-                $userMessageId = $stored->id;
-                $parentId = $stored->id;
-
-                // Auto-set conversation title from the first user message
-                if ($conversation->title === null || $conversation->title === '') {
-                    $title = str_replace("\n", ' ', $userMessage->content ?? '');
-                    $conversation->update([
-                        'title' => mb_strlen($title) > 60 ? mb_substr($title, 0, 57).'...' : $title,
-                    ]);
-                }
-
-            } else {
-                // Respond mode — find the last active user message as parent
-                $parentId = $this->conversations->lastUserMessageId($conversation);
-            }
-
-            // ── Store the final assistant response as a single message ─
-            // Intermediate steps (tool calls) live in execution tables.
-            // Only the final text becomes a conversation message.
-
+        $storedMessages = DB::transaction(function () use ($agentKey, $conversation, $result, $parentId): array {
             // Safe to access here: completeStep() retains the reference, and
             // this middleware wraps TrackExecution so the scoped service is still active.
             $lastStepId = $this->executionService->currentStep()?->id;
@@ -196,15 +205,6 @@ class PersistConversation
         });
 
         // ── Dispatch persistence events after transaction commits ─
-        if ($userMessageId !== null) {
-            event(new ConversationMessageStored(
-                conversationId: $conversation->id,
-                messageId: $userMessageId,
-                role: Role::User,
-                agent: $agentKey,
-            ));
-        }
-
         foreach ($storedMessages as $storedMessage) {
             event(new ConversationMessageStored(
                 conversationId: $conversation->id,
@@ -301,6 +301,71 @@ class PersistConversation
                 ],
             ]);
         }
+    }
+
+    /**
+     * Store user-attached media (images, documents) as assets and link to the message.
+     *
+     * Uses the Input's built-in store() method for disk persistence.
+     *
+     * @param  array<int, Input>  $media
+     */
+    protected function storeUserMediaAttachments(int $messageId, array $media, ?Model $author): void
+    {
+        $assetModel = config('atlas.persistence.models.asset', Asset::class);
+        $attachmentModel = config('atlas.persistence.models.message_attachment', MessageAttachment::class);
+
+        foreach ($media as $input) {
+            try {
+                // Capture contents before storing for accurate hash and size
+                $contents = $input->contents();
+                $path = $input->store();
+                $disk = config('atlas.storage.disk') ?? config('filesystems.default', 'local');
+                $mime = $input->mimeType();
+
+                DB::transaction(function () use ($assetModel, $attachmentModel, $messageId, $path, $disk, $mime, $contents, $author): void {
+                    $asset = $assetModel::create([
+                        'type' => $this->resolveAssetType($mime),
+                        'mime_type' => $mime,
+                        'filename' => basename($path),
+                        'path' => $path,
+                        'disk' => $disk,
+                        'size_bytes' => strlen($contents),
+                        'content_hash' => hash('sha256', $contents),
+                        'author_type' => $author?->getMorphClass(),
+                        'author_id' => $author?->getKey(),
+                        'metadata' => ['source' => 'user_upload'],
+                    ]);
+
+                    $attachmentModel::create([
+                        'message_id' => $messageId,
+                        'asset_id' => $asset->id,
+                    ]);
+                });
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+    }
+
+    /**
+     * Resolve the asset type from a MIME type.
+     */
+    protected function resolveAssetType(string $mime): AssetType
+    {
+        if (str_starts_with($mime, 'image/')) {
+            return AssetType::Image;
+        }
+
+        if (str_starts_with($mime, 'audio/')) {
+            return AssetType::Audio;
+        }
+
+        if (str_starts_with($mime, 'video/')) {
+            return AssetType::Video;
+        }
+
+        return AssetType::Document;
     }
 
     /**

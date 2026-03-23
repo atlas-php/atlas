@@ -61,9 +61,8 @@ class ChatController
             }
         }
 
-        // Let Atlas handle everything — conversation creation, message
-        // storage, history loading, and response persistence all happen
-        // automatically via PersistConversation middleware.
+        // Atlas handles everything — conversation, messages, media storage,
+        // history, and response persistence via PersistConversation middleware.
         $agentRequest = Atlas::agent('assistant')
             ->for($user)
             ->asUser($user)
