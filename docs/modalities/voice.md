@@ -134,7 +134,7 @@ When persistence is enabled, voice transcripts are stored as conversation messag
 'persistence' => [
     'voice_transcripts' => [
         'enabled' => true,
-        'middleware' => ['web', 'auth'],
+        'middleware' => ['auth:sanctum'],
         'route_prefix' => 'atlas',
     ],
 ],

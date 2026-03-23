@@ -57,6 +57,7 @@ export function useVoice() {
     const SAMPLE_RATE = 24000;
     let audioQueue: string[] = [];
     let processingAudio = false;
+    let flushTimeout: ReturnType<typeof setTimeout> | null = null;
 
     async function startSession(options: SessionOptions = {}) {
         if (sessionStatus.value !== 'idle' && sessionStatus.value !== 'closed') return;
@@ -88,7 +89,7 @@ export function useVoice() {
 
             if (currentSession!.transport === 'webrtc' && currentSession!.ephemeral_token) {
                 await setupWebRtc(currentSession!);
-            } else if (currentSession!.transport === 'websocket' && currentSession!.ephemeral_token) {
+            } else if (currentSession!.transport === 'websocket' && currentSession!.connection_url) {
                 await setupWebSocket(currentSession!);
             } else {
                 throw new Error(`Unsupported transport: ${currentSession!.transport}`);
@@ -190,7 +191,7 @@ export function useVoice() {
                 setTimeout(() => {
                     localStream?.getAudioTracks().forEach(t => { t.enabled = true; });
                 }, 500);
-                setTimeout(() => flushTranscripts(), 300);
+                flushTimeout = setTimeout(() => flushTranscripts(), 300);
                 break;
 
             // Speech detection
@@ -444,7 +445,11 @@ export function useVoice() {
     }
 
     async function stopSession() {
-        // Flush any remaining transcripts
+        // Cancel any deferred flush and do a final flush now
+        if (flushTimeout !== null) {
+            clearTimeout(flushTimeout);
+            flushTimeout = null;
+        }
         await flushTranscripts();
 
         if (levelAnimFrame !== null) {

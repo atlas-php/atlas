@@ -36,7 +36,7 @@ class StoreVoiceTranscriptController
             'turns.*.transcript' => 'required|string|min:1',
             'agent' => 'sometimes|nullable|string',
             'author_type' => 'sometimes|nullable|string',
-            'author_id' => 'sometimes|nullable|integer',
+            'author_id' => 'sometimes|nullable',
         ]);
 
         $conversation = $this->conversations->find($validated['conversation_id']);

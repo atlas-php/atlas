@@ -83,7 +83,7 @@ return response()->json($session->toClientPayload());
 'persistence' => [
     'voice_transcripts' => [
         'enabled' => true,
-        'middleware' => ['web', 'auth'],
+        'middleware' => ['auth:sanctum'],
         'route_prefix' => 'atlas',
     ],
 ],

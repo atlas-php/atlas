@@ -135,6 +135,50 @@ Atlas::speech('openai', 'whisper-1')
     ->then(fn ($response) => Transcript::create(['text' => $response->text]));
 ```
 
+## xAI Voice Effects
+
+xAI TTS supports expressive speech tags for natural-sounding output. Maximum 15,000 characters per request.
+
+### Inline Tags
+
+Add vocal expressions at specific points in the text:
+
+`[pause]`, `[long-pause]`, `[hum-tune]`, `[laugh]`, `[chuckle]`, `[giggle]`, `[cry]`, `[tsk]`, `[tongue-click]`, `[lip-smack]`, `[breath]`, `[inhale]`, `[exhale]`, `[sigh]`
+
+```php
+$response = Atlas::speech('xai', 'grok-2-audio')
+    ->instructions('Well [pause] that was unexpected! [laugh] Let me think about that.')
+    ->withVoice('eve')
+    ->asAudio();
+```
+
+### Wrapping Tags
+
+Envelope text sections to alter delivery style:
+
+**Volume:** `<soft>`, `<whisper>`, `<loud>`, `<build-intensity>`, `<decrease-intensity>`
+
+**Pitch & Speed:** `<higher-pitch>`, `<lower-pitch>`, `<slow>`, `<fast>`
+
+**Style:** `<singing>`, `<sing-song>`, `<laugh-speak>`, `<emphasis>`
+
+```php
+$response = Atlas::speech('xai', 'grok-2-audio')
+    ->instructions('<slow><soft>Goodnight, sleep well.</soft></slow>')
+    ->withVoice('ara')
+    ->asAudio();
+
+// Combine styles
+$response = Atlas::speech('xai', 'grok-2-audio')
+    ->instructions('This is <emphasis>really important</emphasis> [pause] <whisper>but keep it quiet.</whisper>')
+    ->withVoice('eve')
+    ->asAudio();
+```
+
+### xAI Voices
+
+`eve` (energetic), `ara` (warm), `rex` (confident), `sal` (smooth), `leo` (authoritative)
+
 ## Supported Providers
 
 | Provider | TTS | STT | Features |

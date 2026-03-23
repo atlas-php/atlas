@@ -66,10 +66,12 @@ trait BuildsVoiceBody
     }
 
     /**
-     * Convert an HTTPS base URL to a WebSocket URL.
+     * Convert an HTTP(S) base URL to a WebSocket URL.
      */
     private function toWebSocketUrl(string $baseUrl): string
     {
-        return str_replace('https://', 'wss://', rtrim($baseUrl, '/'));
+        $url = rtrim($baseUrl, '/');
+
+        return str_replace(['https://', 'http://'], ['wss://', 'ws://'], $url);
     }
 }

@@ -52,7 +52,7 @@ class VoiceToolController
         if ($toolClass === null) {
             return response()->json([
                 'output' => json_encode(['error' => "Unknown tool: {$name}"]),
-            ]);
+            ], 404);
         }
 
         try {
