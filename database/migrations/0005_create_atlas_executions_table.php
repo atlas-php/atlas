@@ -36,6 +36,7 @@ return new class extends Migration
                 ->nullOnDelete();
             $table->string('agent', 255)->nullable();
             $table->string('type', 30)->default('text');
+            $table->string('voice_session_id', 100)->nullable();
             $table->string('provider', 50);
             $table->string('model', 100);
             $table->unsignedTinyInteger('status')->default(0);
@@ -52,6 +53,7 @@ return new class extends Migration
             $table->index('message_id');
             $table->index('agent');
             $table->index('type');
+            $table->index('voice_session_id');
             $table->index('provider');
             $table->index('status');
             $table->index('created_at');

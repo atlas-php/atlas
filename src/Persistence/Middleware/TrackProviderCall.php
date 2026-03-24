@@ -41,7 +41,8 @@ class TrackProviderCall
 
         // ─── Execution tracking (direct calls only) ──────────────
         // Agent calls already have an execution via TrackExecution.
-        if (! $insideAgentExecution) {
+        // Voice sessions are tracked by AgentRequest::asVoice() — skip here.
+        if (! $insideAgentExecution && $context->method !== 'voice') {
             $this->executionService->createExecution(
                 provider: $context->provider,
                 model: $context->model,
@@ -63,7 +64,7 @@ class TrackProviderCall
             }
 
             // ─── Complete standalone execution with tokens ────────────
-            if (! $insideAgentExecution) {
+            if (! $insideAgentExecution && $context->method !== 'voice') {
                 $this->executionService->completeDirectExecution(
                     inputTokens: $this->extractInputTokens($response),
                     outputTokens: $this->extractOutputTokens($response),
@@ -72,7 +73,7 @@ class TrackProviderCall
 
             return $response;
         } catch (\Throwable $e) {
-            if (! $insideAgentExecution) {
+            if (! $insideAgentExecution && $context->method !== 'voice') {
                 $this->executionService->failExecution($e);
             }
 

@@ -91,6 +91,7 @@ class AtlasServiceProvider extends ServiceProvider
             $this->commands([
                 Console\MakeAgentCommand::class,
                 Console\MakeToolCommand::class,
+                Console\CleanStaleVoiceSessionsCommand::class,
             ]);
 
             $this->publishes([
@@ -184,6 +185,10 @@ class AtlasServiceProvider extends ServiceProvider
                     Route::post(
                         '/voice/{sessionId}/tool',
                         Voice\Http\VoiceToolController::class,
+                    );
+                    Route::post(
+                        '/voice/{sessionId}/close',
+                        Voice\Http\CloseVoiceSessionController::class,
                     );
                 });
         });

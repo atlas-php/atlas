@@ -8,6 +8,7 @@ use Atlasphp\Atlas\Enums\Role;
 use Atlasphp\Atlas\Events\ConversationMessageStored;
 use Atlasphp\Atlas\Messages\AssistantMessage;
 use Atlasphp\Atlas\Messages\UserMessage;
+use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Services\ConversationService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -84,7 +85,18 @@ class StoreVoiceTranscriptController
             ));
         }
 
+        // Complete the voice execution if one exists for this session
+        $this->completeVoiceExecution($sessionId);
+
         return response()->json(['stored' => $storedIds]);
+    }
+
+    /**
+     * Mark the voice session execution as completed.
+     */
+    private function completeVoiceExecution(string $sessionId): void
+    {
+        Execution::completeVoiceSession($sessionId);
     }
 
     /**

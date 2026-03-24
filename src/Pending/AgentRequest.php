@@ -26,6 +26,10 @@ use Atlasphp\Atlas\Middleware\MiddlewareStack;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
 use Atlasphp\Atlas\Persistence\Concerns\HasConversations;
+use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
+use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
+use Atlasphp\Atlas\Persistence\Models\Execution;
+use Atlasphp\Atlas\Persistence\Models\ExecutionStep;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\Tools\ProviderTool;
@@ -531,25 +535,72 @@ class AgentRequest implements QueueableRequest
         // Create the session (gets ephemeral token from provider)
         $session = $builder->createSession();
 
-        // Store tool class map in cache for the tool execution endpoint
-        if ($toolMap !== []) {
+        // Create execution record for voice session tracking
+        $executionId = null;
+        $stepId = null;
+
+        if (config('atlas.persistence.enabled')) {
+            try {
+                $providerKey = $provider instanceof Provider ? $provider->value : (string) $provider;
+
+                /** @var class-string<Execution> $executionModel */
+                $executionModel = config('atlas.persistence.models.execution', Execution::class);
+
+                $execution = $executionModel::create([
+                    'conversation_id' => $this->conversationId,
+                    'agent' => $agent->key(),
+                    'type' => ExecutionType::Voice,
+                    'voice_session_id' => $session->sessionId,
+                    'provider' => $providerKey,
+                    'model' => $model ?? '',
+                    'status' => ExecutionStatus::Processing,
+                    'total_input_tokens' => 0,
+                    'total_output_tokens' => 0,
+                    'started_at' => now(),
+                ]);
+
+                $executionId = $execution->id;
+
+                /** @var class-string<ExecutionStep> $stepModel */
+                $stepModel = config('atlas.persistence.models.execution_step', ExecutionStep::class);
+
+                $step = $stepModel::create([
+                    'execution_id' => $execution->id,
+                    'sequence' => 0,
+                    'status' => ExecutionStatus::Processing,
+                    'started_at' => now(),
+                ]);
+
+                $stepId = $step->id;
+            } catch (\Throwable $e) {
+                // Don't let persistence failures destroy a live voice session
+                report($e);
+            }
+        }
+
+        // Store tool class map + execution IDs in cache for the tool execution endpoint
+        if ($toolMap !== [] || config('atlas.persistence.enabled')) {
             Cache::put("voice:{$session->sessionId}:tools", [
                 'tools' => $toolMap,
                 'user_id' => $this->messageAuthor?->getKey(),
+                'execution_id' => $executionId,
+                'step_id' => $stepId,
             ], 3600);
         }
 
         // Build endpoint URLs (only when persistence is enabled — routes are registered there)
         $toolEndpoint = null;
         $transcriptEndpoint = null;
+        $closeEndpoint = null;
 
         if (config('atlas.persistence.enabled') && config('atlas.persistence.voice_transcripts.enabled', true)) {
             $prefix = config('atlas.persistence.voice_transcripts.route_prefix', 'atlas');
             $toolEndpoint = $toolMap !== [] ? url("/{$prefix}/voice/{$session->sessionId}/tool") : null;
             $transcriptEndpoint = url("/{$prefix}/voice/{$session->sessionId}/transcript");
+            $closeEndpoint = url("/{$prefix}/voice/{$session->sessionId}/close");
         }
 
-        return $session->withEndpoints($toolEndpoint, $transcriptEndpoint);
+        return $session->withEndpoints($toolEndpoint, $transcriptEndpoint, $closeEndpoint);
     }
 
     // ─── Internal: Resolution ───────────────────────────────────────

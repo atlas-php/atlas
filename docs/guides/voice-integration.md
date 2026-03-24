@@ -220,6 +220,20 @@ await fetch(session.transcript_endpoint, {
 
 Messages are stored with `metadata.source = 'voice'` and appear in the conversation thread.
 
+## Step 6: Close Session
+
+When the WebSocket disconnects, POST to the close endpoint to mark the execution as completed:
+
+```javascript
+ws.onclose = () => {
+    if (session.close_endpoint) {
+        navigator.sendBeacon(session.close_endpoint);
+    }
+};
+```
+
+Using `sendBeacon` ensures the request fires even on page unload. The endpoint is idempotent — calling it multiple times is safe.
+
 ## Audio Format
 
 OpenAI and xAI use PCM16 at 24kHz. ElevenLabs uses PCM16 at 16kHz by default (configurable). The browser captures mic audio, encodes as base64 PCM16, and sends over the WebSocket. Response audio is decoded for Web Audio API playback.
@@ -251,6 +265,14 @@ setTimeout(() => {
 ```json
 { "output": "Tool result string" }
 ```
+
+## Close Endpoint Reference
+
+**Route:** `POST /atlas/voice/{sessionId}/close`
+
+No body required. Returns `204 No Content`.
+
+Marks the voice execution as completed, cleans up cached session data, and fires `VoiceSessionClosed` event. Idempotent.
 
 ## Transcript Endpoint Reference
 

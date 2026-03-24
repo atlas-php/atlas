@@ -27,6 +27,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $message_id
  * @property string|null $agent
  * @property ExecutionType $type
+ * @property string|null $voice_session_id
  * @property int|null $asset_id
  * @property string $provider
  * @property string $model
@@ -56,6 +57,7 @@ class Execution extends Model
         'message_id',
         'agent',
         'type',
+        'voice_session_id',
         'asset_id',
         'provider',
         'model',
@@ -128,6 +130,77 @@ class Execution extends Model
         $model = config('atlas.persistence.models.asset', Asset::class);
 
         return $this->belongsTo($model);
+    }
+
+    // ─── Voice Session Lifecycle ────────────────────────────────
+
+    /**
+     * Complete a voice execution (and its sentinel step) by session ID.
+     *
+     * No-op if the session is not found or already completed.
+     * Used by StoreVoiceTranscriptController, CloseVoiceSessionController,
+     * and CleanStaleVoiceSessionsCommand.
+     */
+    /**
+     * Complete a voice execution (and its sentinel step) by session ID.
+     *
+     * Uses atomic updates guarded by status=Processing to prevent race
+     * conditions when transcript and close requests arrive concurrently.
+     * No-op if the session is not found or already completed.
+     *
+     * @param  array<string, mixed>|null  $extraMeta
+     */
+    public static function completeVoiceSession(string $sessionId, ?array $extraMeta = null): ?static
+    {
+        /** @var class-string<static> $model */
+        $model = config('atlas.persistence.models.execution', static::class);
+
+        /** @var static|null $execution */
+        $execution = $model::where('voice_session_id', $sessionId)
+            ->where('status', ExecutionStatus::Processing)
+            ->first();
+
+        if ($execution === null) {
+            return null;
+        }
+
+        $durationMs = $execution->started_at !== null
+            ? (int) abs(now()->diffInMilliseconds($execution->started_at))
+            : null;
+
+        // Atomic update — only completes if still Processing (race-safe)
+        $affected = $model::where('id', $execution->id)
+            ->where('status', ExecutionStatus::Processing)
+            ->update([
+                'status' => ExecutionStatus::Completed,
+                'completed_at' => now(),
+                'duration_ms' => $durationMs,
+            ]);
+
+        if ($affected === 0) {
+            return null; // Another request already completed it
+        }
+
+        // Apply extra metadata if provided (e.g. stale_cleanup flag)
+        if ($extraMeta !== null) {
+            $metadata = array_merge($execution->metadata ?? [], $extraMeta);
+            $model::where('id', $execution->id)->update(['metadata' => $metadata]);
+        }
+
+        /** @var class-string<ExecutionStep> $stepModel */
+        $stepModel = config('atlas.persistence.models.execution_step', ExecutionStep::class);
+
+        $stepModel::where('execution_id', $execution->id)
+            ->where('status', ExecutionStatus::Processing)
+            ->update([
+                'status' => ExecutionStatus::Completed,
+                'completed_at' => now(),
+                'duration_ms' => $durationMs,
+            ]);
+
+        $execution->refresh();
+
+        return $execution;
     }
 
     // ─── Lifecycle ──────────────────────────────────────────────
@@ -218,6 +291,12 @@ class Execution extends Model
     public function scopeFailed(Builder $query): void
     {
         $query->where('status', ExecutionStatus::Failed);
+    }
+
+    /** @param Builder<static> $query */
+    public function scopeForVoiceSession(Builder $query, string $sessionId): void
+    {
+        $query->where('voice_session_id', $sessionId);
     }
 
     /** @param Builder<static> $query */

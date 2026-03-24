@@ -4,19 +4,25 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Voice\Http;
 
+use Atlasphp\Atlas\Events\VoiceToolCallRequested;
+use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
+use Atlasphp\Atlas\Persistence\Enums\ToolCallType;
+use Atlasphp\Atlas\Persistence\Models\ExecutionToolCall;
 use Atlasphp\Atlas\Tools\Tool;
 use Atlasphp\Atlas\Tools\ToolSerializer;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 
 /**
  * Executes Atlas Tool classes for voice sessions.
  *
  * The browser relays tool calls from the provider to this endpoint.
  * Tool class names are stored in cache when the session is created.
- * The controller resolves the class from the container and calls handle().
+ * The controller resolves the class from the container, calls handle(),
+ * and tracks the execution in the database when persistence is enabled.
  */
 class VoiceToolController
 {
@@ -29,10 +35,12 @@ class VoiceToolController
         $validated = $request->validate([
             'name' => 'required|string',
             'arguments' => 'required|string',
+            'call_id' => 'sometimes|string',
         ]);
 
         $name = $validated['name'];
         $args = json_decode($validated['arguments'], true) ?? [];
+        $callId = $validated['call_id'] ?? Str::uuid()->toString();
 
         // Verify the session exists and load registered tools
         /** @var array<string, mixed>|null $sessionData */
@@ -55,6 +63,17 @@ class VoiceToolController
             ], 404);
         }
 
+        // Track tool call in persistence when available
+        $record = $this->createToolCallRecord($sessionData, $callId, $name, $args, $sessionId);
+        $startTime = microtime(true);
+
+        event(new VoiceToolCallRequested(
+            sessionId: $sessionId,
+            callId: $callId,
+            name: $name,
+            arguments: json_encode($args, JSON_THROW_ON_ERROR),
+        ));
+
         try {
             /** @var Tool $tool */
             $tool = $this->container->make($toolClass);
@@ -63,8 +82,14 @@ class VoiceToolController
                 'session_id' => $sessionId,
             ]);
 
+            $serialized = ToolSerializer::serialize($result);
+
+            if ($record !== null) {
+                $record->markCompleted($serialized, (int) ((microtime(true) - $startTime) * 1000));
+            }
+
             return response()->json([
-                'output' => ToolSerializer::serialize($result),
+                'output' => $serialized,
             ]);
         } catch (\Throwable $e) {
             logger()->error('[VoiceToolController] Tool execution failed: '.$e->getMessage(), [
@@ -73,11 +98,51 @@ class VoiceToolController
                 'exception' => $e,
             ]);
 
+            if ($record !== null) {
+                $record->markFailed($e->getMessage(), (int) ((microtime(true) - $startTime) * 1000));
+            }
+
             $errorMessage = config('app.debug') ? $e->getMessage() : 'Tool execution failed';
 
             return response()->json([
                 'output' => json_encode(['error' => $errorMessage]),
             ]);
         }
+    }
+
+    /**
+     * Create an ExecutionToolCall record for tracking.
+     *
+     * @param  array<string, mixed>  $sessionData
+     * @param  array<string, mixed>  $args
+     */
+    private function createToolCallRecord(
+        array $sessionData,
+        string $callId,
+        string $name,
+        array $args,
+        string $sessionId,
+    ): ?ExecutionToolCall {
+        $executionId = $sessionData['execution_id'] ?? null;
+        $stepId = $sessionData['step_id'] ?? null;
+
+        if ($executionId === null || $stepId === null) {
+            return null;
+        }
+
+        /** @var class-string<ExecutionToolCall> $model */
+        $model = config('atlas.persistence.models.execution_tool_call', ExecutionToolCall::class);
+
+        return $model::create([
+            'execution_id' => $executionId,
+            'step_id' => $stepId,
+            'tool_call_id' => $callId,
+            'name' => $name,
+            'type' => ToolCallType::Atlas,
+            'status' => ExecutionStatus::Processing,
+            'arguments' => $args,
+            'started_at' => now(),
+            'metadata' => ['session_id' => $sessionId],
+        ]);
     }
 }

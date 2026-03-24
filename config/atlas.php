@@ -313,6 +313,10 @@ return [
             'route_prefix' => 'atlas',
         ],
 
+        // Minutes before a Processing voice session is considered stale.
+        // Used by atlas:clean-voice-sessions artisan command.
+        'voice_session_ttl' => (int) env('ATLAS_VOICE_SESSION_TTL', 60),
+
         // Model overrides — extend base models with your own
         'models' => [
             // 'conversation'        => \Atlasphp\Atlas\Persistence\Models\Conversation::class,

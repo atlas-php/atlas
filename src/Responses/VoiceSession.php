@@ -31,6 +31,7 @@ class VoiceSession
         public readonly ?DateTimeImmutable $expiresAt = null,
         public readonly ?string $toolEndpoint = null,
         public readonly ?string $transcriptEndpoint = null,
+        public readonly ?string $closeEndpoint = null,
         public readonly array $sessionConfig = [],
         public readonly array $meta = [],
     ) {}
@@ -48,9 +49,9 @@ class VoiceSession
     }
 
     /**
-     * Return a new instance with tool and transcript endpoint URLs set.
+     * Return a new instance with tool, transcript, and close endpoint URLs set.
      */
-    public function withEndpoints(?string $toolEndpoint, ?string $transcriptEndpoint): self
+    public function withEndpoints(?string $toolEndpoint, ?string $transcriptEndpoint, ?string $closeEndpoint = null): self
     {
         return new self(
             sessionId: $this->sessionId,
@@ -63,6 +64,7 @@ class VoiceSession
             expiresAt: $this->expiresAt,
             toolEndpoint: $toolEndpoint,
             transcriptEndpoint: $transcriptEndpoint,
+            closeEndpoint: $closeEndpoint,
             sessionConfig: $this->sessionConfig,
             meta: $this->meta,
         );
@@ -88,6 +90,7 @@ class VoiceSession
             'expires_at' => $this->expiresAt?->format('c'),
             'tool_endpoint' => $this->toolEndpoint,
             'transcript_endpoint' => $this->transcriptEndpoint,
+            'close_endpoint' => $this->closeEndpoint,
             'session_config' => $this->sessionConfig !== [] ? $this->sessionConfig : null,
         ], fn (mixed $v): bool => $v !== null);
     }

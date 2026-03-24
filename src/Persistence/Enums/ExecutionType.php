@@ -24,6 +24,7 @@ enum ExecutionType: string
     case Embed = 'embed';
     case Moderate = 'moderate';
     case Rerank = 'rerank';
+    case Voice = 'voice';
 
     /**
      * Whether this execution type produces a file output.
@@ -70,6 +71,7 @@ enum ExecutionType: string
             'embed' => self::Embed,
             'moderate' => self::Moderate,
             'rerank' => self::Rerank,
+            'voice' => self::Voice,
             default => self::Text,
         };
     }

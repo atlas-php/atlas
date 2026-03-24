@@ -129,6 +129,44 @@ When using `agent()->asVoice()`, the agent's tools are registered in the session
 
 No custom client-side tool code required — the voice composable handles the relay.
 
+## Execution Tracking
+
+When persistence is enabled, voice sessions are tracked with the same execution model as text:
+
+- **Execution record** — type `Voice`, linked to the conversation via `voice_session_id`
+- **Tool call records** — each tool invocation creates an `ExecutionToolCall` with arguments, result, timing
+- **Session lifecycle** — Processing → Completed (via transcript, close, or TTL sweep)
+
+Query voice session history:
+
+```php
+use Atlasphp\Atlas\Persistence\Models\Execution;
+
+$execution = Execution::forVoiceSession($sessionId)
+    ->with('toolCalls')
+    ->first();
+```
+
+### Session Completion
+
+Voice executions are completed by any of these signals:
+1. **Transcript POST** — the browser stores turns → execution marked completed
+2. **Close endpoint** — `POST /atlas/voice/{sessionId}/close` (browser calls on disconnect)
+3. **Stale cleanup** — `atlas:clean-voice-sessions` sweeps abandoned sessions
+
+The close endpoint URL is included in `toClientPayload()` as `close_endpoint`. Call it from your frontend's WebSocket `onclose` handler.
+
+### Stale Session Cleanup
+
+Schedule the cleanup command for abandoned sessions:
+
+```php
+// app/Console/Kernel.php
+$schedule->command('atlas:clean-voice-sessions')->hourly();
+```
+
+Default TTL: 60 minutes. Configure via `atlas.persistence.voice_session_ttl`.
+
 ## Transcript Persistence
 
 When persistence is enabled, voice transcripts are stored as conversation messages:
@@ -150,10 +188,10 @@ The browser POSTs completed turns to `/atlas/voice/{sessionId}/transcript` on ea
 | Event | Description |
 |-------|-------------|
 | `VoiceSessionCreated` | Session successfully created |
-| `VoiceSessionClosed` | Session ended |
+| `VoiceSessionClosed` | Session ended (fired by close endpoint) |
 | `VoiceAudioDelta` | Audio chunk (broadcastable) |
 | `VoiceTranscriptDelta` | Transcript chunk (broadcastable) |
-| `VoiceToolCallRequested` | AI requested a tool call |
+| `VoiceToolCallRequested` | Tool call received (fired by tool controller) |
 | `ModalityStarted` | Standard modality lifecycle |
 | `ModalityCompleted` | Standard modality lifecycle |
 
