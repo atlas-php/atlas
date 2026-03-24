@@ -11,6 +11,7 @@ use Atlasphp\Atlas\Requests\AudioRequest;
 use Atlasphp\Atlas\Requests\EmbedRequest;
 use Atlasphp\Atlas\Requests\ModerateRequest;
 use Atlasphp\Atlas\Requests\RerankRequest;
+use Atlasphp\Atlas\Requests\VoiceRequest;
 use Illuminate\Support\Facades\Http;
 
 function makeXaiDriver(): XaiDriver
@@ -96,6 +97,29 @@ it('lists voices via provider handler', function () {
     expect($voices->voices)->toContain('leo');
     expect($voices->voices)->toContain('rex');
     expect($voices->voices)->toContain('sal');
+});
+
+it('supports voice capability', function () {
+    expect(makeXaiDriver()->capabilities()->supports('voice'))->toBeTrue();
+});
+
+it('creates voice session via voice handler', function () {
+    Http::fake([
+        'api.x.ai/v1/realtime/client_secrets' => Http::response([
+            'value' => 'eph_token_test',
+            'expires_at' => time() + 60,
+        ]),
+    ]);
+
+    $session = makeXaiDriver()->createVoiceSession(new VoiceRequest(
+        model: 'grok-3-fast-realtime',
+        instructions: 'Be helpful',
+        voice: 'eve',
+    ));
+
+    expect($session->provider)->toBe('xai');
+    expect($session->ephemeralToken)->toBe('eph_token_test');
+    expect($session->connectionUrl)->toBe('wss://api.x.ai/v1/realtime');
 });
 
 // ─── Validate ──────────────────────────────────────────────────────────────

@@ -5,8 +5,10 @@ declare(strict_types=1);
 use Atlasphp\Atlas\Enums\VoiceTransport;
 use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderConfig;
+use Atlasphp\Atlas\Providers\WebSocketConnection;
 use Atlasphp\Atlas\Providers\Xai\Handlers\Voice;
 use Atlasphp\Atlas\Requests\VoiceRequest;
+use Atlasphp\Atlas\Responses\VoiceSession;
 
 function createXaiVoiceHandler(?HttpClient $http = null): Voice
 {
@@ -63,4 +65,21 @@ it('always uses WebSocket transport for xAI', function () {
     ));
 
     expect($session->transport)->toBe(VoiceTransport::WebSocket);
+});
+
+it('connect creates WebSocketConnection with correct URL and session ID', function () {
+    $handler = createXaiVoiceHandler();
+
+    $session = new VoiceSession(
+        sessionId: 'rt_xai_test123',
+        provider: 'xai',
+        model: 'grok-3-fast-realtime',
+        transport: VoiceTransport::WebSocket,
+        connectionUrl: 'wss://api.x.ai/v1/realtime',
+    );
+
+    $connection = $handler->connect($session);
+
+    expect($connection)->toBeInstanceOf(WebSocketConnection::class);
+    expect($connection->sessionId)->toBe('rt_xai_test123');
 });

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Tools\Tool;
 use Atlasphp\Atlas\Voice\Http\VoiceToolController;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
@@ -65,7 +66,7 @@ class VoiceTestArrayTool extends Tool
 
 // ─── Helper ─────────────────────────────────────────────────────
 
-function invokeToolController(string $sessionId, array $body): \Illuminate\Http\JsonResponse
+function invokeToolController(string $sessionId, array $body): JsonResponse
 {
     $controller = app(VoiceToolController::class);
     $request = Request::create("/voice/{$sessionId}/tool", 'POST', $body);

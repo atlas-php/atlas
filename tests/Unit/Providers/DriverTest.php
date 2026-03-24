@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Enums\FinishReason;
+use Atlasphp\Atlas\Enums\VoiceTransport;
 use Atlasphp\Atlas\Exceptions\AuthenticationException;
 use Atlasphp\Atlas\Exceptions\AuthorizationException;
 use Atlasphp\Atlas\Exceptions\ProviderException;
@@ -25,6 +26,7 @@ use Atlasphp\Atlas\Requests\VoiceRequest;
 use Atlasphp\Atlas\Responses\EmbeddingsResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\Usage;
+use Atlasphp\Atlas\Responses\VoiceSession;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 
@@ -107,8 +109,18 @@ it('throws UnsupportedFeatureException for rerank', function () {
     createTestDriver()->rerank(new RerankRequest('model', 'query', ['doc1', 'doc2']));
 })->throws(UnsupportedFeatureException::class, 'rerank');
 
-it('throws UnsupportedFeatureException for realtime', function () {
+it('throws UnsupportedFeatureException for voice session', function () {
     createTestDriver()->createVoiceSession(new VoiceRequest('model', null, null));
+})->throws(UnsupportedFeatureException::class, 'voice');
+
+it('throws UnsupportedFeatureException for voice connect', function () {
+    $session = new VoiceSession(
+        sessionId: 'test',
+        provider: 'test',
+        model: 'test',
+        transport: VoiceTransport::WebSocket,
+    );
+    createTestDriver()->connectVoice($session);
 })->throws(UnsupportedFeatureException::class, 'voice');
 
 // ─── withHandler ────────────────────────────────────────────────────────────

@@ -27,6 +27,7 @@ pest()->extend(TestCase::class)->in(
     'Feature/Console',
     'Feature/Testing',
     'Feature/Variables',
+    'Feature/Voice',
     'Feature/AtlasManagerEntryPointTest.php',
     'Feature/AtlasManagerMissingDefaultTest.php',
     'Feature/AtlasServiceProviderTest.php',

@@ -7,7 +7,9 @@ use Atlasphp\Atlas\Enums\VoiceTransport;
 use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Voice;
 use Atlasphp\Atlas\Providers\ProviderConfig;
+use Atlasphp\Atlas\Providers\WebSocketConnection;
 use Atlasphp\Atlas\Requests\VoiceRequest;
+use Atlasphp\Atlas\Responses\VoiceSession;
 
 function createOpenAiVoiceHandler(?HttpClient $http = null): Voice
 {
@@ -148,4 +150,37 @@ it('omits input audio transcription when not set', function () {
         voice: null,
         transport: VoiceTransport::WebRtc,
     ));
+});
+
+it('connect creates WebSocketConnection with correct URL and session ID', function () {
+    $handler = createOpenAiVoiceHandler();
+
+    $session = new VoiceSession(
+        sessionId: 'rt_openai_test456',
+        provider: 'openai',
+        model: 'gpt-4o-realtime-preview',
+        transport: VoiceTransport::WebSocket,
+        connectionUrl: 'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview',
+    );
+
+    $connection = $handler->connect($session);
+
+    expect($connection)->toBeInstanceOf(WebSocketConnection::class);
+    expect($connection->sessionId)->toBe('rt_openai_test456');
+});
+
+it('connect builds WebSocket URL from model when connectionUrl is null', function () {
+    $handler = createOpenAiVoiceHandler();
+
+    $session = new VoiceSession(
+        sessionId: 'rt_openai_fallback',
+        provider: 'openai',
+        model: 'gpt-4o-realtime-preview',
+        transport: VoiceTransport::WebRtc,
+    );
+
+    $connection = $handler->connect($session);
+
+    expect($connection)->toBeInstanceOf(WebSocketConnection::class);
+    expect($connection->sessionId)->toBe('rt_openai_fallback');
 });

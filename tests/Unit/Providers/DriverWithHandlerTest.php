@@ -12,6 +12,7 @@ use Atlasphp\Atlas\Providers\Handlers\VoiceHandler;
 use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
 use Atlasphp\Atlas\Providers\ProviderConfig;
+use Atlasphp\Atlas\Providers\WebSocketConnection;
 use Atlasphp\Atlas\Requests\AudioRequest;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Requests\VoiceRequest;
@@ -187,6 +188,27 @@ it('adds realtime handler to a bare driver via withHandler', function () {
 
     $result = $driver->createVoiceSession(new VoiceRequest('model', null, null));
     expect($result->sessionId)->toBe('rt_test');
+});
+
+it('connectVoice routes through voice handler override', function () {
+    $session = new VoiceSession(
+        sessionId: 'rt_connect',
+        provider: 'test',
+        model: 'model',
+        transport: VoiceTransport::WebSocket,
+        connectionUrl: 'wss://example.com/realtime',
+    );
+
+    $mockConnection = Mockery::mock(WebSocketConnection::class);
+    $mockConnection->shouldReceive('isConnected')->andReturn(true);
+
+    $voiceHandler = Mockery::mock(VoiceHandler::class);
+    $voiceHandler->shouldReceive('connect')->once()->with($session)->andReturn($mockConnection);
+
+    $driver = makeBareDriver()->withHandler('voice', $voiceHandler);
+
+    $result = $driver->connectVoice($session);
+    expect($result->isConnected())->toBeTrue();
 });
 
 // ─── Custom handler returns correct response types ──────────────────────────
