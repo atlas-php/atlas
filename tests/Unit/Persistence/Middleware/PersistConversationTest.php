@@ -16,6 +16,7 @@ use Atlasphp\Atlas\Persistence\Middleware\PersistConversation;
 use Atlasphp\Atlas\Persistence\Models\Conversation;
 use Atlasphp\Atlas\Persistence\Models\Message;
 use Atlasphp\Atlas\Persistence\ProcessQueuedMessage;
+use Atlasphp\Atlas\Persistence\Services\ConversationService;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\Usage;
 use Illuminate\Support\Facades\Queue;
@@ -187,32 +188,39 @@ it('injects conversation_id into context meta', function () {
     expect($context->meta['conversation_id'])->toBe($conversation->id);
 });
 
-it('stores user message after execution', function () {
+it('links assistant response to pre-stored user message', function () {
     $middleware = app(PersistConversation::class);
 
     $conversation = Conversation::create([
         'agent' => 'test-agent',
     ]);
 
+    // User message is pre-stored by AgentRequest (before dispatch)
+    $conversations = app(ConversationService::class);
+    $userMsg = $conversations->addMessage(
+        $conversation,
+        new UserMessage(content: 'Hello'),
+    );
+
     $agent = makeTestAgent();
     $agent->forConversation($conversation->id);
+    $agent->respond();
 
     $context = new AgentContext(
         request: makePersistConversationRequest(),
         agent: $agent,
-        messages: [new UserMessage(content: 'Hello')],
+        messages: [],
         meta: [],
     );
 
     $middleware->handle($context, fn () => makeFakeExecutorResult());
 
-    $userMessage = Message::where('conversation_id', $conversation->id)
-        ->where('role', MessageRole::User)
+    $assistantMessage = Message::where('conversation_id', $conversation->id)
+        ->where('role', MessageRole::Assistant)
         ->first();
 
-    expect($userMessage)->not->toBeNull()
-        ->and($userMessage->content)->toBe('Hello')
-        ->and($userMessage->role)->toBe(MessageRole::User);
+    expect($assistantMessage)->not->toBeNull()
+        ->and($assistantMessage->parent_id)->toBe($userMsg->id);
 });
 
 it('throws when respond mode used without forConversation', function () {
@@ -517,13 +525,18 @@ it('prepends conversation history into the request messages', function () {
 
 it('grows request messages as conversation history accumulates', function () {
     $middleware = app(PersistConversation::class);
+    $conversations = app(ConversationService::class);
 
     $conversation = Conversation::create(['agent' => 'test-agent']);
 
+    // Pre-store user message (simulates AgentRequest eager storage)
+    $conversations->addMessage($conversation, new UserMessage(content: 'Hello'));
+
+    // Turn 1 — respond to the pre-stored user message
     $agent = makeTestAgent();
     $agent->forConversation($conversation->id);
+    $agent->respond();
 
-    // Turn 1 — no history yet
     $capturedRequest1 = null;
 
     $context1 = new AgentContext(
@@ -539,12 +552,16 @@ it('grows request messages as conversation history accumulates', function () {
         return makeFakeExecutorResult();
     });
 
-    // First turn: no prior history, request messages should be empty
-    expect($capturedRequest1->messages)->toHaveCount(0);
+    // First turn: should have 1 message (the pre-stored user message)
+    expect($capturedRequest1->messages)->toHaveCount(1);
 
-    // Turn 2 — should see turn 1's user + assistant messages
+    // Pre-store another user message for turn 2
+    $conversations->addMessage($conversation, new UserMessage(content: 'Follow up'));
+
+    // Turn 2 — should see turn 1's user + assistant + turn 2's user
     $agent2 = makeTestAgent();
     $agent2->forConversation($conversation->id);
+    $agent2->respond();
 
     $capturedRequest2 = null;
 
@@ -561,8 +578,8 @@ it('grows request messages as conversation history accumulates', function () {
         return makeFakeExecutorResult();
     });
 
-    // Second turn: should have 2 messages from turn 1 (user + assistant)
-    expect($capturedRequest2->messages)->toHaveCount(2);
+    // Second turn: should have 3 messages (user1 + assistant1 + user2)
+    expect($capturedRequest2->messages)->toHaveCount(3);
 });
 
 it('prepends history before existing request messages without duplication', function () {

@@ -11,6 +11,8 @@ use Atlasphp\Atlas\Concerns\HasVariables;
 use Atlasphp\Atlas\Concerns\NormalizesMessages;
 use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Enums\Role;
+use Atlasphp\Atlas\Events\ConversationMessageStored;
 use Atlasphp\Atlas\Events\ModalityCompleted;
 use Atlasphp\Atlas\Events\ModalityStarted;
 use Atlasphp\Atlas\Events\VoiceCallStarted;
@@ -22,16 +24,21 @@ use Atlasphp\Atlas\Executor\ToolRegistry;
 use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Input\Input;
 use Atlasphp\Atlas\Messages\Message;
+use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Middleware\AgentContext;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
 use Atlasphp\Atlas\Persistence\Concerns\HasConversations;
+use Atlasphp\Atlas\Persistence\Enums\AssetType;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
+use Atlasphp\Atlas\Persistence\Models\Asset;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\ExecutionStep;
+use Atlasphp\Atlas\Persistence\Models\MessageAttachment;
 use Atlasphp\Atlas\Persistence\Models\VoiceCall;
+use Atlasphp\Atlas\Persistence\Services\ConversationService;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\Tools\ProviderTool;
@@ -49,6 +56,7 @@ use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Fluent builder for agent execution requests.
@@ -62,7 +70,9 @@ class AgentRequest implements QueueableRequest
     use Concerns\ConvertsResultToChunks;
     use HasMeta;
     use HasMiddleware;
-    use HasQueueDispatch;
+    use HasQueueDispatch {
+        dispatchToQueue as traitDispatchToQueue;
+    }
     use HasVariables;
     use NormalizesMessages;
 
@@ -337,6 +347,8 @@ class AgentRequest implements QueueableRequest
             return $this->dispatchToQueue('asText');
         }
 
+        $this->storeUserMessageEagerly();
+
         $agent = $this->resolveAgent();
         $tools = $this->resolveTools($agent);
         $driver = $this->resolveDriver($agent);
@@ -383,6 +395,8 @@ class AgentRequest implements QueueableRequest
         if ($this->queued) {
             return $this->dispatchToQueue('asStream');
         }
+
+        $this->storeUserMessageEagerly();
 
         $agent = $this->resolveAgent();
         $tools = $this->resolveTools($agent);
@@ -432,6 +446,8 @@ class AgentRequest implements QueueableRequest
         if ($this->queued) {
             return $this->dispatchToQueue('asStructured');
         }
+
+        $this->storeUserMessageEagerly();
 
         $agent = $this->resolveAgent();
         $driver = $this->resolveDriver($agent);
@@ -627,6 +643,147 @@ class AgentRequest implements QueueableRequest
         $closeEndpoint = url("/{$prefix}/voice/{$session->sessionId}/close");
 
         return $session->withEndpoints($toolEndpoint, $transcriptEndpoint, $closeEndpoint);
+    }
+
+    // ─── Queue: Eager User Message Storage ─────────────────────────
+
+    /**
+     * Override dispatchToQueue to store the user message BEFORE the job is dispatched.
+     *
+     * The user message is the consumer's action — it should persist immediately.
+     * The job only handles the assistant's response. Without this, the user message
+     * isn't stored until the job runs (which may be delayed).
+     *
+     * @param  array<string, mixed>  $terminalArgs
+     */
+    protected function dispatchToQueue(string $terminal, array $terminalArgs = []): PendingExecution
+    {
+        $this->storeUserMessageEagerly();
+
+        return $this->traitDispatchToQueue($terminal, $terminalArgs);
+    }
+
+    /**
+     * Store the user message to the conversation immediately (before job dispatch).
+     *
+     * After storing, switches to respond mode so PersistConversation middleware
+     * in the job doesn't create a duplicate user message.
+     */
+    private function storeUserMessageEagerly(): void
+    {
+        if (! config('atlas.persistence.enabled')) {
+            return;
+        }
+
+        // Only store if we have a message and a conversation
+        if ($this->message === null || $this->conversationId === null) {
+            return;
+        }
+
+        // Skip if already in respond or retry mode (no user message to store)
+        if ($this->respondMode || $this->retryMode) {
+            return;
+        }
+
+        $agent = $this->resolveAgent();
+
+        if (! in_array(HasConversations::class, class_uses_recursive($agent), true)) {
+            return;
+        }
+
+        try {
+            $conversations = app(ConversationService::class);
+            $conversation = $conversations->find($this->conversationId);
+
+            $userMessage = new UserMessage(
+                content: $this->message,
+                media: $this->messageMedia,
+            );
+
+            $stored = $conversations->addMessage(
+                $conversation,
+                $userMessage,
+                author: $this->messageAuthor,
+            );
+
+            $stored->markAsRead();
+
+            // Store media attachments
+            if ($this->messageMedia !== []) {
+                $this->storeEagerMediaAttachments($stored->id, $this->messageMedia, $this->messageAuthor);
+            }
+
+            // Auto-set conversation title from first user message
+            if ($conversation->title === null || $conversation->title === '') {
+                $title = str_replace("\n", ' ', $this->message);
+                $conversation->update([
+                    'title' => mb_strlen($title) > 60 ? mb_substr($title, 0, 57).'...' : $title,
+                ]);
+            }
+
+            event(new ConversationMessageStored(
+                conversationId: $conversation->id,
+                messageId: $stored->id,
+                role: Role::User,
+                agent: $agent->key(),
+            ));
+
+            // Switch to respond mode so the job doesn't store the user message again
+            $this->respondMode = true;
+        } catch (\Throwable $e) {
+            // User message storage failed — the message will NOT be stored.
+            // Execution continues so the consumer's call doesn't break.
+            report($e);
+        }
+    }
+
+    /**
+     * Store user media attachments eagerly (mirrors PersistConversation logic).
+     *
+     * @param  array<int, Input>  $media
+     */
+    private function storeEagerMediaAttachments(int $messageId, array $media, ?Model $author): void
+    {
+        foreach ($media as $input) {
+            try {
+                $path = $input->store();
+                $contents = $input->contents();
+                $disk = config('atlas.storage.disk') ?? config('filesystems.default', 'local');
+                $mime = $input->mimeType();
+
+                $assetModel = config('atlas.persistence.models.asset', Asset::class);
+                $attachmentModel = config('atlas.persistence.models.message_attachment', MessageAttachment::class);
+
+                $type = match (true) {
+                    str_starts_with($mime, 'image/') => AssetType::Image,
+                    str_starts_with($mime, 'audio/') => AssetType::Audio,
+                    str_starts_with($mime, 'video/') => AssetType::Video,
+                    default => AssetType::Document,
+                };
+
+                DB::transaction(function () use ($assetModel, $attachmentModel, $messageId, $path, $disk, $mime, $contents, $author, $type): void {
+                    $asset = $assetModel::create([
+                        'type' => $type,
+                        'mime_type' => $mime,
+                        'filename' => basename($path),
+                        'path' => $path,
+                        'disk' => $disk,
+                        'size_bytes' => strlen($contents),
+                        'content_hash' => hash('sha256', $contents),
+                        'author_type' => $author?->getMorphClass(),
+                        'author_id' => $author?->getKey(),
+                        'metadata' => ['source' => 'user_upload'],
+                    ]);
+
+                    $attachmentModel::create([
+                        'message_id' => $messageId,
+                        'asset_id' => $asset->id,
+                    ]);
+                });
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
     }
 
     // ─── Internal: Resolution ───────────────────────────────────────
