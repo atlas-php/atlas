@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Messages\AssistantMessage;
+use Atlasphp\Atlas\Messages\SystemMessage;
+use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Providers\Tools\WebSearch;
 use Atlasphp\Atlas\Tools\Tool;
 
@@ -291,4 +294,54 @@ it('allows overriding voice', function () {
     };
 
     expect($agent->voice())->toBe('eve');
+});
+
+// ─── appendInstructionsForVoice() ──────────────────────────────────────────
+
+it('returns empty string when messages are empty', function () {
+    $agent = new SupportAgent;
+
+    expect($agent->appendInstructionsForVoice([]))->toBe('');
+});
+
+it('returns empty string when all messages have empty content', function () {
+    $agent = new SupportAgent;
+
+    $messages = [
+        new SystemMessage('system only'),
+        new AssistantMessage(''),
+    ];
+
+    expect($agent->appendInstructionsForVoice($messages))->toBe('');
+});
+
+it('formats user and assistant messages as history block', function () {
+    $agent = new SupportAgent;
+
+    $messages = [
+        new UserMessage('Hello'),
+        new AssistantMessage('Hi there!'),
+    ];
+
+    $result = $agent->appendInstructionsForVoice($messages);
+
+    expect($result)->toStartWith('The user has switched to voice.')
+        ->and($result)->toContain("User: Hello\nAssistant: Hi there!");
+});
+
+it('skips system messages and empty content', function () {
+    $agent = new SupportAgent;
+
+    $messages = [
+        new SystemMessage('You are helpful'),
+        new UserMessage('Hello'),
+        new AssistantMessage(''),
+        new AssistantMessage('Got it!'),
+    ];
+
+    $result = $agent->appendInstructionsForVoice($messages);
+
+    expect($result)->toContain("User: Hello\nAssistant: Got it!")
+        ->and($result)->not->toContain('System')
+        ->and($result)->not->toContain('You are helpful');
 });

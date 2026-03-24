@@ -240,6 +240,41 @@ it('multiple withHandler calls stack independently', function () {
     expect($embed->embeddings)->toBe([[0.1, 0.2]]);
 });
 
+// ─── dispatch catches RequestException ──────────────────────────────────────
+
+it('dispatch maps RequestException from handler to ProviderException', function () {
+    $handler = Mockery::mock(TextHandler::class);
+    $handler->shouldReceive('text')->andThrow(
+        makeRequestExceptionForStatus(500)
+    );
+
+    $driver = createTestDriver()->withHandler('text', $handler);
+
+    $driver->text(new TextRequest('model', null, null, [], [], null, null, null, [], [], []));
+})->throws(ProviderException::class);
+
+it('dispatch maps 401 RequestException from handler to AuthenticationException', function () {
+    $handler = Mockery::mock(TextHandler::class);
+    $handler->shouldReceive('text')->andThrow(
+        makeRequestExceptionForStatus(401)
+    );
+
+    $driver = createTestDriver()->withHandler('text', $handler);
+
+    $driver->text(new TextRequest('model', null, null, [], [], null, null, null, [], [], []));
+})->throws(AuthenticationException::class);
+
+it('dispatch maps 429 RequestException from handler to RateLimitException', function () {
+    $handler = Mockery::mock(TextHandler::class);
+    $handler->shouldReceive('text')->andThrow(
+        makeRequestExceptionForStatus(429)
+    );
+
+    $driver = createTestDriver()->withHandler('text', $handler);
+
+    $driver->text(new TextRequest('model', null, null, [], [], null, null, null, [], [], []));
+})->throws(RateLimitException::class);
+
 // ─── handleRequestException ─────────────────────────────────────────────────
 
 function makeRequestExceptionForStatus(int $status): RequestException

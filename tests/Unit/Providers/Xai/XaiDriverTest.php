@@ -88,15 +88,51 @@ it('lists models via provider handler', function () {
     expect($models->models)->toContain('grok-3-mini');
 });
 
-it('lists voices via provider handler', function () {
+it('lists voices from /v1/tts/voices', function () {
+    Http::fake([
+        'api.x.ai/v1/tts/voices' => Http::response([
+            'voices' => [
+                ['voice_id' => 'ara', 'name' => 'Ara', 'language' => 'multilingual'],
+                ['voice_id' => 'eve', 'name' => 'Eve', 'language' => 'multilingual'],
+                ['voice_id' => 'leo', 'name' => 'Leo', 'language' => 'multilingual'],
+                ['voice_id' => 'rex', 'name' => 'Rex', 'language' => 'multilingual'],
+                ['voice_id' => 'sal', 'name' => 'Sal', 'language' => 'multilingual'],
+                ['voice_id' => 'una', 'name' => 'Una', 'language' => 'multilingual'],
+            ],
+        ]),
+    ]);
+
     $voices = makeXaiDriver()->voices();
 
-    expect($voices->voices)->toHaveCount(5);
+    expect($voices->voices)->toHaveCount(6);
     expect($voices->voices)->toContain('ara');
     expect($voices->voices)->toContain('eve');
-    expect($voices->voices)->toContain('leo');
-    expect($voices->voices)->toContain('rex');
-    expect($voices->voices)->toContain('sal');
+    expect($voices->voices)->toContain('una');
+});
+
+it('returns voices sorted alphabetically', function () {
+    Http::fake([
+        'api.x.ai/v1/tts/voices' => Http::response([
+            'voices' => [
+                ['voice_id' => 'sal', 'name' => 'Sal', 'language' => 'multilingual'],
+                ['voice_id' => 'ara', 'name' => 'Ara', 'language' => 'multilingual'],
+            ],
+        ]),
+    ]);
+
+    $voices = makeXaiDriver()->voices();
+
+    expect($voices->voices)->toBe(['ara', 'sal']);
+});
+
+it('returns empty voice list when voices key is missing', function () {
+    Http::fake([
+        'api.x.ai/v1/tts/voices' => Http::response(['status' => 'ok']),
+    ]);
+
+    $voices = makeXaiDriver()->voices();
+
+    expect($voices->voices)->toBe([]);
 });
 
 it('supports voice capability', function () {

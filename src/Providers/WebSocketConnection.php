@@ -70,6 +70,8 @@ class WebSocketConnection
             );
         } catch (TimeoutException) {
             return null;
+        } catch (\JsonException) {
+            return null; // Malformed frame — skip
         }
     }
 

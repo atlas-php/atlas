@@ -86,3 +86,45 @@ it('validate returns true when models succeeds', function () {
 
     expect($handler->validate())->toBeTrue();
 });
+
+it('validate returns false when models endpoint throws', function () {
+    Http::fake([
+        'api.openai.com/v1/models' => Http::response('Unauthorized', 401),
+    ]);
+
+    $handler = makeProviderHandler();
+
+    expect($handler->validate())->toBeFalse();
+});
+
+it('flushCache clears models and voices cache', function () {
+    // Enable caching so remember() actually stores values
+    config(['atlas.cache.ttl.models' => 3600, 'atlas.cache.ttl.voices' => 3600]);
+
+    $callCount = 0;
+
+    Http::fake(function () use (&$callCount) {
+        $callCount++;
+
+        return Http::response([
+            'data' => [['id' => "model-call-{$callCount}", 'object' => 'model']],
+        ]);
+    });
+
+    $handler = makeProviderHandler();
+
+    // First call — warms cache
+    $models = $handler->models();
+    expect($models->models)->toBe(['model-call-1']);
+
+    // Second call — should return cached value (no new HTTP call)
+    $models = $handler->models();
+    expect($models->models)->toBe(['model-call-1']);
+    expect($callCount)->toBe(1);
+
+    // Flush and re-fetch — should hit API again
+    $handler->flushCache();
+    $models = $handler->models();
+    expect($models->models)->toBe(['model-call-2']);
+    expect($callCount)->toBe(2);
+});

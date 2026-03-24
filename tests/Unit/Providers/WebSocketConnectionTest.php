@@ -94,6 +94,17 @@ it('returns null on timeout exception', function () {
     expect($conn->receive())->toBeNull();
 });
 
+it('returns null on malformed JSON', function () {
+    $client = Mockery::mock(Client::class);
+    $client->shouldReceive('receive')
+        ->once()
+        ->andReturn('not valid json {{{');
+
+    $conn = createMockConnection($client);
+
+    expect($conn->receive())->toBeNull();
+});
+
 it('delegates close to client', function () {
     $client = Mockery::mock(Client::class);
     $client->shouldReceive('close')->once();

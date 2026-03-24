@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas;
 
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Messages\AssistantMessage;
+use Atlasphp\Atlas\Messages\Message;
+use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Providers\Tools\ProviderTool;
 
 /**
@@ -128,6 +131,40 @@ abstract class Agent
     public function voice(): ?string
     {
         return null;
+    }
+
+    /**
+     * Append conversation history to voice session instructions.
+     *
+     * Override this to control how past messages are presented to the AI
+     * when a voice session starts with conversation context. Returns an
+     * empty string when there is nothing to append — the consumer decides
+     * how to merge the result with existing instructions.
+     *
+     * @param  array<int, Message>  $messages  Conversation history
+     */
+    public function appendInstructionsForVoice(array $messages): string
+    {
+        $lines = [];
+
+        foreach ($messages as $msg) {
+            $content = match (true) {
+                $msg instanceof UserMessage => $msg->content,
+                $msg instanceof AssistantMessage => $msg->content ?? '',
+                default => null,
+            };
+
+            if ($content !== null && $content !== '') {
+                $role = $msg instanceof UserMessage ? 'User' : 'Assistant';
+                $lines[] = "{$role}: {$content}";
+            }
+        }
+
+        if ($lines === []) {
+            return '';
+        }
+
+        return "The user has switched to voice. Here is the conversation so far. Continue from where it left off and reference past messages when relevant:\n\n".implode("\n", $lines);
     }
 
     // ─── Config ─────────────────────────────────────────────────────
