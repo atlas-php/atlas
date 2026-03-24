@@ -79,11 +79,11 @@ Set TTL to `0` to disable caching.
 
 ## Supported Providers
 
-| Provider | Voices |
-|----------|--------|
-| OpenAI | Yes (alloy, echo, fable, onyx, nova, shimmer) |
-| xAI | Yes |
-| ElevenLabs | Yes (large voice library + community voices) |
+| Provider | Voices | Source |
+|----------|--------|--------|
+| OpenAI | alloy, ash, ballad, coral, echo, fable, onyx, nova, sage, shimmer | Hardcoded |
+| xAI | Fetched from API (`/v1/tts/voices`) | Live API |
+| ElevenLabs | Large voice library + community voices | Live API |
 
 ## API Reference
 

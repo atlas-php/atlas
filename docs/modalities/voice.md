@@ -13,7 +13,7 @@ Voice enables bidirectional speech conversations with AI providers. The browser 
 
 **OpenAI:** `alloy`, `ash`, `ballad`, `coral`, `echo`, `sage`, `shimmer`, `verse`, `marin`, `cedar`
 
-**xAI:** `eve`, `ara`, `rex`, `sal`, `leo`
+**xAI:** `ara`, `eve`, `leo`, `rex`, `sal`, `una`
 
 ## Quick Start
 
@@ -63,7 +63,7 @@ Add defaults to `config/atlas.php`:
 | Method | Description |
 |--------|-------------|
 | `instructions(string)` | System instructions for the session |
-| `withVoice(string)` | Voice ID — `alloy`, `ash`, `ballad`, `coral`, `echo`, `sage`, `shimmer`, `verse`, `marin`, `cedar` |
+| `withVoice(string)` | Voice ID (e.g. `alloy`, `coral`, `shimmer` for OpenAI; `eve`, `ara` for xAI) |
 | `viaWebRtc()` | Use WebRTC transport (OpenAI) |
 | `viaWebSocket()` | Use WebSocket transport (xAI) |
 | `withServerVad(?threshold, ?silenceDuration)` | Server-side voice activity detection |
