@@ -9,6 +9,7 @@ use Atlasphp\Atlas\Events\VoiceSessionClosed;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\VoiceCall;
+use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Cache;
@@ -22,6 +23,10 @@ use Illuminate\Support\Facades\Cache;
  */
 class CloseVoiceSessionController
 {
+    public function __construct(
+        private readonly ExecutionService $executionService,
+    ) {}
+
     public function __invoke(Request $request, string $sessionId): Response
     {
         $voiceCall = null;
@@ -63,7 +68,7 @@ class CloseVoiceSessionController
                 ->first();
 
             if ($execution !== null) {
-                $executionModel::completeVoiceExecution($execution->id);
+                $this->executionService->completeVoiceExecution($execution->id);
             }
         }
 

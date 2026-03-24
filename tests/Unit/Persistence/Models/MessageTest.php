@@ -13,6 +13,7 @@ use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\ExecutionStep;
 use Atlasphp\Atlas\Persistence\Models\ExecutionToolCall;
 use Atlasphp\Atlas\Persistence\Models\Message;
+use Atlasphp\Atlas\Persistence\Services\ConversationService;
 use Illuminate\Database\Eloquent\Model;
 
 it('creates a valid user message via factory', function () {
@@ -189,24 +190,25 @@ it('parent and responses relationships work', function () {
         ->toContain($response1->id, $response2->id);
 });
 
-it('fromAtlasMessage creates correct record from UserMessage', function () {
+it('addMessage creates correct record from UserMessage', function () {
     $conversation = Conversation::factory()->create();
+    $service = app(ConversationService::class);
 
     $atlasMessage = new UserMessage(content: 'Hello world');
-    $message = Message::fromAtlasMessage($atlasMessage, $conversation->id, 0);
+    $message = $service->addMessage($conversation, $atlasMessage);
 
     expect($message->exists)->toBeTrue()
         ->and($message->role)->toBe(MessageRole::User)
         ->and($message->content)->toBe('Hello world')
-        ->and($message->sequence)->toBe(0)
         ->and($message->status)->toBe(MessageStatus::Delivered);
 });
 
-it('fromAtlasMessage creates correct record from AssistantMessage', function () {
+it('addMessage creates correct record from AssistantMessage', function () {
     $conversation = Conversation::factory()->create();
+    $service = app(ConversationService::class);
 
     $atlasMessage = new AssistantMessage(content: 'I can help');
-    $message = Message::fromAtlasMessage($atlasMessage, $conversation->id, 1, agent: 'writer');
+    $message = $service->addMessage($conversation, $atlasMessage, agent: 'writer');
 
     expect($message->exists)->toBeTrue()
         ->and($message->role)->toBe(MessageRole::Assistant)
@@ -214,19 +216,21 @@ it('fromAtlasMessage creates correct record from AssistantMessage', function () 
         ->and($message->agent)->toBe('writer');
 });
 
-it('fromAtlasMessage creates correct record from SystemMessage', function () {
+it('addMessage creates correct record from SystemMessage', function () {
     $conversation = Conversation::factory()->create();
+    $service = app(ConversationService::class);
 
     $atlasMessage = new SystemMessage(content: 'You are a helpful assistant');
-    $message = Message::fromAtlasMessage($atlasMessage, $conversation->id, 0);
+    $message = $service->addMessage($conversation, $atlasMessage);
 
     expect($message->exists)->toBeTrue()
         ->and($message->role)->toBe(MessageRole::System)
         ->and($message->content)->toBe('You are a helpful assistant');
 });
 
-it('fromAtlasMessage throws on unknown message type', function () {
+it('addMessage throws on unknown message type', function () {
     $conversation = Conversation::factory()->create();
+    $service = app(ConversationService::class);
 
     $toolResult = new ToolResultMessage(
         toolCallId: 'call_123',
@@ -234,7 +238,7 @@ it('fromAtlasMessage throws on unknown message type', function () {
         toolName: 'search',
     );
 
-    Message::fromAtlasMessage($toolResult, $conversation->id, 0);
+    $service->addMessage($conversation, $toolResult);
 })->throws(InvalidArgumentException::class);
 
 it('toAtlasMessagesWithTools reconstructs tool calls from execution step', function () {

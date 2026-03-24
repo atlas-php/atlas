@@ -425,3 +425,73 @@ it('completeDirectExecution returns null duration when beginExecution was never 
         ->and($execution->total_output_tokens)->toBe(25)
         ->and($execution->duration_ms)->toBeNull();
 });
+
+// ─── completeVoiceExecution ────────────────────────────────────────
+
+it('completes a processing voice execution', function () {
+    $execution = Execution::factory()->create([
+        'status' => ExecutionStatus::Processing,
+        'started_at' => now()->subSeconds(5),
+    ]);
+
+    $result = $this->service->completeVoiceExecution($execution->id);
+
+    expect($result)->not->toBeNull()
+        ->and($result->status)->toBe(ExecutionStatus::Completed)
+        ->and($result->completed_at)->not->toBeNull()
+        ->and($result->duration_ms)->toBeGreaterThanOrEqual(0);
+});
+
+it('returns null for non-processing execution', function () {
+    $execution = Execution::factory()->create([
+        'status' => ExecutionStatus::Completed,
+    ]);
+
+    $result = $this->service->completeVoiceExecution($execution->id);
+
+    expect($result)->toBeNull();
+});
+
+it('returns null for non-existent execution', function () {
+    $result = $this->service->completeVoiceExecution(99999);
+
+    expect($result)->toBeNull();
+});
+
+it('merges extra metadata when completing voice execution', function () {
+    $execution = Execution::factory()->create([
+        'status' => ExecutionStatus::Processing,
+        'started_at' => now(),
+        'metadata' => ['existing' => 'data'],
+    ]);
+
+    $result = $this->service->completeVoiceExecution($execution->id, ['voice' => 'info']);
+
+    expect($result->metadata)->toBe(['existing' => 'data', 'voice' => 'info'])
+        ->and($result->status)->toBe(ExecutionStatus::Completed);
+});
+
+it('sets metadata when extra meta provided and no existing metadata', function () {
+    $execution = Execution::factory()->create([
+        'status' => ExecutionStatus::Processing,
+        'started_at' => now(),
+        'metadata' => null,
+    ]);
+
+    $result = $this->service->completeVoiceExecution($execution->id, ['cleanup' => true]);
+
+    expect($result->metadata)->toBe(['cleanup' => true]);
+});
+
+it('completes without metadata when extra meta is null', function () {
+    $execution = Execution::factory()->create([
+        'status' => ExecutionStatus::Processing,
+        'started_at' => now(),
+        'metadata' => ['keep' => 'this'],
+    ]);
+
+    $result = $this->service->completeVoiceExecution($execution->id);
+
+    expect($result->metadata)->toBe(['keep' => 'this'])
+        ->and($result->status)->toBe(ExecutionStatus::Completed);
+});

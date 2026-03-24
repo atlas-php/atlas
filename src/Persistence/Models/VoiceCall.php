@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Persistence\Models;
 
 use Atlasphp\Atlas\Persistence\Concerns\HasAtlasTable;
+use Atlasphp\Atlas\Persistence\Enums\VoiceCallStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -25,7 +26,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $agent
  * @property string $provider
  * @property string $model
- * @property string $status
+ * @property VoiceCallStatus $status
  * @property array<int, array{role: string, content: string}>|null $transcript
  * @property string|null $summary
  * @property int|null $duration_ms
@@ -57,6 +58,7 @@ class VoiceCall extends Model
     protected function casts(): array
     {
         return [
+            'status' => VoiceCallStatus::class,
             'transcript' => 'array',
             'metadata' => 'array',
             'duration_ms' => 'integer',
@@ -110,7 +112,7 @@ class VoiceCall extends Model
             : null;
 
         $this->update([
-            'status' => 'completed',
+            'status' => VoiceCallStatus::Completed,
             'transcript' => $turns,
             'completed_at' => now(),
             'duration_ms' => $durationMs,
@@ -120,19 +122,19 @@ class VoiceCall extends Model
     public function markFailed(): void
     {
         $this->update([
-            'status' => 'failed',
+            'status' => VoiceCallStatus::Failed,
             'completed_at' => now(),
         ]);
     }
 
     public function isActive(): bool
     {
-        return $this->status === 'active';
+        return $this->status === VoiceCallStatus::Active;
     }
 
     public function isCompleted(): bool
     {
-        return $this->status === 'completed';
+        return $this->status === VoiceCallStatus::Completed;
     }
 
     // ─── Scopes ─────────────────────────────────────────────────
@@ -152,12 +154,12 @@ class VoiceCall extends Model
     /** @param Builder<static> $query */
     public function scopeActive(Builder $query): void
     {
-        $query->where('status', 'active');
+        $query->where('status', VoiceCallStatus::Active);
     }
 
     /** @param Builder<static> $query */
     public function scopeCompleted(Builder $query): void
     {
-        $query->where('status', 'completed');
+        $query->where('status', VoiceCallStatus::Completed);
     }
 }

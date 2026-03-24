@@ -33,6 +33,7 @@ use Atlasphp\Atlas\Persistence\Concerns\HasConversations;
 use Atlasphp\Atlas\Persistence\Enums\AssetType;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
+use Atlasphp\Atlas\Persistence\Enums\VoiceCallStatus;
 use Atlasphp\Atlas\Persistence\Models\Asset;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\MessageAttachment;
@@ -591,7 +592,7 @@ class AgentRequest implements QueueableRequest
                     'agent' => $agent->key(),
                     'provider' => $providerKey,
                     'model' => $model ?? '',
-                    'status' => 'active',
+                    'status' => VoiceCallStatus::Active,
                     'transcript' => [],
                     'started_at' => now(),
                 ]);

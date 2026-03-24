@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Persistence\Models;
 
 use Atlasphp\Atlas\Database\Factories\ExecutionToolCallFactory;
 use Atlasphp\Atlas\Persistence\Concerns\HasAtlasTable;
+use Atlasphp\Atlas\Persistence\Concerns\HasExecutionStatus;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Enums\ToolCallType;
 use Illuminate\Database\Eloquent\Builder;
@@ -38,7 +39,7 @@ use Illuminate\Support\Carbon;
 class ExecutionToolCall extends Model
 {
     /** @use HasFactory<Factory<static>> */
-    use HasAtlasTable, HasFactory;
+    use HasAtlasTable, HasExecutionStatus, HasFactory;
 
     protected static function newFactory(): ExecutionToolCallFactory
     {
@@ -124,30 +125,6 @@ class ExecutionToolCall extends Model
     }
 
     // ─── Scopes ─────────────────────────────────────────────────
-
-    /** @param Builder<static> $query */
-    public function scopePending(Builder $query): void
-    {
-        $query->where('status', ExecutionStatus::Pending);
-    }
-
-    /** @param Builder<static> $query */
-    public function scopeProcessing(Builder $query): void
-    {
-        $query->where('status', ExecutionStatus::Processing);
-    }
-
-    /** @param Builder<static> $query */
-    public function scopeCompleted(Builder $query): void
-    {
-        $query->where('status', ExecutionStatus::Completed);
-    }
-
-    /** @param Builder<static> $query */
-    public function scopeFailed(Builder $query): void
-    {
-        $query->where('status', ExecutionStatus::Failed);
-    }
 
     /** @param Builder<static> $query */
     public function scopeForTool(Builder $query, string $name): void

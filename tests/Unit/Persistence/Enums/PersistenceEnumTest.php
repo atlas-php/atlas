@@ -8,6 +8,7 @@ use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
 use Atlasphp\Atlas\Persistence\Enums\MessageRole;
 use Atlasphp\Atlas\Persistence\Enums\MessageStatus;
 use Atlasphp\Atlas\Persistence\Enums\ToolCallType;
+use Atlasphp\Atlas\Persistence\Enums\VoiceCallStatus;
 
 // ─── ExecutionType ──────────────────────────────────────────────
 
@@ -154,3 +155,28 @@ it('MessageStatus has correct case values', function (string $value) {
 it('ToolCallType has correct case values', function (string $value) {
     expect(ToolCallType::from($value))->toBeInstanceOf(ToolCallType::class);
 })->with(['atlas', 'mcp', 'provider']);
+
+// ─── VoiceCallStatus ──────────────────────────────────────────
+
+it('VoiceCallStatus has correct case values', function (string $value) {
+    expect(VoiceCallStatus::from($value))->toBeInstanceOf(VoiceCallStatus::class);
+})->with(['active', 'completed', 'failed']);
+
+it('VoiceCallStatus isTerminal returns true for Completed and Failed', function (VoiceCallStatus $status) {
+    expect($status->isTerminal())->toBeTrue();
+})->with([
+    VoiceCallStatus::Completed,
+    VoiceCallStatus::Failed,
+]);
+
+it('VoiceCallStatus isTerminal returns false for Active', function () {
+    expect(VoiceCallStatus::Active->isTerminal())->toBeFalse();
+});
+
+it('VoiceCallStatus label returns human-readable string for each case', function (VoiceCallStatus $status, string $expected) {
+    expect($status->label())->toBe($expected);
+})->with([
+    [VoiceCallStatus::Active, 'Active'],
+    [VoiceCallStatus::Completed, 'Completed'],
+    [VoiceCallStatus::Failed, 'Failed'],
+]);

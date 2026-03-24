@@ -7,8 +7,8 @@ namespace Atlasphp\Atlas\Persistence\Models;
 use Atlasphp\Atlas\Database\Factories\ExecutionStepFactory;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Persistence\Concerns\HasAtlasTable;
+use Atlasphp\Atlas\Persistence\Concerns\HasExecutionStatus;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -40,7 +40,7 @@ use Illuminate\Support\Carbon;
 class ExecutionStep extends Model
 {
     /** @use HasFactory<Factory<static>> */
-    use HasAtlasTable, HasFactory;
+    use HasAtlasTable, HasExecutionStatus, HasFactory;
 
     protected static function newFactory(): ExecutionStepFactory
     {
@@ -156,31 +156,5 @@ class ExecutionStep extends Model
     public function getTotalTokensAttribute(): int
     {
         return $this->input_tokens + $this->output_tokens;
-    }
-
-    // ─── Scopes ─────────────────────────────────────────────────
-
-    /** @param Builder<static> $query */
-    public function scopePending(Builder $query): void
-    {
-        $query->where('status', ExecutionStatus::Pending);
-    }
-
-    /** @param Builder<static> $query */
-    public function scopeProcessing(Builder $query): void
-    {
-        $query->where('status', ExecutionStatus::Processing);
-    }
-
-    /** @param Builder<static> $query */
-    public function scopeCompleted(Builder $query): void
-    {
-        $query->where('status', ExecutionStatus::Completed);
-    }
-
-    /** @param Builder<static> $query */
-    public function scopeFailed(Builder $query): void
-    {
-        $query->where('status', ExecutionStatus::Failed);
     }
 }

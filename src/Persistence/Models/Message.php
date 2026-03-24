@@ -276,58 +276,6 @@ class Message extends Model
         return $messages;
     }
 
-    /**
-     * Create a Message record.
-     *
-     * Only creates user, assistant, and system messages.
-     * Tool interactions are NOT stored as messages — they live in execution tables.
-     */
-    /**
-     * @param  array<string, mixed>|null  $metadata
-     */
-    public static function fromAtlasMessage(
-        AtlasMessage $message,
-        int $conversationId,
-        int $sequence,
-        ?Model $author = null,
-        ?string $agent = null,
-        ?int $parentId = null,
-        ?int $stepId = null,
-        MessageStatus $status = MessageStatus::Delivered,
-        ?array $metadata = null,
-    ): self {
-        $attributes = [
-            'conversation_id' => $conversationId,
-            'sequence' => $sequence,
-            'author_type' => $author?->getMorphClass(),
-            'author_id' => $author?->getKey(),
-            'agent' => $agent,
-            'parent_id' => $parentId,
-            'step_id' => $stepId,
-            'status' => $status,
-            'is_active' => true,
-            'metadata' => $metadata,
-        ];
-
-        if ($message instanceof UserMessage) {
-            $attributes['role'] = MessageRole::User;
-            $attributes['content'] = $message->content;
-        } elseif ($message instanceof AssistantMessage) {
-            $attributes['role'] = MessageRole::Assistant;
-            $attributes['content'] = $message->content;
-            // toolCalls are NOT stored — they live in execution_tool_calls via step_id
-        } elseif ($message instanceof SystemMessage) {
-            $attributes['role'] = MessageRole::System;
-            $attributes['content'] = $message->content;
-        } else {
-            throw new \InvalidArgumentException(
-                'Cannot persist message of type '.get_class($message).'. Only UserMessage, AssistantMessage, and SystemMessage are supported.'
-            );
-        }
-
-        return static::create($attributes);
-    }
-
     // ─── Query Helpers ──────────────────────────────────────────
 
     public function isFromUser(): bool

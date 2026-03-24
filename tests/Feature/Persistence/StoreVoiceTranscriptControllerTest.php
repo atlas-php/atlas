@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Persistence\Enums\VoiceCallStatus;
 use Atlasphp\Atlas\Persistence\Http\StoreVoiceTranscriptController;
 use Atlasphp\Atlas\Persistence\Models\Message;
 use Atlasphp\Atlas\Persistence\Models\VoiceCall;
@@ -27,7 +28,7 @@ it('saves transcript turns to VoiceCall record', function () {
         'voice_session_id' => 'sess-transcript-1',
         'provider' => 'xai',
         'model' => 'grok-3',
-        'status' => 'active',
+        'status' => VoiceCallStatus::Active,
         'transcript' => [],
         'started_at' => now(),
     ]);
@@ -54,7 +55,7 @@ it('replaces transcript atomically on subsequent calls', function () {
         'voice_session_id' => 'sess-replace-1',
         'provider' => 'xai',
         'model' => 'grok-3',
-        'status' => 'active',
+        'status' => VoiceCallStatus::Active,
         'transcript' => [['role' => 'user', 'content' => 'Old text']],
         'started_at' => now(),
     ]);
@@ -87,7 +88,7 @@ it('validates turns are required', function () {
         'voice_session_id' => 'sess-validate-1',
         'provider' => 'xai',
         'model' => 'grok-3',
-        'status' => 'active',
+        'status' => VoiceCallStatus::Active,
         'transcript' => [],
         'started_at' => now(),
     ]);
@@ -100,7 +101,7 @@ it('validates turn content is required', function () {
         'voice_session_id' => 'sess-validate-2',
         'provider' => 'xai',
         'model' => 'grok-3',
-        'status' => 'active',
+        'status' => VoiceCallStatus::Active,
         'transcript' => [],
         'started_at' => now(),
     ]);
@@ -117,7 +118,7 @@ it('does not create any messages in the messages table', function () {
         'voice_session_id' => 'sess-no-messages',
         'provider' => 'xai',
         'model' => 'grok-3',
-        'status' => 'active',
+        'status' => VoiceCallStatus::Active,
         'transcript' => [],
         'started_at' => now(),
     ]);

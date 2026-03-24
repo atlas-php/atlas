@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Persistence;
 
 use Atlasphp\Atlas\Persistence\Models\Asset;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
+use Atlasphp\Atlas\Persistence\Support\MimeTypeMap;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -49,7 +50,7 @@ class ToolAssets
         $visibility = config('atlas.storage.visibility', 'private');
 
         $hash = hash('sha256', $content);
-        $extension = static::resolveExtension($data['mime_type'] ?? null);
+        $extension = MimeTypeMap::toExtension($data['mime_type'] ?? null);
         $filename = Str::random(40).'.'.$extension;
         $path = $prefix.'/tools/'.$filename;
 
@@ -95,30 +96,5 @@ class ToolAssets
     public static function lastStored(): ?Asset
     {
         return app(ExecutionService::class)->getLastAsset();
-    }
-
-    /**
-     * Resolve a file extension from a MIME type.
-     */
-    protected static function resolveExtension(?string $mimeType): string
-    {
-        return match ($mimeType) {
-            'image/png' => 'png',
-            'image/jpeg' => 'jpg',
-            'image/gif' => 'gif',
-            'image/webp' => 'webp',
-            'image/svg+xml' => 'svg',
-            'audio/mpeg' => 'mp3',
-            'audio/wav' => 'wav',
-            'audio/ogg' => 'ogg',
-            'audio/flac' => 'flac',
-            'video/mp4' => 'mp4',
-            'video/webm' => 'webm',
-            'application/pdf' => 'pdf',
-            'application/json' => 'json',
-            'text/plain' => 'txt',
-            'text/csv' => 'csv',
-            default => 'bin',
-        };
     }
 }

@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Persistence\Services;
 
 use Atlasphp\Atlas\Messages\AssistantMessage;
 use Atlasphp\Atlas\Messages\Message as AtlasMessage;
+use Atlasphp\Atlas\Messages\SystemMessage;
 use Atlasphp\Atlas\Messages\ToolResultMessage;
 use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
@@ -181,9 +182,7 @@ class ConversationService
         ?int $stepId = null,
         ?array $metadata = null,
     ): Message {
-        $messageModel = $this->messageModel;
-
-        return $messageModel::fromAtlasMessage(
+        return $this->createMessageFromAtlas(
             message: $message,
             conversationId: $conversation->id,
             sequence: $conversation->nextSequence(),
@@ -212,14 +211,13 @@ class ConversationService
         ?int $parentId = null,
     ): array {
         $stored = [];
-        $messageModel = $this->messageModel;
         $sequence = $conversation->nextSequence();
 
         foreach ($steps as $step) {
             $text = is_array($step) ? $step['text'] : $step->text;
             $stepId = is_array($step) ? ($step['step_id'] ?? null) : ($step->dbStepId ?? null);
 
-            $stored[] = $messageModel::fromAtlasMessage(
+            $stored[] = $this->createMessageFromAtlas(
                 message: new AssistantMessage(content: $text),
                 conversationId: $conversation->id,
                 sequence: $sequence++,
@@ -337,7 +335,15 @@ class ConversationService
         }
 
         $groups = $message->siblingGroups();
-        $currentIndex = $message->siblingIndex();
+
+        // Compute index from the already-fetched groups (avoids duplicate query)
+        $currentIndex = 1;
+        foreach ($groups as $index => $group) {
+            if ($group->contains('id', $message->id)) {
+                $currentIndex = $index + 1;
+                break;
+            }
+        }
 
         return [
             'current' => $currentIndex,
@@ -399,10 +405,8 @@ class ConversationService
         ?Model $author = null,
         array $requestContext = [],
     ): Message {
-        $messageModel = $this->messageModel;
-
-        return DB::transaction(function () use ($conversation, $message, $author, $requestContext, $messageModel): Message {
-            $stored = $messageModel::fromAtlasMessage(
+        return DB::transaction(function () use ($conversation, $message, $author, $requestContext): Message {
+            $stored = $this->createMessageFromAtlas(
                 message: $message,
                 conversationId: $conversation->id,
                 sequence: $conversation->nextSequence(),
@@ -491,5 +495,59 @@ class ConversationService
         $message->markDelivered();
 
         return $message;
+    }
+
+    // ─── Message Factory ───────────────────────────────────────
+
+    /**
+     * Create a Message record from an Atlas message DTO.
+     *
+     * Only creates user, assistant, and system messages.
+     * Tool interactions are NOT stored as messages — they live in execution tables.
+     *
+     * @param  array<string, mixed>|null  $metadata
+     */
+    private function createMessageFromAtlas(
+        AtlasMessage $message,
+        int $conversationId,
+        int $sequence,
+        ?Model $author = null,
+        ?string $agent = null,
+        ?int $parentId = null,
+        ?int $stepId = null,
+        MessageStatus $status = MessageStatus::Delivered,
+        ?array $metadata = null,
+    ): Message {
+        $messageModel = $this->messageModel;
+
+        $attributes = [
+            'conversation_id' => $conversationId,
+            'sequence' => $sequence,
+            'author_type' => $author?->getMorphClass(),
+            'author_id' => $author?->getKey(),
+            'agent' => $agent,
+            'parent_id' => $parentId,
+            'step_id' => $stepId,
+            'status' => $status,
+            'is_active' => true,
+            'metadata' => $metadata,
+        ];
+
+        if ($message instanceof UserMessage) {
+            $attributes['role'] = MessageRole::User;
+            $attributes['content'] = $message->content;
+        } elseif ($message instanceof AssistantMessage) {
+            $attributes['role'] = MessageRole::Assistant;
+            $attributes['content'] = $message->content;
+        } elseif ($message instanceof SystemMessage) {
+            $attributes['role'] = MessageRole::System;
+            $attributes['content'] = $message->content;
+        } else {
+            throw new \InvalidArgumentException(
+                'Cannot persist message of type '.get_class($message).'. Only UserMessage, AssistantMessage, and SystemMessage are supported.'
+            );
+        }
+
+        return $messageModel::create($attributes);
     }
 }

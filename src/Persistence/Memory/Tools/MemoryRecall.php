@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Memory\Tools;
 
-use Atlasphp\Atlas\Persistence\Memory\MemoryContext;
-use Atlasphp\Atlas\Persistence\Memory\MemoryModelService;
 use Atlasphp\Atlas\Schema\Schema;
-use Atlasphp\Atlas\Tools\Tool;
 
 /**
  * Class MemoryRecall
@@ -15,13 +12,8 @@ use Atlasphp\Atlas\Tools\Tool;
  * Agent tool for direct memory fetch by type and optional key.
  * Unlike search, this fetches by exact type — not semantic similarity.
  */
-class MemoryRecall extends Tool
+class MemoryRecall extends MemoryTool
 {
-    public function __construct(
-        protected readonly MemoryModelService $service,
-        protected readonly MemoryContext $memoryContext,
-    ) {}
-
     public function name(): string
     {
         return 'recall_memory';
@@ -47,8 +39,8 @@ class MemoryRecall extends Tool
      */
     public function handle(array $args, array $context): string
     {
-        if (! $this->memoryContext->isConfigured()) {
-            return 'Memory context is not configured. Call MemoryContext::configure() before running the agent.';
+        if ($error = $this->guardContext()) {
+            return $error;
         }
 
         $memory = $this->service->recall(

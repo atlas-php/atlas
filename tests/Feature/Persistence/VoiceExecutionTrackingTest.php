@@ -6,6 +6,7 @@ use Atlasphp\Atlas\Events\VoiceSessionClosed;
 use Atlasphp\Atlas\Events\VoiceToolCallRequested;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
+use Atlasphp\Atlas\Persistence\Enums\VoiceCallStatus;
 use Atlasphp\Atlas\Persistence\Http\StoreVoiceTranscriptController;
 use Atlasphp\Atlas\Persistence\Models\Conversation;
 use Atlasphp\Atlas\Persistence\Models\Execution;
@@ -192,7 +193,7 @@ it('saves transcript to VoiceCall record', function () {
         'voice_session_id' => 'sess-vc-1',
         'provider' => 'xai',
         'model' => 'grok-3',
-        'status' => 'active',
+        'status' => VoiceCallStatus::Active,
         'transcript' => [],
         'started_at' => now(),
     ]);
@@ -229,7 +230,7 @@ it('marks execution and voice call as completed on close', function () {
         'voice_session_id' => 'sess-close-1',
         'provider' => 'xai',
         'model' => 'grok-3',
-        'status' => 'active',
+        'status' => VoiceCallStatus::Active,
         'transcript' => [['role' => 'user', 'content' => 'Hello']],
         'started_at' => now()->subMinutes(5),
     ]);
@@ -246,7 +247,7 @@ it('marks execution and voice call as completed on close', function () {
     expect($execution->completed_at)->not->toBeNull();
 
     $call = VoiceCall::where('voice_session_id', 'sess-close-1')->first();
-    expect($call->status)->toBe('completed');
+    expect($call->status)->toBe(VoiceCallStatus::Completed);
     expect($call->completed_at)->not->toBeNull();
 });
 
@@ -298,7 +299,7 @@ it('tracks full voice session lifecycle: session → tools → transcript → cl
         'conversation_id' => $conversation->id,
         'provider' => 'xai',
         'model' => 'grok-3',
-        'status' => 'active',
+        'status' => VoiceCallStatus::Active,
         'transcript' => [],
         'started_at' => now(),
     ]);
@@ -338,7 +339,7 @@ it('tracks full voice session lifecycle: session → tools → transcript → cl
 
     // Verify VoiceCall has transcript
     $call = VoiceCall::where('voice_session_id', 'sess-lifecycle')->first();
-    expect($call->status)->toBe('completed');
+    expect($call->status)->toBe(VoiceCallStatus::Completed);
     expect($call->transcript)->toHaveCount(2);
     expect($call->duration_ms)->toBeGreaterThan(0);
 });
@@ -356,7 +357,7 @@ it('cleans stale voice calls beyond TTL', function () {
         'voice_session_id' => 'sess-stale-1',
         'provider' => 'xai',
         'model' => 'grok-3',
-        'status' => 'active',
+        'status' => VoiceCallStatus::Active,
         'transcript' => [['role' => 'user', 'content' => 'Hello']],
         'started_at' => now()->subMinutes(120),
     ]);
@@ -367,7 +368,7 @@ it('cleans stale voice calls beyond TTL', function () {
         'voice_session_id' => 'sess-fresh-1',
         'provider' => 'xai',
         'model' => 'grok-3',
-        'status' => 'active',
+        'status' => VoiceCallStatus::Active,
         'transcript' => [],
         'started_at' => now()->subMinutes(5),
     ]);
@@ -378,8 +379,8 @@ it('cleans stale voice calls beyond TTL', function () {
     $staleCall = VoiceCall::where('voice_session_id', 'sess-stale-1')->first();
     $freshCall = VoiceCall::where('voice_session_id', 'sess-fresh-1')->first();
 
-    expect($staleCall->status)->toBe('completed');
-    expect($freshCall->status)->toBe('active');
+    expect($staleCall->status)->toBe(VoiceCallStatus::Completed);
+    expect($freshCall->status)->toBe(VoiceCallStatus::Active);
 
     $staleExec->refresh();
     expect($staleExec->status)->toBe(ExecutionStatus::Completed);

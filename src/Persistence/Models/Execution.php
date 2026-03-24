@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Persistence\Models;
 
 use Atlasphp\Atlas\Database\Factories\ExecutionFactory;
 use Atlasphp\Atlas\Persistence\Concerns\HasAtlasTable;
+use Atlasphp\Atlas\Persistence\Concerns\HasExecutionStatus;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
 use Illuminate\Database\Eloquent\Builder;
@@ -15,7 +16,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Class Execution
@@ -44,7 +44,7 @@ use Illuminate\Support\Facades\DB;
 class Execution extends Model
 {
     /** @use HasFactory<Factory<static>> */
-    use HasAtlasTable, HasFactory;
+    use HasAtlasTable, HasExecutionStatus, HasFactory;
 
     protected static function newFactory(): ExecutionFactory
     {
@@ -142,66 +142,6 @@ class Execution extends Model
         return $this->belongsTo($model);
     }
 
-    // ─── Voice Execution Lifecycle ──────────────────────────────
-
-    /**
-     * Complete a voice execution by execution ID.
-     *
-     * Uses atomic update guarded by status=Processing to prevent race
-     * conditions when transcript and close requests arrive concurrently.
-     * No-op if the execution is not found or already completed.
-     *
-     * @param  array<string, mixed>|null  $extraMeta
-     */
-    public static function completeVoiceExecution(int $executionId, ?array $extraMeta = null): ?static
-    {
-        /** @var class-string<static> $model */
-        $model = config('atlas.persistence.models.execution', static::class);
-
-        /** @var static|null $execution */
-        $execution = $model::where('id', $executionId)
-            ->where('status', ExecutionStatus::Processing)
-            ->first();
-
-        if ($execution === null) {
-            return null;
-        }
-
-        $durationMs = $execution->started_at !== null
-            ? (int) abs(now()->diffInMilliseconds($execution->started_at))
-            : null;
-
-        // The WHERE status=Processing guard makes this race-safe.
-        $affected = DB::transaction(function () use ($model, $execution, $durationMs, $extraMeta): int {
-            $affected = $model::where('id', $execution->id)
-                ->where('status', ExecutionStatus::Processing)
-                ->update([
-                    'status' => ExecutionStatus::Completed,
-                    'completed_at' => now(),
-                    'duration_ms' => $durationMs,
-                ]);
-
-            if ($affected === 0) {
-                return 0;
-            }
-
-            if ($extraMeta !== null) {
-                $metadata = array_merge($execution->metadata ?? [], $extraMeta);
-                $model::where('id', $execution->id)->update(['metadata' => $metadata]);
-            }
-
-            return $affected;
-        });
-
-        if ($affected === 0) {
-            return null;
-        }
-
-        $execution->refresh();
-
-        return $execution;
-    }
-
     // ─── Lifecycle ──────────────────────────────────────────────
 
     /**
@@ -262,33 +202,9 @@ class Execution extends Model
     // ─── Scopes ─────────────────────────────────────────────────
 
     /** @param Builder<static> $query */
-    public function scopePending(Builder $query): void
-    {
-        $query->where('status', ExecutionStatus::Pending);
-    }
-
-    /** @param Builder<static> $query */
     public function scopeQueued(Builder $query): void
     {
         $query->where('status', ExecutionStatus::Queued);
-    }
-
-    /** @param Builder<static> $query */
-    public function scopeProcessing(Builder $query): void
-    {
-        $query->where('status', ExecutionStatus::Processing);
-    }
-
-    /** @param Builder<static> $query */
-    public function scopeCompleted(Builder $query): void
-    {
-        $query->where('status', ExecutionStatus::Completed);
-    }
-
-    /** @param Builder<static> $query */
-    public function scopeFailed(Builder $query): void
-    {
-        $query->where('status', ExecutionStatus::Failed);
     }
 
     /** @param Builder<static> $query */

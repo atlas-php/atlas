@@ -251,16 +251,17 @@ class PersistConversation
 
         $message = $storedMessages[0];
 
-        foreach ($toolAssets as $asset) {
-            $attachmentModel::create([
-                'message_id' => $message->id,
-                'asset_id' => $asset->id,
-                'metadata' => [
-                    'tool_call_id' => $asset->metadata['tool_call_id'] ?? null,
-                    'tool_name' => $asset->metadata['tool_name'] ?? null,
-                ],
-            ]);
-        }
+        $records = $toolAssets->map(fn (Asset $asset) => [
+            'message_id' => $message->id,
+            'asset_id' => $asset->id,
+            'metadata' => json_encode([
+                'tool_call_id' => $asset->metadata['tool_call_id'] ?? null,
+                'tool_name' => $asset->metadata['tool_name'] ?? null,
+            ], JSON_THROW_ON_ERROR),
+            'created_at' => now(),
+        ])->toArray();
+
+        $attachmentModel::insert($records);
     }
 
     /**

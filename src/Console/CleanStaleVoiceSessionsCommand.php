@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Console;
 
+use Atlasphp\Atlas\Persistence\Enums\VoiceCallStatus;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\VoiceCall;
+use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 use Illuminate\Console\Command;
 
 /**
@@ -24,7 +26,7 @@ class CleanStaleVoiceSessionsCommand extends Command
 
     protected $description = 'Clean up stale voice calls and their executions';
 
-    public function handle(): int
+    public function handle(ExecutionService $executionService): int
     {
         if (! config('atlas.persistence.enabled')) {
             $this->info('Persistence is not enabled. Nothing to clean.');
@@ -39,7 +41,7 @@ class CleanStaleVoiceSessionsCommand extends Command
 
         $cutoff = now()->subMinutes($ttl);
 
-        $stale = $voiceCallModel::where('status', 'active')
+        $stale = $voiceCallModel::where('status', VoiceCallStatus::Active)
             ->where('started_at', '<', $cutoff)
             ->get();
 
@@ -56,7 +58,7 @@ class CleanStaleVoiceSessionsCommand extends Command
             $execution = Execution::where('voice_call_id', $call->id)->first();
 
             if ($execution !== null) {
-                Execution::completeVoiceExecution($execution->id, ['stale_cleanup' => true]);
+                $executionService->completeVoiceExecution($execution->id, ['stale_cleanup' => true]);
             }
         }
 

@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Memory\Tools;
 
-use Atlasphp\Atlas\Persistence\Memory\MemoryContext;
-use Atlasphp\Atlas\Persistence\Memory\MemoryModelService;
 use Atlasphp\Atlas\Schema\Schema;
-use Atlasphp\Atlas\Tools\Tool;
 use Illuminate\Support\Str;
 
 /**
@@ -16,13 +13,8 @@ use Illuminate\Support\Str;
  * Agent tool for storing new memories. Use when the agent learns
  * something worth remembering across conversations.
  */
-class RememberMemory extends Tool
+class RememberMemory extends MemoryTool
 {
-    public function __construct(
-        protected readonly MemoryModelService $service,
-        protected readonly MemoryContext $memoryContext,
-    ) {}
-
     public function name(): string
     {
         return 'remember_memory';
@@ -51,8 +43,8 @@ class RememberMemory extends Tool
      */
     public function handle(array $args, array $context): string
     {
-        if (! $this->memoryContext->isConfigured()) {
-            return 'Memory context is not configured. Call MemoryContext::configure() before running the agent.';
+        if ($error = $this->guardContext()) {
+            return $error;
         }
 
         $memory = $this->service->remember(

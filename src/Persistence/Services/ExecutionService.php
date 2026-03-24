@@ -12,6 +12,7 @@ use Atlasphp\Atlas\Persistence\Models\Asset;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\ExecutionStep;
 use Atlasphp\Atlas\Persistence\Models\ExecutionToolCall;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Class ExecutionService
@@ -404,6 +405,61 @@ class ExecutionService
     public function getCurrentToolCall(): ?ExecutionToolCall
     {
         return $this->currentToolCall;
+    }
+
+    // ─── Voice Execution ────────────────────────────────────────
+
+    /**
+     * Complete a voice execution by execution ID.
+     *
+     * Uses atomic update guarded by status=Processing to prevent race
+     * conditions when transcript and close requests arrive concurrently.
+     * No-op if the execution is not found or already completed.
+     *
+     * @param  array<string, mixed>|null  $extraMeta
+     */
+    public function completeVoiceExecution(int $executionId, ?array $extraMeta = null): ?Execution
+    {
+        $executionModel = $this->executionModel;
+
+        /** @var Execution|null $execution */
+        $execution = $executionModel::where('id', $executionId)
+            ->where('status', ExecutionStatus::Processing)
+            ->first();
+
+        if ($execution === null) {
+            return null;
+        }
+
+        $durationMs = $execution->started_at !== null
+            ? (int) abs(now()->diffInMilliseconds($execution->started_at))
+            : null;
+
+        // Single atomic update — status + metadata in one statement.
+        // The WHERE status=Processing guard makes this race-safe.
+        $updateData = [
+            'status' => ExecutionStatus::Completed,
+            'completed_at' => now(),
+            'duration_ms' => $durationMs,
+        ];
+
+        if ($extraMeta !== null) {
+            $updateData['metadata'] = array_merge($execution->metadata ?? [], $extraMeta);
+        }
+
+        $affected = DB::transaction(function () use ($executionModel, $execution, $updateData): int {
+            return $executionModel::where('id', $execution->id)
+                ->where('status', ExecutionStatus::Processing)
+                ->update($updateData);
+        });
+
+        if ($affected === 0) {
+            return null;
+        }
+
+        $execution->refresh();
+
+        return $execution;
     }
 
     /**

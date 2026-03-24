@@ -6,6 +6,7 @@ use Atlasphp\Atlas\Events\VoiceCallCompleted;
 use Atlasphp\Atlas\Events\VoiceSessionClosed;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
+use Atlasphp\Atlas\Persistence\Enums\VoiceCallStatus;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\VoiceCall;
 use Atlasphp\Atlas\Voice\Http\CloseVoiceSessionController;
@@ -25,7 +26,7 @@ function createCloseTestVoiceCall(
         'voice_session_id' => $sessionId,
         'provider' => 'xai',
         'model' => 'grok-3',
-        'status' => 'active',
+        'status' => VoiceCallStatus::Active,
         'transcript' => [],
         'started_at' => now()->subMinutes(5),
     ], $overrides));
@@ -66,7 +67,7 @@ it('marks voice call completed with turns from request', function () {
 
     $call->refresh();
 
-    expect($call->status)->toBe('completed');
+    expect($call->status)->toBe(VoiceCallStatus::Completed);
     expect($call->completed_at)->not->toBeNull();
     expect($call->transcript)->toHaveCount(2);
     expect($call->transcript[0]['content'])->toBe('Hello');
@@ -89,7 +90,7 @@ it('falls back to stored transcript when no turns provided', function () {
 
     $call->refresh();
 
-    expect($call->status)->toBe('completed');
+    expect($call->status)->toBe(VoiceCallStatus::Completed);
     expect($call->transcript)->toHaveCount(3);
     expect($call->transcript[0]['content'])->toBe('Stored message');
 });
@@ -185,5 +186,5 @@ it('is idempotent — double close does not error', function () {
     expect($second->getStatusCode())->toBe(204);
 
     $call->refresh();
-    expect($call->status)->toBe('completed');
+    expect($call->status)->toBe(VoiceCallStatus::Completed);
 });

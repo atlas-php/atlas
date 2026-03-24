@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Memory\Tools;
 
-use Atlasphp\Atlas\Persistence\Memory\MemoryContext;
-use Atlasphp\Atlas\Persistence\Memory\MemoryModelService;
 use Atlasphp\Atlas\Schema\Schema;
-use Atlasphp\Atlas\Tools\Tool;
 
 /**
  * Class MemorySearch
@@ -15,13 +12,8 @@ use Atlasphp\Atlas\Tools\Tool;
  * Agent tool for semantic memory search. Returns the most relevant
  * memories matching the query using vector similarity.
  */
-class MemorySearch extends Tool
+class MemorySearch extends MemoryTool
 {
-    public function __construct(
-        protected readonly MemoryModelService $service,
-        protected readonly MemoryContext $memoryContext,
-    ) {}
-
     public function name(): string
     {
         return 'search_memory';
@@ -50,8 +42,8 @@ class MemorySearch extends Tool
      */
     public function handle(array $args, array $context): array|string
     {
-        if (! $this->memoryContext->isConfigured()) {
-            return 'Memory context is not configured. Call MemoryContext::configure() before running the agent.';
+        if ($error = $this->guardContext()) {
+            return $error;
         }
 
         $results = $this->service->search(

@@ -9,6 +9,7 @@ use Atlasphp\Atlas\Persistence\Enums\AssetType;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
 use Atlasphp\Atlas\Persistence\Models\Asset;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
+use Atlasphp\Atlas\Persistence\Support\MimeTypeMap;
 use Atlasphp\Atlas\Providers\Contracts\HasContents;
 use Closure;
 use Illuminate\Support\Facades\Storage;
@@ -168,55 +169,18 @@ class TrackProviderCall
 
         // Infer from response format property
         $format = $response->format ?? null;
+        $fromFormat = MimeTypeMap::fromFormat($format);
 
-        if ($format !== null) {
-            $map = [
-                'png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg',
-                'webp' => 'image/webp', 'gif' => 'image/gif',
-                'mp3' => 'audio/mpeg', 'wav' => 'audio/wav', 'ogg' => 'audio/ogg',
-                'mp4' => 'video/mp4', 'webm' => 'video/webm',
-            ];
-
-            if (isset($map[$format])) {
-                return $map[$format];
-            }
+        if ($fromFormat !== null) {
+            return $fromFormat;
         }
 
-        // Fall back to default mime type for the asset type
-        return match ($assetType) {
-            AssetType::Image => 'image/png',
-            AssetType::Audio => 'audio/mpeg',
-            AssetType::Video => 'video/mp4',
-            default => null,
-        };
+        return MimeTypeMap::defaultMimeType($assetType);
     }
 
     protected function resolveExtension(AssetType $assetType, ?string $mimeType): string
     {
-        if ($mimeType !== null) {
-            $map = [
-                'image/png' => 'png',
-                'image/jpeg' => 'jpg',
-                'image/webp' => 'webp',
-                'image/gif' => 'gif',
-                'audio/mpeg' => 'mp3',
-                'audio/wav' => 'wav',
-                'audio/ogg' => 'ogg',
-                'video/mp4' => 'mp4',
-                'video/webm' => 'webm',
-            ];
-
-            if (isset($map[$mimeType])) {
-                return $map[$mimeType];
-            }
-        }
-
-        return match ($assetType) {
-            AssetType::Image => 'png',
-            AssetType::Audio => 'mp3',
-            AssetType::Video => 'mp4',
-            default => 'bin',
-        };
+        return MimeTypeMap::toExtension($mimeType, $assetType);
     }
 
     protected function extractInputTokens(mixed $response): int
