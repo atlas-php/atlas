@@ -11,6 +11,8 @@ namespace Atlasphp\Atlas\Providers\ElevenLabs;
  */
 trait BuildsElevenLabsHeaders
 {
+    protected const DEFAULT_VOICE_ID = '21m00Tcm4TlvDq8ikWAM'; // Rachel
+
     /**
      * @return array<string, string>
      */

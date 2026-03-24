@@ -7,6 +7,7 @@ namespace Atlasphp\Atlas\Providers\ElevenLabs;
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\Handlers\AudioHandler;
 use Atlasphp\Atlas\Providers\Handlers\ProviderHandler;
+use Atlasphp\Atlas\Providers\Handlers\VoiceHandler;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
 use Atlasphp\Atlas\Requests\AudioRequest;
 use Atlasphp\Atlas\Responses\AudioResponse;
@@ -15,8 +16,9 @@ use Atlasphp\Atlas\Responses\TextResponse;
 /**
  * Class ElevenLabsDriver
  *
- * Audio-only provider supporting TTS, STT, sound effects, and music generation.
- * Routes SFX and music through the audio handler interface via _audio_mode dispatch.
+ * Audio and voice provider supporting TTS, STT, sound effects, music generation,
+ * and Conversational AI voice sessions. Routes SFX and music through the audio
+ * handler interface via _audio_mode dispatch.
  */
 class ElevenLabsDriver extends Driver
 {
@@ -31,6 +33,7 @@ class ElevenLabsDriver extends Driver
             new ProviderCapabilities(
                 audio: true,
                 audioToText: true,
+                voice: true,
                 models: true,
                 voices: true,
             ),
@@ -75,6 +78,11 @@ class ElevenLabsDriver extends Driver
     protected function musicHandler(): Handlers\Music
     {
         return new Handlers\Music($this->config, $this->http);
+    }
+
+    protected function voiceHandler(): VoiceHandler
+    {
+        return new Handlers\Voice($this->config, $this->http);
     }
 
     protected function providerHandler(string $feature = 'provider'): ProviderHandler

@@ -27,8 +27,6 @@ class Audio implements AudioHandler
 {
     use BuildsElevenLabsHeaders, ResolvesAudioFile;
 
-    private const DEFAULT_VOICE_ID = '21m00Tcm4TlvDq8ikWAM'; // Rachel
-
     public function __construct(
         protected readonly ProviderConfig $config,
         protected readonly HttpClient $http,

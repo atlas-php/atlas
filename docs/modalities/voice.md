@@ -8,12 +8,15 @@ Voice enables bidirectional speech conversations with AI providers. The browser 
 |----------|--------|-----------|---------|
 | OpenAI | `gpt-4o-realtime-preview`, `gpt-4o-mini-realtime-preview` | WebRTC | ~$0.30/min |
 | xAI | `grok-3-fast-realtime` | WebSocket | ~$0.05/min |
+| ElevenLabs | Any LLM (GPT-4o, Claude, Gemini, etc.) | WebSocket | ~$0.08/min |
 
 ### Voices
 
 **OpenAI:** `alloy`, `ash`, `ballad`, `coral`, `echo`, `sage`, `shimmer`, `verse`, `marin`, `cedar`
 
 **xAI:** `ara`, `eve`, `leo`, `rex`, `sal`, `una`
+
+**ElevenLabs:** 3,000+ voices via voice library — use any `voice_id` from `Atlas::provider('elevenlabs')->voices()`
 
 ## Quick Start
 

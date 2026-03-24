@@ -6,26 +6,12 @@ For API reference, see [Voice Modality](/modalities/voice).
 
 ## Overview
 
-The browser connects directly to the AI provider for audio. Your server handles three things:
-1. **Session creation** — get an ephemeral token
-2. **Tool execution** — resolve and run Atlas Tool classes
-3. **Transcript persistence** — store voice turns as messages
+The browser connects directly to the AI provider for audio. Your server handles two things:
 
-```
-Browser                      Your Server              Provider
-  │                              │                       │
-  │ POST /voice/session ────────►│                       │
-  │                              │ ephemeral token ──────►│
-  │ ◄── { token, endpoints }    │                       │
-  │                              │                       │
-  │ WebSocket/WebRTC direct ─────────────────────────────►│
-  │ ◄───────────────────────────────────────── audio ───│
-  │                              │                       │
-  │ POST /atlas/voice/{id}/tool ►│ Tool::handle()        │
-  │ ◄── { result } ─────────────│                       │
-  │                              │                       │
-  │ POST /atlas/voice/{id}/transcript ►│                 │
-```
+1. **Session creation** — get an ephemeral token or signed URL from the provider
+2. **Tool execution** — resolve and run Atlas Tool classes when the AI calls tools
+
+Transcript persistence is optional and automatic when enabled.
 
 ## Step 1: Server — Session Endpoint
 
@@ -151,32 +137,64 @@ const res = await fetch(`https://api.openai.com/v1/realtime?model=${session.mode
 await pc.setRemoteDescription({ type: 'answer', sdp: await res.text() });
 ```
 
-## Step 4: Handle Tool Calls
-
-When the AI calls a tool, the browser receives a `response.function_call_arguments.done` event. POST it to the tool endpoint:
+### ElevenLabs (WebSocket via Signed URL)
 
 ```javascript
-async function handleToolCall(data, ws) {
+const ws = new WebSocket(session.connection_url);
+
+ws.onopen = () => {
+    // Send config override as first message (per-session customization)
+    if (session.session_config?.conversation_config_override) {
+        ws.send(JSON.stringify({
+            type: 'conversation_initiation_client_data',
+            conversation_config_override: session.session_config.conversation_config_override,
+        }));
+    }
+    // Start sending mic audio...
+};
+
+ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+
+    switch (data.type) {
+        case 'audio':
+            playAudioChunk(data.audio_event.audio_base_64);
+            break;
+        case 'agent_response':
+            updateTranscript(data.agent_response_event.agent_response);
+            break;
+        case 'client_tool_call':
+            handleToolCall(data.client_tool_call, ws);
+            break;
+        case 'ping':
+            ws.send(JSON.stringify({ type: 'pong', event_id: data.ping_event.event_id }));
+            break;
+    }
+};
+```
+
+## Step 4: Handle Tool Calls
+
+When the AI calls a tool, the browser receives a provider-specific event. POST the tool name and arguments to the tool endpoint:
+
+```javascript
+async function handleToolCall(toolCall, ws) {
     const res = await fetch(session.tool_endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            name: data.name,
-            arguments: data.arguments,
+            name: toolCall.name || toolCall.tool_name,
+            arguments: typeof toolCall.arguments === 'string'
+                ? toolCall.arguments
+                : JSON.stringify(toolCall.parameters || toolCall.arguments),
         }),
     });
 
-    const result = await res.json();
+    const { output } = await res.json();
 
-    ws.send(JSON.stringify({
-        type: 'conversation.item.create',
-        item: {
-            type: 'function_call_output',
-            call_id: data.call_id,
-            output: result.output,
-        },
-    }));
-    ws.send(JSON.stringify({ type: 'response.create' }));
+    // Send result back — format varies by provider
+    // OpenAI/xAI: conversation.item.create with function_call_output
+    // ElevenLabs: client_tool_result with tool_call_id
 }
 ```
 
@@ -184,7 +202,7 @@ The server resolves the Tool class from the agent's registered tools and calls `
 
 ## Step 5: Persist Transcripts
 
-On each `response.done` event, POST the turn transcripts:
+When persistence is enabled, POST completed turns to the transcript endpoint:
 
 ```javascript
 await fetch(session.transcript_endpoint, {
@@ -202,21 +220,9 @@ await fetch(session.transcript_endpoint, {
 
 Messages are stored with `metadata.source = 'voice'` and appear in the conversation thread.
 
-## Step 6: Display Voice Messages
-
-Check `metadata.source` to show a voice indicator:
-
-```html
-<span v-if="message.metadata?.source === 'voice'">
-    <AudioLinesIcon /> Voice
-</span>
-```
-
-Voice messages should not offer retry — they're transcripts of spoken conversation.
-
 ## Audio Format
 
-Both providers use PCM16 at 24kHz for input and output. The browser captures mic audio using `ScriptProcessorNode`, downsamples to 24kHz, and sends as base64-encoded PCM16. Response audio is decoded from PCM16 to float32 for Web Audio API playback.
+OpenAI and xAI use PCM16 at 24kHz. ElevenLabs uses PCM16 at 16kHz by default (configurable). The browser captures mic audio, encodes as base64 PCM16, and sends over the WebSocket. Response audio is decoded for Web Audio API playback.
 
 ## Echo Prevention
 

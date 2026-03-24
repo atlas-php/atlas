@@ -14,6 +14,7 @@ use Atlasphp\Atlas\Requests\ModerateRequest;
 use Atlasphp\Atlas\Requests\RerankRequest;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Requests\VideoRequest;
+use Atlasphp\Atlas\Requests\VoiceRequest;
 use Illuminate\Support\Facades\Http;
 
 function makeElevenLabsDriver(): ElevenLabsDriver
@@ -55,6 +56,7 @@ it('reports correct capabilities', function () {
 
     expect($cap->supports('audio'))->toBeTrue()
         ->and($cap->supports('audioToText'))->toBeTrue()
+        ->and($cap->supports('voice'))->toBeTrue()
         ->and($cap->supports('models'))->toBeTrue()
         ->and($cap->supports('voices'))->toBeTrue()
         ->and($cap->supports('text'))->toBeFalse()
@@ -166,6 +168,24 @@ it('lists voices via provider handler', function () {
 
     expect($voices->voices)->toContain('abc123')
         ->and($voices->voices)->toContain('def456');
+});
+
+it('creates voice session via voice handler', function () {
+    Http::fake([
+        'api.elevenlabs.io/v1/convai/conversation/get-signed-url*' => Http::response([
+            'signed_url' => 'wss://api.elevenlabs.io/v1/convai/conversation?signed_url=test123',
+        ]),
+    ]);
+
+    $session = makeElevenLabsDriver()->createVoiceSession(new VoiceRequest(
+        model: 'gpt-4o',
+        instructions: 'Be helpful',
+        voice: null,
+        providerOptions: ['agent_id' => 'test_agent'],
+    ));
+
+    expect($session->provider)->toBe('elevenlabs');
+    expect($session->connectionUrl)->toContain('signed_url=test123');
 });
 
 it('validates via provider handler', function () {

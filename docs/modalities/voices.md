@@ -9,8 +9,8 @@ use Atlasphp\Atlas\Facades\Atlas;
 
 $voices = Atlas::provider('openai')->voices();
 
-foreach ($voices as $voice) {
-    echo "{$voice->id}: {$voice->name}\n";
+foreach ($voices->voices as $voiceId) {
+    echo "$voiceId\n";
 }
 ```
 
@@ -50,10 +50,10 @@ ElevenLabs provides a large library of voices including community-created option
 ```php
 $voices = Atlas::provider('elevenlabs')->voices();
 
-foreach ($voices as $voice) {
-    echo "{$voice->id}: {$voice->name}\n";
-    // "21m00Tcm4TlvDq8ikWAM: Rachel"
-    // "AZnzlk1XvdvUeBnXmlld: Domi"
+foreach ($voices->voices as $voiceId) {
+    echo "$voiceId\n";
+    // "21m00Tcm4TlvDq8ikWAM"
+    // "AZnzlk1XvdvUeBnXmlld"
     // ...
 }
 ```

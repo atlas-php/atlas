@@ -12,7 +12,7 @@ Atlas has its own provider layer with first-party drivers for major AI services.
 | Anthropic | `anthropic` | Text, stream, structured, vision, tool calling |
 | Google | `google` | Text, stream, structured, image, embed, vision, tool calling |
 | xAI | `xai` | Text, stream, structured, image, audio, video, voice, vision, tool calling |
-| ElevenLabs | `elevenlabs` | Audio (TTS, STT, sound effects, music) |
+| ElevenLabs | `elevenlabs` | Audio (TTS, STT, sound effects, music), voice |
 | Cohere | `cohere` | Reranking |
 | Jina | `jina` | Reranking, content extraction |
 
@@ -222,7 +222,7 @@ XAI_URL=https://api.x.ai/v1  # optional
 
 ## ElevenLabs
 
-Text-to-speech, speech-to-text, sound effects, music generation, voice cloning.
+Text-to-speech, speech-to-text, sound effects, music generation, voice cloning, voice (Conversational AI).
 
 **Get your key:** [elevenlabs.io/app/settings/api-keys](https://elevenlabs.io/app/settings/api-keys) · [Docs](https://elevenlabs.io/docs)
 
