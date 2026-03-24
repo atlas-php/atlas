@@ -14,17 +14,23 @@ use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Input\Image;
 use Atlasphp\Atlas\Pending\AgentRequest;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
+use Atlasphp\Atlas\Providers\Driver;
+use Atlasphp\Atlas\Providers\ProviderCapabilities;
 use Atlasphp\Atlas\Providers\Tools\WebSearch;
 use Atlasphp\Atlas\Queue\PendingExecution;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
+use Atlasphp\Atlas\Responses\VoiceSession;
 use Atlasphp\Atlas\Schema\Schema;
 use Atlasphp\Atlas\Support\VariableRegistry;
 use Atlasphp\Atlas\Testing\AtlasFake;
+use Atlasphp\Atlas\Testing\StreamResponseFake;
 use Atlasphp\Atlas\Testing\StructuredResponseFake;
 use Atlasphp\Atlas\Testing\TextResponseFake;
+use Atlasphp\Atlas\Testing\VoiceSessionFake;
 use Atlasphp\Atlas\Tools\Tool;
+use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Event;
@@ -1113,4 +1119,116 @@ it('restoreMediaItem restores storage image', function () {
     expect($result)->toBeInstanceOf(Image::class)
         ->and($result->isStorage())->toBeTrue()
         ->and($result->storagePath())->toBe('atlas/test.png');
+});
+
+// ─── Error handling — ModalityCompleted fires on exceptions ─────────────────
+
+it('asText fires ModalityCompleted and re-throws on error', function () {
+    registerTestAgent(RequestTestMinimalAgent::class);
+    Event::fake([ModalityStarted::class, ModalityCompleted::class]);
+
+    // Register a driver that throws on text()
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
+    $driver->shouldReceive('text')->andThrow(new RuntimeException('Provider down'));
+
+    $registry = app(ProviderRegistryContract::class);
+    $registry->register('openai', fn () => $driver);
+
+    config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o']]);
+
+    try {
+        makeAgentRequest('minimal')->message('Hi')->asText();
+        $this->fail('Expected exception');
+    } catch (RuntimeException $e) {
+        expect($e->getMessage())->toBe('Provider down');
+    }
+
+    Event::assertDispatched(ModalityCompleted::class, function (ModalityCompleted $event) {
+        return $event->modality === Modality::Text;
+    });
+});
+
+it('asStream fires ModalityCompleted and re-throws on error', function () {
+    registerTestAgent(RequestTestMinimalAgent::class);
+    Event::fake([ModalityStarted::class, ModalityCompleted::class]);
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(stream: true));
+    $driver->shouldReceive('stream')->andThrow(new RuntimeException('Stream failed'));
+
+    $registry = app(ProviderRegistryContract::class);
+    $registry->register('openai', fn () => $driver);
+
+    config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o']]);
+
+    try {
+        makeAgentRequest('minimal')->message('Hi')->asStream();
+        $this->fail('Expected exception');
+    } catch (RuntimeException $e) {
+        expect($e->getMessage())->toBe('Stream failed');
+    }
+
+    Event::assertDispatched(ModalityCompleted::class, function (ModalityCompleted $event) {
+        return $event->modality === Modality::Stream;
+    });
+});
+
+it('asStructured fires ModalityCompleted and re-throws on error', function () {
+    registerTestAgent(RequestTestMinimalAgent::class);
+    Event::fake([ModalityStarted::class, ModalityCompleted::class]);
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(structured: true));
+    $driver->shouldReceive('structured')->andThrow(new RuntimeException('Structured failed'));
+
+    $registry = app(ProviderRegistryContract::class);
+    $registry->register('openai', fn () => $driver);
+
+    config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o']]);
+
+    try {
+        makeAgentRequest('minimal')->message('Hi')->asStructured();
+        $this->fail('Expected exception');
+    } catch (RuntimeException $e) {
+        expect($e->getMessage())->toBe('Structured failed');
+    }
+
+    Event::assertDispatched(ModalityCompleted::class, function (ModalityCompleted $event) {
+        return $event->modality === Modality::Structured;
+    });
+});
+
+it('asStream pipes broadcast channel to the stream response', function () {
+    registerTestAgent(RequestTestMinimalAgent::class);
+
+    $fake = new AtlasFake(app(ProviderRegistryContract::class), [
+        StreamResponseFake::make()->withText('Hello world'),
+    ]);
+
+    config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o']]);
+
+    $channel = new PrivateChannel('test-channel');
+
+    $result = makeAgentRequest('minimal')
+        ->message('Hi')
+        ->broadcastOn($channel)
+        ->asStream();
+
+    expect($result)->toBeInstanceOf(StreamResponse::class);
+});
+
+it('asVoice returns a VoiceSession with the correct provider', function () {
+    registerTestAgent(RequestTestMinimalAgent::class);
+
+    $fake = new AtlasFake(app(ProviderRegistryContract::class), [
+        VoiceSessionFake::make()->withProvider('openai'),
+    ]);
+
+    config(['atlas.defaults.voice' => ['provider' => 'openai', 'model' => 'gpt-4o-realtime-preview']]);
+
+    $session = makeAgentRequest('minimal')->asVoice();
+
+    expect($session)->toBeInstanceOf(VoiceSession::class);
+    expect($session->provider)->toBe('openai');
 });
