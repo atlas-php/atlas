@@ -164,6 +164,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Streaming
+    |--------------------------------------------------------------------------
+    |
+    | Settings for streaming responses. The chunk delay adds a small pause
+    | between text chunks when converting tool-loop results to a stream,
+    | creating a visible typing effect for WebSocket/broadcast consumers.
+    | Set to 0 in tests or CLI to eliminate the delay.
+    |
+    */
+
+    'stream' => [
+        'chunk_delay_us' => (int) env('ATLAS_STREAM_CHUNK_DELAY_US', 15_000),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Middleware
     |--------------------------------------------------------------------------
     |

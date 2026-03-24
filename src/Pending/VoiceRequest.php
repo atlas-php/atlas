@@ -14,6 +14,7 @@ use Atlasphp\Atlas\Events\ModalityStarted;
 use Atlasphp\Atlas\Events\VoiceSessionCreated;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
+use Atlasphp\Atlas\Pending\Concerns\HasProviderOptions;
 use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Requests\VoiceRequest as VoiceRequestObject;
@@ -26,6 +27,7 @@ class VoiceRequest
 {
     use HasMeta;
     use HasMiddleware;
+    use HasProviderOptions;
     use HasVariables;
     use ResolvesProvider;
 
@@ -53,9 +55,6 @@ class VoiceRequest
 
     /** @var array<int, mixed> */
     protected array $tools = [];
-
-    /** @var array<string, mixed> */
-    protected array $providerOptions = [];
 
     public function __construct(
         protected readonly Provider|string|null $provider,
@@ -141,16 +140,6 @@ class VoiceRequest
     public function withOutputFormat(string $format): static
     {
         $this->outputAudioFormat = $format;
-
-        return $this;
-    }
-
-    /**
-     * @param  array<string, mixed>  $options
-     */
-    public function withProviderOptions(array $options): static
-    {
-        $this->providerOptions = $options;
 
         return $this;
     }

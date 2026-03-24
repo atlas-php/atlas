@@ -21,9 +21,11 @@ use Atlasphp\Atlas\Messages\AssistantMessage;
 use Atlasphp\Atlas\Messages\SystemMessage;
 use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
+use Atlasphp\Atlas\Pending\Concerns\AppliesQueueMeta;
 use Atlasphp\Atlas\Pending\Concerns\ConvertsResultToChunks;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
+use Atlasphp\Atlas\Pending\Concerns\HasProviderOptions;
 use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Tools\ProviderTool;
@@ -48,9 +50,11 @@ use Illuminate\Contracts\Foundation\Application;
  */
 class TextRequest implements QueueableRequest
 {
+    use AppliesQueueMeta;
     use ConvertsResultToChunks;
     use HasMeta;
     use HasMiddleware;
+    use HasProviderOptions;
     use HasQueueDispatch;
     use HasVariables;
     use NormalizesMessages;
@@ -71,9 +75,6 @@ class TextRequest implements QueueableRequest
     protected ?float $temperature = null;
 
     protected ?Schema $schema = null;
-
-    /** @var array<string, mixed> */
-    protected array $providerOptions = [];
 
     /** @var array<int, Tool|string> */
     protected array $tools = [];
@@ -138,16 +139,6 @@ class TextRequest implements QueueableRequest
     public function withSchema(Schema $schema): static
     {
         $this->schema = $schema;
-
-        return $this;
-    }
-
-    /**
-     * @param  array<string, mixed>  $options
-     */
-    public function withProviderOptions(array $options): static
-    {
-        $this->providerOptions = $options;
 
         return $this;
     }
@@ -474,15 +465,7 @@ class TextRequest implements QueueableRequest
             ));
         }
 
-        $meta = $payload['meta'] ?? [];
-
-        if ($executionId !== null) {
-            $meta['execution_id'] = $executionId;
-        }
-
-        if (! empty($meta)) {
-            $request->withMeta($meta);
-        }
+        static::applyQueueMeta($request, $payload, $executionId);
 
         if (! empty($payload['variables'])) {
             $request->withVariables($payload['variables']);
@@ -540,11 +523,5 @@ class TextRequest implements QueueableRequest
 
             return $message;
         }, $messages);
-    }
-
-    /** Resolve the model as a string key for queue serialization. */
-    protected function resolveModelKey(): string
-    {
-        return (string) $this->model;
     }
 }

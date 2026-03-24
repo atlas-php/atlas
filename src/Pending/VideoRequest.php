@@ -11,8 +11,10 @@ use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Events\ModalityCompleted;
 use Atlasphp\Atlas\Events\ModalityStarted;
 use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Pending\Concerns\AppliesQueueMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
+use Atlasphp\Atlas\Pending\Concerns\HasProviderOptions;
 use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Queue\PendingExecution;
@@ -27,8 +29,10 @@ use Illuminate\Broadcasting\Channel;
  */
 class VideoRequest implements QueueableRequest
 {
+    use AppliesQueueMeta;
     use HasMeta;
     use HasMiddleware;
+    use HasProviderOptions;
     use HasQueueDispatch;
     use HasVariables;
     use ResolvesProvider;
@@ -43,9 +47,6 @@ class VideoRequest implements QueueableRequest
     protected ?string $ratio = null;
 
     protected ?string $format = null;
-
-    /** @var array<string, mixed> */
-    protected array $providerOptions = [];
 
     public function __construct(
         protected readonly Provider|string $provider,
@@ -87,16 +88,6 @@ class VideoRequest implements QueueableRequest
     public function withFormat(string $format): static
     {
         $this->format = $format;
-
-        return $this;
-    }
-
-    /**
-     * @param  array<string, mixed>  $options
-     */
-    public function withProviderOptions(array $options): static
-    {
-        $this->providerOptions = $options;
 
         return $this;
     }
@@ -230,15 +221,7 @@ class VideoRequest implements QueueableRequest
             $request->withProviderOptions($payload['providerOptions']);
         }
 
-        $meta = $payload['meta'] ?? [];
-
-        if ($executionId !== null) {
-            $meta['execution_id'] = $executionId;
-        }
-
-        if (! empty($meta)) {
-            $request->withMeta($meta);
-        }
+        static::applyQueueMeta($request, $payload, $executionId);
 
         if (! empty($payload['variables'])) {
             $request->withVariables($payload['variables']);
@@ -253,11 +236,5 @@ class VideoRequest implements QueueableRequest
             'asText' => $request->asText(),
             default => throw new \InvalidArgumentException("Unknown terminal method: {$terminal}"),
         };
-    }
-
-    /** Resolve the model as a string key for queue serialization. */
-    protected function resolveModelKey(): string
-    {
-        return (string) $this->model;
     }
 }

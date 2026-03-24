@@ -44,7 +44,12 @@ trait ConvertsResultToChunks
 
                 // Small delay between chunks so broadcast consumers (WebSocket UI)
                 // receive them as a visible typing stream rather than one instant batch.
-                usleep(15_000);
+                // Set ATLAS_STREAM_CHUNK_DELAY_US=0 in tests or CLI to eliminate the delay.
+                $delay = (int) config('atlas.stream.chunk_delay_us', 15_000);
+
+                if ($delay > 0) {
+                    usleep($delay);
+                }
             }
         }
 

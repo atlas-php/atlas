@@ -47,4 +47,12 @@ class ProviderRequest
     {
         return $this->resolveDriver()->name();
     }
+
+    /**
+     * ProviderRequest has no model — always returns empty string.
+     */
+    protected function resolveModelKey(): string
+    {
+        return '';
+    }
 }

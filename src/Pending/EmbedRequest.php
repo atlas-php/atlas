@@ -10,8 +10,10 @@ use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Events\ModalityCompleted;
 use Atlasphp\Atlas\Events\ModalityStarted;
 use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Pending\Concerns\AppliesQueueMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
+use Atlasphp\Atlas\Pending\Concerns\HasProviderOptions;
 use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Queue\PendingExecution;
@@ -25,16 +27,15 @@ use Illuminate\Broadcasting\Channel;
  */
 class EmbedRequest implements QueueableRequest
 {
+    use AppliesQueueMeta;
     use HasMeta;
     use HasMiddleware;
+    use HasProviderOptions;
     use HasQueueDispatch;
     use ResolvesProvider;
 
     /** @var string|array<int, string>|null */
     protected string|array|null $input = null;
-
-    /** @var array<string, mixed> */
-    protected array $providerOptions = [];
 
     public function __construct(
         protected readonly Provider|string $provider,
@@ -48,16 +49,6 @@ class EmbedRequest implements QueueableRequest
     public function fromInput(string|array $input): static
     {
         $this->input = $input;
-
-        return $this;
-    }
-
-    /**
-     * @param  array<string, mixed>  $options
-     */
-    public function withProviderOptions(array $options): static
-    {
-        $this->providerOptions = $options;
 
         return $this;
     }
@@ -140,25 +131,11 @@ class EmbedRequest implements QueueableRequest
             $request->withProviderOptions($payload['providerOptions']);
         }
 
-        $meta = $payload['meta'] ?? [];
-
-        if ($executionId !== null) {
-            $meta['execution_id'] = $executionId;
-        }
-
-        if (! empty($meta)) {
-            $request->withMeta($meta);
-        }
+        static::applyQueueMeta($request, $payload, $executionId);
 
         return match ($terminal) {
             'asEmbeddings' => $request->asEmbeddings(),
             default => throw new \InvalidArgumentException("Unknown terminal method: {$terminal}"),
         };
-    }
-
-    /** Resolve the model as a string key for queue serialization. */
-    protected function resolveModelKey(): string
-    {
-        return (string) $this->model;
     }
 }

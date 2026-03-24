@@ -175,3 +175,28 @@ it('executeFromPayload rebuilds and executes', function () {
 
     expect($result)->toBeInstanceOf(RerankResponse::class);
 });
+
+it('fires ModalityCompleted after minScore filtering', function () {
+    Event::fake();
+
+    $response = new RerankResponse([
+        new RerankResult(0, 0.95, 'doc1'),
+        new RerankResult(1, 0.50, 'doc2'),
+        new RerankResult(2, 0.20, 'doc3'),
+    ]);
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(rerank: true));
+    $driver->shouldReceive('rerank')->once()->andReturn($response);
+
+    createRerankPending($driver)
+        ->query('test')
+        ->documents(['doc1', 'doc2', 'doc3'])
+        ->minScore(0.40)
+        ->asReranked();
+
+    // Event should fire AFTER filtering — verify it was dispatched
+    Event::assertDispatched(ModalityCompleted::class, function (ModalityCompleted $event) {
+        return $event->modality === Modality::Rerank;
+    });
+});

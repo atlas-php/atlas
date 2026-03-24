@@ -10,8 +10,10 @@ use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Events\ModalityCompleted;
 use Atlasphp\Atlas\Events\ModalityStarted;
 use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Pending\Concerns\AppliesQueueMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
+use Atlasphp\Atlas\Pending\Concerns\HasProviderOptions;
 use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Queue\PendingExecution;
@@ -25,8 +27,10 @@ use Illuminate\Broadcasting\Channel;
  */
 class RerankRequest implements QueueableRequest
 {
+    use AppliesQueueMeta;
     use HasMeta;
     use HasMiddleware;
+    use HasProviderOptions;
     use HasQueueDispatch;
     use ResolvesProvider;
 
@@ -40,9 +44,6 @@ class RerankRequest implements QueueableRequest
     protected ?int $maxTokensPerDoc = null;
 
     protected ?float $minScore = null;
-
-    /** @var array<string, mixed> */
-    protected array $providerOptions = [];
 
     public function __construct(
         protected readonly Provider|string $provider,
@@ -88,16 +89,6 @@ class RerankRequest implements QueueableRequest
         return $this;
     }
 
-    /**
-     * @param  array<string, mixed>  $options
-     */
-    public function withProviderOptions(array $options): static
-    {
-        $this->providerOptions = $options;
-
-        return $this;
-    }
-
     public function asReranked(): RerankResponse|PendingExecution
     {
         if ($this->query === null) {
@@ -127,11 +118,11 @@ class RerankRequest implements QueueableRequest
             throw $e;
         }
 
-        event(new ModalityCompleted(modality: Modality::Rerank, provider: $provider, model: $model));
-
         if ($this->minScore !== null) {
-            return new RerankResponse($response->aboveScore($this->minScore), $response->meta);
+            $response = new RerankResponse($response->aboveScore($this->minScore), $response->meta);
         }
+
+        event(new ModalityCompleted(modality: Modality::Rerank, provider: $provider, model: $model));
 
         return $response;
     }
@@ -210,25 +201,11 @@ class RerankRequest implements QueueableRequest
             $request->withProviderOptions($payload['providerOptions']);
         }
 
-        $meta = $payload['meta'] ?? [];
-
-        if ($executionId !== null) {
-            $meta['execution_id'] = $executionId;
-        }
-
-        if (! empty($meta)) {
-            $request->withMeta($meta);
-        }
+        static::applyQueueMeta($request, $payload, $executionId);
 
         return match ($terminal) {
             'asReranked' => $request->asReranked(),
             default => throw new \InvalidArgumentException("Unknown terminal method: {$terminal}"),
         };
-    }
-
-    /** Resolve the model as a string key for queue serialization. */
-    protected function resolveModelKey(): string
-    {
-        return (string) $this->model;
     }
 }

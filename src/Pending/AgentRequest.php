@@ -29,6 +29,7 @@ use Atlasphp\Atlas\Middleware\AgentContext;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
+use Atlasphp\Atlas\Pending\Concerns\HasProviderOptions;
 use Atlasphp\Atlas\Persistence\Concerns\HasConversations;
 use Atlasphp\Atlas\Persistence\Enums\AssetType;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
@@ -70,6 +71,7 @@ class AgentRequest implements QueueableRequest
     use Concerns\ConvertsResultToChunks;
     use HasMeta;
     use HasMiddleware;
+    use HasProviderOptions;
     use HasQueueDispatch {
         dispatchToQueue as traitDispatchToQueue;
     }
@@ -109,9 +111,6 @@ class AgentRequest implements QueueableRequest
     protected ?int $maxStepsOverride = null;
 
     protected ?bool $concurrentOverride = null;
-
-    /** @var array<string, mixed> */
-    protected array $providerOptionsOverride = [];
 
     // Conversation support — stored here, transferred to agent on resolve
     protected ?Model $conversationOwner = null;
@@ -258,18 +257,6 @@ class AgentRequest implements QueueableRequest
     public function withSchema(Schema $schema): static
     {
         $this->schema = $schema;
-
-        return $this;
-    }
-
-    /**
-     * Override provider-specific options.
-     *
-     * @param  array<string, mixed>  $options
-     */
-    public function withProviderOptions(array $options): static
-    {
-        $this->providerOptionsOverride = $options;
 
         return $this;
     }
@@ -921,8 +908,8 @@ class AgentRequest implements QueueableRequest
             schema: $this->schema,
             tools: $toolDefinitions,
             providerTools: $providerTools,
-            providerOptions: $this->providerOptionsOverride !== []
-                ? $this->providerOptionsOverride
+            providerOptions: $this->providerOptions !== []
+                ? $this->providerOptions
                 : $agent->providerOptions(),
             middleware: $this->middleware,
             meta: $this->meta,
@@ -1037,7 +1024,7 @@ class AgentRequest implements QueueableRequest
             'temperature' => $this->temperatureOverride,
             'max_steps' => $this->maxStepsOverride,
             'concurrent' => $this->concurrentOverride,
-            'provider_options' => $this->providerOptionsOverride,
+            'provider_options' => $this->providerOptions,
             'conversation_id' => $this->conversationId,
             'owner_type' => $this->conversationOwner?->getMorphClass(),
             'owner_id' => $this->conversationOwner?->getKey(),

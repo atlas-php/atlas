@@ -37,4 +37,12 @@ trait ResolvesProvider
     {
         return Provider::normalize($this->provider);
     }
+
+    /**
+     * Resolve the model as a string key for events and queue serialization.
+     */
+    protected function resolveModelKey(): string
+    {
+        return (string) $this->model;
+    }
 }
