@@ -449,6 +449,43 @@ The `executions` table has a `voice_call_id` FK pointing to this table (same pat
 | `active()` | Only active calls |
 | `completed()` | Only completed calls |
 
+### Lifecycle
+
+The framework handles lifecycle transitions automatically:
+
+- **`active`** — Created when `asVoice()` is called. Transcript is checkpointed as turns complete.
+- **`completed`** — Set when the browser sends a close request, or when the stale cleanup command runs. You don't need to call `markCompleted()` — the close endpoint does it.
+- **`failed`** — Available for consumer use. Call `$voiceCall->markFailed()` in your error handling if needed.
+
+### Querying
+
+```php
+use Atlasphp\Atlas\Persistence\Models\VoiceCall;
+
+// All calls for a conversation
+VoiceCall::forConversation($conversationId)->get();
+
+// By provider session ID
+VoiceCall::forSession('rt_xai_abc123...')->first();
+
+// Recent completed calls with their executions
+VoiceCall::completed()->with('executions.toolCalls')->latest()->take(10)->get();
+
+// Active calls (still in progress)
+VoiceCall::active()->get();
+```
+
+### Execution Relationship
+
+The `executions` table has a `voice_call_id` FK pointing to this table — same pattern as `message_id` for text executions. This links the voice call to its execution records, which track tool calls made during the session:
+
+```php
+$call = VoiceCall::forSession($sessionId)->first();
+
+// Get tool calls from the voice session
+$toolCalls = $call->executions->flatMap->toolCalls;
+```
+
 ## Model Overrides
 
 Extend the base models with your own:

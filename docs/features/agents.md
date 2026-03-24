@@ -184,7 +184,7 @@ $response->structured['confidence'];  // 0.95
 Start a real-time voice session using the agent's tools, instructions, and voice config:
 
 ```php
-$session = Atlas::agent('support')
+$session = Atlas::agent('sarah-voice')
     ->for($user)
     ->asUser($user)
     ->forConversation($conversationId)
@@ -193,7 +193,23 @@ $session = Atlas::agent('support')
 return response()->json($session->toClientPayload());
 ```
 
-The browser connects directly to the provider for audio. Tools are executed server-side via the package-provided endpoint. See [Voice Modality](/modalities/voice) for transport details and [Voice Integration](/guides/voice-integration) for the full setup guide.
+The browser connects directly to the provider for audio. Tools are executed server-side via the package-provided endpoint.
+
+Voice agents can define a `voice()` method to set their voice identity:
+
+```php
+class SarahVoiceAgent extends Agent
+{
+    public function voice(): ?string
+    {
+        return 'eve'; // xAI voice ID
+    }
+}
+```
+
+When `forConversation($id)` is set, the voice agent receives the conversation's text history as context — so it knows what was discussed in prior text messages. Voice transcripts are stored in a dedicated `VoiceCall` record, not as individual messages. Listen for `VoiceCallCompleted` to post-process the transcript (summarize, create messages, embed into memory).
+
+See [Voice Modality](/modalities/voice) for transport details, [Voice Integration](/guides/voice-integration) for the full setup guide, and [Post-Processing Patterns](/modalities/voice#post-processing-patterns) for handling transcripts.
 
 ## Runtime Overrides
 

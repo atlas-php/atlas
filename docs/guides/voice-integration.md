@@ -274,7 +274,71 @@ ws.onclose = () => {
 
 Using `sendBeacon` ensures the request fires even on page unload. The endpoint is idempotent.
 
-The close endpoint fires `VoiceCallCompleted` with the full transcript. Consumers listen for this event to generate summaries, create conversation messages, or embed into memory.
+The close endpoint fires `VoiceCallCompleted` with the full transcript.
+
+## Step 7: Post-Process the Voice Call (Optional)
+
+Atlas stores the transcript. What you do with it is up to you. Register a listener for `VoiceCallCompleted` to post-process:
+
+```php
+// In a service provider or EventServiceProvider
+use Atlasphp\Atlas\Events\VoiceCallCompleted;
+use App\Listeners\HandleVoiceCallCompleted;
+
+Event::listen(VoiceCallCompleted::class, HandleVoiceCallCompleted::class);
+```
+
+```php
+// app/Listeners/HandleVoiceCallCompleted.php
+use Atlasphp\Atlas\Events\VoiceCallCompleted;
+use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Messages\SystemMessage;
+use Atlasphp\Atlas\Persistence\Models\VoiceCall;
+use Atlasphp\Atlas\Persistence\Services\ConversationService;
+
+class HandleVoiceCallCompleted
+{
+    public function handle(VoiceCallCompleted $event): void
+    {
+        if ($event->transcript === []) return;
+
+        $voiceCall = VoiceCall::find($event->voiceCallId);
+
+        // Format transcript for the summarizer
+        $formatted = collect($event->transcript)
+            ->map(fn ($t) => ucfirst($t['role']).': '.$t['content'])
+            ->implode("\n");
+
+        // Generate a summary
+        try {
+            $response = Atlas::text('xai', 'grok-3-mini-fast')
+                ->instructions('Summarize this voice call in 2-3 sentences. Focus on key topics and action items.')
+                ->message($formatted)
+                ->asText();
+
+            $voiceCall->update(['summary' => $response->text]);
+
+            // Inject summary into the conversation so the text agent sees it
+            if ($event->conversationId) {
+                $conversations = app(ConversationService::class);
+                $conversation = $conversations->find($event->conversationId);
+                $conversations->addMessage($conversation, new SystemMessage(
+                    content: "[Voice call summary]\n{$response->text}"
+                ));
+            }
+        } catch (\Throwable $e) {
+            logger()->error('Voice call post-processing failed', [
+                'voice_call_id' => $event->voiceCallId,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+}
+```
+
+If you don't register a listener, the transcript is still stored in the `VoiceCall` record. You can query and process it later.
+
+See [Voice Modality — Post-Processing Patterns](/modalities/voice#post-processing-patterns) for more options.
 
 ## Audio Format
 

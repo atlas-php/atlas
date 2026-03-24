@@ -391,18 +391,49 @@ Fired when a voice call completes with the full transcript. This is the primary 
 | `transcript` | `array` | Complete transcript `[{role, content}]` |
 | `durationMs` | `?int` | Wall-clock duration |
 
+Atlas fires this event and stores the transcript. Post-processing is entirely consumer-owned — you decide whether to summarize, create messages, embed into memory, or do nothing.
+
 ```php
 use Atlasphp\Atlas\Events\VoiceCallCompleted;
+use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Messages\SystemMessage;
+use Atlasphp\Atlas\Persistence\Models\VoiceCall;
+use Atlasphp\Atlas\Persistence\Services\ConversationService;
 
 Event::listen(VoiceCallCompleted::class, function ($event) {
-    // Generate a summary using a cheap model
-    $summary = Atlas::text('xai', 'grok-3-mini-fast')
-        ->message("Summarize:\n" . json_encode($event->transcript))
-        ->asText();
+    if ($event->transcript === []) return;
 
-    VoiceCall::find($event->voiceCallId)->update(['summary' => $summary->text]);
+    $voiceCall = VoiceCall::find($event->voiceCallId);
+
+    $formatted = collect($event->transcript)
+        ->map(fn ($t) => ucfirst($t['role']).': '.$t['content'])
+        ->implode("\n");
+
+    try {
+        // Summarize with a cheap, fast model
+        $response = Atlas::text('xai', 'grok-3-mini-fast')
+            ->instructions('Summarize this voice call in 2-3 sentences.')
+            ->message($formatted)
+            ->asText();
+
+        // Store summary on the call record
+        $voiceCall->update(['summary' => $response->text]);
+
+        // Optionally inject into conversation so the text agent sees it
+        if ($event->conversationId) {
+            $conversations = app(ConversationService::class);
+            $conversation = $conversations->find($event->conversationId);
+            $conversations->addMessage($conversation, new SystemMessage(
+                content: "[Voice call summary]\n{$response->text}"
+            ));
+        }
+    } catch (\Throwable $e) {
+        logger()->error('Voice summarization failed', ['id' => $event->voiceCallId]);
+    }
 });
 ```
+
+See [Voice — Post-Processing Patterns](/modalities/voice#post-processing-patterns) for more options.
 
 ## Next Steps
 
