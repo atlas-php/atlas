@@ -96,7 +96,7 @@ it('reads execution type from meta', function () {
 
     $context = new AgentContext(
         request: makeExecutionTextRequest(),
-        meta: ['_execution_type' => 'image'],
+        meta: ['execution_type' => 'image'],
     );
 
     $middleware->handle($context, fn () => makeExecutionFakeResult());

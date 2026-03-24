@@ -19,7 +19,7 @@ use Closure;
  * runs, transitions through processing, and finalizes as completed or failed.
  *
  * When running from a queued dispatch, adopts the pre-created execution
- * record (via _execution_id in meta) instead of creating a duplicate.
+ * record (via execution_id in meta) instead of creating a duplicate.
  */
 class TrackExecution
 {
@@ -41,13 +41,13 @@ class TrackExecution
         $model = $agent?->model() ?? (string) config('atlas.defaults.text.model', 'unknown');
 
         // ── Resolve execution type from meta (set by pending request) ─
-        $type = ExecutionType::tryFrom($context->meta['_execution_type'] ?? '')
+        $type = ExecutionType::tryFrom($context->meta['execution_type'] ?? '')
             ?? ExecutionType::Text;
 
         // ── Adopt pre-created execution or create new ─────────────
         // Queue dispatch pre-creates an execution record so the UI has
         // an ID immediately. Adopt it here instead of creating a duplicate.
-        $preExistingId = $context->meta['_execution_id'] ?? null;
+        $preExistingId = $context->meta['execution_id'] ?? null;
 
         if ($preExistingId !== null) {
             $execution = $this->tracker->adoptExecution(
