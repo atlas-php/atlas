@@ -11,11 +11,5 @@ parameters:
             identifier: trait.unused
             path: src/Persistence/Concerns/HasConversations.php
         -
-            identifier: trait.unused
-            path: src/Persistence/Concerns/HasMemory.php
-        -
             identifier: varTag.unresolvableType
             path: src/Persistence/Middleware/PersistConversation.php
-        -
-            identifier: varTag.unresolvableType
-            path: src/Persistence/Middleware/WireMemory.php
