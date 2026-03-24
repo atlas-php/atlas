@@ -182,6 +182,8 @@ All tables are prefixed with `atlas_` by default (configurable via `persistence.
 
 **Why it exists:** Agents can remember information between conversations. Memories are scoped to an owner (user) and optionally an agent. They support semantic search via vector embeddings (PostgreSQL) for retrieval-augmented generation (RAG) patterns.
 
+For the full memory API, tools, and usage patterns, see the [Memory guide](/guides/memory).
+
 | Column | Type | Why |
 |--------|------|-----|
 | `id` | `bigint` | Primary key |

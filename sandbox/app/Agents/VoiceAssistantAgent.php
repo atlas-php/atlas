@@ -56,8 +56,6 @@ class VoiceAssistantAgent extends Agent
 
         You have access to image generation and web search tools.
         When the user asks about current events, use web search.
-
-        {MEMORIES}
         PROMPT;
     }
 

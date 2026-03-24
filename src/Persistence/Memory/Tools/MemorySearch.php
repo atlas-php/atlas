@@ -50,6 +50,10 @@ class MemorySearch extends Tool
      */
     public function handle(array $args, array $context): array|string
     {
+        if (! $this->memoryContext->isConfigured()) {
+            return 'Memory context is not configured. Call MemoryContext::configure() before running the agent.';
+        }
+
         $results = $this->service->search(
             owner: $this->memoryContext->owner(),
             query: $args['query'],

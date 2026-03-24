@@ -164,9 +164,10 @@ When persistence is enabled, Atlas auto-registers middleware at each layer to tr
 | `TrackToolCall` | Tool | Records each tool call with its result or error and wall-clock duration |
 | `TrackProviderCall` | Provider | Tracks standalone provider calls and stores file-producing response assets |
 | `PersistConversation` | Agent | Loads conversation history before execution and stores user/assistant messages after |
-| `WireMemory` | Agent | Wires memory tools, variables, and context onto agents that use the `HasMemory` trait |
 
 </div>
+
+For memory tool integration, see the [Memory guide](/guides/memory).
 
 ## Examples
 

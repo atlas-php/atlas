@@ -17,7 +17,6 @@ use Atlasphp\Atlas\Persistence\Middleware\TrackExecution;
 use Atlasphp\Atlas\Persistence\Middleware\TrackProviderCall;
 use Atlasphp\Atlas\Persistence\Middleware\TrackStep;
 use Atlasphp\Atlas\Persistence\Middleware\TrackToolCall;
-use Atlasphp\Atlas\Persistence\Middleware\WireMemory;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -79,7 +78,7 @@ class SandboxServiceProvider extends ServiceProvider
     }
 
     /**
-     * Register persistence and memory middleware.
+     * Register persistence middleware.
      *
      * AtlasServiceProvider auto-registers these when persistence.enabled
      * is true during boot — but in the sandbox, Orchestra Testbench boots
@@ -91,12 +90,7 @@ class SandboxServiceProvider extends ServiceProvider
             return;
         }
 
-        // Memory middleware (before PersistConversation for variable registration)
         $agentMiddleware = config('atlas.middleware.agent', []);
-
-        if (! in_array(WireMemory::class, $agentMiddleware, true)) {
-            array_unshift($agentMiddleware, WireMemory::class);
-        }
 
         if (! in_array(PersistConversation::class, $agentMiddleware, true)) {
             $agentMiddleware[] = PersistConversation::class;

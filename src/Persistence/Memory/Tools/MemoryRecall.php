@@ -47,6 +47,10 @@ class MemoryRecall extends Tool
      */
     public function handle(array $args, array $context): string
     {
+        if (! $this->memoryContext->isConfigured()) {
+            return 'Memory context is not configured. Call MemoryContext::configure() before running the agent.';
+        }
+
         $memory = $this->service->recall(
             owner: $this->memoryContext->owner(),
             type: $args['type'],

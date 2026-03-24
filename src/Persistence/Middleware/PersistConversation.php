@@ -65,7 +65,7 @@ class PersistConversation
         }
 
         // Capture consumer-provided metadata BEFORE other middleware
-        // (WireMemory etc.) injects internal keys into context->meta.
+        // injects internal keys into context->meta.
         // The request->meta is the original from withMeta().
         $consumerMeta = $context->request->meta;
 

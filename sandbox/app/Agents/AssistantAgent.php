@@ -9,8 +9,9 @@ use App\Tools\GenerateSpeechTool;
 use App\Tools\GenerateVideoTool;
 use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\Persistence\Concerns\HasConversations;
-use Atlasphp\Atlas\Persistence\Concerns\HasMemory;
-use Atlasphp\Atlas\Persistence\Memory\MemoryConfig;
+use Atlasphp\Atlas\Persistence\Memory\Tools\MemoryRecall;
+use Atlasphp\Atlas\Persistence\Memory\Tools\MemorySearch;
+use Atlasphp\Atlas\Persistence\Memory\Tools\RememberMemory;
 use Atlasphp\Atlas\Providers\Tools\ProviderTool;
 use Atlasphp\Atlas\Providers\Tools\WebSearch;
 
@@ -25,7 +26,6 @@ use Atlasphp\Atlas\Providers\Tools\WebSearch;
 class AssistantAgent extends Agent
 {
     use HasConversations;
-    use HasMemory;
 
     public function key(): string
     {
@@ -54,8 +54,6 @@ class AssistantAgent extends Agent
         ## Memory
         You have memory tools. Save important facts and preferences the user shares.
         Before answering questions that might rely on past context, search your memory.
-
-        {MEMORIES}
         PROMPT;
     }
 
@@ -68,14 +66,10 @@ class AssistantAgent extends Agent
             GenerateImageTool::class,
             GenerateVideoTool::class,
             GenerateSpeechTool::class,
+            RememberMemory::class,
+            MemoryRecall::class,
+            MemorySearch::class,
         ];
-    }
-
-    public function memory(): MemoryConfig
-    {
-        return MemoryConfig::make()
-            ->withTools()
-            ->variables(['memories']);
     }
 
     public function maxSteps(): ?int

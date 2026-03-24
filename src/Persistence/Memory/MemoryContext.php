@@ -10,8 +10,8 @@ use Illuminate\Database\Eloquent\Model;
  * Class MemoryContext
  *
  * Scoped service that holds the memory owner and agent key for the current
- * request. Configured by WireMemory middleware, consumed by memory tools.
- * Replaces meta-based context passing to keep memory fully isolated.
+ * request. Configured by the consumer before running an agent, consumed
+ * by memory tools to scope operations to the correct owner and agent.
  */
 class MemoryContext
 {

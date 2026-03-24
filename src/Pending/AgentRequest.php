@@ -944,7 +944,7 @@ class AgentRequest implements QueueableRequest
         array $meta = [],
     ): ExecutorResult {
         // Rebuild tool definitions from the actual tools array — middleware
-        // may have added tools (e.g. WireMemory) after the request was built.
+        // may have added tools after the request was built.
         $request = $request->withReplacedTools(array_map(
             fn (Tool $tool) => $tool->toDefinition(),
             $tools,

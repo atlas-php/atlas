@@ -51,6 +51,10 @@ class RememberMemory extends Tool
      */
     public function handle(array $args, array $context): string
     {
+        if (! $this->memoryContext->isConfigured()) {
+            return 'Memory context is not configured. Call MemoryContext::configure() before running the agent.';
+        }
+
         $memory = $this->service->remember(
             owner: $this->memoryContext->owner(),
             content: $args['content'],

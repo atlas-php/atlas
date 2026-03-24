@@ -104,29 +104,9 @@ class AtlasServiceProvider extends ServiceProvider
         }
 
         $this->registerBuiltInVariables();
-        $this->registerMemoryMiddleware();
         $this->registerPersistenceMiddleware();
         $this->registerVoiceRoutes();
         $this->registerVectorMacros();
-    }
-
-    /**
-     * Register memory middleware when persistence is enabled.
-     *
-     * Prepends WireMemory before PersistConversation so variable documents
-     * are registered before instruction interpolation happens.
-     */
-    protected function registerMemoryMiddleware(): void
-    {
-        if (! config('atlas.persistence.enabled')) {
-            return;
-        }
-
-        $this->app->booted(function (): void {
-            $agentMiddleware = config('atlas.middleware.agent', []);
-            array_unshift($agentMiddleware, Persistence\Middleware\WireMemory::class);
-            config(['atlas.middleware.agent' => $agentMiddleware]);
-        });
     }
 
     /**

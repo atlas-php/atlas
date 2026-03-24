@@ -6,8 +6,9 @@ namespace App\Agents;
 
 use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\Persistence\Concerns\HasConversations;
-use Atlasphp\Atlas\Persistence\Concerns\HasMemory;
-use Atlasphp\Atlas\Persistence\Memory\MemoryConfig;
+use Atlasphp\Atlas\Persistence\Memory\Tools\MemoryRecall;
+use Atlasphp\Atlas\Persistence\Memory\Tools\MemorySearch;
+use Atlasphp\Atlas\Persistence\Memory\Tools\RememberMemory;
 
 /**
  * Minimal agent for testing memory tools in isolation.
@@ -17,7 +18,6 @@ use Atlasphp\Atlas\Persistence\Memory\MemoryConfig;
 class MemoryTestAgent extends Agent
 {
     use HasConversations;
-    use HasMemory;
 
     public function key(): string
     {
@@ -34,10 +34,16 @@ class MemoryTestAgent extends Agent
         PROMPT;
     }
 
-    public function memory(): MemoryConfig
+    /**
+     * @return array<int, class-string>
+     */
+    public function tools(): array
     {
-        return MemoryConfig::make()
-            ->withTools();
+        return [
+            RememberMemory::class,
+            MemoryRecall::class,
+            MemorySearch::class,
+        ];
     }
 
     public function maxSteps(): ?int
