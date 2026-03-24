@@ -145,11 +145,11 @@ class Execution extends Model
     // ─── Voice Execution Lifecycle ──────────────────────────────
 
     /**
-     * Complete a voice execution (and its sentinel step) by execution ID.
+     * Complete a voice execution by execution ID.
      *
-     * Uses atomic updates guarded by status=Processing to prevent race
+     * Uses atomic update guarded by status=Processing to prevent race
      * conditions when transcript and close requests arrive concurrently.
-     * No-op if the session is not found or already completed.
+     * No-op if the execution is not found or already completed.
      *
      * @param  array<string, mixed>|null  $extraMeta
      */
@@ -171,12 +171,8 @@ class Execution extends Model
             ? (int) abs(now()->diffInMilliseconds($execution->started_at))
             : null;
 
-        /** @var class-string<ExecutionStep> $stepModel */
-        $stepModel = config('atlas.persistence.models.execution_step', ExecutionStep::class);
-
-        // Transaction ensures execution + steps complete together or not at all.
-        // The WHERE status=Processing guard makes the execution update race-safe.
-        $affected = DB::transaction(function () use ($model, $stepModel, $execution, $durationMs, $extraMeta): int {
+        // The WHERE status=Processing guard makes this race-safe.
+        $affected = DB::transaction(function () use ($model, $execution, $durationMs, $extraMeta): int {
             $affected = $model::where('id', $execution->id)
                 ->where('status', ExecutionStatus::Processing)
                 ->update([
@@ -193,14 +189,6 @@ class Execution extends Model
                 $metadata = array_merge($execution->metadata ?? [], $extraMeta);
                 $model::where('id', $execution->id)->update(['metadata' => $metadata]);
             }
-
-            $stepModel::where('execution_id', $execution->id)
-                ->where('status', ExecutionStatus::Processing)
-                ->update([
-                    'status' => ExecutionStatus::Completed,
-                    'completed_at' => now(),
-                    'duration_ms' => $durationMs,
-                ]);
 
             return $affected;
         });

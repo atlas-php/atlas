@@ -55,12 +55,15 @@ class CloseVoiceSessionController
             }
 
             // Complete the linked execution (Execution has voice_call_id pointing to this call)
-            $execution = Execution::where('voice_call_id', $voiceCall->id)
+            /** @var class-string<Execution> $executionModel */
+            $executionModel = config('atlas.persistence.models.execution', Execution::class);
+
+            $execution = $executionModel::where('voice_call_id', $voiceCall->id)
                 ->where('status', ExecutionStatus::Processing)
                 ->first();
 
             if ($execution !== null) {
-                Execution::completeVoiceExecution($execution->id);
+                $executionModel::completeVoiceExecution($execution->id);
             }
         }
 

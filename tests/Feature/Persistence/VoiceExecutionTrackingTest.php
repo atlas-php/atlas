@@ -9,7 +9,6 @@ use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
 use Atlasphp\Atlas\Persistence\Http\StoreVoiceTranscriptController;
 use Atlasphp\Atlas\Persistence\Models\Conversation;
 use Atlasphp\Atlas\Persistence\Models\Execution;
-use Atlasphp\Atlas\Persistence\Models\ExecutionStep;
 use Atlasphp\Atlas\Persistence\Models\ExecutionToolCall;
 use Atlasphp\Atlas\Persistence\Models\VoiceCall;
 use Atlasphp\Atlas\Tools\Tool;
@@ -63,35 +62,24 @@ function seedVoiceSession(
     string $sessionId,
     array $toolMap = [],
     ?int $executionId = null,
-    ?int $stepId = null,
 ): void {
     Cache::put("voice:{$sessionId}:tools", [
         'tools' => $toolMap,
         'user_id' => 1,
         'execution_id' => $executionId,
-        'step_id' => $stepId,
     ], 3600);
 }
 
 function createVoiceExecution(
     string $sessionId,
     ?int $conversationId = null,
-): array {
-    $execution = Execution::factory()->create([
+): Execution {
+    return Execution::factory()->create([
         'type' => ExecutionType::Voice,
         'status' => ExecutionStatus::Processing,
         'started_at' => now()->subMinutes(5),
         'conversation_id' => $conversationId,
     ]);
-
-    $step = ExecutionStep::factory()->create([
-        'execution_id' => $execution->id,
-        'sequence' => 0,
-        'status' => ExecutionStatus::Processing,
-        'started_at' => now()->subMinutes(5),
-    ]);
-
-    return [$execution, $step];
 }
 
 function invokeVoiceToolController(string $sessionId, array $body): JsonResponse
@@ -121,11 +109,11 @@ function invokeTranscriptControllerForTracking(string $sessionId, array $body): 
 // ─── VoiceToolController — tool call tracking ───────────────────
 
 it('creates ExecutionToolCall record on successful tool execution', function () {
-    [$execution, $step] = createVoiceExecution('sess-track-1');
+    $execution = createVoiceExecution('sess-track-1');
 
     seedVoiceSession('sess-track-1', [
         'echo_test' => VoiceTrackingEchoTool::class,
-    ], $execution->id, $step->id);
+    ], $execution->id);
 
     invokeVoiceToolController('sess-track-1', [
         'name' => 'echo_test',
@@ -143,11 +131,11 @@ it('creates ExecutionToolCall record on successful tool execution', function () 
 });
 
 it('marks ExecutionToolCall as failed on tool error', function () {
-    [$execution, $step] = createVoiceExecution('sess-track-2');
+    $execution = createVoiceExecution('sess-track-2');
 
     seedVoiceSession('sess-track-2', [
         'fail_tool' => VoiceTrackingFailTool::class,
-    ], $execution->id, $step->id);
+    ], $execution->id);
 
     invokeVoiceToolController('sess-track-2', [
         'name' => 'fail_tool',
@@ -178,11 +166,11 @@ it('skips tracking when no execution_id in cache', function () {
 it('fires VoiceToolCallRequested event', function () {
     Event::fake([VoiceToolCallRequested::class]);
 
-    [$execution, $step] = createVoiceExecution('sess-event-1');
+    $execution = createVoiceExecution('sess-event-1');
 
     seedVoiceSession('sess-event-1', [
         'echo_test' => VoiceTrackingEchoTool::class,
-    ], $execution->id, $step->id);
+    ], $execution->id);
 
     invokeVoiceToolController('sess-event-1', [
         'name' => 'echo_test',
@@ -198,7 +186,7 @@ it('fires VoiceToolCallRequested event', function () {
 // ─── StoreVoiceTranscriptController — VoiceCall storage ─────────
 
 it('saves transcript to VoiceCall record', function () {
-    [$execution] = createVoiceExecution('sess-vc-1');
+    $execution = createVoiceExecution('sess-vc-1');
 
     VoiceCall::create([
         'voice_session_id' => 'sess-vc-1',
@@ -235,7 +223,7 @@ it('returns 404 when voice call not found for transcript', function () {
 // ─── CloseVoiceSessionController ────────────────────────────────
 
 it('marks execution and voice call as completed on close', function () {
-    [$execution, $step] = createVoiceExecution('sess-close-1');
+    $execution = createVoiceExecution('sess-close-1');
 
     $call = VoiceCall::create([
         'voice_session_id' => 'sess-close-1',
@@ -253,11 +241,9 @@ it('marks execution and voice call as completed on close', function () {
     expect($response->getStatusCode())->toBe(204);
 
     $execution->refresh();
-    $step->refresh();
 
     expect($execution->status)->toBe(ExecutionStatus::Completed);
     expect($execution->completed_at)->not->toBeNull();
-    expect($step->status)->toBe(ExecutionStatus::Completed);
 
     $call = VoiceCall::where('voice_session_id', 'sess-close-1')->first();
     expect($call->status)->toBe('completed');
@@ -265,7 +251,7 @@ it('marks execution and voice call as completed on close', function () {
 });
 
 it('is idempotent — double close does not error', function () {
-    [$execution] = createVoiceExecution('sess-close-2');
+    $execution = createVoiceExecution('sess-close-2');
 
     invokeCloseController('sess-close-2');
     $response = invokeCloseController('sess-close-2');
@@ -304,7 +290,7 @@ it('handles close when no execution exists', function () {
 
 it('tracks full voice session lifecycle: session → tools → transcript → close', function () {
     $conversation = Conversation::factory()->create();
-    [$execution, $step] = createVoiceExecution('sess-lifecycle', $conversation->id);
+    $execution = createVoiceExecution('sess-lifecycle', $conversation->id);
 
     // Create VoiceCall record and link execution
     $call = VoiceCall::create([
@@ -321,7 +307,7 @@ it('tracks full voice session lifecycle: session → tools → transcript → cl
 
     seedVoiceSession('sess-lifecycle', [
         'echo_test' => VoiceTrackingEchoTool::class,
-    ], $execution->id, $step->id);
+    ], $execution->id);
 
     // Tool call
     invokeVoiceToolController('sess-lifecycle', [

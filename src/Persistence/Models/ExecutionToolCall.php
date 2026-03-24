@@ -23,7 +23,7 @@ use Illuminate\Support\Carbon;
  *
  * @property int $id
  * @property int $execution_id
- * @property int $step_id
+ * @property int|null $step_id
  * @property string $tool_call_id
  * @property string $name
  * @property ToolCallType $type

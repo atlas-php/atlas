@@ -39,22 +39,10 @@ return new class extends Migration
             $table->index('status');
             $table->index('started_at');
         });
-
-        // Add FK constraint for voice_call_id on executions (column added in 0005)
-        Schema::table($this->tableName('executions'), function (Blueprint $table) {
-            $table->foreign('voice_call_id')
-                ->references('id')
-                ->on($this->tableName('voice_calls'))
-                ->nullOnDelete();
-        });
     }
 
     public function down(): void
     {
-        Schema::table($this->tableName('executions'), function (Blueprint $table) {
-            $table->dropForeign(['voice_call_id']);
-        });
-
         Schema::dropIfExists($this->tableName('voice_calls'));
     }
 };

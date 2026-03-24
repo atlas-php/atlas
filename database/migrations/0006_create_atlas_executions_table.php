@@ -30,7 +30,10 @@ return new class extends Migration
                 ->nullable()
                 ->constrained($this->tableName('messages'))
                 ->nullOnDelete();
-            $table->unsignedBigInteger('voice_call_id')->nullable();
+            $table->foreignId('voice_call_id')
+                ->nullable()
+                ->constrained($this->tableName('voice_calls'))
+                ->nullOnDelete();
             $table->foreignId('asset_id')
                 ->nullable()
                 ->constrained($this->tableName('assets'))

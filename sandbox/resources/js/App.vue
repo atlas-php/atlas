@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 import ThreadSidebar from './components/ThreadSidebar.vue';
 import ChatThread from './components/ChatThread.vue';
 import ChatInput from './components/ChatInput.vue';
@@ -16,49 +16,6 @@ const voice = useVoice();
 
 const chatThreadRef = ref<InstanceType<typeof ChatThread> | null>(null);
 const chatInputRef = ref<InstanceType<typeof ChatInput> | null>(null);
-
-// Combine stored messages with live voice transcript bubbles
-const displayMessages = computed(() => {
-    const msgs = [...chat.messages.value];
-
-    if (voice.sessionStatus.value !== 'active') return msgs;
-
-    const nextSeq = msgs.length + 1;
-
-    if (voice.liveUserTranscript.value) {
-        msgs.push({
-            id: -1,
-            role: 'user',
-            status: 'delivered',
-            content: voice.liveUserTranscript.value,
-            author: { type: 'user', id: 1, key: null, name: 'You' },
-            parent_id: null,
-            sequence: nextSeq,
-            created_at: new Date().toISOString(),
-            read_at: null,
-            metadata: { source: 'voice' },
-            _optimistic: true,
-        });
-    }
-
-    if (voice.liveAssistantTranscript.value) {
-        msgs.push({
-            id: -2,
-            role: 'assistant',
-            status: 'delivered',
-            content: voice.liveAssistantTranscript.value,
-            author: { type: 'agent', id: null, key: 'assistant', name: 'Assistant' },
-            parent_id: null,
-            sequence: nextSeq + 1,
-            created_at: new Date().toISOString(),
-            read_at: null,
-            metadata: { source: 'voice' },
-            _optimistic: true,
-        });
-    }
-
-    return msgs;
-});
 
 // Register scroll callback so composable can trigger scroll-to-bottom
 chat.onScrollToBottom(() => {
@@ -179,7 +136,7 @@ function handleCycleSibling(messageId: number, index: number) {
             <!-- Messages -->
             <ChatThread
                 ref="chatThreadRef"
-                :messages="displayMessages"
+                :messages="chat.messages.value"
                 :is-loading="chat.isLoading.value"
                 :has-more="chat.hasMore.value"
                 :is-empty="chat.isEmpty.value"

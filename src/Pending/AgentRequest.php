@@ -35,7 +35,6 @@ use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
 use Atlasphp\Atlas\Persistence\Models\Asset;
 use Atlasphp\Atlas\Persistence\Models\Execution;
-use Atlasphp\Atlas\Persistence\Models\ExecutionStep;
 use Atlasphp\Atlas\Persistence\Models\MessageAttachment;
 use Atlasphp\Atlas\Persistence\Models\VoiceCall;
 use Atlasphp\Atlas\Persistence\Services\ConversationService;
@@ -560,7 +559,6 @@ class AgentRequest implements QueueableRequest
 
         // Create execution record for voice session tracking
         $executionId = null;
-        $stepId = null;
 
         if (config('atlas.persistence.enabled')) {
             try {
@@ -582,18 +580,6 @@ class AgentRequest implements QueueableRequest
                 ]);
 
                 $executionId = $execution->id;
-
-                /** @var class-string<ExecutionStep> $stepModel */
-                $stepModel = config('atlas.persistence.models.execution_step', ExecutionStep::class);
-
-                $step = $stepModel::create([
-                    'execution_id' => $execution->id,
-                    'sequence' => 0,
-                    'status' => ExecutionStatus::Processing,
-                    'started_at' => now(),
-                ]);
-
-                $stepId = $step->id;
 
                 // Create VoiceCall record for transcript storage
                 /** @var class-string<VoiceCall> $voiceCallModel */
@@ -632,7 +618,6 @@ class AgentRequest implements QueueableRequest
                 'tools' => $toolMap,
                 'user_id' => $this->messageAuthor?->getKey(),
                 'execution_id' => $executionId,
-                'step_id' => $stepId,
             ], (int) config('atlas.persistence.voice_session_ttl', 60) * 60);
         }
 

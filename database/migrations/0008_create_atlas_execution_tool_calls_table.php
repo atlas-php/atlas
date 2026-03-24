@@ -26,8 +26,9 @@ return new class extends Migration
                 ->constrained($this->tableName('executions'))
                 ->cascadeOnDelete();
             $table->foreignId('step_id')
+                ->nullable()
                 ->constrained($this->tableName('execution_steps'))
-                ->cascadeOnDelete();
+                ->nullOnDelete();
             $table->string('tool_call_id', 100);
             $table->string('name', 100);
             $table->string('type', 20);

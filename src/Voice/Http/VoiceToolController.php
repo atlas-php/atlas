@@ -131,9 +131,8 @@ class VoiceToolController
         string $sessionId,
     ): ?ExecutionToolCall {
         $executionId = $sessionData['execution_id'] ?? null;
-        $stepId = $sessionData['step_id'] ?? null;
 
-        if ($executionId === null || $stepId === null) {
+        if ($executionId === null) {
             return null;
         }
 
@@ -142,7 +141,6 @@ class VoiceToolController
 
         return $model::create([
             'execution_id' => $executionId,
-            'step_id' => $stepId,
             'tool_call_id' => $callId,
             'name' => $name,
             'type' => ToolCallType::Atlas,
