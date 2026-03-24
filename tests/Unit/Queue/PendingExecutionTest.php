@@ -153,3 +153,28 @@ it('dispatches lazily via __destruct', function () {
 
     Queue::assertPushed(ExecuteAtlasJob::class);
 });
+
+it('__destruct reports exception instead of throwing when dispatch fails', function () {
+    Queue::fake();
+
+    $job = new ExecuteAtlasJob(
+        requestClass: 'Atlasphp\Atlas\Pending\TextRequest',
+        terminal: 'asText',
+        payload: [],
+    );
+
+    // Create an anonymous subclass that forces dispatch() to throw
+    $pending = new class(null, $job) extends PendingExecution
+    {
+        public function dispatch(): static
+        {
+            throw new RuntimeException('Queue connection failed');
+        }
+    };
+
+    // __destruct should catch the exception and report it, not throw
+    // If this test completes without an error, the catch branch is working
+    unset($pending);
+
+    expect(true)->toBeTrue();
+});

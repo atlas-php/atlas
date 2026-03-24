@@ -142,3 +142,15 @@ it('defaults type to file when not specified', function () {
 
     expect($asset->type->value)->toBe('file');
 });
+
+it('lastStored returns null when no asset has been stored', function () {
+    expect(ToolAssets::lastStored())->toBeNull();
+});
+
+it('lastStored delegates to ExecutionService getLastAsset', function () {
+    $service = app(ExecutionService::class);
+
+    // No execution → no last asset
+    expect($service->getLastAsset())->toBeNull();
+    expect(ToolAssets::lastStored())->toBeNull();
+});

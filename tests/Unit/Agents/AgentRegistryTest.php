@@ -175,6 +175,24 @@ it('builds class name from namespace and filename', function () {
     rmdir($dir);
 });
 
+it('handles glob returning no files on valid directory', function () {
+    // The $files === false guard in discover() is defensive.
+    // In practice, glob() returns an empty array for valid dirs with no matches.
+    // This test ensures the empty-array path works correctly.
+    $dir = sys_get_temp_dir().'/atlas-discover-glob-'.uniqid();
+    mkdir($dir);
+    // Put only non-PHP files so glob('*.php') returns []
+    file_put_contents($dir.'/notes.txt', 'not php');
+
+    $registry = new AgentRegistry(app());
+    $registry->discover($dir, '');
+
+    expect($registry->keys())->toBe([]);
+
+    array_map('unlink', glob($dir.'/*'));
+    rmdir($dir);
+});
+
 it('ignores non-php files during discovery', function () {
     $dir = sys_get_temp_dir().'/atlas-discover-test-'.uniqid();
     mkdir($dir);

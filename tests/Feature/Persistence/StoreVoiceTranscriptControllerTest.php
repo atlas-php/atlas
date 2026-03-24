@@ -8,7 +8,6 @@ use Atlasphp\Atlas\Persistence\Enums\MessageRole;
 use Atlasphp\Atlas\Persistence\Http\StoreVoiceTranscriptController;
 use Atlasphp\Atlas\Persistence\Models\Conversation;
 use Atlasphp\Atlas\Persistence\Models\Message;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -179,17 +178,16 @@ it('handles null author when author_type and author_id are not provided', functi
 });
 
 it('resolves author from morph map alias', function () {
-    // Register a morph map alias
-    Relation::morphMap(['test-owner' => TranscriptTestOwner::class]);
+    // Use a Conversation as the "owner" — it exists in the DB and has a known morph class
+    Relation::morphMap(['transcript-owner' => Conversation::class]);
 
-    // Create the owner record
-    $owner = TranscriptTestOwner::create(['id' => 1]);
-
+    // Create the owner record first, then the conversation
+    $owner = Conversation::factory()->create();
     $conversation = Conversation::factory()->create();
 
     invokeTranscriptController('sess-morph', [
         'conversation_id' => $conversation->id,
-        'author_type' => 'test-owner',
+        'author_type' => 'transcript-owner',
         'author_id' => $owner->id,
         'turns' => [
             ['role' => 'user', 'transcript' => 'Hello'],
@@ -202,7 +200,7 @@ it('resolves author from morph map alias', function () {
         ->get();
 
     // User message gets the author
-    expect($messages[0]->author_type)->toBe('test-owner');
+    expect($messages[0]->author_type)->toBe('transcript-owner');
     expect((int) $messages[0]->author_id)->toBe($owner->id);
 
     // Assistant message does not get the author
@@ -230,13 +228,22 @@ it('returns null author when morph type cannot be resolved', function () {
     expect($message->author_type)->toBeNull();
 });
 
-// ─── Test Model ─────────────────────────────────────────────────
+it('resolves author from fully qualified class name', function () {
+    // Conversation is a Model subclass — use it as the author via its FQCN
+    $owner = Conversation::factory()->create();
+    $conversation = Conversation::factory()->create();
 
-class TranscriptTestOwner extends Model
-{
-    protected $table = 'atlas_conversations';
+    invokeTranscriptController('sess-fqcn', [
+        'conversation_id' => $conversation->id,
+        'author_type' => Conversation::class,
+        'author_id' => $owner->id,
+        'turns' => [
+            ['role' => 'user', 'transcript' => 'Hello'],
+        ],
+    ]);
 
-    public $timestamps = false;
+    $message = Message::where('conversation_id', $conversation->id)->first();
 
-    protected $guarded = [];
-}
+    expect($message->author_type)->not->toBeNull();
+    expect((int) $message->author_id)->toBe($owner->id);
+});

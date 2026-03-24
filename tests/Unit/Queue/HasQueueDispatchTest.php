@@ -8,6 +8,7 @@ use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
+use Atlasphp\Atlas\Queue\Jobs\ExecuteAtlasJob;
 use Atlasphp\Atlas\Queue\PendingExecution;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Support\Facades\Queue;
@@ -147,4 +148,66 @@ it('resolveQueueName defaults to default from config', function () {
     $method = new ReflectionMethod($pending, 'resolveQueueName');
 
     expect($method->invoke($pending))->toBe('default');
+});
+
+it('withDelay() sets delay and returns self', function () {
+    $pending = createQueueTextPending();
+
+    $result = $pending->withDelay(30);
+
+    expect($result)->toBe($pending);
+
+    $property = new ReflectionProperty($pending, 'queueDelay');
+    expect($property->getValue($pending))->toBe(30);
+});
+
+it('withDelay() clamps negative values to zero', function () {
+    $pending = createQueueTextPending();
+
+    $pending->withDelay(-10);
+
+    $property = new ReflectionProperty($pending, 'queueDelay');
+    expect($property->getValue($pending))->toBe(0);
+});
+
+it('dispatched job applies connection when set', function () {
+    Queue::fake();
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
+
+    $pending = createQueueTextPending($driver)
+        ->message('Hello')
+        ->queue()
+        ->onConnection('redis');
+
+    $result = $pending->asText();
+    $result->dispatch(); // Force dispatch before assertion
+
+    expect($result)->toBeInstanceOf(PendingExecution::class);
+
+    Queue::assertPushed(function (ExecuteAtlasJob $job) {
+        return $job->connection === 'redis';
+    });
+});
+
+it('dispatched job applies delay when set', function () {
+    Queue::fake();
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
+
+    $pending = createQueueTextPending($driver)
+        ->message('Hello')
+        ->queue()
+        ->withDelay(60);
+
+    $result = $pending->asText();
+    $result->dispatch(); // Force dispatch before assertion
+
+    expect($result)->toBeInstanceOf(PendingExecution::class);
+
+    Queue::assertPushed(function (ExecuteAtlasJob $job) {
+        return $job->delay === 60;
+    });
 });
