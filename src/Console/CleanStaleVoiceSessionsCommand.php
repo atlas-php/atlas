@@ -54,7 +54,7 @@ class CleanStaleVoiceSessionsCommand extends Command
 
         foreach ($stale as $execution) {
             if ($execution->voice_session_id !== null) {
-                Execution::completeVoiceSession($execution->voice_session_id, ['stale_cleanup' => true]);
+                $executionModel::completeVoiceSession($execution->voice_session_id, ['stale_cleanup' => true]);
             }
         }
 

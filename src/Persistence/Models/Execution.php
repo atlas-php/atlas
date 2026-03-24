@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Class Execution
@@ -137,13 +138,6 @@ class Execution extends Model
     /**
      * Complete a voice execution (and its sentinel step) by session ID.
      *
-     * No-op if the session is not found or already completed.
-     * Used by StoreVoiceTranscriptController, CloseVoiceSessionController,
-     * and CleanStaleVoiceSessionsCommand.
-     */
-    /**
-     * Complete a voice execution (and its sentinel step) by session ID.
-     *
      * Uses atomic updates guarded by status=Processing to prevent race
      * conditions when transcript and close requests arrive concurrently.
      * No-op if the session is not found or already completed.
@@ -168,35 +162,43 @@ class Execution extends Model
             ? (int) abs(now()->diffInMilliseconds($execution->started_at))
             : null;
 
-        // Atomic update — only completes if still Processing (race-safe)
-        $affected = $model::where('id', $execution->id)
-            ->where('status', ExecutionStatus::Processing)
-            ->update([
-                'status' => ExecutionStatus::Completed,
-                'completed_at' => now(),
-                'duration_ms' => $durationMs,
-            ]);
-
-        if ($affected === 0) {
-            return null; // Another request already completed it
-        }
-
-        // Apply extra metadata if provided (e.g. stale_cleanup flag)
-        if ($extraMeta !== null) {
-            $metadata = array_merge($execution->metadata ?? [], $extraMeta);
-            $model::where('id', $execution->id)->update(['metadata' => $metadata]);
-        }
-
         /** @var class-string<ExecutionStep> $stepModel */
         $stepModel = config('atlas.persistence.models.execution_step', ExecutionStep::class);
 
-        $stepModel::where('execution_id', $execution->id)
-            ->where('status', ExecutionStatus::Processing)
-            ->update([
-                'status' => ExecutionStatus::Completed,
-                'completed_at' => now(),
-                'duration_ms' => $durationMs,
-            ]);
+        // Transaction ensures execution + steps complete together or not at all.
+        // The WHERE status=Processing guard makes the execution update race-safe.
+        $affected = DB::transaction(function () use ($model, $stepModel, $execution, $durationMs, $extraMeta): int {
+            $affected = $model::where('id', $execution->id)
+                ->where('status', ExecutionStatus::Processing)
+                ->update([
+                    'status' => ExecutionStatus::Completed,
+                    'completed_at' => now(),
+                    'duration_ms' => $durationMs,
+                ]);
+
+            if ($affected === 0) {
+                return 0;
+            }
+
+            if ($extraMeta !== null) {
+                $metadata = array_merge($execution->metadata ?? [], $extraMeta);
+                $model::where('id', $execution->id)->update(['metadata' => $metadata]);
+            }
+
+            $stepModel::where('execution_id', $execution->id)
+                ->where('status', ExecutionStatus::Processing)
+                ->update([
+                    'status' => ExecutionStatus::Completed,
+                    'completed_at' => now(),
+                    'duration_ms' => $durationMs,
+                ]);
+
+            return $affected;
+        });
+
+        if ($affected === 0) {
+            return null;
+        }
 
         $execution->refresh();
 
@@ -242,8 +244,7 @@ class Execution extends Model
 
     /**
      * Aggregate input and output token counts from all steps in a single query.
-     */
-    /**
+     *
      * @return object{input: int, output: int}
      */
     private function aggregateStepTokens(): object

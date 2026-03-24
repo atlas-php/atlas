@@ -38,11 +38,12 @@ class TrackProviderCall
     {
         $type = ExecutionType::fromDriverMethod($context->method);
         $insideAgentExecution = $this->executionService->hasActiveExecution();
+        $isVoiceSession = $type === ExecutionType::Voice;
 
         // ─── Execution tracking (direct calls only) ──────────────
         // Agent calls already have an execution via TrackExecution.
         // Voice sessions are tracked by AgentRequest::asVoice() — skip here.
-        if (! $insideAgentExecution && $context->method !== 'voice') {
+        if (! $insideAgentExecution && ! $isVoiceSession) {
             $this->executionService->createExecution(
                 provider: $context->provider,
                 model: $context->model,
@@ -64,7 +65,7 @@ class TrackProviderCall
             }
 
             // ─── Complete standalone execution with tokens ────────────
-            if (! $insideAgentExecution && $context->method !== 'voice') {
+            if (! $insideAgentExecution && ! $isVoiceSession) {
                 $this->executionService->completeDirectExecution(
                     inputTokens: $this->extractInputTokens($response),
                     outputTokens: $this->extractOutputTokens($response),
@@ -73,7 +74,7 @@ class TrackProviderCall
 
             return $response;
         } catch (\Throwable $e) {
-            if (! $insideAgentExecution && $context->method !== 'voice') {
+            if (! $insideAgentExecution && ! $isVoiceSession) {
                 $this->executionService->failExecution($e);
             }
 

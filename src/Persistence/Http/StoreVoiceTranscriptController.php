@@ -86,17 +86,9 @@ class StoreVoiceTranscriptController
         }
 
         // Complete the voice execution if one exists for this session
-        $this->completeVoiceExecution($sessionId);
+        Execution::completeVoiceSession($sessionId);
 
         return response()->json(['stored' => $storedIds]);
-    }
-
-    /**
-     * Mark the voice session execution as completed.
-     */
-    private function completeVoiceExecution(string $sessionId): void
-    {
-        Execution::completeVoiceSession($sessionId);
     }
 
     /**

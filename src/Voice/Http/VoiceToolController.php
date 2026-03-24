@@ -64,7 +64,14 @@ class VoiceToolController
         }
 
         // Track tool call in persistence when available
-        $record = $this->createToolCallRecord($sessionData, $callId, $name, $args, $sessionId);
+        $record = null;
+
+        try {
+            $record = $this->createToolCallRecord($sessionData, $callId, $name, $args, $sessionId);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
         $startTime = microtime(true);
 
         event(new VoiceToolCallRequested(

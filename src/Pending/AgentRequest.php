@@ -585,7 +585,7 @@ class AgentRequest implements QueueableRequest
                 'user_id' => $this->messageAuthor?->getKey(),
                 'execution_id' => $executionId,
                 'step_id' => $stepId,
-            ], 3600);
+            ], (int) config('atlas.persistence.voice_session_ttl', 60) * 60);
         }
 
         // Build endpoint URLs (only when persistence is enabled — routes are registered there)
