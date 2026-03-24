@@ -148,3 +148,32 @@ it('multiple then callbacks fire in order', function () {
 
     expect($order)->toBe(['first', 'second']);
 });
+
+it('getReasoning returns accumulated reasoning content', function () {
+    $chunks = (function () {
+        yield new StreamChunk(type: ChunkType::Thinking, reasoning: 'Let me think');
+        yield new StreamChunk(type: ChunkType::Thinking, reasoning: ' about this');
+        yield new StreamChunk(type: ChunkType::Text, text: 'The answer is 42');
+        yield new StreamChunk(type: ChunkType::Done, finishReason: FinishReason::Stop, usage: new Usage(10, 5));
+    })();
+
+    $stream = new StreamResponse($chunks);
+    foreach ($stream as $chunk) { /* consume */
+    }
+
+    expect($stream->getReasoning())->toBe('Let me think about this');
+    expect($stream->getText())->toBe('The answer is 42');
+});
+
+it('getReasoning returns empty string when no reasoning chunks', function () {
+    $chunks = (function () {
+        yield new StreamChunk(type: ChunkType::Text, text: 'No thinking here');
+        yield new StreamChunk(type: ChunkType::Done, finishReason: FinishReason::Stop, usage: new Usage(5, 3));
+    })();
+
+    $stream = new StreamResponse($chunks);
+    foreach ($stream as $chunk) { /* consume */
+    }
+
+    expect($stream->getReasoning())->toBe('');
+});

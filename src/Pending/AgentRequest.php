@@ -20,6 +20,10 @@ use Atlasphp\Atlas\Executor\ToolExecutor;
 use Atlasphp\Atlas\Executor\ToolRegistry;
 use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Input\Input;
+use Atlasphp\Atlas\Messages\AssistantMessage;
+use Atlasphp\Atlas\Messages\Message;
+use Atlasphp\Atlas\Messages\SystemMessage;
+use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Middleware\AgentContext;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
@@ -477,7 +481,35 @@ class AgentRequest implements QueueableRequest
 
         $builder = Atlas::voice($provider, $model);
 
+        // Build instructions with conversation history appended
         $instructions = $this->instructionsOverride ?? $agent->instructions();
+        $usesConversations = in_array(HasConversations::class, class_uses_recursive($agent), true);
+
+        if ($usesConversations && $this->conversationId !== null) {
+            /** @var array<int, Message> $history */
+            $history = $agent->conversationMessages(); // @phpstan-ignore method.notFound
+
+            if ($history !== []) {
+                $lines = [];
+
+                foreach ($history as $msg) {
+                    $content = match (true) {
+                        $msg instanceof UserMessage => $msg->content,
+                        $msg instanceof AssistantMessage => $msg->content ?? '',
+                        default => null, // Skip system messages, tool results, etc.
+                    };
+
+                    if ($content !== null && $content !== '') {
+                        $role = $msg instanceof UserMessage ? 'User' : 'Assistant';
+                        $lines[] = "{$role}: {$content}";
+                    }
+                }
+
+                if ($lines !== []) {
+                    $instructions = ($instructions ?? '')."\n\nThe user has switched to voice. Here is the conversation so far. Continue from where it left off and reference past messages when relevant:\n\n".implode("\n", $lines);
+                }
+            }
+        }
 
         if ($instructions !== null) {
             $builder->instructions($this->interpolate($instructions));

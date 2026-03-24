@@ -23,6 +23,7 @@ use Atlasphp\Atlas\Schema\Schema;
 use Atlasphp\Atlas\Testing\StreamResponseFake;
 use Atlasphp\Atlas\Testing\TextResponseFake;
 use Atlasphp\Atlas\Tools\Tool;
+use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Support\Facades\Event;
 
 function createTextPending(
@@ -520,3 +521,35 @@ it('executeFromPayload throws on unknown terminal', function () {
         terminal: 'asImage',
     );
 })->throws(InvalidArgumentException::class, 'Unknown terminal method');
+
+// ─── interpolateMessageArray ────────────────────────────────────
+
+it('interpolateMessageArray interpolates variables in message history', function () {
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
+    $driver->shouldReceive('text')->once()->withArgs(function (TextRequestObject $req) {
+        // The user message in history should have the variable interpolated
+        foreach ($req->messages as $msg) {
+            if ($msg instanceof UserMessage && str_contains($msg->content, 'My App')) {
+                return true;
+            }
+        }
+
+        return false;
+    })->andReturn(new TextResponse(
+        text: 'ok',
+        usage: new Usage(5, 5),
+        finishReason: FinishReason::Stop,
+    ));
+
+    $registry = Mockery::mock(ProviderRegistryContract::class);
+    $registry->shouldReceive('resolve')->with('openai')->andReturn($driver);
+
+    $pending = new TextRequest('openai', 'gpt-4o', $registry, app(), app(Dispatcher::class));
+    $pending->withMessages([
+        new UserMessage('Hello from {APP_NAME}'),
+    ]);
+    $pending->withVariables(['APP_NAME' => 'My App']);
+    $pending->withMessageInterpolation();
+    $pending->asText();
+});

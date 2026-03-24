@@ -199,3 +199,29 @@ it('does not broadcast StreamStarted when no channel set', function () {
 
     Event::assertNotDispatched(StreamStarted::class);
 });
+
+it('broadcasts StreamCompleted with error on exception', function () {
+    Event::fake();
+
+    $chunks = (function () {
+        yield new StreamChunk(type: ChunkType::Text, text: 'partial');
+        throw new RuntimeException('stream broke');
+    })();
+
+    $stream = new StreamResponse($chunks);
+    $stream->broadcastOn(new Channel('test-error'));
+
+    try {
+        foreach ($stream as $chunk) {
+            // consume
+        }
+    } catch (RuntimeException) {
+        // expected
+    }
+
+    Event::assertDispatched(StreamCompleted::class, function ($e) {
+        return $e->error === 'stream broke'
+            && $e->text === 'partial'
+            && $e->usage === null;
+    });
+});
