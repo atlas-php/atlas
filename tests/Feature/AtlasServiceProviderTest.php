@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Agents\AgentRegistry;
 use Atlasphp\Atlas\AtlasManager;
+use Atlasphp\Atlas\AtlasServiceProvider;
 use Atlasphp\Atlas\Providers\Cohere\CohereDriver;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Google\GoogleDriver;
@@ -124,4 +126,67 @@ it('resolves jina to JinaDriver', function () {
 
     expect($driver)->toBeInstanceOf(JinaDriver::class);
     expect($driver->name())->toBe('jina');
+});
+
+it('discovers agents from configured directory', function () {
+    $tmpDir = sys_get_temp_dir().'/atlas_test_agents_'.uniqid();
+    mkdir($tmpDir, 0755, true);
+
+    $agentCode = <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace AtlasTestAgents;
+
+use Atlasphp\Atlas\Agent;
+
+class DiscoveryTestAgent extends Agent
+{
+}
+PHP;
+
+    file_put_contents($tmpDir.'/DiscoveryTestAgent.php', $agentCode);
+
+    // Require the file so the class is available to class_exists / is_subclass_of
+    require_once $tmpDir.'/DiscoveryTestAgent.php';
+
+    config()->set('atlas.agents.path', $tmpDir);
+    config()->set('atlas.agents.namespace', 'AtlasTestAgents');
+
+    // Re-trigger discovery by calling discoverAgents via a fresh registry
+    $registry = app(AgentRegistry::class);
+    $registry->discover($tmpDir, 'AtlasTestAgents');
+
+    expect($registry->has('discovery-test'))->toBeTrue();
+
+    // Cleanup
+    @unlink($tmpDir.'/DiscoveryTestAgent.php');
+    @rmdir($tmpDir);
+});
+
+it('skips discovery when agents path is null', function () {
+    config()->set('atlas.agents.path', null);
+    config()->set('atlas.agents.namespace', 'App\\Agents');
+
+    // Re-register the provider to trigger discoverAgents with null path
+    $provider = new AtlasServiceProvider($this->app);
+    $provider->register();
+    $provider->boot();
+
+    // Should not throw — just silently skip
+    expect(app(AgentRegistry::class))->toBeInstanceOf(AgentRegistry::class);
+});
+
+it('skips discovery when agents namespace is null', function () {
+    config()->set('atlas.agents.path', '/some/path');
+    config()->set('atlas.agents.namespace', null);
+
+    // Re-register the provider to trigger discoverAgents with null namespace
+    $provider = new AtlasServiceProvider($this->app);
+    $provider->register();
+    $provider->boot();
+
+    // Should not throw — just silently skip
+    expect(app(AgentRegistry::class))->toBeInstanceOf(AgentRegistry::class);
 });
