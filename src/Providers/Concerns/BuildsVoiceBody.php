@@ -44,7 +44,8 @@ trait BuildsVoiceBody
             ];
         }
 
-        return array_merge($body, $request->providerOptions);
+        // Provider options go first so computed fields (tools, turn_detection, etc.) are not overwritten
+        return array_merge($request->providerOptions, $body);
     }
 
     /**

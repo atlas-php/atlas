@@ -12,7 +12,7 @@ Voice enables bidirectional speech conversations with AI providers. The browser 
 
 ### Voices
 
-**OpenAI:** `alloy`, `ash`, `ballad`, `coral`, `echo`, `sage`, `shimmer`, `verse`, `marin`, `cedar`
+**OpenAI:** `alloy`, `ash`, `ballad`, `cedar`, `coral`, `echo`, `fable`, `marin`, `nova`, `onyx`, `sage`, `shimmer`, `verse`
 
 **xAI:** `ara`, `eve`, `leo`, `rex`, `sal`, `una`
 

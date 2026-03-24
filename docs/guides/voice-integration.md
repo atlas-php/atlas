@@ -48,7 +48,7 @@ This automatically:
 ```php
 $session = Atlas::voice()
     ->instructions('You are a helpful assistant.')
-    ->withVoice('marin')
+    ->withVoice('alloy')
     ->withInputTranscription()
     ->createSession();
 
@@ -89,7 +89,8 @@ The `toClientPayload()` response includes everything the browser needs:
     "connection_url": "wss://api.x.ai/v1/realtime",
     "session_config": { "voice": "eve", "modalities": ["text", "audio"] },
     "tool_endpoint": "/atlas/voice/rt_xai_abc123.../tool",
-    "transcript_endpoint": "/atlas/voice/rt_xai_abc123.../transcript"
+    "transcript_endpoint": "/atlas/voice/rt_xai_abc123.../transcript",
+    "close_endpoint": "/atlas/voice/rt_xai_abc123.../close"
 }
 ```
 
@@ -260,6 +261,7 @@ setTimeout(() => {
 |-------|------|----------|-------------|
 | `name` | string | Yes | Tool function name |
 | `arguments` | string | Yes | JSON-encoded arguments |
+| `call_id` | string | No | Provider-assigned tool call ID (generated if not provided) |
 
 **Response:**
 ```json
@@ -287,3 +289,10 @@ Marks the voice execution as completed, cleans up cached session data, and fires
 | `agent` | string | No | Agent key |
 | `author_type` | string | No | Morph class or alias |
 | `author_id` | integer | No | Author model ID |
+
+**Response:**
+```json
+{ "stored": [1, 2, 3] }
+```
+
+The array contains the message IDs of the stored turns.

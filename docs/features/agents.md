@@ -179,6 +179,22 @@ $response->structured['sentiment'];   // "positive"
 $response->structured['confidence'];  // 0.95
 ```
 
+### Voice
+
+Start a real-time voice session using the agent's tools, instructions, and voice config:
+
+```php
+$session = Atlas::agent('support')
+    ->for($user)
+    ->asUser($user)
+    ->forConversation($conversationId)
+    ->asVoice();
+
+return response()->json($session->toClientPayload());
+```
+
+The browser connects directly to the provider for audio. Tools are executed server-side via the package-provided endpoint. See [Voice Modality](/modalities/voice) for transport details and [Voice Integration](/guides/voice-integration) for the full setup guide.
+
 ## Runtime Overrides
 
 Every agent configuration can be overridden at call time via fluent methods on `AgentRequest`:
@@ -454,6 +470,7 @@ Returned by `Atlas::agent('key')`. Chain these before a terminal method.
 | `->asText()` | Execute and return `TextResponse` |
 | `->asStream()` | Execute and return `StreamResponse` |
 | `->asStructured()` | Execute and return `StructuredResponse` |
+| `->asVoice()` | Start a voice session and return `VoiceSession` |
 
 </div>
 

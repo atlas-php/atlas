@@ -18,8 +18,8 @@ class Provider extends AbstractProviderHandler
     protected function fetchVoices(): VoiceList
     {
         return new VoiceList([
-            'alloy', 'ash', 'ballad', 'coral', 'echo',
-            'fable', 'onyx', 'nova', 'sage', 'shimmer',
+            'alloy', 'ash', 'ballad', 'cedar', 'coral', 'echo',
+            'fable', 'marin', 'nova', 'onyx', 'sage', 'shimmer', 'verse',
         ]);
     }
 }

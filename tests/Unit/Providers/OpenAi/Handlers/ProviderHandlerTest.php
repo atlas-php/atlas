@@ -72,7 +72,7 @@ it('returns hardcoded voice list', function () {
     expect($voices->voices)->toContain('nova');
     expect($voices->voices)->toContain('shimmer');
     expect($voices->voices)->toContain('echo');
-    expect($voices->voices)->toHaveCount(10);
+    expect($voices->voices)->toHaveCount(13);
 });
 
 it('validate returns true when models succeeds', function () {

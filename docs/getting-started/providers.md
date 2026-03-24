@@ -290,6 +290,7 @@ Configure defaults per modality so you can omit provider/model from calls:
     'embed'    => ['provider' => env('ATLAS_EMBED_PROVIDER'), 'model' => env('ATLAS_EMBED_MODEL')],
     'moderate' => ['provider' => env('ATLAS_MODERATE_PROVIDER'), 'model' => env('ATLAS_MODERATE_MODEL')],
     'rerank'   => ['provider' => env('ATLAS_RERANK_PROVIDER'), 'model' => env('ATLAS_RERANK_MODEL')],
+    'voice'    => ['provider' => env('ATLAS_VOICE_PROVIDER'), 'model' => env('ATLAS_VOICE_MODEL')],
 ],
 ```
 

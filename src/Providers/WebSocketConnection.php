@@ -70,8 +70,13 @@ class WebSocketConnection
             );
         } catch (TimeoutException) {
             return null;
-        } catch (\JsonException) {
-            return null; // Malformed frame — skip
+        } catch (\JsonException $e) {
+            logger()->warning('[WebSocketConnection] Malformed JSON frame received', [
+                'session_id' => $this->sessionId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
         }
     }
 

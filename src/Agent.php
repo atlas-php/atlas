@@ -126,7 +126,7 @@ abstract class Agent
     }
 
     /**
-     * Voice name for voice sessions (e.g., 'alloy', 'shimmer', 'marin').
+     * Voice name for voice sessions (e.g., 'alloy', 'shimmer', 'nova').
      */
     public function voice(): ?string
     {
