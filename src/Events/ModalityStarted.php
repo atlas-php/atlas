@@ -18,5 +18,7 @@ class ModalityStarted
         public readonly Modality $modality,
         public readonly string $provider,
         public readonly string $model,
+        public readonly ?string $agentKey = null,
+        public readonly ?string $traceId = null,
     ) {}
 }

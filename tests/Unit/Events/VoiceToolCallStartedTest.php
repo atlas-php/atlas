@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Events\VoiceToolCallRequested;
+use Atlasphp\Atlas\Events\VoiceToolCallStarted;
 
 it('constructs with all properties', function () {
-    $event = new VoiceToolCallRequested(
+    $event = new VoiceToolCallStarted(
         sessionId: 'rt_123',
         callId: 'call_456',
         name: 'get_weather',

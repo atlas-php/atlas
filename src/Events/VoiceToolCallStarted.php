@@ -7,7 +7,7 @@ namespace Atlasphp\Atlas\Events;
 /**
  * Dispatched when the AI requests a tool call during a voice session.
  */
-class VoiceToolCallRequested
+class VoiceToolCallStarted
 {
     public function __construct(
         public readonly string $sessionId,

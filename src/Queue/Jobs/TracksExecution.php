@@ -40,6 +40,9 @@ trait TracksExecution
         event(new ExecutionProcessing(
             executionId: $this->executionId,
             channel: $this->broadcastChannel,
+            provider: $this->payload['provider'] ?? null,
+            model: $this->payload['model'] ?? null,
+            agentKey: $this->payload['key'] ?? null,
         ));
     }
 

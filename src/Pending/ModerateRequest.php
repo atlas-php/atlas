@@ -21,6 +21,7 @@ use Atlasphp\Atlas\Queue\QueueableRequest;
 use Atlasphp\Atlas\Requests\ModerateRequest as ModerateRequestObject;
 use Atlasphp\Atlas\Responses\ModerationResponse;
 use Illuminate\Broadcasting\Channel;
+use Illuminate\Support\Str;
 
 /**
  * Fluent builder for content moderation requests.
@@ -59,6 +60,8 @@ class ModerateRequest implements QueueableRequest
             throw new \InvalidArgumentException('Input must be provided via fromInput() before dispatching.');
         }
 
+        $traceId = (string) Str::uuid();
+
         if ($this->queued) {
             return $this->dispatchToQueue('asModeration');
         }
@@ -66,19 +69,19 @@ class ModerateRequest implements QueueableRequest
         $provider = $this->resolveProviderKey();
         $model = (string) ($this->model ?? '');
 
-        event(new ModalityStarted(modality: Modality::Moderate, provider: $provider, model: $model));
+        event(new ModalityStarted(modality: Modality::Moderate, provider: $provider, model: $model, traceId: $traceId));
 
         try {
             $driver = $this->resolveDriver();
             $this->ensureCapability($driver, 'moderate');
             $response = $driver->moderate($this->buildRequest());
         } catch (\Throwable $e) {
-            event(new ModalityCompleted(modality: Modality::Moderate, provider: $provider, model: $model));
+            event(new ModalityCompleted(modality: Modality::Moderate, provider: $provider, model: $model, traceId: $traceId));
 
             throw $e;
         }
 
-        event(new ModalityCompleted(modality: Modality::Moderate, provider: $provider, model: $model));
+        event(new ModalityCompleted(modality: Modality::Moderate, provider: $provider, model: $model, traceId: $traceId));
 
         return $response;
     }

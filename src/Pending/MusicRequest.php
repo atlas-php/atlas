@@ -23,6 +23,7 @@ use Atlasphp\Atlas\Queue\QueueableRequest;
 use Atlasphp\Atlas\Requests\AudioRequest as AudioRequestObject;
 use Atlasphp\Atlas\Responses\AudioResponse;
 use Illuminate\Broadcasting\Channel;
+use Illuminate\Support\Str;
 
 /**
  * Fluent builder for music generation requests.
@@ -72,6 +73,8 @@ class MusicRequest implements QueueableRequest
 
     public function asAudio(): AudioResponse|PendingExecution
     {
+        $traceId = (string) Str::uuid();
+
         if ($this->queued) {
             return $this->dispatchToQueue('asAudio');
         }
@@ -79,19 +82,19 @@ class MusicRequest implements QueueableRequest
         $provider = $this->resolveProviderKey();
         $model = (string) $this->model;
 
-        event(new ModalityStarted(modality: Modality::Music, provider: $provider, model: $model));
+        event(new ModalityStarted(modality: Modality::Music, provider: $provider, model: $model, traceId: $traceId));
 
         try {
             $driver = $this->resolveDriver();
             $this->ensureCapability($driver, 'audio');
             $response = $driver->audio($this->buildRequest());
         } catch (\Throwable $e) {
-            event(new ModalityCompleted(modality: Modality::Music, provider: $provider, model: $model));
+            event(new ModalityCompleted(modality: Modality::Music, provider: $provider, model: $model, traceId: $traceId));
 
             throw $e;
         }
 
-        event(new ModalityCompleted(modality: Modality::Music, provider: $provider, model: $model));
+        event(new ModalityCompleted(modality: Modality::Music, provider: $provider, model: $model, traceId: $traceId));
 
         return $response;
     }

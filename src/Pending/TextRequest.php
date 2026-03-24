@@ -41,6 +41,7 @@ use Atlasphp\Atlas\Tools\Tool;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Support\Str;
 
 /**
  * Fluent builder for text generation, streaming, and structured output requests.
@@ -185,6 +186,8 @@ class TextRequest implements QueueableRequest
 
     public function asText(): TextResponse|PendingExecution
     {
+        $traceId = (string) Str::uuid();
+
         if ($this->queued) {
             return $this->dispatchToQueue('asText');
         }
@@ -192,11 +195,11 @@ class TextRequest implements QueueableRequest
         $provider = $this->resolveProviderKey();
         $model = (string) $this->model;
 
-        event(new ModalityStarted(modality: Modality::Text, provider: $provider, model: $model));
+        event(new ModalityStarted(modality: Modality::Text, provider: $provider, model: $model, traceId: $traceId));
 
         try {
             if ($this->hasTools()) {
-                $result = $this->executeWithTools();
+                $result = $this->executeWithTools($provider, $model, $traceId);
                 $response = $result->toTextResponse();
             } else {
                 $driver = $this->resolveDriver();
@@ -204,18 +207,20 @@ class TextRequest implements QueueableRequest
                 $response = $driver->text($this->buildRequest());
             }
         } catch (\Throwable $e) {
-            event(new ModalityCompleted(modality: Modality::Text, provider: $provider, model: $model));
+            event(new ModalityCompleted(modality: Modality::Text, provider: $provider, model: $model, traceId: $traceId));
 
             throw $e;
         }
 
-        event(new ModalityCompleted(modality: Modality::Text, provider: $provider, model: $model, usage: $response->usage));
+        event(new ModalityCompleted(modality: Modality::Text, provider: $provider, model: $model, usage: $response->usage, traceId: $traceId));
 
         return $response;
     }
 
     public function asStream(): StreamResponse|PendingExecution
     {
+        $traceId = (string) Str::uuid();
+
         if ($this->queued) {
             return $this->dispatchToQueue('asStream');
         }
@@ -223,12 +228,12 @@ class TextRequest implements QueueableRequest
         $provider = $this->resolveProviderKey();
         $model = (string) $this->model;
 
-        event(new ModalityStarted(modality: Modality::Stream, provider: $provider, model: $model));
+        event(new ModalityStarted(modality: Modality::Stream, provider: $provider, model: $model, traceId: $traceId));
 
         try {
             if ($this->tools !== []) {
                 // Atlas tools require the executor loop — stream the result
-                $result = $this->executeWithTools();
+                $result = $this->executeWithTools($provider, $model, $traceId);
                 $response = new StreamResponse($this->resultToChunks($result));
             } else {
                 // No Atlas tools — stream directly from the provider
@@ -238,7 +243,7 @@ class TextRequest implements QueueableRequest
                 $response = $driver->stream($this->buildRequest());
             }
         } catch (\Throwable $e) {
-            event(new ModalityCompleted(modality: Modality::Stream, provider: $provider, model: $model));
+            event(new ModalityCompleted(modality: Modality::Stream, provider: $provider, model: $model, traceId: $traceId));
 
             throw $e;
         }
@@ -246,8 +251,8 @@ class TextRequest implements QueueableRequest
         // ModalityCompleted fires after the stream is fully consumed, not when the
         // response object is created. The then() callback runs at the end of
         // StreamResponse::getIterator() after all chunks have been yielded.
-        $response->then(function () use ($response, $provider, $model) {
-            event(new ModalityCompleted(modality: Modality::Stream, provider: $provider, model: $model, usage: $response->getUsage()));
+        $response->then(function () use ($response, $provider, $model, $traceId) {
+            event(new ModalityCompleted(modality: Modality::Stream, provider: $provider, model: $model, usage: $response->getUsage(), traceId: $traceId));
         });
 
         return $response;
@@ -255,6 +260,8 @@ class TextRequest implements QueueableRequest
 
     public function asStructured(): StructuredResponse|PendingExecution
     {
+        $traceId = (string) Str::uuid();
+
         if ($this->queued) {
             return $this->dispatchToQueue('asStructured');
         }
@@ -262,19 +269,19 @@ class TextRequest implements QueueableRequest
         $provider = $this->resolveProviderKey();
         $model = (string) $this->model;
 
-        event(new ModalityStarted(modality: Modality::Structured, provider: $provider, model: $model));
+        event(new ModalityStarted(modality: Modality::Structured, provider: $provider, model: $model, traceId: $traceId));
 
         try {
             $driver = $this->resolveDriver();
             $this->ensureCapability($driver, 'structured');
             $response = $driver->structured($this->buildRequest());
         } catch (\Throwable $e) {
-            event(new ModalityCompleted(modality: Modality::Structured, provider: $provider, model: $model));
+            event(new ModalityCompleted(modality: Modality::Structured, provider: $provider, model: $model, traceId: $traceId));
 
             throw $e;
         }
 
-        event(new ModalityCompleted(modality: Modality::Structured, provider: $provider, model: $model, usage: $response->usage));
+        event(new ModalityCompleted(modality: Modality::Structured, provider: $provider, model: $model, usage: $response->usage, traceId: $traceId));
 
         return $response;
     }
@@ -284,7 +291,7 @@ class TextRequest implements QueueableRequest
         return $this->tools !== [] || $this->providerTools !== [];
     }
 
-    protected function executeWithTools(): ExecutorResult
+    protected function executeWithTools(?string $provider = null, ?string $model = null, ?string $traceId = null): ExecutorResult
     {
         $resolvedTools = $this->resolveTools();
 
@@ -312,6 +319,9 @@ class TextRequest implements QueueableRequest
             concurrent: $this->concurrent,
             meta: $this->meta,
             agentKey: null,
+            provider: $provider,
+            model: $model,
+            traceId: $traceId,
         );
     }
 

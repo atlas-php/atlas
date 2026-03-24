@@ -58,6 +58,7 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * Fluent builder for agent execution requests.
@@ -330,6 +331,8 @@ class AgentRequest implements QueueableRequest
      */
     public function asText(): TextResponse|PendingExecution
     {
+        $traceId = (string) Str::uuid();
+
         if ($this->queued) {
             return $this->dispatchToQueue('asText');
         }
@@ -343,30 +346,30 @@ class AgentRequest implements QueueableRequest
         $provider = $this->resolveProviderKey();
         $model = $this->resolveModelKey();
 
-        event(new ModalityStarted(modality: Modality::Text, provider: $provider, model: $model));
+        event(new ModalityStarted(modality: Modality::Text, provider: $provider, model: $model, agentKey: $agent->key(), traceId: $traceId));
 
         try {
-            $result = $this->dispatchAgentMiddleware($agent, $request, $tools, function (AgentContext $ctx) use ($driver, $agent) {
+            $result = $this->dispatchAgentMiddleware($agent, $request, $tools, function (AgentContext $ctx) use ($driver, $agent, $provider, $model, $traceId) {
                 if ($ctx->tools === []) {
                     return $driver->text($ctx->request);
                 }
 
-                return $this->executeWithTools($driver, $ctx->request, $agent, $ctx->tools, $ctx->meta);
+                return $this->executeWithTools($driver, $ctx->request, $agent, $ctx->tools, $ctx->meta, $provider, $model, $traceId);
             });
         } catch (\Throwable $e) {
-            event(new ModalityCompleted(modality: Modality::Text, provider: $provider, model: $model));
+            event(new ModalityCompleted(modality: Modality::Text, provider: $provider, model: $model, agentKey: $agent->key(), traceId: $traceId));
 
             throw $e;
         }
 
         if ($result instanceof TextResponse) {
-            event(new ModalityCompleted(modality: Modality::Text, provider: $provider, model: $model, usage: $result->usage));
+            event(new ModalityCompleted(modality: Modality::Text, provider: $provider, model: $model, usage: $result->usage, agentKey: $agent->key(), traceId: $traceId));
 
             return $result;
         }
 
         /** @var ExecutorResult $result */
-        event(new ModalityCompleted(modality: Modality::Text, provider: $provider, model: $model, usage: $result->usage));
+        event(new ModalityCompleted(modality: Modality::Text, provider: $provider, model: $model, usage: $result->usage, agentKey: $agent->key(), traceId: $traceId));
 
         return $result->toTextResponse([
             'conversation_id' => $result->conversationId,
@@ -379,6 +382,8 @@ class AgentRequest implements QueueableRequest
      */
     public function asStream(): StreamResponse|PendingExecution
     {
+        $traceId = (string) Str::uuid();
+
         if ($this->queued) {
             return $this->dispatchToQueue('asStream');
         }
@@ -392,18 +397,18 @@ class AgentRequest implements QueueableRequest
         $provider = $this->resolveProviderKey();
         $model = $this->resolveModelKey();
 
-        event(new ModalityStarted(modality: Modality::Stream, provider: $provider, model: $model));
+        event(new ModalityStarted(modality: Modality::Stream, provider: $provider, model: $model, agentKey: $agent->key(), traceId: $traceId));
 
         try {
-            $result = $this->dispatchAgentMiddleware($agent, $request, $tools, function (AgentContext $ctx) use ($driver, $agent) {
+            $result = $this->dispatchAgentMiddleware($agent, $request, $tools, function (AgentContext $ctx) use ($driver, $agent, $provider, $model, $traceId) {
                 if ($ctx->tools === []) {
                     return $driver->stream($ctx->request);
                 }
 
-                return $this->executeWithTools($driver, $ctx->request, $agent, $ctx->tools, $ctx->meta);
+                return $this->executeWithTools($driver, $ctx->request, $agent, $ctx->tools, $ctx->meta, $provider, $model, $traceId);
             });
         } catch (\Throwable $e) {
-            event(new ModalityCompleted(modality: Modality::Stream, provider: $provider, model: $model));
+            event(new ModalityCompleted(modality: Modality::Stream, provider: $provider, model: $model, agentKey: $agent->key(), traceId: $traceId));
 
             throw $e;
         }
@@ -413,8 +418,8 @@ class AgentRequest implements QueueableRequest
             : new StreamResponse($this->resultToChunks($result));
 
         // ModalityCompleted fires after the stream is fully consumed
-        $stream->then(function () use ($stream, $provider, $model) {
-            event(new ModalityCompleted(modality: Modality::Stream, provider: $provider, model: $model, usage: $stream->getUsage()));
+        $stream->then(function () use ($stream, $provider, $model, $agent, $traceId) {
+            event(new ModalityCompleted(modality: Modality::Stream, provider: $provider, model: $model, usage: $stream->getUsage(), agentKey: $agent->key(), traceId: $traceId));
         });
 
         // Pipe broadcast channel to the stream response
@@ -430,6 +435,8 @@ class AgentRequest implements QueueableRequest
      */
     public function asStructured(): StructuredResponse|PendingExecution
     {
+        $traceId = (string) Str::uuid();
+
         if ($this->queued) {
             return $this->dispatchToQueue('asStructured');
         }
@@ -442,19 +449,19 @@ class AgentRequest implements QueueableRequest
         $provider = $this->resolveProviderKey();
         $model = $this->resolveModelKey();
 
-        event(new ModalityStarted(modality: Modality::Structured, provider: $provider, model: $model));
+        event(new ModalityStarted(modality: Modality::Structured, provider: $provider, model: $model, agentKey: $agent->key(), traceId: $traceId));
 
         try {
             $result = $this->dispatchAgentMiddleware($agent, $request, [], function (AgentContext $ctx) use ($driver) {
                 return $driver->structured($ctx->request);
             });
         } catch (\Throwable $e) {
-            event(new ModalityCompleted(modality: Modality::Structured, provider: $provider, model: $model));
+            event(new ModalityCompleted(modality: Modality::Structured, provider: $provider, model: $model, agentKey: $agent->key(), traceId: $traceId));
 
             throw $e;
         }
 
-        event(new ModalityCompleted(modality: Modality::Structured, provider: $provider, model: $model, usage: $result->usage ?? null));
+        event(new ModalityCompleted(modality: Modality::Structured, provider: $provider, model: $model, usage: $result->usage ?? null, agentKey: $agent->key(), traceId: $traceId));
 
         return $result;
     }
@@ -930,6 +937,9 @@ class AgentRequest implements QueueableRequest
         Agent $agent,
         array $tools,
         array $meta = [],
+        ?string $provider = null,
+        ?string $model = null,
+        ?string $traceId = null,
     ): ExecutorResult {
         // Rebuild tool definitions from the actual tools array — middleware
         // may have added tools after the request was built.
@@ -963,6 +973,9 @@ class AgentRequest implements QueueableRequest
             concurrent: $concurrent,
             meta: $meta,
             agentKey: $agent->key(),
+            provider: $provider,
+            model: $model,
+            traceId: $traceId,
         );
     }
 

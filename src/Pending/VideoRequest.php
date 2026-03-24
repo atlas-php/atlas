@@ -23,6 +23,7 @@ use Atlasphp\Atlas\Requests\VideoRequest as VideoRequestObject;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\VideoResponse;
 use Illuminate\Broadcasting\Channel;
+use Illuminate\Support\Str;
 
 /**
  * Fluent builder for video generation and video-to-text requests.
@@ -94,6 +95,8 @@ class VideoRequest implements QueueableRequest
 
     public function asVideo(): VideoResponse|PendingExecution
     {
+        $traceId = (string) Str::uuid();
+
         if ($this->queued) {
             return $this->dispatchToQueue('asVideo');
         }
@@ -101,25 +104,27 @@ class VideoRequest implements QueueableRequest
         $provider = $this->resolveProviderKey();
         $model = (string) $this->model;
 
-        event(new ModalityStarted(modality: Modality::Video, provider: $provider, model: $model));
+        event(new ModalityStarted(modality: Modality::Video, provider: $provider, model: $model, traceId: $traceId));
 
         try {
             $driver = $this->resolveDriver();
             $this->ensureCapability($driver, 'video');
             $response = $driver->video($this->buildRequest());
         } catch (\Throwable $e) {
-            event(new ModalityCompleted(modality: Modality::Video, provider: $provider, model: $model));
+            event(new ModalityCompleted(modality: Modality::Video, provider: $provider, model: $model, traceId: $traceId));
 
             throw $e;
         }
 
-        event(new ModalityCompleted(modality: Modality::Video, provider: $provider, model: $model));
+        event(new ModalityCompleted(modality: Modality::Video, provider: $provider, model: $model, traceId: $traceId));
 
         return $response;
     }
 
     public function asText(): TextResponse|PendingExecution
     {
+        $traceId = (string) Str::uuid();
+
         if ($this->queued) {
             return $this->dispatchToQueue('asText');
         }
@@ -127,19 +132,19 @@ class VideoRequest implements QueueableRequest
         $provider = $this->resolveProviderKey();
         $model = (string) $this->model;
 
-        event(new ModalityStarted(modality: Modality::VideoToText, provider: $provider, model: $model));
+        event(new ModalityStarted(modality: Modality::VideoToText, provider: $provider, model: $model, traceId: $traceId));
 
         try {
             $driver = $this->resolveDriver();
             $this->ensureCapability($driver, 'videoToText');
             $response = $driver->videoToText($this->buildRequest());
         } catch (\Throwable $e) {
-            event(new ModalityCompleted(modality: Modality::VideoToText, provider: $provider, model: $model));
+            event(new ModalityCompleted(modality: Modality::VideoToText, provider: $provider, model: $model, traceId: $traceId));
 
             throw $e;
         }
 
-        event(new ModalityCompleted(modality: Modality::VideoToText, provider: $provider, model: $model, usage: $response->usage));
+        event(new ModalityCompleted(modality: Modality::VideoToText, provider: $provider, model: $model, usage: $response->usage, traceId: $traceId));
 
         return $response;
     }

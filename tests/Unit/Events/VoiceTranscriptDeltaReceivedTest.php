@@ -2,25 +2,28 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Events\VoiceAudioDelta;
+use Atlasphp\Atlas\Events\VoiceTranscriptDeltaReceived;
 use Illuminate\Broadcasting\Channel;
 
 it('constructs with all properties', function () {
-    $event = new VoiceAudioDelta(
+    $event = new VoiceTranscriptDeltaReceived(
         sessionId: 'rt_123',
-        audioData: 'base64audio',
+        text: 'Hello',
+        role: 'assistant',
         channelName: 'voice.rt_123',
     );
 
     expect($event->sessionId)->toBe('rt_123');
-    expect($event->audioData)->toBe('base64audio');
+    expect($event->text)->toBe('Hello');
+    expect($event->role)->toBe('assistant');
     expect($event->channelName)->toBe('voice.rt_123');
 });
 
 it('broadcasts on correct channel', function () {
-    $event = new VoiceAudioDelta(
+    $event = new VoiceTranscriptDeltaReceived(
         sessionId: 'rt_123',
-        audioData: 'base64audio',
+        text: 'Hello',
+        role: 'user',
         channelName: 'voice.rt_123',
     );
 
@@ -32,11 +35,12 @@ it('broadcasts on correct channel', function () {
 });
 
 it('broadcasts with correct event name', function () {
-    $event = new VoiceAudioDelta(
+    $event = new VoiceTranscriptDeltaReceived(
         sessionId: 'rt_123',
-        audioData: 'base64audio',
+        text: 'Hello',
+        role: 'assistant',
         channelName: 'voice.rt_123',
     );
 
-    expect($event->broadcastAs())->toBe('voice.audio.delta');
+    expect($event->broadcastAs())->toBe('voice.transcript.delta');
 });

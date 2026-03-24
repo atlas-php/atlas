@@ -357,9 +357,9 @@ All 23 events at a glance:
 | 24 | `VoiceCallStarted` | Voice | No |
 | 25 | `VoiceCallCompleted` | Voice | No |
 | 26 | `VoiceSessionClosed` | Voice | No |
-| 27 | `VoiceToolCallRequested` | Voice | No |
-| 28 | `VoiceAudioDelta` | Voice | Yes |
-| 29 | `VoiceTranscriptDelta` | Voice | Yes |
+| 27 | `VoiceToolCallStarted` | Voice | No |
+| 28 | `VoiceAudioDeltaReceived` | Voice | Yes |
+| 29 | `VoiceTranscriptDeltaReceived` | Voice | Yes |
 
 </div>
 

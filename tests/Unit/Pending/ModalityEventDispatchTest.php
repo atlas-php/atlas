@@ -2,7 +2,10 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Agent;
+use Atlasphp\Atlas\Agents\AgentRegistry;
 use Atlasphp\Atlas\Enums\Modality;
+use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Events\ModalityCompleted;
 use Atlasphp\Atlas\Events\ModalityStarted;
 use Atlasphp\Atlas\Facades\Atlas;
@@ -13,6 +16,26 @@ use Atlasphp\Atlas\Testing\StreamResponseFake;
 use Atlasphp\Atlas\Testing\TextResponseFake;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
+
+// ─── Test agent ──────────────────────────────────────────────────────────────
+
+class ModalityDispatchTestAgent extends Agent
+{
+    public function key(): string
+    {
+        return 'modality-dispatch-agent';
+    }
+
+    public function provider(): Provider|string|null
+    {
+        return Provider::OpenAI;
+    }
+
+    public function model(): ?string
+    {
+        return 'gpt-4o';
+    }
+}
 
 // ─── asText dispatches events ──────────────────────────────────────────────────
 
@@ -121,5 +144,73 @@ it('ModalityCompleted fires after stream is consumed, not before', function () {
     Event::assertDispatched(ModalityCompleted::class, fn (ModalityCompleted $e) => $e->modality === Modality::Stream
         && $e->provider === 'openai'
         && $e->model === 'gpt-4o'
+    );
+});
+
+// ─── traceId consistency ─────────────────────────────────────────────────────
+
+it('traceId is the same on both ModalityStarted and ModalityCompleted for the same request', function () {
+    Event::fake();
+
+    Atlas::fake([
+        TextResponseFake::make()->withText('hello'),
+    ]);
+
+    Atlas::text('openai', 'gpt-4o')->message('hi')->asText();
+
+    $startedTraceId = null;
+    Event::assertDispatched(ModalityStarted::class, function (ModalityStarted $e) use (&$startedTraceId) {
+        $startedTraceId = $e->traceId;
+
+        return $e->traceId !== null;
+    });
+
+    Event::assertDispatched(ModalityCompleted::class, function (ModalityCompleted $e) use (&$startedTraceId) {
+        return $e->traceId !== null && $e->traceId === $startedTraceId;
+    });
+});
+
+// ─── agentKey populated from AgentRequest ────────────────────────────────────
+
+it('agentKey is populated when dispatched from AgentRequest', function () {
+    Event::fake();
+
+    Atlas::fake([
+        TextResponseFake::make()->withText('ok'),
+    ]);
+
+    app(AgentRegistry::class)->register(ModalityDispatchTestAgent::class);
+    Atlas::agent('modality-dispatch-agent')->message('hello')->asText();
+
+    Event::assertDispatched(
+        ModalityStarted::class,
+        fn (ModalityStarted $e) => $e->agentKey === 'modality-dispatch-agent'
+    );
+
+    Event::assertDispatched(
+        ModalityCompleted::class,
+        fn (ModalityCompleted $e) => $e->agentKey === 'modality-dispatch-agent'
+    );
+});
+
+// ─── agentKey null from TextRequest ──────────────────────────────────────────
+
+it('agentKey is null when dispatched from TextRequest', function () {
+    Event::fake();
+
+    Atlas::fake([
+        TextResponseFake::make()->withText('hello'),
+    ]);
+
+    Atlas::text('openai', 'gpt-4o')->message('hi')->asText();
+
+    Event::assertDispatched(
+        ModalityStarted::class,
+        fn (ModalityStarted $e) => $e->agentKey === null
+    );
+
+    Event::assertDispatched(
+        ModalityCompleted::class,
+        fn (ModalityCompleted $e) => $e->agentKey === null
     );
 });

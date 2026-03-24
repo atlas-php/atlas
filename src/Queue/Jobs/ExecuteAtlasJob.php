@@ -101,6 +101,9 @@ class ExecuteAtlasJob implements ShouldQueue
         event(new ExecutionCompleted(
             executionId: $this->executionId,
             channel: $this->broadcastChannel,
+            provider: $this->payload['provider'] ?? null,
+            model: $this->payload['model'] ?? null,
+            agentKey: $this->payload['key'] ?? null,
         ));
     }
 
@@ -122,6 +125,9 @@ class ExecuteAtlasJob implements ShouldQueue
             executionId: $this->executionId,
             error: $exception->getMessage(),
             channel: $this->broadcastChannel,
+            provider: $this->payload['provider'] ?? null,
+            model: $this->payload['model'] ?? null,
+            agentKey: $this->payload['key'] ?? null,
         ));
     }
 }

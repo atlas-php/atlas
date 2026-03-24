@@ -18,6 +18,10 @@ abstract class ExecutionEvent implements ShouldBroadcastNow
     public function __construct(
         public readonly ?int $executionId,
         protected readonly ?Channel $channel = null,
+        public readonly ?string $provider = null,
+        public readonly ?string $model = null,
+        public readonly ?string $agentKey = null,
+        public readonly ?string $traceId = null,
     ) {}
 
     /** @return array<int, Channel> */

@@ -24,6 +24,7 @@ use Atlasphp\Atlas\Requests\AudioRequest as AudioRequestObject;
 use Atlasphp\Atlas\Responses\AudioResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Illuminate\Broadcasting\Channel;
+use Illuminate\Support\Str;
 
 /**
  * Fluent builder for text-to-speech and speech-to-text requests.
@@ -117,6 +118,8 @@ class SpeechRequest implements QueueableRequest
 
     public function asAudio(): AudioResponse|PendingExecution
     {
+        $traceId = (string) Str::uuid();
+
         if ($this->queued) {
             return $this->dispatchToQueue('asAudio');
         }
@@ -124,25 +127,27 @@ class SpeechRequest implements QueueableRequest
         $provider = $this->resolveProviderKey();
         $model = (string) $this->model;
 
-        event(new ModalityStarted(modality: Modality::Speech, provider: $provider, model: $model));
+        event(new ModalityStarted(modality: Modality::Speech, provider: $provider, model: $model, traceId: $traceId));
 
         try {
             $driver = $this->resolveDriver();
             $this->ensureCapability($driver, 'audio');
             $response = $driver->audio($this->buildRequest());
         } catch (\Throwable $e) {
-            event(new ModalityCompleted(modality: Modality::Speech, provider: $provider, model: $model));
+            event(new ModalityCompleted(modality: Modality::Speech, provider: $provider, model: $model, traceId: $traceId));
 
             throw $e;
         }
 
-        event(new ModalityCompleted(modality: Modality::Speech, provider: $provider, model: $model));
+        event(new ModalityCompleted(modality: Modality::Speech, provider: $provider, model: $model, traceId: $traceId));
 
         return $response;
     }
 
     public function asText(): TextResponse|PendingExecution
     {
+        $traceId = (string) Str::uuid();
+
         if ($this->queued) {
             return $this->dispatchToQueue('asText');
         }
@@ -150,19 +155,19 @@ class SpeechRequest implements QueueableRequest
         $provider = $this->resolveProviderKey();
         $model = (string) $this->model;
 
-        event(new ModalityStarted(modality: Modality::SpeechToText, provider: $provider, model: $model));
+        event(new ModalityStarted(modality: Modality::SpeechToText, provider: $provider, model: $model, traceId: $traceId));
 
         try {
             $driver = $this->resolveDriver();
             $this->ensureCapability($driver, 'audioToText');
             $response = $driver->audioToText($this->buildRequest());
         } catch (\Throwable $e) {
-            event(new ModalityCompleted(modality: Modality::SpeechToText, provider: $provider, model: $model));
+            event(new ModalityCompleted(modality: Modality::SpeechToText, provider: $provider, model: $model, traceId: $traceId));
 
             throw $e;
         }
 
-        event(new ModalityCompleted(modality: Modality::SpeechToText, provider: $provider, model: $model, usage: $response->usage));
+        event(new ModalityCompleted(modality: Modality::SpeechToText, provider: $provider, model: $model, usage: $response->usage, traceId: $traceId));
 
         return $response;
     }

@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Events\VoiceSessionClosed;
-use Atlasphp\Atlas\Events\VoiceToolCallRequested;
+use Atlasphp\Atlas\Events\VoiceToolCallStarted;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
 use Atlasphp\Atlas\Persistence\Enums\VoiceCallStatus;
@@ -164,8 +164,8 @@ it('skips tracking when no execution_id in cache', function () {
     expect(ExecutionToolCall::count())->toBe(0);
 });
 
-it('fires VoiceToolCallRequested event', function () {
-    Event::fake([VoiceToolCallRequested::class]);
+it('fires VoiceToolCallStarted event', function () {
+    Event::fake([VoiceToolCallStarted::class]);
 
     $execution = createVoiceExecution('sess-event-1');
 
@@ -178,7 +178,7 @@ it('fires VoiceToolCallRequested event', function () {
         'arguments' => json_encode(['message' => 'test']),
     ]);
 
-    Event::assertDispatched(VoiceToolCallRequested::class, function (VoiceToolCallRequested $event) {
+    Event::assertDispatched(VoiceToolCallStarted::class, function (VoiceToolCallStarted $event) {
         return $event->sessionId === 'sess-event-1'
             && $event->name === 'echo_test';
     });

@@ -19,6 +19,7 @@ use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Requests\VoiceRequest as VoiceRequestObject;
 use Atlasphp\Atlas\Responses\VoiceSession;
+use Illuminate\Support\Str;
 
 /**
  * Fluent builder for voice session requests.
@@ -156,17 +157,18 @@ class VoiceRequest
 
     public function createSession(): VoiceSession
     {
+        $traceId = (string) Str::uuid();
         $provider = $this->resolveProviderKey();
         $model = (string) $this->model;
 
-        event(new ModalityStarted(modality: Modality::Voice, provider: $provider, model: $model));
+        event(new ModalityStarted(modality: Modality::Voice, provider: $provider, model: $model, traceId: $traceId));
 
         try {
             $driver = $this->resolveDriver();
             $this->ensureCapability($driver, 'voice');
             $session = $driver->createVoiceSession($this->buildRequest());
         } catch (\Throwable $e) {
-            event(new ModalityCompleted(modality: Modality::Voice, provider: $provider, model: $model));
+            event(new ModalityCompleted(modality: Modality::Voice, provider: $provider, model: $model, traceId: $traceId));
 
             throw $e;
         }
@@ -178,7 +180,7 @@ class VoiceRequest
             transport: $session->transport,
         ));
 
-        event(new ModalityCompleted(modality: Modality::Voice, provider: $provider, model: $model));
+        event(new ModalityCompleted(modality: Modality::Voice, provider: $provider, model: $model, traceId: $traceId));
 
         return $session;
     }

@@ -315,9 +315,9 @@ Voice transcripts are **not** automatically added to conversation messages. This
 | `VoiceCallStarted` | Voice call created and ready for connection |
 | `VoiceCallCompleted` | Voice call completed with full transcript |
 | `VoiceSessionClosed` | WebSocket connection closed |
-| `VoiceAudioDelta` | Audio chunk (broadcastable) |
-| `VoiceTranscriptDelta` | Transcript chunk (broadcastable) |
-| `VoiceToolCallRequested` | Tool call received (fired by tool controller) |
+| `VoiceAudioDeltaReceived` | Audio chunk (broadcastable) |
+| `VoiceTranscriptDeltaReceived` | Transcript chunk (broadcastable) |
+| `VoiceToolCallStarted` | Tool call received (fired by tool controller) |
 | `ModalityStarted` | Standard modality lifecycle |
 | `ModalityCompleted` | Standard modality lifecycle |
 

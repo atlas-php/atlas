@@ -94,3 +94,53 @@ it('ModalityCompleted works with all modality types', function (Modality $modali
     Modality::Moderate,
     Modality::Rerank,
 ]);
+
+// ─── Context params: agentKey, traceId ───────────────────────────────────
+
+it('ModalityStarted stores agentKey and traceId when passed', function () {
+    $event = new ModalityStarted(
+        modality: Modality::Text,
+        provider: 'openai',
+        model: 'gpt-4o',
+        agentKey: 'my-agent',
+        traceId: 'trace-001',
+    );
+
+    expect($event->agentKey)->toBe('my-agent')
+        ->and($event->traceId)->toBe('trace-001');
+});
+
+it('ModalityStarted agentKey and traceId default to null', function () {
+    $event = new ModalityStarted(
+        modality: Modality::Text,
+        provider: 'openai',
+        model: 'gpt-4o',
+    );
+
+    expect($event->agentKey)->toBeNull()
+        ->and($event->traceId)->toBeNull();
+});
+
+it('ModalityCompleted stores agentKey and traceId when passed', function () {
+    $event = new ModalityCompleted(
+        modality: Modality::Image,
+        provider: 'openai',
+        model: 'dall-e-3',
+        agentKey: 'image-agent',
+        traceId: 'trace-002',
+    );
+
+    expect($event->agentKey)->toBe('image-agent')
+        ->and($event->traceId)->toBe('trace-002');
+});
+
+it('ModalityCompleted agentKey and traceId default to null', function () {
+    $event = new ModalityCompleted(
+        modality: Modality::Image,
+        provider: 'openai',
+        model: 'dall-e-3',
+    );
+
+    expect($event->agentKey)->toBeNull()
+        ->and($event->traceId)->toBeNull();
+});

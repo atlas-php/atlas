@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Voice\Http;
 
-use Atlasphp\Atlas\Events\VoiceToolCallRequested;
+use Atlasphp\Atlas\Events\VoiceToolCallCompleted;
+use Atlasphp\Atlas\Events\VoiceToolCallFailed;
+use Atlasphp\Atlas\Events\VoiceToolCallStarted;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Enums\ToolCallType;
 use Atlasphp\Atlas\Persistence\Models\ExecutionToolCall;
@@ -74,7 +76,7 @@ class VoiceToolController
 
         $startTime = microtime(true);
 
-        event(new VoiceToolCallRequested(
+        event(new VoiceToolCallStarted(
             sessionId: $sessionId,
             callId: $callId,
             name: $name,
@@ -91,9 +93,19 @@ class VoiceToolController
 
             $serialized = ToolSerializer::serialize($result);
 
+            $durationMs = (int) ((microtime(true) - $startTime) * 1000);
+
             if ($record !== null) {
-                $record->markCompleted($serialized, (int) ((microtime(true) - $startTime) * 1000));
+                $record->markCompleted($serialized, $durationMs);
             }
+
+            event(new VoiceToolCallCompleted(
+                sessionId: $sessionId,
+                callId: $callId,
+                name: $name,
+                result: $serialized,
+                durationMs: $durationMs,
+            ));
 
             return response()->json([
                 'output' => $serialized,
@@ -105,9 +117,19 @@ class VoiceToolController
                 'exception' => $e,
             ]);
 
+            $durationMs = (int) ((microtime(true) - $startTime) * 1000);
+
             if ($record !== null) {
-                $record->markFailed($e->getMessage(), (int) ((microtime(true) - $startTime) * 1000));
+                $record->markFailed($e->getMessage(), $durationMs);
             }
+
+            event(new VoiceToolCallFailed(
+                sessionId: $sessionId,
+                callId: $callId,
+                name: $name,
+                error: $e->getMessage(),
+                durationMs: $durationMs,
+            ));
 
             $errorMessage = config('app.debug') ? $e->getMessage() : 'Tool execution failed';
 

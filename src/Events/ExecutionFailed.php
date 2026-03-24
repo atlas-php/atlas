@@ -15,8 +15,12 @@ class ExecutionFailed extends ExecutionEvent
         ?int $executionId,
         public readonly string $error,
         ?Channel $channel = null,
+        ?string $provider = null,
+        ?string $model = null,
+        ?string $agentKey = null,
+        ?string $traceId = null,
     ) {
-        parent::__construct($executionId, $channel);
+        parent::__construct($executionId, $channel, $provider, $model, $agentKey, $traceId);
     }
 
     public function broadcastAs(): string

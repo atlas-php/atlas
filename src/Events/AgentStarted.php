@@ -13,5 +13,8 @@ class AgentStarted
         public readonly ?string $agentKey,
         public readonly ?int $maxSteps,
         public readonly bool $concurrent,
+        public readonly ?string $provider = null,
+        public readonly ?string $model = null,
+        public readonly ?string $traceId = null,
     ) {}
 }

@@ -20,5 +20,7 @@ class ModalityCompleted
         public readonly string $provider,
         public readonly string $model,
         public readonly ?Usage $usage = null,
+        public readonly ?string $agentKey = null,
+        public readonly ?string $traceId = null,
     ) {}
 }

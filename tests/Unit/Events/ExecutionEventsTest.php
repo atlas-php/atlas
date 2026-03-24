@@ -204,3 +204,123 @@ it('ExecutionFailed broadcastWhen returns false without channel', function () {
 
     expect($event->broadcastWhen())->toBeFalse();
 });
+
+// ─── Context params: provider, model, agentKey, traceId ──────────────────
+
+it('ExecutionQueued stores context when passed', function () {
+    $event = new ExecutionQueued(
+        executionId: 1,
+        provider: 'openai',
+        model: 'gpt-4o',
+        agentKey: 'my-agent',
+        traceId: 'trace-001',
+    );
+
+    expect($event->provider)->toBe('openai')
+        ->and($event->model)->toBe('gpt-4o')
+        ->and($event->agentKey)->toBe('my-agent')
+        ->and($event->traceId)->toBe('trace-001');
+});
+
+it('ExecutionQueued context params default to null', function () {
+    $event = new ExecutionQueued(executionId: 1);
+
+    expect($event->provider)->toBeNull()
+        ->and($event->model)->toBeNull()
+        ->and($event->agentKey)->toBeNull()
+        ->and($event->traceId)->toBeNull();
+});
+
+it('ExecutionProcessing stores context when passed', function () {
+    $event = new ExecutionProcessing(
+        executionId: 2,
+        provider: 'anthropic',
+        model: 'claude-4',
+        agentKey: 'proc-agent',
+        traceId: 'trace-002',
+    );
+
+    expect($event->provider)->toBe('anthropic')
+        ->and($event->model)->toBe('claude-4')
+        ->and($event->agentKey)->toBe('proc-agent')
+        ->and($event->traceId)->toBe('trace-002');
+});
+
+it('ExecutionProcessing context params default to null', function () {
+    $event = new ExecutionProcessing(executionId: 2);
+
+    expect($event->provider)->toBeNull()
+        ->and($event->model)->toBeNull()
+        ->and($event->agentKey)->toBeNull()
+        ->and($event->traceId)->toBeNull();
+});
+
+it('ExecutionCompleted stores context when passed', function () {
+    $event = new ExecutionCompleted(
+        executionId: 3,
+        provider: 'openai',
+        model: 'gpt-4o',
+        agentKey: 'done-agent',
+        traceId: 'trace-003',
+    );
+
+    expect($event->provider)->toBe('openai')
+        ->and($event->model)->toBe('gpt-4o')
+        ->and($event->agentKey)->toBe('done-agent')
+        ->and($event->traceId)->toBe('trace-003');
+});
+
+it('ExecutionCompleted context params default to null', function () {
+    $event = new ExecutionCompleted(executionId: 3);
+
+    expect($event->provider)->toBeNull()
+        ->and($event->model)->toBeNull()
+        ->and($event->agentKey)->toBeNull()
+        ->and($event->traceId)->toBeNull();
+});
+
+it('ExecutionFailed stores context when passed', function () {
+    $event = new ExecutionFailed(
+        executionId: 4,
+        error: 'timeout',
+        provider: 'anthropic',
+        model: 'claude-4',
+        agentKey: 'fail-agent',
+        traceId: 'trace-004',
+    );
+
+    expect($event->provider)->toBe('anthropic')
+        ->and($event->model)->toBe('claude-4')
+        ->and($event->agentKey)->toBe('fail-agent')
+        ->and($event->traceId)->toBe('trace-004');
+});
+
+it('ExecutionFailed context params default to null', function () {
+    $event = new ExecutionFailed(executionId: 4, error: 'fail');
+
+    expect($event->provider)->toBeNull()
+        ->and($event->model)->toBeNull()
+        ->and($event->agentKey)->toBeNull()
+        ->and($event->traceId)->toBeNull();
+});
+
+it('ExecutionFailed passes context through to parent', function () {
+    $channel = new PrivateChannel('test');
+    $event = new ExecutionFailed(
+        executionId: 5,
+        error: 'broke',
+        channel: $channel,
+        provider: 'openai',
+        model: 'gpt-4o',
+        agentKey: 'parent-agent',
+        traceId: 'trace-005',
+    );
+
+    expect($event->executionId)->toBe(5)
+        ->and($event->error)->toBe('broke')
+        ->and($event->broadcastWhen())->toBeTrue()
+        ->and($event->provider)->toBe('openai')
+        ->and($event->model)->toBe('gpt-4o')
+        ->and($event->agentKey)->toBe('parent-agent')
+        ->and($event->traceId)->toBe('trace-005');
+});

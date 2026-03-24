@@ -21,6 +21,7 @@ use Atlasphp\Atlas\Queue\QueueableRequest;
 use Atlasphp\Atlas\Requests\EmbedRequest as EmbedRequestObject;
 use Atlasphp\Atlas\Responses\EmbeddingsResponse;
 use Illuminate\Broadcasting\Channel;
+use Illuminate\Support\Str;
 
 /**
  * Fluent builder for embedding requests.
@@ -59,6 +60,8 @@ class EmbedRequest implements QueueableRequest
             throw new \InvalidArgumentException('Input must be provided via fromInput() before dispatching.');
         }
 
+        $traceId = (string) Str::uuid();
+
         if ($this->queued) {
             return $this->dispatchToQueue('asEmbeddings');
         }
@@ -66,19 +69,19 @@ class EmbedRequest implements QueueableRequest
         $provider = $this->resolveProviderKey();
         $model = (string) $this->model;
 
-        event(new ModalityStarted(modality: Modality::Embed, provider: $provider, model: $model));
+        event(new ModalityStarted(modality: Modality::Embed, provider: $provider, model: $model, traceId: $traceId));
 
         try {
             $driver = $this->resolveDriver();
             $this->ensureCapability($driver, 'embed');
             $response = $driver->embed($this->buildRequest());
         } catch (\Throwable $e) {
-            event(new ModalityCompleted(modality: Modality::Embed, provider: $provider, model: $model));
+            event(new ModalityCompleted(modality: Modality::Embed, provider: $provider, model: $model, traceId: $traceId));
 
             throw $e;
         }
 
-        event(new ModalityCompleted(modality: Modality::Embed, provider: $provider, model: $model, usage: $response->usage));
+        event(new ModalityCompleted(modality: Modality::Embed, provider: $provider, model: $model, usage: $response->usage, traceId: $traceId));
 
         return $response;
     }

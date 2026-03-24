@@ -8,15 +8,18 @@ use Illuminate\Broadcasting\Channel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 
 /**
- * Broadcastable event for voice audio chunks.
+ * Broadcastable event for voice transcript chunks.
  *
- * Carries base64-encoded audio data to connected clients.
+ * Carries partial transcript text for user or assistant speech.
+ * This event is dispatched by the consumer's WebSocket relay layer
+ * (not by Atlas internally) when transcript data arrives from the provider.
  */
-class VoiceAudioDelta implements ShouldBroadcastNow
+class VoiceTranscriptDeltaReceived implements ShouldBroadcastNow
 {
     public function __construct(
         public readonly string $sessionId,
-        public readonly string $audioData,
+        public readonly string $text,
+        public readonly string $role,
         public readonly string $channelName,
     ) {}
 
@@ -30,6 +33,6 @@ class VoiceAudioDelta implements ShouldBroadcastNow
 
     public function broadcastAs(): string
     {
-        return 'voice.audio.delta';
+        return 'voice.transcript.delta';
     }
 }

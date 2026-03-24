@@ -21,6 +21,7 @@ use Atlasphp\Atlas\Queue\QueueableRequest;
 use Atlasphp\Atlas\Requests\RerankRequest as RerankRequestObject;
 use Atlasphp\Atlas\Responses\RerankResponse;
 use Illuminate\Broadcasting\Channel;
+use Illuminate\Support\Str;
 
 /**
  * Fluent builder for reranking requests.
@@ -99,6 +100,8 @@ class RerankRequest implements QueueableRequest
             throw new \InvalidArgumentException('Documents must be provided via documents() before dispatching.');
         }
 
+        $traceId = (string) Str::uuid();
+
         if ($this->queued) {
             return $this->dispatchToQueue('asReranked');
         }
@@ -106,14 +109,14 @@ class RerankRequest implements QueueableRequest
         $provider = $this->resolveProviderKey();
         $model = (string) $this->model;
 
-        event(new ModalityStarted(modality: Modality::Rerank, provider: $provider, model: $model));
+        event(new ModalityStarted(modality: Modality::Rerank, provider: $provider, model: $model, traceId: $traceId));
 
         try {
             $driver = $this->resolveDriver();
             $this->ensureCapability($driver, 'rerank');
             $response = $driver->rerank($this->buildRequest());
         } catch (\Throwable $e) {
-            event(new ModalityCompleted(modality: Modality::Rerank, provider: $provider, model: $model));
+            event(new ModalityCompleted(modality: Modality::Rerank, provider: $provider, model: $model, traceId: $traceId));
 
             throw $e;
         }
@@ -122,7 +125,7 @@ class RerankRequest implements QueueableRequest
             $response = new RerankResponse($response->aboveScore($this->minScore), $response->meta);
         }
 
-        event(new ModalityCompleted(modality: Modality::Rerank, provider: $provider, model: $model));
+        event(new ModalityCompleted(modality: Modality::Rerank, provider: $provider, model: $model, traceId: $traceId));
 
         return $response;
     }

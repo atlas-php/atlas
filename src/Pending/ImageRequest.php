@@ -23,6 +23,7 @@ use Atlasphp\Atlas\Requests\ImageRequest as ImageRequestObject;
 use Atlasphp\Atlas\Responses\ImageResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Illuminate\Broadcasting\Channel;
+use Illuminate\Support\Str;
 
 /**
  * Fluent builder for image generation and image-to-text requests.
@@ -103,6 +104,8 @@ class ImageRequest implements QueueableRequest
 
     public function asImage(): ImageResponse|PendingExecution
     {
+        $traceId = (string) Str::uuid();
+
         if ($this->queued) {
             return $this->dispatchToQueue('asImage');
         }
@@ -110,25 +113,27 @@ class ImageRequest implements QueueableRequest
         $provider = $this->resolveProviderKey();
         $model = (string) $this->model;
 
-        event(new ModalityStarted(modality: Modality::Image, provider: $provider, model: $model));
+        event(new ModalityStarted(modality: Modality::Image, provider: $provider, model: $model, traceId: $traceId));
 
         try {
             $driver = $this->resolveDriver();
             $this->ensureCapability($driver, 'image');
             $response = $driver->image($this->buildRequest());
         } catch (\Throwable $e) {
-            event(new ModalityCompleted(modality: Modality::Image, provider: $provider, model: $model));
+            event(new ModalityCompleted(modality: Modality::Image, provider: $provider, model: $model, traceId: $traceId));
 
             throw $e;
         }
 
-        event(new ModalityCompleted(modality: Modality::Image, provider: $provider, model: $model));
+        event(new ModalityCompleted(modality: Modality::Image, provider: $provider, model: $model, traceId: $traceId));
 
         return $response;
     }
 
     public function asText(): TextResponse|PendingExecution
     {
+        $traceId = (string) Str::uuid();
+
         if ($this->queued) {
             return $this->dispatchToQueue('asText');
         }
@@ -136,19 +141,19 @@ class ImageRequest implements QueueableRequest
         $provider = $this->resolveProviderKey();
         $model = (string) $this->model;
 
-        event(new ModalityStarted(modality: Modality::ImageToText, provider: $provider, model: $model));
+        event(new ModalityStarted(modality: Modality::ImageToText, provider: $provider, model: $model, traceId: $traceId));
 
         try {
             $driver = $this->resolveDriver();
             $this->ensureCapability($driver, 'imageToText');
             $response = $driver->imageToText($this->buildRequest());
         } catch (\Throwable $e) {
-            event(new ModalityCompleted(modality: Modality::ImageToText, provider: $provider, model: $model));
+            event(new ModalityCompleted(modality: Modality::ImageToText, provider: $provider, model: $model, traceId: $traceId));
 
             throw $e;
         }
 
-        event(new ModalityCompleted(modality: Modality::ImageToText, provider: $provider, model: $model, usage: $response->usage));
+        event(new ModalityCompleted(modality: Modality::ImageToText, provider: $provider, model: $model, usage: $response->usage, traceId: $traceId));
 
         return $response;
     }

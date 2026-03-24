@@ -210,3 +210,216 @@ it('AgentCompleted stores agentKey and usage', function () {
         ->and($event->usage->inputTokens)->toBe(100)
         ->and($event->usage->outputTokens)->toBe(200);
 });
+
+// ─── AgentCompleted finishReason ──────────────────────────────────────────
+
+it('AgentCompleted stores finishReason when passed', function () {
+    $event = new AgentCompleted(
+        steps: [],
+        usage: new Usage(10, 20),
+        finishReason: FinishReason::Stop,
+    );
+
+    expect($event->finishReason)->toBe(FinishReason::Stop);
+});
+
+it('AgentCompleted finishReason defaults to null', function () {
+    $event = new AgentCompleted(steps: [], usage: new Usage(0, 0));
+
+    expect($event->finishReason)->toBeNull();
+});
+
+// ─── Context params: provider, model, traceId ─────────────────────────────
+
+it('AgentStarted stores provider, model, and traceId when passed', function () {
+    $event = new AgentStarted(
+        agentKey: 'ctx-agent',
+        maxSteps: 5,
+        concurrent: false,
+        provider: 'openai',
+        model: 'gpt-4o',
+        traceId: 'trace-001',
+    );
+
+    expect($event->provider)->toBe('openai')
+        ->and($event->model)->toBe('gpt-4o')
+        ->and($event->traceId)->toBe('trace-001');
+});
+
+it('AgentStarted context params default to null', function () {
+    $event = new AgentStarted(agentKey: null, maxSteps: null, concurrent: true);
+
+    expect($event->provider)->toBeNull()
+        ->and($event->model)->toBeNull()
+        ->and($event->traceId)->toBeNull();
+});
+
+it('AgentStepStarted stores provider, model, and traceId when passed', function () {
+    $event = new AgentStepStarted(
+        stepNumber: 1,
+        provider: 'anthropic',
+        model: 'claude-4',
+        traceId: 'trace-002',
+    );
+
+    expect($event->provider)->toBe('anthropic')
+        ->and($event->model)->toBe('claude-4')
+        ->and($event->traceId)->toBe('trace-002');
+});
+
+it('AgentStepStarted context params default to null', function () {
+    $event = new AgentStepStarted(stepNumber: 1);
+
+    expect($event->provider)->toBeNull()
+        ->and($event->model)->toBeNull()
+        ->and($event->traceId)->toBeNull();
+});
+
+it('AgentStepCompleted stores provider, model, and traceId when passed', function () {
+    $event = new AgentStepCompleted(
+        stepNumber: 2,
+        finishReason: FinishReason::Stop,
+        usage: new Usage(10, 20),
+        provider: 'openai',
+        model: 'gpt-4o',
+        traceId: 'trace-003',
+    );
+
+    expect($event->provider)->toBe('openai')
+        ->and($event->model)->toBe('gpt-4o')
+        ->and($event->traceId)->toBe('trace-003');
+});
+
+it('AgentStepCompleted context params default to null', function () {
+    $event = new AgentStepCompleted(
+        stepNumber: 1,
+        finishReason: FinishReason::Stop,
+        usage: new Usage(10, 20),
+    );
+
+    expect($event->provider)->toBeNull()
+        ->and($event->model)->toBeNull()
+        ->and($event->traceId)->toBeNull();
+});
+
+it('AgentMaxStepsExceeded stores provider, model, and traceId when passed', function () {
+    $event = new AgentMaxStepsExceeded(
+        limit: 5,
+        steps: [],
+        provider: 'anthropic',
+        model: 'claude-4',
+        traceId: 'trace-004',
+    );
+
+    expect($event->provider)->toBe('anthropic')
+        ->and($event->model)->toBe('claude-4')
+        ->and($event->traceId)->toBe('trace-004');
+});
+
+it('AgentMaxStepsExceeded context params default to null', function () {
+    $event = new AgentMaxStepsExceeded(limit: 3, steps: []);
+
+    expect($event->provider)->toBeNull()
+        ->and($event->model)->toBeNull()
+        ->and($event->traceId)->toBeNull();
+});
+
+it('AgentCompleted stores provider, model, and traceId when passed', function () {
+    $event = new AgentCompleted(
+        steps: [],
+        usage: new Usage(10, 20),
+        provider: 'openai',
+        model: 'gpt-4o',
+        traceId: 'trace-005',
+    );
+
+    expect($event->provider)->toBe('openai')
+        ->and($event->model)->toBe('gpt-4o')
+        ->and($event->traceId)->toBe('trace-005');
+});
+
+it('AgentCompleted context params default to null', function () {
+    $event = new AgentCompleted(steps: [], usage: new Usage(0, 0));
+
+    expect($event->provider)->toBeNull()
+        ->and($event->model)->toBeNull()
+        ->and($event->traceId)->toBeNull();
+});
+
+it('AgentToolCallStarted stores provider, model, and traceId when passed', function () {
+    $toolCall = new ToolCall('tc-ctx', 'search', ['q' => 'test']);
+
+    $event = new AgentToolCallStarted(
+        toolCall: $toolCall,
+        provider: 'anthropic',
+        model: 'claude-4',
+        traceId: 'trace-006',
+    );
+
+    expect($event->provider)->toBe('anthropic')
+        ->and($event->model)->toBe('claude-4')
+        ->and($event->traceId)->toBe('trace-006');
+});
+
+it('AgentToolCallStarted context params default to null', function () {
+    $toolCall = new ToolCall('tc-ctx2', 'search', []);
+    $event = new AgentToolCallStarted(toolCall: $toolCall);
+
+    expect($event->provider)->toBeNull()
+        ->and($event->model)->toBeNull()
+        ->and($event->traceId)->toBeNull();
+});
+
+it('AgentToolCallCompleted stores provider, model, and traceId when passed', function () {
+    $toolCall = new ToolCall('tc-ctx', 'search', ['q' => 'test']);
+    $result = new ToolResult(toolCall: $toolCall, content: 'ok', isError: false);
+
+    $event = new AgentToolCallCompleted(
+        toolCall: $toolCall,
+        result: $result,
+        provider: 'openai',
+        model: 'gpt-4o',
+        traceId: 'trace-007',
+    );
+
+    expect($event->provider)->toBe('openai')
+        ->and($event->model)->toBe('gpt-4o')
+        ->and($event->traceId)->toBe('trace-007');
+});
+
+it('AgentToolCallCompleted context params default to null', function () {
+    $toolCall = new ToolCall('tc-ctx2', 'search', []);
+    $result = new ToolResult(toolCall: $toolCall, content: 'ok', isError: false);
+    $event = new AgentToolCallCompleted(toolCall: $toolCall, result: $result);
+
+    expect($event->provider)->toBeNull()
+        ->and($event->model)->toBeNull()
+        ->and($event->traceId)->toBeNull();
+});
+
+it('AgentToolCallFailed stores provider, model, and traceId when passed', function () {
+    $toolCall = new ToolCall('tc-ctx', 'search', []);
+    $exception = new RuntimeException('fail');
+
+    $event = new AgentToolCallFailed(
+        toolCall: $toolCall,
+        exception: $exception,
+        provider: 'anthropic',
+        model: 'claude-4',
+        traceId: 'trace-008',
+    );
+
+    expect($event->provider)->toBe('anthropic')
+        ->and($event->model)->toBe('claude-4')
+        ->and($event->traceId)->toBe('trace-008');
+});
+
+it('AgentToolCallFailed context params default to null', function () {
+    $toolCall = new ToolCall('tc-ctx2', 'search', []);
+    $exception = new RuntimeException('fail');
+    $event = new AgentToolCallFailed(toolCall: $toolCall, exception: $exception);
+
+    expect($event->provider)->toBeNull()
+        ->and($event->model)->toBeNull()
+        ->and($event->traceId)->toBeNull();
+});

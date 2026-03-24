@@ -66,6 +66,10 @@ class PendingExecution
         event(new ExecutionQueued(
             executionId: $this->executionId,
             channel: $this->broadcastChannel,
+            provider: $this->job->payload['provider'] ?? null,
+            model: $this->job->payload['model'] ?? null,
+            agentKey: $this->job->payload['key'] ?? null,
+            traceId: $this->job->payload['trace_id'] ?? null,
         ));
 
         return $this;
