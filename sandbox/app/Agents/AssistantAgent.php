@@ -29,13 +29,18 @@ class AssistantAgent extends Agent
 
     public function key(): string
     {
-        return 'assistant';
+        return 'sarah-text';
+    }
+
+    public function name(): string
+    {
+        return 'Sarah';
     }
 
     public function instructions(): string
     {
         return <<<'PROMPT'
-        You are a helpful multi-modal assistant. Today is {DATE}.
+        You are {NAME}, a helpful assistant in text chat. Today is {DATE}.
 
         ## Tools
         You have access to image generation, video generation, text-to-speech, and web search tools.
@@ -91,10 +96,5 @@ class AssistantAgent extends Agent
     public function temperature(): ?float
     {
         return 0.7;
-    }
-
-    public function voice(): ?string
-    {
-        return 'eve';
     }
 }

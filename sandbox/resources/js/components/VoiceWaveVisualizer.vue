@@ -96,7 +96,8 @@ onUnmounted(() => {
                         :class="status === 'active' ? 'bg-green-500' : 'bg-yellow-500'"
                     />
                 </span>
-                <span v-if="status === 'connecting'">Connecting...</span>
+                <span v-if="status === 'closing'" class="text-yellow-400">Ending call...</span>
+                <span v-else-if="status === 'connecting'">Connecting...</span>
                 <span v-else-if="isSpeaking" class="text-blue-400">AI speaking</span>
                 <span v-else-if="isListening" class="text-green-400">Listening</span>
                 <span v-else>Voice active</span>
@@ -104,11 +105,13 @@ onUnmounted(() => {
 
             <!-- End call button -->
             <button
-                class="flex items-center gap-1.5 rounded-full bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700"
+                class="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-white transition-colors"
+                :class="status === 'closing' ? 'bg-red-800 opacity-50 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'"
+                :disabled="status === 'closing'"
                 @click="emit('stop')"
             >
                 <PhoneOff class="size-3" />
-                End
+                {{ status === 'closing' ? 'Ending...' : 'End' }}
             </button>
         </div>
 

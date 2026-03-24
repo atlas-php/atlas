@@ -63,7 +63,7 @@ class ChatController
 
         // Atlas handles everything — conversation, messages, media storage,
         // history, and response persistence via PersistConversation middleware.
-        $agentRequest = Atlas::agent('assistant')
+        $agentRequest = Atlas::agent('sarah-text')
             ->for($user)
             ->asUser($user)
             ->message($request->string('message')->toString(), $media)
@@ -80,7 +80,7 @@ class ChatController
             $conversation = Conversation::create([
                 'owner_type' => $user->getMorphClass(),
                 'owner_id' => $user->getKey(),
-                'agent' => 'assistant',
+                'agent' => 'sarah-text',
             ]);
             $conversationId = $conversation->id;
             $agentRequest->forConversation($conversationId);
@@ -197,7 +197,7 @@ class ChatController
     {
         $user = User::findOrFail(1);
 
-        $pending = Atlas::agent('assistant')
+        $pending = Atlas::agent('sarah-text')
             ->for($user)
             ->forConversation($conversationId)
             ->retry()

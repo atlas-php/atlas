@@ -6,15 +6,19 @@ namespace App\Providers;
 
 use App\Agents\AssistantAgent;
 use App\Agents\MemoryTestAgent;
+use App\Agents\VoiceAssistantAgent;
 use App\Console\FreshCommand;
+use App\Listeners\SummarizeVoiceCall;
 use Atlasphp\Atlas\Agents\AgentRegistry;
 use Atlasphp\Atlas\Embeddings\VectorQueryMacros;
+use Atlasphp\Atlas\Events\VoiceCallCompleted;
 use Atlasphp\Atlas\Persistence\Middleware\PersistConversation;
 use Atlasphp\Atlas\Persistence\Middleware\TrackExecution;
 use Atlasphp\Atlas\Persistence\Middleware\TrackProviderCall;
 use Atlasphp\Atlas\Persistence\Middleware\TrackStep;
 use Atlasphp\Atlas\Persistence\Middleware\TrackToolCall;
 use Atlasphp\Atlas\Persistence\Middleware\WireMemory;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
@@ -48,6 +52,18 @@ class SandboxServiceProvider extends ServiceProvider
         $this->registerCommands();
         $this->registerAgents();
         $this->registerPersistenceMiddleware();
+        $this->registerListeners();
+    }
+
+    /**
+     * Register event listeners.
+     */
+    protected function registerListeners(): void
+    {
+        Event::listen(
+            VoiceCallCompleted::class,
+            SummarizeVoiceCall::class,
+        );
     }
 
     /**
@@ -58,6 +74,7 @@ class SandboxServiceProvider extends ServiceProvider
         /** @var AgentRegistry $registry */
         $registry = $this->app->make(AgentRegistry::class);
         $registry->register(AssistantAgent::class);
+        $registry->register(VoiceAssistantAgent::class);
         $registry->register(MemoryTestAgent::class);
     }
 

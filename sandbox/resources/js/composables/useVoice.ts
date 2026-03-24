@@ -1,6 +1,6 @@
 import { ref, readonly } from 'vue';
 
-export type SessionStatus = 'idle' | 'connecting' | 'active' | 'closed';
+export type SessionStatus = 'idle' | 'connecting' | 'active' | 'closing' | 'closed';
 
 interface SessionOptions {
     conversation_id?: number | null;
@@ -16,6 +16,7 @@ interface SessionPayload {
     session_config?: Record<string, unknown>;
     tool_endpoint?: string;
     transcript_endpoint?: string;
+    close_endpoint?: string;
 }
 
 /**
@@ -34,6 +35,11 @@ export function useVoice() {
     const audioLevel = ref(0);
     const error = ref<string | null>(null);
 
+    // Live transcript text — reactive, updated as provider sends deltas.
+    // The chat UI can display these as optimistic bubbles during the voice session.
+    const liveUserTranscript = ref('');
+    const liveAssistantTranscript = ref('');
+
     // Connection state
     let peerConnection: RTCPeerConnection | null = null;
     let dataChannel: RTCDataChannel | null = null;
@@ -46,10 +52,19 @@ export function useVoice() {
     // Session context
     let currentSession: SessionPayload | null = null;
     let currentConversationId: number | null = null;
+    let unloadHandler: (() => void) | null = null;
 
-    // Transcript accumulation
-    let pendingUserTranscript = '';
-    let pendingAssistantTranscript = '';
+    // Transcript accumulation — stored on session end only.
+    // Within a single "exchange" (user speaks → AI responds), the provider may
+    // send multiple response cycles if VAD splits long speech into segments.
+    // We keep only the latest user transcript (it's progressive — each one
+    // supersedes the previous) and concatenate assistant responses.
+    // A new exchange starts when speech_started fires after a response.done.
+    let currentUserTranscript = '';
+    let currentAssistantTranscript = '';
+    let completedTurns: Array<{ role: string; transcript: string }> = [];
+    let lastResponseDone = false; // tracks whether we're between response.done and next speech_started
+    let onTranscriptFlushedCallback: (() => void) | null = null;
 
     // Audio playback
     let playbackContext: AudioContext | null = null;
@@ -57,7 +72,7 @@ export function useVoice() {
     const SAMPLE_RATE = 24000;
     let audioQueue: string[] = [];
     let processingAudio = false;
-    let flushTimeout: ReturnType<typeof setTimeout> | null = null;
+    let playbackCompleteTimer: ReturnType<typeof setTimeout> | null = null;
 
     async function startSession(options: SessionOptions = {}) {
         if (sessionStatus.value !== 'idle' && sessionStatus.value !== 'closed') return;
@@ -73,8 +88,12 @@ export function useVoice() {
         sessionStatus.value = 'connecting';
         error.value = null;
         currentConversationId = options.conversation_id ?? null;
-        pendingUserTranscript = '';
-        pendingAssistantTranscript = '';
+        currentUserTranscript = '';
+        currentAssistantTranscript = '';
+        completedTurns = [];
+        lastResponseDone = false;
+        liveUserTranscript.value = '';
+        liveAssistantTranscript.value = '';
 
         try {
             const res = await fetch('/api/voice/session', {
@@ -107,7 +126,9 @@ export function useVoice() {
     // ─── xAI WebSocket Mode ────────────────────────────
 
     async function setupWebSocket(session: SessionPayload) {
-        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        localStream = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        });
         setupAudioMonitoring(localStream);
 
         // Connect directly to xAI with ephemeral token
@@ -130,6 +151,9 @@ export function useVoice() {
 
             sessionStatus.value = 'active';
             isListening.value = true;
+
+            // Register beforeunload to checkpoint transcript on page close/refresh
+            registerUnloadHandler();
         };
 
         providerSocket.onmessage = (event) => {
@@ -155,26 +179,29 @@ export function useVoice() {
         const type = data.type as string;
 
         switch (type) {
-            // Audio output — mute mic to prevent echo, then queue playback
+            // Audio output — queue for playback
             case 'response.output_audio.delta':
             case 'response.audio.delta':
-                if (!isSpeaking.value) {
-                    // Mute mic on first audio chunk to prevent echo feedback loop
-                    localStream?.getAudioTracks().forEach(t => { t.enabled = false; });
-                }
                 queueAudioChunk((data.delta as string) ?? '');
                 isSpeaking.value = true;
+                // Cancel any pending playback-complete timer since we got more audio
+                if (playbackCompleteTimer !== null) {
+                    clearTimeout(playbackCompleteTimer);
+                    playbackCompleteTimer = null;
+                }
                 break;
 
-            // User transcript
+            // User transcript — progressive: each completed event supersedes the previous
             case 'conversation.item.input_audio_transcription.completed':
-                pendingUserTranscript = (data.transcript as string) ?? '';
+                currentUserTranscript = (data.transcript as string) ?? '';
+                liveUserTranscript.value = currentUserTranscript;
                 break;
 
-            // Assistant transcript
+            // Assistant transcript — accumulate deltas across the full exchange
             case 'response.output_audio_transcript.delta':
             case 'response.audio_transcript.delta':
-                pendingAssistantTranscript += (data.delta as string) ?? '';
+                currentAssistantTranscript += (data.delta as string) ?? '';
+                liveAssistantTranscript.value = currentAssistantTranscript;
                 break;
 
             // Tool call
@@ -182,21 +209,23 @@ export function useVoice() {
                 handleToolCall(data);
                 break;
 
-            // Turn complete — unmute mic for next turn
+            // Response complete — mark that the AI finished this cycle.
+            // Don't seal yet — more VAD segments may follow for the same exchange.
             case 'response.done':
-                isSpeaking.value = false;
-                nextPlayTime = 0;
-                audioQueue = [];
-                // Re-enable mic after AI finishes (small delay to avoid capturing tail audio)
-                setTimeout(() => {
-                    localStream?.getAudioTracks().forEach(t => { t.enabled = true; });
-                }, 500);
-                flushTimeout = setTimeout(() => flushTranscripts(), 300);
+                schedulePlaybackComplete();
+                lastResponseDone = true;
+                // Checkpoint: seal and save whatever we have so far
+                sealCurrentTurn();
+                checkpointTranscript();
                 break;
 
-            // Speech detection
+            // Speech detection — handle interruption
             case 'input_audio_buffer.speech_started':
                 isListening.value = true;
+                if (isSpeaking.value) {
+                    cancelCurrentResponse();
+                }
+                lastResponseDone = false;
                 break;
             case 'input_audio_buffer.speech_stopped':
                 isListening.value = false;
@@ -205,7 +234,110 @@ export function useVoice() {
     }
 
     /**
+     * Cancel the current AI response — user is interrupting.
+     * Stops audio playback and tells the provider to stop generating.
+     */
+    function cancelCurrentResponse() {
+        // Kill all in-flight audio by closing the playback context.
+        // Clearing the queue alone doesn't stop already-scheduled AudioBufferSourceNodes.
+        if (playbackContext) {
+            playbackContext.close().catch(() => {});
+            playbackContext = null;
+        }
+
+        audioQueue = [];
+        nextPlayTime = 0;
+        isSpeaking.value = false;
+
+        if (playbackCompleteTimer !== null) {
+            clearTimeout(playbackCompleteTimer);
+            playbackCompleteTimer = null;
+        }
+
+        // Tell provider to stop generating
+        sendToProvider(JSON.stringify({ type: 'response.cancel' }));
+    }
+
+    /**
+     * Schedule isSpeaking = false after queued audio finishes playing.
+     * The response.done event means the provider is done GENERATING,
+     * but there may still be audio buffers queued for playback.
+     */
+    function schedulePlaybackComplete() {
+        if (!playbackContext || nextPlayTime <= playbackContext.currentTime) {
+            finishSpeaking();
+            return;
+        }
+
+        const remainingMs = (nextPlayTime - playbackContext.currentTime) * 1000;
+
+        if (playbackCompleteTimer !== null) {
+            clearTimeout(playbackCompleteTimer);
+        }
+
+        playbackCompleteTimer = setTimeout(() => {
+            playbackCompleteTimer = null;
+            finishSpeaking();
+        }, remainingMs + 100); // Small buffer to avoid cutting off tail
+    }
+
+    function finishSpeaking() {
+        isSpeaking.value = false;
+        nextPlayTime = 0;
+        audioQueue = [];
+    }
+
+    /**
+     * Checkpoint the current completedTurns to the server.
+     * Replaces the VoiceCall transcript atomically — no duplicates.
+     */
+    function checkpointTranscript() {
+        if (!currentSession?.transcript_endpoint || completedTurns.length === 0) return;
+
+        // Fire and forget — don't block the voice session
+        const turns = completedTurns.map(t => ({ role: t.role, content: t.transcript }));
+
+        fetch(currentSession.transcript_endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ turns }),
+        }).catch(() => {
+            console.error('[Voice] Transcript checkpoint failed');
+        });
+    }
+
+    /**
+     * Seal the current exchange into completedTurns.
+     * Called when a new exchange starts (speech_started after response.done)
+     * or on session end. The user transcript is the final progressive version;
+     * the assistant transcript is the full concatenation of all deltas.
+     */
+    function sealCurrentTurn() {
+        if (currentUserTranscript) {
+            completedTurns.push({ role: 'user', transcript: currentUserTranscript });
+            currentUserTranscript = '';
+        }
+        if (currentAssistantTranscript) {
+            completedTurns.push({ role: 'assistant', transcript: currentAssistantTranscript });
+            currentAssistantTranscript = '';
+        }
+        // Reset live refs for the new exchange
+        liveUserTranscript.value = '';
+        liveAssistantTranscript.value = '';
+    }
+
+    function sendToProvider(msg: string) {
+        if (providerSocket && providerSocket.readyState === WebSocket.OPEN) {
+            providerSocket.send(msg);
+        } else if (dataChannel && dataChannel.readyState === 'open') {
+            dataChannel.send(msg);
+        }
+    }
+
+    /**
      * Capture PCM16 audio from mic and send over WebSocket.
+     * Audio flows at all times — server VAD handles interruption detection.
+     * Browser echo cancellation prevents feedback loops.
      */
     function startWebSocketAudioCapture() {
         if (!localStream || !audioContext || !providerSocket) return;
@@ -218,7 +350,7 @@ export function useVoice() {
         const processor = audioContext.createScriptProcessor(4096, 1, 1);
 
         processor.onaudioprocess = (e) => {
-            if (isSpeaking.value || !providerSocket || providerSocket.readyState !== WebSocket.OPEN) return;
+            if (!providerSocket || providerSocket.readyState !== WebSocket.OPEN) return;
 
             const float32 = e.inputBuffer.getChannelData(0);
             const outLen = Math.floor(float32.length / ratio);
@@ -263,56 +395,19 @@ export function useVoice() {
             const res = await fetch(currentSession.tool_endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-                body: JSON.stringify({ name, arguments: args }),
+                body: JSON.stringify({ name, arguments: args, call_id: callId }),
             });
 
             const result = await res.json();
             const output = result.output ?? JSON.stringify({ error: 'Tool failed' });
 
-            // Send result back to provider
-            const socket = providerSocket ?? null;
-            const dc = dataChannel ?? null;
-            const channel = socket || dc;
-
-            if (channel) {
-                const send = (msg: string) => {
-                    if (socket && socket.readyState === WebSocket.OPEN) socket.send(msg);
-                    else if (dc && dc.readyState === 'open') dc.send(msg);
-                };
-
-                send(JSON.stringify({
-                    type: 'conversation.item.create',
-                    item: { type: 'function_call_output', call_id: callId, output },
-                }));
-                send(JSON.stringify({ type: 'response.create' }));
-            }
+            sendToProvider(JSON.stringify({
+                type: 'conversation.item.create',
+                item: { type: 'function_call_output', call_id: callId, output },
+            }));
+            sendToProvider(JSON.stringify({ type: 'response.create' }));
         } catch (e) {
             console.error('[Voice] Tool call failed:', e);
-        }
-    }
-
-    // ─── Transcript Persistence ────────────────────────
-
-    async function flushTranscripts() {
-        if (!currentSession?.transcript_endpoint || !currentConversationId) return;
-
-        const turns: Array<{ role: string; transcript: string }> = [];
-        if (pendingUserTranscript) turns.push({ role: 'user', transcript: pendingUserTranscript });
-        if (pendingAssistantTranscript) turns.push({ role: 'assistant', transcript: pendingAssistantTranscript });
-
-        pendingUserTranscript = '';
-        pendingAssistantTranscript = '';
-
-        if (turns.length === 0) return;
-
-        try {
-            await fetch(currentSession.transcript_endpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-                body: JSON.stringify({ conversation_id: currentConversationId, turns }),
-            });
-        } catch {
-            console.error('[Voice] Transcript save failed');
         }
     }
 
@@ -374,7 +469,9 @@ export function useVoice() {
     // ─── OpenAI WebRTC Mode ────────────────────────────
 
     async function setupWebRtc(session: SessionPayload) {
-        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        localStream = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        });
         setupAudioMonitoring(localStream);
 
         peerConnection = new RTCPeerConnection();
@@ -445,12 +542,31 @@ export function useVoice() {
     }
 
     async function stopSession() {
-        // Cancel any deferred flush and do a final flush now
-        if (flushTimeout !== null) {
-            clearTimeout(flushTimeout);
-            flushTimeout = null;
+        if (sessionStatus.value === 'closing' || sessionStatus.value === 'closed') return;
+
+        sessionStatus.value = 'closing';
+        removeUnloadHandler();
+
+        // Seal any in-progress turn
+        sealCurrentTurn();
+
+        // Close the session on the server with the final transcript
+        if (currentSession?.close_endpoint) {
+            try {
+                const turns = completedTurns.map(t => ({ role: t.role, content: t.transcript }));
+                await fetch(currentSession.close_endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ turns }),
+                });
+                onTranscriptFlushedCallback?.();
+            } catch { /* best effort */ }
         }
-        await flushTranscripts();
+
+        if (playbackCompleteTimer !== null) {
+            clearTimeout(playbackCompleteTimer);
+            playbackCompleteTimer = null;
+        }
 
         if (levelAnimFrame !== null) {
             cancelAnimationFrame(levelAnimFrame);
@@ -486,6 +602,34 @@ export function useVoice() {
         audioLevel.value = 0;
     }
 
+    function registerUnloadHandler() {
+        unloadHandler = () => {
+            if (!currentSession?.close_endpoint) return;
+
+            // Seal any in-progress turn
+            sealCurrentTurn();
+
+            const turns = completedTurns.map(t => ({ role: t.role, content: t.transcript }));
+            const body = JSON.stringify({ turns });
+
+            // sendBeacon is the only reliable way to send data on page unload
+            navigator.sendBeacon(currentSession.close_endpoint, new Blob([body], { type: 'application/json' }));
+        };
+
+        window.addEventListener('beforeunload', unloadHandler);
+    }
+
+    function removeUnloadHandler() {
+        if (unloadHandler) {
+            window.removeEventListener('beforeunload', unloadHandler);
+            unloadHandler = null;
+        }
+    }
+
+    function onTranscriptFlushed(cb: () => void) {
+        onTranscriptFlushedCallback = cb;
+    }
+
     function mute() {
         localStream?.getAudioTracks().forEach((t) => { t.enabled = false; });
         isListening.value = false;
@@ -502,9 +646,12 @@ export function useVoice() {
         isSpeaking: readonly(isSpeaking),
         audioLevel: readonly(audioLevel),
         error: readonly(error),
+        liveUserTranscript: readonly(liveUserTranscript),
+        liveAssistantTranscript: readonly(liveAssistantTranscript),
         startSession,
         stopSession,
         mute,
         unmute,
+        onTranscriptFlushed,
     };
 }

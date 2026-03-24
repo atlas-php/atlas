@@ -27,6 +27,7 @@ All tables are prefixed with `atlas_` by default (configurable via `persistence.
 | `atlas_execution_tool_calls` | Individual tool invocations with arguments and results |
 | `atlas_assets` | Generated files stored on disk with content hashing |
 | `atlas_memories` | Agent memory entries for long-term context |
+| `atlas_voice_calls` | Voice call sessions with complete transcripts |
 
 ## Conversations
 
@@ -409,6 +410,45 @@ A persistent memory entry scoped to an owner and/or agent. Supports vector embed
 | `active()` | Non-expired memories |
 | `expired()` | Past expiration date |
 
+### VoiceCall
+
+`Atlasphp\Atlas\Persistence\Models\VoiceCall`
+
+A complete voice call session with its transcript stored as a JSON array. Voice transcripts are isolated from the messages table — they live here. Consumers listen for `VoiceCallCompleted` to post-process transcripts (create summaries, embed into memory, generate conversation messages).
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `voice_session_id` | `string` | Unique session ID from provider |
+| `conversation_id` | `bigint nullable` | FK → conversations |
+| `agent` | `string nullable` | Agent key |
+| `provider` | `string` | Provider name |
+| `model` | `string` | Model name |
+| `status` | `string` | `active`, `completed`, `failed` |
+| `transcript` | `json` | `[{role: 'user'\|'assistant', content: string}]` |
+| `summary` | `text nullable` | Consumer-generated summary |
+| `duration_ms` | `int nullable` | Wall-clock duration |
+| `metadata` | `json nullable` | Custom metadata |
+
+The `executions` table has a `voice_call_id` FK pointing to this table (same pattern as `message_id` for text executions).
+
+| Relationship | Type | Description |
+|-------------|------|-------------|
+| `conversation()` | `BelongsTo` | Linked conversation |
+| `executions()` | `HasMany` | Executions linked to this call (via `executions.voice_call_id`) |
+
+| Method | Description |
+|--------|-------------|
+| `saveTranscript(array $turns)` | Atomically replace transcript |
+| `markCompleted(array $turns)` | Complete with final transcript and duration |
+| `markFailed()` | Mark as failed |
+
+| Scope | Description |
+|-------|-------------|
+| `forConversation(int $id)` | Filter by conversation |
+| `forSession(string $sessionId)` | Filter by session ID |
+| `active()` | Only active calls |
+| `completed()` | Only completed calls |
+
 ## Model Overrides
 
 Extend the base models with your own:
@@ -423,6 +463,7 @@ Extend the base models with your own:
     'execution_tool_call' => \App\Models\AtlasExecutionToolCall::class,
     'asset'               => \App\Models\AtlasAsset::class,
     'memory'              => \App\Models\AtlasMemory::class,
+    'voice_call'          => \App\Models\AtlasVoiceCall::class,
 ],
 ```
 

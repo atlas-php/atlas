@@ -11,6 +11,7 @@ use Atlasphp\Atlas\Persistence\Models\Conversation;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\ExecutionStep;
 use Atlasphp\Atlas\Persistence\Models\ExecutionToolCall;
+use Atlasphp\Atlas\Persistence\Models\VoiceCall;
 use Atlasphp\Atlas\Tools\Tool;
 use Atlasphp\Atlas\Voice\Http\CloseVoiceSessionController;
 use Atlasphp\Atlas\Voice\Http\VoiceToolController;
@@ -78,7 +79,6 @@ function createVoiceExecution(
 ): array {
     $execution = Execution::factory()->create([
         'type' => ExecutionType::Voice,
-        'voice_session_id' => $sessionId,
         'status' => ExecutionStatus::Processing,
         'started_at' => now()->subMinutes(5),
         'conversation_id' => $conversationId,
@@ -102,10 +102,10 @@ function invokeVoiceToolController(string $sessionId, array $body): JsonResponse
     return $controller($request, $sessionId);
 }
 
-function invokeCloseController(string $sessionId): Response
+function invokeCloseController(string $sessionId, array $body = []): Response|JsonResponse
 {
     $controller = app(CloseVoiceSessionController::class);
-    $request = Request::create("/voice/{$sessionId}/close", 'POST');
+    $request = Request::create("/voice/{$sessionId}/close", 'POST', $body);
 
     return $controller($request, $sessionId);
 }
@@ -195,47 +195,58 @@ it('fires VoiceToolCallRequested event', function () {
     });
 });
 
-// ─── StoreVoiceTranscriptController — execution completion ──────
+// ─── StoreVoiceTranscriptController — VoiceCall storage ─────────
 
-it('marks execution as completed when storing transcript', function () {
-    $conversation = Conversation::factory()->create();
-    [$execution, $step] = createVoiceExecution('sess-complete-1', $conversation->id);
+it('saves transcript to VoiceCall record', function () {
+    [$execution] = createVoiceExecution('sess-vc-1');
 
-    invokeTranscriptControllerForTracking('sess-complete-1', [
-        'conversation_id' => $conversation->id,
-        'turns' => [
-            ['role' => 'user', 'transcript' => 'Hello'],
-            ['role' => 'assistant', 'transcript' => 'Hi there'],
-        ],
+    VoiceCall::create([
+        'voice_session_id' => 'sess-vc-1',
+        'provider' => 'xai',
+        'model' => 'grok-3',
+        'status' => 'active',
+        'transcript' => [],
+        'started_at' => now(),
     ]);
 
-    $execution->refresh();
-    $step->refresh();
-
-    expect($execution->status)->toBe(ExecutionStatus::Completed);
-    expect($execution->completed_at)->not->toBeNull();
-    expect($execution->duration_ms)->toBeGreaterThan(0);
-
-    expect($step->status)->toBe(ExecutionStatus::Completed);
-});
-
-it('does not fail when no execution exists for transcript', function () {
-    $conversation = Conversation::factory()->create();
-
-    $response = invokeTranscriptControllerForTracking('sess-no-exec-2', [
-        'conversation_id' => $conversation->id,
+    $response = invokeTranscriptControllerForTracking('sess-vc-1', [
         'turns' => [
-            ['role' => 'user', 'transcript' => 'Hello'],
+            ['role' => 'user', 'content' => 'Hello'],
+            ['role' => 'assistant', 'content' => 'Hi there'],
         ],
     ]);
 
     expect($response->getStatusCode())->toBe(200);
+
+    $call = VoiceCall::where('voice_session_id', 'sess-vc-1')->first();
+    expect($call->transcript)->toHaveCount(2);
+});
+
+it('returns 404 when voice call not found for transcript', function () {
+    $response = invokeTranscriptControllerForTracking('nonexistent', [
+        'turns' => [
+            ['role' => 'user', 'content' => 'Hello'],
+        ],
+    ]);
+
+    expect($response->getStatusCode())->toBe(404);
 });
 
 // ─── CloseVoiceSessionController ────────────────────────────────
 
-it('marks execution as completed on close', function () {
+it('marks execution and voice call as completed on close', function () {
     [$execution, $step] = createVoiceExecution('sess-close-1');
+
+    $call = VoiceCall::create([
+        'voice_session_id' => 'sess-close-1',
+        'provider' => 'xai',
+        'model' => 'grok-3',
+        'status' => 'active',
+        'transcript' => [['role' => 'user', 'content' => 'Hello']],
+        'started_at' => now()->subMinutes(5),
+    ]);
+
+    $execution->update(['voice_call_id' => $call->id]);
 
     $response = invokeCloseController('sess-close-1');
 
@@ -247,6 +258,10 @@ it('marks execution as completed on close', function () {
     expect($execution->status)->toBe(ExecutionStatus::Completed);
     expect($execution->completed_at)->not->toBeNull();
     expect($step->status)->toBe(ExecutionStatus::Completed);
+
+    $call = VoiceCall::where('voice_session_id', 'sess-close-1')->first();
+    expect($call->status)->toBe('completed');
+    expect($call->completed_at)->not->toBeNull();
 });
 
 it('is idempotent — double close does not error', function () {
@@ -287,9 +302,22 @@ it('handles close when no execution exists', function () {
 
 // ─── Full lifecycle ─────────────────────────────────────────────
 
-it('tracks full voice session lifecycle: session → tools → transcript', function () {
+it('tracks full voice session lifecycle: session → tools → transcript → close', function () {
     $conversation = Conversation::factory()->create();
     [$execution, $step] = createVoiceExecution('sess-lifecycle', $conversation->id);
+
+    // Create VoiceCall record and link execution
+    $call = VoiceCall::create([
+        'voice_session_id' => 'sess-lifecycle',
+        'conversation_id' => $conversation->id,
+        'provider' => 'xai',
+        'model' => 'grok-3',
+        'status' => 'active',
+        'transcript' => [],
+        'started_at' => now(),
+    ]);
+
+    $execution->update(['voice_call_id' => $call->id]);
 
     seedVoiceSession('sess-lifecycle', [
         'echo_test' => VoiceTrackingEchoTool::class,
@@ -301,59 +329,74 @@ it('tracks full voice session lifecycle: session → tools → transcript', func
         'arguments' => json_encode(['message' => 'lookup']),
     ]);
 
-    // Transcript
+    // Checkpoint transcript
     invokeTranscriptControllerForTracking('sess-lifecycle', [
-        'conversation_id' => $conversation->id,
         'turns' => [
-            ['role' => 'user', 'transcript' => 'Check my order'],
-            ['role' => 'assistant', 'transcript' => 'Your order is shipped'],
+            ['role' => 'user', 'content' => 'Check my order'],
+            ['role' => 'assistant', 'content' => 'Your order is shipped'],
         ],
     ]);
 
-    // Verify execution
+    // Close session
+    invokeCloseController('sess-lifecycle');
+
+    // Verify execution completed
     $execution->refresh();
     expect($execution->status)->toBe(ExecutionStatus::Completed);
     expect($execution->type)->toBe(ExecutionType::Voice);
-    expect($execution->voice_session_id)->toBe('sess-lifecycle');
 
-    // Verify tool calls
+    // Verify tool calls tracked
     $toolCalls = ExecutionToolCall::where('execution_id', $execution->id)->get();
     expect($toolCalls)->toHaveCount(1);
     expect($toolCalls[0]->name)->toBe('echo_test');
-    expect($toolCalls[0]->status)->toBe(ExecutionStatus::Completed);
 
-    // Verify queryable
-    $found = Execution::forVoiceSession('sess-lifecycle')->with('toolCalls')->first();
-    expect($found)->not->toBeNull();
-    expect($found->toolCalls)->toHaveCount(1);
+    // Verify VoiceCall has transcript
+    $call = VoiceCall::where('voice_session_id', 'sess-lifecycle')->first();
+    expect($call->status)->toBe('completed');
+    expect($call->transcript)->toHaveCount(2);
+    expect($call->duration_ms)->toBeGreaterThan(0);
 });
 
 // ─── CleanStaleVoiceSessionsCommand ─────────────────────────────
 
-it('cleans stale voice sessions beyond TTL', function () {
-    $stale = Execution::factory()->create([
+it('cleans stale voice calls beyond TTL', function () {
+    $staleExec = Execution::factory()->create([
         'type' => ExecutionType::Voice,
-        'voice_session_id' => 'sess-stale-1',
         'status' => ExecutionStatus::Processing,
         'started_at' => now()->subMinutes(120),
     ]);
 
-    $fresh = Execution::factory()->create([
-        'type' => ExecutionType::Voice,
+    $staleCall = VoiceCall::create([
+        'voice_session_id' => 'sess-stale-1',
+        'provider' => 'xai',
+        'model' => 'grok-3',
+        'status' => 'active',
+        'transcript' => [['role' => 'user', 'content' => 'Hello']],
+        'started_at' => now()->subMinutes(120),
+    ]);
+
+    $staleExec->update(['voice_call_id' => $staleCall->id]);
+
+    VoiceCall::create([
         'voice_session_id' => 'sess-fresh-1',
-        'status' => ExecutionStatus::Processing,
+        'provider' => 'xai',
+        'model' => 'grok-3',
+        'status' => 'active',
+        'transcript' => [],
         'started_at' => now()->subMinutes(5),
     ]);
 
     $this->artisan('atlas:clean-voice-sessions', ['--ttl' => 60])
         ->assertExitCode(0);
 
-    $stale->refresh();
-    $fresh->refresh();
+    $staleCall = VoiceCall::where('voice_session_id', 'sess-stale-1')->first();
+    $freshCall = VoiceCall::where('voice_session_id', 'sess-fresh-1')->first();
 
-    expect($stale->status)->toBe(ExecutionStatus::Completed);
-    expect($stale->metadata)->toHaveKey('stale_cleanup', true);
-    expect($fresh->status)->toBe(ExecutionStatus::Processing);
+    expect($staleCall->status)->toBe('completed');
+    expect($freshCall->status)->toBe('active');
+
+    $staleExec->refresh();
+    expect($staleExec->status)->toBe(ExecutionStatus::Completed);
 });
 
 it('does not clean non-voice executions', function () {

@@ -26,9 +26,9 @@ use Illuminate\Support\Facades\DB;
  * @property int $id
  * @property int|null $conversation_id
  * @property int|null $message_id
+ * @property int|null $voice_call_id
  * @property string|null $agent
  * @property ExecutionType $type
- * @property string|null $voice_session_id
  * @property int|null $asset_id
  * @property string $provider
  * @property string $model
@@ -56,9 +56,9 @@ class Execution extends Model
     protected $fillable = [
         'conversation_id',
         'message_id',
+        'voice_call_id',
         'agent',
         'type',
-        'voice_session_id',
         'asset_id',
         'provider',
         'model',
@@ -106,6 +106,15 @@ class Execution extends Model
         return $this->belongsTo($model, 'message_id');
     }
 
+    /** @return BelongsTo<VoiceCall, $this> */
+    public function voiceCall(): BelongsTo
+    {
+        /** @var class-string<VoiceCall> $model */
+        $model = config('atlas.persistence.models.voice_call', VoiceCall::class);
+
+        return $this->belongsTo($model);
+    }
+
     /** @return HasMany<ExecutionStep, $this> */
     public function steps(): HasMany
     {
@@ -133,10 +142,10 @@ class Execution extends Model
         return $this->belongsTo($model);
     }
 
-    // ─── Voice Session Lifecycle ────────────────────────────────
+    // ─── Voice Execution Lifecycle ──────────────────────────────
 
     /**
-     * Complete a voice execution (and its sentinel step) by session ID.
+     * Complete a voice execution (and its sentinel step) by execution ID.
      *
      * Uses atomic updates guarded by status=Processing to prevent race
      * conditions when transcript and close requests arrive concurrently.
@@ -144,13 +153,13 @@ class Execution extends Model
      *
      * @param  array<string, mixed>|null  $extraMeta
      */
-    public static function completeVoiceSession(string $sessionId, ?array $extraMeta = null): ?static
+    public static function completeVoiceExecution(int $executionId, ?array $extraMeta = null): ?static
     {
         /** @var class-string<static> $model */
         $model = config('atlas.persistence.models.execution', static::class);
 
         /** @var static|null $execution */
-        $execution = $model::where('voice_session_id', $sessionId)
+        $execution = $model::where('id', $executionId)
             ->where('status', ExecutionStatus::Processing)
             ->first();
 
@@ -292,12 +301,6 @@ class Execution extends Model
     public function scopeFailed(Builder $query): void
     {
         $query->where('status', ExecutionStatus::Failed);
-    }
-
-    /** @param Builder<static> $query */
-    public function scopeForVoiceSession(Builder $query, string $sessionId): void
-    {
-        $query->where('voice_session_id', $sessionId);
     }
 
     /** @param Builder<static> $query */

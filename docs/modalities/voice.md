@@ -80,31 +80,49 @@ Add defaults to `config/atlas.php`:
 | `withProviderOptions(array)` | Provider-specific options |
 | `createSession()` | Execute and return `VoiceSession` |
 
-## Agent Voice Config
+## Voice Agents
 
-Agents can define voice-specific config:
+Create dedicated agents for voice mode with their own provider, model, and instructions:
 
 ```php
-class SupportAgent extends Agent
+class VoiceSupportAgent extends Agent
 {
-    public function voiceProvider(): ?string
+    public function name(): string
     {
-        return 'xai'; // Different provider for voice
+        return 'Sarah';
     }
 
-    public function voiceModel(): ?string
+    public function provider(): ?string
+    {
+        return 'xai';
+    }
+
+    public function model(): ?string
     {
         return 'grok-3-fast-realtime';
     }
 
     public function voice(): ?string
     {
-        return 'eve';
+        return 'eve'; // xAI voice ID
+    }
+
+    public function instructions(): ?string
+    {
+        return 'You are {NAME}, a friendly voice support agent. Keep responses concise and conversational.';
     }
 }
 ```
 
-When `asVoice()` is called, these override the agent's text provider/model.
+The `voice()` method sets which voice ID the agent uses. When `asVoice()` is called, it applies the voice to the session. If not set, the provider's default voice is used. Use `{NAME}` in instructions to reference the agent's display name.
+
+You can also set the voice at call time with `withVoice()` on the standalone builder:
+
+```php
+Atlas::voice('openai', 'gpt-4o-realtime-preview')
+    ->withVoice('nova')
+    ->createSession();
+```
 
 ## Transport Modes
 
@@ -129,66 +147,66 @@ When using `agent()->asVoice()`, the agent's tools are registered in the session
 
 No custom client-side tool code required — the voice composable handles the relay.
 
-## Execution Tracking
+## Voice Calls
 
-When persistence is enabled, voice sessions are tracked with the same execution model as text:
-
-- **Execution record** — type `Voice`, linked to the conversation via `voice_session_id`
-- **Tool call records** — each tool invocation creates an `ExecutionToolCall` with arguments, result, timing
-- **Session lifecycle** — Processing → Completed (via transcript, close, or TTL sweep)
-
-Query voice session history:
+Voice transcripts are stored in a dedicated `atlas_voice_calls` table — not as individual messages. Each voice session creates one `VoiceCall` record with the complete transcript as a JSON array.
 
 ```php
-use Atlasphp\Atlas\Persistence\Models\Execution;
+use Atlasphp\Atlas\Persistence\Models\VoiceCall;
 
-$execution = Execution::forVoiceSession($sessionId)
-    ->with('toolCalls')
-    ->first();
+$call = VoiceCall::forSession($sessionId)->first();
+$call->transcript;    // [{role: 'user', content: '...'}, {role: 'assistant', content: '...'}]
+$call->summary;       // Consumer-generated summary (nullable)
+$call->duration_ms;   // Wall-clock duration
+$call->execution;     // Linked Execution for tool call tracking
 ```
+
+### Transcript Checkpointing
+
+The browser POSTs completed turns to `/atlas/voice/{sessionId}/transcript` on each `response.done`. The server replaces the VoiceCall transcript atomically — no duplicates, no progressive messages.
 
 ### Session Completion
 
-Voice executions are completed by any of these signals:
-1. **Transcript POST** — the browser stores turns → execution marked completed
-2. **Close endpoint** — `POST /atlas/voice/{sessionId}/close` (browser calls on disconnect)
-3. **Stale cleanup** — `atlas:clean-voice-sessions` sweeps abandoned sessions
+Voice calls are completed when the close endpoint fires:
 
-The close endpoint URL is included in `toClientPayload()` as `close_endpoint`. Call it from your frontend's WebSocket `onclose` handler.
+1. **Close endpoint** — `POST /atlas/voice/{sessionId}/close` (browser calls on disconnect)
+2. **Stale cleanup** — `atlas:clean-voice-sessions` sweeps abandoned sessions
 
-### Stale Session Cleanup
+The close endpoint fires `VoiceCallCompleted` with the full transcript. Consumers listen for this to generate summaries, create messages, or embed into memory.
+
+### Stale Call Cleanup
 
 Schedule the cleanup command for abandoned sessions:
 
 ```php
-// app/Console/Kernel.php
 $schedule->command('atlas:clean-voice-sessions')->hourly();
 ```
 
-Default TTL: 60 minutes. Configure via `atlas.persistence.voice_session_ttl`.
+Default TTL: 60 minutes. Configure via `ATLAS_VOICE_SESSION_TTL` env var or `atlas.persistence.voice_session_ttl`.
 
-## Transcript Persistence
+### Consumer Events
 
-When persistence is enabled, voice transcripts are stored as conversation messages:
+Listen for `VoiceCallCompleted` to post-process transcripts:
 
 ```php
-'persistence' => [
-    'voice_transcripts' => [
-        'enabled' => true,
-        'middleware' => ['auth:sanctum'],
-        'route_prefix' => 'atlas',
-    ],
-],
-```
+use Atlasphp\Atlas\Events\VoiceCallCompleted;
 
-The browser POSTs completed turns to `/atlas/voice/{sessionId}/transcript` on each turn boundary. Messages are tagged with `metadata.source = 'voice'`.
+Event::listen(VoiceCallCompleted::class, function ($event) {
+    // Generate a summary, create messages, embed to memory, etc.
+    $event->voiceCallId;    // VoiceCall ID
+    $event->transcript;     // Complete transcript array
+    $event->conversationId; // Linked conversation (nullable)
+    $event->durationMs;     // Wall-clock duration
+});
+```
 
 ## Events
 
 | Event | Description |
 |-------|-------------|
-| `VoiceSessionCreated` | Session successfully created |
-| `VoiceSessionClosed` | Session ended (fired by close endpoint) |
+| `VoiceCallStarted` | Voice call created and ready for connection |
+| `VoiceCallCompleted` | Voice call completed with full transcript |
+| `VoiceSessionClosed` | WebSocket connection closed |
 | `VoiceAudioDelta` | Audio chunk (broadcastable) |
 | `VoiceTranscriptDelta` | Transcript chunk (broadcastable) |
 | `VoiceToolCallRequested` | Tool call received (fired by tool controller) |

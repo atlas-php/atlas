@@ -30,13 +30,13 @@ return new class extends Migration
                 ->nullable()
                 ->constrained($this->tableName('messages'))
                 ->nullOnDelete();
+            $table->unsignedBigInteger('voice_call_id')->nullable();
             $table->foreignId('asset_id')
                 ->nullable()
                 ->constrained($this->tableName('assets'))
                 ->nullOnDelete();
             $table->string('agent', 255)->nullable();
             $table->string('type', 30)->default('text');
-            $table->string('voice_session_id', 100)->nullable();
             $table->string('provider', 50);
             $table->string('model', 100);
             $table->unsignedTinyInteger('status')->default(0);
@@ -51,9 +51,9 @@ return new class extends Migration
 
             $table->index('conversation_id');
             $table->index('message_id');
+            $table->index('voice_call_id');
             $table->index('agent');
             $table->index('type');
-            $table->index('voice_session_id');
             $table->index('provider');
             $table->index('status');
             $table->index('created_at');

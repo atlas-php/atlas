@@ -246,55 +246,7 @@ it('allows overriding providerOptions', function () {
     expect((new CustomizedAgent)->providerOptions())->toBe(['top_p' => 0.9]);
 });
 
-// ─── Voice Config ───────────────────────────────────────────────────────────
-
-it('defaults voiceProvider to null', function () {
-    expect((new SupportAgent)->voiceProvider())->toBeNull();
-});
-
-it('defaults voiceModel to null', function () {
-    expect((new SupportAgent)->voiceModel())->toBeNull();
-});
-
-it('defaults voice to null', function () {
-    expect((new SupportAgent)->voice())->toBeNull();
-});
-
-it('allows overriding voiceProvider', function () {
-    $agent = new class extends Agent
-    {
-        public function voiceProvider(): string
-        {
-            return 'xai';
-        }
-    };
-
-    expect($agent->voiceProvider())->toBe('xai');
-});
-
-it('allows overriding voiceModel', function () {
-    $agent = new class extends Agent
-    {
-        public function voiceModel(): string
-        {
-            return 'grok-3-fast-realtime';
-        }
-    };
-
-    expect($agent->voiceModel())->toBe('grok-3-fast-realtime');
-});
-
-it('allows overriding voice', function () {
-    $agent = new class extends Agent
-    {
-        public function voice(): string
-        {
-            return 'eve';
-        }
-    };
-
-    expect($agent->voice())->toBe('eve');
-});
+// ─── appendInstructionsForVoice() ──────────────────────────────────────────
 
 // ─── appendInstructionsForVoice() ──────────────────────────────────────────
 

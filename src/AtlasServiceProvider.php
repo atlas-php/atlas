@@ -163,14 +163,6 @@ class AtlasServiceProvider extends ServiceProvider
      */
     protected function registerVoiceRoutes(): void
     {
-        if (! config('atlas.persistence.enabled')) {
-            return;
-        }
-
-        if (! config('atlas.persistence.voice_transcripts.enabled', true)) {
-            return;
-        }
-
         $this->app->booted(function (): void {
             $prefix = config('atlas.persistence.voice_transcripts.route_prefix', 'atlas');
             $middleware = config('atlas.persistence.voice_transcripts.middleware', []);
@@ -179,12 +171,12 @@ class AtlasServiceProvider extends ServiceProvider
                 ->middleware($middleware)
                 ->group(function (): void {
                     Route::post(
-                        '/voice/{sessionId}/transcript',
-                        Persistence\Http\StoreVoiceTranscriptController::class,
-                    );
-                    Route::post(
                         '/voice/{sessionId}/tool',
                         Voice\Http\VoiceToolController::class,
+                    );
+                    Route::post(
+                        '/voice/{sessionId}/transcript',
+                        Persistence\Http\StoreVoiceTranscriptController::class,
                     );
                     Route::post(
                         '/voice/{sessionId}/close',

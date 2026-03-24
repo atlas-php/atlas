@@ -174,6 +174,44 @@ ws.onmessage = (event) => {
 };
 ```
 
+## Handling Interruptions
+
+When the user speaks while the AI is speaking, the AI should stop (barge-in). Without interruption handling, both voices overlap.
+
+**getUserMedia setup** — enable browser echo cancellation:
+
+```javascript
+const stream = await navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+});
+```
+
+**OpenAI / xAI** — listen for `input_audio_buffer.speech_started` and send `response.cancel`:
+
+```javascript
+case 'input_audio_buffer.speech_started':
+    if (isSpeaking) {
+        // Stop audio playback
+        audioQueue = [];
+        isSpeaking = false;
+
+        // Tell provider to stop generating
+        ws.send(JSON.stringify({ type: 'response.cancel' }));
+    }
+    break;
+```
+
+**ElevenLabs** — listen for `interruption` and stop playback:
+
+```javascript
+case 'interruption':
+    audioQueue = [];
+    isSpeaking = false;
+    break;
+```
+
+**Keep mic audio flowing** — do NOT mute the mic during AI speech. The server needs continuous audio to detect interruptions via VAD. Browser echo cancellation handles the feedback loop.
+
 ## Step 4: Handle Tool Calls
 
 When the AI calls a tool, the browser receives a provider-specific event. POST the tool name and arguments to the tool endpoint:
@@ -201,57 +239,46 @@ async function handleToolCall(toolCall, ws) {
 
 The server resolves the Tool class from the agent's registered tools and calls `handle()`. No custom server code needed.
 
-## Step 5: Persist Transcripts
+## Step 5: Checkpoint Transcripts
 
-When persistence is enabled, POST completed turns to the transcript endpoint:
+The browser POSTs completed turns to the transcript endpoint as a checkpoint on each `response.done`. The server saves them to the `VoiceCall` record atomically — no messages are created.
 
 ```javascript
+// After each response.done, send the accumulated turns
 await fetch(session.transcript_endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-        conversation_id: conversationId,
         turns: [
-            { role: 'user', transcript: userText },
-            { role: 'assistant', transcript: assistantText },
+            { role: 'user', content: userText },
+            { role: 'assistant', content: assistantText },
         ],
     }),
 });
 ```
 
-Messages are stored with `metadata.source = 'voice'` and appear in the conversation thread.
+Each checkpoint replaces the entire transcript on the VoiceCall record. If the page reloads, only the in-progress turn is lost.
 
 ## Step 6: Close Session
 
-When the WebSocket disconnects, POST to the close endpoint to mark the execution as completed:
+When the WebSocket disconnects, POST to the close endpoint with the final transcript:
 
 ```javascript
 ws.onclose = () => {
     if (session.close_endpoint) {
-        navigator.sendBeacon(session.close_endpoint);
+        const body = JSON.stringify({ turns: completedTurns });
+        navigator.sendBeacon(session.close_endpoint, new Blob([body], { type: 'application/json' }));
     }
 };
 ```
 
-Using `sendBeacon` ensures the request fires even on page unload. The endpoint is idempotent — calling it multiple times is safe.
+Using `sendBeacon` ensures the request fires even on page unload. The endpoint is idempotent.
+
+The close endpoint fires `VoiceCallCompleted` with the full transcript. Consumers listen for this event to generate summaries, create conversation messages, or embed into memory.
 
 ## Audio Format
 
 OpenAI and xAI use PCM16 at 24kHz. ElevenLabs uses PCM16 at 16kHz by default (configurable). The browser captures mic audio, encodes as base64 PCM16, and sends over the WebSocket. Response audio is decoded for Web Audio API playback.
-
-## Echo Prevention
-
-Mute the mic track while the AI is speaking to prevent the speaker audio from being captured and sent back, which would create a feedback loop:
-
-```javascript
-// On first audio chunk from AI
-localStream.getAudioTracks().forEach(t => { t.enabled = false; });
-
-// After response.done (with delay)
-setTimeout(() => {
-    localStream.getAudioTracks().forEach(t => { t.enabled = true; });
-}, 500);
-```
 
 ## Tool Endpoint Reference
 
@@ -272,9 +299,17 @@ setTimeout(() => {
 
 **Route:** `POST /atlas/voice/{sessionId}/close`
 
-No body required. Returns `204 No Content`.
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `turns` | array | No | Final transcript turns (existing transcript used if not provided) |
 
-Marks the voice execution as completed, cleans up cached session data, and fires `VoiceSessionClosed` event. Idempotent.
+**Response:** `204 No Content`
+
+Fires events in order:
+1. `VoiceCallCompleted` — with full transcript and duration (for post-processing)
+2. `VoiceSessionClosed` — with provider and session ID (for cleanup)
+
+Idempotent. Cleans up cached session data and marks the linked execution as completed.
 
 ## Transcript Endpoint Reference
 
@@ -282,17 +317,13 @@ Marks the voice execution as completed, cleans up cached session data, and fires
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `conversation_id` | integer | Yes | Target conversation |
 | `turns` | array | Yes | Turn objects |
 | `turns.*.role` | string | Yes | `user` or `assistant` |
-| `turns.*.transcript` | string | Yes | Transcript text |
-| `agent` | string | No | Agent key |
-| `author_type` | string | No | Morph class or alias |
-| `author_id` | integer | No | Author model ID |
+| `turns.*.content` | string | Yes | Transcript text |
 
 **Response:**
 ```json
-{ "stored": [1, 2, 3] }
+{ "saved": true }
 ```
 
-The array contains the message IDs of the stored turns.
+Atomically replaces the VoiceCall transcript. No messages are created.

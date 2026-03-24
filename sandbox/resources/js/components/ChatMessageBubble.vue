@@ -132,8 +132,7 @@ function formatTime(dateStr: string): string {
                     <AudioLines class="size-2.5" />
                     Voice
                 </span>
-                <template v-if="isLastUser">
-                    <span v-if="isRealtime">·</span>
+                <template v-if="isLastUser && !isRealtime">
                     <span v-if="message.read_at">Read · {{ formatTime(message.read_at) }}</span>
                     <span v-else>Delivered</span>
                 </template>

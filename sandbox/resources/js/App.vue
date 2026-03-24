@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import ThreadSidebar from './components/ThreadSidebar.vue';
 import ChatThread from './components/ChatThread.vue';
 import ChatInput from './components/ChatInput.vue';
@@ -17,6 +17,49 @@ const voice = useVoice();
 const chatThreadRef = ref<InstanceType<typeof ChatThread> | null>(null);
 const chatInputRef = ref<InstanceType<typeof ChatInput> | null>(null);
 
+// Combine stored messages with live voice transcript bubbles
+const displayMessages = computed(() => {
+    const msgs = [...chat.messages.value];
+
+    if (voice.sessionStatus.value !== 'active') return msgs;
+
+    const nextSeq = msgs.length + 1;
+
+    if (voice.liveUserTranscript.value) {
+        msgs.push({
+            id: -1,
+            role: 'user',
+            status: 'delivered',
+            content: voice.liveUserTranscript.value,
+            author: { type: 'user', id: 1, key: null, name: 'You' },
+            parent_id: null,
+            sequence: nextSeq,
+            created_at: new Date().toISOString(),
+            read_at: null,
+            metadata: { source: 'voice' },
+            _optimistic: true,
+        });
+    }
+
+    if (voice.liveAssistantTranscript.value) {
+        msgs.push({
+            id: -2,
+            role: 'assistant',
+            status: 'delivered',
+            content: voice.liveAssistantTranscript.value,
+            author: { type: 'agent', id: null, key: 'assistant', name: 'Assistant' },
+            parent_id: null,
+            sequence: nextSeq + 1,
+            created_at: new Date().toISOString(),
+            read_at: null,
+            metadata: { source: 'voice' },
+            _optimistic: true,
+        });
+    }
+
+    return msgs;
+});
+
 // Register scroll callback so composable can trigger scroll-to-bottom
 chat.onScrollToBottom(() => {
     chatThreadRef.value?.scrollToBottom('instant');
@@ -25,6 +68,13 @@ chat.onScrollToBottom(() => {
 // Focus input when assistant response completes
 chat.onResponseComplete(() => {
     chatInputRef.value?.focus();
+});
+
+// Reload messages when voice transcripts are stored
+voice.onTranscriptFlushed(() => {
+    if (chat.activeConversationId.value) {
+        chat.loadConversation(chat.activeConversationId.value);
+    }
 });
 
 // ─── URL-based thread routing ────────────────────────
@@ -96,10 +146,6 @@ async function handleDeleteConversation(id: number) {
 async function handleVoiceToggle() {
     if (voice.sessionStatus.value === 'active') {
         await voice.stopSession();
-        // Refresh chat to show persisted voice transcripts
-        if (chat.activeConversationId.value) {
-            setTimeout(() => chat.loadConversation(chat.activeConversationId.value!), 500);
-        }
     } else {
         voice.startSession({
             conversation_id: chat.activeConversationId.value,
@@ -133,7 +179,7 @@ function handleCycleSibling(messageId: number, index: number) {
             <!-- Messages -->
             <ChatThread
                 ref="chatThreadRef"
-                :messages="chat.messages.value"
+                :messages="displayMessages"
                 :is-loading="chat.isLoading.value"
                 :has-more="chat.hasMore.value"
                 :is-empty="chat.isEmpty.value"
@@ -156,7 +202,7 @@ function handleCycleSibling(messageId: number, index: number) {
             </div>
 
             <!-- Voice active: wave visualizer replaces input -->
-            <div v-if="voice.sessionStatus.value === 'active' || voice.sessionStatus.value === 'connecting'" class="shrink-0 px-3 pb-4 pt-2 md:px-4">
+            <div v-if="['active', 'connecting', 'closing'].includes(voice.sessionStatus.value)" class="shrink-0 px-3 pb-4 pt-2 md:px-4">
                 <div class="mx-auto max-w-3xl">
                     <VoiceWaveVisualizer
                         :status="voice.sessionStatus.value"

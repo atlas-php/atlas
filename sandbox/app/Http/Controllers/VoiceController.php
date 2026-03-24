@@ -26,7 +26,7 @@ class VoiceController
 
         $user = User::findOrFail(1);
 
-        $builder = Atlas::agent('assistant')
+        $builder = Atlas::agent('sarah-voice')
             ->for($user)
             ->asUser($user);
 

@@ -89,6 +89,35 @@ Atlas::agent('support')
     ->asText();
 ```
 
+### Agent Identity Variables
+
+When using `Atlas::agent()`, the agent's identity is automatically available as variables:
+
+| Variable | Source | Example |
+|----------|--------|---------|
+| `{NAME}` | `$agent->name()` | `Sarah`, `Support` |
+| `{AGENT_KEY}` | `$agent->key()` | `sarah-voice`, `support` |
+
+Use `{NAME}` in instructions to reference the agent's display name:
+
+```php
+class SupportAgent extends Agent
+{
+    public function name(): string
+    {
+        return 'Sarah';
+    }
+
+    public function instructions(): ?string
+    {
+        return 'You are {NAME}, a helpful support agent.';
+        // Resolves to: "You are Sarah, a helpful support agent."
+    }
+}
+```
+
+The `name()` method is optional — it defaults to the class name in spaced form (e.g., `SupportAgent` → `"Support"`). Override it when you want a specific display name.
+
 ## All Modalities
 
 Variable interpolation is available on all Atlas modalities, not just agents. Any builder that uses the `HasVariables` trait supports `withVariables()` and `withMessageInterpolation()`:

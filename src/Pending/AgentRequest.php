@@ -13,6 +13,7 @@ use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Events\ModalityCompleted;
 use Atlasphp\Atlas\Events\ModalityStarted;
+use Atlasphp\Atlas\Events\VoiceCallStarted;
 use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Executor\AgentExecutor;
 use Atlasphp\Atlas\Executor\ExecutorResult;
@@ -30,6 +31,7 @@ use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\ExecutionStep;
+use Atlasphp\Atlas\Persistence\Models\VoiceCall;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\Tools\ProviderTool;
@@ -466,9 +468,14 @@ class AgentRequest implements QueueableRequest
         $agent = $this->resolveAgent();
         $tools = $this->resolveTools($agent);
 
-        // Resolve voice-specific provider/model
+        // Inject agent identity variables
+        $this->variables = array_merge([
+            'NAME' => $agent->name(),
+            'AGENT_KEY' => $agent->key(),
+        ], $this->variables);
+
+        // Resolve provider/model — voice agents should define their own provider() and model()
         $provider = $this->providerOverride
-            ?? $agent->voiceProvider()
             ?? $agent->provider()
             ?? config('atlas.defaults.voice.provider');
 
@@ -477,7 +484,7 @@ class AgentRequest implements QueueableRequest
         }
 
         $model = $this->modelOverride
-            ?? $agent->voiceModel()
+            ?? $agent->model()
             ?? config('atlas.defaults.voice.model');
 
         $builder = Atlas::voice($provider, $model);
@@ -550,7 +557,6 @@ class AgentRequest implements QueueableRequest
                     'conversation_id' => $this->conversationId,
                     'agent' => $agent->key(),
                     'type' => ExecutionType::Voice,
-                    'voice_session_id' => $session->sessionId,
                     'provider' => $providerKey,
                     'model' => $model ?? '',
                     'status' => ExecutionStatus::Processing,
@@ -572,6 +578,32 @@ class AgentRequest implements QueueableRequest
                 ]);
 
                 $stepId = $step->id;
+
+                // Create VoiceCall record for transcript storage
+                /** @var class-string<VoiceCall> $voiceCallModel */
+                $voiceCallModel = config('atlas.persistence.models.voice_call', VoiceCall::class);
+
+                $voiceCall = $voiceCallModel::create([
+                    'conversation_id' => $this->conversationId,
+                    'voice_session_id' => $session->sessionId,
+                    'agent' => $agent->key(),
+                    'provider' => $providerKey,
+                    'model' => $model ?? '',
+                    'status' => 'active',
+                    'transcript' => [],
+                    'started_at' => now(),
+                ]);
+
+                // Link execution to voice call (Execution owns the relationship)
+                $execution->update(['voice_call_id' => $voiceCall->id]);
+
+                event(new VoiceCallStarted(
+                    voiceCallId: $voiceCall->id,
+                    conversationId: $this->conversationId,
+                    sessionId: $session->sessionId,
+                    provider: $providerKey,
+                    agent: $agent->key(),
+                ));
             } catch (\Throwable $e) {
                 // Don't let persistence failures destroy a live voice session
                 report($e);
@@ -588,17 +620,11 @@ class AgentRequest implements QueueableRequest
             ], (int) config('atlas.persistence.voice_session_ttl', 60) * 60);
         }
 
-        // Build endpoint URLs (only when persistence is enabled — routes are registered there)
-        $toolEndpoint = null;
-        $transcriptEndpoint = null;
-        $closeEndpoint = null;
-
-        if (config('atlas.persistence.enabled') && config('atlas.persistence.voice_transcripts.enabled', true)) {
-            $prefix = config('atlas.persistence.voice_transcripts.route_prefix', 'atlas');
-            $toolEndpoint = $toolMap !== [] ? url("/{$prefix}/voice/{$session->sessionId}/tool") : null;
-            $transcriptEndpoint = url("/{$prefix}/voice/{$session->sessionId}/transcript");
-            $closeEndpoint = url("/{$prefix}/voice/{$session->sessionId}/close");
-        }
+        // Build endpoint URLs — always available (controllers gracefully skip when persistence is off)
+        $prefix = config('atlas.persistence.voice_transcripts.route_prefix', 'atlas');
+        $toolEndpoint = $toolMap !== [] ? url("/{$prefix}/voice/{$session->sessionId}/tool") : null;
+        $transcriptEndpoint = url("/{$prefix}/voice/{$session->sessionId}/transcript");
+        $closeEndpoint = url("/{$prefix}/voice/{$session->sessionId}/close");
 
         return $session->withEndpoints($toolEndpoint, $transcriptEndpoint, $closeEndpoint);
     }
@@ -713,6 +739,12 @@ class AgentRequest implements QueueableRequest
      */
     protected function buildRequest(Agent $agent, array $tools): TextRequest
     {
+        // Inject agent identity variables
+        $this->variables = array_merge([
+            'NAME' => $agent->name(),
+            'AGENT_KEY' => $agent->key(),
+        ], $this->variables);
+
         // Resolve instructions with variable interpolation
         $rawInstructions = $this->instructionsOverride ?? $agent->instructions();
         $instructions = $this->interpolate($rawInstructions);

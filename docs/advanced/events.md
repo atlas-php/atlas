@@ -354,8 +354,55 @@ All 23 events at a glance:
 | 21 | `ExecutionCompleted` | Execution | Yes |
 | 22 | `ExecutionFailed` | Execution | Yes |
 | 23 | `ConversationMessageStored` | Persistence | No |
+| 24 | `VoiceCallStarted` | Voice | No |
+| 25 | `VoiceCallCompleted` | Voice | No |
+| 26 | `VoiceSessionClosed` | Voice | No |
+| 27 | `VoiceToolCallRequested` | Voice | No |
+| 28 | `VoiceAudioDelta` | Voice | Yes |
+| 29 | `VoiceTranscriptDelta` | Voice | Yes |
 
 </div>
+
+## Voice Events
+
+Events fired during voice call lifecycle.
+
+### VoiceCallStarted
+
+Fired when a voice call record is created and the session is ready for connection.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `voiceCallId` | `int` | VoiceCall record ID |
+| `conversationId` | `?int` | Linked conversation (nullable) |
+| `sessionId` | `string` | Provider session ID |
+| `provider` | `string` | Provider name |
+| `agent` | `?string` | Agent key |
+
+### VoiceCallCompleted
+
+Fired when a voice call completes with the full transcript. This is the primary event for consumers to post-process voice calls — generate summaries, create conversation messages, embed into memory.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `voiceCallId` | `int` | VoiceCall record ID |
+| `conversationId` | `?int` | Linked conversation |
+| `sessionId` | `string` | Provider session ID |
+| `transcript` | `array` | Complete transcript `[{role, content}]` |
+| `durationMs` | `?int` | Wall-clock duration |
+
+```php
+use Atlasphp\Atlas\Events\VoiceCallCompleted;
+
+Event::listen(VoiceCallCompleted::class, function ($event) {
+    // Generate a summary using a cheap model
+    $summary = Atlas::text('xai', 'grok-3-mini-fast')
+        ->message("Summarize:\n" . json_encode($event->transcript))
+        ->asText();
+
+    VoiceCall::find($event->voiceCallId)->update(['summary' => $summary->text]);
+});
+```
 
 ## Next Steps
 
