@@ -246,3 +246,71 @@ it('switches to respond mode after eager store', function () {
     $respondProp = new ReflectionProperty($request, 'respondMode');
     expect($respondProp->getValue($request))->toBeTrue();
 });
+
+// ─── Owner on user messages ───────────────────────────────────────────────
+
+it('sets owner_type and owner_id on user message from for()', function () {
+    registerPersistAgent(PersistTestConversationAgent::class);
+    setupPersistFake();
+
+    $conversation = Conversation::factory()->create();
+    $owner = Conversation::factory()->create(); // Using Conversation as a morph stand-in
+
+    $request = makePersistRequest('persist-conv')
+        ->for($owner)
+        ->message('Hello from owner')
+        ->forConversation($conversation->id);
+
+    $method = new ReflectionMethod($request, 'storeUserMessageEagerly');
+    $method->invoke($request);
+
+    $message = ConversationMessage::where('conversation_id', $conversation->id)->first();
+
+    expect($message->owner_type)->toBe($owner->getMorphClass())
+        ->and($message->owner_id)->toBe($owner->getKey());
+});
+
+it('sets different owner on message when using for($owner, as: $user)', function () {
+    registerPersistAgent(PersistTestConversationAgent::class);
+    setupPersistFake();
+
+    $conversation = Conversation::factory()->create();
+    $conversationOwner = Conversation::factory()->create();
+    $messageAuthor = Conversation::factory()->create();
+
+    $request = makePersistRequest('persist-conv')
+        ->for($conversationOwner, as: $messageAuthor)
+        ->message('Hello from different user')
+        ->forConversation($conversation->id);
+
+    $method = new ReflectionMethod($request, 'storeUserMessageEagerly');
+    $method->invoke($request);
+
+    $message = ConversationMessage::where('conversation_id', $conversation->id)->first();
+
+    // Message owner should be the 'as' user, not the conversation owner
+    expect($message->owner_type)->toBe($messageAuthor->getMorphClass())
+        ->and($message->owner_id)->toBe($messageAuthor->getKey());
+});
+
+it('defaults message owner to conversation owner when as is not provided', function () {
+    registerPersistAgent(PersistTestConversationAgent::class);
+    setupPersistFake();
+
+    $conversation = Conversation::factory()->create();
+    $owner = Conversation::factory()->create();
+
+    $request = makePersistRequest('persist-conv')
+        ->for($owner)
+        ->message('Hello')
+        ->forConversation($conversation->id);
+
+    $method = new ReflectionMethod($request, 'storeUserMessageEagerly');
+    $method->invoke($request);
+
+    $message = ConversationMessage::where('conversation_id', $conversation->id)->first();
+
+    // Without 'as:', message owner defaults to conversation owner
+    expect($message->owner_type)->toBe($owner->getMorphClass())
+        ->and($message->owner_id)->toBe($owner->getKey());
+});

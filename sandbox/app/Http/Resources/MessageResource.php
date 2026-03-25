@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Resources;
 
 use Atlasphp\Atlas\Persistence\Models\ConversationMessage;
-use Atlasphp\Atlas\Persistence\Models\Execution;
 
 /**
  * Formats a message with its full execution trace for the API.
@@ -64,7 +63,7 @@ class MessageResource
      */
     protected static function buildExecution(ConversationMessage $msg): ?array
     {
-        $execution = Execution::where('message_id', $msg->id)->first();
+        $execution = $msg->execution;
 
         if ($execution === null) {
             return null;

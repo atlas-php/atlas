@@ -274,10 +274,7 @@ class AgentRequest implements QueueableRequestContract
     public function for(Model $owner, ?Model $as = null): static
     {
         $this->conversationOwner = $owner;
-
-        if ($as !== null) {
-            $this->messageOwner = $as;
-        }
+        $this->messageOwner = $as ?? $owner;
 
         return $this;
     }
