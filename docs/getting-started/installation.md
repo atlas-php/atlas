@@ -5,7 +5,7 @@ Install and configure Atlas in your Laravel application.
 ## Requirements
 
 - PHP 8.2+
-- Laravel 11+
+- Laravel 11, 12, or 13
 - Composer
 
 ## Install via Composer

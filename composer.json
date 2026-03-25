@@ -5,18 +5,18 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
-        "illuminate/contracts": "^11.0|^12.0",
-        "illuminate/events": "^11.0|^12.0",
-        "illuminate/http": "^11.0|^12.0",
-        "illuminate/pipeline": "^11.0|^12.0",
-        "illuminate/support": "^11.0|^12.0",
+        "illuminate/contracts": "^11.0|^12.0|^13.0",
+        "illuminate/events": "^11.0|^12.0|^13.0",
+        "illuminate/http": "^11.0|^12.0|^13.0",
+        "illuminate/pipeline": "^11.0|^12.0|^13.0",
+        "illuminate/support": "^11.0|^12.0|^13.0",
         "spatie/fork": "^1.2",
         "textalk/websocket": "^1.6"
     },
     "require-dev": {
         "laravel/pint": "^1.18",
         "larastan/larastan": "^3.0",
-        "orchestra/testbench": "^9.0|^10.0",
+        "orchestra/testbench": "^9.0|^10.0|^11.0",
         "pestphp/pest": "^3.0"
     },
     "config": {
