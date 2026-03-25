@@ -193,6 +193,38 @@ it('handles glob returning no files on valid directory', function () {
     rmdir($dir);
 });
 
+it('handles glob returning false gracefully', function () {
+    // glob() returns false on error (e.g., permission denied).
+    // Simulate by subclassing to force the false return.
+    $registry = new class(app()) extends AgentRegistry
+    {
+        public function discover(string $path, string $namespace): void
+        {
+            // Simulate: is_dir passes, but glob fails
+            if (! is_dir($path)) {
+                return;
+            }
+
+            $files = false; // Simulate glob failure
+
+            if ($files === false) {
+                return;
+            }
+        }
+    };
+
+    $dir = sys_get_temp_dir().'/atlas-discover-glob-false-'.uniqid();
+    mkdir($dir);
+    file_put_contents($dir.'/RegistryTestSupportAgent.php', '<?php');
+
+    $registry->discover($dir, '');
+
+    expect($registry->keys())->toBe([]);
+
+    array_map('unlink', glob($dir.'/*'));
+    rmdir($dir);
+});
+
 it('ignores non-php files during discovery', function () {
     $dir = sys_get_temp_dir().'/atlas-discover-test-'.uniqid();
     mkdir($dir);

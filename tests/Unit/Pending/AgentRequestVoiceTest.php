@@ -218,3 +218,18 @@ it('returns VoiceSession with endpoints', function () {
     expect($session->transcriptEndpoint)->not->toBeNull();
     expect($session->closeEndpoint)->not->toBeNull();
 });
+
+// ─── No conversation context ─────────────────────────────────────────────
+
+it('does not append history when no conversation is set', function () {
+    registerVoiceTestAgent(VoiceTestConfiguredAgent::class);
+    $fake = createVoiceFake();
+
+    makeVoiceAgentRequest('voice-configured')->asVoice();
+
+    $recorded = $fake->recorded();
+    $instructions = $recorded[0]->request->instructions;
+
+    // Should only have the base instructions, no history block
+    expect($instructions)->toBe('You are a helpful voice assistant for {COMPANY_NAME}.');
+});

@@ -8,6 +8,10 @@ use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Events\ModalityCompleted;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Messages\AssistantMessage;
+use Atlasphp\Atlas\Messages\SystemMessage;
+use Atlasphp\Atlas\Messages\ToolCall;
+use Atlasphp\Atlas\Messages\ToolResultMessage;
 use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Pending\TextRequest;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
@@ -551,6 +555,156 @@ it('interpolateMessageArray interpolates variables in message history', function
     $pending = new TextRequest('openai', 'gpt-4o', $registry, app(), app(Dispatcher::class));
     $pending->withMessages([
         new UserMessage('Hello from {APP_NAME}'),
+    ]);
+    $pending->withVariables(['APP_NAME' => 'My App']);
+    $pending->withMessageInterpolation();
+    $pending->asText();
+});
+
+it('interpolateMessageArray interpolates AssistantMessage content', function () {
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
+    $driver->shouldReceive('text')->once()->withArgs(function (TextRequestObject $req) {
+        foreach ($req->messages as $msg) {
+            if ($msg instanceof AssistantMessage && $msg->content === 'Welcome to My App') {
+                return true;
+            }
+        }
+
+        return false;
+    })->andReturn(new TextResponse(
+        text: 'ok',
+        usage: new Usage(5, 5),
+        finishReason: FinishReason::Stop,
+    ));
+
+    $registry = Mockery::mock(ProviderRegistryContract::class);
+    $registry->shouldReceive('resolve')->with('openai')->andReturn($driver);
+
+    $pending = new TextRequest('openai', 'gpt-4o', $registry, app(), app(Dispatcher::class));
+    $pending->withMessages([
+        new AssistantMessage('Welcome to {APP_NAME}'),
+    ]);
+    $pending->withVariables(['APP_NAME' => 'My App']);
+    $pending->withMessageInterpolation();
+    $pending->asText();
+});
+
+it('interpolateMessageArray interpolates SystemMessage content', function () {
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
+    $driver->shouldReceive('text')->once()->withArgs(function (TextRequestObject $req) {
+        foreach ($req->messages as $msg) {
+            if ($msg instanceof SystemMessage && $msg->content === 'System for My App') {
+                return true;
+            }
+        }
+
+        return false;
+    })->andReturn(new TextResponse(
+        text: 'ok',
+        usage: new Usage(5, 5),
+        finishReason: FinishReason::Stop,
+    ));
+
+    $registry = Mockery::mock(ProviderRegistryContract::class);
+    $registry->shouldReceive('resolve')->with('openai')->andReturn($driver);
+
+    $pending = new TextRequest('openai', 'gpt-4o', $registry, app(), app(Dispatcher::class));
+    $pending->withMessages([
+        new SystemMessage('System for {APP_NAME}'),
+    ]);
+    $pending->withVariables(['APP_NAME' => 'My App']);
+    $pending->withMessageInterpolation();
+    $pending->asText();
+});
+
+it('interpolateMessageArray preserves AssistantMessage toolCalls and reasoning', function () {
+    $toolCalls = [new ToolCall('tc-1', 'search', ['q' => 'test'])];
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
+    $driver->shouldReceive('text')->once()->withArgs(function (TextRequestObject $req) use ($toolCalls) {
+        foreach ($req->messages as $msg) {
+            if ($msg instanceof AssistantMessage
+                && $msg->content === 'Result for My App'
+                && $msg->toolCalls === $toolCalls
+                && $msg->reasoning === 'thinking') {
+                return true;
+            }
+        }
+
+        return false;
+    })->andReturn(new TextResponse(
+        text: 'ok',
+        usage: new Usage(5, 5),
+        finishReason: FinishReason::Stop,
+    ));
+
+    $registry = Mockery::mock(ProviderRegistryContract::class);
+    $registry->shouldReceive('resolve')->with('openai')->andReturn($driver);
+
+    $pending = new TextRequest('openai', 'gpt-4o', $registry, app(), app(Dispatcher::class));
+    $pending->withMessages([
+        new AssistantMessage('Result for {APP_NAME}', $toolCalls, 'thinking'),
+    ]);
+    $pending->withVariables(['APP_NAME' => 'My App']);
+    $pending->withMessageInterpolation();
+    $pending->asText();
+});
+
+it('interpolateMessageArray passes through non-text messages unchanged', function () {
+    $toolResult = new ToolResultMessage('tc-1', 'result content');
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
+    $driver->shouldReceive('text')->once()->withArgs(function (TextRequestObject $req) {
+        foreach ($req->messages as $msg) {
+            if ($msg instanceof ToolResultMessage && $msg->content === 'result content') {
+                return true;
+            }
+        }
+
+        return false;
+    })->andReturn(new TextResponse(
+        text: 'ok',
+        usage: new Usage(5, 5),
+        finishReason: FinishReason::Stop,
+    ));
+
+    $registry = Mockery::mock(ProviderRegistryContract::class);
+    $registry->shouldReceive('resolve')->with('openai')->andReturn($driver);
+
+    $pending = new TextRequest('openai', 'gpt-4o', $registry, app(), app(Dispatcher::class));
+    $pending->withMessages([$toolResult]);
+    $pending->withVariables(['APP_NAME' => 'My App']);
+    $pending->withMessageInterpolation();
+    $pending->asText();
+});
+
+it('interpolateMessageArray skips AssistantMessage with null content', function () {
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
+    $driver->shouldReceive('text')->once()->withArgs(function (TextRequestObject $req) {
+        foreach ($req->messages as $msg) {
+            if ($msg instanceof AssistantMessage && $msg->content === null) {
+                return true;
+            }
+        }
+
+        return false;
+    })->andReturn(new TextResponse(
+        text: 'ok',
+        usage: new Usage(5, 5),
+        finishReason: FinishReason::Stop,
+    ));
+
+    $registry = Mockery::mock(ProviderRegistryContract::class);
+    $registry->shouldReceive('resolve')->with('openai')->andReturn($driver);
+
+    $pending = new TextRequest('openai', 'gpt-4o', $registry, app(), app(Dispatcher::class));
+    $pending->withMessages([
+        new AssistantMessage(null, [new ToolCall('tc-1', 'search', [])]),
     ]);
     $pending->withVariables(['APP_NAME' => 'My App']);
     $pending->withMessageInterpolation();

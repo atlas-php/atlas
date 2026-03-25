@@ -12,6 +12,7 @@ use Atlasphp\Atlas\Events\ModalityStarted;
 use Atlasphp\Atlas\Exceptions\AgentNotFoundException;
 use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Input\Image;
+use Atlasphp\Atlas\Middleware\AgentContext;
 use Atlasphp\Atlas\Pending\AgentRequest;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Driver;
@@ -1231,4 +1232,82 @@ it('asVoice returns a VoiceSession with the correct provider', function () {
 
     expect($session)->toBeInstanceOf(VoiceSession::class);
     expect($session->provider)->toBe('openai');
+});
+
+// ─── dispatchAgentMiddleware ────────────────────────────────────────────────
+
+it('dispatches through agent middleware when configured', function () {
+    registerTestAgent(RequestTestMinimalAgent::class);
+    $middlewareRan = false;
+
+    app()->bind('test-agent-middleware', function () use (&$middlewareRan) {
+        return new class($middlewareRan)
+        {
+            public function __construct(private bool &$ran) {}
+
+            public function handle(AgentContext $context, Closure $next): mixed
+            {
+                $this->ran = true;
+
+                return $next($context);
+            }
+        };
+    });
+
+    config(['atlas.middleware.agent' => ['test-agent-middleware']]);
+    config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+
+    $fake = new AtlasFake(app(ProviderRegistryContract::class), [
+        TextResponseFake::make()->withText('middleware ran'),
+    ]);
+    app()->instance(AtlasFake::class, $fake);
+
+    $response = makeAgentRequest('minimal')->message('test')->asText();
+
+    expect($middlewareRan)->toBeTrue();
+    expect($response->text)->toBe('middleware ran');
+});
+
+it('skips middleware stack when no agent middleware configured', function () {
+    registerTestAgent(RequestTestMinimalAgent::class);
+
+    config(['atlas.middleware.agent' => []]);
+    config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+
+    $fake = new AtlasFake(app(ProviderRegistryContract::class), [
+        TextResponseFake::make()->withText('no middleware'),
+    ]);
+    app()->instance(AtlasFake::class, $fake);
+
+    $response = makeAgentRequest('minimal')->message('test')->asText();
+
+    expect($response->text)->toBe('no middleware');
+});
+
+it('agent middleware can modify context meta', function () {
+    registerTestAgent(RequestTestMinimalAgent::class);
+
+    app()->bind('test-mutate-middleware', function () {
+        return new class
+        {
+            public function handle(AgentContext $context, Closure $next): mixed
+            {
+                $context->meta['injected'] = true;
+
+                return $next($context);
+            }
+        };
+    });
+
+    config(['atlas.middleware.agent' => ['test-mutate-middleware']]);
+    config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+
+    $fake = new AtlasFake(app(ProviderRegistryContract::class), [
+        TextResponseFake::make()->withText('mutated'),
+    ]);
+    app()->instance(AtlasFake::class, $fake);
+
+    $response = makeAgentRequest('minimal')->message('test')->asText();
+
+    expect($response->text)->toBe('mutated');
 });

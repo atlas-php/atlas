@@ -99,6 +99,7 @@ class ToolMapper implements ToolMapperContract
      * when `call_id` is missing or a bare numeric index (some providers
      * like xAI use sequential indices as call_id for certain models).
      */
+    /** @param  array<string, mixed>  $item */
     protected function resolveCallId(array $item): string
     {
         $callId = $item['call_id'] ?? '';

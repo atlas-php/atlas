@@ -314,3 +314,42 @@ it('defaults message owner to conversation owner when as is not provided', funct
     expect($message->owner_type)->toBe($owner->getMorphClass())
         ->and($message->owner_id)->toBe($owner->getKey());
 });
+
+// ─── storeUserMessageEagerly: HasConversations guard ───────────────────────
+
+it('skips eager store for agents without HasConversations', function () {
+    registerPersistAgent(PersistTestPlainAgent::class);
+    setupPersistFake();
+
+    $conversation = Conversation::factory()->create();
+
+    $request = makePersistRequest('persist-plain')
+        ->message('Hello')
+        ->forConversation($conversation->id);
+
+    $method = new ReflectionMethod($request, 'storeUserMessageEagerly');
+    $method->invoke($request);
+
+    // No message should be stored — agent doesn't use HasConversations
+    $count = ConversationMessage::where('conversation_id', $conversation->id)->count();
+    expect($count)->toBe(0);
+});
+
+// ─── storeUserMessageEagerly: error handling ───────────────────────────────
+
+it('continues without throwing when eager store fails', function () {
+    registerPersistAgent(PersistTestConversationAgent::class);
+    setupPersistFake();
+
+    // Use a non-existent conversation ID to trigger a DB error
+    $request = makePersistRequest('persist-conv')
+        ->message('Hello')
+        ->forConversation(999999);
+
+    $method = new ReflectionMethod($request, 'storeUserMessageEagerly');
+
+    // Should not throw — error is caught and reported
+    $method->invoke($request);
+
+    expect(true)->toBeTrue();
+});
