@@ -30,10 +30,10 @@ return new class extends Migration
             $table->string('status', 20)->default('active');
             $table->json('transcript')->nullable();
             $table->text('summary')->nullable();
-            $table->unsignedInteger('duration_ms')->nullable();
             $table->json('metadata')->nullable();
             $table->timestamp('started_at')->nullable();
             $table->timestamp('completed_at')->nullable();
+            $table->unsignedInteger('duration_ms')->nullable();
             $table->timestamps();
 
             $table->index('conversation_id');
