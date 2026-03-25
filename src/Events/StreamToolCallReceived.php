@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Events;
 
+use Atlasphp\Atlas\Events\Concerns\BroadcastsOnChannel;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 
@@ -12,6 +13,8 @@ use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
  */
 class StreamToolCallReceived implements ShouldBroadcastNow
 {
+    use BroadcastsOnChannel;
+
     /**
      * @param  array<int, array<string, mixed>>  $toolCalls
      */
@@ -19,12 +22,6 @@ class StreamToolCallReceived implements ShouldBroadcastNow
         protected Channel $channel,
         public readonly array $toolCalls,
     ) {}
-
-    /** @return array<int, Channel> */
-    public function broadcastOn(): array
-    {
-        return [$this->channel];
-    }
 
     public function broadcastAs(): string
     {

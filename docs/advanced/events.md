@@ -286,7 +286,7 @@ Stream events and execution events implement `ShouldBroadcastNow`, making them a
 
 **Execution events** broadcast queue job lifecycle — useful for showing progress indicators when agents run in the background.
 
-Both use the `Channel` object to target the correct broadcast channel. See [Streaming](/modalities/text) for setup details.
+Both use the `Channel` object to target the correct broadcast channel. See the [Streaming Guide](/guides/streaming) for setup details including frontend integration examples.
 
 ## Event Lifecycle
 

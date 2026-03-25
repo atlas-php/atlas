@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Providers\Google\Handlers;
 
+use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Providers\Google\BuildsGoogleHeaders;
 use Atlasphp\Atlas\Providers\Google\MediaResolver;
 use Atlasphp\Atlas\Providers\Google\MessageFactory;
@@ -12,6 +13,7 @@ use Atlasphp\Atlas\Providers\Google\ToolMapper;
 use Atlasphp\Atlas\Providers\Handlers\TextHandler;
 use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderConfig;
+use Atlasphp\Atlas\Providers\SseParser;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\StreamChunk;
 use Atlasphp\Atlas\Responses\StreamResponse;
@@ -132,32 +134,31 @@ class Text implements TextHandler
     /**
      * Parse Gemini SSE stream (data-only lines, no named events).
      *
+     * Gemini's final chunk often carries both text content AND finishReason/usage.
+     * The ResponseParser returns this as a Done chunk with text embedded.
+     * We split it into a Text chunk (for the content) followed by a Done chunk
+     * (for usage/finishReason) so consumers iterating by ChunkType see the text.
+     *
      * @return Generator<int, StreamChunk>
      */
     protected function parseSSE(mixed $rawResponse): Generator
     {
-        $body = $rawResponse->getBody();
-        $buffer = '';
+        foreach (SseParser::parseDataOnly($rawResponse) as $data) {
+            $chunk = $this->parser->parseStreamChunk($data);
 
-        while (! $body->eof()) {
-            $buffer .= $body->read(8192);
+            // Split Done chunks that carry text into Text + Done
+            if ($chunk->type === ChunkType::Done && $chunk->text !== null) {
+                yield new StreamChunk(type: ChunkType::Text, text: $chunk->text);
+                yield new StreamChunk(
+                    type: ChunkType::Done,
+                    usage: $chunk->usage,
+                    finishReason: $chunk->finishReason,
+                );
 
-            while (($pos = strpos($buffer, "\n")) !== false) {
-                $line = trim(substr($buffer, 0, $pos));
-                $buffer = substr($buffer, $pos + 1);
-
-                if ($line === '' || $line === 'data: [DONE]') {
-                    continue;
-                }
-
-                if (str_starts_with($line, 'data: ')) {
-                    $json = json_decode(substr($line, 6), true);
-
-                    if ($json !== null) {
-                        yield $this->parser->parseStreamChunk($json);
-                    }
-                }
+                continue;
             }
+
+            yield $chunk;
         }
     }
 

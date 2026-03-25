@@ -99,7 +99,7 @@ it('parses text delta stream chunk', function () {
     expect($chunk->text)->toBe('Hello');
 });
 
-it('parses tool call stream chunk', function () {
+it('returns fallback chunk for tool call deltas (accumulation handled by handler)', function () {
     $parser = makeCcParser();
 
     $chunk = $parser->parseStreamChunk([
@@ -114,8 +114,10 @@ it('parses tool call stream chunk', function () {
         ]],
     ]);
 
-    expect($chunk->type)->toBe(ChunkType::ToolCall);
-    expect($chunk->toolCalls)->toHaveCount(1);
+    // Tool call deltas are now accumulated by the handler (Text::parseSSE),
+    // so the parser returns a null-text fallback for unrecognized deltas.
+    expect($chunk->type)->toBe(ChunkType::Text);
+    expect($chunk->text)->toBeNull();
 });
 
 it('parses done stream chunk with usage', function () {

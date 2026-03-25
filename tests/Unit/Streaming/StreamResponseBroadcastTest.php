@@ -14,7 +14,6 @@ use Atlasphp\Atlas\Responses\StreamChunk;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\Usage;
 use Illuminate\Broadcasting\Channel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Support\Facades\Event;
 
 it('broadcastOn returns $this for chaining', function () {
@@ -125,46 +124,7 @@ it('does not broadcast when broadcastOn not called', function () {
     Event::assertNotDispatched(StreamCompleted::class);
 });
 
-it('broadcast events implement ShouldBroadcastNow', function () {
-    $chunk = new StreamChunkReceived(new Channel('test'), 'text');
-    $tool = new StreamToolCallReceived(new Channel('test'), []);
-    $completed = new StreamCompleted(new Channel('test'), 'text');
-
-    expect($chunk)->toBeInstanceOf(ShouldBroadcastNow::class);
-    expect($tool)->toBeInstanceOf(ShouldBroadcastNow::class);
-    expect($completed)->toBeInstanceOf(ShouldBroadcastNow::class);
-});
-
-it('broadcast events have correct broadcastAs names', function () {
-    $chunk = new StreamChunkReceived(new Channel('test'), 'text');
-    $tool = new StreamToolCallReceived(new Channel('test'), []);
-    $completed = new StreamCompleted(new Channel('test'), 'text');
-
-    expect($chunk->broadcastAs())->toBe('StreamChunkReceived');
-    expect($tool->broadcastAs())->toBe('StreamToolCallReceived');
-    expect($completed->broadcastAs())->toBe('StreamCompleted');
-});
-
-it('StreamChunkReceived broadcastOn returns array with channel', function () {
-    $channel = new Channel('chat.42');
-    $event = new StreamChunkReceived($channel, 'hello');
-
-    expect($event->broadcastOn())->toBe([$channel]);
-});
-
-it('StreamToolCallReceived broadcastOn returns array with channel', function () {
-    $channel = new Channel('chat.42');
-    $event = new StreamToolCallReceived($channel, [['name' => 'search']]);
-
-    expect($event->broadcastOn())->toBe([$channel]);
-});
-
-it('StreamCompleted broadcastOn returns array with channel', function () {
-    $channel = new Channel('chat.42');
-    $event = new StreamCompleted($channel, 'done', ['input_tokens' => 10, 'output_tokens' => 5], FinishReason::Stop);
-
-    expect($event->broadcastOn())->toBe([$channel]);
-});
+// Event unit tests (ShouldBroadcastNow, broadcastAs, broadcastOn) live in StreamEventsTest.
 
 // ─── StreamStarted broadcast ────────────────────────────────────────────────
 

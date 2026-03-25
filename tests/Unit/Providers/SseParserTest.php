@@ -212,3 +212,114 @@ it('handles complex nested JSON data', function () {
         ->and($events[0]['data']['choices'][0]['delta']['content'])->toBe('Hello')
         ->and($events[0]['data']['usage']['prompt_tokens'])->toBe(10);
 });
+
+// ─── CRLF Line Endings ─────────────────────────────────────────────────
+
+it('parses named events with CRLF line endings', function () {
+    $raw = makeSseStream(
+        "event: message_start\r\n"
+        ."data: {\"type\":\"start\"}\r\n\r\n"
+        ."event: content_block_delta\r\n"
+        ."data: {\"text\":\"hello\"}\r\n\r\n"
+    );
+
+    $events = iterator_to_array(SseParser::parse($raw));
+
+    expect($events)->toHaveCount(2)
+        ->and($events[0]['event'])->toBe('message_start')
+        ->and($events[1]['data']['text'])->toBe('hello');
+});
+
+it('handles [DONE] sentinel with CRLF', function () {
+    $raw = makeSseStream(
+        "data: {\"text\":\"before\"}\r\n\r\n"
+        ."data: [DONE]\r\n\r\n"
+    );
+
+    $events = iterator_to_array(SseParser::parse($raw));
+
+    expect($events)->toHaveCount(1)
+        ->and($events[0]['data']['text'])->toBe('before');
+});
+
+// ─── parseDataOnly ─────────────────────────────────────────────────────
+
+it('parseDataOnly parses data-only SSE events', function () {
+    $raw = makeSseStream(
+        "data: {\"text\":\"one\"}\n\n"
+        ."data: {\"text\":\"two\"}\n\n"
+    );
+
+    $events = iterator_to_array(SseParser::parseDataOnly($raw));
+
+    expect($events)->toHaveCount(2)
+        ->and($events[0]['text'])->toBe('one')
+        ->and($events[1]['text'])->toBe('two');
+});
+
+it('parseDataOnly skips [DONE] sentinel', function () {
+    $raw = makeSseStream(
+        "data: {\"text\":\"before\"}\n"
+        ."data: [DONE]\n"
+    );
+
+    $events = iterator_to_array(SseParser::parseDataOnly($raw));
+
+    expect($events)->toHaveCount(1)
+        ->and($events[0]['text'])->toBe('before');
+});
+
+it('parseDataOnly skips blank lines and invalid JSON', function () {
+    $raw = makeSseStream(
+        "\n"
+        ."data: not-json\n"
+        ."\n"
+        ."data: {\"ok\":true}\n"
+    );
+
+    $events = iterator_to_array(SseParser::parseDataOnly($raw));
+
+    expect($events)->toHaveCount(1)
+        ->and($events[0]['ok'])->toBeTrue();
+});
+
+it('parseDataOnly handles CRLF line endings', function () {
+    $raw = makeSseStream(
+        "data: {\"text\":\"one\"}\r\n"
+        ."\r\n"
+        ."data: {\"text\":\"two\"}\r\n"
+    );
+
+    $events = iterator_to_array(SseParser::parseDataOnly($raw));
+
+    expect($events)->toHaveCount(2)
+        ->and($events[0]['text'])->toBe('one')
+        ->and($events[1]['text'])->toBe('two');
+});
+
+it('parseDataOnly handles empty stream', function () {
+    $raw = makeSseStream('');
+
+    $events = iterator_to_array(SseParser::parseDataOnly($raw));
+
+    expect($events)->toHaveCount(0);
+});
+
+it('parseDataOnly handles data without trailing newline', function () {
+    $raw = makeSseStream('data: {"text":"no-newline"}');
+
+    $events = iterator_to_array(SseParser::parseDataOnly($raw));
+
+    expect($events)->toHaveCount(1)
+        ->and($events[0]['text'])->toBe('no-newline');
+});
+
+it('parseDataOnly handles large payloads spanning multiple reads', function () {
+    $largeText = str_repeat('x', 10000);
+    $raw = makeSseStream("data: {\"text\":\"{$largeText}\"}\n");
+
+    $events = iterator_to_array(SseParser::parseDataOnly($raw));
+
+    expect($events)->toHaveCount(1)
+        ->and(strlen($events[0]['text']))->toBe(10000);
+});

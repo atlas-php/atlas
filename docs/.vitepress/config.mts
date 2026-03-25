@@ -68,8 +68,9 @@ export default defineConfig({
                 text: 'Guides',
                 items: [
                     { text: 'Conversations', link: '/guides/conversations' },
-                    { text: 'Memory', link: '/guides/memory' },
+                    { text: 'Streaming', link: '/guides/streaming' },
                     { text: 'Media & Assets', link: '/guides/media-storage' },
+                    { text: 'Memory', link: '/guides/memory' },
                     { text: 'Voice Integration', link: '/guides/voice-integration' },
                     { text: 'Custom Providers', link: '/guides/custom-providers' },
                     { text: 'Custom Drivers', link: '/guides/custom-drivers' },

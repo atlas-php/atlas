@@ -10,9 +10,11 @@ use Psr\Http\Message\StreamInterface;
 /**
  * Shared SSE (Server-Sent Events) parser for provider stream responses.
  *
- * Reads a raw HTTP response body and yields parsed event/data tuples.
- * Handles named events, multi-line data fields, and the [DONE] sentinel.
- * Used by OpenAI and Anthropic stream handlers.
+ * Provides two parsing modes:
+ * - parse(): Named-event SSE (event: + data: lines) — used by OpenAI and Anthropic
+ * - parseDataOnly(): Data-only SSE (data: lines only) — used by Google and Chat Completions
+ *
+ * Both modes handle CRLF line endings, the [DONE] sentinel, and chunked reads.
  */
 class SseParser
 {
@@ -29,7 +31,7 @@ class SseParser
         $currentEvent = '';
 
         while (! $body->eof()) {
-            $buffer .= $body->read(8192);
+            $buffer .= str_replace("\r\n", "\n", $body->read(8192));
 
             while (($pos = strpos($buffer, "\n\n")) !== false) {
                 $raw = substr($buffer, 0, $pos);
@@ -54,6 +56,53 @@ class SseParser
                 }
 
                 $currentEvent = '';
+            }
+        }
+    }
+
+    /**
+     * Parse a data-only SSE stream (data: lines only, no named events).
+     *
+     * Used by providers that follow the Chat Completions streaming format
+     * (Google Gemini, any /v1/chat/completions endpoint).
+     *
+     * @return Generator<int, array<string, mixed>>
+     */
+    public static function parseDataOnly(mixed $rawResponse): Generator
+    {
+        /** @var StreamInterface $body */
+        $body = $rawResponse->getBody();
+        $buffer = '';
+
+        while (! $body->eof()) {
+            $buffer .= str_replace("\r\n", "\n", $body->read(8192));
+
+            while (($pos = strpos($buffer, "\n")) !== false) {
+                $line = trim(substr($buffer, 0, $pos));
+                $buffer = substr($buffer, $pos + 1);
+
+                if ($line === '' || $line === 'data: [DONE]') {
+                    continue;
+                }
+
+                if (str_starts_with($line, 'data: ')) {
+                    $json = json_decode(substr($line, 6), true);
+
+                    if ($json !== null) {
+                        yield $json;
+                    }
+                }
+            }
+        }
+
+        // Process any remaining buffered data (no trailing newline)
+        $line = trim($buffer);
+
+        if ($line !== '' && $line !== 'data: [DONE]' && str_starts_with($line, 'data: ')) {
+            $json = json_decode(substr($line, 6), true);
+
+            if ($json !== null) {
+                yield $json;
             }
         }
     }

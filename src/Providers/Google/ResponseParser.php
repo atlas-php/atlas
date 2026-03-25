@@ -112,6 +112,10 @@ class ResponseParser implements ResponseParserContract
     /**
      * Parse a streaming SSE data payload into a StreamChunk.
      *
+     * Note: Processes only the first matching part per chunk. If Gemini sends
+     * multi-part chunks (e.g., text + function call), only the first part is emitted.
+     * This matches observed Gemini streaming behavior where parts arrive separately.
+     *
      * @param  array<string, mixed>  $data
      */
     public function parseStreamChunk(array $data): StreamChunk

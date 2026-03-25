@@ -38,24 +38,27 @@ class XaiDriver extends Driver
 
     public function capabilities(): ProviderCapabilities
     {
-        return new ProviderCapabilities(
-            text: true,
-            stream: true,
-            structured: true,
-            image: true,
-            imageToText: false,
-            audio: true,
-            audioToText: false,
-            video: true,
-            videoToText: false,
-            embed: false,
-            moderate: false,
-            voice: true,
-            vision: true,
-            toolCalling: true,
-            providerTools: true,
-            models: true,
-            voices: true,
+        return ProviderCapabilities::withOverrides(
+            new ProviderCapabilities(
+                text: true,
+                stream: true,
+                structured: true,
+                image: true,
+                imageToText: false,
+                audio: true,
+                audioToText: false,
+                video: true,
+                videoToText: false,
+                embed: false,
+                moderate: false,
+                voice: true,
+                vision: true,
+                toolCalling: true,
+                providerTools: true,
+                models: true,
+                voices: true,
+            ),
+            $this->config->capabilityOverrides,
         );
     }
 

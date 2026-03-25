@@ -85,6 +85,9 @@ class ResponseParser implements ResponseParserContract
     /**
      * Parse a data-only SSE stream chunk.
      *
+     * Tool call deltas are accumulated by the handler (Text::parseSSE),
+     * so this method only handles text, finish_reason, and usage chunks.
+     *
      * @param  array<string, mixed>  $data
      */
     public function parseStreamChunk(array $data): StreamChunk
@@ -95,13 +98,6 @@ class ResponseParser implements ResponseParserContract
 
         if (isset($delta['content'])) {
             return new StreamChunk(type: ChunkType::Text, text: (string) $delta['content']);
-        }
-
-        if (isset($delta['tool_calls'])) {
-            return new StreamChunk(
-                type: ChunkType::ToolCall,
-                toolCalls: $this->toolMapper->parseToolCalls($delta['tool_calls']),
-            );
         }
 
         if ($finishReason !== null) {

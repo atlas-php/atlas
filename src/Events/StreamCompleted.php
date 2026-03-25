@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Events;
 
 use Atlasphp\Atlas\Enums\FinishReason;
+use Atlasphp\Atlas\Events\Concerns\BroadcastsOnChannel;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 
@@ -13,6 +14,8 @@ use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
  */
 class StreamCompleted implements ShouldBroadcastNow
 {
+    use BroadcastsOnChannel;
+
     /**
      * @param  array<string, int>|null  $usage
      */
@@ -23,12 +26,6 @@ class StreamCompleted implements ShouldBroadcastNow
         public readonly ?FinishReason $finishReason = null,
         public readonly ?string $error = null,
     ) {}
-
-    /** @return array<int, Channel> */
-    public function broadcastOn(): array
-    {
-        return [$this->channel];
-    }
 
     public function broadcastAs(): string
     {

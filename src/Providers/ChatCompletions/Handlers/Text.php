@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Providers\ChatCompletions\Handlers;
 
+use Atlasphp\Atlas\Enums\ChunkType;
+use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Providers\ChatCompletions\MediaResolver;
 use Atlasphp\Atlas\Providers\ChatCompletions\MessageFactory;
 use Atlasphp\Atlas\Providers\ChatCompletions\ResponseParser;
@@ -11,13 +13,13 @@ use Atlasphp\Atlas\Providers\ChatCompletions\ToolMapper;
 use Atlasphp\Atlas\Providers\Handlers\TextHandler;
 use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderConfig;
+use Atlasphp\Atlas\Providers\SseParser;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\StreamChunk;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Generator;
-use Psr\Http\Message\StreamInterface;
 
 /**
  * Chat Completions text handler for /v1/chat/completions.
@@ -122,33 +124,61 @@ class Text implements TextHandler
     /**
      * Parse Chat Completions data-only SSE stream.
      *
+     * Accumulates tool call argument fragments across deltas (indexed by position)
+     * and emits complete ToolCall chunks when finish_reason indicates completion.
+     *
      * @return Generator<int, StreamChunk>
      */
     protected function parseSSE(mixed $rawResponse): Generator
     {
-        /** @var StreamInterface $body */
-        $body = $rawResponse->getBody();
-        $buffer = '';
+        /** @var array<int, array{id: string, name: string, arguments: string}> $toolBlocks */
+        $toolBlocks = [];
 
-        while (! $body->eof()) {
-            $buffer .= $body->read(8192);
+        foreach (SseParser::parseDataOnly($rawResponse) as $data) {
+            $delta = $data['choices'][0]['delta'] ?? [];
+            $finishReason = $data['choices'][0]['finish_reason'] ?? null;
 
-            while (($pos = strpos($buffer, "\n")) !== false) {
-                $line = trim(substr($buffer, 0, $pos));
-                $buffer = substr($buffer, $pos + 1);
+            // Accumulate tool call deltas by index
+            if (isset($delta['tool_calls'])) {
+                foreach ($delta['tool_calls'] as $tc) {
+                    $index = $tc['index'] ?? 0;
 
-                if ($line === '' || $line === 'data: [DONE]') {
-                    continue;
-                }
-
-                if (str_starts_with($line, 'data: ')) {
-                    $json = json_decode(substr($line, 6), true);
-
-                    if ($json !== null) {
-                        yield $this->parser->parseStreamChunk($json);
+                    if (isset($tc['id'])) {
+                        // First delta for this tool call — initialize
+                        $toolBlocks[$index] = [
+                            'id' => $tc['id'],
+                            'name' => $tc['function']['name'] ?? '',
+                            'arguments' => $tc['function']['arguments'] ?? '',
+                        ];
+                    } elseif (isset($toolBlocks[$index])) {
+                        // Subsequent delta — append argument fragment
+                        $toolBlocks[$index]['arguments'] .= $tc['function']['arguments'] ?? '';
                     }
                 }
+
+                // If this delta also carries finish_reason, fall through to emit
+                if ($finishReason === null) {
+                    continue;
+                }
             }
+
+            // On finish_reason, emit accumulated tool calls
+            if ($finishReason !== null && $toolBlocks !== []) {
+                $toolCalls = array_map(fn (array $block) => new ToolCall(
+                    $block['id'],
+                    $block['name'],
+                    json_decode($block['arguments'], true) ?? [],
+                ), $toolBlocks);
+
+                yield new StreamChunk(
+                    type: ChunkType::ToolCall,
+                    toolCalls: array_values($toolCalls),
+                );
+
+                $toolBlocks = [];
+            }
+
+            yield $this->parser->parseStreamChunk($data);
         }
     }
 

@@ -149,6 +149,9 @@ public function stream(TextRequest $request): StreamResponse
     );
 
     $generator = function () use ($rawResponse) {
+        $inputTokens = 0;
+        $outputTokens = 0;
+
         // You control: HTTP call, SSE parsing, chunk assembly — everything
         foreach (SseParser::parse($rawResponse) as $event) {
             $delta = $event['data']['delta'] ?? '';
@@ -159,9 +162,12 @@ public function stream(TextRequest $request): StreamResponse
                     text: $delta,
                 );
             }
+
+            // Track token usage from the provider's response
+            $inputTokens = $event['data']['usage']['input_tokens'] ?? $inputTokens;
+            $outputTokens = $event['data']['usage']['output_tokens'] ?? $outputTokens;
         }
 
-        // Replace with actual accumulated token counts from the stream
         yield new StreamChunk(
             type: ChunkType::Done,
             usage: new Usage($inputTokens, $outputTokens),

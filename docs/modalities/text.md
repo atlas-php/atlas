@@ -132,7 +132,7 @@ foreach ($response->steps as $step) {
 
 ## Streaming
 
-Stream responses in real-time. `asStream()` returns a `StreamResponse` that implements `IteratorAggregate`.
+Stream responses in real-time. `asStream()` returns a `StreamResponse` that implements `IteratorAggregate`. For complete details on SSE delivery, broadcasting, frontend integration, and testing, see the [Streaming Guide](/guides/streaming).
 
 ### Basic Streaming
 

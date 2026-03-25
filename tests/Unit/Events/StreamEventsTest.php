@@ -50,7 +50,7 @@ it('StreamCompleted implements ShouldBroadcastNow', function () {
 
 it('StreamCompleted stores text, usage, finishReason, channel', function () {
     $channel = new PrivateChannel('chat.5');
-    $usage = ['prompt_tokens' => 10, 'completion_tokens' => 20];
+    $usage = ['input_tokens' => 10, 'output_tokens' => 20];
 
     $event = new StreamCompleted(
         channel: $channel,

@@ -94,11 +94,14 @@ class ProviderRegistry implements ProviderRegistryContract
     }
 
     /**
-     * Determine if a factory is registered for the given key.
+     * Determine if a provider can be resolved for the given key.
+     *
+     * Checks both registered factories and config-only providers
+     * that can be resolved via the 'driver' config key.
      */
     public function has(string $key): bool
     {
-        return isset($this->factories[$key]);
+        return isset($this->factories[$key]) || config("atlas.providers.{$key}.driver") !== null;
     }
 
     /**

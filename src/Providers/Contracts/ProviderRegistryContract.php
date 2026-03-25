@@ -28,7 +28,7 @@ interface ProviderRegistryContract
     public function resolve(string $key): Driver;
 
     /**
-     * Determine if a factory is registered for the given key.
+     * Determine if a provider can be resolved for the given key.
      */
     public function has(string $key): bool;
 

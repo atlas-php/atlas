@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Testing;
 
 use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Enums\FinishReason;
+use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Responses\StreamChunk;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\Usage;
@@ -13,6 +14,8 @@ use Generator;
 
 /**
  * Fluent builder for creating fake StreamResponse objects in tests.
+ *
+ * Chunk emission order: thinking → tool calls → text → done.
  */
 class StreamResponseFake
 {
@@ -23,6 +26,11 @@ class StreamResponseFake
     protected ?Usage $usage = null;
 
     protected ?FinishReason $finishReason = null;
+
+    protected ?string $thinking = null;
+
+    /** @var array<int, ToolCall> */
+    protected array $toolCalls = [];
 
     public static function make(): self
     {
@@ -57,6 +65,28 @@ class StreamResponseFake
         return $this;
     }
 
+    /**
+     * Add thinking/reasoning content to the fake stream.
+     */
+    public function withThinking(string $thinking): static
+    {
+        $this->thinking = $thinking;
+
+        return $this;
+    }
+
+    /**
+     * Add tool calls to the fake stream.
+     *
+     * @param  array<int, ToolCall>  $toolCalls
+     */
+    public function withToolCalls(array $toolCalls): static
+    {
+        $this->toolCalls = $toolCalls;
+
+        return $this;
+    }
+
     public function toResponse(): StreamResponse
     {
         return new StreamResponse($this->generateChunks());
@@ -67,6 +97,14 @@ class StreamResponseFake
      */
     protected function generateChunks(): Generator
     {
+        if ($this->thinking !== null) {
+            yield new StreamChunk(ChunkType::Thinking, reasoning: $this->thinking);
+        }
+
+        if ($this->toolCalls !== []) {
+            yield new StreamChunk(ChunkType::ToolCall, toolCalls: $this->toolCalls);
+        }
+
         if ($this->text !== '') {
             $chunks = str_split($this->text, $this->chunkSize);
 

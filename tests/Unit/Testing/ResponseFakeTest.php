@@ -372,6 +372,58 @@ it('overrides finishReason on StreamResponseFake', function () {
     expect($doneChunk[0]->finishReason)->toBe(FinishReason::Length);
 });
 
+it('generates thinking chunks on StreamResponseFake', function () {
+    $response = StreamResponseFake::make()
+        ->withThinking('Let me think...')
+        ->withText('Answer')
+        ->toResponse();
+
+    $chunks = iterator_to_array($response);
+    $thinkingChunks = array_values(array_filter($chunks, fn ($c) => $c->type === ChunkType::Thinking));
+    $textChunks = array_values(array_filter($chunks, fn ($c) => $c->type === ChunkType::Text && $c->text !== null));
+
+    expect($thinkingChunks)->toHaveCount(1);
+    expect($thinkingChunks[0]->reasoning)->toBe('Let me think...');
+    expect($textChunks)->not->toBeEmpty();
+});
+
+it('generates tool call chunks on StreamResponseFake', function () {
+    $toolCalls = [
+        new ToolCall('tc-1', 'search', ['q' => 'test']),
+        new ToolCall('tc-2', 'calc', ['x' => 42]),
+    ];
+
+    $response = StreamResponseFake::make()
+        ->withToolCalls($toolCalls)
+        ->withText('Result')
+        ->toResponse();
+
+    $chunks = iterator_to_array($response);
+    $toolCallChunks = array_values(array_filter($chunks, fn ($c) => $c->type === ChunkType::ToolCall));
+
+    expect($toolCallChunks)->toHaveCount(1);
+    expect($toolCallChunks[0]->toolCalls)->toHaveCount(2);
+    expect($toolCallChunks[0]->toolCalls[0]->name)->toBe('search');
+    expect($toolCallChunks[0]->toolCalls[1]->name)->toBe('calc');
+});
+
+it('emits chunks in order: thinking → tool calls → text → done', function () {
+    $response = StreamResponseFake::make()
+        ->withThinking('Reasoning...')
+        ->withToolCalls([new ToolCall('tc-1', 'search', ['q' => 'test'])])
+        ->withText('Answer')
+        ->toResponse();
+
+    $chunks = iterator_to_array($response);
+    $types = array_map(fn ($c) => $c->type, $chunks);
+
+    // Filter out null-text Text chunks and verify order
+    expect($types[0])->toBe(ChunkType::Thinking);
+    expect($types[1])->toBe(ChunkType::ToolCall);
+    expect($types[2])->toBe(ChunkType::Text);
+    expect(end($types))->toBe(ChunkType::Done);
+});
+
 // ─── StructuredResponseFake (additional methods) ────────────────────────────
 
 it('overrides usage on StructuredResponseFake', function () {

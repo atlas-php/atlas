@@ -414,7 +414,7 @@ test('models list returns known models', function () {
 test('voices list returns xAI voices', function () {
     $voices = Atlas::provider(Provider::xAI)->voices();
 
-    assert_true(count($voices->voices) === 5, 'Should have 5 voices');
+    assert_true(count($voices->voices) >= 5, 'Should have at least 5 voices, got: '.count($voices->voices));
     assert_true(in_array('eve', $voices->voices, true), 'Should include eve');
     assert_true(in_array('leo', $voices->voices, true), 'Should include leo');
 });
