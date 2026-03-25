@@ -70,7 +70,7 @@ it('stores a user message with correct role, content, and sequence', function ()
     expect($stored)->toBeInstanceOf(ConversationMessage::class)
         ->and($stored->role)->toBe(MessageRole::User)
         ->and($stored->content)->toBe('Hello, world!')
-        ->and($stored->sequence)->toBe(0)
+        ->and($stored->sequence)->toBe(1)
         ->and($stored->is_active)->toBeTrue()
         ->and($stored->status)->toBe(MessageStatus::Delivered);
 });
@@ -94,8 +94,8 @@ it('stores assistant message with agent key', function () {
 it('stores one message per step with correct step_id and incrementing sequences', function () {
     $conversation = Conversation::factory()->create();
     $execution = Execution::factory()->create(['conversation_id' => $conversation->id]);
-    $step1 = ExecutionStep::factory()->create(['execution_id' => $execution->id, 'sequence' => 0]);
-    $step2 = ExecutionStep::factory()->create(['execution_id' => $execution->id, 'sequence' => 1]);
+    $step1 = ExecutionStep::factory()->create(['execution_id' => $execution->id, 'sequence' => 1]);
+    $step2 = ExecutionStep::factory()->create(['execution_id' => $execution->id, 'sequence' => 2]);
 
     $stored = $this->service->addAssistantMessages(
         $conversation,
@@ -124,17 +124,17 @@ it('returns Atlas typed messages for each role', function () {
     ConversationMessage::factory()->system()->create([
         'conversation_id' => $conversation->id,
         'content' => 'You are a helpful assistant.',
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
     ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
         'content' => 'Hello!',
-        'sequence' => 1,
+        'sequence' => 2,
     ]);
     ConversationMessage::factory()->fromAssistant('bot')->create([
         'conversation_id' => $conversation->id,
         'content' => 'Hi there!',
-        'sequence' => 2,
+        'sequence' => 3,
     ]);
 
     $messages = $this->service->loadMessages($conversation);
@@ -167,17 +167,17 @@ it('excludes queued and inactive messages from loadMessages', function () {
     ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
         'content' => 'Active delivered',
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
     ConversationMessage::factory()->fromUser()->queued()->create([
         'conversation_id' => $conversation->id,
         'content' => 'Queued message',
-        'sequence' => 1,
+        'sequence' => 2,
     ]);
     ConversationMessage::factory()->fromUser()->inactive()->create([
         'conversation_id' => $conversation->id,
         'content' => 'Inactive message',
-        'sequence' => 2,
+        'sequence' => 3,
     ]);
 
     $messages = $this->service->loadMessages($conversation);
@@ -194,14 +194,14 @@ it('deactivates current active group and returns parentId', function () {
     // User message (parent)
     $userMsg = ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
 
     // Assistant response linked to user message
     $assistantMsg = ConversationMessage::factory()->fromAssistant('bot')->create([
         'conversation_id' => $conversation->id,
         'parent_id' => $userMsg->id,
-        'sequence' => 1,
+        'sequence' => 2,
     ]);
 
     $result = $this->service->prepareRetry($conversation);
@@ -221,22 +221,22 @@ it('marks messages as read up to a sequence', function () {
 
     ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
-        'sequence' => 0,
-    ]);
-    ConversationMessage::factory()->fromAssistant('bot')->create([
-        'conversation_id' => $conversation->id,
         'sequence' => 1,
     ]);
     ConversationMessage::factory()->fromAssistant('bot')->create([
         'conversation_id' => $conversation->id,
         'sequence' => 2,
     ]);
+    ConversationMessage::factory()->fromAssistant('bot')->create([
+        'conversation_id' => $conversation->id,
+        'sequence' => 3,
+    ]);
 
-    $count = $this->service->markAsRead($conversation, upToSequence: 1);
+    $count = $this->service->markAsRead($conversation, upToSequence: 2);
 
     expect($count)->toBe(2);
 
-    // Message at sequence 2 should still be unread
+    // Message at sequence 3 should still be unread
     $unread = ConversationMessage::where('conversation_id', $conversation->id)
         ->whereNull('read_at')
         ->count();
@@ -251,15 +251,15 @@ it('returns correct unread count', function () {
 
     ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
     ConversationMessage::factory()->fromUser()->read()->create([
         'conversation_id' => $conversation->id,
-        'sequence' => 1,
+        'sequence' => 2,
     ]);
     ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
-        'sequence' => 2,
+        'sequence' => 3,
     ]);
 
     expect($this->service->unreadCount($conversation))->toBe(2);
@@ -309,11 +309,11 @@ it('returns lowest-sequence queued message', function () {
 
     ConversationMessage::factory()->fromUser()->queued()->create([
         'conversation_id' => $conversation->id,
-        'sequence' => 5,
+        'sequence' => 6,
     ]);
     $first = ConversationMessage::factory()->fromUser()->queued()->create([
         'conversation_id' => $conversation->id,
-        'sequence' => 3,
+        'sequence' => 4,
     ]);
 
     $next = $this->service->nextQueuedMessage($conversation);
@@ -329,7 +329,7 @@ it('transitions message from queued to delivered', function () {
 
     ConversationMessage::factory()->fromUser()->queued()->create([
         'conversation_id' => $conversation->id,
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
 
     $delivered = $this->service->deliverNextQueued($conversation);
@@ -351,15 +351,15 @@ it('returns the last active user message ID', function () {
 
     ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
     $last = ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
-        'sequence' => 1,
+        'sequence' => 2,
     ]);
     ConversationMessage::factory()->fromAssistant('bot')->create([
         'conversation_id' => $conversation->id,
-        'sequence' => 2,
+        'sequence' => 3,
     ]);
 
     expect($this->service->lastUserMessageId($conversation))->toBe($last->id);
@@ -379,19 +379,19 @@ it('remaps other agent messages to user role with name prefix', function () {
     ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
         'content' => 'Hello team',
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
 
     ConversationMessage::factory()->fromAssistant('devops')->create([
         'conversation_id' => $conversation->id,
         'content' => 'Build passed',
-        'sequence' => 1,
+        'sequence' => 2,
     ]);
 
     ConversationMessage::factory()->fromAssistant('qa')->create([
         'conversation_id' => $conversation->id,
         'content' => 'I will run smoke tests',
-        'sequence' => 2,
+        'sequence' => 3,
     ]);
 
     // Load for QA agent — own messages stay assistant, others become user
@@ -415,13 +415,13 @@ it('passes system messages through unchanged in group remapping', function () {
     ConversationMessage::factory()->system()->create([
         'conversation_id' => $conversation->id,
         'content' => 'System instructions',
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
 
     ConversationMessage::factory()->fromAssistant('agent-a')->create([
         'conversation_id' => $conversation->id,
         'content' => 'Hello',
-        'sequence' => 1,
+        'sequence' => 2,
     ]);
 
     $messages = $this->service->loadMessages($conversation, 50, 'agent-a');
@@ -438,7 +438,7 @@ it('prepareRetry throws when no assistant message exists', function () {
 
     ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
 
     $this->service->prepareRetry($conversation);
@@ -450,13 +450,13 @@ it('prepareRetry throws when conversation has continued past response', function
     $userMsg = ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
         'content' => 'First question',
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
 
     ConversationMessage::factory()->fromAssistant('agent')->create([
         'conversation_id' => $conversation->id,
         'content' => 'First answer',
-        'sequence' => 1,
+        'sequence' => 2,
         'parent_id' => $userMsg->id,
     ]);
 
@@ -464,7 +464,7 @@ it('prepareRetry throws when conversation has continued past response', function
     ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
         'content' => 'Follow-up question',
-        'sequence' => 2,
+        'sequence' => 3,
     ]);
 
     $this->service->prepareRetry($conversation);
@@ -477,7 +477,7 @@ it('prepareRetry throws when assistant message has no parent', function () {
     ConversationMessage::factory()->fromAssistant('agent')->create([
         'conversation_id' => $conversation->id,
         'content' => 'Orphan response',
-        'sequence' => 0,
+        'sequence' => 1,
         'parent_id' => null,
     ]);
 
@@ -491,14 +491,14 @@ it('cycleSibling activates target group and deactivates others', function () {
 
     $userMsg = ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
 
     // Retry 1 (inactive)
     ConversationMessage::factory()->fromAssistant('agent')->create([
         'conversation_id' => $conversation->id,
         'content' => 'Response 1',
-        'sequence' => 1,
+        'sequence' => 2,
         'parent_id' => $userMsg->id,
         'is_active' => false,
     ]);
@@ -507,7 +507,7 @@ it('cycleSibling activates target group and deactivates others', function () {
     ConversationMessage::factory()->fromAssistant('agent')->create([
         'conversation_id' => $conversation->id,
         'content' => 'Response 2',
-        'sequence' => 2,
+        'sequence' => 3,
         'parent_id' => $userMsg->id,
         'is_active' => true,
     ]);
@@ -525,12 +525,12 @@ it('cycleSibling throws on out-of-range index', function () {
 
     $userMsg = ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
 
     ConversationMessage::factory()->fromAssistant('agent')->create([
         'conversation_id' => $conversation->id,
-        'sequence' => 1,
+        'sequence' => 2,
         'parent_id' => $userMsg->id,
     ]);
 
@@ -544,13 +544,13 @@ it('siblingInfo returns current index and total count', function () {
 
     $userMsg = ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
 
     $retry1 = ConversationMessage::factory()->fromAssistant('agent')->create([
         'conversation_id' => $conversation->id,
         'content' => 'Response 1',
-        'sequence' => 1,
+        'sequence' => 2,
         'parent_id' => $userMsg->id,
         'is_active' => false,
     ]);
@@ -558,7 +558,7 @@ it('siblingInfo returns current index and total count', function () {
     $retry2 = ConversationMessage::factory()->fromAssistant('agent')->create([
         'conversation_id' => $conversation->id,
         'content' => 'Response 2',
-        'sequence' => 2,
+        'sequence' => 3,
         'parent_id' => $userMsg->id,
         'is_active' => true,
     ]);
@@ -572,7 +572,7 @@ it('siblingInfo returns current index and total count', function () {
 it('siblingInfo returns 1 of 1 for message without parent', function () {
     $message = ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => Conversation::factory()->create()->id,
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
 
     $info = $this->service->siblingInfo($message);

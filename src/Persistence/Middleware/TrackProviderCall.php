@@ -107,8 +107,7 @@ class TrackProviderCall
      * Store response as asset with authorship and linkage.
      *
      * Links to:
-     * - The current execution (always, via execution_id on asset + asset_id on execution)
-     * - The current tool call (when inside an agent tool, via asset_id on tool call)
+     * - The current execution (always, via execution_id on asset)
      */
     protected function storeAsset(mixed $response, ExecutionType $type, ProviderContext $context): void
     {
@@ -162,8 +161,8 @@ class TrackProviderCall
                 'metadata' => $metadata,
             ]);
 
-            // Link asset to execution (pass model for immediate tool access)
-            $this->executionService->linkAsset($asset->id, $asset);
+            // Track asset for immediate tool access (asset already has execution_id)
+            $this->executionService->linkAsset($asset);
 
             // Attach asset to the response for sync callers
             if (property_exists($response, 'asset')) {

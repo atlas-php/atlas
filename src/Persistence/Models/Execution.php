@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
 /**
@@ -26,11 +27,8 @@ use Illuminate\Support\Carbon;
  *
  * @property int $id
  * @property int|null $conversation_id
- * @property int|null $message_id
- * @property int|null $voice_call_id
  * @property string|null $agent
  * @property ExecutionType $type
- * @property int|null $asset_id
  * @property string $provider
  * @property string $model
  * @property ExecutionStatus $status
@@ -55,11 +53,8 @@ class Execution extends Model
 
     protected $fillable = [
         'conversation_id',
-        'message_id',
-        'voice_call_id',
         'agent',
         'type',
-        'asset_id',
         'provider',
         'model',
         'status',
@@ -95,22 +90,22 @@ class Execution extends Model
         return $this->belongsTo($model);
     }
 
-    /** @return BelongsTo<ConversationMessage, $this> */
-    public function triggerMessage(): BelongsTo
+    /** @return HasOne<ConversationMessage, $this> */
+    public function message(): HasOne
     {
         /** @var class-string<ConversationMessage> $model */
         $model = config('atlas.persistence.models.conversation_message', ConversationMessage::class);
 
-        return $this->belongsTo($model, 'message_id');
+        return $this->hasOne($model, 'execution_id');
     }
 
-    /** @return BelongsTo<VoiceCall, $this> */
-    public function voiceCall(): BelongsTo
+    /** @return HasOne<VoiceCall, $this> */
+    public function voiceCall(): HasOne
     {
         /** @var class-string<VoiceCall> $model */
         $model = config('atlas.persistence.models.voice_call', VoiceCall::class);
 
-        return $this->belongsTo($model);
+        return $this->hasOne($model, 'execution_id');
     }
 
     /** @return HasMany<ExecutionStep, $this> */
@@ -131,13 +126,13 @@ class Execution extends Model
         return $this->hasMany($model);
     }
 
-    /** @return BelongsTo<Asset, $this> */
-    public function asset(): BelongsTo
+    /** @return HasMany<Asset, $this> */
+    public function assets(): HasMany
     {
         /** @var class-string<Asset> $model */
         $model = config('atlas.persistence.models.asset', Asset::class);
 
-        return $this->belongsTo($model);
+        return $this->hasMany($model);
     }
 
     // ─── Lifecycle ──────────────────────────────────────────────
@@ -217,6 +212,6 @@ class Execution extends Model
     /** @param Builder<static> $query */
     public function scopeProducedAssets(Builder $query): void
     {
-        $query->whereNotNull('asset_id');
+        $query->whereHas('assets');
     }
 }

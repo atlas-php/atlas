@@ -171,11 +171,11 @@ class PersistConversation
                 parentId: $parentId,
             );
 
-            // Link the assistant message to its execution
+            // Link the assistant message to its execution (message owns the FK)
             $execution = $this->executionService->getExecution();
 
             if ($execution !== null && $storedMessages !== []) {
-                $execution->update(['message_id' => $storedMessages[0]->id]);
+                $storedMessages[0]->update(['execution_id' => $execution->id]);
             }
 
             return $storedMessages;

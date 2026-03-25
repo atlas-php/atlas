@@ -125,11 +125,11 @@ it('scopeProcessing filters processing steps', function () {
     ExecutionStep::factory()->create([
         'execution_id' => $execution->id,
         'status' => ExecutionStatus::Processing,
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
     ExecutionStep::factory()->completed()->create([
         'execution_id' => $execution->id,
-        'sequence' => 1,
+        'sequence' => 2,
     ]);
 
     expect(ExecutionStep::processing()->count())->toBe(1);

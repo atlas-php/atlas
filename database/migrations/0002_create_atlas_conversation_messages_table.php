@@ -35,13 +35,14 @@ return new class extends Migration
                 ->nullable()
                 ->constrained($this->tableName('conversation_messages'))
                 ->nullOnDelete();
+            $table->unsignedBigInteger('execution_id')->nullable(); // FK added in 0011 after executions exists
             $table->unsignedBigInteger('step_id')->nullable(); // FK added in 0009 after execution_steps exists
             $table->nullableMorphs('owner');
             $table->string('agent', 255)->nullable();
             $table->string('role', 20);
             $table->string('status', 20)->default('delivered');
             $table->text('content')->nullable();
-            $table->unsignedInteger('sequence')->default(0);
+            $table->unsignedInteger('sequence')->default(1);
             $table->boolean('is_active')->default(true);
             $table->timestamp('read_at')->nullable();
             $table->json('metadata')->nullable();
@@ -56,6 +57,7 @@ return new class extends Migration
 
             $table->index('conversation_id');
             $table->index('parent_id');
+            $table->index('execution_id');
             $table->index('step_id');
             $table->index('role');
             $table->index('agent');

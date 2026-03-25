@@ -7,7 +7,6 @@ namespace Atlasphp\Atlas\Voice\Http;
 use Atlasphp\Atlas\Events\VoiceCallCompleted;
 use Atlasphp\Atlas\Events\VoiceSessionClosed;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
-use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\VoiceCall;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 use Illuminate\Http\Request;
@@ -59,15 +58,10 @@ class CloseVoiceSessionController
                 ));
             }
 
-            // Complete the linked execution (Execution has voice_call_id pointing to this call)
-            /** @var class-string<Execution> $executionModel */
-            $executionModel = config('atlas.persistence.models.execution', Execution::class);
+            // Complete the linked execution (VoiceCall owns execution_id FK)
+            $execution = $voiceCall->execution;
 
-            $execution = $executionModel::where('voice_call_id', $voiceCall->id)
-                ->where('status', ExecutionStatus::Processing)
-                ->first();
-
-            if ($execution !== null) {
+            if ($execution !== null && $execution->status === ExecutionStatus::Processing) {
                 $this->executionService->completeVoiceExecution($execution->id);
             }
         }

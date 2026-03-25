@@ -235,7 +235,7 @@ it('marks execution and voice call as completed on close', function () {
         'started_at' => now()->subMinutes(5),
     ]);
 
-    $execution->update(['voice_call_id' => $call->id]);
+    $call->update(['execution_id' => $execution->id]);
 
     $response = invokeCloseController('sess-close-1');
 
@@ -304,7 +304,7 @@ it('tracks full voice session lifecycle: session → tools → transcript → cl
         'started_at' => now(),
     ]);
 
-    $execution->update(['voice_call_id' => $call->id]);
+    $call->update(['execution_id' => $execution->id]);
 
     seedVoiceSession('sess-lifecycle', [
         'echo_test' => VoiceTrackingEchoTool::class,
@@ -362,7 +362,7 @@ it('cleans stale voice calls beyond TTL', function () {
         'started_at' => now()->subMinutes(120),
     ]);
 
-    $staleExec->update(['voice_call_id' => $staleCall->id]);
+    $staleCall->update(['execution_id' => $staleExec->id]);
 
     VoiceCall::create([
         'voice_session_id' => 'sess-fresh-1',

@@ -19,8 +19,6 @@ class ExecutionFactory extends Factory
     {
         return [
             'conversation_id' => null,
-            'message_id' => null,
-            'asset_id' => null,
             'agent' => null,
             'type' => ExecutionType::Text,
             'provider' => 'openai',

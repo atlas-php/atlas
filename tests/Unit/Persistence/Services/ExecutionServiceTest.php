@@ -52,9 +52,11 @@ it('creates execution with optional parameters', function () {
         type: ExecutionType::Image,
     );
 
+    $message->refresh();
+
     expect($execution->agent)->toBe('writer-agent')
         ->and($execution->conversation_id)->toBe($conversation->id)
-        ->and($execution->message_id)->toBe($message->id)
+        ->and($message->execution_id)->toBe($execution->id)
         ->and($execution->type)->toBe(ExecutionType::Image)
         ->and($execution->metadata)->toBe(['key' => 'value']);
 });
@@ -150,8 +152,8 @@ it('creates step in pending with correct sequence', function () {
 
     expect($step1)->toBeInstanceOf(ExecutionStep::class)
         ->and($step1->status)->toBe(ExecutionStatus::Pending)
-        ->and($step1->sequence)->toBe(0)
-        ->and($step2->sequence)->toBe(1);
+        ->and($step1->sequence)->toBe(1)
+        ->and($step2->sequence)->toBe(2);
 });
 
 it('throws when creating step without active execution', function () {
@@ -294,22 +296,20 @@ it('records usage directly without step aggregation', function () {
 
 // ─── linkAsset ─────────────────────────────────────────────────────
 
-it('updates execution asset_id', function () {
+it('tracks last asset via linkAsset', function () {
     $this->service->createExecution(provider: 'openai', model: 'gpt-5');
 
     $asset = Asset::factory()->create();
-    $this->service->linkAsset($asset->id);
+    $this->service->linkAsset($asset);
 
-    $execution = $this->service->getExecution();
-    $execution->refresh();
-
-    expect($execution->asset_id)->toBe($asset->id);
+    expect($this->service->getLastAsset())->toBe($asset);
 });
 
-it('linkAsset no-ops without active execution', function () {
-    $this->service->linkAsset(42);
+it('linkAsset sets null without asset', function () {
+    $this->service->createExecution(provider: 'openai', model: 'gpt-5');
+    $this->service->linkAsset(null);
 
-    expect($this->service->getExecution())->toBeNull();
+    expect($this->service->getLastAsset())->toBeNull();
 });
 
 // ─── hasActiveExecution ────────────────────────────────────────────

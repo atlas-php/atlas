@@ -80,7 +80,7 @@ it('delivers next queued message and re-queues on agent failure', function () {
     $message = ConversationMessage::factory()->queued()->create([
         'conversation_id' => $conversation->id,
         'content' => 'Hello from queue',
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
 
     $job = new ProcessQueuedMessage(
@@ -110,7 +110,7 @@ it('marks message as failed when all retries exhausted', function () {
         'conversation_id' => $conversation->id,
         'content' => 'Will fail permanently',
         'status' => MessageStatus::Delivered,
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
 
     $job = new ProcessQueuedMessage(

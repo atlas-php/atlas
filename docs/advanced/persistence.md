@@ -26,7 +26,7 @@ All tables are prefixed with `atlas_` by default (configurable via `persistence.
 | `atlas_execution_steps` | Each round trip in the agent tool loop |
 | `atlas_execution_tool_calls` | Individual tool invocations with arguments and results |
 | `atlas_assets` | Generated files stored on disk with content hashing |
-| `atlas_voice_calls` | Voice call sessions with complete transcripts |
+| `atlas_conversation_voice_calls` | Voice call sessions with complete transcripts |
 
 ## Conversations
 
@@ -37,12 +37,14 @@ All tables are prefixed with `atlas_` by default (configurable via `persistence.
 | Column | Type | Why |
 |--------|------|-----|
 | `id` | `bigint` | Primary key |
-| `owner_type` | `string` | Polymorphic — the model that owns this conversation (User, Team, etc.) |
-| `owner_id` | `bigint` | Polymorphic — the owner's ID |
-| `agent` | `string nullable` | Which agent manages this conversation. Allows one owner to have separate conversations with different agents |
-| `title` | `string nullable` | Auto-generated from the first user message. Useful for conversation lists in a UI |
-| `metadata` | `json` | Consumer-provided metadata from `withMeta()`. Stored on the conversation for app-specific context |
+| `owner_type` | `string(255) nullable` | Polymorphic — the model that owns this conversation (User, Team, etc.) |
+| `owner_id` | `unsignedBigInteger nullable` | Polymorphic — the owner's ID |
+| `agent` | `string(255) nullable` | Which agent manages this conversation. Allows one owner to have separate conversations with different agents |
+| `title` | `string(255) nullable` | Auto-generated from the first user message. Useful for conversation lists in a UI |
+| `summary` | `text nullable` | Consumer-provided or auto-generated summary of the conversation |
+| `metadata` | `json nullable` | Consumer-provided metadata from `withMeta()`. Stored on the conversation for app-specific context |
 | `created_at` | `timestamp` | When the conversation started |
+| `updated_at` | `timestamp` | When the conversation was last updated |
 | `deleted_at` | `timestamp nullable` | Soft delete — conversations are never hard-deleted |
 
 ## Messages
@@ -55,19 +57,23 @@ All tables are prefixed with `atlas_` by default (configurable via `persistence.
 |--------|------|-----|
 | `id` | `bigint` | Primary key |
 | `conversation_id` | `bigint` | FK → conversations. Which conversation this message belongs to |
-| `parent_id` | `bigint nullable` | FK → messages (self-reference). Links assistant responses to the user message they answer. Enables sibling tracking — multiple retry responses share the same parent |
-| `step_id` | `bigint nullable` | FK → execution_steps. Links assistant messages to their execution step so tool calls can be reconstructed when loading history |
-| `role` | `string` | `user`, `assistant`, or `system`. Determines how the message is sent to the AI provider |
-| `status` | `string` | `delivered` (normal) or `queued` (waiting to be processed). Enables message queuing for rate limiting |
+| `parent_id` | `bigint nullable` | FK → conversation_messages (self-reference). Links assistant responses to the user message they answer. Enables sibling tracking — multiple retry responses share the same parent |
+| `step_id` | `unsignedBigInteger nullable` | FK → execution_steps. Links assistant messages to their execution step so tool calls can be reconstructed when loading history |
+| `execution_id` | `unsignedBigInteger nullable` | FK → executions. Links this message to the execution that produced it |
 | `owner_type` | `string nullable` | Polymorphic — who sent this message (User model, etc.). Separate from `role` because multiple users can send `user` role messages |
-| `owner_id` | `bigint nullable` | Polymorphic — the owner's ID |
-| `agent` | `string nullable` | Which agent authored this message. Enables multi-agent conversations where different agents respond in the same thread |
-| `content` | `text` | The message text |
-| `sequence` | `int` | Ordering within the conversation. Unique per conversation — ensures consistent message order |
+| `owner_id` | `unsignedBigInteger nullable` | Polymorphic — the owner's ID |
+| `agent` | `string(255) nullable` | Which agent authored this message. Enables multi-agent conversations where different agents respond in the same thread |
+| `role` | `string(20)` | `user`, `assistant`, or `system` (backed by `MessageRole` enum). Determines how the message is sent to the AI provider |
+| `status` | `string(20)` | `delivered` (normal), `queued` (waiting to be processed), or `failed` (backed by `MessageStatus` enum) |
+| `content` | `text nullable` | The message text |
+| `sequence` | `unsignedInteger` | Ordering within the conversation (starts at 1). Unique per conversation — ensures consistent message order |
 | `is_active` | `boolean` | Controls visibility in conversation history. When you retry a response, the old one is deactivated (`false`) and only the active sibling appears in future history loads |
 | `read_at` | `timestamp nullable` | When the message was read. Enables unread message counts and read receipts |
-| `metadata` | `json` | Additional metadata |
+| `metadata` | `json nullable` | Additional metadata |
 | `embedding` | `vector nullable` | PostgreSQL only — vector embedding for semantic search over message history |
+| `embedding_at` | `timestamp nullable` | PostgreSQL only — when the embedding was generated |
+| `created_at` | `timestamp` | When the message was created |
+| `updated_at` | `timestamp` | When the message was last updated |
 
 ## Message Attachments
 
@@ -78,33 +84,34 @@ All tables are prefixed with `atlas_` by default (configurable via `persistence.
 | Column | Type | Why |
 |--------|------|-----|
 | `id` | `bigint` | Primary key |
-| `message_id` | `bigint` | FK → messages. The message this asset is attached to |
+| `message_id` | `bigint` | FK → conversation_messages. The message this asset is attached to |
 | `asset_id` | `bigint` | FK → assets. The generated file |
-| `metadata` | `json` | Attachment context — which tool produced it, tool call ID |
+| `metadata` | `json nullable` | Attachment context — which tool produced it, tool call ID |
+| `created_at` | `timestamp nullable` | When the attachment was created |
 
 ## Executions
 
 **What it stores:** A record of every AI provider interaction — both agent executions and direct modality calls (images, audio, etc.).
 
-**Why it exists:** Full observability. Every call to an AI provider is tracked with the provider, model, token counts, timing, and status. This is the audit trail for cost tracking, debugging, and monitoring. Agent executions link to their conversation and message; direct calls are standalone.
+**Why it exists:** Full observability. Every call to an AI provider is tracked with the provider, model, token counts, timing, and status. This is the audit trail for cost tracking, debugging, and monitoring. Messages and voice calls link back to their execution via `execution_id`.
 
 | Column | Type | Why |
 |--------|------|-----|
 | `id` | `bigint` | Primary key |
 | `conversation_id` | `bigint nullable` | FK → conversations. Set when the execution is part of a conversation. Null for standalone direct calls |
-| `message_id` | `bigint nullable` | FK → messages. The assistant message this execution produced. Set after the message is stored |
-| `asset_id` | `bigint nullable` | FK → assets. The asset this execution produced (image, audio, video). Set for file-producing modalities |
-| `agent` | `string nullable` | Agent key. Null for direct modality calls |
-| `type` | `string` | What type of execution: `text`, `stream`, `structured`, `image`, `audio`, `video`, `embed`, `moderate`, `rerank` |
-| `provider` | `string` | Which provider was called (`openai`, `anthropic`, etc.) |
-| `model` | `string` | Which model was used (`gpt-4o`, `claude-sonnet-4-20250514`, etc.) |
-| `status` | `string` | Lifecycle state: `pending` → `processing` → `completed` or `failed`. Queued executions also pass through `queued` |
+| `status` | `unsignedTinyInteger` | Lifecycle state as int-backed `ExecutionStatus` enum: `0` (Pending) → `1` (Queued) → `2` (Processing) → `3` (Completed) or `4` (Failed) |
+| `agent` | `string(255) nullable` | Agent key. Null for direct modality calls |
+| `type` | `string(30)` | What type of execution, backed by `ExecutionType` enum: `text`, `structured`, `stream`, `image`, `image_to_text`, `audio`, `audio_to_text`, `video`, `video_to_text`, `music`, `sfx`, `speech`, `embed`, `moderate`, `rerank`, `voice` |
+| `provider` | `string(50)` | Which provider was called (`openai`, `anthropic`, etc.) |
+| `model` | `string(100)` | Which model was used (`gpt-4o`, `claude-sonnet-4-20250514`, etc.) |
 | `usage` | `json nullable` | Token usage data: `{inputTokens, outputTokens, reasoningTokens?, cachedTokens?, cacheWriteTokens?}` |
 | `error` | `text nullable` | Error message when execution fails. Includes the exception message for debugging |
 | `metadata` | `json nullable` | Consumer metadata from `withMeta()` |
 | `started_at` | `timestamp nullable` | When the execution began processing |
 | `completed_at` | `timestamp nullable` | When the execution finished (success or failure) |
-| `duration_ms` | `int nullable` | Wall-clock duration in milliseconds. Measured from `beginExecution()` to `completeExecution()` |
+| `duration_ms` | `unsignedInteger nullable` | Wall-clock duration in milliseconds |
+| `created_at` | `timestamp` | When the execution record was created |
+| `updated_at` | `timestamp` | When the execution record was last updated |
 
 ## Execution Steps
 
@@ -116,15 +123,18 @@ All tables are prefixed with `atlas_` by default (configurable via `persistence.
 |--------|------|-----|
 | `id` | `bigint` | Primary key |
 | `execution_id` | `bigint` | FK → executions. Which execution this step belongs to |
-| `sequence` | `int` | Step number (1, 2, 3...). Represents the round-trip order in the tool loop |
-| `status` | `string` | `pending` → `processing` → `completed` or `failed` |
+| `sequence` | `unsignedInteger` | Step number (1, 2, 3...). Represents the round-trip order in the tool loop |
+| `status` | `unsignedTinyInteger` | Int-backed `ExecutionStatus` enum: `0` (Pending) → `2` (Processing) → `3` (Completed) or `4` (Failed) |
 | `content` | `text nullable` | The model's response text at this step. May be an intermediate response before tool calls, or the final response |
 | `reasoning` | `text nullable` | Reasoning/thinking content from models that support it (e.g. Anthropic extended thinking, OpenAI o-series) |
-| `finish_reason` | `string nullable` | Why the model stopped: `stop` (done), `tool_calls` (wants to call tools), `length` (hit token limit), `content_filter` (blocked) |
+| `finish_reason` | `string(30) nullable` | Why the model stopped: `stop` (done), `tool_calls` (wants to call tools), `length` (hit token limit), `content_filter` (blocked) |
 | `error` | `text nullable` | Error message if this step failed |
-| `started_at` | `timestamp nullable` | |
-| `completed_at` | `timestamp nullable` | |
-| `duration_ms` | `int nullable` | How long this provider call took |
+| `metadata` | `json nullable` | Additional context |
+| `started_at` | `timestamp nullable` | When this step started |
+| `completed_at` | `timestamp nullable` | When this step completed |
+| `duration_ms` | `unsignedInteger nullable` | How long this provider call took |
+| `created_at` | `timestamp` | When the step record was created |
+| `updated_at` | `timestamp` | When the step record was last updated |
 
 ## Execution Tool Calls
 
@@ -136,17 +146,19 @@ All tables are prefixed with `atlas_` by default (configurable via `persistence.
 |--------|------|-----|
 | `id` | `bigint` | Primary key |
 | `execution_id` | `bigint` | FK → executions. Top-level execution reference for fast querying |
-| `step_id` | `bigint` | FK → execution_steps. Which step triggered this tool call |
-| `tool_call_id` | `string nullable` | The provider's unique ID for this tool call (used to match results back to requests) |
-| `name` | `string` | Tool name (e.g. `lookup_order`, `web_search`) |
-| `type` | `string` | `atlas` for user-defined tools, `provider` for native provider tools (web search, code interpreter) |
-| `status` | `string` | `pending` → `processing` → `completed` or `failed` |
-| `arguments` | `json` | The arguments the model passed to the tool. Stored as JSON for inspection |
+| `step_id` | `bigint nullable` | FK → execution_steps. Which step triggered this tool call |
+| `tool_call_id` | `string(100)` | The provider's unique ID for this tool call (used to match results back to requests) |
+| `status` | `unsignedTinyInteger` | Int-backed `ExecutionStatus` enum: `0` (Pending) → `2` (Processing) → `3` (Completed) or `4` (Failed) |
+| `name` | `string(100)` | Tool name (e.g. `lookup_order`, `web_search`) |
+| `type` | `string(20)` | `atlas` for user-defined tools, `mcp` for MCP tools, `provider` for native provider tools (backed by `ToolCallType` enum) |
+| `arguments` | `json nullable` | The arguments the model passed to the tool. Stored as JSON for inspection |
 | `result` | `text nullable` | The serialized return value from the tool. What was sent back to the model |
-| `started_at` | `timestamp nullable` | |
-| `completed_at` | `timestamp nullable` | |
-| `duration_ms` | `int nullable` | How long the tool took to execute |
+| `started_at` | `timestamp nullable` | When tool execution started |
+| `completed_at` | `timestamp nullable` | When tool execution completed |
+| `duration_ms` | `unsignedInteger nullable` | How long the tool took to execute |
 | `metadata` | `json nullable` | Additional context |
+| `created_at` | `timestamp` | When the record was created |
+| `updated_at` | `timestamp` | When the record was last updated |
 
 ## Assets
 
@@ -157,41 +169,77 @@ All tables are prefixed with `atlas_` by default (configurable via `persistence.
 | Column | Type | Why |
 |--------|------|-----|
 | `id` | `bigint` | Primary key |
-| `type` | `string` | Asset type: `image`, `audio`, `video`, `document` |
-| `mime_type` | `string nullable` | MIME type (e.g. `image/png`, `audio/mpeg`) |
-| `filename` | `string` | Generated filename (UUID-based) |
-| `original_filename` | `string nullable` | Original filename if uploaded |
-| `path` | `string` | Storage path on disk |
-| `disk` | `string` | Laravel filesystem disk name |
-| `size_bytes` | `int` | File size in bytes |
-| `content_hash` | `string` | SHA-256 hash of the content. Enables deduplication |
-| `description` | `text nullable` | Optional description |
+| `execution_id` | `unsignedBigInteger nullable` | FK → executions. Which execution produced this asset |
 | `owner_type` | `string nullable` | Polymorphic — who generated this asset |
-| `owner_id` | `bigint nullable` | |
-| `agent` | `string nullable` | Which agent generated this asset |
-| `execution_id` | `bigint nullable` | FK → executions. Which execution produced this asset |
+| `owner_id` | `unsignedBigInteger nullable` | Polymorphic — the owner's ID |
+| `agent` | `string(255) nullable` | Which agent generated this asset |
+| `type` | `string(20)` | Asset type backed by `AssetType` enum: `image`, `audio`, `video`, `document`, `text`, `json`, `file` |
+| `mime_type` | `string(100) nullable` | MIME type (e.g. `image/png`, `audio/mpeg`) |
+| `filename` | `string(255)` | Generated filename (UUID-based) |
+| `original_filename` | `string(255) nullable` | Original filename if uploaded |
+| `path` | `string(500)` | Storage path on disk |
+| `disk` | `string(50)` | Laravel filesystem disk name |
+| `size_bytes` | `unsignedBigInteger nullable` | File size in bytes |
+| `content_hash` | `string(64) nullable` | SHA-256 hash of the content. Enables deduplication |
+| `description` | `text nullable` | Optional description |
 | `metadata` | `json nullable` | Additional context (tool_call_id, tool_name, provider, model) |
+| `created_at` | `timestamp` | When the asset was stored |
+| `updated_at` | `timestamp` | When the asset record was last updated |
+| `deleted_at` | `timestamp nullable` | Soft delete |
+| `embedding` | `vector nullable` | PostgreSQL only — vector embedding for semantic search |
+| `embedding_at` | `timestamp nullable` | PostgreSQL only — when the embedding was generated |
+
+## Voice Calls
+
+**What it stores:** A complete voice call session with its transcript stored as a JSON array. Voice transcripts are isolated from the messages table — they live here. Consumers listen for `VoiceCallCompleted` to post-process transcripts (create summaries, embed into memory, generate conversation messages).
+
+**Table name:** `atlas_conversation_voice_calls`
+
+| Column | Type | Why |
+|--------|------|-----|
+| `id` | `bigint` | Primary key |
+| `conversation_id` | `bigint nullable` | FK → conversations |
+| `execution_id` | `unsignedBigInteger nullable` | FK → executions. Links this voice call to its execution record |
+| `voice_session_id` | `string(100)` | Unique session ID from provider |
+| `owner_type` | `string nullable` | Polymorphic — who initiated this call |
+| `owner_id` | `unsignedBigInteger nullable` | Polymorphic — the owner's ID |
+| `agent` | `string(255) nullable` | Agent key |
+| `provider` | `string(50)` | Provider name |
+| `model` | `string(100)` | Model name |
+| `status` | `string(20)` | `active`, `completed`, `failed` (backed by `VoiceCallStatus` enum) |
+| `transcript` | `json nullable` | `[{role: 'user'|'assistant', content: string}]` |
+| `summary` | `text nullable` | Consumer-generated summary |
+| `duration_ms` | `unsignedInteger nullable` | Wall-clock duration |
+| `metadata` | `json nullable` | Custom metadata |
+| `started_at` | `timestamp nullable` | When the voice session started |
+| `completed_at` | `timestamp nullable` | When the voice session ended |
+| `created_at` | `timestamp` | When the record was created |
+| `updated_at` | `timestamp` | When the record was last updated |
 
 ## Relationships
 
 ```
 Conversation
-├── has many Messages
+├── has many ConversationMessages
 ├── has many Executions
 └── belongs to Owner (polymorphic)
 
-Message
+ConversationMessage
 ├── belongs to Conversation
+├── belongs to Execution (optional)
+├── belongs to ExecutionStep (via step_id, optional)
 ├── has many siblings (same parent_id)
 ├── has many responses (children where parent_id = this.id)
-├── has many MessageAssets
-└── belongs to Author (polymorphic)
+├── has many ConversationMessageAssets
+└── belongs to Owner (polymorphic)
 
 Execution
 ├── belongs to Conversation (optional)
-├── belongs to Message (optional)
+├── has one ConversationMessage (via conversation_messages.execution_id)
+├── has one VoiceCall (via conversation_voice_calls.execution_id)
 ├── has many ExecutionSteps
-└── has one Asset (optional)
+├── has many ExecutionToolCalls
+└── has many Assets
 
 ExecutionStep
 ├── belongs to Execution
@@ -202,7 +250,11 @@ ExecutionToolCall
 └── belongs to ExecutionStep
 
 Asset
-├── has many MessageAssets
+├── has many ConversationMessageAssets
+└── belongs to Execution (optional)
+
+VoiceCall
+├── belongs to Conversation (optional)
 └── belongs to Execution (optional)
 ```
 
@@ -219,8 +271,8 @@ A conversation thread owned by a polymorphic model (User, Team, etc.).
 | Relationship | Type | Description |
 |-------------|------|-------------|
 | `owner()` | `MorphTo` | The owning model |
-| `messages()` | `HasMany` | All messages in the conversation |
-| `executions()` | `HasMany` | All executions linked to this conversation |
+| `messages()` | `HasMany → ConversationMessage` | All messages in the conversation, ordered by sequence |
+| `executions()` | `HasMany → Execution` | All executions linked to this conversation |
 
 | Method | Description |
 |--------|-------------|
@@ -232,34 +284,43 @@ A conversation thread owned by a polymorphic model (User, Team, etc.).
 | `forOwner(Model $owner)` | Filter by polymorphic owner |
 | `forAgent(string $agent)` | Filter by agent key |
 
-### Message
+### ConversationMessage
 
-`Atlasphp\Atlas\Persistence\Models\Message`
+`Atlasphp\Atlas\Persistence\Models\ConversationMessage`
 
 A single message in a conversation — user input, assistant response, or system message. Supports sibling branching for retry/regenerate.
 
 | Relationship | Type | Description |
 |-------------|------|-------------|
-| `conversation()` | `BelongsTo` | Parent conversation |
-| `parent()` | `BelongsTo` | The message this is a response to |
-| `siblings()` | `HasMany` | All messages sharing the same parent (retry alternatives) |
-| `responses()` | `HasMany` | Child messages (responses to this message) |
-| `assets()` | `HasMany` | Linked file assets (images, audio, documents) |
-| `step()` | `BelongsTo` | Linked execution step (for tool call reconstruction) |
+| `conversation()` | `BelongsTo → Conversation` | Parent conversation |
+| `execution()` | `BelongsTo → Execution` | The execution that produced this message |
+| `step()` | `BelongsTo → ExecutionStep` | Linked execution step (for tool call reconstruction) |
+| `parent()` | `BelongsTo → self` | The message this is a response to |
+| `siblings()` | `HasMany → self` | All messages sharing the same parent (retry alternatives) |
+| `responses()` | `HasMany → self` | Child messages (responses to this message) |
+| `assets()` | `HasMany → ConversationMessageAsset` | Linked file assets (images, audio, documents) |
+| `owner()` | `MorphTo` | Who sent this message (from HasOwner trait) |
 
 | Method | Description |
 |--------|-------------|
+| `toAtlasMessage()` | Convert to a typed message object for the provider |
+| `toAtlasMessagesWithTools()` | Convert to AssistantMessage with tool calls reconstructed from the execution step |
+| `ownerInfo()` | Get unified owner info array for UI rendering |
 | `canRetry()` | Whether this message can be retried (no later user message exists) |
 | `siblingGroups()` | Group siblings by execution (multi-step responses stay together) |
+| `siblingCount()` | Number of sibling groups |
 | `siblingIndex()` | 1-based index in the sibling list |
 | `markAsRead()` | Set `read_at` to now |
-| `toAtlasMessage()` | Convert to a typed message object for the provider |
+| `markDelivered()` | Transition queued message to delivered |
+| `isFromUser()` | Whether this is a user role message |
+| `isFromAssistant()` | Whether this is an assistant role message |
+| `isSystem()` | Whether this is a system role message |
+| `isRead()` / `isUnread()` | Check read status |
+| `isDelivered()` / `isQueued()` | Check delivery status |
 
 | Scope | Description |
 |-------|-------------|
 | `active()` | Only active messages (`is_active = true`) |
-| `byAgent(string $agent)` | Filter by agent key |
-| `byOwner(Model $owner)` | Filter by polymorphic owner |
 | `read()` / `unread()` | Filter by read status |
 | `delivered()` / `queued()` | Filter by delivery status |
 
@@ -271,17 +332,29 @@ A tracked AI provider call — agent execution or direct modality call — with 
 
 | Relationship | Type | Description |
 |-------------|------|-------------|
-| `conversation()` | `BelongsTo` | Linked conversation (null for standalone calls) |
-| `triggerMessage()` | `BelongsTo` | The assistant message this execution produced |
-| `steps()` | `HasMany` | Round trips in the tool call loop |
-| `toolCalls()` | `HasMany` | All tool invocations across all steps |
-| `asset()` | `BelongsTo` | Generated file (image, audio, video) |
+| `conversation()` | `BelongsTo → Conversation` | Linked conversation (null for standalone calls) |
+| `message()` | `HasOne → ConversationMessage` | The message this execution produced |
+| `voiceCall()` | `HasOne → VoiceCall` | The voice call linked to this execution |
+| `steps()` | `HasMany → ExecutionStep` | Round trips in the tool call loop, ordered by sequence |
+| `toolCalls()` | `HasMany → ExecutionToolCall` | All tool invocations across all steps |
+| `assets()` | `HasMany → Asset` | Generated files (images, audio, video) |
 
 | Method | Description |
 |--------|-------------|
 | `markQueued()` | Transition to queued status |
 | `markCompleted(?int $durationMs, ?Usage $usage)` | Transition to completed with duration and usage |
 | `markFailed(string $error, ?int $durationMs, ?Usage $usage)` | Transition to failed with error and usage |
+| `getUsageObject()` | Get the usage as a `Usage` DTO |
+| `getTotalTokensAttribute()` | Accessor for total token count (input + output) |
+
+| Scope | Description |
+|-------|-------------|
+| `pending()` / `processing()` / `completed()` / `failed()` | Filter by `ExecutionStatus` (from `HasExecutionStatus` trait) |
+| `queued()` | Filter for queued executions |
+| `forAgent(string $agent)` | Filter by agent key |
+| `forProvider(string $provider)` | Filter by provider |
+| `ofType(ExecutionType $type)` | Filter by execution type |
+| `producedAssets()` | Filter to executions that have related assets |
 
 ### ExecutionStep
 
@@ -291,19 +364,19 @@ A single round trip in the agent's tool call loop — one provider call and its 
 
 | Relationship | Type | Description |
 |-------------|------|-------------|
-| `execution()` | `BelongsTo` | Parent execution |
-| `toolCalls()` | `HasMany` | Tool calls made during this step |
+| `execution()` | `BelongsTo → Execution` | Parent execution |
+| `toolCalls()` | `HasMany → ExecutionToolCall` | Tool calls made during this step |
 
 | Method | Description |
 |--------|-------------|
-| `recordResponse(...)` | Record the provider response (content, finish reason) |
+| `recordResponse(?string $content, ?string $reasoning, string $finishReason)` | Record the provider response (content, reasoning, finish reason) |
 | `markCompleted(?int $durationMs)` | Transition to completed |
 | `markFailed(string $error, ?int $durationMs)` | Transition to failed |
-| `hasToolCalls()` | Whether this step triggered tool calls |
+| `hasToolCalls()` | Whether this step triggered tool calls (finish reason is `tool_calls`) |
 
 | Scope | Description |
 |-------|-------------|
-| `pending()` / `processing()` / `completed()` | Filter by status |
+| `pending()` / `processing()` / `completed()` / `failed()` | Filter by `ExecutionStatus` (from `HasExecutionStatus` trait) |
 
 ### ExecutionToolCall
 
@@ -313,8 +386,8 @@ An individual tool invocation with arguments, result, and timing.
 
 | Relationship | Type | Description |
 |-------------|------|-------------|
-| `execution()` | `BelongsTo` | Parent execution |
-| `step()` | `BelongsTo` | The step that triggered this call |
+| `execution()` | `BelongsTo → Execution` | Parent execution |
+| `step()` | `BelongsTo → ExecutionStep` | The step that triggered this call |
 
 | Method | Description |
 |--------|-------------|
@@ -323,7 +396,7 @@ An individual tool invocation with arguments, result, and timing.
 
 | Scope | Description |
 |-------|-------------|
-| `pending()` / `processing()` / `completed()` / `failed()` | Filter by status |
+| `pending()` / `processing()` / `completed()` / `failed()` | Filter by `ExecutionStatus` (from `HasExecutionStatus` trait) |
 | `forTool(string $name)` | Filter by tool name |
 
 ### Asset
@@ -334,8 +407,9 @@ A stored file (image, audio, video, document) with content hashing for deduplica
 
 | Relationship | Type | Description |
 |-------------|------|-------------|
-| `messageAssets()` | `HasMany` | Messages this asset is linked to |
-| `execution()` | `BelongsTo` | The execution that produced this asset |
+| `messageAssets()` | `HasMany → ConversationMessageAsset` | Messages this asset is linked to |
+| `execution()` | `BelongsTo → Execution` | The execution that produced this asset |
+| `owner()` | `MorphTo` | Who generated this asset (from HasOwner trait) |
 
 | Method | Description |
 |--------|-------------|
@@ -347,16 +421,16 @@ A stored file (image, audio, video, document) with content hashing for deduplica
 |-------|-------------|
 | `forExecution(int $executionId)` | Filter by execution |
 
-### MessageAsset
+### ConversationMessageAsset
 
-`Atlasphp\Atlas\Persistence\Models\MessageAsset`
+`Atlasphp\Atlas\Persistence\Models\ConversationMessageAsset`
 
 Join model linking a message to an asset. Carries metadata about which tool produced it.
 
 | Relationship | Type | Description |
 |-------------|------|-------------|
-| `message()` | `BelongsTo` | The message |
-| `asset()` | `BelongsTo` | The asset |
+| `message()` | `BelongsTo → ConversationMessage` | The message |
+| `asset()` | `BelongsTo → Asset` | The asset |
 
 ### VoiceCall
 
@@ -364,31 +438,19 @@ Join model linking a message to an asset. Carries metadata about which tool prod
 
 A complete voice call session with its transcript stored as a JSON array. Voice transcripts are isolated from the messages table — they live here. Consumers listen for `VoiceCallCompleted` to post-process transcripts (create summaries, embed into memory, generate conversation messages).
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `voice_session_id` | `string` | Unique session ID from provider |
-| `conversation_id` | `bigint nullable` | FK → conversations |
-| `agent` | `string nullable` | Agent key |
-| `provider` | `string` | Provider name |
-| `model` | `string` | Model name |
-| `status` | `string` | `active`, `completed`, `failed` |
-| `transcript` | `json` | `[{role: 'user'\|'assistant', content: string}]` |
-| `summary` | `text nullable` | Consumer-generated summary |
-| `duration_ms` | `int nullable` | Wall-clock duration |
-| `metadata` | `json nullable` | Custom metadata |
-
-The `executions` table has a `voice_call_id` FK pointing to this table (same pattern as `message_id` for text executions).
-
 | Relationship | Type | Description |
 |-------------|------|-------------|
-| `conversation()` | `BelongsTo` | Linked conversation |
-| `executions()` | `HasMany` | Executions linked to this call (via `executions.voice_call_id`) |
+| `conversation()` | `BelongsTo → Conversation` | Linked conversation |
+| `execution()` | `BelongsTo → Execution` | The execution record for this voice call |
+| `owner()` | `MorphTo` | Who initiated this call (from HasOwner trait) |
 
 | Method | Description |
 |--------|-------------|
 | `saveTranscript(array $turns)` | Atomically replace transcript |
 | `markCompleted(array $turns)` | Complete with final transcript and duration |
 | `markFailed()` | Mark as failed |
+| `isActive()` | Whether this call is currently active |
+| `isCompleted()` | Whether this call has completed |
 
 | Scope | Description |
 |-------|-------------|
@@ -416,8 +478,8 @@ VoiceCall::forConversation($conversationId)->get();
 // By provider session ID
 VoiceCall::forSession('rt_xai_abc123...')->first();
 
-// Recent completed calls with their executions
-VoiceCall::completed()->with('executions.toolCalls')->latest()->take(10)->get();
+// Recent completed calls with their execution
+VoiceCall::completed()->with('execution.toolCalls')->latest()->take(10)->get();
 
 // Active calls (still in progress)
 VoiceCall::active()->get();
@@ -425,13 +487,13 @@ VoiceCall::active()->get();
 
 ### Execution Relationship
 
-The `executions` table has a `voice_call_id` FK pointing to this table — same pattern as `message_id` for text executions. This links the voice call to its execution records, which track tool calls made during the session:
+The `conversation_voice_calls` table has an `execution_id` FK pointing to the executions table. This links the voice call to its execution record, which tracks tool calls made during the session:
 
 ```php
 $call = VoiceCall::forSession($sessionId)->first();
 
-// Get tool calls from the voice session
-$toolCalls = $call->executions->flatMap->toolCalls;
+// Get tool calls from the voice session via the execution
+$toolCalls = $call->execution?->toolCalls;
 ```
 
 ## Model Overrides
@@ -441,13 +503,14 @@ Extend the base models with your own:
 ```php
 // config/atlas.php → persistence.models
 'models' => [
-    'conversation'        => \App\Models\AtlasConversation::class,
-    'message'             => \App\Models\AtlasMessage::class,
-    'execution'           => \App\Models\AtlasExecution::class,
-    'execution_step'      => \App\Models\AtlasExecutionStep::class,
-    'execution_tool_call' => \App\Models\AtlasExecutionToolCall::class,
-    'asset'               => \App\Models\AtlasAsset::class,
-    'voice_call'          => \App\Models\AtlasVoiceCall::class,
+    'conversation'              => \App\Models\AtlasConversation::class,
+    'conversation_message'      => \App\Models\AtlasMessage::class,
+    'asset'                     => \App\Models\AtlasAsset::class,
+    'conversation_message_asset' => \App\Models\AtlasMessageAsset::class,
+    'execution'                 => \App\Models\AtlasExecution::class,
+    'execution_step'            => \App\Models\AtlasExecutionStep::class,
+    'execution_tool_call'       => \App\Models\AtlasExecutionToolCall::class,
+    'voice_call'                => \App\Models\AtlasVoiceCall::class,
 ],
 ```
 

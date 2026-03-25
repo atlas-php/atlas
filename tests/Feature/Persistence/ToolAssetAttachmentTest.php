@@ -214,7 +214,7 @@ it('attaches to correct message when multiple steps exist', function () {
     // Step 1 with a tool call and asset
     $step1 = ExecutionStep::factory()->withToolCalls()->create([
         'execution_id' => $execution->id,
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
 
     $toolCall1 = ExecutionToolCall::factory()->completed()->create([
@@ -235,7 +235,7 @@ it('attaches to correct message when multiple steps exist', function () {
     // Step 2 with a different tool call and asset
     $step2 = ExecutionStep::factory()->withToolCalls()->create([
         'execution_id' => $execution->id,
-        'sequence' => 1,
+        'sequence' => 2,
     ]);
 
     $toolCall2 = ExecutionToolCall::factory()->completed()->create([
@@ -257,7 +257,7 @@ it('attaches to correct message when multiple steps exist', function () {
     $message = ConversationMessage::factory()->fromAssistant('test-agent')->create([
         'conversation_id' => $conversation->id,
         'step_id' => $step2->id,
-        'sequence' => 1,
+        'sequence' => 2,
     ]);
 
     callAttachToolAssets($execution, [$message]);

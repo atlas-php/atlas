@@ -33,7 +33,7 @@ it('tracks full execution lifecycle: create → step → tool call → complete'
     $step = $this->service->createStep();
     expect($step->status)->toBe(ExecutionStatus::Pending)
         ->and($step->execution_id)->toBe($execution->id)
-        ->and($step->sequence)->toBe(0);
+        ->and($step->sequence)->toBe(1);
 
     $this->service->beginStep();
     $step->refresh();

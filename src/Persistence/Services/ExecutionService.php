@@ -9,6 +9,7 @@ use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
 use Atlasphp\Atlas\Persistence\Enums\ToolCallType;
 use Atlasphp\Atlas\Persistence\Models\Asset;
+use Atlasphp\Atlas\Persistence\Models\ConversationMessage;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\ExecutionStep;
 use Atlasphp\Atlas\Persistence\Models\ExecutionToolCall;
@@ -93,7 +94,6 @@ class ExecutionService
 
         $this->execution = $executionModel::create([
             'conversation_id' => $conversationId,
-            'message_id' => $messageId,
             'agent' => $agent,
             'type' => $type ?? ExecutionType::Text,
             'provider' => $provider,
@@ -102,7 +102,13 @@ class ExecutionService
             'metadata' => ! empty($meta) ? $this->filterMetaForStorage($meta) : null,
         ]);
 
-        $this->stepSequence = 0;
+        // Link the trigger message to this execution (message owns the FK)
+        if ($messageId !== null) {
+            $messageModel = config('atlas.persistence.models.conversation_message', ConversationMessage::class);
+            $messageModel::where('id', $messageId)->update(['execution_id' => $this->execution->id]);
+        }
+
+        $this->stepSequence = 1;
 
         return $this->execution;
     }
@@ -132,7 +138,7 @@ class ExecutionService
             'type' => $type ?? $this->execution->type,
         ], fn ($v) => $v !== null));
 
-        $this->stepSequence = 0;
+        $this->stepSequence = 1;
 
         return $this->execution;
     }
@@ -350,15 +356,11 @@ class ExecutionService
     // ─── Asset Linking ──────────────────────────────────────────
 
     /**
-     * Link a generated asset to the current execution.
+     * Track the last asset created during this execution.
+     * The asset already has execution_id set at creation time.
      */
-    public function linkAsset(int $assetId, ?Asset $asset = null): void
+    public function linkAsset(?Asset $asset): void
     {
-        if ($this->execution === null) {
-            return;
-        }
-
-        $this->execution->update(['asset_id' => $assetId]);
         $this->lastAsset = $asset;
     }
 
@@ -469,7 +471,7 @@ class ExecutionService
         $this->currentStep = null;
         $this->currentToolCall = null;
         $this->lastAsset = null;
-        $this->stepSequence = 0;
+        $this->stepSequence = 1;
         $this->executionStartTime = 0;
         $this->stepStartTime = 0;
     }

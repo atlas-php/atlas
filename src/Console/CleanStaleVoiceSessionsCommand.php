@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Console;
 
 use Atlasphp\Atlas\Persistence\Enums\VoiceCallStatus;
-use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\VoiceCall;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 use Illuminate\Console\Command;
@@ -54,11 +53,9 @@ class CleanStaleVoiceSessionsCommand extends Command
         foreach ($stale as $call) {
             $call->markCompleted($call->transcript ?? []);
 
-            // Complete any linked execution
-            $execution = Execution::where('voice_call_id', $call->id)->first();
-
-            if ($execution !== null) {
-                $executionService->completeVoiceExecution($execution->id, ['stale_cleanup' => true]);
+            // Complete any linked execution (VoiceCall owns execution_id FK)
+            if ($call->execution_id !== null) {
+                $executionService->completeVoiceExecution($call->execution_id, ['stale_cleanup' => true]);
             }
         }
 

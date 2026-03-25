@@ -15,12 +15,13 @@ return new class extends Migration
 
     public function up(): void
     {
-        Schema::create($this->tableName('voice_calls'), function (Blueprint $table) {
+        Schema::create($this->tableName('conversation_voice_calls'), function (Blueprint $table) {
             $table->id();
             $table->foreignId('conversation_id')
                 ->nullable()
                 ->constrained($this->tableName('conversations'))
                 ->nullOnDelete();
+            $table->unsignedBigInteger('execution_id')->nullable(); // FK added in 0012 after executions exists
             $table->string('voice_session_id', 100)->unique();
             $table->nullableMorphs('owner');
             $table->string('agent', 255)->nullable();
@@ -36,6 +37,7 @@ return new class extends Migration
             $table->timestamps();
 
             $table->index('conversation_id');
+            $table->index('execution_id');
             $table->index('agent');
             $table->index('status');
             $table->index('started_at');
@@ -44,6 +46,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists($this->tableName('voice_calls'));
+        Schema::dropIfExists($this->tableName('conversation_voice_calls'));
     }
 };

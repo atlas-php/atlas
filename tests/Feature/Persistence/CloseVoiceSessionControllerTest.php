@@ -36,12 +36,18 @@ function createCloseTestExecution(
     string $sessionId,
     ?int $voiceCallId = null,
 ): Execution {
-    return Execution::factory()->create(array_filter([
+    $execution = Execution::factory()->create([
         'type' => ExecutionType::Voice,
         'status' => ExecutionStatus::Processing,
         'started_at' => now()->subMinutes(5),
-        'voice_call_id' => $voiceCallId,
-    ], fn ($v) => $v !== null));
+    ]);
+
+    // Link voice call to execution (VoiceCall owns the FK)
+    if ($voiceCallId !== null) {
+        VoiceCall::where('id', $voiceCallId)->update(['execution_id' => $execution->id]);
+    }
+
+    return $execution;
 }
 
 function invokeClose(string $sessionId, array $body = []): Response|JsonResponse

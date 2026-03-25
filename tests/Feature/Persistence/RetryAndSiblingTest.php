@@ -20,13 +20,13 @@ beforeEach(function () {
 it('performs a full retry lifecycle preserving sequences', function () {
     $conversation = Conversation::factory()->create();
 
-    // seq 0: user message
+    // seq 1: user message
     $userMsg = $this->service->addMessage(
         $conversation,
         new UserMessage(content: 'Explain quantum computing'),
     );
 
-    // seq 1: assistant "Response A"
+    // seq 2: assistant "Response A"
     $assistantMessages = $this->service->addAssistantMessages(
         $conversation,
         [['text' => 'Response A', 'step_id' => null]],
@@ -36,9 +36,9 @@ it('performs a full retry lifecycle preserving sequences', function () {
     $responseA = $assistantMessages[0];
 
     expect($responseA->is_active)->toBeTrue()
-        ->and($responseA->sequence)->toBe(1);
+        ->and($responseA->sequence)->toBe(2);
 
-    // prepareRetry deactivates seq 1
+    // prepareRetry deactivates seq 2
     $parentId = $this->service->prepareRetry($conversation)['parentId'];
 
     expect($parentId)->toBe($userMsg->id);
@@ -47,7 +47,7 @@ it('performs a full retry lifecycle preserving sequences', function () {
     $responseA->refresh();
     expect($responseA->is_active)->toBeFalse();
 
-    // seq 2: assistant "Response B"
+    // seq 3: assistant "Response B"
     $newMessages = $this->service->addAssistantMessages(
         $conversation,
         [['text' => 'Response B', 'step_id' => null]],
@@ -57,7 +57,7 @@ it('performs a full retry lifecycle preserving sequences', function () {
     $responseB = $newMessages[0];
 
     expect($responseB->is_active)->toBeTrue()
-        ->and($responseB->sequence)->toBe(2)
+        ->and($responseB->sequence)->toBe(3)
         ->and($responseB->parent_id)->toBe($userMsg->id)
         ->and($responseA->parent_id)->toBe($userMsg->id);
 
@@ -66,7 +66,7 @@ it('performs a full retry lifecycle preserving sequences', function () {
         ->orderBy('sequence')
         ->pluck('sequence')
         ->all();
-    expect($allSequences)->toBe([0, 1, 2]);
+    expect($allSequences)->toBe([1, 2, 3]);
 
     // recentMessages returns user + Response B, not Response A
     $recent = $conversation->recentMessages();
@@ -371,7 +371,7 @@ it('excludes inactive sibling tool messages from loadMessages', function () {
 
     $stepA = ExecutionStep::factory()->withToolCalls('Looking it up...')->create([
         'execution_id' => $executionA->id,
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
 
     ExecutionToolCall::factory()->completed('{"result": "data A"}')->create([
@@ -399,7 +399,7 @@ it('excludes inactive sibling tool messages from loadMessages', function () {
 
     $stepB = ExecutionStep::factory()->withToolCalls('Let me check...')->create([
         'execution_id' => $executionB->id,
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
 
     ExecutionToolCall::factory()->completed('{"result": "data B"}')->create([
@@ -438,13 +438,13 @@ it('excludes inactive sibling tool messages from loadMessages', function () {
 it('increments sequences correctly across retries with no gaps or collisions', function () {
     $conversation = Conversation::factory()->create();
 
-    // seq 0: user message
+    // seq 1: user message
     $userMsg = $this->service->addMessage(
         $conversation,
         new UserMessage(content: 'Question'),
     );
 
-    // seq 1, 2: two assistant messages
+    // seq 2, 3: two assistant messages
     $first = $this->service->addAssistantMessages(
         $conversation,
         [
@@ -455,13 +455,13 @@ it('increments sequences correctly across retries with no gaps or collisions', f
         parentId: $userMsg->id,
     );
 
-    expect($first[0]->sequence)->toBe(1)
-        ->and($first[1]->sequence)->toBe(2);
+    expect($first[0]->sequence)->toBe(2)
+        ->and($first[1]->sequence)->toBe(3);
 
-    // Retry → deactivates seq 1, 2
+    // Retry → deactivates seq 2, 3
     $this->service->prepareRetry($conversation);
 
-    // seq 3, 4: two more assistant messages
+    // seq 4, 5: two more assistant messages
     $second = $this->service->addAssistantMessages(
         $conversation,
         [
@@ -472,18 +472,18 @@ it('increments sequences correctly across retries with no gaps or collisions', f
         parentId: $userMsg->id,
     );
 
-    expect($second[0]->sequence)->toBe(3)
-        ->and($second[1]->sequence)->toBe(4);
+    expect($second[0]->sequence)->toBe(4)
+        ->and($second[1]->sequence)->toBe(5);
 
     // Verify all sequences: 0, 1, 2, 3, 4
     $allSequences = ConversationMessage::where('conversation_id', $conversation->id)
         ->orderBy('sequence')
         ->pluck('sequence')
         ->all();
-    expect($allSequences)->toBe([0, 1, 2, 3, 4]);
+    expect($allSequences)->toBe([1, 2, 3, 4, 5]);
 
-    // nextSequence should be 5
-    expect($conversation->nextSequence())->toBe(5);
+    // nextSequence should be 6
+    expect($conversation->nextSequence())->toBe(6);
 });
 
 // ─── Test 8: siblingGroups groups multi-step responses by execution ──
@@ -503,14 +503,14 @@ it('groups multi-step responses as single sibling groups', function () {
 
     $stepA1 = ExecutionStep::factory()->withToolCalls('Looking up...')->create([
         'execution_id' => $executionA->id,
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
     $stepA2 = ExecutionStep::factory()->completed('Here is the answer A.')->create([
         'execution_id' => $executionA->id,
-        'sequence' => 1,
+        'sequence' => 2,
     ]);
 
-    $this->service->addAssistantMessages(
+    $messagesA = $this->service->addAssistantMessages(
         $conversation,
         [
             ['text' => 'Looking up...', 'step_id' => $stepA1->id],
@@ -519,6 +519,9 @@ it('groups multi-step responses as single sibling groups', function () {
         agent: 'bot',
         parentId: $userMsg->id,
     );
+    foreach ($messagesA as $msg) {
+        $msg->update(['execution_id' => $executionA->id]);
+    }
 
     // Retry → deactivates execution A messages
     $parentId = $this->service->prepareRetry($conversation)['parentId'];
@@ -530,14 +533,14 @@ it('groups multi-step responses as single sibling groups', function () {
 
     $stepB1 = ExecutionStep::factory()->withToolCalls('Searching...')->create([
         'execution_id' => $executionB->id,
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
     $stepB2 = ExecutionStep::factory()->completed('Here is the answer B.')->create([
         'execution_id' => $executionB->id,
-        'sequence' => 1,
+        'sequence' => 2,
     ]);
 
-    $this->service->addAssistantMessages(
+    $messagesB = $this->service->addAssistantMessages(
         $conversation,
         [
             ['text' => 'Searching...', 'step_id' => $stepB1->id],
@@ -546,6 +549,9 @@ it('groups multi-step responses as single sibling groups', function () {
         agent: 'bot',
         parentId: $parentId,
     );
+    foreach ($messagesB as $msg) {
+        $msg->update(['execution_id' => $executionB->id]);
+    }
 
     // Should be 2 groups, not 4
     $anyChild = ConversationMessage::where('parent_id', $userMsg->id)->first();
@@ -582,14 +588,14 @@ it('cycleSibling activates all messages in a multi-step group', function () {
 
     $stepA1 = ExecutionStep::factory()->completed('Step 1 of A')->create([
         'execution_id' => $executionA->id,
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
     $stepA2 = ExecutionStep::factory()->completed('Step 2 of A')->create([
         'execution_id' => $executionA->id,
-        'sequence' => 1,
+        'sequence' => 2,
     ]);
 
-    $this->service->addAssistantMessages(
+    $msgsA = $this->service->addAssistantMessages(
         $conversation,
         [
             ['text' => 'Step 1 of A', 'step_id' => $stepA1->id],
@@ -598,6 +604,9 @@ it('cycleSibling activates all messages in a multi-step group', function () {
         agent: 'bot',
         parentId: $userMsg->id,
     );
+    foreach ($msgsA as $msg) {
+        $msg->update(['execution_id' => $executionA->id]);
+    }
 
     // Retry
     $parentId = $this->service->prepareRetry($conversation)['parentId'];
@@ -609,14 +618,14 @@ it('cycleSibling activates all messages in a multi-step group', function () {
 
     $stepB1 = ExecutionStep::factory()->completed('Step 1 of B')->create([
         'execution_id' => $executionB->id,
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
     $stepB2 = ExecutionStep::factory()->completed('Step 2 of B')->create([
         'execution_id' => $executionB->id,
-        'sequence' => 1,
+        'sequence' => 2,
     ]);
 
-    $this->service->addAssistantMessages(
+    $msgsB = $this->service->addAssistantMessages(
         $conversation,
         [
             ['text' => 'Step 1 of B', 'step_id' => $stepB1->id],
@@ -625,6 +634,9 @@ it('cycleSibling activates all messages in a multi-step group', function () {
         agent: 'bot',
         parentId: $parentId,
     );
+    foreach ($msgsB as $msg) {
+        $msg->update(['execution_id' => $executionB->id]);
+    }
 
     // Active should be B (both steps)
     $active = ConversationMessage::where('conversation_id', $conversation->id)

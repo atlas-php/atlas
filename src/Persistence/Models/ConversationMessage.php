@@ -35,6 +35,7 @@ use Illuminate\Support\Collection;
  * @property int $conversation_id
  * @property int|null $parent_id
  * @property int|null $step_id
+ * @property int|null $execution_id
  * @property MessageRole $role
  * @property MessageStatus $status
  * @property string|null $owner_type
@@ -64,6 +65,7 @@ class ConversationMessage extends Model
         'conversation_id',
         'parent_id',
         'step_id',
+        'execution_id',
         'owner_type',
         'owner_id',
         'agent',
@@ -116,6 +118,19 @@ class ConversationMessage extends Model
         $model = config('atlas.persistence.models.execution_step', ExecutionStep::class);
 
         return $this->belongsTo($model, 'step_id');
+    }
+
+    /**
+     * The execution that produced this message.
+     *
+     * @return BelongsTo<Execution, $this>
+     */
+    public function execution(): BelongsTo
+    {
+        /** @var class-string<Execution> $model */
+        $model = config('atlas.persistence.models.execution', Execution::class);
+
+        return $this->belongsTo($model);
     }
 
     /**
@@ -374,8 +389,8 @@ class ConversationMessage extends Model
      * Get all sibling retry groups for the same user message.
      * Each group is identified by distinct execution runs with the same parent_id.
      *
-     * Groups by execution_id (via step relationship) so multi-step responses
-     * stay together. Messages without a step are each treated as their own group.
+     * Groups by execution_id so multi-step responses stay together.
+     * Messages without an execution_id are each treated as their own group.
      */
     /** @return array<int, Collection<int, ConversationMessage>> */
     public function siblingGroups(): array
@@ -385,18 +400,17 @@ class ConversationMessage extends Model
         }
 
         $siblings = static::where('parent_id', $this->parent_id)
-            ->with('step')
             ->orderBy('sequence')
             ->get();
 
         // Group by execution_id — messages from the same execution belong together.
-        // Messages without a step_id form individual groups.
+        // Messages without an execution_id form individual groups.
         $groups = [];
         $currentExecutionId = null;
         $current = [];
 
         foreach ($siblings as $message) {
-            $executionId = $message->step?->execution_id;
+            $executionId = $message->execution_id;
 
             if ($executionId === null) {
                 // No step link — standalone group

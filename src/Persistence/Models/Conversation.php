@@ -127,6 +127,6 @@ class Conversation extends Model
      */
     public function nextSequence(): int
     {
-        return ($this->messages()->max('sequence') ?? -1) + 1;
+        return ($this->messages()->max('sequence') ?? 0) + 1;
     }
 }

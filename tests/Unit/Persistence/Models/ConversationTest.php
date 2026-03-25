@@ -55,21 +55,21 @@ it('recentMessages returns only active delivered messages', function () {
 it('nextSequence returns the correct next value', function () {
     $conversation = Conversation::factory()->create();
 
-    expect($conversation->nextSequence())->toBe(0);
-
-    ConversationMessage::factory()->create([
-        'conversation_id' => $conversation->id,
-        'sequence' => 0,
-    ]);
-
     expect($conversation->nextSequence())->toBe(1);
 
     ConversationMessage::factory()->create([
         'conversation_id' => $conversation->id,
-        'sequence' => 5,
+        'sequence' => 1,
     ]);
 
-    expect($conversation->nextSequence())->toBe(6);
+    expect($conversation->nextSequence())->toBe(2);
+
+    ConversationMessage::factory()->create([
+        'conversation_id' => $conversation->id,
+        'sequence' => 6,
+    ]);
+
+    expect($conversation->nextSequence())->toBe(7);
 });
 
 it('scopeForAgent filters by agent', function () {
@@ -99,13 +99,13 @@ it('supports soft deletes', function () {
 it('messages relationship returns ordered by sequence', function () {
     $conversation = Conversation::factory()->create();
 
-    ConversationMessage::factory()->create(['conversation_id' => $conversation->id, 'sequence' => 2]);
-    ConversationMessage::factory()->create(['conversation_id' => $conversation->id, 'sequence' => 0]);
+    ConversationMessage::factory()->create(['conversation_id' => $conversation->id, 'sequence' => 3]);
     ConversationMessage::factory()->create(['conversation_id' => $conversation->id, 'sequence' => 1]);
+    ConversationMessage::factory()->create(['conversation_id' => $conversation->id, 'sequence' => 2]);
 
     $messages = $conversation->messages;
 
-    expect($messages->pluck('sequence')->toArray())->toBe([0, 1, 2]);
+    expect($messages->pluck('sequence')->toArray())->toBe([1, 2, 3]);
 });
 
 it('executions relationship returns related executions', function () {

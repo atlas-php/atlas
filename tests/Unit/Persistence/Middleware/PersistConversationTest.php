@@ -290,7 +290,7 @@ it('deactivates current response and sets retryParentId in retry mode', function
         'conversation_id' => $conversation->id,
         'role' => MessageRole::User,
         'content' => 'Question',
-        'sequence' => 0,
+        'sequence' => 1,
         'is_active' => true,
     ]);
 
@@ -299,7 +299,7 @@ it('deactivates current response and sets retryParentId in retry mode', function
         'role' => MessageRole::Assistant,
         'content' => 'Old answer',
         'agent' => 'test-agent',
-        'sequence' => 1,
+        'sequence' => 2,
         'is_active' => true,
         'parent_id' => $userMsg->id,
     ]);
@@ -359,7 +359,7 @@ it('prepends conversation history to context messages', function () {
         'conversation_id' => $conversation->id,
         'role' => MessageRole::User,
         'content' => 'Previous message',
-        'sequence' => 0,
+        'sequence' => 1,
         'is_active' => true,
     ]);
 
@@ -405,7 +405,7 @@ it('dispatches ProcessQueuedMessage when queued messages exist', function () {
         'conversation_id' => $conversation->id,
         'role' => MessageRole::User,
         'content' => 'Queued question',
-        'sequence' => 0,
+        'sequence' => 1,
         'is_active' => true,
         'status' => MessageStatus::Queued,
     ]);
@@ -461,7 +461,7 @@ it('uses last user message as parentId in respond mode', function () {
         'conversation_id' => $conversation->id,
         'role' => MessageRole::User,
         'content' => 'User said this',
-        'sequence' => 0,
+        'sequence' => 1,
         'is_active' => true,
     ]);
 
@@ -496,13 +496,13 @@ it('prepends conversation history into the request messages', function () {
     ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
         'content' => 'Prior question',
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
 
     ConversationMessage::factory()->fromAssistant('test-agent')->create([
         'conversation_id' => $conversation->id,
         'content' => 'Prior answer',
-        'sequence' => 1,
+        'sequence' => 2,
     ]);
 
     $agent = makeTestAgent();
@@ -600,13 +600,13 @@ it('prepends history before existing request messages without duplication', func
     ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
         'content' => 'Prior question',
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
 
     ConversationMessage::factory()->fromAssistant('test-agent')->create([
         'conversation_id' => $conversation->id,
         'content' => 'Prior answer',
-        'sequence' => 1,
+        'sequence' => 2,
     ]);
 
     $agent = makeTestAgent();

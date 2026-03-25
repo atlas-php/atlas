@@ -10,7 +10,6 @@ use Atlasphp\Atlas\Persistence\Enums\VoiceCallStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -23,6 +22,7 @@ use Illuminate\Support\Carbon;
  *
  * @property int $id
  * @property int|null $conversation_id
+ * @property int|null $execution_id
  * @property string $voice_session_id
  * @property string|null $owner_type
  * @property int|null $owner_id
@@ -41,10 +41,11 @@ class VoiceCall extends Model
 {
     use HasAtlasTable, HasOwner;
 
-    protected $table = 'voice_calls';
+    protected $table = 'conversation_voice_calls';
 
     protected $fillable = [
         'conversation_id',
+        'execution_id',
         'voice_session_id',
         'owner_type',
         'owner_id',
@@ -83,13 +84,13 @@ class VoiceCall extends Model
         return $this->belongsTo($model);
     }
 
-    /** @return HasMany<Execution, $this> */
-    public function executions(): HasMany
+    /** @return BelongsTo<Execution, $this> */
+    public function execution(): BelongsTo
     {
         /** @var class-string<Execution> $model */
         $model = config('atlas.persistence.models.execution', Execution::class);
 
-        return $this->hasMany($model, 'voice_call_id');
+        return $this->belongsTo($model);
     }
 
     // ─── Lifecycle ──────────────────────────────────────────────

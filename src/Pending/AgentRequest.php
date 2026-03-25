@@ -602,8 +602,8 @@ class AgentRequest implements QueueableRequestContract
                     'started_at' => now(),
                 ]);
 
-                // Link execution to voice call (Execution owns the relationship)
-                $execution->update(['voice_call_id' => $voiceCall->id]);
+                // Link voice call to execution (VoiceCall owns the FK)
+                $voiceCall->update(['execution_id' => $execution->id]);
 
                 event(new VoiceCallStarted(
                     voiceCallId: $voiceCall->id,

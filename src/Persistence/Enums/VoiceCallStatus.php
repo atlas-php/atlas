@@ -7,7 +7,7 @@ namespace Atlasphp\Atlas\Persistence\Enums;
 /**
  * Lifecycle status for voice calls.
  *
- * String-backed to match the varchar column in the voice_calls table.
+ * String-backed to match the varchar column in the conversation_voice_calls table.
  */
 enum VoiceCallStatus: string
 {

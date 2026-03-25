@@ -65,11 +65,10 @@ it('scopeOfType filters correctly', function () {
         ->and(Execution::ofType(ExecutionType::Image)->count())->toBe(1);
 });
 
-it('scopeProducedAssets filters where asset_id not null', function () {
-    $asset = Asset::factory()->create();
-
-    Execution::factory()->create(['asset_id' => $asset->id]);
-    Execution::factory()->create(['asset_id' => null]);
+it('scopeProducedAssets filters executions that have assets', function () {
+    $withAsset = Execution::factory()->create();
+    Asset::factory()->create(['execution_id' => $withAsset->id]);
+    Execution::factory()->create(); // no assets
 
     expect(Execution::producedAssets()->count())->toBe(1);
 });
@@ -117,11 +116,11 @@ it('getTotalTokensAttribute returns sum of input and output from usage JSON', fu
 it('steps relationship returns ordered by sequence', function () {
     $execution = Execution::factory()->create();
 
-    ExecutionStep::factory()->create(['execution_id' => $execution->id, 'sequence' => 2]);
-    ExecutionStep::factory()->create(['execution_id' => $execution->id, 'sequence' => 0]);
+    ExecutionStep::factory()->create(['execution_id' => $execution->id, 'sequence' => 3]);
     ExecutionStep::factory()->create(['execution_id' => $execution->id, 'sequence' => 1]);
+    ExecutionStep::factory()->create(['execution_id' => $execution->id, 'sequence' => 2]);
 
-    expect($execution->steps->pluck('sequence')->toArray())->toBe([0, 1, 2]);
+    expect($execution->steps->pluck('sequence')->toArray())->toBe([1, 2, 3]);
 });
 
 it('toolCalls relationship returns related tool calls', function () {
@@ -136,24 +135,24 @@ it('toolCalls relationship returns related tool calls', function () {
     expect($execution->toolCalls)->toHaveCount(2);
 });
 
-it('asset relationship returns related asset', function () {
-    $asset = Asset::factory()->create();
-    $execution = Execution::factory()->create(['asset_id' => $asset->id]);
+it('assets relationship returns related assets', function () {
+    $execution = Execution::factory()->create();
+    Asset::factory()->create(['execution_id' => $execution->id]);
+    Asset::factory()->create(['execution_id' => $execution->id]);
 
-    expect($execution->asset)->toBeInstanceOf(Asset::class)
-        ->and($execution->asset->id)->toBe($asset->id);
+    expect($execution->assets)->toHaveCount(2);
 });
 
-it('triggerMessage relationship returns the triggering message', function () {
+it('message relationship returns the linked message', function () {
     $conversation = Conversation::factory()->create();
-    $message = ConversationMessage::factory()->create([
-        'conversation_id' => $conversation->id,
-    ]);
     $execution = Execution::factory()->create([
         'conversation_id' => $conversation->id,
-        'message_id' => $message->id,
+    ]);
+    $message = ConversationMessage::factory()->create([
+        'conversation_id' => $conversation->id,
+        'execution_id' => $execution->id,
     ]);
 
-    expect($execution->triggerMessage)->toBeInstanceOf(ConversationMessage::class)
-        ->and($execution->triggerMessage->id)->toBe($message->id);
+    expect($execution->message)->toBeInstanceOf(ConversationMessage::class)
+        ->and($execution->message->id)->toBe($message->id);
 });

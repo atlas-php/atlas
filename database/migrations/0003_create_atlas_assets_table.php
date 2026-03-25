@@ -23,6 +23,7 @@ return new class extends Migration
     {
         Schema::create($this->tableName('assets'), function (Blueprint $table) {
             $table->id();
+            $table->unsignedBigInteger('execution_id')->nullable();
             $table->nullableMorphs('owner');
             $table->string('agent', 255)->nullable();
             $table->string('type', 20);
@@ -34,7 +35,6 @@ return new class extends Migration
             $table->unsignedBigInteger('size_bytes')->nullable();
             $table->string('content_hash', 64)->nullable();
             $table->text('description')->nullable();
-            $table->unsignedBigInteger('execution_id')->nullable();
             $table->json('metadata')->nullable();
             $table->timestamps();
             $table->softDeletes();

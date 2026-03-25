@@ -25,7 +25,7 @@ it('ExecutionService operations no-op without exceptions when persistence is dis
     $service->beginExecution(); // no-op, no execution
     $service->completeExecution(); // no-op, no execution
     $service->failExecution(new RuntimeException('test')); // no-op, no execution
-    $service->linkAsset(1); // no-op, no execution
+    $service->linkAsset(null); // no-op, no execution
     $service->completeDirectExecution(new Usage(inputTokens: 100, outputTokens: 50)); // no-op, no execution
 
     $service->reset();

@@ -128,12 +128,12 @@ it('canRetry returns true for last active assistant message', function () {
 
     $userMsg = ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
 
     $assistantMsg = ConversationMessage::factory()->fromAssistant()->create([
         'conversation_id' => $conversation->id,
-        'sequence' => 1,
+        'sequence' => 2,
         'parent_id' => $userMsg->id,
     ]);
 
@@ -145,19 +145,19 @@ it('canRetry returns false when conversation has continued', function () {
 
     $userMsg = ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
 
     $assistantMsg = ConversationMessage::factory()->fromAssistant()->create([
         'conversation_id' => $conversation->id,
-        'sequence' => 1,
+        'sequence' => 2,
         'parent_id' => $userMsg->id,
     ]);
 
     // Another user message after the assistant message
     ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
-        'sequence' => 2,
+        'sequence' => 3,
         'is_active' => true,
     ]);
 
@@ -169,19 +169,19 @@ it('parent and responses relationships work', function () {
 
     $parent = ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
 
     $response1 = ConversationMessage::factory()->fromAssistant()->create([
         'conversation_id' => $conversation->id,
         'parent_id' => $parent->id,
-        'sequence' => 1,
+        'sequence' => 2,
     ]);
 
     $response2 = ConversationMessage::factory()->fromAssistant()->create([
         'conversation_id' => $conversation->id,
         'parent_id' => $parent->id,
-        'sequence' => 2,
+        'sequence' => 3,
     ]);
 
     expect($response1->parent->id)->toBe($parent->id)
@@ -296,21 +296,21 @@ it('siblingGroups returns grouped retry runs', function () {
 
     $parent = ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
 
     // First retry group
     ConversationMessage::factory()->fromAssistant()->create([
         'conversation_id' => $conversation->id,
         'parent_id' => $parent->id,
-        'sequence' => 1,
+        'sequence' => 2,
     ]);
 
     // Second retry group
     ConversationMessage::factory()->fromAssistant()->create([
         'conversation_id' => $conversation->id,
         'parent_id' => $parent->id,
-        'sequence' => 2,
+        'sequence' => 3,
     ]);
 
     $groups = ConversationMessage::where('parent_id', $parent->id)->first()->siblingGroups();
@@ -323,12 +323,6 @@ it('siblingCount returns correct count', function () {
 
     $parent = ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
-        'sequence' => 0,
-    ]);
-
-    ConversationMessage::factory()->fromAssistant()->create([
-        'conversation_id' => $conversation->id,
-        'parent_id' => $parent->id,
         'sequence' => 1,
     ]);
 
@@ -336,6 +330,12 @@ it('siblingCount returns correct count', function () {
         'conversation_id' => $conversation->id,
         'parent_id' => $parent->id,
         'sequence' => 2,
+    ]);
+
+    ConversationMessage::factory()->fromAssistant()->create([
+        'conversation_id' => $conversation->id,
+        'parent_id' => $parent->id,
+        'sequence' => 3,
     ]);
 
     $child = ConversationMessage::where('parent_id', $parent->id)->first();
@@ -348,19 +348,19 @@ it('siblingIndex returns 1-based index of current message', function () {
 
     $parent = ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
 
     $first = ConversationMessage::factory()->fromAssistant()->create([
         'conversation_id' => $conversation->id,
         'parent_id' => $parent->id,
-        'sequence' => 1,
+        'sequence' => 2,
     ]);
 
     $second = ConversationMessage::factory()->fromAssistant()->create([
         'conversation_id' => $conversation->id,
         'parent_id' => $parent->id,
-        'sequence' => 2,
+        'sequence' => 3,
     ]);
 
     expect($first->siblingIndex())->toBe(1)
@@ -389,16 +389,16 @@ it('scopeActive filters to active messages only', function () {
     ConversationMessage::factory()->create([
         'conversation_id' => $conversation->id,
         'is_active' => true,
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
     ConversationMessage::factory()->create([
         'conversation_id' => $conversation->id,
         'is_active' => true,
-        'sequence' => 1,
+        'sequence' => 2,
     ]);
     ConversationMessage::factory()->inactive()->create([
         'conversation_id' => $conversation->id,
-        'sequence' => 2,
+        'sequence' => 3,
     ]);
 
     expect(ConversationMessage::where('conversation_id', $conversation->id)->active()->count())->toBe(2);
@@ -410,11 +410,11 @@ it('scopeDelivered filters delivered messages', function () {
     ConversationMessage::factory()->create([
         'conversation_id' => $conversation->id,
         'status' => MessageStatus::Delivered,
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
     ConversationMessage::factory()->queued()->create([
         'conversation_id' => $conversation->id,
-        'sequence' => 1,
+        'sequence' => 2,
     ]);
 
     expect(ConversationMessage::where('conversation_id', $conversation->id)->delivered()->count())->toBe(1);
@@ -426,15 +426,15 @@ it('scopeQueued filters queued messages', function () {
     ConversationMessage::factory()->create([
         'conversation_id' => $conversation->id,
         'status' => MessageStatus::Delivered,
-        'sequence' => 0,
-    ]);
-    ConversationMessage::factory()->queued()->create([
-        'conversation_id' => $conversation->id,
         'sequence' => 1,
     ]);
     ConversationMessage::factory()->queued()->create([
         'conversation_id' => $conversation->id,
         'sequence' => 2,
+    ]);
+    ConversationMessage::factory()->queued()->create([
+        'conversation_id' => $conversation->id,
+        'sequence' => 3,
     ]);
 
     expect(ConversationMessage::where('conversation_id', $conversation->id)->queued()->count())->toBe(2);
@@ -446,13 +446,13 @@ it('scopeByOwner filters by polymorphic owner', function () {
         'conversation_id' => $conversation->id,
         'owner_type' => 'App\\Models\\User',
         'owner_id' => 5,
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
     ConversationMessage::factory()->create([
         'conversation_id' => $conversation->id,
         'owner_type' => 'App\\Models\\User',
         'owner_id' => 10,
-        'sequence' => 1,
+        'sequence' => 2,
     ]);
 
     $author = new class extends Model
@@ -480,11 +480,11 @@ it('scopeByAgent filters by agent key', function () {
     $conversation = Conversation::factory()->create();
     ConversationMessage::factory()->fromAssistant('agent-a')->create([
         'conversation_id' => $conversation->id,
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
     ConversationMessage::factory()->fromAssistant('agent-b')->create([
         'conversation_id' => $conversation->id,
-        'sequence' => 1,
+        'sequence' => 2,
     ]);
 
     $results = ConversationMessage::byAgent('agent-a')->get();
@@ -497,17 +497,17 @@ it('siblings relationship returns messages with same parent', function () {
     $conversation = Conversation::factory()->create();
     $parent = ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
     $sibling1 = ConversationMessage::factory()->fromAssistant('agent')->create([
         'conversation_id' => $conversation->id,
         'parent_id' => $parent->id,
-        'sequence' => 1,
+        'sequence' => 2,
     ]);
     ConversationMessage::factory()->fromAssistant('agent')->create([
         'conversation_id' => $conversation->id,
         'parent_id' => $parent->id,
-        'sequence' => 2,
+        'sequence' => 3,
     ]);
 
     // siblings excludes self — only peer messages with the same parent

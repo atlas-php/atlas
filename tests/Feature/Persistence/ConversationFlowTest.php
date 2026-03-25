@@ -32,7 +32,7 @@ it('reconstructs full conversation history with tool calls', function () {
 
     $step = ExecutionStep::factory()->withToolCalls('Let me check the weather.')->create([
         'execution_id' => $execution->id,
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
 
     // Tool call record
@@ -146,7 +146,7 @@ it('handles multiple tool calls in a single step', function () {
 
     $step = ExecutionStep::factory()->withToolCalls('Let me check both cities.')->create([
         'execution_id' => $execution->id,
-        'sequence' => 0,
+        'sequence' => 1,
     ]);
 
     ExecutionToolCall::factory()->completed('{"temp": 72}')->create([
