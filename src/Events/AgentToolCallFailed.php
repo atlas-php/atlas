@@ -38,6 +38,7 @@ class AgentToolCallFailed implements ShouldBroadcastNow
     public function broadcastWith(): array
     {
         return [
+            'agentKey' => $this->agentKey,
             'toolCallId' => $this->toolCall->id,
             'toolName' => $this->toolCall->name,
             'error' => mb_substr($this->exception->getMessage(), 0, 500),

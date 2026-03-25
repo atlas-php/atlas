@@ -37,6 +37,7 @@ class AgentToolCallStarted implements ShouldBroadcastNow
     public function broadcastWith(): array
     {
         return [
+            'agentKey' => $this->agentKey,
             'toolCallId' => $this->toolCall->id,
             'toolName' => $this->toolCall->name,
             'arguments' => $this->truncateArguments($this->toolCall->arguments),

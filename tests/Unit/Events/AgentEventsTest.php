@@ -472,13 +472,15 @@ it('orchestration events do not broadcast without channel', function () {
 it('AgentToolCallStarted broadcastWith includes tool details', function () {
     $event = new AgentToolCallStarted(
         toolCall: new ToolCall('tc-1', 'web_search', ['query' => 'Laravel']),
+        agentKey: 'my-agent',
         stepNumber: 2,
         channel: new Channel('test'),
     );
 
     $data = $event->broadcastWith();
 
-    expect($data['toolCallId'])->toBe('tc-1')
+    expect($data['agentKey'])->toBe('my-agent')
+        ->and($data['toolCallId'])->toBe('tc-1')
         ->and($data['toolName'])->toBe('web_search')
         ->and($data['arguments'])->toBe(['query' => 'Laravel'])
         ->and($data['stepNumber'])->toBe(2);
@@ -502,13 +504,15 @@ it('AgentToolCallCompleted broadcastWith includes result summary', function () {
     $event = new AgentToolCallCompleted(
         toolCall: $toolCall,
         result: $result,
+        agentKey: 'my-agent',
         stepNumber: 1,
         channel: new Channel('test'),
     );
 
     $data = $event->broadcastWith();
 
-    expect($data['toolCallId'])->toBe('tc-1')
+    expect($data['agentKey'])->toBe('my-agent')
+        ->and($data['toolCallId'])->toBe('tc-1')
         ->and($data['toolName'])->toBe('search')
         ->and($data['result'])->toBe('Found 5 results')
         ->and($data['isError'])->toBeFalse()
@@ -522,13 +526,15 @@ it('AgentToolCallFailed broadcastWith includes error message', function () {
     $event = new AgentToolCallFailed(
         toolCall: $toolCall,
         exception: $exception,
+        agentKey: 'my-agent',
         stepNumber: 3,
         channel: new Channel('test'),
     );
 
     $data = $event->broadcastWith();
 
-    expect($data['toolCallId'])->toBe('tc-1')
+    expect($data['agentKey'])->toBe('my-agent')
+        ->and($data['toolCallId'])->toBe('tc-1')
         ->and($data['toolName'])->toBe('fetch')
         ->and($data['error'])->toBe('Connection refused')
         ->and($data['stepNumber'])->toBe(3);

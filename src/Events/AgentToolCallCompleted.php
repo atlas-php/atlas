@@ -39,6 +39,7 @@ class AgentToolCallCompleted implements ShouldBroadcastNow
     public function broadcastWith(): array
     {
         return [
+            'agentKey' => $this->agentKey,
             'toolCallId' => $this->toolCall->id,
             'toolName' => $this->toolCall->name,
             'result' => mb_substr($this->result->content, 0, 500),
