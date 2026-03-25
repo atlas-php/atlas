@@ -1,6 +1,6 @@
 # Persistence Reference
 
-Atlas persistence is an optional layer that tracks conversations, executions, assets, and agent memory. When enabled, Atlas automatically records every AI interaction with full observability.
+Atlas persistence is an optional layer that tracks conversations, executions, and assets. When enabled, Atlas automatically records every AI interaction with full observability.
 
 ## Setup
 
@@ -26,7 +26,6 @@ All tables are prefixed with `atlas_` by default (configurable via `persistence.
 | `atlas_execution_steps` | Each round trip in the agent tool loop |
 | `atlas_execution_tool_calls` | Individual tool invocations with arguments and results |
 | `atlas_assets` | Generated files stored on disk with content hashing |
-| `atlas_memories` | Agent memory entries for long-term context |
 | `atlas_voice_calls` | Voice call sessions with complete transcripts |
 
 ## Conversations
@@ -176,31 +175,6 @@ All tables are prefixed with `atlas_` by default (configurable via `persistence.
 | `execution_id` | `bigint nullable` | FK → executions. Which execution produced this asset |
 | `metadata` | `json nullable` | Additional context (tool_call_id, tool_name, provider, model) |
 
-## Memories
-
-**What it stores:** Long-term memory entries for agents — facts, documents, and contextual information that persists across conversations.
-
-**Why it exists:** Agents can remember information between conversations. Memories are scoped to an owner (user) and optionally an agent. They support semantic search via vector embeddings (PostgreSQL) for retrieval-augmented generation (RAG) patterns.
-
-For the full memory API, tools, and usage patterns, see the [Memory guide](/guides/memory).
-
-| Column | Type | Why |
-|--------|------|-----|
-| `id` | `bigint` | Primary key |
-| `memoryable_type` | `string nullable` | Polymorphic — the owner of this memory (User, etc.) |
-| `memoryable_id` | `bigint nullable` | |
-| `agent` | `string nullable` | Scoped to a specific agent, or null for shared across agents |
-| `type` | `string` | Memory type (e.g. `fact`, `document`, `preference`) |
-| `namespace` | `string nullable` | Optional grouping (e.g. `user_preferences`, `project_notes`) |
-| `key` | `string nullable` | Unique key for named documents (upsert support) |
-| `content` | `text` | The memory content |
-| `importance` | `float` | Importance score (default 0.5). Higher scores surface first in recall |
-| `source` | `string nullable` | How this memory was created (e.g. `tool`, `agent`, `manual`) |
-| `last_accessed_at` | `timestamp nullable` | When this memory was last recalled. Enables decay-based retrieval |
-| `expires_at` | `timestamp nullable` | Optional expiration for time-limited memories |
-| `metadata` | `json nullable` | Additional context |
-| `embedding` | `vector nullable` | PostgreSQL only — vector embedding for semantic search |
-
 ## Relationships
 
 ```
@@ -233,9 +207,6 @@ ExecutionToolCall
 Asset
 ├── has many MessageAttachments
 └── belongs to Execution (optional)
-
-Memory
-└── belongs to Owner (polymorphic)
 ```
 
 ## Models
@@ -391,27 +362,6 @@ Join model linking a message to an asset. Carries metadata about which tool prod
 | `message()` | `BelongsTo` | The message |
 | `asset()` | `BelongsTo` | The asset |
 
-### Memory
-
-`Atlasphp\Atlas\Persistence\Models\Memory`
-
-A persistent memory entry scoped to an owner and/or agent. Supports vector embeddings for semantic search (PostgreSQL).
-
-| Relationship | Type | Description |
-|-------------|------|-------------|
-| `memoryable()` | `MorphTo` | The owner of this memory |
-
-| Scope | Description |
-|-------|-------------|
-| `forOwner(Model $owner)` | Filter by polymorphic owner |
-| `global()` | Memories without an owner |
-| `forAgent(string $agent)` | Scoped to a specific agent |
-| `agentAgnostic()` | Shared across agents |
-| `ofType(string $type)` | Filter by memory type |
-| `inNamespace(string $namespace)` | Filter by namespace |
-| `active()` | Non-expired memories |
-| `expired()` | Past expiration date |
-
 ### VoiceCall
 
 `Atlasphp\Atlas\Persistence\Models\VoiceCall`
@@ -501,7 +451,6 @@ Extend the base models with your own:
     'execution_step'      => \App\Models\AtlasExecutionStep::class,
     'execution_tool_call' => \App\Models\AtlasExecutionToolCall::class,
     'asset'               => \App\Models\AtlasAsset::class,
-    'memory'              => \App\Models\AtlasMemory::class,
     'voice_call'          => \App\Models\AtlasVoiceCall::class,
 ],
 ```
@@ -517,7 +466,6 @@ Your custom models must extend the corresponding Atlas base model.
     'table_prefix' => env('ATLAS_TABLE_PREFIX', 'atlas_'),
     'message_limit' => (int) env('ATLAS_MESSAGE_LIMIT', 50),
     'auto_store_assets' => env('ATLAS_AUTO_STORE_ASSETS', true),
-    'memory_auto_embed' => env('ATLAS_MEMORY_AUTO_EMBED', true),
 ],
 ```
 
@@ -527,4 +475,3 @@ Your custom models must extend the corresponding Atlas base model.
 | `table_prefix` | `atlas_` | Prefix for all persistence tables |
 | `message_limit` | `50` | Default conversation history limit |
 | `auto_store_assets` | `true` | Automatically store generated files |
-| `memory_auto_embed` | `true` | Auto-generate embeddings for memories on create/update |

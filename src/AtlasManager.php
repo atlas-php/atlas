@@ -20,7 +20,6 @@ use Atlasphp\Atlas\Pending\SpeechRequest;
 use Atlasphp\Atlas\Pending\TextRequest;
 use Atlasphp\Atlas\Pending\VideoRequest;
 use Atlasphp\Atlas\Pending\VoiceRequest;
-use Atlasphp\Atlas\Persistence\Memory\MemoryBuilder;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
@@ -134,11 +133,6 @@ class AtlasManager
             app: $this->app,
             events: $this->app->make(Dispatcher::class),
         );
-    }
-
-    public function memory(): MemoryBuilder
-    {
-        return $this->app->make(MemoryBuilder::class);
     }
 
     /**

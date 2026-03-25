@@ -17,7 +17,6 @@ use Atlasphp\Atlas\Pending\SpeechRequest;
 use Atlasphp\Atlas\Pending\TextRequest;
 use Atlasphp\Atlas\Pending\VideoRequest;
 use Atlasphp\Atlas\Pending\VoiceRequest;
-use Atlasphp\Atlas\Persistence\Memory\MemoryBuilder;
 
 it('text returns TextRequest', function () {
     $manager = app(AtlasManager::class);
@@ -71,12 +70,6 @@ it('agent returns AgentRequest', function () {
     $manager = app(AtlasManager::class);
 
     expect($manager->agent('support'))->toBeInstanceOf(AgentRequest::class);
-});
-
-it('memory returns MemoryBuilder', function () {
-    $manager = app(AtlasManager::class);
-
-    expect($manager->memory())->toBeInstanceOf(MemoryBuilder::class);
 });
 
 it('music returns MusicRequest', function () {

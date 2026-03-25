@@ -21,7 +21,7 @@ php artisan vendor:publish --tag=atlas-migrations
 php artisan migrate
 ```
 
-This creates tables for conversations, messages, executions, execution steps, execution tool calls, assets, and memory.
+This creates tables for conversations, messages, executions, execution steps, execution tool calls, and assets.
 
 ## Basic Usage
 

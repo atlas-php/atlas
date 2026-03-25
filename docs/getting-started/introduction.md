@@ -1,6 +1,6 @@
 # Introduction
 
-Atlas is a unified AI execution layer for Laravel. It owns its own provider layer — no external AI package dependency. Atlas talks directly to AI provider APIs, manages the tool call loop, and provides optional persistence for conversations, execution tracking, and agent memory.
+Atlas is a unified AI execution layer for Laravel. It owns its own provider layer — no external AI package dependency. Atlas talks directly to AI provider APIs, manages the tool call loop, and provides optional persistence for conversations and execution tracking.
 
 ## Quick Example
 
@@ -36,7 +36,7 @@ $response->steps;      // Tool call loop history
 | **Variable Interpolation** | `{variable}` placeholders in instructions with runtime values |
 | **Middleware Layers** | Agent, step, tool, and provider middleware for observability and control |
 | **Lifecycle Events** | 34 events across all execution boundaries |
-| **Persistence** | Optional conversations, execution tracking, and agent memory |
+| **Persistence** | Optional conversations and execution tracking |
 | **Queue Support** | Async execution with real-time broadcasting |
 | **Multi-Modal** | Text, images, audio, video, embeddings, moderation, reranking |
 
@@ -66,7 +66,7 @@ Beyond text, images, and streaming, Atlas supports `audio()`, `video()`, `embed(
 Atlas v3 is **batteries included, batteries optional**:
 
 - **Works stateless out of the box.** Send a message, get a response. No database tables required.
-- **Enable persistence when you need it.** Conversations, execution tracking, and agent memory are opt-in.
+- **Enable persistence when you need it.** Conversations and execution tracking are opt-in.
 - **Middleware for custom observability.** Four layers (agent, step, tool, provider) let you hook into every phase of execution.
 - **Events for reactive integrations.** 34 lifecycle events for logging, metrics, webhooks, or any side effect.
 

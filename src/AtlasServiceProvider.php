@@ -10,9 +10,6 @@ use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
 use Atlasphp\Atlas\Embeddings\VectorQueryMacros;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
-use Atlasphp\Atlas\Persistence\Memory\MemoryBuilder;
-use Atlasphp\Atlas\Persistence\Memory\MemoryContext;
-use Atlasphp\Atlas\Persistence\Memory\MemoryModelService;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 use Atlasphp\Atlas\Providers\Anthropic\AnthropicDriver;
 use Atlasphp\Atlas\Providers\Cohere\CohereDriver;
@@ -68,13 +65,7 @@ class AtlasServiceProvider extends ServiceProvider
 
         $this->app->scoped(ExecutionService::class);
 
-        $this->app->scoped(MemoryContext::class);
-
         $this->app->singleton(VariableRegistry::class);
-
-        $this->app->singleton(MemoryModelService::class);
-
-        $this->app->bind(MemoryBuilder::class, fn ($app) => new MemoryBuilder($app->make(MemoryModelService::class)));
 
         $this->app->singleton(AtlasCache::class);
         $this->app->singleton(EmbeddingResolver::class, function ($app) {

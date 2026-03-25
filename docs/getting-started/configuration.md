@@ -314,10 +314,6 @@ return [
         // Tool-generated assets use ToolAssets::store() explicitly.
         'auto_store_assets' => env('ATLAS_AUTO_STORE_ASSETS', true),
 
-        // Auto-embed memories on create/update via HasVectorEmbeddings.
-        // Disable if you want to embed asynchronously via a job.
-        'memory_auto_embed' => env('ATLAS_MEMORY_AUTO_EMBED', true),
-
         // Model overrides — extend base models with your own
         'models' => [
             // 'conversation'        => \Atlasphp\Atlas\Persistence\Models\Conversation::class,
@@ -327,7 +323,6 @@ return [
             // 'execution'           => \Atlasphp\Atlas\Persistence\Models\Execution::class,
             // 'execution_step'      => \Atlasphp\Atlas\Persistence\Models\ExecutionStep::class,
             // 'execution_tool_call' => \Atlasphp\Atlas\Persistence\Models\ExecutionToolCall::class,
-            // 'memory'              => \Atlasphp\Atlas\Persistence\Models\Memory::class,
         ],
     ],
 
@@ -585,7 +580,6 @@ ATLAS_PERSISTENCE_ENABLED=false
 ATLAS_TABLE_PREFIX=atlas_
 ATLAS_MESSAGE_LIMIT=50
 ATLAS_AUTO_STORE_ASSETS=true
-ATLAS_MEMORY_AUTO_EMBED=true
 ```
 
 To enable persistence:

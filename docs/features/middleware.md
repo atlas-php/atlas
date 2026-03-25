@@ -167,8 +167,6 @@ When persistence is enabled, Atlas auto-registers middleware at each layer to tr
 
 </div>
 
-For memory tool integration, see the [Memory guide](/guides/memory).
-
 ## Examples
 
 ### Logging Middleware

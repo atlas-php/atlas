@@ -71,7 +71,6 @@ export default defineConfig({
                     { text: 'Streaming', link: '/guides/streaming' },
                     { text: 'Queue & Background Jobs', link: '/guides/queue' },
                     { text: 'Media & Assets', link: '/guides/media-storage' },
-                    { text: 'Memory', link: '/guides/memory' },
                     { text: 'Voice Integration', link: '/guides/voice-integration' },
                     { text: 'Custom Providers', link: '/guides/custom-providers' },
                     { text: 'Custom Drivers', link: '/guides/custom-drivers' },

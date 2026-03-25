@@ -19,7 +19,6 @@ use Atlasphp\Atlas\Pending\SpeechRequest;
 use Atlasphp\Atlas\Pending\TextRequest;
 use Atlasphp\Atlas\Pending\VideoRequest;
 use Atlasphp\Atlas\Pending\VoiceRequest;
-use Atlasphp\Atlas\Persistence\Memory\MemoryBuilder;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Testing\AtlasFake;
 use Atlasphp\Atlas\Testing\AudioResponseFake;
@@ -50,7 +49,6 @@ use Illuminate\Support\Facades\Facade;
  * @method static RerankRequest rerank(Provider|string|null $provider = null, ?string $model = null)
  * @method static ProviderRequest provider(Provider|string $provider)
  * @method static AgentRequest agent(string $key)
- * @method static MemoryBuilder memory()
  * @method static ProviderRegistryContract providers()
  *
  * @see AtlasManager

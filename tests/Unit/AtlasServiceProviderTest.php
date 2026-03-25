@@ -7,9 +7,6 @@ use Atlasphp\Atlas\AtlasManager;
 use Atlasphp\Atlas\Cache\AtlasCache;
 use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
-use Atlasphp\Atlas\Persistence\Memory\MemoryBuilder;
-use Atlasphp\Atlas\Persistence\Memory\MemoryContext;
-use Atlasphp\Atlas\Persistence\Memory\MemoryModelService;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 use Atlasphp\Atlas\Providers\Anthropic\AnthropicDriver;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
@@ -61,13 +58,6 @@ it('resolves VariableRegistry as singleton', function () {
     expect($a)->toBe($b);
 });
 
-it('resolves MemoryModelService as singleton', function () {
-    $a = app(MemoryModelService::class);
-    $b = app(MemoryModelService::class);
-
-    expect($a)->toBe($b);
-});
-
 it('resolves AtlasCache as singleton', function () {
     $a = app(AtlasCache::class);
     $b = app(AtlasCache::class);
@@ -83,24 +73,12 @@ it('resolves ExecutionService as scoped', function () {
     expect($instance)->toBeInstanceOf(ExecutionService::class);
 });
 
-it('resolves MemoryContext as scoped', function () {
-    $instance = app(MemoryContext::class);
-
-    expect($instance)->toBeInstanceOf(MemoryContext::class);
-});
-
 // ─── Factory Bindings ──────────────────────────────────────────────────────
 
 it('resolves EmbeddingResolver with AtlasCache dependency', function () {
     $resolver = app(EmbeddingResolver::class);
 
     expect($resolver)->toBeInstanceOf(EmbeddingResolver::class);
-});
-
-it('resolves MemoryBuilder with MemoryModelService dependency', function () {
-    $builder = app(MemoryBuilder::class);
-
-    expect($builder)->toBeInstanceOf(MemoryBuilder::class);
 });
 
 // ─── Provider Registration ─────────────────────────────────────────────────

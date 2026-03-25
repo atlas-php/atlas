@@ -10,9 +10,6 @@ use App\Tools\GenerateVideoTool;
 use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Persistence\Concerns\HasConversations;
-use Atlasphp\Atlas\Persistence\Memory\Tools\MemoryRecall;
-use Atlasphp\Atlas\Persistence\Memory\Tools\MemorySearch;
-use Atlasphp\Atlas\Persistence\Memory\Tools\RememberMemory;
 use Atlasphp\Atlas\Providers\Tools\ProviderTool;
 use Atlasphp\Atlas\Providers\Tools\WebSearch;
 
@@ -77,9 +74,6 @@ class AssistantAgent extends Agent
             GenerateImageTool::class,
             GenerateVideoTool::class,
             GenerateSpeechTool::class,
-            RememberMemory::class,
-            MemoryRecall::class,
-            MemorySearch::class,
         ];
     }
 

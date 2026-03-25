@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Agents\AssistantAgent;
-use App\Agents\MemoryTestAgent;
 use App\Agents\VoiceAssistantAgent;
 use App\Console\FreshCommand;
 use App\Listeners\SummarizeVoiceCall;
@@ -74,7 +73,6 @@ class SandboxServiceProvider extends ServiceProvider
         $registry = $this->app->make(AgentRegistry::class);
         $registry->register(AssistantAgent::class);
         $registry->register(VoiceAssistantAgent::class);
-        $registry->register(MemoryTestAgent::class);
     }
 
     /**
