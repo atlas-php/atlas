@@ -20,18 +20,16 @@ use Illuminate\Support\Carbon;
 /**
  * Class Asset
  *
- * Represents a stored file (image, audio, video, document, etc.) with content-hash deduplication
- * and optional vector embeddings for semantic search. Assets exist independently of messages and
- * can be referenced by multiple messages across different conversations.
+ * Represents a stored file (image, audio, video, document, etc.) with optional vector embeddings
+ * for semantic search. Assets exist independently of messages and can be referenced by multiple
+ * messages across different conversations.
  *
  * @property AssetType $type
  * @property string|null $mime_type
  * @property string $filename
- * @property string|null $original_filename
  * @property string $path
  * @property string $disk
  * @property int|null $size_bytes
- * @property string|null $content_hash
  * @property string|null $description
  * @property array<mixed>|null $embedding
  * @property Carbon|null $embedding_at
@@ -40,6 +38,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $owner_id
  * @property string|null $agent
  * @property int|null $execution_id
+ * @property int|null $tool_call_id
  */
 class Asset extends Model
 {
@@ -57,11 +56,9 @@ class Asset extends Model
         'type',
         'mime_type',
         'filename',
-        'original_filename',
         'path',
         'disk',
         'size_bytes',
-        'content_hash',
         'description',
         'embedding',
         'embedding_at',
@@ -70,6 +67,7 @@ class Asset extends Model
         'owner_id',
         'agent',
         'execution_id',
+        'tool_call_id',
     ];
 
     protected function casts(): array
@@ -101,6 +99,15 @@ class Asset extends Model
         $model = config('atlas.persistence.models.execution', Execution::class);
 
         return $this->belongsTo($model);
+    }
+
+    /** @return BelongsTo<ExecutionToolCall, $this> */
+    public function toolCall(): BelongsTo
+    {
+        /** @var class-string<ExecutionToolCall> $model */
+        $model = config('atlas.persistence.models.execution_tool_call', ExecutionToolCall::class);
+
+        return $this->belongsTo($model, 'tool_call_id');
     }
 
     // ─── Helpers ────────────────────────────────────────────────

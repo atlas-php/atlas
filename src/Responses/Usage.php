@@ -33,11 +33,11 @@ final class Usage
     public function toArray(): array
     {
         return array_filter([
-            'inputTokens' => $this->inputTokens,
-            'outputTokens' => $this->outputTokens,
-            'reasoningTokens' => $this->reasoningTokens,
-            'cachedTokens' => $this->cachedTokens,
-            'cacheWriteTokens' => $this->cacheWriteTokens,
+            'input_tokens' => $this->inputTokens,
+            'output_tokens' => $this->outputTokens,
+            'reasoning_tokens' => $this->reasoningTokens,
+            'cached_tokens' => $this->cachedTokens,
+            'cache_write_tokens' => $this->cacheWriteTokens,
         ], fn ($v) => $v !== null);
     }
 
@@ -53,11 +53,11 @@ final class Usage
         }
 
         return new self(
-            inputTokens: $data['inputTokens'] ?? 0,
-            outputTokens: $data['outputTokens'] ?? 0,
-            reasoningTokens: $data['reasoningTokens'] ?? null,
-            cachedTokens: $data['cachedTokens'] ?? null,
-            cacheWriteTokens: $data['cacheWriteTokens'] ?? null,
+            inputTokens: $data['input_tokens'] ?? 0,
+            outputTokens: $data['output_tokens'] ?? 0,
+            reasoningTokens: $data['reasoning_tokens'] ?? null,
+            cachedTokens: $data['cached_tokens'] ?? null,
+            cacheWriteTokens: $data['cache_write_tokens'] ?? null,
         );
     }
 

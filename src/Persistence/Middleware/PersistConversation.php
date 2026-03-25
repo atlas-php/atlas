@@ -254,7 +254,8 @@ class PersistConversation
         $assetModel = config('atlas.persistence.models.asset', Asset::class);
 
         $toolAssets = $assetModel::where('execution_id', $execution->id)
-            ->whereJsonContains('metadata->source', 'tool_execution')
+            ->whereNotNull('tool_call_id')
+            ->with('toolCall')
             ->get();
 
         if ($toolAssets->isEmpty()) {
@@ -272,8 +273,8 @@ class PersistConversation
             'message_id' => $message->id,
             'asset_id' => $asset->id,
             'metadata' => json_encode([
-                'tool_call_id' => $asset->metadata['tool_call_id'] ?? null,
-                'tool_name' => $asset->metadata['tool_name'] ?? null,
+                'tool_call_id' => $asset->toolCall?->tool_call_id,
+                'tool_name' => $asset->toolCall?->name,
             ], JSON_THROW_ON_ERROR),
             'created_at' => now(),
         ])->toArray();

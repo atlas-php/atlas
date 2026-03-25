@@ -84,7 +84,7 @@ it('tracks full execution lifecycle: create → step → tool call → complete'
     expect($execution->status)->toBe(ExecutionStatus::Completed)
         ->and($execution->completed_at)->not->toBeNull()
         ->and($execution->duration_ms)->toBeGreaterThanOrEqual(0)
-        ->and($execution->usage)->toBe(['inputTokens' => 150, 'outputTokens' => 30]);
+        ->and($execution->usage)->toBe(['input_tokens' => 150, 'output_tokens' => 30]);
 
     // ── Verify all records exist in database ────────────────────
     expect(Execution::count())->toBe(1)
@@ -132,7 +132,7 @@ it('tracks multi-step execution with multiple tool calls', function () {
     $execution->refresh();
 
     expect($execution->status)->toBe(ExecutionStatus::Completed)
-        ->and($execution->usage)->toBe(['inputTokens' => 300, 'outputTokens' => 70]);
+        ->and($execution->usage)->toBe(['input_tokens' => 300, 'output_tokens' => 70]);
 
     expect(ExecutionStep::count())->toBe(2)
         ->and(ExecutionToolCall::count())->toBe(1);

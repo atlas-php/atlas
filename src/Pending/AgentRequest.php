@@ -39,6 +39,7 @@ use Atlasphp\Atlas\Persistence\Models\ConversationMessageAsset;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\VoiceCall;
 use Atlasphp\Atlas\Persistence\Services\ConversationService;
+use Atlasphp\Atlas\Persistence\Support\MimeTypeMap;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\OpenAi\ToolMapper;
@@ -58,6 +59,7 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
@@ -734,9 +736,9 @@ class AgentRequest implements QueueableRequestContract
     {
         foreach ($media as $input) {
             try {
-                $path = $input->store();
                 $contents = $input->contents();
                 $disk = config('atlas.storage.disk') ?? config('filesystems.default', 'local');
+                $prefix = config('atlas.storage.prefix', 'atlas');
                 $mime = $input->mimeType();
 
                 $assetModel = config('atlas.persistence.models.asset', Asset::class);
@@ -749,18 +751,23 @@ class AgentRequest implements QueueableRequestContract
                     default => AssetType::Document,
                 };
 
-                DB::transaction(function () use ($assetModel, $attachmentModel, $messageId, $path, $disk, $mime, $contents, $owner, $type): void {
+                $extension = MimeTypeMap::toExtension($mime, $type);
+                $filename = Str::uuid()->toString().'.'.$extension;
+                $path = $prefix.'/assets/'.$filename;
+
+                Storage::disk($disk)->put($path, $contents, config('atlas.storage.visibility', 'private'));
+
+                DB::transaction(function () use ($assetModel, $attachmentModel, $messageId, $path, $filename, $disk, $mime, $contents, $owner, $type): void {
                     $asset = $assetModel::create([
                         'type' => $type,
                         'mime_type' => $mime,
-                        'filename' => basename($path),
+                        'filename' => $filename,
                         'path' => $path,
                         'disk' => $disk,
                         'size_bytes' => strlen($contents),
-                        'content_hash' => hash('sha256', $contents),
                         'owner_type' => $owner?->getMorphClass(),
                         'owner_id' => $owner?->getKey(),
-                        'metadata' => ['source' => 'user_upload'],
+                        'metadata' => null,
                     ]);
 
                     $attachmentModel::create([

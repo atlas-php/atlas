@@ -24,16 +24,15 @@ return new class extends Migration
         Schema::create($this->tableName('assets'), function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('execution_id')->nullable();
+            $table->unsignedBigInteger('tool_call_id')->nullable();
             $table->nullableMorphs('owner');
             $table->string('agent', 255)->nullable();
             $table->string('type', 20);
             $table->string('mime_type', 100)->nullable();
             $table->string('filename', 255);
-            $table->string('original_filename', 255)->nullable();
             $table->string('path', 500);
             $table->string('disk', 50);
             $table->unsignedBigInteger('size_bytes')->nullable();
-            $table->string('content_hash', 64)->nullable();
             $table->text('description')->nullable();
             $table->json('metadata')->nullable();
             $table->timestamps();
@@ -47,9 +46,9 @@ return new class extends Migration
             }
 
             $table->index('type');
-            $table->index('content_hash');
             $table->index('agent');
             $table->index('execution_id');
+            $table->index('tool_call_id');
         });
 
         // Add HNSW vector index — PostgreSQL only

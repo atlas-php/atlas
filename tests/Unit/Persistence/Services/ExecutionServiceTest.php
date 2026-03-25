@@ -109,7 +109,7 @@ it('transitions to completed and records usage', function () {
     expect($execution->status)->toBe(ExecutionStatus::Completed)
         ->and($execution->duration_ms)->toBeGreaterThanOrEqual(0)
         ->and($execution->completed_at)->not->toBeNull()
-        ->and($execution->usage)->toBe(['inputTokens' => 180, 'outputTokens' => 90]);
+        ->and($execution->usage)->toBe(['input_tokens' => 180, 'output_tokens' => 90]);
 });
 
 // ─── failExecution ─────────────────────────────────────────────────
@@ -210,7 +210,7 @@ it('creates tool call in pending with arguments', function () {
         ->and($record->status)->toBe(ExecutionStatus::Pending)
         ->and($record->tool_call_id)->toBe('call_abc123')
         ->and($record->name)->toBe('search')
-        ->and($record->type)->toBe(ToolCallType::Atlas)
+        ->and($record->type)->toBe(ToolCallType::Local)
         ->and($record->arguments)->toBe(['query' => 'test']);
 });
 
@@ -289,7 +289,7 @@ it('records usage directly without step aggregation', function () {
     $execution->refresh();
 
     expect($execution->status)->toBe(ExecutionStatus::Completed)
-        ->and($execution->usage)->toBe(['inputTokens' => 200, 'outputTokens' => 100])
+        ->and($execution->usage)->toBe(['input_tokens' => 200, 'output_tokens' => 100])
         ->and($execution->completed_at)->not->toBeNull()
         ->and($execution->duration_ms)->toBeGreaterThanOrEqual(0);
 });
@@ -409,7 +409,7 @@ it('completeDirectExecution returns null duration when beginExecution was never 
 
     $execution = Execution::first();
     expect($execution->status)->toBe(ExecutionStatus::Completed)
-        ->and($execution->usage)->toBe(['inputTokens' => 50, 'outputTokens' => 25])
+        ->and($execution->usage)->toBe(['input_tokens' => 50, 'output_tokens' => 25])
         ->and($execution->duration_ms)->toBeNull();
 });
 

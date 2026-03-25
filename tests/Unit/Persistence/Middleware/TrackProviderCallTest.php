@@ -9,6 +9,7 @@ use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
 use Atlasphp\Atlas\Persistence\Middleware\TrackProviderCall;
 use Atlasphp\Atlas\Persistence\Models\Asset;
+use Atlasphp\Atlas\Persistence\Models\Conversation;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 use Atlasphp\Atlas\Responses\StorableContract;
@@ -42,7 +43,7 @@ it('skips execution creation when agent execution is active', function () {
 
         public function __construct()
         {
-            $this->usage = (object) ['inputTokens' => 10, 'outputTokens' => 0];
+            $this->usage = (object) ['input_tokens' => 10, 'output_tokens' => 0];
         }
     };
 
@@ -73,7 +74,7 @@ it('creates standalone execution for direct calls', function () {
 
         public function __construct()
         {
-            $this->usage = (object) ['inputTokens' => 50, 'outputTokens' => 25];
+            $this->usage = (object) ['input_tokens' => 50, 'output_tokens' => 25];
         }
     };
 
@@ -111,7 +112,7 @@ it('stores asset for image response', function () {
 
         public function __construct()
         {
-            $this->usage = (object) ['inputTokens' => 10, 'outputTokens' => 0];
+            $this->usage = (object) ['input_tokens' => 10, 'output_tokens' => 0];
         }
 
         public function contents(): string
@@ -161,7 +162,7 @@ it('stores asset for audio response', function () {
 
         public function __construct()
         {
-            $this->usage = (object) ['inputTokens' => 5, 'outputTokens' => 0];
+            $this->usage = (object) ['input_tokens' => 5, 'output_tokens' => 0];
         }
 
         public function contents(): string
@@ -202,7 +203,7 @@ it('skips asset for text response', function () {
 
         public function __construct()
         {
-            $this->usage = (object) ['inputTokens' => 20, 'outputTokens' => 15];
+            $this->usage = (object) ['input_tokens' => 20, 'output_tokens' => 15];
         }
     };
 
@@ -233,7 +234,7 @@ it('respects auto_store_assets config', function () {
 
         public function __construct()
         {
-            $this->usage = (object) ['inputTokens' => 10, 'outputTokens' => 0];
+            $this->usage = (object) ['input_tokens' => 10, 'output_tokens' => 0];
         }
 
         public function contents(): string
@@ -284,7 +285,7 @@ it('still stores assets when inside agent execution', function () {
 
         public function __construct()
         {
-            $this->usage = (object) ['inputTokens' => 10, 'outputTokens' => 0];
+            $this->usage = (object) ['input_tokens' => 10, 'output_tokens' => 0];
         }
 
         public function contents(): string
@@ -326,7 +327,7 @@ it('stores asset for video response', function () {
 
         public function __construct()
         {
-            $this->usage = (object) ['inputTokens' => 5, 'outputTokens' => 0];
+            $this->usage = (object) ['input_tokens' => 5, 'output_tokens' => 0];
         }
 
         public function contents(): string
@@ -420,7 +421,7 @@ it('completes standalone execution with usage', function () {
     $execution = Execution::latest('id')->first();
 
     expect($execution->status)->toBe(ExecutionStatus::Completed);
-    expect($execution->usage)->toBe(['inputTokens' => 100, 'outputTokens' => 42]);
+    expect($execution->usage)->toBe(['input_tokens' => 100, 'output_tokens' => 42]);
 });
 
 it('resolves default extension for unknown mime type', function () {
@@ -446,7 +447,7 @@ it('resolves default extension for unknown mime type', function () {
 
         public function __construct()
         {
-            $this->usage = (object) ['inputTokens' => 10, 'outputTokens' => 0];
+            $this->usage = (object) ['input_tokens' => 10, 'output_tokens' => 0];
         }
 
         public function contents(): string
@@ -492,7 +493,7 @@ it('resolves png extension for image/png mime type', function () {
 
         public function __construct()
         {
-            $this->usage = (object) ['inputTokens' => 10, 'outputTokens' => 0];
+            $this->usage = (object) ['input_tokens' => 10, 'output_tokens' => 0];
         }
 
         public function contents(): string
@@ -557,7 +558,7 @@ it('links asset to current tool call when inside tool execution', function () {
 
         public function __construct()
         {
-            $this->usage = (object) ['inputTokens' => 10, 'outputTokens' => 0];
+            $this->usage = (object) ['input_tokens' => 10, 'output_tokens' => 0];
         }
 
         public function contents(): string
@@ -576,10 +577,13 @@ it('links asset to current tool call when inside tool execution', function () {
     $asset = Asset::latest('id')->first();
 
     expect($asset)->not->toBeNull();
-    expect($asset->metadata)->toBeArray();
-    expect($asset->metadata['source'])->toBe('tool_execution');
-    expect($asset->metadata['tool_call_id'])->toBe($toolCallRecord->tool_call_id);
-    expect($asset->metadata['tool_name'])->toBe('generate_image');
+    expect($asset->tool_call_id)->toBe($toolCallRecord->id);
+    expect($asset->metadata)->toBeNull();
+
+    // Verify the relationship works
+    expect($asset->toolCall)->not->toBeNull();
+    expect($asset->toolCall->tool_call_id)->toBe('call_abc123');
+    expect($asset->toolCall->name)->toBe('generate_image');
 });
 
 // ─── resolveExtension AssetType fallback branches ──────────────────────────
@@ -607,7 +611,7 @@ it('resolves mp3 extension for audio response with unknown mime type', function 
 
         public function __construct()
         {
-            $this->usage = (object) ['inputTokens' => 5, 'outputTokens' => 0];
+            $this->usage = (object) ['input_tokens' => 5, 'output_tokens' => 0];
         }
 
         public function contents(): string
@@ -651,7 +655,7 @@ it('resolves mp4 extension for video response with unknown mime type', function 
 
         public function __construct()
         {
-            $this->usage = (object) ['inputTokens' => 10, 'outputTokens' => 0];
+            $this->usage = (object) ['input_tokens' => 10, 'output_tokens' => 0];
         }
 
         public function contents(): string
@@ -695,7 +699,7 @@ it('resolves known mime type extensions in middleware', function (string $method
 
         public function __construct(private string $mime)
         {
-            $this->usage = (object) ['inputTokens' => 1, 'outputTokens' => 0];
+            $this->usage = (object) ['input_tokens' => 1, 'output_tokens' => 0];
         }
 
         public function contents(): string
@@ -751,7 +755,7 @@ it('sets asset on response when response has asset property', function () {
 
         public function __construct()
         {
-            $this->usage = (object) ['inputTokens' => 10, 'outputTokens' => 0];
+            $this->usage = (object) ['input_tokens' => 10, 'output_tokens' => 0];
         }
 
         public function contents(): string
@@ -797,7 +801,7 @@ it('does not set asset on response without asset property', function () {
 
         public function __construct()
         {
-            $this->usage = (object) ['inputTokens' => 10, 'outputTokens' => 0];
+            $this->usage = (object) ['input_tokens' => 10, 'output_tokens' => 0];
         }
 
         public function contents(): string
@@ -843,7 +847,7 @@ it('makes asset available via ExecutionService getLastAsset', function () {
 
         public function __construct()
         {
-            $this->usage = (object) ['inputTokens' => 10, 'outputTokens' => 0];
+            $this->usage = (object) ['input_tokens' => 10, 'output_tokens' => 0];
         }
 
         public function contents(): string
@@ -895,7 +899,7 @@ it('getLastAsset is cleared on execution service reset', function () {
 
         public function __construct()
         {
-            $this->usage = (object) ['inputTokens' => 10, 'outputTokens' => 0];
+            $this->usage = (object) ['input_tokens' => 10, 'output_tokens' => 0];
         }
 
         public function contents(): string
@@ -944,7 +948,7 @@ it('resolves mime type from response format property when mimeType method is abs
 
         public function __construct()
         {
-            $this->usage = (object) ['inputTokens' => 10, 'outputTokens' => 0];
+            $this->usage = (object) ['input_tokens' => 10, 'output_tokens' => 0];
         }
 
         public function contents(): string
@@ -1043,13 +1047,31 @@ it('skips execution creation for voice sessions', function () {
     expect(Execution::count())->toBe($executionCountBefore);
 });
 
-it('captures author metadata in asset from context meta', function () {
+it('derives asset owner from execution conversation', function () {
     Storage::fake('local');
     config()->set('atlas.storage.disk', 'local');
     config()->set('atlas.storage.prefix', 'atlas');
     config()->set('atlas.persistence.auto_store_assets', true);
 
     $service = new ExecutionService;
+
+    // Create a conversation with an owner
+    $conversationModel = config('atlas.persistence.models.conversation', Conversation::class);
+    $conversation = $conversationModel::create([
+        'agent' => 'test-agent',
+        'owner_type' => 'App\\Models\\User',
+        'owner_id' => 42,
+    ]);
+
+    // Create execution linked to the conversation
+    $service->createExecution(
+        provider: 'openai',
+        model: 'dall-e-3',
+        type: ExecutionType::Image,
+        conversationId: $conversation->id,
+    );
+    $service->beginExecution();
+
     $middleware = new TrackProviderCall($service);
 
     $context = new ProviderContext(
@@ -1057,7 +1079,7 @@ it('captures author metadata in asset from context meta', function () {
         model: 'dall-e-3',
         method: 'image',
         request: new stdClass,
-        meta: ['owner_type' => 'App\\Models\\User', 'owner_id' => 42],
+        meta: [],
     );
 
     $response = new class implements StorableContract
@@ -1066,7 +1088,7 @@ it('captures author metadata in asset from context meta', function () {
 
         public function __construct()
         {
-            $this->usage = (object) ['inputTokens' => 10, 'outputTokens' => 0];
+            $this->usage = (object) ['input_tokens' => 10, 'output_tokens' => 0];
         }
 
         public function contents(): string

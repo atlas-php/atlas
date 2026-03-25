@@ -49,38 +49,32 @@ class ToolAssets
         $prefix = config('atlas.storage.prefix', 'atlas');
         $visibility = config('atlas.storage.visibility', 'private');
 
-        $hash = hash('sha256', $content);
         $extension = MimeTypeMap::toExtension($data['mime_type'] ?? null);
         $filename = Str::random(40).'.'.$extension;
-        $path = $prefix.'/tools/'.$filename;
+        $path = $prefix.'/assets/'.$filename;
 
         Storage::disk($disk)->put($path, $content, $visibility);
 
         /** @var class-string<Asset> $assetModel */
         $assetModel = config('atlas.persistence.models.asset', Asset::class);
 
-        $metadata = array_merge($data['metadata'] ?? [], [
-            'source' => 'tool_execution',
-        ]);
-
-        if ($toolCall !== null) {
-            $metadata['tool_call_id'] = $toolCall->tool_call_id;
-            $metadata['tool_name'] = $toolCall->name;
-        }
+        // Derive owner from execution's conversation — canonical source
+        $conversation = $execution?->conversation;
 
         $asset = $assetModel::create([
             'type' => $data['type'] ?? 'file',
             'mime_type' => $data['mime_type'] ?? null,
             'filename' => $filename,
-            'original_filename' => $data['original_filename'] ?? null,
             'path' => $path,
             'disk' => $disk,
             'size_bytes' => strlen($content),
-            'content_hash' => $hash,
             'description' => $data['description'] ?? null,
             'agent' => $execution?->agent,
             'execution_id' => $execution?->id,
-            'metadata' => $metadata,
+            'tool_call_id' => $toolCall?->id,
+            'owner_type' => $conversation?->owner_type,
+            'owner_id' => $conversation?->owner_id,
+            'metadata' => $data['metadata'] ?? null,
         ]);
 
         return $asset;

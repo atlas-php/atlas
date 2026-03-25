@@ -171,7 +171,7 @@ class VoiceToolController
             'execution_id' => $executionId,
             'tool_call_id' => $callId,
             'name' => $name,
-            'type' => ToolCallType::Atlas,
+            'type' => ToolCallType::Local,
             'status' => ExecutionStatus::Processing,
             'arguments' => $args,
             'started_at' => now(),

@@ -9,6 +9,7 @@ use Atlasphp\Atlas\Events\ConversationMessageStored;
 use Atlasphp\Atlas\Executor\ExecutorResult;
 use Atlasphp\Atlas\Executor\Step;
 use Atlasphp\Atlas\Messages\AssistantMessage;
+use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Middleware\AgentContext;
 use Atlasphp\Atlas\Persistence\Concerns\HasConversations;
@@ -747,7 +748,14 @@ it('attaches tool-created assets to stored assistant message', function () {
 
     $execution = $executionService->getExecution();
 
-    // Create an asset linked to this execution with tool_execution source
+    // Create a step and tool call for the execution
+    $executionService->createStep();
+    $executionService->beginStep();
+    $toolCallRecord = $executionService->createToolCall(
+        new ToolCall('call_abc', 'generate_image', ['prompt' => 'a cat']),
+    );
+
+    // Create an asset linked to this execution via tool_call_id column
     $asset = Asset::create([
         'type' => AssetType::Image,
         'mime_type' => 'image/png',
@@ -755,9 +763,9 @@ it('attaches tool-created assets to stored assistant message', function () {
         'path' => 'atlas/assets/test.png',
         'disk' => 'local',
         'size_bytes' => 100,
-        'content_hash' => hash('sha256', 'fake'),
         'execution_id' => $execution->id,
-        'metadata' => ['source' => 'tool_execution', 'tool_call_id' => 'call_abc', 'tool_name' => 'generate_image'],
+        'tool_call_id' => $toolCallRecord->id,
+        'metadata' => null,
     ]);
 
     $context = new AgentContext(

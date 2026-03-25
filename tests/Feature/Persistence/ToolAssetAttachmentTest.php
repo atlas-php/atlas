@@ -17,7 +17,7 @@ use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 /**
  * Helper to call the protected attachToolAssets method via reflection.
  *
- * @param  array<int, Message>  $storedMessages
+ * @param  array<int, ConversationMessage>  $storedMessages
  */
 function callAttachToolAssets(Execution $execution, array $storedMessages): void
 {
@@ -30,7 +30,7 @@ function callAttachToolAssets(Execution $execution, array $storedMessages): void
     $method->invoke($middleware, $execution, $storedMessages);
 }
 
-it('attaches tool-generated asset to assistant message via step_id', function () {
+it('attaches tool-generated asset to assistant message via tool_call_id column', function () {
     $conversation = Conversation::factory()->create();
 
     $execution = Execution::factory()->processing()->create([
@@ -49,13 +49,8 @@ it('attaches tool-generated asset to assistant message via step_id', function ()
 
     $asset = Asset::factory()->image()->create([
         'execution_id' => $execution->id,
-        'metadata' => [
-            'source' => 'tool_execution',
-            'tool_call_id' => $toolCall->id,
-            'tool_name' => 'generate_image',
-            'provider' => 'openai',
-            'model' => 'dall-e-3',
-        ],
+        'tool_call_id' => $toolCall->id,
+        'metadata' => null,
     ]);
 
     $message = ConversationMessage::factory()->fromAssistant('test-agent')->create([
@@ -71,7 +66,7 @@ it('attaches tool-generated asset to assistant message via step_id', function ()
     $attachment = ConversationMessageAsset::first();
     expect($attachment->message_id)->toBe($message->id);
     expect($attachment->asset_id)->toBe($asset->id);
-    expect($attachment->metadata['tool_call_id'])->toBe($toolCall->id);
+    expect($attachment->metadata['tool_call_id'])->toBe($toolCall->tool_call_id);
     expect($attachment->metadata['tool_name'])->toBe('generate_image');
 });
 
@@ -100,20 +95,14 @@ it('handles multiple assets from different tool calls in same step', function ()
 
     Asset::factory()->image()->create([
         'execution_id' => $execution->id,
-        'metadata' => [
-            'source' => 'tool_execution',
-            'tool_call_id' => $toolCall1->id,
-            'tool_name' => 'generate_image',
-        ],
+        'tool_call_id' => $toolCall1->id,
+        'metadata' => null,
     ]);
 
     Asset::factory()->audio()->create([
         'execution_id' => $execution->id,
-        'metadata' => [
-            'source' => 'tool_execution',
-            'tool_call_id' => $toolCall2->id,
-            'tool_name' => 'generate_audio',
-        ],
+        'tool_call_id' => $toolCall2->id,
+        'metadata' => null,
     ]);
 
     $message = ConversationMessage::factory()->fromAssistant('test-agent')->create([
@@ -127,7 +116,7 @@ it('handles multiple assets from different tool calls in same step', function ()
     expect(ConversationMessageAsset::count())->toBe(2);
 });
 
-it('does not attach assets without tool_execution source', function () {
+it('does not attach assets without tool_call_id', function () {
     $conversation = Conversation::factory()->create();
 
     $execution = Execution::factory()->processing()->create([
@@ -138,19 +127,11 @@ it('does not attach assets without tool_execution source', function () {
         'execution_id' => $execution->id,
     ]);
 
-    $toolCall = ExecutionToolCall::factory()->completed()->create([
-        'execution_id' => $execution->id,
-        'step_id' => $step->id,
-        'name' => 'some_tool',
-    ]);
-
-    // Asset with a different source — should NOT be attached
+    // Asset without tool_call_id — should NOT be attached (direct modality call)
     Asset::factory()->image()->create([
         'execution_id' => $execution->id,
-        'metadata' => [
-            'source' => 'atlas_execution',
-            'tool_call_id' => $toolCall->id,
-        ],
+        'tool_call_id' => null,
+        'metadata' => null,
     ]);
 
     $message = ConversationMessage::factory()->fromAssistant('test-agent')->create([
@@ -179,7 +160,7 @@ it('does not attach assets from different execution', function () {
     ]);
 
     $toolCall = ExecutionToolCall::factory()->completed()->create([
-        'execution_id' => $execution->id,
+        'execution_id' => $otherExecution->id,
         'step_id' => $step->id,
         'name' => 'generate_image',
     ]);
@@ -187,11 +168,8 @@ it('does not attach assets from different execution', function () {
     // Asset belongs to a DIFFERENT execution
     Asset::factory()->image()->create([
         'execution_id' => $otherExecution->id,
-        'metadata' => [
-            'source' => 'tool_execution',
-            'tool_call_id' => $toolCall->id,
-            'tool_name' => 'generate_image',
-        ],
+        'tool_call_id' => $toolCall->id,
+        'metadata' => null,
     ]);
 
     $message = ConversationMessage::factory()->fromAssistant('test-agent')->create([
@@ -225,11 +203,8 @@ it('attaches to correct message when multiple steps exist', function () {
 
     $asset1 = Asset::factory()->image()->create([
         'execution_id' => $execution->id,
-        'metadata' => [
-            'source' => 'tool_execution',
-            'tool_call_id' => $toolCall1->id,
-            'tool_name' => 'generate_image',
-        ],
+        'tool_call_id' => $toolCall1->id,
+        'metadata' => null,
     ]);
 
     // Step 2 with a different tool call and asset
@@ -246,11 +221,8 @@ it('attaches to correct message when multiple steps exist', function () {
 
     $asset2 = Asset::factory()->audio()->create([
         'execution_id' => $execution->id,
-        'metadata' => [
-            'source' => 'tool_execution',
-            'tool_call_id' => $toolCall2->id,
-            'tool_name' => 'generate_audio',
-        ],
+        'tool_call_id' => $toolCall2->id,
+        'metadata' => null,
     ]);
 
     // Single assistant message (final response) — all assets attach to it
@@ -271,4 +243,41 @@ it('attaches to correct message when multiple steps exist', function () {
 
     expect($attachments[0]->asset_id)->toBe($asset1->id);
     expect($attachments[1]->asset_id)->toBe($asset2->id);
+});
+
+it('stores consumer metadata only in asset metadata column', function () {
+    $conversation = Conversation::factory()->create();
+
+    $execution = Execution::factory()->processing()->create([
+        'type' => ExecutionType::Text,
+    ]);
+
+    $step = ExecutionStep::factory()->completed()->create([
+        'execution_id' => $execution->id,
+    ]);
+
+    $toolCall = ExecutionToolCall::factory()->completed()->create([
+        'execution_id' => $execution->id,
+        'step_id' => $step->id,
+        'name' => 'generate_report',
+    ]);
+
+    // Asset with consumer metadata and tool_call_id column
+    $asset = Asset::factory()->create([
+        'execution_id' => $execution->id,
+        'tool_call_id' => $toolCall->id,
+        'metadata' => ['custom_key' => 'consumer_value'],
+    ]);
+
+    // Metadata should only contain consumer data, no internal keys
+    expect($asset->metadata)->toBe(['custom_key' => 'consumer_value']);
+    expect($asset->metadata)->not->toHaveKey('source');
+    expect($asset->metadata)->not->toHaveKey('tool_call_id');
+    expect($asset->metadata)->not->toHaveKey('tool_name');
+    expect($asset->metadata)->not->toHaveKey('provider');
+    expect($asset->metadata)->not->toHaveKey('model');
+
+    // Tool call info is in the relationship, not metadata
+    expect($asset->tool_call_id)->toBe($toolCall->id);
+    expect($asset->toolCall->name)->toBe('generate_report');
 });

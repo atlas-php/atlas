@@ -134,16 +134,8 @@ class TrackProviderCall
 
             $assetModel = config('atlas.persistence.models.asset', Asset::class);
 
-            $metadata = [
-                'source' => $toolCall !== null ? 'tool_execution' : 'atlas_execution',
-                'provider' => $context->provider,
-                'model' => $context->model,
-            ];
-
-            if ($toolCall !== null) {
-                $metadata['tool_call_id'] = $toolCall->tool_call_id;
-                $metadata['tool_name'] = $toolCall->name;
-            }
+            // Derive owner from execution's conversation — canonical source
+            $conversation = $execution?->conversation;
 
             /** @var Asset $asset */
             $asset = $assetModel::create([
@@ -153,12 +145,12 @@ class TrackProviderCall
                 'path' => $path,
                 'disk' => $disk,
                 'size_bytes' => strlen($contents),
-                'content_hash' => hash('sha256', $contents),
-                'owner_type' => $context->meta['owner_type'] ?? null,
-                'owner_id' => $context->meta['owner_id'] ?? null,
+                'owner_type' => $conversation?->owner_type,
+                'owner_id' => $conversation?->owner_id,
                 'agent' => $execution?->agent,
                 'execution_id' => $execution?->id,
-                'metadata' => $metadata,
+                'tool_call_id' => $toolCall?->id,
+                'metadata' => null,
             ]);
 
             // Track asset for immediate tool access (asset already has execution_id)

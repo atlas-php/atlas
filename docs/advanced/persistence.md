@@ -25,7 +25,7 @@ All tables are prefixed with `atlas_` by default (configurable via `persistence.
 | `atlas_executions` | Every AI provider call — agent or direct — with tokens and timing |
 | `atlas_execution_steps` | Each round trip in the agent tool loop |
 | `atlas_execution_tool_calls` | Individual tool invocations with arguments and results |
-| `atlas_assets` | Generated files stored on disk with content hashing |
+| `atlas_assets` | Generated files stored on disk with tool call linkage |
 | `atlas_conversation_voice_calls` | Voice call sessions with complete transcripts |
 
 ## Conversations
@@ -104,7 +104,7 @@ All tables are prefixed with `atlas_` by default (configurable via `persistence.
 | `type` | `string(30)` | What type of execution, backed by `ExecutionType` enum: `text`, `structured`, `stream`, `image`, `image_to_text`, `audio`, `audio_to_text`, `video`, `video_to_text`, `music`, `sfx`, `speech`, `embed`, `moderate`, `rerank`, `voice` |
 | `provider` | `string(50)` | Which provider was called (`openai`, `anthropic`, etc.) |
 | `model` | `string(100)` | Which model was used (`gpt-4o`, `claude-sonnet-4-20250514`, etc.) |
-| `usage` | `json nullable` | Token usage data: `{inputTokens, outputTokens, reasoningTokens?, cachedTokens?, cacheWriteTokens?}` |
+| `usage` | `json nullable` | Token usage data: `{input_tokens, output_tokens, reasoning_tokens?, cached_tokens?, cache_write_tokens?}` |
 | `error` | `text nullable` | Error message when execution fails. Includes the exception message for debugging |
 | `metadata` | `json nullable` | Consumer metadata from `withMeta()` |
 | `started_at` | `timestamp nullable` | When the execution began processing |
@@ -150,7 +150,7 @@ All tables are prefixed with `atlas_` by default (configurable via `persistence.
 | `tool_call_id` | `string(100)` | The provider's unique ID for this tool call (used to match results back to requests) |
 | `status` | `unsignedTinyInteger` | Int-backed `ExecutionStatus` enum: `0` (Pending) → `2` (Processing) → `3` (Completed) or `4` (Failed) |
 | `name` | `string(100)` | Tool name (e.g. `lookup_order`, `web_search`) |
-| `type` | `string(20)` | `atlas` for user-defined tools, `mcp` for MCP tools, `provider` for native provider tools (backed by `ToolCallType` enum) |
+| `type` | `string(20)` | `local` for user-defined tools, `mcp` for MCP tools, `provider` for native provider tools (backed by `ToolCallType` enum) |
 | `arguments` | `json nullable` | The arguments the model passed to the tool. Stored as JSON for inspection |
 | `result` | `text nullable` | The serialized return value from the tool. What was sent back to the model |
 | `started_at` | `timestamp nullable` | When tool execution started |
@@ -162,27 +162,26 @@ All tables are prefixed with `atlas_` by default (configurable via `persistence.
 
 ## Assets
 
-**What it stores:** Generated files — images, audio, video — stored on disk with content hashing for deduplication.
+**What it stores:** Generated files — images, audio, video — stored on disk with optional vector embeddings for semantic search.
 
-**Why it exists:** When Atlas generates an image, audio clip, or video, the binary content is stored on a configured disk (local, S3, etc.) and tracked in this table. Assets can be linked to executions (which call produced them) and to messages (for display in a conversation UI).
+**Why it exists:** When Atlas generates an image, audio clip, or video, the binary content is stored on a configured disk (local, S3, etc.) and tracked in this table. Assets can be linked to executions (which call produced them), to tool calls (which tool generated them), and to messages (for display in a conversation UI).
 
 | Column | Type | Why |
 |--------|------|-----|
 | `id` | `bigint` | Primary key |
 | `execution_id` | `unsignedBigInteger nullable` | FK → executions. Which execution produced this asset |
-| `owner_type` | `string nullable` | Polymorphic — who generated this asset |
+| `tool_call_id` | `unsignedBigInteger nullable` | FK → execution_tool_calls. Which tool call generated this asset. Null for direct modality calls and user uploads |
+| `owner_type` | `string nullable` | Polymorphic — who generated this asset. Derived from the execution's conversation owner |
 | `owner_id` | `unsignedBigInteger nullable` | Polymorphic — the owner's ID |
 | `agent` | `string(255) nullable` | Which agent generated this asset |
 | `type` | `string(20)` | Asset type backed by `AssetType` enum: `image`, `audio`, `video`, `document`, `text`, `json`, `file` |
 | `mime_type` | `string(100) nullable` | MIME type (e.g. `image/png`, `audio/mpeg`) |
 | `filename` | `string(255)` | Generated filename (UUID-based) |
-| `original_filename` | `string(255) nullable` | Original filename if uploaded |
 | `path` | `string(500)` | Storage path on disk |
 | `disk` | `string(50)` | Laravel filesystem disk name |
 | `size_bytes` | `unsignedBigInteger nullable` | File size in bytes |
-| `content_hash` | `string(64) nullable` | SHA-256 hash of the content. Enables deduplication |
 | `description` | `text nullable` | Optional description |
-| `metadata` | `json nullable` | Additional context (tool_call_id, tool_name, provider, model) |
+| `metadata` | `json nullable` | Consumer-provided metadata only. No internal Atlas data is stored here |
 | `created_at` | `timestamp` | When the asset was stored |
 | `updated_at` | `timestamp` | When the asset record was last updated |
 | `deleted_at` | `timestamp nullable` | Soft delete |
@@ -251,7 +250,8 @@ ExecutionToolCall
 
 Asset
 ├── has many ConversationMessageAssets
-└── belongs to Execution (optional)
+├── belongs to Execution (optional)
+└── belongs to ExecutionToolCall (optional, via tool_call_id)
 
 VoiceCall
 ├── belongs to Conversation (optional)
@@ -403,12 +403,13 @@ An individual tool invocation with arguments, result, and timing.
 
 `Atlasphp\Atlas\Persistence\Models\Asset`
 
-A stored file (image, audio, video, document) with content hashing for deduplication.
+A stored file (image, audio, video, document) with optional vector embeddings for semantic search.
 
 | Relationship | Type | Description |
 |-------------|------|-------------|
 | `messageAssets()` | `HasMany → ConversationMessageAsset` | Messages this asset is linked to |
 | `execution()` | `BelongsTo → Execution` | The execution that produced this asset |
+| `toolCall()` | `BelongsTo → ExecutionToolCall` | The tool call that generated this asset (null for direct calls and user uploads) |
 | `owner()` | `MorphTo` | Who generated this asset (from HasOwner trait) |
 
 | Method | Description |

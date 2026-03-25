@@ -31,16 +31,15 @@ class AssetFactory extends Factory
             'type' => $type,
             'mime_type' => 'application/octet-stream',
             'filename' => $filename,
-            'original_filename' => $this->faker->word().'.'.$extension,
             'path' => 'atlas/test/'.$filename,
             'disk' => 'local',
             'size_bytes' => $this->faker->numberBetween(1024, 10485760),
-            'content_hash' => hash('sha256', Str::random()),
             'description' => null,
             'owner_type' => null,
             'owner_id' => null,
             'agent' => null,
             'execution_id' => null,
+            'tool_call_id' => null,
             'metadata' => null,
         ];
     }

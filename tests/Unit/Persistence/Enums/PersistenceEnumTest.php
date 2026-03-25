@@ -154,7 +154,7 @@ it('MessageStatus has correct case values', function (string $value) {
 
 it('ToolCallType has correct case values', function (string $value) {
     expect(ToolCallType::from($value))->toBeInstanceOf(ToolCallType::class);
-})->with(['atlas', 'mcp', 'provider']);
+})->with(['local', 'mcp', 'provider']);
 
 // ─── VoiceCallStatus ──────────────────────────────────────────
 

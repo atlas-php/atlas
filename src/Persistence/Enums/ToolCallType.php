@@ -9,7 +9,7 @@ namespace Atlasphp\Atlas\Persistence\Enums;
  */
 enum ToolCallType: string
 {
-    case Atlas = 'atlas';
+    case Local = 'local';
     case Mcp = 'mcp';
     case Provider = 'provider';
 }

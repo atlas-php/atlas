@@ -127,7 +127,6 @@ $response->asset->path;         // Storage path
 $response->asset->disk;         // Storage disk
 $response->asset->mime_type;    // "image/png"
 $response->asset->size_bytes;   // File size
-$response->asset->content_hash; // SHA-256 hash (deduplication)
 ```
 
 ### Disabling Auto-Storage
@@ -157,7 +156,6 @@ class GenerateReportTool extends Tool
         $asset = ToolAssets::store($csv, [
             'type' => 'document',
             'mime_type' => 'text/csv',
-            'original_filename' => "report-{$args['month']}.csv",
             'description' => "Sales report for {$args['month']}",
         ]);
 

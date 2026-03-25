@@ -38,7 +38,7 @@ it('markCompleted sets status, completed_at, duration, and usage', function () {
     expect($execution->status)->toBe(ExecutionStatus::Completed)
         ->and($execution->completed_at)->not->toBeNull()
         ->and($execution->duration_ms)->toBe(3000)
-        ->and($execution->usage)->toBe(['inputTokens' => 300, 'outputTokens' => 125]);
+        ->and($execution->usage)->toBe(['input_tokens' => 300, 'output_tokens' => 125]);
 });
 
 it('markFailed sets status, error, completed_at, and usage', function () {
@@ -53,7 +53,7 @@ it('markFailed sets status, error, completed_at, and usage', function () {
         ->and($execution->error)->toBe('Provider timeout')
         ->and($execution->completed_at)->not->toBeNull()
         ->and($execution->duration_ms)->toBe(2000)
-        ->and($execution->usage)->toBe(['inputTokens' => 50, 'outputTokens' => 10]);
+        ->and($execution->usage)->toBe(['input_tokens' => 50, 'output_tokens' => 10]);
 });
 
 it('scopeOfType filters correctly', function () {
@@ -107,7 +107,7 @@ it('scopeForProvider filters by provider', function () {
 
 it('getTotalTokensAttribute returns sum of input and output from usage JSON', function () {
     $execution = Execution::factory()->create([
-        'usage' => ['inputTokens' => 150, 'outputTokens' => 75],
+        'usage' => ['input_tokens' => 150, 'output_tokens' => 75],
     ]);
 
     expect($execution->total_tokens)->toBe(225);

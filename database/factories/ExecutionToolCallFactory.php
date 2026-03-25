@@ -25,7 +25,7 @@ class ExecutionToolCallFactory extends Factory
             'step_id' => ExecutionStep::factory(),
             'tool_call_id' => 'call_'.Str::random(24),
             'name' => $this->faker->word(),
-            'type' => ToolCallType::Atlas,
+            'type' => ToolCallType::Local,
             'status' => ExecutionStatus::Pending,
             'arguments' => null,
             'result' => null,

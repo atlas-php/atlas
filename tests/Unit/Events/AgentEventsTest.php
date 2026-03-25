@@ -653,8 +653,8 @@ it('AgentCompleted broadcastWith includes summary without raw steps', function (
         'agentKey' => 'my-agent',
         'stepCount' => 2,
         'usage' => [
-            'inputTokens' => 100,
-            'outputTokens' => 200,
+            'input_tokens' => 100,
+            'output_tokens' => 200,
         ],
         'finishReason' => 'stop',
     ]);

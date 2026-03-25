@@ -55,7 +55,7 @@ event: tool_call
 data: {"type":"tool_call","toolCalls":[{"id":"tc-1","name":"search","arguments":{"q":"test"}}]}
 
 event: done
-data: {"type":"done","text":"Hello world","usage":{"inputTokens":10,"outputTokens":5}}
+data: {"type":"done","text":"Hello world","usage":{"input_tokens":10,"output_tokens":5}}
 ```
 
 ### Consuming SSE with JavaScript

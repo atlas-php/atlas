@@ -26,16 +26,9 @@ it('stores content to disk and creates asset record', function () {
         ->and($asset->type->value)->toBe('document')
         ->and($asset->mime_type)->toBe('text/csv')
         ->and($asset->size_bytes)->toBe(strlen('file-content'))
-        ->and($asset->content_hash)->not->toBeNull();
+        ->and($asset->path)->toStartWith('atlas/assets/');
 
     Storage::disk('local')->assertExists($asset->path);
-});
-
-it('sets correct content hash', function () {
-    $content = 'hash-test-content';
-    $asset = ToolAssets::store($content, ['mime_type' => 'text/plain']);
-
-    expect($asset->content_hash)->toBe(hash('sha256', $content));
 });
 
 it('sets agent from active execution', function () {
@@ -58,7 +51,7 @@ it('sets execution_id from active execution', function () {
     expect($asset->execution_id)->toBe($execution->id);
 });
 
-it('sets tool_call_id in metadata from active tool call', function () {
+it('sets tool_call_id column from active tool call', function () {
     $service = app(ExecutionService::class);
     $service->createExecution(provider: 'openai', model: 'gpt-5', agent: 'test-agent');
     $service->beginExecution();
@@ -73,8 +66,9 @@ it('sets tool_call_id in metadata from active tool call', function () {
     ]);
 
     $toolCallRecord = $service->getCurrentToolCall();
-    expect($asset->metadata)->toHaveKey('tool_call_id', $toolCallRecord->tool_call_id)
-        ->and($asset->metadata)->toHaveKey('tool_name', 'generate_csv');
+    expect($asset->tool_call_id)->toBe($toolCallRecord->id)
+        ->and($asset->toolCall)->not->toBeNull()
+        ->and($asset->toolCall->name)->toBe('generate_csv');
 });
 
 it('works without active execution', function () {
@@ -92,8 +86,8 @@ it('works without active tool call', function () {
 
     $asset = ToolAssets::store('content', ['type' => 'document']);
 
-    expect($asset->metadata)->toHaveKey('source', 'tool_execution')
-        ->and($asset->metadata)->not->toHaveKey('tool_call_id');
+    expect($asset->tool_call_id)->toBeNull()
+        ->and($asset->metadata)->toBeNull();
 });
 
 it('respects description from data', function () {

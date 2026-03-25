@@ -180,7 +180,7 @@ class Execution extends Model
     {
         $usage = $this->usage ?? [];
 
-        return ($usage['inputTokens'] ?? 0) + ($usage['outputTokens'] ?? 0);
+        return ($usage['input_tokens'] ?? 0) + ($usage['output_tokens'] ?? 0);
     }
 
     // ─── Scopes ─────────────────────────────────────────────────

@@ -277,7 +277,7 @@ class ExecutionService
      *
      * @param  array<string, mixed>  $meta
      */
-    public function createToolCall(ToolCall $toolCall, ToolCallType $type = ToolCallType::Atlas, array $meta = []): ExecutionToolCall
+    public function createToolCall(ToolCall $toolCall, ToolCallType $type = ToolCallType::Local, array $meta = []): ExecutionToolCall
     {
         if ($this->execution === null || $this->currentStep === null) {
             throw new \RuntimeException('Cannot track a tool call without an active execution and step.');

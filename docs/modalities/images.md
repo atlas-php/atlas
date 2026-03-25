@@ -134,7 +134,6 @@ if ($response->asset) {
     $response->asset->disk;         // Laravel filesystem disk
     $response->asset->mime_type;    // "image/png"
     $response->asset->size_bytes;   // File size
-    $response->asset->content_hash; // SHA-256 for deduplication
 }
 ```
 
