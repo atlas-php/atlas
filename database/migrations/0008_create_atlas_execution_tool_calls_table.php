@@ -35,10 +35,10 @@ return new class extends Migration
             $table->string('type', 20);
             $table->json('arguments')->nullable();
             $table->text('result')->nullable();
+            $table->json('metadata')->nullable();
             $table->timestamp('started_at')->nullable();
             $table->timestamp('completed_at')->nullable();
             $table->unsignedInteger('duration_ms')->nullable();
-            $table->json('metadata')->nullable();
             $table->timestamps();
 
             $table->index('execution_id');
