@@ -227,7 +227,7 @@ function formatTime(dateStr: string): string {
                 <!-- Steps -->
                 <div v-for="step in message.execution.steps" :key="step.id" class="mb-2 last:mb-0">
                     <div class="mb-1 text-muted-foreground">
-                        Step {{ step.sequence + 1 }}
+                        Step {{ step.sequence }}
                         <span v-if="step.duration_ms" class="ml-2">{{ formatDuration(step.duration_ms) }}</span>
                         <span v-if="step.finish_reason" class="ml-2 text-zinc-500">{{ step.finish_reason }}</span>
                     </div>
