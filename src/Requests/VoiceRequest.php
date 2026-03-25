@@ -10,7 +10,7 @@ use Atlasphp\Atlas\Enums\VoiceTransport;
 /**
  * Immutable request object for voice-to-voice sessions.
  */
-class VoiceRequest
+final class VoiceRequest
 {
     /**
      * @param  array<int, mixed>  $tools

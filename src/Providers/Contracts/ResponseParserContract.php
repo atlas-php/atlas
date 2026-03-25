@@ -12,7 +12,7 @@ use Atlasphp\Atlas\Responses\Usage;
 /**
  * Extracts normalized data from provider-specific response JSON.
  */
-interface ResponseParser
+interface ResponseParserContract
 {
     /**
      * @param  array<string, mixed>  $data

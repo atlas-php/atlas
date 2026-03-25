@@ -78,11 +78,11 @@ class ProviderRegistry implements ProviderRegistryContract
         $http = $this->app->make(HttpClient::class);
         $stack = $this->app->make(MiddlewareStack::class);
 
-        // Named drivers are instantiated directly — they have known fixed deps and don't need cache.
-        // Custom driver classes use the container for full constructor injection.
+        $cache = $this->app->make(AtlasCache::class);
+
         return match (true) {
-            $driver === 'chat_completions' => new ChatCompletionsDriver($providerConfig, $http, $stack),
-            $driver === 'responses' => new ResponsesDriver($providerConfig, $http, $stack),
+            $driver === 'chat_completions' => new ChatCompletionsDriver($providerConfig, $http, $stack, $cache),
+            $driver === 'responses' => new ResponsesDriver($providerConfig, $http, $stack, $cache),
             is_string($driver) && class_exists($driver) => $this->app->make($driver, [
                 'config' => $providerConfig,
                 'http' => $http,
@@ -105,12 +105,22 @@ class ProviderRegistry implements ProviderRegistryContract
     }
 
     /**
-     * Get all registered provider keys.
+     * Get all available provider keys.
+     *
+     * Includes both factory-registered providers and config-only providers
+     * that declare a 'driver' key.
      *
      * @return array<int, string>
      */
     public function available(): array
     {
-        return array_keys($this->factories);
+        /** @var array<string, mixed> $configProviders */
+        $configProviders = config('atlas.providers', []);
+
+        $configKeys = array_keys(
+            array_filter($configProviders, fn (mixed $v): bool => is_array($v) && isset($v['driver']))
+        );
+
+        return array_values(array_unique([...array_keys($this->factories), ...$configKeys]));
     }
 }

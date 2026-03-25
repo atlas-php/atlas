@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Atlasphp\Atlas\Providers\Google;
+namespace Atlasphp\Atlas\Providers\Google\Concerns;
 
 /**
  * Shared header builder for Google (Gemini) handlers.

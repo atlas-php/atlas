@@ -9,7 +9,7 @@ use Atlasphp\Atlas\Messages\ToolCall;
 /**
  * Maps Atlas tool definitions to a provider's function calling format.
  */
-interface ToolMapper
+interface ToolMapperContract
 {
     /**
      * @param  array<int, mixed>  $tools

@@ -6,8 +6,8 @@ namespace Atlasphp\Atlas\Providers\Xai;
 
 use Atlasphp\Atlas\Messages\SystemMessage;
 use Atlasphp\Atlas\Providers\Concerns\BuildsResponsesMessages;
-use Atlasphp\Atlas\Providers\Contracts\MediaResolver;
-use Atlasphp\Atlas\Providers\Contracts\MessageFactory as MessageFactoryContract;
+use Atlasphp\Atlas\Providers\Contracts\MediaResolverContract;
+use Atlasphp\Atlas\Providers\Contracts\MessageFactoryContract;
 use Atlasphp\Atlas\Requests\TextRequest;
 
 /**
@@ -40,7 +40,7 @@ class MessageFactory implements MessageFactoryContract
      *
      * @return array<string, mixed>
      */
-    public function buildAll(TextRequest $request, MediaResolver $media): array
+    public function buildAll(TextRequest $request, MediaResolverContract $media): array
     {
         $instructions = $request->instructions;
         $input = [];

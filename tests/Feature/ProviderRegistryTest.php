@@ -8,6 +8,7 @@ use Atlasphp\Atlas\Exceptions\ProviderNotFoundException;
 use Atlasphp\Atlas\Providers\ChatCompletions\ChatCompletionsDriver;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Driver;
+use Atlasphp\Atlas\Providers\Handlers\ProviderHandler;
 use Atlasphp\Atlas\Providers\Handlers\TextHandler;
 use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
@@ -88,6 +89,25 @@ it('returns all registered keys', function () {
     expect($this->registry->available())->toContain('anthropic');
 });
 
+it('available includes config-only providers', function () {
+    config()->set('atlas.providers.ollama-avail', [
+        'driver' => 'chat_completions',
+        'api_key' => 'test',
+        'base_url' => 'http://localhost:11434/v1',
+    ]);
+
+    expect($this->registry->available())->toContain('ollama-avail');
+});
+
+it('available does not duplicate keys present in both factories and config', function () {
+    $this->registry->register('openai', fn ($app, $config) => createTestDriverInstance());
+
+    $keys = $this->registry->available();
+    $openaiCount = count(array_filter($keys, fn (string $k) => $k === 'openai'));
+
+    expect($openaiCount)->toBe(1);
+});
+
 it('clears cache when re-registering a key', function () {
     $this->registry->register('test', fn ($app, $config) => createTestDriverInstance());
     $first = $this->registry->resolve('test');
@@ -159,6 +179,34 @@ it('throws AtlasException for unknown driver string', function () {
 
     $this->registry->resolve('bad');
 })->throws(AtlasException::class, "Unknown driver 'not_a_real_driver' for provider 'bad'.");
+
+it('chat_completions driver from config receives cache for provider handler', function () {
+    config()->set('atlas.providers.ollama-cache', [
+        'driver' => 'chat_completions',
+        'api_key' => 'ollama',
+        'base_url' => 'http://localhost:11434/v1',
+    ]);
+
+    $driver = $this->registry->resolve('ollama-cache');
+
+    // providerHandler() requires AtlasCache — this would TypeError if cache was null
+    $providerHandler = (new ReflectionMethod($driver, 'providerHandler'))->invoke($driver);
+    expect($providerHandler)->toBeInstanceOf(ProviderHandler::class);
+});
+
+it('responses driver from config receives cache for provider handler', function () {
+    config()->set('atlas.providers.ollama-resp-cache', [
+        'driver' => 'responses',
+        'api_key' => 'ollama',
+        'base_url' => 'http://localhost:11434/v1',
+    ]);
+
+    $driver = $this->registry->resolve('ollama-resp-cache');
+
+    // providerHandler() requires AtlasCache — this would TypeError if cache was null
+    $providerHandler = (new ReflectionMethod($driver, 'providerHandler'))->invoke($driver);
+    expect($providerHandler)->toBeInstanceOf(ProviderHandler::class);
+});
 
 it('caches config-resolved driver instances', function () {
     config()->set('atlas.providers.ollama', [

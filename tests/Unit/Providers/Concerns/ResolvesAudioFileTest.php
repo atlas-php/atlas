@@ -5,6 +5,8 @@ declare(strict_types=1);
 use Atlasphp\Atlas\Input\Audio;
 use Atlasphp\Atlas\Input\Input;
 use Atlasphp\Atlas\Providers\Concerns\ResolvesAudioFile;
+use Illuminate\Http\Client\RequestException;
+use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
     $this->resolver = new class
@@ -72,6 +74,29 @@ it('throws on invalid base64 encoding', function () {
 
     $this->resolver->resolveAudioFile($input);
 })->throws(InvalidArgumentException::class, 'Cannot decode base64 audio data');
+
+it('resolves audio from URL using HTTP client', function () {
+    Http::fake([
+        'https://example.com/audio.wav' => Http::response('fake-audio-from-url'),
+    ]);
+
+    $input = Audio::fromUrl('https://example.com/audio.wav');
+
+    $result = $this->resolver->resolveAudioFile($input);
+
+    expect($result)->toBe('fake-audio-from-url');
+    Http::assertSentCount(1);
+});
+
+it('throws when URL fetch fails', function () {
+    Http::fake([
+        'https://example.com/missing.wav' => Http::response('Not Found', 404),
+    ]);
+
+    $input = Audio::fromUrl('https://example.com/missing.wav');
+
+    $this->resolver->resolveAudioFile($input);
+})->throws(RequestException::class);
 
 it('throws when no supported source is set', function () {
     $input = new class extends Input

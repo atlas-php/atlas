@@ -8,13 +8,13 @@ use Atlasphp\Atlas\Messages\SystemMessage;
 use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Messages\ToolResultMessage;
 use Atlasphp\Atlas\Messages\UserMessage;
-use Atlasphp\Atlas\Providers\Contracts\MediaResolver;
+use Atlasphp\Atlas\Providers\Contracts\MediaResolverContract;
 use Atlasphp\Atlas\Providers\Xai\MessageFactory;
 use Atlasphp\Atlas\Requests\TextRequest;
 
-function makeXaiMediaResolver(): MediaResolver
+function makeXaiMediaResolver(): MediaResolverContract
 {
-    return new class implements MediaResolver
+    return new class implements MediaResolverContract
     {
         public function resolve(Input $input): array
         {

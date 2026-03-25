@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Providers\Concerns;
 
 use Atlasphp\Atlas\Input\Input;
+use Illuminate\Support\Facades\Http;
 
 /**
  * Resolves an Input to raw audio file bytes.
@@ -37,13 +38,7 @@ trait ResolvesAudioFile
         }
 
         if ($media->isUrl()) {
-            $raw = file_get_contents($media->url());
-
-            if ($raw === false) {
-                throw new \InvalidArgumentException("Cannot fetch audio from URL: {$media->url()}");
-            }
-
-            return $raw;
+            return Http::timeout(30)->get($media->url())->throw()->body();
         }
 
         throw new \InvalidArgumentException('Cannot resolve audio input — no supported source set.');

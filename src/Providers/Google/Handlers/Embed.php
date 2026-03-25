@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Providers\Google\Handlers;
 
-use Atlasphp\Atlas\Providers\Google\BuildsGoogleHeaders;
+use Atlasphp\Atlas\Providers\Google\Concerns\BuildsGoogleHeaders;
 use Atlasphp\Atlas\Providers\Handlers\EmbedHandler;
 use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderConfig;

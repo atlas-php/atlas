@@ -7,7 +7,7 @@ namespace Atlasphp\Atlas\Requests;
 /**
  * Request object for image generation.
  */
-class ImageRequest
+final class ImageRequest
 {
     /**
      * @param  array<int, mixed>  $media

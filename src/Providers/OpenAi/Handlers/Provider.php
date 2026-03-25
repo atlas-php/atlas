@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Providers\OpenAi\Handlers;
 
 use Atlasphp\Atlas\Providers\Handlers\AbstractProviderHandler;
-use Atlasphp\Atlas\Providers\OpenAi\HasOrganizationHeader;
+use Atlasphp\Atlas\Providers\OpenAi\Concerns\HasOrganizationHeader;
 use Atlasphp\Atlas\Providers\VoiceList;
 
 /**

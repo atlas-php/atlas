@@ -7,7 +7,7 @@ namespace Atlasphp\Atlas\Requests;
 /**
  * Request object for reranking documents against a query.
  */
-class RerankRequest
+final class RerankRequest
 {
     /**
      * @param  array<int, string|array<string, string>>  $documents

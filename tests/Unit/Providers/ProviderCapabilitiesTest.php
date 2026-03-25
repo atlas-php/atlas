@@ -41,6 +41,20 @@ it('withOverrides merges config overrides with defaults', function () {
     expect($overridden->supports('vision'))->toBeFalse();
 });
 
+it('withOverrides can enable previously disabled features', function () {
+    $base = new ProviderCapabilities(text: true);
+
+    $overridden = ProviderCapabilities::withOverrides($base, [
+        'image' => true,
+        'embed' => true,
+    ]);
+
+    expect($overridden->supports('text'))->toBeTrue();
+    expect($overridden->supports('image'))->toBeTrue();
+    expect($overridden->supports('embed'))->toBeTrue();
+    expect($overridden->supports('stream'))->toBeFalse();
+});
+
 it('withOverrides returns same instance when overrides are empty', function () {
     $base = new ProviderCapabilities(text: true);
 

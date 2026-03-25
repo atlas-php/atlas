@@ -7,7 +7,7 @@ namespace Atlasphp\Atlas\Requests;
 /**
  * Request object for content moderation.
  */
-class ModerateRequest
+final class ModerateRequest
 {
     /**
      * @param  string|array<int, string>  $input

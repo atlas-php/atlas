@@ -6,7 +6,7 @@ namespace Atlasphp\Atlas\Providers\Anthropic;
 
 use Atlasphp\Atlas\Input\Document;
 use Atlasphp\Atlas\Input\Input;
-use Atlasphp\Atlas\Providers\Contracts\MediaResolver as MediaResolverContract;
+use Atlasphp\Atlas\Providers\Contracts\MediaResolverContract;
 use InvalidArgumentException;
 
 /**

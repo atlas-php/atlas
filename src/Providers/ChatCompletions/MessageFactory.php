@@ -8,8 +8,8 @@ use Atlasphp\Atlas\Messages\AssistantMessage;
 use Atlasphp\Atlas\Messages\SystemMessage;
 use Atlasphp\Atlas\Messages\ToolResultMessage;
 use Atlasphp\Atlas\Messages\UserMessage;
-use Atlasphp\Atlas\Providers\Contracts\MediaResolver;
-use Atlasphp\Atlas\Providers\Contracts\MessageFactory as MessageFactoryContract;
+use Atlasphp\Atlas\Providers\Contracts\MediaResolverContract;
+use Atlasphp\Atlas\Providers\Contracts\MessageFactoryContract;
 use Atlasphp\Atlas\Requests\TextRequest;
 
 /**
@@ -34,7 +34,7 @@ class MessageFactory implements MessageFactoryContract
     /**
      * @return array<string, mixed>
      */
-    public function user(UserMessage $message, MediaResolver $media): array
+    public function user(UserMessage $message, MediaResolverContract $media): array
     {
         if (empty($message->media)) {
             return [
@@ -68,7 +68,7 @@ class MessageFactory implements MessageFactoryContract
                 'type' => 'function',
                 'function' => [
                     'name' => $tc->name,
-                    'arguments' => json_encode($tc->arguments),
+                    'arguments' => json_encode($tc->arguments, JSON_THROW_ON_ERROR),
                 ],
             ], $message->toolCalls);
         }
@@ -96,7 +96,7 @@ class MessageFactory implements MessageFactoryContract
      *
      * @return array<string, mixed>
      */
-    public function buildAll(TextRequest $request, MediaResolver $media): array
+    public function buildAll(TextRequest $request, MediaResolverContract $media): array
     {
         $messages = [];
 

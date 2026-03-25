@@ -10,12 +10,12 @@ use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Messages\ToolResultMessage;
 use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Providers\ChatCompletions\MessageFactory;
-use Atlasphp\Atlas\Providers\Contracts\MediaResolver;
+use Atlasphp\Atlas\Providers\Contracts\MediaResolverContract;
 use Atlasphp\Atlas\Requests\TextRequest;
 
-function makeCcMediaResolver(): MediaResolver
+function makeCcMediaResolver(): MediaResolverContract
 {
-    return new class implements MediaResolver
+    return new class implements MediaResolverContract
     {
         public function resolve(Input $input): array
         {
@@ -66,6 +66,16 @@ it('converts assistant message with tool calls', function () {
     expect($result['tool_calls'][0]['function']['name'])->toBe('search');
     expect($result['tool_calls'][0]['function']['arguments'])->toBe('{"q":"test"}');
 });
+
+it('throws JsonException on unencodable tool call arguments', function () {
+    $factory = new MessageFactory;
+    $invalidUtf8 = "invalid \xB1\x31 bytes";
+
+    $factory->assistant(new AssistantMessage(
+        null,
+        [new ToolCall('call_1', 'test', ['data' => $invalidUtf8])],
+    ));
+})->throws(JsonException::class);
 
 it('converts tool result to tool role', function () {
     $factory = new MessageFactory;

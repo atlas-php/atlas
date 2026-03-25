@@ -51,9 +51,8 @@ class ProviderCapabilities
 
         $args = [];
 
-        foreach ((new \ReflectionClass(self::class))->getConstructor()->getParameters() as $param) {
-            $name = $param->getName();
-            $args[$name] = $overrides[$name] ?? $base->{$name};
+        foreach (get_object_vars($base) as $name => $value) {
+            $args[$name] = $overrides[$name] ?? $value;
         }
 
         return new self(...$args);

@@ -7,7 +7,7 @@ namespace Atlasphp\Atlas\Requests;
 /**
  * Request object for video generation.
  */
-class VideoRequest
+final class VideoRequest
 {
     /**
      * @param  array<int, mixed>  $media

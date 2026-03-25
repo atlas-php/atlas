@@ -6,7 +6,7 @@ namespace Atlasphp\Atlas\Providers\Google;
 
 use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Enums\FinishReason;
-use Atlasphp\Atlas\Providers\Contracts\ResponseParser as ResponseParserContract;
+use Atlasphp\Atlas\Providers\Contracts\ResponseParserContract;
 use Atlasphp\Atlas\Responses\StreamChunk;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\Usage;

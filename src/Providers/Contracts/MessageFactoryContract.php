@@ -13,7 +13,7 @@ use Atlasphp\Atlas\Requests\TextRequest;
 /**
  * Converts typed Atlas messages into a provider's format.
  */
-interface MessageFactory
+interface MessageFactoryContract
 {
     /**
      * @return array<string, mixed>
@@ -23,7 +23,7 @@ interface MessageFactory
     /**
      * @return array<string, mixed>
      */
-    public function user(UserMessage $message, MediaResolver $media): array;
+    public function user(UserMessage $message, MediaResolverContract $media): array;
 
     /**
      * @return array<string, mixed>
@@ -38,5 +38,5 @@ interface MessageFactory
     /**
      * @return array<string, mixed>
      */
-    public function buildAll(TextRequest $request, MediaResolver $media): array;
+    public function buildAll(TextRequest $request, MediaResolverContract $media): array;
 }

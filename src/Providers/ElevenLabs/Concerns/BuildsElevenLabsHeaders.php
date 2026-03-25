@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Atlasphp\Atlas\Providers\ElevenLabs;
+namespace Atlasphp\Atlas\Providers\ElevenLabs\Concerns;
 
 /**
  * Shared header builder and format utilities for ElevenLabs handlers.

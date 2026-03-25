@@ -9,7 +9,7 @@ use Atlasphp\Atlas\Input\Input;
 /**
  * Converts Input types into a provider's media format.
  */
-interface MediaResolver
+interface MediaResolverContract
 {
     /**
      * @return array<string, mixed>

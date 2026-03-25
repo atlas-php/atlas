@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Atlasphp\Atlas\Providers\Contracts;
+namespace Atlasphp\Atlas\Responses;
 
 /**
  * Marks a response type that produces storable binary content.
  */
-interface HasContents
+interface StorableContract
 {
     public function contents(): string;
 }

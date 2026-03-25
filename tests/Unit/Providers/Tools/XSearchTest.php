@@ -54,6 +54,27 @@ it('includes video understanding when enabled', function () {
     ]);
 });
 
+it('excludes image understanding when explicitly false', function () {
+    $tool = new XSearch(enableImageUnderstanding: false);
+
+    expect($tool->toArray())->toBe(['type' => 'x_search']);
+});
+
+it('excludes video understanding when explicitly false', function () {
+    $tool = new XSearch(enableVideoUnderstanding: false);
+
+    expect($tool->toArray())->toBe(['type' => 'x_search']);
+});
+
+it('includes only enabled booleans when mixed true and false', function () {
+    $tool = new XSearch(enableImageUnderstanding: true, enableVideoUnderstanding: false);
+
+    expect($tool->toArray())->toBe([
+        'type' => 'x_search',
+        'enable_image_understanding' => true,
+    ]);
+});
+
 it('includes all config when fully configured', function () {
     $tool = new XSearch(
         fromDate: '2025-01-01',

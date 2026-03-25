@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Providers\Anthropic;
 
 use Atlasphp\Atlas\Messages\ToolCall;
-use Atlasphp\Atlas\Providers\Contracts\ToolMapper as ToolMapperContract;
+use Atlasphp\Atlas\Providers\Contracts\ToolMapperContract;
 use Atlasphp\Atlas\Tools\ToolDefinition;
 
 /**

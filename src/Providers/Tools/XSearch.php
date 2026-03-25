@@ -39,8 +39,8 @@ class XSearch extends ProviderTool
             'from_date' => $this->fromDate,
             'to_date' => $this->toDate,
             'allowed_x_handles' => $this->allowedXHandles,
-            'enable_image_understanding' => $this->enableImageUnderstanding ?: null,
-            'enable_video_understanding' => $this->enableVideoUnderstanding ?: null,
+            'enable_image_understanding' => $this->enableImageUnderstanding ? true : null,
+            'enable_video_understanding' => $this->enableVideoUnderstanding ? true : null,
         ]);
     }
 }

@@ -6,7 +6,7 @@ namespace Atlasphp\Atlas\Providers\OpenAi;
 
 use Atlasphp\Atlas\Input\Input;
 use Atlasphp\Atlas\Providers\Concerns\ResolvesMediaUri;
-use Atlasphp\Atlas\Providers\Contracts\MediaResolver as MediaResolverContract;
+use Atlasphp\Atlas\Providers\Contracts\MediaResolverContract;
 
 /**
  * Converts Atlas Input types into OpenAI Responses API content parts.

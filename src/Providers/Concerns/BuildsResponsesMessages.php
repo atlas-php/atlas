@@ -8,7 +8,7 @@ use Atlasphp\Atlas\Messages\AssistantMessage;
 use Atlasphp\Atlas\Messages\SystemMessage;
 use Atlasphp\Atlas\Messages\ToolResultMessage;
 use Atlasphp\Atlas\Messages\UserMessage;
-use Atlasphp\Atlas\Providers\Contracts\MediaResolver;
+use Atlasphp\Atlas\Providers\Contracts\MediaResolverContract;
 use Atlasphp\Atlas\Requests\TextRequest;
 
 /**
@@ -22,7 +22,7 @@ trait BuildsResponsesMessages
     /**
      * @return array<string, mixed>
      */
-    public function user(UserMessage $message, MediaResolver $media): array
+    public function user(UserMessage $message, MediaResolverContract $media): array
     {
         if (empty($message->media)) {
             return [
@@ -76,7 +76,7 @@ trait BuildsResponsesMessages
      *
      * @param  array<int, array<string, mixed>>  $input
      */
-    protected function collectInputItems(TextRequest $request, MediaResolver $media, ?string &$instructions, array &$input): void
+    protected function collectInputItems(TextRequest $request, MediaResolverContract $media, ?string &$instructions, array &$input): void
     {
         foreach ($request->messages as $message) {
             if ($message instanceof SystemMessage) {
@@ -115,7 +115,7 @@ trait BuildsResponsesMessages
                 'type' => 'function_call',
                 'call_id' => $toolCall->id,
                 'name' => $toolCall->name,
-                'arguments' => json_encode($toolCall->arguments),
+                'arguments' => json_encode($toolCall->arguments, JSON_THROW_ON_ERROR),
             ];
         }
     }

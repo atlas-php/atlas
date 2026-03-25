@@ -33,7 +33,10 @@ interface ProviderRegistryContract
     public function has(string $key): bool;
 
     /**
-     * Get all registered provider keys.
+     * Get all available provider keys.
+     *
+     * Includes both factory-registered providers and config-only providers
+     * that declare a 'driver' key.
      *
      * @return array<int, string>
      */

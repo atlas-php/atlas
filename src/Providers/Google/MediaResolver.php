@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Providers\Google;
 
 use Atlasphp\Atlas\Input\Input;
-use Atlasphp\Atlas\Providers\Contracts\MediaResolver as MediaResolverContract;
+use Atlasphp\Atlas\Providers\Contracts\MediaResolverContract;
 use InvalidArgumentException;
 
 /**

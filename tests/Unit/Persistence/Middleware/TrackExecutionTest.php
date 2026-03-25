@@ -10,6 +10,7 @@ use Atlasphp\Atlas\Middleware\AgentContext;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
 use Atlasphp\Atlas\Persistence\Middleware\TrackExecution;
+use Atlasphp\Atlas\Persistence\Models\Conversation;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\Usage;
@@ -262,6 +263,10 @@ it('adopts pre-created execution from meta execution_id', function () {
 });
 
 it('passes conversation_id through to adopted execution', function () {
+    $conversation = Conversation::create([
+        'agent' => 'test-agent',
+    ]);
+
     $preCreated = Execution::create([
         'provider' => 'unknown',
         'model' => 'unknown',
@@ -275,12 +280,12 @@ it('passes conversation_id through to adopted execution', function () {
         request: makeExecutionTextRequest(),
         meta: [
             'execution_id' => $preCreated->id,
-            'conversation_id' => 99,
+            'conversation_id' => $conversation->id,
         ],
     );
 
     $middleware->handle($context, fn () => makeExecutionFakeResult());
 
     $execution = Execution::find($preCreated->id);
-    expect($execution->conversation_id)->toBe(99);
+    expect($execution->conversation_id)->toBe($conversation->id);
 });

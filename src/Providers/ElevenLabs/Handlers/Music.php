@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Providers\ElevenLabs\Handlers;
 
-use Atlasphp\Atlas\Providers\ElevenLabs\BuildsElevenLabsHeaders;
+use Atlasphp\Atlas\Providers\ElevenLabs\Concerns\BuildsElevenLabsHeaders;
 use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Requests\AudioRequest;

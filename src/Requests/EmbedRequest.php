@@ -7,7 +7,7 @@ namespace Atlasphp\Atlas\Requests;
 /**
  * Request object for generating embeddings.
  */
-class EmbedRequest
+final class EmbedRequest
 {
     /**
      * @param  string|array<int, string>  $input

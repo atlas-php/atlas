@@ -7,7 +7,7 @@ namespace Atlasphp\Atlas\Requests;
 /**
  * Request object for audio generation and transcription.
  */
-class AudioRequest
+final class AudioRequest
 {
     /**
      * @param  array<int, mixed>  $media
