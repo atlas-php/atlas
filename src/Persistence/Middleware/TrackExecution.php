@@ -24,7 +24,7 @@ use Closure;
 class TrackExecution
 {
     public function __construct(
-        protected readonly ExecutionService $tracker,
+        protected readonly ExecutionService $executionService,
     ) {}
 
     /**
@@ -50,7 +50,7 @@ class TrackExecution
         $preExistingId = $context->meta['execution_id'] ?? null;
 
         if ($preExistingId !== null) {
-            $execution = $this->tracker->adoptExecution(
+            $execution = $this->executionService->adoptExecution(
                 id: (int) $preExistingId,
                 provider: $provider,
                 model: $model,
@@ -59,7 +59,7 @@ class TrackExecution
                 type: $type,
             );
         } else {
-            $execution = $this->tracker->createExecution(
+            $execution = $this->executionService->createExecution(
                 provider: $provider,
                 model: $model,
                 meta: $context->meta,
@@ -74,12 +74,12 @@ class TrackExecution
 
         try {
             // ── Transition to processing and run ─────────────────
-            $this->tracker->beginExecution();
+            $this->executionService->beginExecution();
 
             $result = $next($context);
 
             // ── Finalize on success ──────────────────────────────
-            $this->tracker->completeExecution();
+            $this->executionService->completeExecution();
 
             if ($result instanceof ExecutorResult) {
                 $result->executionId = $execution->id;
@@ -88,7 +88,7 @@ class TrackExecution
             return $result;
 
         } catch (\Throwable $e) {
-            $this->tracker->failExecution($e);
+            $this->executionService->failExecution($e);
             throw $e;
         }
     }

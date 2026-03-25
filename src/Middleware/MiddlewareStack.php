@@ -17,7 +17,7 @@ use Illuminate\Pipeline\Pipeline;
 class MiddlewareStack
 {
     public function __construct(
-        protected readonly Container $container,
+        private readonly Container $container,
     ) {}
 
     /**
@@ -43,7 +43,7 @@ class MiddlewareStack
      * @param  array<int, mixed>  $middleware
      * @return array<int, mixed>
      */
-    protected function resolve(array $middleware): array
+    private function resolve(array $middleware): array
     {
         return array_map(function (mixed $m): mixed {
             if (is_string($m)) {

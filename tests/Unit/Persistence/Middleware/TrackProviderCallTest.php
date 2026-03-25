@@ -961,3 +961,132 @@ it('resolves mime type from response format property when mimeType method is abs
     expect($asset->mime_type)->toBe('image/webp');
     expect($asset->path)->toEndWith('.webp');
 });
+
+// ─── Direct moderate/rerank calls (no usage property) ───────────────────────
+
+it('completes direct moderate call without usage property', function () {
+    $service = new ExecutionService;
+    $middleware = new TrackProviderCall($service);
+
+    $context = new ProviderContext(
+        provider: 'openai',
+        model: 'omni-moderation-latest',
+        method: 'moderate',
+        request: new stdClass,
+        meta: [],
+    );
+
+    // ModerationResponse has no $usage property
+    $response = new class
+    {
+        public bool $flagged = false;
+    };
+
+    $middleware->handle($context, fn () => $response);
+
+    $execution = Execution::latest('id')->first();
+
+    expect($execution)->not->toBeNull();
+    expect($execution->status)->toBe(ExecutionStatus::Completed);
+    expect($execution->total_input_tokens)->toBe(0);
+    expect($execution->total_output_tokens)->toBe(0);
+});
+
+it('completes direct rerank call without usage property', function () {
+    $service = new ExecutionService;
+    $middleware = new TrackProviderCall($service);
+
+    $context = new ProviderContext(
+        provider: 'cohere',
+        model: 'rerank-v3',
+        method: 'rerank',
+        request: new stdClass,
+        meta: [],
+    );
+
+    // RerankResponse has no $usage property
+    $response = new class
+    {
+        public array $results = [];
+    };
+
+    $middleware->handle($context, fn () => $response);
+
+    $execution = Execution::latest('id')->first();
+
+    expect($execution)->not->toBeNull();
+    expect($execution->status)->toBe(ExecutionStatus::Completed);
+    expect($execution->total_input_tokens)->toBe(0);
+    expect($execution->total_output_tokens)->toBe(0);
+});
+
+it('skips execution creation for voice sessions', function () {
+    $service = new ExecutionService;
+    $middleware = new TrackProviderCall($service);
+
+    $context = new ProviderContext(
+        provider: 'openai',
+        model: 'gpt-4o-realtime',
+        method: 'voice',
+        request: new stdClass,
+        meta: [],
+    );
+
+    $response = new class
+    {
+        public string $sessionId = 'sess_123';
+    };
+
+    $executionCountBefore = Execution::count();
+
+    $middleware->handle($context, fn () => $response);
+
+    // Voice sessions are tracked by AgentRequest::asVoice() — not here
+    expect(Execution::count())->toBe($executionCountBefore);
+});
+
+it('captures author metadata in asset from context meta', function () {
+    Storage::fake('local');
+    config()->set('atlas.storage.disk', 'local');
+    config()->set('atlas.storage.prefix', 'atlas');
+    config()->set('atlas.persistence.auto_store_assets', true);
+
+    $service = new ExecutionService;
+    $middleware = new TrackProviderCall($service);
+
+    $context = new ProviderContext(
+        provider: 'openai',
+        model: 'dall-e-3',
+        method: 'image',
+        request: new stdClass,
+        meta: ['author_type' => 'App\\Models\\User', 'author_id' => 42],
+    );
+
+    $response = new class implements HasContents
+    {
+        public object $usage;
+
+        public function __construct()
+        {
+            $this->usage = (object) ['inputTokens' => 10, 'outputTokens' => 0];
+        }
+
+        public function contents(): string
+        {
+            return 'fake-image-bytes';
+        }
+
+        public function mimeType(): string
+        {
+            return 'image/png';
+        }
+    };
+
+    $middleware->handle($context, fn () => $response);
+
+    $asset = Asset::latest('id')->first();
+
+    expect($asset)->not->toBeNull();
+    expect($asset->author_type)->toBe('App\\Models\\User');
+    expect($asset->author_id)->toBe(42);
+});

@@ -4,22 +4,32 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\Enums\FinishReason;
+use Atlasphp\Atlas\Enums\Role;
+use Atlasphp\Atlas\Events\ConversationMessageStored;
 use Atlasphp\Atlas\Executor\ExecutorResult;
 use Atlasphp\Atlas\Executor\Step;
 use Atlasphp\Atlas\Messages\AssistantMessage;
 use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Middleware\AgentContext;
 use Atlasphp\Atlas\Persistence\Concerns\HasConversations;
+use Atlasphp\Atlas\Persistence\Enums\AssetType;
+use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
 use Atlasphp\Atlas\Persistence\Enums\MessageRole;
 use Atlasphp\Atlas\Persistence\Enums\MessageStatus;
 use Atlasphp\Atlas\Persistence\Middleware\PersistConversation;
+use Atlasphp\Atlas\Persistence\Models\Asset;
 use Atlasphp\Atlas\Persistence\Models\Conversation;
 use Atlasphp\Atlas\Persistence\Models\Message;
+use Atlasphp\Atlas\Persistence\Models\MessageAttachment;
 use Atlasphp\Atlas\Persistence\ProcessQueuedMessage;
 use Atlasphp\Atlas\Persistence\Services\ConversationService;
+use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 use Atlasphp\Atlas\Requests\TextRequest;
+use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\Usage;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 
 function makeTestAgent(): Agent
 {
@@ -682,4 +692,210 @@ it('respects message limit when loading history', function () {
 
     // Should NOT have all 5 — limit of 2 was applied
     expect($capturedRequest->messages)->not->toHaveCount(5);
+});
+
+// ─── Event dispatch ────────────────────────────────────────────────
+
+it('dispatches ConversationMessageStored event after storing assistant message', function () {
+    Event::fake([ConversationMessageStored::class]);
+
+    $middleware = app(PersistConversation::class);
+
+    $conversation = Conversation::create(['agent' => 'test-agent']);
+
+    $agent = makeTestAgent();
+    $agent->forConversation($conversation->id);
+
+    $context = new AgentContext(
+        request: makePersistConversationRequest(),
+        agent: $agent,
+        messages: [new UserMessage(content: 'Hello')],
+        meta: [],
+    );
+
+    $middleware->handle($context, fn () => makeFakeExecutorResult());
+
+    Event::assertDispatched(ConversationMessageStored::class, function ($event) use ($conversation) {
+        return $event->conversationId === $conversation->id
+            && $event->role === Role::Assistant
+            && $event->agent === 'test-agent'
+            && $event->messageId !== null;
+    });
+});
+
+// ─── Tool asset attachment ─────────────────────────────────────────
+
+it('attaches tool-created assets to stored assistant message', function () {
+    Storage::fake('local');
+    config()->set('atlas.storage.disk', 'local');
+
+    $middleware = app(PersistConversation::class);
+
+    $conversation = Conversation::create(['agent' => 'test-agent']);
+
+    $agent = makeTestAgent();
+    $agent->forConversation($conversation->id);
+
+    // Create an execution with a tool-created asset
+    $executionService = app(ExecutionService::class);
+    $executionService->createExecution(
+        provider: 'openai',
+        model: 'gpt-4o',
+        type: ExecutionType::Text,
+    );
+    $executionService->beginExecution();
+
+    $execution = $executionService->getExecution();
+
+    // Create an asset linked to this execution with tool_execution source
+    $asset = Asset::create([
+        'type' => AssetType::Image,
+        'mime_type' => 'image/png',
+        'filename' => 'test.png',
+        'path' => 'atlas/assets/test.png',
+        'disk' => 'local',
+        'size_bytes' => 100,
+        'content_hash' => hash('sha256', 'fake'),
+        'execution_id' => $execution->id,
+        'metadata' => ['source' => 'tool_execution', 'tool_call_id' => 'call_abc', 'tool_name' => 'generate_image'],
+    ]);
+
+    $context = new AgentContext(
+        request: makePersistConversationRequest(),
+        agent: $agent,
+        messages: [new UserMessage(content: 'Generate an image')],
+        meta: ['execution_id' => $execution->id],
+    );
+
+    $middleware->handle($context, fn () => makeFakeExecutorResult());
+
+    // Verify asset is attached to the stored assistant message
+    $assistantMsg = Message::where('conversation_id', $conversation->id)
+        ->where('role', MessageRole::Assistant)
+        ->first();
+
+    $attachment = MessageAttachment::where('message_id', $assistantMsg->id)
+        ->where('asset_id', $asset->id)
+        ->first();
+
+    expect($attachment)->not->toBeNull();
+    expect($attachment->metadata['tool_call_id'])->toBe('call_abc');
+    expect($attachment->metadata['tool_name'])->toBe('generate_image');
+});
+
+// ─── Non-ExecutorResult passthrough ────────────────────────────────
+
+it('returns TextResponse unchanged without persistence', function () {
+    $middleware = app(PersistConversation::class);
+
+    $conversation = Conversation::create(['agent' => 'test-agent']);
+
+    $agent = makeTestAgent();
+    $agent->forConversation($conversation->id);
+
+    $textResponse = new TextResponse(
+        text: 'Simple response',
+        usage: new Usage(10, 5),
+        finishReason: FinishReason::Stop,
+    );
+
+    $context = new AgentContext(
+        request: makePersistConversationRequest(),
+        agent: $agent,
+        messages: [new UserMessage(content: 'Hello')],
+        meta: [],
+    );
+
+    $result = $middleware->handle($context, fn () => $textResponse);
+
+    // TextResponse should pass through without any persistence
+    expect($result)->toBe($textResponse);
+
+    // No assistant messages should be stored
+    $assistantMessages = Message::where('conversation_id', $conversation->id)
+        ->where('role', MessageRole::Assistant)
+        ->count();
+
+    expect($assistantMessages)->toBe(0);
+});
+
+// ─── Consumer metadata ─────────────────────────────────────────────
+
+it('stores consumer metadata on conversation when metadata is null', function () {
+    $middleware = app(PersistConversation::class);
+
+    $conversation = Conversation::create([
+        'agent' => 'test-agent',
+        'metadata' => null,
+    ]);
+
+    $agent = makeTestAgent();
+    $agent->forConversation($conversation->id);
+
+    $request = new TextRequest(
+        model: 'gpt-5',
+        instructions: null,
+        message: 'Hello',
+        messageMedia: [],
+        messages: [],
+        maxTokens: null,
+        temperature: null,
+        schema: null,
+        tools: [],
+        providerTools: [],
+        providerOptions: [],
+        meta: ['user_id' => 42, 'session' => 'abc'],
+    );
+
+    $context = new AgentContext(
+        request: $request,
+        agent: $agent,
+        messages: [new UserMessage(content: 'Hello')],
+        meta: [],
+    );
+
+    $middleware->handle($context, fn () => makeFakeExecutorResult());
+
+    $conversation->refresh();
+    expect($conversation->metadata)->toBe(['user_id' => 42, 'session' => 'abc']);
+});
+
+it('does not overwrite existing conversation metadata', function () {
+    $middleware = app(PersistConversation::class);
+
+    $conversation = Conversation::create([
+        'agent' => 'test-agent',
+        'metadata' => ['existing' => 'data'],
+    ]);
+
+    $agent = makeTestAgent();
+    $agent->forConversation($conversation->id);
+
+    $request = new TextRequest(
+        model: 'gpt-5',
+        instructions: null,
+        message: 'Hello',
+        messageMedia: [],
+        messages: [],
+        maxTokens: null,
+        temperature: null,
+        schema: null,
+        tools: [],
+        providerTools: [],
+        providerOptions: [],
+        meta: ['new_key' => 'new_value'],
+    );
+
+    $context = new AgentContext(
+        request: $request,
+        agent: $agent,
+        messages: [new UserMessage(content: 'Hello')],
+        meta: [],
+    );
+
+    $middleware->handle($context, fn () => makeFakeExecutorResult());
+
+    $conversation->refresh();
+    // Existing metadata should NOT be overwritten
+    expect($conversation->metadata)->toBe(['existing' => 'data']);
 });

@@ -224,3 +224,63 @@ it('attaches executionId to result', function () {
     expect($execution)->not->toBeNull();
     expect($execution->status)->toBe(ExecutionStatus::Completed);
 });
+
+it('adopts pre-created execution from meta execution_id', function () {
+    // Pre-create an execution (as queue dispatch would)
+    $preCreated = Execution::create([
+        'provider' => 'unknown',
+        'model' => 'unknown',
+        'status' => ExecutionStatus::Queued,
+        'type' => ExecutionType::Text,
+    ]);
+
+    $middleware = app(TrackExecution::class);
+
+    $agent = new class extends Agent
+    {
+        public function key(): string
+        {
+            return 'queue-agent';
+        }
+    };
+
+    $context = new AgentContext(
+        request: makeExecutionTextRequest(),
+        agent: $agent,
+        meta: ['execution_id' => $preCreated->id],
+    );
+
+    $result = $middleware->handle($context, fn () => makeExecutionFakeResult());
+
+    // Should NOT have created a duplicate — same execution adopted
+    expect(Execution::count())->toBe(1);
+    expect($result->executionId)->toBe($preCreated->id);
+
+    $execution = Execution::find($preCreated->id);
+    expect($execution->status)->toBe(ExecutionStatus::Completed);
+    expect($execution->agent)->toBe('queue-agent');
+});
+
+it('passes conversation_id through to adopted execution', function () {
+    $preCreated = Execution::create([
+        'provider' => 'unknown',
+        'model' => 'unknown',
+        'status' => ExecutionStatus::Queued,
+        'type' => ExecutionType::Text,
+    ]);
+
+    $middleware = app(TrackExecution::class);
+
+    $context = new AgentContext(
+        request: makeExecutionTextRequest(),
+        meta: [
+            'execution_id' => $preCreated->id,
+            'conversation_id' => 99,
+        ],
+    );
+
+    $middleware->handle($context, fn () => makeExecutionFakeResult());
+
+    $execution = Execution::find($preCreated->id);
+    expect($execution->conversation_id)->toBe(99);
+});

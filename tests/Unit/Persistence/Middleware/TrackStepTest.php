@@ -266,3 +266,27 @@ it('skips provider tool logging when no provider tools in response', function ()
 
     expect(ExecutionToolCall::count())->toBe(0);
 });
+
+it('marks step failed directly without TrackExecution wrapping', function () {
+    // Create execution and step manually — no TrackExecution middleware involved
+    $service = makeServiceWithExecution();
+    $middleware = new TrackStep($service);
+
+    $context = makeStepContext();
+
+    try {
+        $middleware->handle($context, function () {
+            throw new RuntimeException('Provider crashed');
+        });
+    } catch (RuntimeException) {
+        // Expected — step middleware re-throws
+    }
+
+    // The step should be marked failed directly by TrackStep's catch block,
+    // without relying on TrackExecution's failExecution() call.
+    $step = ExecutionStep::latest('id')->first();
+
+    expect($step)->not->toBeNull();
+    expect($step->status)->toBe(ExecutionStatus::Failed);
+    expect($step->error)->toContain('Provider crashed');
+});

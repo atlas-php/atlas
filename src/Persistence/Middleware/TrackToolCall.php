@@ -19,19 +19,19 @@ use Closure;
 class TrackToolCall
 {
     public function __construct(
-        protected readonly ExecutionService $tracker,
+        protected readonly ExecutionService $executionService,
     ) {}
 
     public function handle(ToolContext $context, Closure $next): ToolResult
     {
         // Only track if an execution is active with a current step
-        if ($this->tracker->getExecution() === null || $this->tracker->currentStep() === null) {
+        if ($this->executionService->getExecution() === null || $this->executionService->currentStep() === null) {
             return $next($context);
         }
 
         // ── Create tool call in pending, begin processing ────────
-        $record = $this->tracker->createToolCall($context->toolCall, meta: $context->meta);
-        $startTime = $this->tracker->beginToolCall($record);
+        $record = $this->executionService->createToolCall($context->toolCall, meta: $context->meta);
+        $startTime = $this->executionService->beginToolCall($record);
 
         try {
             // ── Tool executes ────────────────────────────────────────
@@ -39,15 +39,15 @@ class TrackToolCall
 
             // ── Record result ────────────────────────────────────────
             if ($result->isError) {
-                $this->tracker->failToolCall($record, $startTime, $result->content);
+                $this->executionService->failToolCall($record, $startTime, $result->content);
             } else {
-                $this->tracker->completeToolCall($record, $startTime, $result->content);
+                $this->executionService->completeToolCall($record, $startTime, $result->content);
             }
 
             return $result;
 
         } catch (\Throwable $e) {
-            $this->tracker->failToolCall($record, $startTime, $e->getMessage());
+            $this->executionService->failToolCall($record, $startTime, $e->getMessage());
             throw $e;
         }
     }

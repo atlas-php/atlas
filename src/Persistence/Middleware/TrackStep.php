@@ -21,19 +21,19 @@ use Closure;
 class TrackStep
 {
     public function __construct(
-        protected readonly ExecutionService $tracker,
+        protected readonly ExecutionService $executionService,
     ) {}
 
     public function handle(StepContext $context, Closure $next): TextResponse
     {
         // Only track if an execution is active
-        if ($this->tracker->getExecution() === null) {
+        if ($this->executionService->getExecution() === null) {
             return $next($context);
         }
 
         // ── Create step in pending, begin processing ─────────────
-        $this->tracker->createStep($context->meta);
-        $this->tracker->beginStep();
+        $this->executionService->createStep($context->meta);
+        $this->executionService->beginStep();
 
         try {
             // ── Provider call happens inside ──────────────────────────
@@ -42,7 +42,7 @@ class TrackStep
             // ── Record response data from the TextResponse ───────────
             $finishReason = $response->finishReason->value;
 
-            $this->tracker->currentStep()?->recordResponse(
+            $this->executionService->currentStep()?->recordResponse(
                 content: $response->text,
                 reasoning: $response->reasoning,
                 inputTokens: $response->usage->inputTokens,
@@ -51,7 +51,7 @@ class TrackStep
             );
 
             // ── Complete the step ────────────────────────────────────
-            $this->tracker->completeStep();
+            $this->executionService->completeStep();
 
             // ── Log provider tool calls (already executed server-side) ──
             $this->logProviderToolCalls($response);
@@ -59,7 +59,9 @@ class TrackStep
             return $response;
 
         } catch (\Throwable $e) {
-            // failExecution() will mark the in-flight step as failed
+            // Mark the step failed directly so it doesn't stay stuck in
+            // Processing if TrackExecution is not in the middleware stack.
+            $this->executionService->currentStep()?->markFailed($e->getMessage(), null);
             throw $e;
         }
     }
@@ -71,13 +73,13 @@ class TrackStep
      */
     private function logProviderToolCalls(TextResponse $response): void
     {
-        if ($response->providerToolCalls === [] || $this->tracker->currentStep() === null) {
+        if ($response->providerToolCalls === [] || $this->executionService->currentStep() === null) {
             return;
         }
 
         foreach ($response->providerToolCalls as $providerTool) {
             try {
-                $record = $this->tracker->createToolCall(
+                $record = $this->executionService->createToolCall(
                     new ToolCall(
                         id: (string) ($providerTool['id'] ?? ''),
                         name: (string) ($providerTool['type'] ?? 'unknown'),
@@ -86,13 +88,13 @@ class TrackStep
                     type: ToolCallType::Provider,
                 );
 
-                $startTime = $this->tracker->beginToolCall($record);
+                $startTime = $this->executionService->beginToolCall($record);
                 $reportedStatus = (string) ($providerTool['status'] ?? 'completed');
 
                 if ($reportedStatus === 'failed') {
-                    $this->tracker->failToolCall($record, $startTime, $reportedStatus);
+                    $this->executionService->failToolCall($record, $startTime, $reportedStatus);
                 } else {
-                    $this->tracker->completeToolCall($record, $startTime, $reportedStatus);
+                    $this->executionService->completeToolCall($record, $startTime, $reportedStatus);
                 }
             } catch (\Throwable) {
                 // Don't let provider tool logging failures break the response flow
