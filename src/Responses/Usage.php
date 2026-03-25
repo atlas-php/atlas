@@ -26,6 +26,42 @@ final class Usage
     }
 
     /**
+     * Convert to an array for JSON persistence, omitting null fields.
+     *
+     * @return array<string, int>
+     */
+    public function toArray(): array
+    {
+        return array_filter([
+            'inputTokens' => $this->inputTokens,
+            'outputTokens' => $this->outputTokens,
+            'reasoningTokens' => $this->reasoningTokens,
+            'cachedTokens' => $this->cachedTokens,
+            'cacheWriteTokens' => $this->cacheWriteTokens,
+        ], fn ($v) => $v !== null);
+    }
+
+    /**
+     * Create a Usage instance from a persisted JSON array.
+     *
+     * @param  array<string, int>|null  $data
+     */
+    public static function fromArray(?array $data): self
+    {
+        if ($data === null) {
+            return new self(0, 0);
+        }
+
+        return new self(
+            inputTokens: $data['inputTokens'] ?? 0,
+            outputTokens: $data['outputTokens'] ?? 0,
+            reasoningTokens: $data['reasoningTokens'] ?? null,
+            cachedTokens: $data['cachedTokens'] ?? null,
+            cacheWriteTokens: $data['cacheWriteTokens'] ?? null,
+        );
+    }
+
+    /**
      * Merge this usage with another, summing all token counts.
      */
     public function merge(Usage $other): static

@@ -218,9 +218,9 @@ function formatTime(dateStr: string): string {
                         <Clock class="size-3" />
                         {{ formatDuration(message.execution.duration_ms) }}
                     </span>
-                    <span>
-                        {{ formatTokens(message.execution.tokens.input) }} in /
-                        {{ formatTokens(message.execution.tokens.output) }} out
+                    <span v-if="message.execution.usage">
+                        {{ formatTokens(message.execution.usage.inputTokens) }} in /
+                        {{ formatTokens(message.execution.usage.outputTokens) }} out
                     </span>
                 </div>
 

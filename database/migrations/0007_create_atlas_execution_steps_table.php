@@ -29,8 +29,6 @@ return new class extends Migration
             $table->unsignedTinyInteger('status')->default(0);
             $table->text('content')->nullable();
             $table->text('reasoning')->nullable();
-            $table->unsignedInteger('input_tokens')->default(0);
-            $table->unsignedInteger('output_tokens')->default(0);
             $table->string('finish_reason', 30)->nullable();
             $table->text('error')->nullable();
             $table->json('metadata')->nullable();

@@ -96,8 +96,6 @@ it('creates step and records response on success', function () {
     expect($step)->not->toBeNull();
     expect($step->status)->toBe(ExecutionStatus::Completed);
     expect($step->content)->toBe('Hello world');
-    expect($step->input_tokens)->toBe(10);
-    expect($step->output_tokens)->toBe(5);
     expect($step->finish_reason)->toBe('stop');
 });
 

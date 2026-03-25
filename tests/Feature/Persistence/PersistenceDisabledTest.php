@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
+use Atlasphp\Atlas\Responses\Usage;
 
 beforeEach(function () {
     config()->set('atlas.persistence.enabled', false);
@@ -25,7 +26,7 @@ it('ExecutionService operations no-op without exceptions when persistence is dis
     $service->completeExecution(); // no-op, no execution
     $service->failExecution(new RuntimeException('test')); // no-op, no execution
     $service->linkAsset(1); // no-op, no execution
-    $service->completeDirectExecution(100, 50); // no-op, no execution
+    $service->completeDirectExecution(new Usage(inputTokens: 100, outputTokens: 50)); // no-op, no execution
 
     $service->reset();
 

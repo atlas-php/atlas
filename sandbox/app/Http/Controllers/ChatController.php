@@ -261,10 +261,7 @@ class ChatController
             'started_at' => $execution->started_at,
             'completed_at' => $execution->completed_at,
             'duration_ms' => $execution->duration_ms,
-            'usage' => [
-                'input_tokens' => $execution->total_input_tokens,
-                'output_tokens' => $execution->total_output_tokens,
-            ],
+            'usage' => $execution->usage,
             'error' => $execution->error,
         ]);
     }
@@ -304,7 +301,7 @@ class ChatController
     {
         $query = ConversationMessage::where('conversation_id', $conversation->id)
             ->where('is_active', true)
-            ->with(['attachments.asset']);
+            ->with(['assets.asset']);
 
         if ($beforeId !== null) {
             $query->where('id', '<', $beforeId);

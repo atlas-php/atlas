@@ -578,8 +578,6 @@ class AgentRequest implements QueueableRequestContract
                     'provider' => $providerKey,
                     'model' => $model ?? '',
                     'status' => ExecutionStatus::Processing,
-                    'total_input_tokens' => 0,
-                    'total_output_tokens' => 0,
                     'started_at' => now(),
                 ]);
 

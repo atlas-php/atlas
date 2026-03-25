@@ -155,6 +155,6 @@ it('attachments relationship returns message attachments', function () {
         'asset_id' => $asset->id,
     ]);
 
-    expect($asset->attachments)->toHaveCount(1)
-        ->and($asset->attachments->first()->message_id)->toBe($message->id);
+    expect($asset->messageAssets)->toHaveCount(1)
+        ->and($asset->messageAssets->first()->message_id)->toBe($message->id);
 });

@@ -403,13 +403,6 @@ class StreamResponse implements IteratorAggregate, Responsable
      */
     private function serializeUsage(): ?array
     {
-        if ($this->usage === null) {
-            return null;
-        }
-
-        return [
-            'input_tokens' => $this->usage->inputTokens,
-            'output_tokens' => $this->usage->outputTokens,
-        ];
+        return $this->usage?->toArray();
     }
 }

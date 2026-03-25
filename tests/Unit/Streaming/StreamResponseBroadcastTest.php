@@ -103,8 +103,8 @@ it('broadcasts StreamCompleted after last chunk with text and usage', function (
 
     Event::assertDispatched(StreamCompleted::class, function ($event) {
         return $event->text === 'Hi'
-            && $event->usage['input_tokens'] === 10
-            && $event->usage['output_tokens'] === 5;
+            && $event->usage['inputTokens'] === 10
+            && $event->usage['outputTokens'] === 5;
     });
 });
 

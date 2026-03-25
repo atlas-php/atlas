@@ -11,6 +11,7 @@ use Atlasphp\Atlas\Persistence\Models\Asset;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 use Atlasphp\Atlas\Persistence\Support\MimeTypeMap;
 use Atlasphp\Atlas\Responses\StorableContract;
+use Atlasphp\Atlas\Responses\Usage;
 use Closure;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -83,8 +84,7 @@ class TrackProviderCall
             // ─── Complete standalone execution with tokens ────────────
             if ($isDirectCall) {
                 $this->executionService->completeDirectExecution(
-                    inputTokens: $this->extractInputTokens($response),
-                    outputTokens: $this->extractOutputTokens($response),
+                    usage: $this->extractUsage($response),
                 );
             }
 
@@ -198,21 +198,12 @@ class TrackProviderCall
         return MimeTypeMap::toExtension($mimeType, $assetType);
     }
 
-    protected function extractInputTokens(mixed $response): int
+    protected function extractUsage(mixed $response): ?Usage
     {
-        if (! isset($response->usage)) {
-            return 0;
+        if (! isset($response->usage) || ! $response->usage instanceof Usage) {
+            return null;
         }
 
-        return $response->usage->inputTokens ?? 0;
-    }
-
-    protected function extractOutputTokens(mixed $response): int
-    {
-        if (! isset($response->usage)) {
-            return 0;
-        }
-
-        return $response->usage->outputTokens ?? 0;
+        return $response->usage;
     }
 }

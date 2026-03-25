@@ -9,6 +9,7 @@ use Atlasphp\Atlas\Persistence\Concerns\HasAtlasTable;
 use Atlasphp\Atlas\Persistence\Concerns\HasExecutionStatus;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
+use Atlasphp\Atlas\Responses\Usage;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -33,8 +34,7 @@ use Illuminate\Support\Carbon;
  * @property string $provider
  * @property string $model
  * @property ExecutionStatus $status
- * @property int $total_input_tokens
- * @property int $total_output_tokens
+ * @property array<string, int>|null $usage
  * @property string|null $error
  * @property array<mixed>|null $metadata
  * @property Carbon|null $started_at
@@ -63,8 +63,7 @@ class Execution extends Model
         'provider',
         'model',
         'status',
-        'total_input_tokens',
-        'total_output_tokens',
+        'usage',
         'error',
         'metadata',
         'started_at',
@@ -77,8 +76,7 @@ class Execution extends Model
         return [
             'type' => ExecutionType::class,
             'status' => ExecutionStatus::class,
-            'total_input_tokens' => 'integer',
-            'total_output_tokens' => 'integer',
+            'usage' => 'array',
             'metadata' => 'array',
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
@@ -152,51 +150,42 @@ class Execution extends Model
         $this->update(['status' => ExecutionStatus::Queued]);
     }
 
-    public function markCompleted(?int $durationMs): void
+    public function markCompleted(?int $durationMs, ?Usage $usage = null): void
     {
-        $tokens = $this->aggregateStepTokens();
-
         $this->update([
             'status' => ExecutionStatus::Completed,
             'completed_at' => now(),
             'duration_ms' => $durationMs,
-            'total_input_tokens' => $tokens->input,
-            'total_output_tokens' => $tokens->output,
+            'usage' => $usage?->toArray(),
         ]);
     }
 
-    public function markFailed(string $error, ?int $durationMs): void
+    public function markFailed(string $error, ?int $durationMs, ?Usage $usage = null): void
     {
-        $tokens = $this->aggregateStepTokens();
-
         $this->update([
             'status' => ExecutionStatus::Failed,
             'completed_at' => now(),
             'duration_ms' => $durationMs,
             'error' => $error,
-            'total_input_tokens' => $tokens->input,
-            'total_output_tokens' => $tokens->output,
+            'usage' => $usage?->toArray(),
         ]);
-    }
-
-    /**
-     * Aggregate input and output token counts from all steps in a single query.
-     *
-     * @return object{input: int, output: int}
-     */
-    private function aggregateStepTokens(): object
-    {
-        return $this->steps()
-            ->reorder()
-            ->selectRaw('COALESCE(SUM(input_tokens), 0) as input, COALESCE(SUM(output_tokens), 0) as output')
-            ->first() ?? (object) ['input' => 0, 'output' => 0];
     }
 
     // ─── Accessors ──────────────────────────────────────────────
 
+    /**
+     * Get the usage as a Usage DTO.
+     */
+    public function getUsageObject(): Usage
+    {
+        return Usage::fromArray($this->usage);
+    }
+
     public function getTotalTokensAttribute(): int
     {
-        return $this->total_input_tokens + $this->total_output_tokens;
+        $usage = $this->usage ?? [];
+
+        return ($usage['inputTokens'] ?? 0) + ($usage['outputTokens'] ?? 0);
     }
 
     // ─── Scopes ─────────────────────────────────────────────────

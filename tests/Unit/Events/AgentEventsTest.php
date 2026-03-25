@@ -617,7 +617,7 @@ it('AgentStepStarted broadcastWith includes agentKey and stepNumber', function (
     ]);
 });
 
-it('AgentStepCompleted broadcastWith includes all step context', function () {
+it('AgentStepCompleted broadcastWith includes step context without usage', function () {
     $event = new AgentStepCompleted(
         stepNumber: 2,
         finishReason: FinishReason::ToolCalls,
@@ -632,10 +632,6 @@ it('AgentStepCompleted broadcastWith includes all step context', function () {
         'agentKey' => 'my-agent',
         'stepNumber' => 2,
         'finishReason' => 'tool_calls',
-        'usage' => [
-            'inputTokens' => 100,
-            'outputTokens' => 200,
-        ],
     ]);
 });
 

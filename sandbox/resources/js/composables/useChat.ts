@@ -31,9 +31,16 @@ export interface ExecutionStep {
     sequence: number;
     status: string;
     finish_reason: string | null;
-    tokens: { input: number; output: number };
     duration_ms: number | null;
     tool_calls: ToolCall[];
+}
+
+export interface UsageData {
+    inputTokens: number;
+    outputTokens: number;
+    reasoningTokens?: number;
+    cachedTokens?: number;
+    cacheWriteTokens?: number;
 }
 
 export interface MessageExecution {
@@ -42,7 +49,7 @@ export interface MessageExecution {
     provider: string;
     model: string;
     duration_ms: number | null;
-    tokens: { input: number; output: number };
+    usage: UsageData | null;
     steps: ExecutionStep[];
 }
 

@@ -35,6 +35,6 @@ if ($executionId) {
             echo "  [{$s->id}] seq={$s->sequence} | {$s->finish_reason}\n";
             echo '    content: '.mb_substr($s->content ?? '(null)', 0, 100)."\n";
             echo '    reasoning: '.mb_substr($s->reasoning ?? '(null)', 0, 100)."\n";
-            echo "    tokens: in={$s->input_tokens} out={$s->output_tokens}\n\n";
+            echo "    status: {$s->status->label()}\n\n";
         });
 }

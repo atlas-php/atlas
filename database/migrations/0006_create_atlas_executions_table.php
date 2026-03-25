@@ -38,13 +38,12 @@ return new class extends Migration
                 ->nullable()
                 ->constrained($this->tableName('assets'))
                 ->nullOnDelete();
+            $table->unsignedTinyInteger('status')->default(0);
             $table->string('agent', 255)->nullable();
             $table->string('type', 30)->default('text');
             $table->string('provider', 50);
             $table->string('model', 100);
-            $table->unsignedTinyInteger('status')->default(0);
-            $table->unsignedInteger('total_input_tokens')->default(0);
-            $table->unsignedInteger('total_output_tokens')->default(0);
+            $table->json('usage')->nullable();
             $table->text('error')->nullable();
             $table->json('metadata')->nullable();
             $table->timestamp('started_at')->nullable();

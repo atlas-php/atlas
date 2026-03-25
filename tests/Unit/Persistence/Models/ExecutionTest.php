@@ -10,6 +10,7 @@ use Atlasphp\Atlas\Persistence\Models\ConversationMessage;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\ExecutionStep;
 use Atlasphp\Atlas\Persistence\Models\ExecutionToolCall;
+use Atlasphp\Atlas\Responses\Usage;
 
 it('creates in pending status via factory', function () {
     $execution = Execution::factory()->create();
@@ -26,42 +27,25 @@ it('markQueued transitions to queued', function () {
     expect($execution->fresh()->status)->toBe(ExecutionStatus::Queued);
 });
 
-it('markCompleted sets status, completed_at, and aggregates tokens from steps', function () {
+it('markCompleted sets status, completed_at, duration, and usage', function () {
     $execution = Execution::factory()->create();
 
-    ExecutionStep::factory()->create([
-        'execution_id' => $execution->id,
-        'input_tokens' => 100,
-        'output_tokens' => 50,
-    ]);
-
-    ExecutionStep::factory()->create([
-        'execution_id' => $execution->id,
-        'input_tokens' => 200,
-        'output_tokens' => 75,
-    ]);
-
-    $execution->markCompleted(3000);
+    $usage = new Usage(inputTokens: 300, outputTokens: 125);
+    $execution->markCompleted(3000, $usage);
 
     $execution->refresh();
 
     expect($execution->status)->toBe(ExecutionStatus::Completed)
         ->and($execution->completed_at)->not->toBeNull()
         ->and($execution->duration_ms)->toBe(3000)
-        ->and($execution->total_input_tokens)->toBe(300)
-        ->and($execution->total_output_tokens)->toBe(125);
+        ->and($execution->usage)->toBe(['inputTokens' => 300, 'outputTokens' => 125]);
 });
 
-it('markFailed sets status, error, and completed_at', function () {
+it('markFailed sets status, error, completed_at, and usage', function () {
     $execution = Execution::factory()->create();
 
-    ExecutionStep::factory()->create([
-        'execution_id' => $execution->id,
-        'input_tokens' => 50,
-        'output_tokens' => 10,
-    ]);
-
-    $execution->markFailed('Provider timeout', 2000);
+    $usage = new Usage(inputTokens: 50, outputTokens: 10);
+    $execution->markFailed('Provider timeout', 2000, $usage);
 
     $execution->refresh();
 
@@ -69,8 +53,7 @@ it('markFailed sets status, error, and completed_at', function () {
         ->and($execution->error)->toBe('Provider timeout')
         ->and($execution->completed_at)->not->toBeNull()
         ->and($execution->duration_ms)->toBe(2000)
-        ->and($execution->total_input_tokens)->toBe(50)
-        ->and($execution->total_output_tokens)->toBe(10);
+        ->and($execution->usage)->toBe(['inputTokens' => 50, 'outputTokens' => 10]);
 });
 
 it('scopeOfType filters correctly', function () {
@@ -123,10 +106,9 @@ it('scopeForProvider filters by provider', function () {
         ->and(Execution::forProvider('anthropic')->count())->toBe(1);
 });
 
-it('getTotalTokensAttribute returns sum of input and output', function () {
+it('getTotalTokensAttribute returns sum of input and output from usage JSON', function () {
     $execution = Execution::factory()->create([
-        'total_input_tokens' => 150,
-        'total_output_tokens' => 75,
+        'usage' => ['inputTokens' => 150, 'outputTokens' => 75],
     ]);
 
     expect($execution->total_tokens)->toBe(225);

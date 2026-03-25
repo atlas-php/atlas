@@ -23,8 +23,6 @@ class ExecutionStepFactory extends Factory
             'status' => ExecutionStatus::Pending,
             'content' => null,
             'reasoning' => null,
-            'input_tokens' => 0,
-            'output_tokens' => 0,
             'finish_reason' => null,
             'error' => null,
             'metadata' => null,
@@ -34,13 +32,11 @@ class ExecutionStepFactory extends Factory
         ];
     }
 
-    public function completed(string $content = 'Test response', int $inputTokens = 50, int $outputTokens = 25): static
+    public function completed(string $content = 'Test response'): static
     {
         return $this->state([
             'status' => ExecutionStatus::Completed,
             'content' => $content,
-            'input_tokens' => $inputTokens,
-            'output_tokens' => $outputTokens,
             'finish_reason' => 'stop',
             'started_at' => now()->subSeconds(2),
             'completed_at' => now(),
@@ -54,8 +50,6 @@ class ExecutionStepFactory extends Factory
             'status' => ExecutionStatus::Completed,
             'content' => $content,
             'finish_reason' => 'tool_calls',
-            'input_tokens' => 30,
-            'output_tokens' => 15,
             'started_at' => now()->subSeconds(1),
             'completed_at' => now(),
             'duration_ms' => 1000,

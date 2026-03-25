@@ -30,9 +30,9 @@ return new class extends Migration
                 ->constrained($this->tableName('execution_steps'))
                 ->nullOnDelete();
             $table->string('tool_call_id', 100);
+            $table->unsignedTinyInteger('status')->default(0);
             $table->string('name', 100);
             $table->string('type', 20);
-            $table->unsignedTinyInteger('status')->default(0);
             $table->json('arguments')->nullable();
             $table->text('result')->nullable();
             $table->timestamp('started_at')->nullable();

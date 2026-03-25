@@ -45,10 +45,7 @@ class AgentCompleted implements ShouldBroadcastNow
         return [
             'agentKey' => $this->agentKey,
             'stepCount' => count($this->steps),
-            'usage' => [
-                'inputTokens' => $this->usage->inputTokens,
-                'outputTokens' => $this->usage->outputTokens,
-            ],
+            'usage' => $this->usage->toArray(),
             'finishReason' => $this->finishReason?->value,
         ];
     }

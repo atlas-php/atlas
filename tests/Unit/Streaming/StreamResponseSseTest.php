@@ -79,8 +79,8 @@ it('sends done chunk as SSE done event with accumulated text and usage', functio
     expect($output)->toContain('event: done');
     expect($output)->toContain('"type":"done"');
     expect($output)->toContain('"text":"Hi"');
-    expect($output)->toContain('"input_tokens":10');
-    expect($output)->toContain('"output_tokens":5');
+    expect($output)->toContain('"inputTokens":10');
+    expect($output)->toContain('"outputTokens":5');
 });
 
 it('emits thinking SSE event for Thinking chunks', function () {

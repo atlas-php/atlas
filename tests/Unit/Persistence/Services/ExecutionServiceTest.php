@@ -13,6 +13,7 @@ use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\ExecutionStep;
 use Atlasphp\Atlas\Persistence\Models\ExecutionToolCall;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
+use Atlasphp\Atlas\Responses\Usage;
 
 beforeEach(function () {
     $this->service = app(ExecutionService::class);
@@ -32,8 +33,7 @@ it('creates execution in pending status with correct provider and model', functi
         ->and($execution->provider)->toBe('anthropic')
         ->and($execution->model)->toBe('claude-4')
         ->and($execution->type)->toBe(ExecutionType::Text)
-        ->and($execution->total_input_tokens)->toBe(0)
-        ->and($execution->total_output_tokens)->toBe(0);
+        ->and($execution->usage)->toBeNull();
 });
 
 it('creates execution with optional parameters', function () {
@@ -94,31 +94,20 @@ it('transitions to processing and sets started_at', function () {
 
 // ─── completeExecution ─────────────────────────────────────────────
 
-it('transitions to completed, sets duration_ms, aggregates tokens from steps', function () {
+it('transitions to completed and records usage', function () {
     $this->service->createExecution(provider: 'openai', model: 'gpt-5');
     $this->service->beginExecution();
 
+    $usage = new Usage(inputTokens: 180, outputTokens: 90);
+    $this->service->completeExecution($usage);
+
     $execution = $this->service->getExecution();
-
-    // Create steps with token counts directly
-    ExecutionStep::factory()->completed(inputTokens: 100, outputTokens: 50)->create([
-        'execution_id' => $execution->id,
-        'sequence' => 0,
-    ]);
-    ExecutionStep::factory()->completed(inputTokens: 80, outputTokens: 40)->create([
-        'execution_id' => $execution->id,
-        'sequence' => 1,
-    ]);
-
-    $this->service->completeExecution();
-
     $execution->refresh();
 
     expect($execution->status)->toBe(ExecutionStatus::Completed)
         ->and($execution->duration_ms)->toBeGreaterThanOrEqual(0)
         ->and($execution->completed_at)->not->toBeNull()
-        ->and($execution->total_input_tokens)->toBe(180)
-        ->and($execution->total_output_tokens)->toBe(90);
+        ->and($execution->usage)->toBe(['inputTokens' => 180, 'outputTokens' => 90]);
 });
 
 // ─── failExecution ─────────────────────────────────────────────────
@@ -288,18 +277,17 @@ it('sets error on tool call failure', function () {
 
 // ─── completeDirectExecution ───────────────────────────────────────
 
-it('records tokens directly without step aggregation', function () {
+it('records usage directly without step aggregation', function () {
     $this->service->createExecution(provider: 'openai', model: 'gpt-5');
     $this->service->beginExecution();
 
-    $this->service->completeDirectExecution(inputTokens: 200, outputTokens: 100);
+    $this->service->completeDirectExecution(new Usage(inputTokens: 200, outputTokens: 100));
 
     $execution = $this->service->getExecution();
     $execution->refresh();
 
     expect($execution->status)->toBe(ExecutionStatus::Completed)
-        ->and($execution->total_input_tokens)->toBe(200)
-        ->and($execution->total_output_tokens)->toBe(100)
+        ->and($execution->usage)->toBe(['inputTokens' => 200, 'outputTokens' => 100])
         ->and($execution->completed_at)->not->toBeNull()
         ->and($execution->duration_ms)->toBeGreaterThanOrEqual(0);
 });
@@ -417,12 +405,11 @@ it('completeDirectExecution returns null duration when beginExecution was never 
     $this->service->createExecution(provider: 'openai', model: 'gpt-5');
 
     // Skip beginExecution
-    $this->service->completeDirectExecution(inputTokens: 50, outputTokens: 25);
+    $this->service->completeDirectExecution(new Usage(inputTokens: 50, outputTokens: 25));
 
     $execution = Execution::first();
     expect($execution->status)->toBe(ExecutionStatus::Completed)
-        ->and($execution->total_input_tokens)->toBe(50)
-        ->and($execution->total_output_tokens)->toBe(25)
+        ->and($execution->usage)->toBe(['inputTokens' => 50, 'outputTokens' => 25])
         ->and($execution->duration_ms)->toBeNull();
 });
 

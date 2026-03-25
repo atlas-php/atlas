@@ -12,6 +12,7 @@ use Atlasphp\Atlas\Persistence\Models\Asset;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\ExecutionStep;
 use Atlasphp\Atlas\Persistence\Models\ExecutionToolCall;
+use Atlasphp\Atlas\Responses\Usage;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -98,8 +99,6 @@ class ExecutionService
             'provider' => $provider,
             'model' => $model,
             'status' => ExecutionStatus::Pending,
-            'total_input_tokens' => 0,
-            'total_output_tokens' => 0,
             'metadata' => ! empty($meta) ? $this->filterMetaForStorage($meta) : null,
         ]);
 
@@ -170,15 +169,15 @@ class ExecutionService
     }
 
     /**
-     * Transition processing → completed. Aggregates tokens, records duration.
+     * Transition processing → completed. Records usage and duration.
      */
-    public function completeExecution(): void
+    public function completeExecution(?Usage $usage = null): void
     {
         if ($this->execution === null) {
             return;
         }
 
-        $this->execution->markCompleted($this->elapsedMs($this->executionStartTime));
+        $this->execution->markCompleted($this->elapsedMs($this->executionStartTime), $usage);
     }
 
     /**
@@ -332,9 +331,9 @@ class ExecutionService
 
     /**
      * Complete execution for non-step calls (direct provider calls).
-     * Records tokens directly instead of aggregating from steps.
+     * Records usage directly instead of aggregating from steps.
      */
-    public function completeDirectExecution(int $inputTokens = 0, int $outputTokens = 0): void
+    public function completeDirectExecution(?Usage $usage = null): void
     {
         if ($this->execution === null) {
             return;
@@ -342,8 +341,7 @@ class ExecutionService
 
         $this->execution->update([
             'status' => ExecutionStatus::Completed,
-            'total_input_tokens' => $inputTokens,
-            'total_output_tokens' => $outputTokens,
+            'usage' => $usage?->toArray(),
             'completed_at' => now(),
             'duration_ms' => $this->elapsedMs($this->executionStartTime),
         ]);

@@ -151,12 +151,12 @@ class ConversationMessage extends Model
     }
 
     /** @return HasMany<ConversationMessageAsset, $this> */
-    public function attachments(): HasMany
+    public function assets(): HasMany
     {
         /** @var class-string<ConversationMessageAsset> $model */
         $model = config('atlas.persistence.models.conversation_message_asset', ConversationMessageAsset::class);
 
-        return $this->hasMany($model);
+        return $this->hasMany($model, 'message_id');
     }
 
     // ─── Ownership — provided by HasOwner trait ────────────────

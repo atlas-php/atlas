@@ -168,7 +168,7 @@ Retrieve attachments from a conversation message:
 ```php
 $message = Message::find($messageId);
 
-foreach ($message->attachments as $attachment) {
+foreach ($message->assets as $attachment) {
     $asset = $attachment->asset;
 
     $asset->type;       // "image", "audio", "document"

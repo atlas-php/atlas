@@ -10,6 +10,7 @@ use Atlasphp\Atlas\Middleware\AgentContext;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
+use Atlasphp\Atlas\Responses\Usage;
 use Closure;
 
 /**
@@ -83,8 +84,9 @@ class TrackExecution
 
             $result = $next($context);
 
-            // ── Finalize on success ──────────────────────────────
-            $this->executionService->completeExecution();
+            // ── Finalize on success — extract usage from result ──
+            $usage = isset($result->usage) && $result->usage instanceof Usage ? $result->usage : null;
+            $this->executionService->completeExecution($usage);
 
             if ($result instanceof ExecutorResult) {
                 $result->executionId = $execution->id;

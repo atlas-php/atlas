@@ -42,10 +42,6 @@ class AgentStepCompleted implements ShouldBroadcastNow
             'agentKey' => $this->agentKey,
             'stepNumber' => $this->stepNumber,
             'finishReason' => $this->finishReason->value,
-            'usage' => [
-                'inputTokens' => $this->usage->inputTokens,
-                'outputTokens' => $this->usage->outputTokens,
-            ],
         ];
     }
 }

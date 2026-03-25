@@ -217,7 +217,7 @@ When persistence is enabled and an agent tool generates assets, those assets are
 $message = Message::find($messageId);
 
 // Get all attachments
-foreach ($message->attachments as $attachment) {
+foreach ($message->assets as $attachment) {
     $asset = $attachment->asset;
 
     echo $asset->type;       // "image", "audio", "document", etc.

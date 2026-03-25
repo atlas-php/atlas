@@ -45,8 +45,6 @@ class TrackStep
             $this->executionService->currentStep()?->recordResponse(
                 content: $response->text,
                 reasoning: $response->reasoning,
-                inputTokens: $response->usage->inputTokens,
-                outputTokens: $response->usage->outputTokens,
                 finishReason: $finishReason,
             );
 

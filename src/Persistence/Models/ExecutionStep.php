@@ -28,8 +28,6 @@ use Illuminate\Support\Carbon;
  * @property ExecutionStatus $status
  * @property string|null $content
  * @property string|null $reasoning
- * @property int $input_tokens
- * @property int $output_tokens
  * @property string|null $finish_reason
  * @property string|null $error
  * @property array<mixed>|null $metadata
@@ -55,8 +53,6 @@ class ExecutionStep extends Model
         'status',
         'content',
         'reasoning',
-        'input_tokens',
-        'output_tokens',
         'finish_reason',
         'error',
         'metadata',
@@ -70,8 +66,6 @@ class ExecutionStep extends Model
         return [
             'sequence' => 'integer',
             'status' => ExecutionStatus::class,
-            'input_tokens' => 'integer',
-            'output_tokens' => 'integer',
             'metadata' => 'array',
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
@@ -108,15 +102,11 @@ class ExecutionStep extends Model
     public function recordResponse(
         ?string $content,
         ?string $reasoning,
-        int $inputTokens,
-        int $outputTokens,
         string $finishReason,
     ): void {
         $this->update([
             'content' => $content,
             'reasoning' => $reasoning,
-            'input_tokens' => $inputTokens,
-            'output_tokens' => $outputTokens,
             'finish_reason' => $finishReason,
         ]);
     }
@@ -151,10 +141,5 @@ class ExecutionStep extends Model
     public function hasToolCalls(): bool
     {
         return $this->finish_reason === FinishReason::ToolCalls->value;
-    }
-
-    public function getTotalTokensAttribute(): int
-    {
-        return $this->input_tokens + $this->output_tokens;
     }
 }

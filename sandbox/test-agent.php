@@ -52,7 +52,7 @@ echo "\n--- Executions ---\n";
 Execution::all()->each(fn ($e) => print "  [{$e->id}] {$e->type->value} | {$e->status->label()} | {$e->provider}/{$e->model} | msg={$e->message_id} | asset={$e->asset_id} | {$e->duration_ms}ms\n");
 
 echo "\n--- Steps ---\n";
-ExecutionStep::orderBy('id')->get()->each(fn ($s) => print "  [{$s->id}] seq={$s->sequence} | {$s->finish_reason} | in={$s->input_tokens} out={$s->output_tokens}\n");
+ExecutionStep::orderBy('id')->get()->each(fn ($s) => print "  [{$s->id}] seq={$s->sequence} | {$s->finish_reason} | status={$s->status->label()}\n");
 
 echo "\n--- Tool Calls ---\n";
 ExecutionToolCall::orderBy('id')->get()->each(function ($tc) {

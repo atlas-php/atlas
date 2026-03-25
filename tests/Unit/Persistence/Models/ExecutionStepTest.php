@@ -14,14 +14,12 @@ it('creates in pending status via factory', function () {
         ->and($step->status)->toBe(ExecutionStatus::Pending);
 });
 
-it('recordResponse fills content, reasoning, tokens, and finish_reason', function () {
+it('recordResponse fills content, reasoning, and finish_reason', function () {
     $step = ExecutionStep::factory()->create();
 
     $step->recordResponse(
         content: 'The answer is 42',
         reasoning: 'I computed this carefully',
-        inputTokens: 100,
-        outputTokens: 50,
         finishReason: 'stop',
     );
 
@@ -29,8 +27,6 @@ it('recordResponse fills content, reasoning, tokens, and finish_reason', functio
 
     expect($step->content)->toBe('The answer is 42')
         ->and($step->reasoning)->toBe('I computed this carefully')
-        ->and($step->input_tokens)->toBe(100)
-        ->and($step->output_tokens)->toBe(50)
         ->and($step->finish_reason)->toBe('stop');
 });
 
@@ -67,13 +63,11 @@ it('hasToolCalls returns true when finish_reason is tool_calls', function () {
         ->and($withoutTools->hasToolCalls())->toBeFalse();
 });
 
-it('getTotalTokensAttribute returns sum of input and output tokens', function () {
-    $step = ExecutionStep::factory()->create([
-        'input_tokens' => 80,
-        'output_tokens' => 40,
-    ]);
+it('step factory creates without token columns', function () {
+    $step = ExecutionStep::factory()->create();
 
-    expect($step->total_tokens)->toBe(120);
+    expect($step->exists)->toBeTrue()
+        ->and($step->status)->toBe(ExecutionStatus::Pending);
 });
 
 it('toolCalls relationship returns related tool calls', function () {

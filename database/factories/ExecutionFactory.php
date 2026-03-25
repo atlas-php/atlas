@@ -26,8 +26,7 @@ class ExecutionFactory extends Factory
             'provider' => 'openai',
             'model' => 'gpt-5',
             'status' => ExecutionStatus::Pending,
-            'total_input_tokens' => 0,
-            'total_output_tokens' => 0,
+            'usage' => null,
             'error' => null,
             'metadata' => null,
             'started_at' => null,
@@ -56,8 +55,7 @@ class ExecutionFactory extends Factory
             'started_at' => now()->subSeconds(5),
             'completed_at' => now(),
             'duration_ms' => 5000,
-            'total_input_tokens' => $inputTokens,
-            'total_output_tokens' => $outputTokens,
+            'usage' => ['inputTokens' => $inputTokens, 'outputTokens' => $outputTokens],
         ]);
     }
 

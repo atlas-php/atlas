@@ -151,8 +151,6 @@ trait HasQueueDispatch
                 'model' => $this->resolveModelKey(),
                 'type' => $this->resolveExecutionType($terminal),
                 'status' => ExecutionStatus::Queued,
-                'total_input_tokens' => 0,
-                'total_output_tokens' => 0,
                 'metadata' => ! empty($meta) ? $meta : null,
             ]);
 

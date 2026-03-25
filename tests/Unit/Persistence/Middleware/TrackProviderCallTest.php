@@ -12,6 +12,7 @@ use Atlasphp\Atlas\Persistence\Models\Asset;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 use Atlasphp\Atlas\Responses\StorableContract;
+use Atlasphp\Atlas\Responses\Usage;
 use Illuminate\Support\Facades\Storage;
 
 it('skips execution creation when agent execution is active', function () {
@@ -392,7 +393,7 @@ it('re-throws exception after failing execution', function () {
     });
 })->throws(RuntimeException::class, 'Provider crashed');
 
-it('completes standalone execution with token counts', function () {
+it('completes standalone execution with usage', function () {
     $service = new ExecutionService;
     $middleware = new TrackProviderCall($service);
 
@@ -406,11 +407,11 @@ it('completes standalone execution with token counts', function () {
 
     $response = new class
     {
-        public object $usage;
+        public Usage $usage;
 
         public function __construct()
         {
-            $this->usage = (object) ['inputTokens' => 100, 'outputTokens' => 42];
+            $this->usage = new Usage(inputTokens: 100, outputTokens: 42);
         }
     };
 
@@ -419,8 +420,7 @@ it('completes standalone execution with token counts', function () {
     $execution = Execution::latest('id')->first();
 
     expect($execution->status)->toBe(ExecutionStatus::Completed);
-    expect($execution->total_input_tokens)->toBe(100);
-    expect($execution->total_output_tokens)->toBe(42);
+    expect($execution->usage)->toBe(['inputTokens' => 100, 'outputTokens' => 42]);
 });
 
 it('resolves default extension for unknown mime type', function () {
@@ -988,8 +988,7 @@ it('completes direct moderate call without usage property', function () {
 
     expect($execution)->not->toBeNull();
     expect($execution->status)->toBe(ExecutionStatus::Completed);
-    expect($execution->total_input_tokens)->toBe(0);
-    expect($execution->total_output_tokens)->toBe(0);
+    expect($execution->usage)->toBeNull();
 });
 
 it('completes direct rerank call without usage property', function () {
@@ -1016,8 +1015,7 @@ it('completes direct rerank call without usage property', function () {
 
     expect($execution)->not->toBeNull();
     expect($execution->status)->toBe(ExecutionStatus::Completed);
-    expect($execution->total_input_tokens)->toBe(0);
-    expect($execution->total_output_tokens)->toBe(0);
+    expect($execution->usage)->toBeNull();
 });
 
 it('skips execution creation for voice sessions', function () {

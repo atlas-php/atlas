@@ -86,7 +86,7 @@ class Asset extends Model
     // ─── Relationships ──────────────────────────────────────────
 
     /** @return HasMany<ConversationMessageAsset, $this> */
-    public function attachments(): HasMany
+    public function messageAssets(): HasMany
     {
         /** @var class-string<ConversationMessageAsset> $model */
         $model = config('atlas.persistence.models.conversation_message_asset', ConversationMessageAsset::class);

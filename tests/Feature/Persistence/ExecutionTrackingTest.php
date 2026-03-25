@@ -8,6 +8,7 @@ use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\ExecutionStep;
 use Atlasphp\Atlas\Persistence\Models\ExecutionToolCall;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
+use Atlasphp\Atlas\Responses\Usage;
 
 beforeEach(function () {
     $this->service = app(ExecutionService::class);
@@ -42,13 +43,10 @@ it('tracks full execution lifecycle: create → step → tool call → complete'
     $step->recordResponse(
         content: 'Let me search for that.',
         reasoning: null,
-        inputTokens: 150,
-        outputTokens: 30,
         finishReason: 'tool_calls',
     );
     $step->refresh();
-    expect($step->input_tokens)->toBe(150)
-        ->and($step->output_tokens)->toBe(30)
+    expect($step->content)->toBe('Let me search for that.')
         ->and($step->finish_reason)->toBe('tool_calls');
 
     // ── Create and execute tool call ────────────────────────────
@@ -81,13 +79,12 @@ it('tracks full execution lifecycle: create → step → tool call → complete'
         ->and($step->completed_at)->not->toBeNull();
 
     // ── Complete execution ──────────────────────────────────────
-    $this->service->completeExecution();
+    $this->service->completeExecution(new Usage(inputTokens: 150, outputTokens: 30));
     $execution->refresh();
     expect($execution->status)->toBe(ExecutionStatus::Completed)
         ->and($execution->completed_at)->not->toBeNull()
         ->and($execution->duration_ms)->toBeGreaterThanOrEqual(0)
-        ->and($execution->total_input_tokens)->toBe(150)
-        ->and($execution->total_output_tokens)->toBe(30);
+        ->and($execution->usage)->toBe(['inputTokens' => 150, 'outputTokens' => 30]);
 
     // ── Verify all records exist in database ────────────────────
     expect(Execution::count())->toBe(1)
@@ -106,8 +103,6 @@ it('tracks multi-step execution with multiple tool calls', function () {
     $step1->recordResponse(
         content: 'Searching...',
         reasoning: null,
-        inputTokens: 100,
-        outputTokens: 20,
         finishReason: 'tool_calls',
     );
 
@@ -125,22 +120,19 @@ it('tracks multi-step execution with multiple tool calls', function () {
     $step2->recordResponse(
         content: 'Here are the results.',
         reasoning: null,
-        inputTokens: 200,
-        outputTokens: 50,
         finishReason: 'stop',
     );
 
     $this->service->completeStep();
 
     // ── Complete execution ──────────────────────────────────────
-    $this->service->completeExecution();
+    $this->service->completeExecution(new Usage(inputTokens: 300, outputTokens: 70));
 
     $execution = $this->service->getExecution();
     $execution->refresh();
 
     expect($execution->status)->toBe(ExecutionStatus::Completed)
-        ->and($execution->total_input_tokens)->toBe(300)
-        ->and($execution->total_output_tokens)->toBe(70);
+        ->and($execution->usage)->toBe(['inputTokens' => 300, 'outputTokens' => 70]);
 
     expect(ExecutionStep::count())->toBe(2)
         ->and(ExecutionToolCall::count())->toBe(1);

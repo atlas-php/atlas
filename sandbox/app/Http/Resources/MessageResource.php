@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Resources;
 
+use Atlasphp\Atlas\Persistence\Models\ConversationMessage;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 
 /**
@@ -44,8 +45,8 @@ class MessageResource
             }
         }
 
-        if ($msg->relationLoaded('attachments') && $msg->attachments->isNotEmpty()) {
-            $data['attachments'] = $msg->attachments->map(fn ($att) => [
+        if ($msg->relationLoaded('assets') && $msg->assets->isNotEmpty()) {
+            $data['attachments'] = $msg->assets->map(fn ($att) => [
                 'id' => $att->asset->id,
                 'type' => $att->asset->type->value,
                 'url' => $att->asset->url(),
@@ -80,19 +81,12 @@ class MessageResource
             'provider' => $execution->provider,
             'model' => $execution->model,
             'duration_ms' => $execution->duration_ms,
-            'tokens' => [
-                'input' => $execution->total_input_tokens,
-                'output' => $execution->total_output_tokens,
-            ],
+            'usage' => $execution->usage,
             'steps' => $steps->map(fn ($step) => [
                 'id' => $step->id,
                 'sequence' => $step->sequence,
                 'status' => $step->status->label(),
                 'finish_reason' => $step->finish_reason,
-                'tokens' => [
-                    'input' => $step->input_tokens,
-                    'output' => $step->output_tokens,
-                ],
                 'duration_ms' => $step->duration_ms,
                 'tool_calls' => $step->toolCalls->map(fn ($tc) => [
                     'id' => $tc->id,
