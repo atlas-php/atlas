@@ -41,6 +41,7 @@ use Atlasphp\Atlas\Persistence\Models\VoiceCall;
 use Atlasphp\Atlas\Persistence\Services\ConversationService;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Driver;
+use Atlasphp\Atlas\Providers\OpenAi\ToolMapper;
 use Atlasphp\Atlas\Providers\Tools\ProviderTool;
 use Atlasphp\Atlas\Queue\PendingExecution;
 use Atlasphp\Atlas\Queue\QueueableRequestContract;
@@ -535,7 +536,7 @@ class AgentRequest implements QueueableRequestContract
         if ($tools !== []) {
             // Voice sessions always target OpenAI Realtime API which uses
             // the flat function format — direct instantiation is intentional.
-            $toolMapper = new \Atlasphp\Atlas\Providers\OpenAi\ToolMapper;
+            $toolMapper = new ToolMapper;
             $toolDefs = $toolMapper->mapTools(
                 array_map(fn (Tool $tool) => $tool->toDefinition(), $tools),
             );

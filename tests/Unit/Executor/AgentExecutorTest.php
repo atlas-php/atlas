@@ -1033,15 +1033,15 @@ it('reconstructException returns correct exception type for known class', functi
 
     $executor = new class($driver, $toolExecutor, $dispatcher) extends AgentExecutor
     {
-        public function testReconstruct(?string $class, string $message): \Throwable
+        public function testReconstruct(?string $class, string $message): Throwable
         {
             return $this->reconstructException($class, $message);
         }
     };
 
-    $exception = $executor->testReconstruct(\InvalidArgumentException::class, 'bad input');
+    $exception = $executor->testReconstruct(InvalidArgumentException::class, 'bad input');
 
-    expect($exception)->toBeInstanceOf(\InvalidArgumentException::class);
+    expect($exception)->toBeInstanceOf(InvalidArgumentException::class);
     expect($exception->getMessage())->toBe('bad input');
 });
 
@@ -1055,7 +1055,7 @@ it('reconstructException falls back to RuntimeException for null class', functio
 
     $executor = new class($driver, $toolExecutor, $dispatcher) extends AgentExecutor
     {
-        public function testReconstruct(?string $class, string $message): \Throwable
+        public function testReconstruct(?string $class, string $message): Throwable
         {
             return $this->reconstructException($class, $message);
         }
@@ -1063,7 +1063,7 @@ it('reconstructException falls back to RuntimeException for null class', functio
 
     $exception = $executor->testReconstruct(null, 'something failed');
 
-    expect($exception)->toBeInstanceOf(\RuntimeException::class);
+    expect($exception)->toBeInstanceOf(RuntimeException::class);
     expect($exception->getMessage())->toBe('something failed');
 });
 
@@ -1077,7 +1077,7 @@ it('reconstructException falls back to RuntimeException for non-existent class',
 
     $executor = new class($driver, $toolExecutor, $dispatcher) extends AgentExecutor
     {
-        public function testReconstruct(?string $class, string $message): \Throwable
+        public function testReconstruct(?string $class, string $message): Throwable
         {
             return $this->reconstructException($class, $message);
         }
@@ -1085,7 +1085,7 @@ it('reconstructException falls back to RuntimeException for non-existent class',
 
     $exception = $executor->testReconstruct('NonExistent\\Exception\\Class', 'gone');
 
-    expect($exception)->toBeInstanceOf(\RuntimeException::class);
+    expect($exception)->toBeInstanceOf(RuntimeException::class);
 });
 
 it('stores exceptionClass on sequential error ToolResult', function () {
@@ -1108,7 +1108,7 @@ it('stores exceptionClass on sequential error ToolResult', function () {
 
     $toolResult = $result->steps[0]->toolResults[0];
     expect($toolResult->isError)->toBeTrue();
-    expect($toolResult->exceptionClass)->toBe(\RuntimeException::class);
+    expect($toolResult->exceptionClass)->toBe(RuntimeException::class);
 });
 
 // ─── forTools factory ───────────────────────────────────────────────────────

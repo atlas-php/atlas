@@ -69,4 +69,4 @@ it('throws on malformed JSON arguments', function () {
     ];
 
     $mapper->parseToolCalls($raw);
-})->throws(\JsonException::class);
+})->throws(JsonException::class);

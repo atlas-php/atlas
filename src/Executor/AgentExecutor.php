@@ -23,6 +23,7 @@ use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\Usage;
+use Atlasphp\Atlas\Tools\Tool;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Support\Facades\Concurrency;
 use Spatie\Fork\Fork;
@@ -53,15 +54,15 @@ class AgentExecutor
      * ToolRegistry and ToolExecutor are stateless value objects with no external
      * dependencies — direct instantiation is intentional to avoid container overhead.
      *
-     * @param  array<int, \Atlasphp\Atlas\Tools\Tool>  $tools
+     * @param  array<int, Tool>  $tools
      */
     public static function forTools(
         Driver $driver,
         array $tools,
         Dispatcher $events,
         ?MiddlewareStack $middlewareStack = null,
-    ): static {
-        return new static(
+    ): self {
+        return new self(
             driver: $driver,
             toolExecutor: new ToolExecutor(new ToolRegistry($tools)),
             events: $events,
@@ -389,17 +390,11 @@ class AgentExecutor
      *
      * Used to preserve exception types across fork boundaries in concurrent
      * execution, where full Throwable objects cannot be serialized.
-     *
-     * @param  class-string<\Throwable>|null  $class
      */
     protected function reconstructException(?string $class, string $message): \Throwable
     {
         if ($class !== null && class_exists($class) && is_a($class, \Throwable::class, true)) {
-            try {
-                return new $class($message);
-            } catch (\Throwable) {
-                // Constructor signature mismatch — fall through
-            }
+            return new $class($message);
         }
 
         return new \RuntimeException($message);

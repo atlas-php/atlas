@@ -55,9 +55,9 @@ it('passes isError false to ToolResultMessage by default', function () {
 
 it('stores original exception class name', function () {
     $toolCall = new ToolCall('tc-1', 'search', []);
-    $result = new ToolResult($toolCall, 'Error occurred', isError: true, exceptionClass: \InvalidArgumentException::class);
+    $result = new ToolResult($toolCall, 'Error occurred', isError: true, exceptionClass: InvalidArgumentException::class);
 
-    expect($result->exceptionClass)->toBe(\InvalidArgumentException::class);
+    expect($result->exceptionClass)->toBe(InvalidArgumentException::class);
 });
 
 it('defaults exceptionClass to null', function () {
