@@ -478,12 +478,21 @@ it('AgentToolCallStarted broadcastWith includes tool details', function () {
 
     $data = $event->broadcastWith();
 
-    expect($data)->toBe([
-        'toolCallId' => 'tc-1',
-        'toolName' => 'web_search',
-        'arguments' => ['query' => 'Laravel'],
-        'stepNumber' => 2,
-    ]);
+    expect($data['toolCallId'])->toBe('tc-1')
+        ->and($data['toolName'])->toBe('web_search')
+        ->and($data['arguments'])->toBe(['query' => 'Laravel'])
+        ->and($data['stepNumber'])->toBe(2);
+});
+
+it('AgentToolCallStarted truncates large string arguments', function () {
+    $event = new AgentToolCallStarted(
+        toolCall: new ToolCall('tc-1', 'process', ['content' => str_repeat('x', 500)]),
+        channel: new Channel('test'),
+    );
+
+    $data = $event->broadcastWith();
+
+    expect(mb_strlen($data['arguments']['content']))->toBe(200);
 });
 
 it('AgentToolCallCompleted broadcastWith includes result summary', function () {

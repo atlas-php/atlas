@@ -28,4 +28,14 @@ class AgentStepStarted implements ShouldBroadcastNow
     {
         return 'AgentStepStarted';
     }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function broadcastWith(): array
+    {
+        return [
+            'stepNumber' => $this->stepNumber,
+        ];
+    }
 }

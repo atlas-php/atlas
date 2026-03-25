@@ -29,4 +29,16 @@ class AgentStarted implements ShouldBroadcastNow
     {
         return 'AgentStarted';
     }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function broadcastWith(): array
+    {
+        return [
+            'agentKey' => $this->agentKey,
+            'maxSteps' => $this->maxSteps,
+            'concurrent' => $this->concurrent,
+        ];
+    }
 }

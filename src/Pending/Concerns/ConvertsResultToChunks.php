@@ -45,7 +45,9 @@ trait ConvertsResultToChunks
                     toolCallId: $toolCall->id,
                 );
 
-                // Match tool result by index (results align with tool calls)
+                // Match tool result by index — alignment is guaranteed by AgentExecutor
+                // which builds the toolResults array in the same order as toolCalls,
+                // both for sequential and concurrent execution paths.
                 $toolResult = $step->toolResults[$index] ?? null;
 
                 if ($toolResult !== null && $toolResult->isError) {

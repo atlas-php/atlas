@@ -36,4 +36,20 @@ class AgentCompleted implements ShouldBroadcastNow
     {
         return 'AgentCompleted';
     }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function broadcastWith(): array
+    {
+        return [
+            'agentKey' => $this->agentKey,
+            'stepCount' => count($this->steps),
+            'usage' => [
+                'inputTokens' => $this->usage->inputTokens,
+                'outputTokens' => $this->usage->outputTokens,
+            ],
+            'finishReason' => $this->finishReason?->value,
+        ];
+    }
 }

@@ -33,4 +33,16 @@ class AgentMaxStepsExceeded implements ShouldBroadcastNow
     {
         return 'AgentMaxStepsExceeded';
     }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function broadcastWith(): array
+    {
+        return [
+            'agentKey' => $this->agentKey,
+            'limit' => $this->limit,
+            'stepCount' => count($this->steps),
+        ];
+    }
 }

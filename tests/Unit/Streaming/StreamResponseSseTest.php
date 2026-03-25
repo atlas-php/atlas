@@ -127,3 +127,96 @@ it('sends tool call chunks as SSE tool_call events', function () {
     expect($output)->toContain('"type":"tool_call"');
     expect($output)->toContain('"name":"search"');
 });
+
+// ─── Orchestration SSE events ──────────────────────────────────────
+
+it('sends step_started SSE event', function () {
+    $stream = new StreamResponse((function () {
+        yield new StreamChunk(type: ChunkType::StepStarted, stepNumber: 1);
+        yield new StreamChunk(ChunkType::Done);
+    })());
+
+    $response = $stream->toResponse(request());
+
+    ob_start();
+    ob_start();
+    $response->sendContent();
+    ob_end_flush();
+    $output = ob_get_clean();
+
+    expect($output)->toContain('event: step_started')
+        ->and($output)->toContain('"stepNumber":1');
+});
+
+it('sends step_completed SSE event', function () {
+    $stream = new StreamResponse((function () {
+        yield new StreamChunk(type: ChunkType::StepCompleted, stepNumber: 2);
+        yield new StreamChunk(ChunkType::Done);
+    })());
+
+    $response = $stream->toResponse(request());
+
+    ob_start();
+    ob_start();
+    $response->sendContent();
+    ob_end_flush();
+    $output = ob_get_clean();
+
+    expect($output)->toContain('event: step_completed')
+        ->and($output)->toContain('"stepNumber":2');
+});
+
+it('sends tool_call_started SSE event', function () {
+    $stream = new StreamResponse((function () {
+        yield new StreamChunk(type: ChunkType::ToolCallStarted, stepNumber: 1, toolName: 'web_search', toolCallId: 'tc-1');
+        yield new StreamChunk(ChunkType::Done);
+    })());
+
+    $response = $stream->toResponse(request());
+
+    ob_start();
+    ob_start();
+    $response->sendContent();
+    ob_end_flush();
+    $output = ob_get_clean();
+
+    expect($output)->toContain('event: tool_call_started')
+        ->and($output)->toContain('"toolName":"web_search"')
+        ->and($output)->toContain('"toolCallId":"tc-1"');
+});
+
+it('sends tool_call_completed SSE event', function () {
+    $stream = new StreamResponse((function () {
+        yield new StreamChunk(type: ChunkType::ToolCallCompleted, stepNumber: 1, toolName: 'search', toolCallId: 'tc-1', toolContent: 'Found 5 results', toolError: false);
+        yield new StreamChunk(ChunkType::Done);
+    })());
+
+    $response = $stream->toResponse(request());
+
+    ob_start();
+    ob_start();
+    $response->sendContent();
+    ob_end_flush();
+    $output = ob_get_clean();
+
+    expect($output)->toContain('event: tool_call_completed')
+        ->and($output)->toContain('"result":"Found 5 results"');
+});
+
+it('sends tool_call_failed SSE event', function () {
+    $stream = new StreamResponse((function () {
+        yield new StreamChunk(type: ChunkType::ToolCallFailed, stepNumber: 1, toolName: 'fetch', toolCallId: 'tc-1', toolContent: 'Connection refused', toolError: true);
+        yield new StreamChunk(ChunkType::Done);
+    })());
+
+    $response = $stream->toResponse(request());
+
+    ob_start();
+    ob_start();
+    $response->sendContent();
+    ob_end_flush();
+    $output = ob_get_clean();
+
+    expect($output)->toContain('event: tool_call_failed')
+        ->and($output)->toContain('"error":"Connection refused"');
+});

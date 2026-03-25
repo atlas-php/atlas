@@ -39,8 +39,25 @@ class AgentToolCallStarted implements ShouldBroadcastNow
         return [
             'toolCallId' => $this->toolCall->id,
             'toolName' => $this->toolCall->name,
-            'arguments' => $this->toolCall->arguments,
+            'arguments' => $this->truncateArguments($this->toolCall->arguments),
             'stepNumber' => $this->stepNumber,
         ];
+    }
+
+    /**
+     * Truncate argument string values to prevent large WebSocket payloads.
+     *
+     * @param  array<string, mixed>  $arguments
+     * @return array<string, mixed>
+     */
+    private function truncateArguments(array $arguments): array
+    {
+        $truncated = [];
+
+        foreach ($arguments as $key => $value) {
+            $truncated[$key] = is_string($value) ? mb_substr($value, 0, 200) : $value;
+        }
+
+        return $truncated;
     }
 }

@@ -40,7 +40,7 @@ class AgentToolCallFailed implements ShouldBroadcastNow
         return [
             'toolCallId' => $this->toolCall->id,
             'toolName' => $this->toolCall->name,
-            'error' => $this->exception->getMessage(),
+            'error' => mb_substr($this->exception->getMessage(), 0, 500),
             'stepNumber' => $this->stepNumber,
         ];
     }

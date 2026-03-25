@@ -32,4 +32,19 @@ class AgentStepCompleted implements ShouldBroadcastNow
     {
         return 'AgentStepCompleted';
     }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function broadcastWith(): array
+    {
+        return [
+            'stepNumber' => $this->stepNumber,
+            'finishReason' => $this->finishReason->value,
+            'usage' => [
+                'inputTokens' => $this->usage->inputTokens,
+                'outputTokens' => $this->usage->outputTokens,
+            ],
+        ];
+    }
 }
