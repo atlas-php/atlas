@@ -86,9 +86,29 @@ class ToolMapper implements ToolMapperContract
     public function parseToolCalls(array $rawToolCalls): array
     {
         return array_map(fn (array $item) => new ToolCall(
-            id: $item['call_id'] ?? '',
+            id: $this->resolveCallId($item),
             name: $item['name'] ?? '',
             arguments: json_decode($item['arguments'] ?? '{}', true, 512, JSON_THROW_ON_ERROR),
         ), $rawToolCalls);
+    }
+
+    /**
+     * Resolve the tool call ID from an output item.
+     *
+     * Prefers `call_id` (Responses API standard), but falls back to `id`
+     * when `call_id` is missing or a bare numeric index (some providers
+     * like xAI use sequential indices as call_id for certain models).
+     */
+    protected function resolveCallId(array $item): string
+    {
+        $callId = $item['call_id'] ?? '';
+
+        // A proper call_id looks like "call_XXXX" — if it's a bare numeric
+        // index (e.g. "0", "1"), prefer the full `id` field instead.
+        if ($callId !== '' && ! is_numeric($callId)) {
+            return $callId;
+        }
+
+        return $item['id'] ?? $callId;
     }
 }

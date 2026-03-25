@@ -158,17 +158,18 @@ class ResponseParser implements ResponseParserContract
             );
         }
 
-        if (str_contains($event, 'function_call_arguments.done')) {
-            return new StreamChunk(
-                type: ChunkType::ToolCall,
-                toolCalls: $this->toolMapper->parseToolCalls([
-                    [
-                        'call_id' => $payload['call_id'] ?? '',
-                        'name' => $payload['name'] ?? '',
-                        'arguments' => $payload['arguments'] ?? '{}',
-                    ],
-                ]),
-            );
+        // Use output_item.done for function calls — it carries the complete
+        // item with call_id, name, and arguments. The function_call_arguments.done
+        // event only has arguments (no call_id or name in some providers like xAI).
+        if ($event === 'response.output_item.done') {
+            $item = $payload['item'] ?? [];
+
+            if (($item['type'] ?? null) === 'function_call') {
+                return new StreamChunk(
+                    type: ChunkType::ToolCall,
+                    toolCalls: $this->toolMapper->parseToolCalls([$item]),
+                );
+            }
         }
 
         if ($event === 'response.completed') {

@@ -156,17 +156,26 @@ it('parses text delta stream chunk', function () {
     expect($chunk->text)->toBe('Hello');
 });
 
-it('parses function call done stream chunk', function () {
+it('parses function call from output_item.done stream chunk', function () {
     $parser = makeParser();
 
     $chunk = $parser->parseStreamChunk([
-        'event' => 'response.function_call_arguments.done',
-        'data' => ['call_id' => 'call_1', 'name' => 'search', 'arguments' => '{"q":"test"}'],
+        'event' => 'response.output_item.done',
+        'data' => [
+            'item' => [
+                'type' => 'function_call',
+                'call_id' => 'call_1',
+                'name' => 'search',
+                'arguments' => '{"q":"test"}',
+            ],
+        ],
     ]);
 
     expect($chunk->type)->toBe(ChunkType::ToolCall);
     expect($chunk->toolCalls)->toHaveCount(1);
+    expect($chunk->toolCalls[0]->id)->toBe('call_1');
     expect($chunk->toolCalls[0]->name)->toBe('search');
+    expect($chunk->toolCalls[0]->arguments)->toBe(['q' => 'test']);
 });
 
 it('parses response completed stream chunk', function () {

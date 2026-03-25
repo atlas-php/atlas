@@ -61,6 +61,70 @@ it('parses function call items into ToolCall objects', function () {
     expect($result[0]->arguments)->toBe(['q' => 'test']);
 });
 
+it('falls back to id field when call_id is a numeric index', function () {
+    $mapper = new ToolMapper;
+
+    $raw = [
+        [
+            'call_id' => '0',
+            'name' => 'generate_image',
+            'arguments' => '{"prompt":"test"}',
+            'id' => 'fc_abc123-def456_0',
+        ],
+    ];
+
+    $result = $mapper->parseToolCalls($raw);
+
+    expect($result[0]->id)->toBe('fc_abc123-def456_0');
+    expect($result[0]->name)->toBe('generate_image');
+});
+
+it('uses call_id when it is a proper identifier', function () {
+    $mapper = new ToolMapper;
+
+    $raw = [
+        [
+            'call_id' => 'call_abc123',
+            'name' => 'search',
+            'arguments' => '{"q":"test"}',
+            'id' => 'fc_xyz789_0',
+        ],
+    ];
+
+    $result = $mapper->parseToolCalls($raw);
+
+    expect($result[0]->id)->toBe('call_abc123');
+});
+
+it('falls back to id when call_id is empty', function () {
+    $mapper = new ToolMapper;
+
+    $raw = [
+        [
+            'call_id' => '',
+            'name' => 'search',
+            'arguments' => '{}',
+            'id' => 'fc_fallback_0',
+        ],
+    ];
+
+    $result = $mapper->parseToolCalls($raw);
+
+    expect($result[0]->id)->toBe('fc_fallback_0');
+});
+
+it('returns empty string when both call_id and id are missing', function () {
+    $mapper = new ToolMapper;
+
+    $raw = [
+        ['name' => 'search', 'arguments' => '{}'],
+    ];
+
+    $result = $mapper->parseToolCalls($raw);
+
+    expect($result[0]->id)->toBe('');
+});
+
 it('throws on malformed JSON arguments', function () {
     $mapper = new ToolMapper;
 
