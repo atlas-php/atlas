@@ -307,9 +307,19 @@ class ChatController
             $query->where('id', '<', $beforeId);
         }
 
-        return $query->orderByDesc('sequence')
+        $messages = $query->orderByDesc('sequence')
             ->limit($limit)
-            ->get()
+            ->get();
+
+        // Mark unread assistant messages as read when loaded by the UI
+        $unread = $messages->filter(fn (ConversationMessage $msg) => $msg->isFromAssistant() && $msg->isUnread());
+
+        if ($unread->isNotEmpty()) {
+            ConversationMessage::whereIn('id', $unread->pluck('id'))
+                ->update(['read_at' => now()]);
+        }
+
+        return $messages
             ->reverse()
             ->values()
             ->map(fn (ConversationMessage $msg) => MessageResource::make($msg))
