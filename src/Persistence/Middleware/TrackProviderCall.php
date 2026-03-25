@@ -46,12 +46,26 @@ class TrackProviderCall
         // Agent calls already have an execution via TrackExecution.
         // Voice sessions are tracked by AgentRequest::asVoice() — skip here.
         if ($isDirectCall) {
-            $this->executionService->createExecution(
-                provider: $context->provider,
-                model: $context->model,
-                meta: $context->meta,
-                type: $type,
-            );
+            $preExistingId = $context->meta['execution_id'] ?? null;
+
+            if ($preExistingId !== null) {
+                // Queued dispatch pre-creates an execution record so the UI has
+                // an ID immediately. Adopt it here instead of creating a duplicate.
+                $this->executionService->adoptExecution(
+                    id: (int) $preExistingId,
+                    provider: $context->provider,
+                    model: $context->model,
+                    type: $type,
+                );
+            } else {
+                $this->executionService->createExecution(
+                    provider: $context->provider,
+                    model: $context->model,
+                    meta: $context->meta,
+                    type: $type,
+                );
+            }
+
             $this->executionService->beginExecution();
         }
 

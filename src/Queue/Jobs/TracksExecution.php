@@ -17,33 +17,68 @@ use Illuminate\Broadcasting\Channel;
  *
  * @property-read int|null $executionId
  * @property-read Channel|null $broadcastChannel
+ * @property-read array<string, mixed> $payload
  */
 trait TracksExecution
 {
     /**
-     * Transition execution from queued → processing.
-     * Called when the worker picks up the job.
+     * Transition execution to processing state.
+     *
+     * Called when the worker picks up the job. Allows re-entry on retries
+     * (status may already be Processing from a previous attempt) but skips
+     * terminal states to prevent overwriting completed/failed records.
      */
     protected function transitionToProcessing(): void
     {
         $execution = $this->resolveTrackedExecution();
 
-        if ($execution === null || $execution->status !== ExecutionStatus::Queued) {
+        if ($execution === null) {
             return;
         }
 
+        // Skip terminal states — allow re-entry on retries (Processing from previous attempt).
+        if (in_array($execution->status, [ExecutionStatus::Completed, ExecutionStatus::Failed], true)) {
+            return;
+        }
+
+        // On retry, started_at is intentionally updated to the retry time so duration_ms
+        // reflects the actual successful attempt duration, not total time since first dispatch.
         $execution->update([
             'status' => ExecutionStatus::Processing,
             'started_at' => now(),
         ]);
 
+        $identity = $this->payloadIdentity();
+
         event(new ExecutionProcessing(
             executionId: $this->executionId,
             channel: $this->broadcastChannel,
-            provider: $this->payload['provider'] ?? null,
-            model: $this->payload['model'] ?? null,
-            agentKey: $this->payload['key'] ?? null,
+            provider: $identity['provider'],
+            model: $identity['model'],
+            agentKey: $identity['agentKey'],
         ));
+    }
+
+    /**
+     * Mark execution as completed. Defense-in-depth for non-agent queued requests
+     * where TrackProviderCall handles the primary completion path.
+     *
+     * Guards against double-completion: only transitions from Processing status.
+     * For agent requests, TrackExecution middleware completes first, so this is a no-op.
+     */
+    protected function markExecutionCompleted(): void
+    {
+        $execution = $this->resolveTrackedExecution();
+
+        if ($execution === null || $execution->status !== ExecutionStatus::Processing) {
+            return;
+        }
+
+        $durationMs = $execution->started_at !== null
+            ? (int) abs(now()->diffInMilliseconds($execution->started_at))
+            : null;
+
+        $execution->markCompleted($durationMs);
     }
 
     /**
@@ -65,7 +100,24 @@ trait TracksExecution
     }
 
     /**
+     * Extract common identity fields from the queue payload.
+     *
+     * @return array{provider: ?string, model: ?string, agentKey: ?string}
+     */
+    protected function payloadIdentity(): array
+    {
+        return [
+            'provider' => $this->payload['provider'] ?? null,
+            'model' => $this->payload['model'] ?? null,
+            'agentKey' => $this->payload['key'] ?? null,
+        ];
+    }
+
+    /**
      * Resolve the tracked execution if persistence is enabled and the record exists.
+     *
+     * Direct config read: cannot use ExecutionService here — it is a scoped singleton
+     * bound to the request lifecycle and must not be resolved in a queue worker context.
      */
     private function resolveTrackedExecution(): ?Execution
     {

@@ -69,6 +69,7 @@ export default defineConfig({
                 items: [
                     { text: 'Conversations', link: '/guides/conversations' },
                     { text: 'Streaming', link: '/guides/streaming' },
+                    { text: 'Queue & Background Jobs', link: '/guides/queue' },
                     { text: 'Media & Assets', link: '/guides/media-storage' },
                     { text: 'Memory', link: '/guides/memory' },
                     { text: 'Voice Integration', link: '/guides/voice-integration' },

@@ -361,6 +361,8 @@ Default queue settings in `config/atlas.php`:
 ],
 ```
 
+For per-request overrides (`withTimeout()`, `withTries()`, `withBackoff()`), long-running job configuration, retry behavior, and execution tracking details, see the [Queue & Background Jobs](/guides/queue) guide.
+
 ## Provider Options
 
 Pass provider-specific options:

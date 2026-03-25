@@ -364,7 +364,7 @@ $service->queueMessage($conversation, $userMessage, $author);
 $service->deliverNextQueued($conversation);
 ```
 
-When an agent execution completes, Atlas automatically checks for queued messages and dispatches a job to process the next one.
+When an agent execution completes, Atlas automatically checks for queued messages and dispatches a job to process the next one. See the [Queue & Background Jobs](/guides/queue) guide for retry behavior, timeout configuration, and execution tracking.
 
 ## Multi-Agent Conversations
 

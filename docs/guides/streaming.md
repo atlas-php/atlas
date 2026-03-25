@@ -348,4 +348,4 @@ Atlas::text('openai', 'gpt-4o')
     ->asText();
 ```
 
-The queued job processes the request in the background. Clients receive broadcast events in real-time via WebSocket. See [Queue Support](/modalities/text#queue-support) for full details.
+The queued job processes the request in the background. Clients receive broadcast events in real-time via WebSocket. See the [Queue & Background Jobs](/guides/queue) guide for full details on configuration, long-running jobs, retry behavior, and execution tracking.

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence;
 
+use Atlasphp\Atlas\Concerns\ConfiguresAtlasJob;
 use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Persistence\Enums\MessageStatus;
 use Atlasphp\Atlas\Persistence\Models\Message;
@@ -31,6 +32,7 @@ use Throwable;
  */
 class ProcessQueuedMessage implements ShouldBeUnique, ShouldQueue
 {
+    use ConfiguresAtlasJob;
     use Dispatchable;
     use InteractsWithQueue;
     use Queueable;
@@ -49,9 +51,7 @@ class ProcessQueuedMessage implements ShouldBeUnique, ShouldQueue
         public readonly int $conversationId,
         public readonly string $agentKey,
     ) {
-        $this->tries = (int) config('atlas.queue.tries', 3);
-        $this->backoff = (int) config('atlas.queue.backoff', 30);
-        $this->timeout = (int) config('atlas.queue.timeout', 300);
+        $this->applyQueueConfig();
     }
 
     public function uniqueId(): string
@@ -128,14 +128,23 @@ class ProcessQueuedMessage implements ShouldBeUnique, ShouldQueue
      */
     public function failed(Throwable $exception): void
     {
-        if ($this->deliveredMessageId === null) {
+        /** @var class-string<Message> $messageModel */
+        $messageModel = config('atlas.persistence.models.message', Message::class);
+
+        if ($this->deliveredMessageId !== null) {
+            $message = $messageModel::find($this->deliveredMessageId);
+            $message?->update(['status' => MessageStatus::Failed]);
+
             return;
         }
 
-        /** @var class-string<Message> $messageModel */
-        $messageModel = config('atlas.persistence.models.message', Message::class);
-        $message = $messageModel::find($this->deliveredMessageId);
-
-        $message?->update(['status' => MessageStatus::Failed]);
+        // Edge case: process crashed before deliveredMessageId was set (OOM, SIGKILL).
+        // We cannot safely reset Delivered messages here because many messages in the
+        // conversation are legitimately Delivered. Log for manual investigation.
+        report(new \RuntimeException(
+            "ProcessQueuedMessage failed without deliveredMessageId for conversation {$this->conversationId}",
+            0,
+            $exception,
+        ));
     }
 }

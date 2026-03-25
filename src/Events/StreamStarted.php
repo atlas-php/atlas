@@ -9,6 +9,10 @@ use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 
 /**
  * Broadcast when a stream response begins iteration.
+ *
+ * Channel is nullable because StreamStarted fires even for non-broadcast streams.
+ * Cannot use BroadcastsOnChannel trait which requires a non-null channel.
+ * Sibling events (StreamChunkReceived, etc.) require a channel and use the trait.
  */
 class StreamStarted implements ShouldBroadcastNow
 {

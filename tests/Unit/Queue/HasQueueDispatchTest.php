@@ -71,8 +71,14 @@ it('resolveExecutionType maps terminal names correctly', function () {
     expect($method->invoke($pending, 'asEmbeddings'))->toBe(ExecutionType::Embed);
     expect($method->invoke($pending, 'asModeration'))->toBe(ExecutionType::Moderate);
     expect($method->invoke($pending, 'asReranked'))->toBe(ExecutionType::Rerank);
-    expect($method->invoke($pending, 'unknownTerminal'))->toBe(ExecutionType::Text);
 });
+
+it('resolveExecutionType throws on unknown terminal', function () {
+    $pending = createQueueTextPending();
+    $method = new ReflectionMethod($pending, 'resolveExecutionType');
+
+    $method->invoke($pending, 'unknownTerminal');
+})->throws(InvalidArgumentException::class, 'Cannot resolve execution type for terminal: unknownTerminal');
 
 it('queued terminal returns PendingExecution', function () {
     Queue::fake();
@@ -209,5 +215,128 @@ it('dispatched job applies delay when set', function () {
 
     Queue::assertPushed(function (ExecuteAtlasJob $job) {
         return $job->delay === 60;
+    });
+});
+
+// ─── withTimeout ────────────────────────────────────────────────────────────
+
+it('withTimeout() sets timeout and returns self', function () {
+    $pending = createQueueTextPending();
+
+    $result = $pending->withTimeout(1800);
+
+    expect($result)->toBe($pending);
+
+    $property = new ReflectionProperty($pending, 'queueTimeout');
+    expect($property->getValue($pending))->toBe(1800);
+});
+
+it('withTimeout() clamps negative values to zero', function () {
+    $pending = createQueueTextPending();
+
+    $pending->withTimeout(-10);
+
+    $property = new ReflectionProperty($pending, 'queueTimeout');
+    expect($property->getValue($pending))->toBe(0);
+});
+
+it('dispatched job applies timeout when set', function () {
+    Queue::fake();
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
+
+    $pending = createQueueTextPending($driver)
+        ->message('Hello')
+        ->queue()
+        ->withTimeout(3600);
+
+    $result = $pending->asText();
+    $result->dispatch();
+
+    Queue::assertPushed(function (ExecuteAtlasJob $job) {
+        return $job->timeout === 3600;
+    });
+});
+
+// ─── withTries ──────────────────────────────────────────────────────────────
+
+it('withTries() sets tries and returns self', function () {
+    $pending = createQueueTextPending();
+
+    $result = $pending->withTries(5);
+
+    expect($result)->toBe($pending);
+
+    $property = new ReflectionProperty($pending, 'queueTries');
+    expect($property->getValue($pending))->toBe(5);
+});
+
+it('withTries() clamps to minimum of 1', function () {
+    $pending = createQueueTextPending();
+
+    $pending->withTries(0);
+
+    $property = new ReflectionProperty($pending, 'queueTries');
+    expect($property->getValue($pending))->toBe(1);
+});
+
+it('dispatched job applies tries when set', function () {
+    Queue::fake();
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
+
+    $pending = createQueueTextPending($driver)
+        ->message('Hello')
+        ->queue()
+        ->withTries(1);
+
+    $result = $pending->asText();
+    $result->dispatch();
+
+    Queue::assertPushed(function (ExecuteAtlasJob $job) {
+        return $job->tries === 1;
+    });
+});
+
+// ─── withBackoff ────────────────────────────────────────────────────────────
+
+it('withBackoff() sets backoff and returns self', function () {
+    $pending = createQueueTextPending();
+
+    $result = $pending->withBackoff(120);
+
+    expect($result)->toBe($pending);
+
+    $property = new ReflectionProperty($pending, 'queueBackoff');
+    expect($property->getValue($pending))->toBe(120);
+});
+
+it('withBackoff() clamps negative values to zero', function () {
+    $pending = createQueueTextPending();
+
+    $pending->withBackoff(-5);
+
+    $property = new ReflectionProperty($pending, 'queueBackoff');
+    expect($property->getValue($pending))->toBe(0);
+});
+
+it('dispatched job applies backoff when set', function () {
+    Queue::fake();
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
+
+    $pending = createQueueTextPending($driver)
+        ->message('Hello')
+        ->queue()
+        ->withBackoff(120);
+
+    $result = $pending->asText();
+    $result->dispatch();
+
+    Queue::assertPushed(function (ExecuteAtlasJob $job) {
+        return $job->backoff === 120;
     });
 });

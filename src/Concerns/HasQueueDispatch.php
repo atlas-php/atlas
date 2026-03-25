@@ -27,6 +27,12 @@ trait HasQueueDispatch
 
     protected int $queueDelay = 0;
 
+    protected ?int $queueTimeout = null;
+
+    protected ?int $queueTries = null;
+
+    protected ?int $queueBackoff = null;
+
     protected ?Channel $broadcastChannel = null;
 
     /**
@@ -70,6 +76,43 @@ trait HasQueueDispatch
     public function withDelay(int $seconds): static
     {
         $this->queueDelay = max(0, $seconds);
+
+        return $this;
+    }
+
+    /**
+     * Override job timeout in seconds for this call.
+     *
+     * Use this for long-running operations (e.g. video generation, complex agents)
+     * that exceed the default 300-second timeout. Pass 0 for no timeout (Laravel
+     * interprets timeout=0 as unlimited). Ensure your queue worker's --timeout
+     * flag is also set high enough (Horizon: timeout config per queue).
+     */
+    public function withTimeout(int $seconds): static
+    {
+        $this->queueTimeout = max(0, $seconds);
+
+        return $this;
+    }
+
+    /**
+     * Override maximum retry attempts for this call.
+     *
+     * Set to 1 for expensive operations where retries waste API credits.
+     */
+    public function withTries(int $tries): static
+    {
+        $this->queueTries = max(1, $tries);
+
+        return $this;
+    }
+
+    /**
+     * Override retry backoff in seconds for this call.
+     */
+    public function withBackoff(int $seconds): static
+    {
+        $this->queueBackoff = max(0, $seconds);
 
         return $this;
     }
@@ -143,6 +186,19 @@ trait HasQueueDispatch
             $job->delay($this->queueDelay);
         }
 
+        // Apply per-request job overrides
+        if ($this->queueTimeout !== null) {
+            $job->timeout = $this->queueTimeout;
+        }
+
+        if ($this->queueTries !== null) {
+            $job->tries = $this->queueTries;
+        }
+
+        if ($this->queueBackoff !== null) {
+            $job->backoff = $this->queueBackoff;
+        }
+
         if (config('atlas.queue.after_commit', true)) {
             $job->afterCommit();
         }
@@ -189,7 +245,7 @@ trait HasQueueDispatch
             'asEmbeddings' => ExecutionType::Embed,
             'asModeration' => ExecutionType::Moderate,
             'asReranked' => ExecutionType::Rerank,
-            default => ExecutionType::Text,
+            default => throw new \InvalidArgumentException("Cannot resolve execution type for terminal: {$terminal}"),
         };
     }
 
