@@ -23,5 +23,10 @@ class StreamChunk
         public readonly array $toolCalls = [],
         public readonly ?Usage $usage = null,
         public readonly ?FinishReason $finishReason = null,
+        public readonly ?int $stepNumber = null,
+        public readonly ?string $toolName = null,
+        public readonly ?string $toolCallId = null,
+        public readonly ?string $toolContent = null,
+        public readonly ?bool $toolError = null,
     ) {}
 }

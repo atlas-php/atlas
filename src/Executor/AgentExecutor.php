@@ -23,6 +23,7 @@ use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\Usage;
+use Illuminate\Broadcasting\Channel;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Support\Facades\Concurrency;
 use Spatie\Fork\Fork;
@@ -59,9 +60,11 @@ class AgentExecutor
         ?string $provider = null,
         ?string $model = null,
         ?string $traceId = null,
+        ?Channel $broadcastChannel = null,
     ): ExecutorResult {
         $steps = [];
         $stepCount = 0;
+        $totalUsage = null;
         $accumulatedUsage = new Usage(0, 0);
         $allProviderToolCalls = [];
         $allAnnotations = [];
@@ -74,6 +77,7 @@ class AgentExecutor
             provider: $provider,
             model: $model,
             traceId: $traceId,
+            channel: $broadcastChannel,
         ));
 
         try {
@@ -81,12 +85,12 @@ class AgentExecutor
                 $stepCount++;
 
                 if ($maxSteps !== null && $stepCount > $maxSteps) {
-                    $this->events->dispatch(new AgentMaxStepsExceeded($maxSteps, $steps, agentKey: $agentKey, provider: $provider, model: $model, traceId: $traceId));
+                    $this->events->dispatch(new AgentMaxStepsExceeded($maxSteps, $steps, agentKey: $agentKey, provider: $provider, model: $model, traceId: $traceId, channel: $broadcastChannel));
 
                     throw new MaxStepsExceededException($maxSteps, $stepCount);
                 }
 
-                $this->events->dispatch(new AgentStepStarted($stepCount, agentKey: $agentKey, provider: $provider, model: $model, traceId: $traceId));
+                $this->events->dispatch(new AgentStepStarted($stepCount, agentKey: $agentKey, provider: $provider, model: $model, traceId: $traceId, channel: $broadcastChannel));
 
                 $response = $this->dispatchStep($request, $stepCount, $steps, $accumulatedUsage, $meta, $agentKey);
 
@@ -100,6 +104,7 @@ class AgentExecutor
                     provider: $provider,
                     model: $model,
                     traceId: $traceId,
+                    channel: $broadcastChannel,
                 ));
 
                 // Accumulate provider tool calls and annotations across all steps
@@ -118,8 +123,8 @@ class AgentExecutor
                 }
 
                 $toolResults = $concurrent
-                    ? $this->executeToolsConcurrently($response->toolCalls, $meta, $stepCount, $agentKey, $provider, $model, $traceId)
-                    : $this->executeToolsSequentially($response->toolCalls, $meta, $stepCount, $agentKey, $provider, $model, $traceId);
+                    ? $this->executeToolsConcurrently($response->toolCalls, $meta, $stepCount, $agentKey, $provider, $model, $traceId, $broadcastChannel)
+                    : $this->executeToolsSequentially($response->toolCalls, $meta, $stepCount, $agentKey, $provider, $model, $traceId, $broadcastChannel);
 
                 $step = new Step(
                     text: $response->text,
@@ -176,6 +181,7 @@ class AgentExecutor
                 provider: $provider,
                 model: $model,
                 traceId: $traceId,
+                channel: $broadcastChannel,
             ));
         }
     }
@@ -264,12 +270,12 @@ class AgentExecutor
      * @param  array<string, mixed>  $meta
      * @return array<int, ToolResult>
      */
-    protected function executeToolsSequentially(array $toolCalls, array $meta, ?int $stepNumber = null, ?string $agentKey = null, ?string $provider = null, ?string $model = null, ?string $traceId = null): array
+    protected function executeToolsSequentially(array $toolCalls, array $meta, ?int $stepNumber = null, ?string $agentKey = null, ?string $provider = null, ?string $model = null, ?string $traceId = null, ?Channel $broadcastChannel = null): array
     {
         $results = [];
 
         foreach ($toolCalls as $toolCall) {
-            $results[] = $this->executeSingleTool($toolCall, $meta, $stepNumber, $agentKey, $provider, $model, $traceId);
+            $results[] = $this->executeSingleTool($toolCall, $meta, $stepNumber, $agentKey, $provider, $model, $traceId, $broadcastChannel);
         }
 
         return $results;
@@ -291,17 +297,17 @@ class AgentExecutor
      * @param  array<string, mixed>  $meta
      * @return array<int, ToolResult>
      */
-    protected function executeToolsConcurrently(array $toolCalls, array $meta, ?int $stepNumber = null, ?string $agentKey = null, ?string $provider = null, ?string $model = null, ?string $traceId = null): array
+    protected function executeToolsConcurrently(array $toolCalls, array $meta, ?int $stepNumber = null, ?string $agentKey = null, ?string $provider = null, ?string $model = null, ?string $traceId = null, ?Channel $broadcastChannel = null): array
     {
         if (count($toolCalls) === 1) {
-            return $this->executeToolsSequentially($toolCalls, $meta, $stepNumber, $agentKey, $provider, $model, $traceId);
+            return $this->executeToolsSequentially($toolCalls, $meta, $stepNumber, $agentKey, $provider, $model, $traceId, $broadcastChannel);
         }
 
         $toolCalls = array_values($toolCalls);
 
         // Fire AgentToolCallStarted events upfront for all tools
         foreach ($toolCalls as $toolCall) {
-            $this->events->dispatch(new AgentToolCallStarted($toolCall, agentKey: $agentKey, stepNumber: $stepNumber, provider: $provider, model: $model, traceId: $traceId));
+            $this->events->dispatch(new AgentToolCallStarted($toolCall, agentKey: $agentKey, stepNumber: $stepNumber, provider: $provider, model: $model, traceId: $traceId, channel: $broadcastChannel));
         }
 
         // Build closures that always return ToolResult — never Throwable.
@@ -327,9 +333,9 @@ class AgentExecutor
         // Post-process: fire completion or error events
         foreach ($results as $result) {
             if ($result->isError) {
-                $this->events->dispatch(new AgentToolCallFailed($result->toolCall, new \RuntimeException($result->content), agentKey: $agentKey, stepNumber: $stepNumber, provider: $provider, model: $model, traceId: $traceId));
+                $this->events->dispatch(new AgentToolCallFailed($result->toolCall, new \RuntimeException($result->content), agentKey: $agentKey, stepNumber: $stepNumber, provider: $provider, model: $model, traceId: $traceId, channel: $broadcastChannel));
             } else {
-                $this->events->dispatch(new AgentToolCallCompleted($result->toolCall, $result, agentKey: $agentKey, stepNumber: $stepNumber, provider: $provider, model: $model, traceId: $traceId));
+                $this->events->dispatch(new AgentToolCallCompleted($result->toolCall, $result, agentKey: $agentKey, stepNumber: $stepNumber, provider: $provider, model: $model, traceId: $traceId, channel: $broadcastChannel));
             }
         }
 
@@ -365,18 +371,18 @@ class AgentExecutor
      *
      * @param  array<string, mixed>  $meta
      */
-    protected function executeSingleTool(ToolCall $toolCall, array $meta, ?int $stepNumber = null, ?string $agentKey = null, ?string $provider = null, ?string $model = null, ?string $traceId = null): ToolResult
+    protected function executeSingleTool(ToolCall $toolCall, array $meta, ?int $stepNumber = null, ?string $agentKey = null, ?string $provider = null, ?string $model = null, ?string $traceId = null, ?Channel $broadcastChannel = null): ToolResult
     {
-        $this->events->dispatch(new AgentToolCallStarted($toolCall, agentKey: $agentKey, stepNumber: $stepNumber, provider: $provider, model: $model, traceId: $traceId));
+        $this->events->dispatch(new AgentToolCallStarted($toolCall, agentKey: $agentKey, stepNumber: $stepNumber, provider: $provider, model: $model, traceId: $traceId, channel: $broadcastChannel));
 
         try {
             $result = $this->dispatchTool($toolCall, $meta, $stepNumber, $agentKey);
 
-            $this->events->dispatch(new AgentToolCallCompleted($toolCall, $result, agentKey: $agentKey, stepNumber: $stepNumber, provider: $provider, model: $model, traceId: $traceId));
+            $this->events->dispatch(new AgentToolCallCompleted($toolCall, $result, agentKey: $agentKey, stepNumber: $stepNumber, provider: $provider, model: $model, traceId: $traceId, channel: $broadcastChannel));
 
             return $result;
         } catch (\Throwable $e) {
-            $this->events->dispatch(new AgentToolCallFailed($toolCall, $e, agentKey: $agentKey, stepNumber: $stepNumber, provider: $provider, model: $model, traceId: $traceId));
+            $this->events->dispatch(new AgentToolCallFailed($toolCall, $e, agentKey: $agentKey, stepNumber: $stepNumber, provider: $provider, model: $model, traceId: $traceId, channel: $broadcastChannel));
 
             return new ToolResult(
                 toolCall: $toolCall,

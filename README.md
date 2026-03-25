@@ -11,26 +11,30 @@
     <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License">
 </p>
 <p align="center">
-    📚 <a href="https://atlasphp.org"><strong>Official Documentation</strong></a> | 🚀 <a href="#-examples"><strong>See Examples (31)</strong></a>
+    <a href="https://atlasphp.org"><strong>Documentation</strong></a>
 </p>
 
-# 🪐 Atlas
+# Atlas
 
-Atlas is a Laravel package for orchestrating AI agents, tools, and execution pipelines.
-It provides structure and best practices for building maintainable, testable AI features at the application level.
+Atlas is a unified AI execution layer for Laravel. It owns its own provider layer — no external AI package dependency. Atlas talks directly to AI provider APIs, manages the tool call loop, and provides optional persistence for conversations, execution tracking, and agent memory.
 
-Built on [Prism PHP](https://prismphp.com), Atlas stays intentionally lightweight by focusing on application-level concerns such as agent definitions, tool orchestration, prompt templates, and execution pipelines. Prism is responsible for all LLM communication and provider APIs.
+## Features
 
-## ✨ Features
-
-- **Agents** – Define your AI agent behavior and configurations
-- **Tools** – Connect agents to your services with validated parameters and structured results
-- **MCP Tools** – Integrate external tools from MCP servers via [Prism Relay](https://github.com/prism-php/relay)
-- **Dynamic Prompts** – Inject context `{variables}` into system prompts at runtime for personalized interactions
-- **Pipelines** – Add logging, auth, rate limiting, or metrics without coupling the codebase
-- **Model Discovery** – List available models from any provider with `Atlas::models('openai')->all()`
-- **Full Prism Access** – Use embeddings, images, speech, moderation, and structured output without limits
-- **All Providers**: Anthropic, OpenAI, Gemini, Mistral, Ollama, Groq, DeepSeek, xAI, OpenRouter, ElevenLabs (audio), VoyageAI (embeddings), Local LLMs, and Custom LLMs
+- **Agents** — Reusable classes encapsulating provider, model, instructions, tools, and behavior
+- **Tools** — Typed tool classes with parameter schemas and dependency injection
+- **10 Modalities** — Text, images, audio (speech, music, sound effects), video, voice, embeddings, reranking, moderation
+- **Variable Interpolation** — `{variable}` placeholders in instructions resolved at runtime
+- **Middleware** — Four layers (agent, step, tool, provider) for logging, auth, metrics, and control
+- **Structured Output** — Schema-validated JSON responses from any provider
+- **Streaming** — SSE and Laravel Broadcasting with real-time chunk delivery
+- **Voice** — Real-time bidirectional voice conversations with tool support
+- **Conversations** — Multi-turn chat with message history, retry, and sibling tracking
+- **Persistence** — Optional execution tracking, asset storage, and agent memory
+- **Queue Support** — Async execution with broadcasting and callbacks
+- **Testing** — Full fake system with assertions — no API keys required
+- **Provider Tools** — Web search, code interpreter, file search via provider-native tools
+- **Custom Providers** — OpenAI-compatible endpoints or fully custom drivers
+- **All Providers** — OpenAI, Anthropic, Google (Gemini), xAI (Grok), ElevenLabs, Cohere, Jina, plus any OpenAI-compatible API (Ollama, Groq, DeepSeek, Together, OpenRouter, LM Studio)
 
 ## Quick Start
 
@@ -39,19 +43,15 @@ composer require atlas-php/atlas
 ```
 
 ```bash
-# Publish Atlas configuration
 php artisan vendor:publish --tag=atlas-config
-
-# Publish Prism configuration (if not already published)
-php artisan vendor:publish --tag=prism-config
 ```
 
 ### Define an Agent
 
 ```php
-use Atlasphp\Atlas\Agents\AgentDefinition;
+use Atlasphp\Atlas\Agent;
 
-class SupportAgent extends AgentDefinition
+class SupportAgent extends Agent
 {
     public function provider(): ?string
     {
@@ -63,18 +63,14 @@ class SupportAgent extends AgentDefinition
         return 'claude-sonnet-4-20250514';
     }
 
-    public function systemPrompt(): ?string
+    public function instructions(): ?string
     {
-        return <<<PROMPT
+        return <<<'PROMPT'
         You are a customer support specialist for {company_name}.
 
         ## Customer Context
         - **Name:** {customer_name}
         - **Account Tier:** {account_tier}
-
-        ## Available Tools
-        - **lookup_order** - Retrieve order details by order ID
-        - **process_refund** - Process refunds for eligible orders
 
         ## Guidelines
         - Always greet the customer by name
@@ -86,8 +82,8 @@ class SupportAgent extends AgentDefinition
     public function tools(): array
     {
         return [
-            LookupOrderTool::class, 
-            RefundTool::class
+            LookupOrderTool::class,
+            ProcessRefundTool::class,
         ];
     }
 }
@@ -96,12 +92,10 @@ class SupportAgent extends AgentDefinition
 ### Build a Tool
 
 ```php
-use Atlasphp\Atlas\Tools\ToolDefinition;
-use Atlasphp\Atlas\Tools\Support\ToolContext;
-use Atlasphp\Atlas\Tools\Support\ToolParameter;
-use Atlasphp\Atlas\Tools\Support\ToolResult;
+use Atlasphp\Atlas\Tools\Tool;
+use Atlasphp\Atlas\Schema\Fields\StringField;
 
-class LookupOrderTool extends ToolDefinition
+class LookupOrderTool extends Tool
 {
     public function __construct(
         private OrderService $orders
@@ -120,19 +114,15 @@ class LookupOrderTool extends ToolDefinition
     public function parameters(): array
     {
         return [
-            ToolParameter::string('order_id', 'The order ID to look up', required: true),
+            new StringField('order_id', 'The order ID to look up'),
         ];
     }
 
-    public function handle(array $params, ToolContext $context): ToolResult
+    public function handle(array $args, array $context): mixed
     {
-        $order = $this->orders->find($params['order_id']);
+        $order = $this->orders->find($args['order_id']);
 
-        if (! $order) {
-            return ToolResult::error('Order not found');
-        }
-
-        return ToolResult::json($order->toArray());
+        return $order ? $order->toArray() : 'Order not found';
     }
 }
 ```
@@ -140,84 +130,47 @@ class LookupOrderTool extends ToolDefinition
 ### Chat with the Agent
 
 ```php
-$response = Atlas::agent(SupportAgent::class)
+$response = Atlas::agent('support')
     ->withVariables([
-        'company_name' => 'Acme', 
+        'company_name' => 'Acme',
         'customer_name' => 'Sarah',
         'account_tier' => 'Premium',
     ])
-    ->chat('Where is my order #12345?');
+    ->message('Where is my order #12345?')
+    ->asText();
 
-echo $response->text();
-// $response->usage();
-// Hello Sarah, your order is out for delivery. Anything else I can help with?
+$response->text;    // "Hello Sarah! Let me look that up..."
+$response->usage;   // Token usage
+$response->steps;   // Tool call loop history
 ```
 
 ## Why Atlas?
 
-**The problem:** Prompts scattered across controllers, duplicated configurations, business logic tightly coupled with tools, and no consistent way to add logging, validation or even proper error handling.
+**The problem:** Prompts scattered across controllers, duplicated configurations, business logic tightly coupled with AI calls, and no consistent way to add logging, validation, or error handling.
 
-**Atlas decouples your business logic:**
+**Atlas structures your AI layer:**
 
-- **Agents** - AI configurations live in dedicated classes, not inline across your codebase.
-- **Tools** - Business logic stays in tool classes with typed parameters. Agents call tools; tools call your services.
-- **Pipelines** - Add logging, auth, or metrics to all Prism/Atlas operations without coupling the codebase.
-- **Testable** - Mock agents and fake tool responses with standard Laravel testing patterns.
-
-Atlas doesn't replace Prism. It organizes how you use Prism in real applications.
+- **Agents** — AI configurations live in dedicated classes, not inline across your codebase.
+- **Tools** — Business logic stays in tool classes with typed parameters. Agents call tools; tools call your services.
+- **Middleware** — Add logging, auth, or metrics at four execution layers without coupling the codebase.
+- **Testable** — Full fake system with per-modality assertions using standard Laravel testing patterns.
 
 ## Documentation
 
-📚 **[atlasphp.org](https://atlasphp.org)** - Full guides, API reference, and examples.
+**[atlasphp.org](https://atlasphp.org)** — Full guides, API reference, and examples.
 
-- [Getting Started](https://atlasphp.org/getting-started/installation.html) - Installation and configuration
-- [Agents](https://atlasphp.org/core-concepts/agents.html) - Define reusable AI configurations
-- [Tools](https://atlasphp.org/core-concepts/tools.html) - Connect agents to your application
-- [MCP Integration](https://atlasphp.org/capabilities/mcp.html) - External tools from MCP servers
-- [Pipelines](https://atlasphp.org/core-concepts/pipelines.html) - Extend with middleware
+- [Getting Started](https://atlasphp.org/getting-started/installation.html) — Installation and configuration
+- [Agents](https://atlasphp.org/features/agents.html) — Define reusable AI configurations
+- [Tools](https://atlasphp.org/features/tools.html) — Connect agents to your application
+- [Middleware](https://atlasphp.org/features/middleware.html) — Extend with four middleware layers
+- [Modalities](https://atlasphp.org/modalities/text.html) — Text, images, audio, video, voice, embeddings, and more
+- [Conversations](https://atlasphp.org/guides/conversations.html) — Multi-turn chat with persistence
+- [Voice](https://atlasphp.org/guides/voice-integration.html) — Real-time voice conversations
+- [Streaming](https://atlasphp.org/guides/streaming.html) — SSE and broadcasting
+- [Queue](https://atlasphp.org/guides/queue.html) — Background execution
+- [Testing](https://atlasphp.org/advanced/testing.html) — Fakes and assertions
 
-## 🚀 Examples
-
-**Agents** — Reusable AI configurations for different roles and tasks.
-- [Customer Support](https://atlasphp.org/core-concepts/agents.html#example-basic-agent)
-- [Sales Support](https://atlasphp.org/core-concepts/agents.html#example-sales-support-agent)
-- [Customer Service](https://atlasphp.org/core-concepts/agents.html#example-customer-service-agent)
-- [Code Review](https://atlasphp.org/core-concepts/agents.html#example-code-review-agent)
-- [Content Writer](https://atlasphp.org/core-concepts/agents.html#example-content-writer-agent)
-- [Data Analyst](https://atlasphp.org/core-concepts/agents.html#example-data-analyst-agent)
-- [HR Assistant](https://atlasphp.org/core-concepts/agents.html#example-hr-assistant-agent)
-- [IT Helpdesk (MCP)](https://atlasphp.org/core-concepts/agents.html#example-it-helpdesk-agent-with-mcp-tools)
-- [Orchestrator](https://atlasphp.org/core-concepts/tools.html#example-agent-delegation-tools)
-
-**Tools** — Connect agents to your application logic and external services.
-- [Order Lookup](https://atlasphp.org/core-concepts/tools.html#example-order-lookup-tool)
-- [Knowledge Base Search](https://atlasphp.org/core-concepts/tools.html#example-search-knowledge-base-tool)
-- [Create Ticket](https://atlasphp.org/core-concepts/tools.html#example-create-support-ticket-tool)
-- [Send Notification](https://atlasphp.org/core-concepts/tools.html#example-send-notification-tool)
-- [Database Query](https://atlasphp.org/core-concepts/tools.html#example-tool-with-dependencies)
-- [Agent Delegation](https://atlasphp.org/core-concepts/tools.html#example-agent-delegation-tools)
-
-**Pipelines** — Middleware for logging, auth, caching, and error handling.
-- [Audit Logging](https://atlasphp.org/core-concepts/pipelines.html#example-audit-logging)
-- [Authentication](https://atlasphp.org/core-concepts/pipelines.html#example-authentication-check)
-- [Rate Limiting](https://atlasphp.org/core-concepts/pipelines.html#example-tool-rate-limiting)
-- [Token Usage](https://atlasphp.org/core-concepts/pipelines.html#example-token-usage-logging)
-- [Cache Embeddings](https://atlasphp.org/core-concepts/pipelines.html#example-caching-embeddings)
-- [Error Recovery](https://atlasphp.org/core-concepts/pipelines.html#agent-on-error)
-
-**Capabilities** — Streaming, structured output, vision, audio, and more.
-- [Streaming](https://atlasphp.org/capabilities/streaming.html#example-complete-streaming-service)
-- [Structured Output](https://atlasphp.org/capabilities/structured-output.html#examples)
-- [Multi-Turn Chat](https://atlasphp.org/capabilities/chat.html#multi-turn-conversations)
-- [Semantic Search](https://atlasphp.org/capabilities/embeddings.html#example-semantic-search)
-- [RAG](https://atlasphp.org/capabilities/embeddings.html#example-rag-implementation)
-- [Vision](https://atlasphp.org/capabilities/chat.html#attachments)
-- [Text-to-Speech](https://atlasphp.org/capabilities/audio.html#text-to-speech-examples)
-- [Speech-to-Text](https://atlasphp.org/capabilities/audio.html#speech-to-text-examples)
-- [Content Moderation](https://atlasphp.org/capabilities/moderation.html#example-comment-moderation)
-- [Image Generation](https://atlasphp.org/capabilities/images.html#example-complete-image-generation)
-
-## 💬 Sandbox - Atlas Chat Example
+## Sandbox
 
 A fully functional chat interface demonstrating Atlas agents in action. Built with Vue 3, Tailwind CSS, and a Laravel JSON API.
 
@@ -225,7 +178,7 @@ A fully functional chat interface demonstrating Atlas agents in action. Built wi
   <img src="./images/atlas-sandbox-chat.png" alt="Atlas Sandbox Chat" width="800">
 </p>
 
-👉 **[See the Sandbox README](./sandbox/README.md)** for setup instructions and details.
+See the [Sandbox README](./sandbox/README.md) for setup instructions and details.
 
 ## Testing and Code Quality
 
@@ -246,7 +199,7 @@ composer check
 
 We welcome contributions!
 
-Support the community by giving a GitHub star ⭐️. Thank you!
+Support the community by giving a GitHub star. Thank you!
 
 Please see our [Contributing Guide](.github/CONTRIBUTING.md) for details.
 

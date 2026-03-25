@@ -142,6 +142,7 @@ function handleCycleSibling(messageId: number, index: number) {
                 :is-empty="chat.isEmpty.value"
                 :is-streaming="chat.isStreaming.value"
                 :streaming-text="chat.streamingText.value"
+                :active-tool-calls="chat.activeToolCalls.value"
                 @load-more="chat.loadOlderMessages"
                 @retry="handleRetry"
                 @cycle-sibling="handleCycleSibling"

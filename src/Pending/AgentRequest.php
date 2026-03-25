@@ -417,8 +417,9 @@ class AgentRequest implements QueueableRequestContract
             ? $result
             : new StreamResponse($this->resultToChunks($result));
 
-        // ModalityCompleted fires after the stream is fully consumed
-        $stream->then(function () use ($stream, $provider, $model, $agent, $traceId) {
+        // ModalityCompleted fires after the stream finishes, whether by success or error.
+        // Using onFinally() ensures the event always pairs with ModalityStarted.
+        $stream->onFinally(function () use ($stream, $provider, $model, $agent, $traceId) {
             event(new ModalityCompleted(modality: Modality::Stream, provider: $provider, model: $model, usage: $stream->getUsage(), agentKey: $agent->key(), traceId: $traceId));
         });
 
@@ -976,6 +977,7 @@ class AgentRequest implements QueueableRequestContract
             provider: $provider,
             model: $model,
             traceId: $traceId,
+            broadcastChannel: $this->broadcastChannel,
         );
     }
 

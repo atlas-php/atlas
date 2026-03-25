@@ -47,6 +47,9 @@ class StreamResponse implements IteratorAggregate, Responsable
     /** @var array<int, Closure> */
     protected array $thenCallbacks = [];
 
+    /** @var array<int, Closure> */
+    protected array $finallyCallbacks = [];
+
     /**
      * @param  iterable<StreamChunk>  $source
      */
@@ -80,12 +83,24 @@ class StreamResponse implements IteratorAggregate, Responsable
     }
 
     /**
-     * Register a callback invoked after the stream completes.
+     * Register a callback invoked after the stream completes successfully.
      * Multiple callbacks can be registered — they fire in order.
+     * One failing callback does not prevent subsequent callbacks from running.
      */
     public function then(Closure $callback): static
     {
         $this->thenCallbacks[] = $callback;
+
+        return $this;
+    }
+
+    /**
+     * Register a callback invoked after the stream finishes, whether by success or error.
+     * Use for cleanup that must run regardless of outcome (e.g. ModalityCompleted events).
+     */
+    public function onFinally(Closure $callback): static
+    {
+        $this->finallyCallbacks[] = $callback;
 
         return $this;
     }
@@ -155,6 +170,9 @@ class StreamResponse implements IteratorAggregate, Responsable
                 ));
             }
 
+            // Fire finally callbacks even on error (e.g. ModalityCompleted)
+            $this->fireFinally();
+
             throw $e;
         }
 
@@ -168,10 +186,11 @@ class StreamResponse implements IteratorAggregate, Responsable
             ));
         }
 
-        // 6. Post-stream callbacks
-        foreach ($this->thenCallbacks as $callback) {
-            $callback($this);
-        }
+        // 6. Post-stream success callbacks
+        $this->fireThen();
+
+        // 7. Finally callbacks — always fire on success and error
+        $this->fireFinally();
     }
 
     // ─── Broadcasting ───────────────────────────────────────────────
@@ -191,7 +210,15 @@ class StreamResponse implements IteratorAggregate, Responsable
                 channel: $this->broadcastChannel,
                 toolCalls: array_map($this->serializeToolCall(...), $chunk->toolCalls),
             ),
-            ChunkType::Done => null,
+            // Orchestration markers and Done are not broadcast from StreamResponse —
+            // orchestration events are broadcast directly by the executor when a
+            // broadcast channel is provided. SSE delivery handles them in sendSseEvent().
+            ChunkType::Done,
+            ChunkType::StepStarted,
+            ChunkType::StepCompleted,
+            ChunkType::ToolCallStarted,
+            ChunkType::ToolCallCompleted,
+            ChunkType::ToolCallFailed => null,
         };
 
         if ($event !== null) {
@@ -241,6 +268,34 @@ class StreamResponse implements IteratorAggregate, Responsable
                 'type' => 'done',
                 'text' => $this->accumulatedText,
                 'usage' => $this->serializeUsage(),
+            ],
+            ChunkType::StepStarted => [
+                'type' => 'step_started',
+                'stepNumber' => $chunk->stepNumber,
+            ],
+            ChunkType::StepCompleted => [
+                'type' => 'step_completed',
+                'stepNumber' => $chunk->stepNumber,
+            ],
+            ChunkType::ToolCallStarted => [
+                'type' => 'tool_call_started',
+                'toolName' => $chunk->toolName,
+                'toolCallId' => $chunk->toolCallId,
+                'stepNumber' => $chunk->stepNumber,
+            ],
+            ChunkType::ToolCallCompleted => [
+                'type' => 'tool_call_completed',
+                'toolName' => $chunk->toolName,
+                'toolCallId' => $chunk->toolCallId,
+                'result' => $chunk->toolContent,
+                'stepNumber' => $chunk->stepNumber,
+            ],
+            ChunkType::ToolCallFailed => [
+                'type' => 'tool_call_failed',
+                'toolName' => $chunk->toolName,
+                'toolCallId' => $chunk->toolCallId,
+                'error' => $chunk->toolContent,
+                'stepNumber' => $chunk->stepNumber,
             ],
         };
 
@@ -296,6 +351,37 @@ class StreamResponse implements IteratorAggregate, Responsable
     public function getToolCalls(): array
     {
         return $this->toolCalls;
+    }
+
+    // ─── Lifecycle ───────────────────────────────────────────────────
+
+    /**
+     * Run all then-callbacks, swallowing exceptions so one failure
+     * does not prevent subsequent callbacks from running.
+     */
+    protected function fireThen(): void
+    {
+        foreach ($this->thenCallbacks as $callback) {
+            try {
+                $callback($this);
+            } catch (\Throwable) {
+                // then() callbacks must not abort subsequent callbacks
+            }
+        }
+    }
+
+    /**
+     * Run all finally callbacks, swallowing exceptions to ensure every callback fires.
+     */
+    protected function fireFinally(): void
+    {
+        foreach ($this->finallyCallbacks as $callback) {
+            try {
+                $callback($this);
+            } catch (\Throwable) {
+                // Finally callbacks must not prevent others from running
+            }
+        }
     }
 
     // ─── Private Helpers ────────────────────────────────────────────

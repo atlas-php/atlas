@@ -15,6 +15,8 @@ use Atlasphp\Atlas\Executor\Step;
 use Atlasphp\Atlas\Executor\ToolResult;
 use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Responses\Usage;
+use Illuminate\Broadcasting\Channel;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 
 // ─── AgentStarted ──────────────────────────────────────────────────────────
 
@@ -422,4 +424,118 @@ it('AgentToolCallFailed context params default to null', function () {
     expect($event->provider)->toBeNull()
         ->and($event->model)->toBeNull()
         ->and($event->traceId)->toBeNull();
+});
+
+// ─── Broadcasting ─────────────────────────────────────────────────────────
+
+it('all orchestration events implement ShouldBroadcastNow', function () {
+    $channel = new Channel('test');
+    $toolCall = new ToolCall('tc-1', 'search', []);
+
+    $events = [
+        new AgentStarted(agentKey: null, maxSteps: null, concurrent: false, channel: $channel),
+        new AgentStepStarted(stepNumber: 1, channel: $channel),
+        new AgentStepCompleted(stepNumber: 1, finishReason: FinishReason::Stop, usage: new Usage(10, 20), channel: $channel),
+        new AgentToolCallStarted(toolCall: $toolCall, channel: $channel),
+        new AgentToolCallCompleted(toolCall: $toolCall, result: new ToolResult($toolCall, 'ok'), channel: $channel),
+        new AgentToolCallFailed(toolCall: $toolCall, exception: new RuntimeException('fail'), channel: $channel),
+        new AgentCompleted(steps: [], usage: new Usage(0, 0), channel: $channel),
+        new AgentMaxStepsExceeded(limit: 3, steps: [], channel: $channel),
+    ];
+
+    foreach ($events as $event) {
+        expect($event)->toBeInstanceOf(ShouldBroadcastNow::class);
+    }
+});
+
+it('orchestration events broadcast on provided channel', function () {
+    $channel = new Channel('conversation.42');
+    $event = new AgentToolCallStarted(
+        toolCall: new ToolCall('tc-1', 'search', ['q' => 'test']),
+        channel: $channel,
+    );
+
+    expect($event->broadcastOn())->toBe([$channel])
+        ->and($event->broadcastWhen())->toBeTrue()
+        ->and($event->broadcastAs())->toBe('AgentToolCallStarted');
+});
+
+it('orchestration events do not broadcast without channel', function () {
+    $event = new AgentToolCallStarted(
+        toolCall: new ToolCall('tc-1', 'search', []),
+    );
+
+    expect($event->broadcastOn())->toBe([])
+        ->and($event->broadcastWhen())->toBeFalse();
+});
+
+it('AgentToolCallStarted broadcastWith includes tool details', function () {
+    $event = new AgentToolCallStarted(
+        toolCall: new ToolCall('tc-1', 'web_search', ['query' => 'Laravel']),
+        stepNumber: 2,
+        channel: new Channel('test'),
+    );
+
+    $data = $event->broadcastWith();
+
+    expect($data)->toBe([
+        'toolCallId' => 'tc-1',
+        'toolName' => 'web_search',
+        'arguments' => ['query' => 'Laravel'],
+        'stepNumber' => 2,
+    ]);
+});
+
+it('AgentToolCallCompleted broadcastWith includes result summary', function () {
+    $toolCall = new ToolCall('tc-1', 'search', []);
+    $result = new ToolResult(toolCall: $toolCall, content: 'Found 5 results');
+
+    $event = new AgentToolCallCompleted(
+        toolCall: $toolCall,
+        result: $result,
+        stepNumber: 1,
+        channel: new Channel('test'),
+    );
+
+    $data = $event->broadcastWith();
+
+    expect($data['toolCallId'])->toBe('tc-1')
+        ->and($data['toolName'])->toBe('search')
+        ->and($data['result'])->toBe('Found 5 results')
+        ->and($data['isError'])->toBeFalse()
+        ->and($data['stepNumber'])->toBe(1);
+});
+
+it('AgentToolCallFailed broadcastWith includes error message', function () {
+    $toolCall = new ToolCall('tc-1', 'fetch', []);
+    $exception = new RuntimeException('Connection refused');
+
+    $event = new AgentToolCallFailed(
+        toolCall: $toolCall,
+        exception: $exception,
+        stepNumber: 3,
+        channel: new Channel('test'),
+    );
+
+    $data = $event->broadcastWith();
+
+    expect($data['toolCallId'])->toBe('tc-1')
+        ->and($data['toolName'])->toBe('fetch')
+        ->and($data['error'])->toBe('Connection refused')
+        ->and($data['stepNumber'])->toBe(3);
+});
+
+it('channel defaults to null on all orchestration events', function () {
+    $events = [
+        new AgentStarted(agentKey: null, maxSteps: null, concurrent: false),
+        new AgentStepStarted(stepNumber: 1),
+        new AgentStepCompleted(stepNumber: 1, finishReason: FinishReason::Stop, usage: new Usage(0, 0)),
+        new AgentCompleted(steps: [], usage: new Usage(0, 0)),
+        new AgentMaxStepsExceeded(limit: 3, steps: []),
+    ];
+
+    foreach ($events as $event) {
+        expect($event->broadcastWhen())->toBeFalse()
+            ->and($event->broadcastOn())->toBe([]);
+    }
 });

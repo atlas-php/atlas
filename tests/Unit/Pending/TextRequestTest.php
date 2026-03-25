@@ -100,7 +100,7 @@ it('dispatches asStream to driver', function () {
     $driver = Mockery::mock(Driver::class);
     $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(stream: true));
     $streamMock = Mockery::mock(StreamResponse::class);
-    $streamMock->shouldReceive('then')->once()->andReturnSelf();
+    $streamMock->shouldReceive('onFinally')->once()->andReturnSelf();
     $driver->shouldReceive('stream')->once()->andReturn($streamMock);
 
     createTextPending($driver)->asStream();

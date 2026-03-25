@@ -177,3 +177,104 @@ it('getReasoning returns empty string when no reasoning chunks', function () {
 
     expect($stream->getReasoning())->toBe('');
 });
+
+// ─── onFinally ──────────────────────────────────────────────────────
+
+it('onFinally fires after successful stream completion', function () {
+    $finallyCalled = false;
+
+    $stream = makeTestStream()
+        ->onFinally(function () use (&$finallyCalled) {
+            $finallyCalled = true;
+        });
+
+    foreach ($stream as $chunk) { /* consume */
+    }
+
+    expect($finallyCalled)->toBeTrue();
+});
+
+it('onFinally fires after stream error', function () {
+    $finallyCalled = false;
+
+    $stream = new StreamResponse((function () {
+        yield new StreamChunk(ChunkType::Text, text: 'Hello');
+        throw new RuntimeException('Stream error');
+    })());
+
+    $stream->onFinally(function () use (&$finallyCalled) {
+        $finallyCalled = true;
+    });
+
+    try {
+        foreach ($stream as $chunk) { /* consume */
+        }
+    } catch (RuntimeException) {
+        // expected
+    }
+
+    expect($finallyCalled)->toBeTrue();
+});
+
+it('onFinally returns $this for chaining', function () {
+    $stream = new StreamResponse((function () {
+        yield from [];
+    })());
+
+    $result = $stream->onFinally(fn () => null);
+
+    expect($result)->toBe($stream);
+});
+
+it('multiple onFinally callbacks fire in order', function () {
+    $order = [];
+
+    $stream = makeTestStream()
+        ->onFinally(function () use (&$order) {
+            $order[] = 'first';
+        })
+        ->onFinally(function () use (&$order) {
+            $order[] = 'second';
+        });
+
+    foreach ($stream as $chunk) { /* consume */
+    }
+
+    expect($order)->toBe(['first', 'second']);
+});
+
+// ─── then() callback isolation ──────────────────────────────────────
+
+it('then callback exception does not block subsequent callbacks', function () {
+    $secondCalled = false;
+
+    $stream = makeTestStream();
+    $stream->then(function () {
+        throw new RuntimeException('Callback error');
+    });
+    $stream->then(function () use (&$secondCalled) {
+        $secondCalled = true;
+    });
+
+    foreach ($stream as $chunk) { /* consume */
+    }
+
+    expect($secondCalled)->toBeTrue();
+});
+
+it('then callback exception does not prevent onFinally', function () {
+    $finallyCalled = false;
+
+    $stream = makeTestStream();
+    $stream->then(function () {
+        throw new RuntimeException('Callback error');
+    });
+    $stream->onFinally(function () use (&$finallyCalled) {
+        $finallyCalled = true;
+    });
+
+    foreach ($stream as $chunk) { /* consume */
+    }
+
+    expect($finallyCalled)->toBeTrue();
+});

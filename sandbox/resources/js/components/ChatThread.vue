@@ -2,8 +2,9 @@
 import { ref, computed, watch, nextTick, onMounted } from 'vue';
 import { Loader2 } from 'lucide-vue-next';
 import ChatMessageBubble from './ChatMessageBubble.vue';
+import ChatToolCallIndicator from './ChatToolCallIndicator.vue';
 import { renderMarkdown } from '../utils/markdown';
-import type { ChatMessage } from '../composables/useChat';
+import type { ChatMessage, ActiveToolCall } from '../composables/useChat';
 
 const props = defineProps<{
     messages: ChatMessage[];
@@ -12,6 +13,7 @@ const props = defineProps<{
     isEmpty: boolean;
     isStreaming: boolean;
     streamingText: string;
+    activeToolCalls: ActiveToolCall[];
 }>();
 
 const emit = defineEmits<{
@@ -148,6 +150,12 @@ defineExpose({ scrollToBottom });
                     </div>
                 </div>
             </div>
+
+            <!-- Active tool calls (above typing indicator) -->
+            <ChatToolCallIndicator
+                v-if="activeToolCalls.length > 0"
+                :tool-calls="activeToolCalls"
+            />
 
             <!-- Typing indicator slot -->
             <slot name="typing" />

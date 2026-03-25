@@ -248,10 +248,9 @@ class TextRequest implements QueueableRequestContract
             throw $e;
         }
 
-        // ModalityCompleted fires after the stream is fully consumed, not when the
-        // response object is created. The then() callback runs at the end of
-        // StreamResponse::getIterator() after all chunks have been yielded.
-        $response->then(function () use ($response, $provider, $model, $traceId) {
+        // ModalityCompleted fires after the stream finishes, whether by success or error.
+        // Using onFinally() ensures the event always pairs with ModalityStarted.
+        $response->onFinally(function () use ($response, $provider, $model, $traceId) {
             event(new ModalityCompleted(modality: Modality::Stream, provider: $provider, model: $model, usage: $response->getUsage(), traceId: $traceId));
         });
 
@@ -322,6 +321,7 @@ class TextRequest implements QueueableRequestContract
             provider: $provider,
             model: $model,
             traceId: $traceId,
+            broadcastChannel: $this->broadcastChannel,
         );
     }
 

@@ -64,6 +64,15 @@ export interface ChatMessage {
     _optimistic?: boolean;
 }
 
+export interface ActiveToolCall {
+    id: string;
+    name: string;
+    arguments: Record<string, unknown>;
+    status: 'running' | 'completed' | 'failed';
+    result?: string;
+    startedAt: number;
+}
+
 // ─── API helpers ─────────────────────────────────────────────
 
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
@@ -89,10 +98,15 @@ export function useChat() {
     const hasMore = ref(false);
     const conversationTitle = ref('');
     const error = ref<string | null>(null);
+    const activeToolCalls = ref<ActiveToolCall[]>([]);
 
     let subscribedChannelId: number | null = null;
     let scrollToBottomCallback: (() => void) | null = null;
     let responseCompleteCallback: (() => void) | null = null;
+
+    function clearToolCalls() {
+        activeToolCalls.value = [];
+    }
 
     function onScrollToBottom(cb: () => void) {
         scrollToBottomCallback = cb;
@@ -323,6 +337,7 @@ export function useChat() {
                     isTyping.value = false;
                     isStreaming.value = true;
                     streamingText.value = '';
+                    clearToolCalls();
                     markLastUserMessageRead();
                 }
                 streamingText.value += data.text;
@@ -332,6 +347,7 @@ export function useChat() {
                 console.log('[Echo] Stream completed');
                 isStreaming.value = false;
                 streamingText.value = '';
+                clearToolCalls();
                 reloadMessages();
                 loadConversations();
                 responseCompleteCallback?.();
@@ -341,6 +357,7 @@ export function useChat() {
                 isTyping.value = false;
                 isStreaming.value = false;
                 streamingText.value = '';
+                clearToolCalls();
                 markLastUserMessageRead();
                 reloadMessages();
                 loadConversations();
@@ -351,8 +368,36 @@ export function useChat() {
                 isTyping.value = false;
                 isStreaming.value = false;
                 streamingText.value = '';
+                clearToolCalls();
                 error.value = data.error ?? 'Execution failed';
                 reloadMessages();
+            })
+            .listen('.AgentToolCallStarted', (data: { toolCallId: string; toolName: string; arguments: Record<string, unknown>; stepNumber: number }) => {
+                console.log('[Echo] Tool call started:', data.toolName);
+                activeToolCalls.value.push({
+                    id: data.toolCallId,
+                    name: data.toolName,
+                    arguments: data.arguments,
+                    status: 'running',
+                    startedAt: Date.now(),
+                });
+                requestScroll();
+            })
+            .listen('.AgentToolCallCompleted', (data: { toolCallId: string; toolName: string; result: string; isError: boolean }) => {
+                console.log('[Echo] Tool call completed:', data.toolName);
+                const tc = activeToolCalls.value.find((t) => t.id === data.toolCallId);
+                if (tc) {
+                    tc.status = 'completed';
+                    tc.result = data.result;
+                }
+            })
+            .listen('.AgentToolCallFailed', (data: { toolCallId: string; toolName: string; error: string }) => {
+                console.log('[Echo] Tool call failed:', data.toolName);
+                const tc = activeToolCalls.value.find((t) => t.id === data.toolCallId);
+                if (tc) {
+                    tc.status = 'failed';
+                    tc.result = data.error;
+                }
             });
     }
 
@@ -378,6 +423,7 @@ export function useChat() {
         isTyping.value = false;
         isStreaming.value = false;
         streamingText.value = '';
+        clearToolCalls();
         error.value = null;
     }
 
@@ -391,6 +437,7 @@ export function useChat() {
         isTyping,
         isStreaming,
         streamingText,
+        activeToolCalls,
         isLoading,
         hasMore,
         isEmpty,

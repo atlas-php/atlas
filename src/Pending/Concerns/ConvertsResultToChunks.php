@@ -12,27 +12,80 @@ use Atlasphp\Atlas\Responses\StreamChunk;
  * Converts an ExecutorResult into a generator of StreamChunks for streaming.
  *
  * Used by both TextRequest and AgentRequest to convert tool-loop
- * results into a streamable format with tool calls, text segments,
- * and a Done chunk carrying usage and finish reason.
+ * results into a streamable format with orchestration markers, tool calls,
+ * text segments, and a Done chunk carrying usage and finish reason.
  */
 trait ConvertsResultToChunks
 {
     /**
      * Convert an ExecutorResult into a generator of StreamChunks.
      *
-     * Yields tool call chunks for each step, then text segments split on
-     * word boundaries, and a Done chunk with full usage and finish reason.
+     * Yields interleaved orchestration markers (step/tool lifecycle), then
+     * reasoning if present, text segments split on word boundaries, and
+     * a Done chunk with full usage and finish reason.
      */
     protected function resultToChunks(ExecutorResult $result): \Generator
     {
-        // Yield tool call chunks so consumers see what tools were called
+        $stepNumber = 0;
+
         foreach ($result->steps as $step) {
+            $stepNumber++;
+
+            yield new StreamChunk(
+                type: ChunkType::StepStarted,
+                stepNumber: $stepNumber,
+            );
+
+            // Yield tool call lifecycle markers
+            foreach ($step->toolCalls as $index => $toolCall) {
+                yield new StreamChunk(
+                    type: ChunkType::ToolCallStarted,
+                    stepNumber: $stepNumber,
+                    toolName: $toolCall->name,
+                    toolCallId: $toolCall->id,
+                );
+
+                // Match tool result by index (results align with tool calls)
+                $toolResult = $step->toolResults[$index] ?? null;
+
+                if ($toolResult !== null && $toolResult->isError) {
+                    yield new StreamChunk(
+                        type: ChunkType::ToolCallFailed,
+                        stepNumber: $stepNumber,
+                        toolName: $toolCall->name,
+                        toolCallId: $toolCall->id,
+                        toolContent: mb_substr($toolResult->content, 0, 500),
+                        toolError: true,
+                    );
+                } elseif ($toolResult !== null) {
+                    yield new StreamChunk(
+                        type: ChunkType::ToolCallCompleted,
+                        stepNumber: $stepNumber,
+                        toolName: $toolCall->name,
+                        toolCallId: $toolCall->id,
+                        toolContent: mb_substr($toolResult->content, 0, 500),
+                        toolError: false,
+                    );
+                }
+            }
+
+            // Yield the existing ToolCall chunk (tool definitions for the stream consumer)
             if ($step->toolCalls !== []) {
                 yield new StreamChunk(
                     type: ChunkType::ToolCall,
                     toolCalls: $step->toolCalls,
                 );
             }
+
+            yield new StreamChunk(
+                type: ChunkType::StepCompleted,
+                stepNumber: $stepNumber,
+            );
+        }
+
+        // Yield reasoning as a Thinking chunk (matches direct stream path behavior)
+        if ($result->reasoning !== null && $result->reasoning !== '') {
+            yield new StreamChunk(type: ChunkType::Thinking, reasoning: $result->reasoning);
         }
 
         // Yield text chunks split on word boundaries
@@ -58,7 +111,6 @@ trait ConvertsResultToChunks
             type: ChunkType::Done,
             usage: $result->usage,
             finishReason: $result->finishReason,
-            reasoning: $result->reasoning,
         );
     }
 }
