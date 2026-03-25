@@ -6,7 +6,9 @@ namespace Atlasphp\Atlas\Providers\ChatCompletions;
 
 use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Providers\Contracts\ToolMapperContract;
+use Atlasphp\Atlas\Providers\Tools\ProviderTool;
 use Atlasphp\Atlas\Tools\ToolDefinition;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Maps Atlas tool definitions to Chat Completions nested function format.
@@ -19,7 +21,7 @@ class ToolMapper implements ToolMapperContract
     /**
      * Map Atlas ToolDefinitions to Chat Completions nested function format.
      *
-     * @param  array<int, mixed>  $tools
+     * @param  array<int, ToolDefinition>  $tools
      * @return array<int, array<string, mixed>>
      */
     public function mapTools(array $tools): array
@@ -29,7 +31,7 @@ class ToolMapper implements ToolMapperContract
             'function' => [
                 'name' => $tool->name,
                 'description' => $tool->description,
-                'parameters' => $tool->parameters !== [] ? $tool->parameters : (object) [],
+                'parameters' => $tool->hasParameters() ? $tool->parameters : (object) [],
             ],
         ], $tools);
     }
@@ -37,11 +39,18 @@ class ToolMapper implements ToolMapperContract
     /**
      * Provider tools are not supported on Chat Completions.
      *
-     * @param  array<int, mixed>  $providerTools
+     * @param  array<int, ProviderTool>  $providerTools
      * @return array<int, array<string, mixed>>
      */
     public function mapProviderTools(array $providerTools): array
     {
+        if ($providerTools !== []) {
+            Log::warning('Provider tools are not supported on Chat Completions and will be ignored.', [
+                'provider' => 'chat_completions',
+                'tools' => array_map(fn (ProviderTool $t) => $t->type(), $providerTools),
+            ]);
+        }
+
         return [];
     }
 
@@ -56,7 +65,7 @@ class ToolMapper implements ToolMapperContract
         return array_map(fn (array $tc) => new ToolCall(
             id: $tc['id'] ?? '',
             name: $tc['function']['name'] ?? '',
-            arguments: json_decode($tc['function']['arguments'] ?? '{}', true) ?? [],
+            arguments: json_decode($tc['function']['arguments'] ?? '{}', true, 512, JSON_THROW_ON_ERROR),
         ), $rawToolCalls);
     }
 }

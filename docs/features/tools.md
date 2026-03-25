@@ -281,11 +281,19 @@ class ResearchAgent extends Agent
 
 ### Available Provider Tools
 
-| Class | Type | Description |
-|-------|------|-------------|
-| `WebSearch` | `web_search` | Search the web. Options: `maxResults`, `locale` |
-| `FileSearch` | `file_search` | Search vector stores. Options: `stores`, `maxResults` |
-| `CodeInterpreter` | `code_interpreter` | Execute code in a sandbox |
+| Class | Type | Providers | Description |
+|-------|------|-----------|-------------|
+| `WebSearch` | `web_search` | OpenAI, Google | Search the web. Options: `maxResults`, `locale` |
+| `WebFetch` | `web_fetch` | OpenAI | Fetch and read web page content |
+| `FileSearch` | `file_search` | OpenAI | Search vector stores. Options: `stores`, `maxResults` |
+| `CodeInterpreter` | `code_interpreter` | OpenAI | Execute code in a sandbox |
+| `GoogleSearch` | `google_search` | Google | Google Search grounding for Gemini |
+| `CodeExecution` | `code_execution` | Google | Code execution for Gemini |
+| `XSearch` | `x_search` | xAI | Search X/Twitter posts. Options: `fromDate`, `toDate`, `allowedXHandles`, `enableImageUnderstanding`, `enableVideoUnderstanding` |
+
+::: warning Provider Compatibility
+Provider tools are only supported on OpenAI, Google, and xAI. Passing provider tools to Anthropic or Chat Completions providers will log a warning and the tools will be ignored.
+:::
 
 ### Observability
 

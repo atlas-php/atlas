@@ -15,10 +15,14 @@ use Atlasphp\Atlas\Messages\ToolResultMessage;
  */
 class ToolResult
 {
+    /**
+     * @param  class-string<\Throwable>|null  $exceptionClass  Original exception class for error results (serialization-safe across fork boundaries).
+     */
     public function __construct(
         public readonly ToolCall $toolCall,
         public readonly string $content,
         public readonly bool $isError = false,
+        public readonly ?string $exceptionClass = null,
     ) {}
 
     /**
@@ -30,6 +34,7 @@ class ToolResult
             toolCallId: $this->toolCall->id,
             content: $this->content,
             toolName: $this->toolCall->name,
+            isError: $this->isError,
         );
     }
 }

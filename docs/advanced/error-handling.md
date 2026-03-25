@@ -153,7 +153,11 @@ public function handle(array $args, array $context): mixed
 }
 ```
 
-When a tool returns an error string, the AI can try a different approach. Throwing exceptions stops the entire agent loop and fires the `AgentToolCallFailed` event.
+When a tool returns an error string, the AI can try a different approach. If a tool throws an exception, Atlas catches it and sends the exception message back to the model as an error result — the agent loop continues. The `AgentToolCallFailed` event fires with the original exception type so listeners can respond appropriately (e.g., retry on `RateLimitException`).
+
+::: warning
+Exception messages are sent verbatim to the model. Ensure your tool exceptions do not contain sensitive information (credentials, file paths, etc.).
+:::
 
 ## Rate Limit Handling
 

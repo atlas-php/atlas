@@ -11,9 +11,8 @@ use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Events\ModalityCompleted;
 use Atlasphp\Atlas\Events\ModalityStarted;
 use Atlasphp\Atlas\Executor\AgentExecutor;
+use Atlasphp\Atlas\Executor\ExecutionContext;
 use Atlasphp\Atlas\Executor\ExecutorResult;
-use Atlasphp\Atlas\Executor\ToolExecutor;
-use Atlasphp\Atlas\Executor\ToolRegistry;
 use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Input\Input;
 use Atlasphp\Atlas\Messages\AssistantMessage;
@@ -231,7 +230,7 @@ class TextRequest implements QueueableRequestContract
         event(new ModalityStarted(modality: Modality::Stream, provider: $provider, model: $model, traceId: $traceId));
 
         try {
-            if ($this->tools !== []) {
+            if ($this->hasTools()) {
                 // Atlas tools require the executor loop — stream the result
                 $result = $this->executeWithTools($provider, $model, $traceId);
                 $response = new StreamResponse($this->resultToChunks($result));
@@ -285,9 +284,15 @@ class TextRequest implements QueueableRequestContract
         return $response;
     }
 
+    /**
+     * Whether Atlas tools requiring the executor loop are present.
+     *
+     * Provider tools are handled server-side by the driver and do not
+     * need the executor step loop.
+     */
     protected function hasTools(): bool
     {
-        return $this->tools !== [] || $this->providerTools !== [];
+        return $this->tools !== [];
     }
 
     protected function executeWithTools(?string $provider = null, ?string $model = null, ?string $traceId = null): ExecutorResult
@@ -297,15 +302,9 @@ class TextRequest implements QueueableRequestContract
         $driver = $this->resolveDriver();
         $this->ensureCapability($driver, 'text');
 
-        // ToolRegistry is a stateless value object (immutable map) and ToolExecutor
-        // is a thin wrapper with no external dependencies — direct instantiation is
-        // intentional here to avoid unnecessary container overhead.
-        $toolRegistry = new ToolRegistry($resolvedTools);
-        $toolExecutor = new ToolExecutor($toolRegistry);
-
-        $executor = new AgentExecutor(
+        $executor = AgentExecutor::forTools(
             driver: $driver,
-            toolExecutor: $toolExecutor,
+            tools: $resolvedTools,
             events: $this->events ?? app(Dispatcher::class),
             middlewareStack: $this->app?->make(MiddlewareStack::class) ?? app(MiddlewareStack::class),
         );
@@ -317,11 +316,12 @@ class TextRequest implements QueueableRequestContract
             maxSteps: $this->maxSteps,
             concurrent: $this->concurrent,
             meta: $this->meta,
-            agentKey: null,
-            provider: $provider,
-            model: $model,
-            traceId: $traceId,
-            broadcastChannel: $this->broadcastChannel,
+            context: new ExecutionContext(
+                provider: $provider,
+                model: $model,
+                traceId: $traceId,
+                broadcastChannel: $this->broadcastChannel,
+            ),
         );
     }
 

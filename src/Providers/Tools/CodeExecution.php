@@ -13,12 +13,4 @@ class CodeExecution extends ProviderTool
     {
         return 'code_execution';
     }
-
-    /**
-     * @return array<string, mixed>
-     */
-    public function toArray(): array
-    {
-        return ['code_execution' => (object) []];
-    }
 }

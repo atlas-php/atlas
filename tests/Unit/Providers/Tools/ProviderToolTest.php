@@ -70,22 +70,18 @@ it('GoogleSearch has correct type', function () {
     expect((new GoogleSearch)->type())->toBe('google_search');
 });
 
-it('GoogleSearch returns correct array format', function () {
+it('GoogleSearch toArray uses base class pattern', function () {
     $tool = new GoogleSearch;
-    $arr = $tool->toArray();
 
-    expect($arr)->toHaveKey('google_search');
-    expect($arr['google_search'])->toBeInstanceOf(stdClass::class);
+    expect($tool->toArray())->toBe(['type' => 'google_search']);
 });
 
 it('CodeExecution has correct type', function () {
     expect((new CodeExecution)->type())->toBe('code_execution');
 });
 
-it('CodeExecution returns correct array format', function () {
+it('CodeExecution toArray uses base class pattern', function () {
     $tool = new CodeExecution;
-    $arr = $tool->toArray();
 
-    expect($arr)->toHaveKey('code_execution');
-    expect($arr['code_execution'])->toBeInstanceOf(stdClass::class);
+    expect($tool->toArray())->toBe(['type' => 'code_execution']);
 });

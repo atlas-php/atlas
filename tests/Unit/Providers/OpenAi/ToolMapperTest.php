@@ -61,14 +61,12 @@ it('parses function call items into ToolCall objects', function () {
     expect($result[0]->arguments)->toBe(['q' => 'test']);
 });
 
-it('handles malformed JSON arguments gracefully', function () {
+it('throws on malformed JSON arguments', function () {
     $mapper = new ToolMapper;
 
     $raw = [
         ['call_id' => 'call_abc', 'name' => 'test', 'arguments' => 'not-json'],
     ];
 
-    $result = $mapper->parseToolCalls($raw);
-
-    expect($result[0]->arguments)->toBe([]);
-});
+    $mapper->parseToolCalls($raw);
+})->throws(\JsonException::class);

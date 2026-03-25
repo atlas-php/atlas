@@ -14,7 +14,7 @@ use Atlasphp\Atlas\Messages\ToolCall;
 class ToolContext
 {
     /**
-     * @param  array<string, mixed>  $meta
+     * @param  array<string, mixed>  $meta  Mutable — middleware may augment context as it flows through the pipeline.
      */
     public function __construct(
         public readonly ToolCall $toolCall,

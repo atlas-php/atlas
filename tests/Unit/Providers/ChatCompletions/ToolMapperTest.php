@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Providers\ChatCompletions\ToolMapper;
+use Atlasphp\Atlas\Providers\Tools\WebSearch;
 use Atlasphp\Atlas\Tools\ToolDefinition;
+use Illuminate\Support\Facades\Log;
 
 it('maps tool definitions to nested function format', function () {
     $mapper = new ToolMapper;
@@ -40,7 +42,22 @@ it('maps empty parameters to empty object', function () {
 it('mapProviderTools returns empty array', function () {
     $mapper = new ToolMapper;
 
-    expect($mapper->mapProviderTools(['anything']))->toBe([]);
+    expect($mapper->mapProviderTools([]))->toBe([]);
+});
+
+it('logs warning when provider tools are passed', function () {
+    Log::shouldReceive('warning')
+        ->once()
+        ->withArgs(function (string $message, array $context) {
+            return str_contains($message, 'not supported')
+                && $context['provider'] === 'chat_completions'
+                && $context['tools'] === ['web_search'];
+        });
+
+    $mapper = new ToolMapper;
+    $result = $mapper->mapProviderTools([new WebSearch]);
+
+    expect($result)->toBe([]);
 });
 
 it('parses tool calls with id and nested function', function () {
@@ -63,7 +80,7 @@ it('parses tool calls with id and nested function', function () {
     expect($result[0]->arguments)->toBe(['query' => 'test']);
 });
 
-it('handles malformed JSON arguments gracefully', function () {
+it('throws on malformed JSON arguments', function () {
     $mapper = new ToolMapper;
     $raw = [
         [
@@ -75,7 +92,5 @@ it('handles malformed JSON arguments gracefully', function () {
         ],
     ];
 
-    $result = $mapper->parseToolCalls($raw);
-
-    expect($result[0]->arguments)->toBe([]);
-});
+    $mapper->parseToolCalls($raw);
+})->throws(\JsonException::class);

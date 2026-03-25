@@ -83,15 +83,19 @@ class MessageFactory implements MessageFactoryContract
      */
     public function toolResult(ToolResultMessage $message): array
     {
+        $block = [
+            'type' => 'tool_result',
+            'tool_use_id' => $message->toolCallId,
+            'content' => $message->content,
+        ];
+
+        if ($message->isError) {
+            $block['is_error'] = true;
+        }
+
         return [
             'role' => 'user',
-            'content' => [
-                [
-                    'type' => 'tool_result',
-                    'tool_use_id' => $message->toolCallId,
-                    'content' => $message->content,
-                ],
-            ],
+            'content' => [$block],
         ];
     }
 

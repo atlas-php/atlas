@@ -6,6 +6,9 @@ namespace Atlasphp\Atlas\Providers\Google;
 
 use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Providers\Contracts\ToolMapperContract;
+use Atlasphp\Atlas\Providers\Tools\CodeExecution;
+use Atlasphp\Atlas\Providers\Tools\GoogleSearch;
+use Atlasphp\Atlas\Providers\Tools\ProviderTool;
 use Atlasphp\Atlas\Tools\ToolDefinition;
 
 /**
@@ -16,7 +19,7 @@ class ToolMapper implements ToolMapperContract
     /**
      * Map Atlas ToolDefinitions to Gemini function declarations.
      *
-     * @param  array<int, mixed>  $tools
+     * @param  array<int, ToolDefinition>  $tools
      * @return array<int, array<string, mixed>>
      */
     public function mapTools(array $tools): array
@@ -24,19 +27,27 @@ class ToolMapper implements ToolMapperContract
         return array_map(fn (ToolDefinition $tool): array => [
             'name' => $tool->name,
             'description' => $tool->description,
-            'parameters' => $tool->parameters !== [] ? $tool->parameters : ['type' => 'object', 'properties' => (object) []],
+            'parameters' => $tool->hasParameters() ? $tool->parameters : ['type' => 'object', 'properties' => (object) []],
         ], $tools);
     }
 
     /**
      * Map provider tools to their native format.
      *
-     * @param  array<int, mixed>  $providerTools
+     * @param  array<int, ProviderTool>  $providerTools
      * @return array<int, array<string, mixed>>
      */
     public function mapProviderTools(array $providerTools): array
     {
-        return array_map(fn ($tool): array => $tool->toArray(), $providerTools);
+        return array_map(function (ProviderTool $tool): array {
+            // Gemini expects grounding/execution tools as {tool_type: {}}
+            // rather than the standard {type: tool_type, ...config} format.
+            if ($tool instanceof GoogleSearch || $tool instanceof CodeExecution) {
+                return [$tool->type() => (object) []];
+            }
+
+            return $tool->toArray();
+        }, $providerTools);
     }
 
     /**

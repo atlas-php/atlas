@@ -102,6 +102,15 @@ it('converts tool result message', function () {
     expect($result['content'][0]['type'])->toBe('tool_result');
     expect($result['content'][0]['tool_use_id'])->toBe('toolu_123');
     expect($result['content'][0]['content'])->toBe('The weather is sunny');
+    expect($result['content'][0])->not->toHaveKey('is_error');
+});
+
+it('includes is_error flag on tool result when isError is true', function () {
+    $factory = new MessageFactory;
+
+    $result = $factory->toolResult(new ToolResultMessage('toolu_456', 'Tool failed', 'broken_tool', isError: true));
+
+    expect($result['content'][0]['is_error'])->toBeTrue();
 });
 
 it('buildAll extracts system from instructions', function () {

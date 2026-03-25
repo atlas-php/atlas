@@ -32,4 +32,37 @@ it('converts to ToolResultMessage with correct properties', function () {
     expect($message->toolCallId)->toBe('tc-42');
     expect($message->content)->toBe('42');
     expect($message->toolName)->toBe('calculator');
+    expect($message->isError)->toBeFalse();
+});
+
+it('passes isError true to ToolResultMessage', function () {
+    $toolCall = new ToolCall('tc-99', 'failing_tool', []);
+    $result = new ToolResult($toolCall, 'Something went wrong', isError: true);
+
+    $message = $result->toMessage();
+
+    expect($message->isError)->toBeTrue();
+});
+
+it('passes isError false to ToolResultMessage by default', function () {
+    $toolCall = new ToolCall('tc-100', 'working_tool', []);
+    $result = new ToolResult($toolCall, 'success');
+
+    $message = $result->toMessage();
+
+    expect($message->isError)->toBeFalse();
+});
+
+it('stores original exception class name', function () {
+    $toolCall = new ToolCall('tc-1', 'search', []);
+    $result = new ToolResult($toolCall, 'Error occurred', isError: true, exceptionClass: \InvalidArgumentException::class);
+
+    expect($result->exceptionClass)->toBe(\InvalidArgumentException::class);
+});
+
+it('defaults exceptionClass to null', function () {
+    $toolCall = new ToolCall('tc-1', 'search', []);
+    $result = new ToolResult($toolCall, 'ok');
+
+    expect($result->exceptionClass)->toBeNull();
 });

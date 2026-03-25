@@ -13,12 +13,4 @@ class GoogleSearch extends ProviderTool
     {
         return 'google_search';
     }
-
-    /**
-     * @return array<string, mixed>
-     */
-    public function toArray(): array
-    {
-        return ['google_search' => (object) []];
-    }
 }

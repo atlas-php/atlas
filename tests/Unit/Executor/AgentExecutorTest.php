@@ -14,6 +14,7 @@ use Atlasphp\Atlas\Events\AgentToolCallStarted;
 use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Exceptions\MaxStepsExceededException;
 use Atlasphp\Atlas\Executor\AgentExecutor;
+use Atlasphp\Atlas\Executor\ExecutionContext;
 use Atlasphp\Atlas\Executor\ToolExecutor;
 use Atlasphp\Atlas\Executor\ToolRegistry;
 use Atlasphp\Atlas\Messages\AssistantMessage;
@@ -621,6 +622,97 @@ it('catches all tool errors in concurrent path when every tool fails', function 
     expect($erroredEvents)->toHaveCount(2);
 });
 
+it('preserves exception type in concurrent AgentToolCallFailed event', function () {
+    $driver = makeMockDriver([
+        new TextResponse(
+            'Running tools.',
+            new Usage(10, 10),
+            FinishReason::ToolCalls,
+            toolCalls: [
+                new ToolCall('tc-1', 'echo', ['text' => 'a']),
+                new ToolCall('tc-2', 'fail_custom', []),
+            ],
+        ),
+        new TextResponse('One failed.', new Usage(20, 20), FinishReason::Stop),
+    ]);
+
+    // Tool that throws a custom exception type
+    $customFailTool = new class extends Tool
+    {
+        public function name(): string
+        {
+            return 'fail_custom';
+        }
+
+        public function description(): string
+        {
+            return 'Throws AtlasException.';
+        }
+
+        public function handle(array $args, array $context): mixed
+        {
+            throw new AtlasException('Custom error');
+        }
+    };
+
+    $dispatcher = makeFakeDispatcher();
+    $registry = new ToolRegistry([makeEchoTool(), $customFailTool]);
+    $toolExecutor = new ToolExecutor($registry);
+    $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
+
+    $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: true, meta: []);
+
+    $erroredEvents = array_values(array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentToolCallFailed));
+    expect($erroredEvents)->toHaveCount(1);
+    // Exception type should be preserved, not wrapped in RuntimeException
+    expect($erroredEvents[0]->exception)->toBeInstanceOf(AtlasException::class);
+    expect($erroredEvents[0]->exception->getMessage())->toBe('Custom error');
+});
+
+it('preserves exception type in sequential AgentToolCallFailed event', function () {
+    $driver = makeMockDriver([
+        new TextResponse(
+            'Running tools.',
+            new Usage(10, 10),
+            FinishReason::ToolCalls,
+            toolCalls: [
+                new ToolCall('tc-1', 'fail_custom', []),
+            ],
+        ),
+        new TextResponse('Failed.', new Usage(20, 20), FinishReason::Stop),
+    ]);
+
+    $customFailTool = new class extends Tool
+    {
+        public function name(): string
+        {
+            return 'fail_custom';
+        }
+
+        public function description(): string
+        {
+            return 'Throws AtlasException.';
+        }
+
+        public function handle(array $args, array $context): mixed
+        {
+            throw new AtlasException('Custom error');
+        }
+    };
+
+    $dispatcher = makeFakeDispatcher();
+    $registry = new ToolRegistry([$customFailTool]);
+    $toolExecutor = new ToolExecutor($registry);
+    $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
+
+    $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: false, meta: []);
+
+    $erroredEvents = array_values(array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentToolCallFailed));
+    expect($erroredEvents)->toHaveCount(1);
+    expect($erroredEvents[0]->exception)->toBeInstanceOf(AtlasException::class);
+    expect($erroredEvents[0]->exception->getMessage())->toBe('Custom error');
+});
+
 it('executes multiple tool calls sequentially when concurrent is false', function () {
     $driver = makeMockDriver([
         new TextResponse(
@@ -807,7 +899,7 @@ it('dispatches AgentStarted before the tool loop', function () {
     $toolExecutor = new ToolExecutor($registry);
     $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
 
-    $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: true, meta: [], agentKey: 'test-agent');
+    $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: true, meta: [], context: new ExecutionContext(agentKey: 'test-agent'));
 
     $started = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentStarted);
     expect($started)->toHaveCount(1);
@@ -907,7 +999,7 @@ it('dispatches events in correct lifecycle order', function () {
     $toolExecutor = new ToolExecutor($registry);
     $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
 
-    $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: true, meta: [], agentKey: 'order-test');
+    $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: true, meta: [], context: new ExecutionContext(agentKey: 'order-test'));
 
     $eventClasses = array_map(fn ($e) => $e::class, $dispatcher->dispatched);
 
@@ -927,4 +1019,121 @@ it('dispatches events in correct lifecycle order', function () {
     $completed = array_values(array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentCompleted));
     expect($completed[0]->agentKey)->toBe('order-test');
     expect($completed[0]->usage->inputTokens)->toBe(20);  // 10 + 10 from two steps
+});
+
+// ─── reconstructException ───────────────────────────────────────────────────
+
+it('reconstructException returns correct exception type for known class', function () {
+    $driver = makeMockDriver([
+        new TextResponse('Done.', new Usage(10, 20), FinishReason::Stop),
+    ]);
+    $dispatcher = makeFakeDispatcher();
+    $registry = new ToolRegistry([]);
+    $toolExecutor = new ToolExecutor($registry);
+
+    $executor = new class($driver, $toolExecutor, $dispatcher) extends AgentExecutor
+    {
+        public function testReconstruct(?string $class, string $message): \Throwable
+        {
+            return $this->reconstructException($class, $message);
+        }
+    };
+
+    $exception = $executor->testReconstruct(\InvalidArgumentException::class, 'bad input');
+
+    expect($exception)->toBeInstanceOf(\InvalidArgumentException::class);
+    expect($exception->getMessage())->toBe('bad input');
+});
+
+it('reconstructException falls back to RuntimeException for null class', function () {
+    $driver = makeMockDriver([
+        new TextResponse('Done.', new Usage(10, 20), FinishReason::Stop),
+    ]);
+    $dispatcher = makeFakeDispatcher();
+    $registry = new ToolRegistry([]);
+    $toolExecutor = new ToolExecutor($registry);
+
+    $executor = new class($driver, $toolExecutor, $dispatcher) extends AgentExecutor
+    {
+        public function testReconstruct(?string $class, string $message): \Throwable
+        {
+            return $this->reconstructException($class, $message);
+        }
+    };
+
+    $exception = $executor->testReconstruct(null, 'something failed');
+
+    expect($exception)->toBeInstanceOf(\RuntimeException::class);
+    expect($exception->getMessage())->toBe('something failed');
+});
+
+it('reconstructException falls back to RuntimeException for non-existent class', function () {
+    $driver = makeMockDriver([
+        new TextResponse('Done.', new Usage(10, 20), FinishReason::Stop),
+    ]);
+    $dispatcher = makeFakeDispatcher();
+    $registry = new ToolRegistry([]);
+    $toolExecutor = new ToolExecutor($registry);
+
+    $executor = new class($driver, $toolExecutor, $dispatcher) extends AgentExecutor
+    {
+        public function testReconstruct(?string $class, string $message): \Throwable
+        {
+            return $this->reconstructException($class, $message);
+        }
+    };
+
+    $exception = $executor->testReconstruct('NonExistent\\Exception\\Class', 'gone');
+
+    expect($exception)->toBeInstanceOf(\RuntimeException::class);
+});
+
+it('stores exceptionClass on sequential error ToolResult', function () {
+    $driver = makeMockDriver([
+        new TextResponse(
+            'Running tool.',
+            new Usage(10, 10),
+            FinishReason::ToolCalls,
+            toolCalls: [new ToolCall('tc-1', 'fail', [])],
+        ),
+        new TextResponse('Failed.', new Usage(20, 20), FinishReason::Stop),
+    ]);
+
+    $dispatcher = makeFakeDispatcher();
+    $registry = new ToolRegistry([makeFailingTool()]);
+    $toolExecutor = new ToolExecutor($registry);
+    $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
+
+    $result = $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: false, meta: []);
+
+    $toolResult = $result->steps[0]->toolResults[0];
+    expect($toolResult->isError)->toBeTrue();
+    expect($toolResult->exceptionClass)->toBe(\RuntimeException::class);
+});
+
+// ─── forTools factory ───────────────────────────────────────────────────────
+
+it('creates a working executor via forTools factory', function () {
+    $driver = makeMockDriver([
+        new TextResponse(
+            'Using echo.',
+            new Usage(10, 10),
+            FinishReason::ToolCalls,
+            toolCalls: [new ToolCall('tc-1', 'echo', ['text' => 'hello'])],
+        ),
+        new TextResponse('Done.', new Usage(10, 10), FinishReason::Stop),
+    ]);
+
+    $dispatcher = makeFakeDispatcher();
+
+    $executor = AgentExecutor::forTools(
+        driver: $driver,
+        tools: [makeEchoTool()],
+        events: $dispatcher,
+    );
+
+    $result = $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: false, meta: []);
+
+    expect($result->totalSteps())->toBe(2);
+    expect($result->steps[0]->toolResults[0]->content)->toBe('hello');
 });

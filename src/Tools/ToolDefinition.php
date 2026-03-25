@@ -20,4 +20,12 @@ class ToolDefinition
         public readonly string $description,
         public readonly array $parameters,
     ) {}
+
+    /**
+     * Whether this tool definition has parameters defined.
+     */
+    public function hasParameters(): bool
+    {
+        return $this->parameters !== [];
+    }
 }

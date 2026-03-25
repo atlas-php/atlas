@@ -18,3 +18,15 @@ it('accepts empty parameters', function () {
 
     expect($definition->parameters)->toBe([]);
 });
+
+it('returns true from hasParameters when parameters exist', function () {
+    $definition = new ToolDefinition('search', 'Search', ['type' => 'object', 'properties' => ['q' => ['type' => 'string']]]);
+
+    expect($definition->hasParameters())->toBeTrue();
+});
+
+it('returns false from hasParameters when parameters are empty', function () {
+    $definition = new ToolDefinition('ping', 'Ping', []);
+
+    expect($definition->hasParameters())->toBeFalse();
+});

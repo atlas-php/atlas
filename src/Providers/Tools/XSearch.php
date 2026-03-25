@@ -35,12 +35,24 @@ class XSearch extends ProviderTool
      */
     public function config(): array
     {
-        return array_filter([
-            'from_date' => $this->fromDate,
-            'to_date' => $this->toDate,
-            'allowed_x_handles' => $this->allowedXHandles,
-            'enable_image_understanding' => $this->enableImageUnderstanding ? true : null,
-            'enable_video_understanding' => $this->enableVideoUnderstanding ? true : null,
-        ]);
+        $config = [];
+
+        if ($this->fromDate !== null) {
+            $config['from_date'] = $this->fromDate;
+        }
+        if ($this->toDate !== null) {
+            $config['to_date'] = $this->toDate;
+        }
+        if ($this->allowedXHandles !== null) {
+            $config['allowed_x_handles'] = $this->allowedXHandles;
+        }
+        if ($this->enableImageUnderstanding) {
+            $config['enable_image_understanding'] = true;
+        }
+        if ($this->enableVideoUnderstanding) {
+            $config['enable_video_understanding'] = true;
+        }
+
+        return $config;
     }
 }

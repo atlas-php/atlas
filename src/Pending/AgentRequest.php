@@ -17,9 +17,8 @@ use Atlasphp\Atlas\Events\ModalityStarted;
 use Atlasphp\Atlas\Events\VoiceCallStarted;
 use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Executor\AgentExecutor;
+use Atlasphp\Atlas\Executor\ExecutionContext;
 use Atlasphp\Atlas\Executor\ExecutorResult;
-use Atlasphp\Atlas\Executor\ToolExecutor;
-use Atlasphp\Atlas\Executor\ToolRegistry;
 use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Input\Input;
 use Atlasphp\Atlas\Messages\Message;
@@ -534,17 +533,15 @@ class AgentRequest implements QueueableRequestContract
         $toolMap = [];
 
         if ($tools !== []) {
-            $toolDefs = [];
+            // Voice sessions always target OpenAI Realtime API which uses
+            // the flat function format — direct instantiation is intentional.
+            $toolMapper = new \Atlasphp\Atlas\Providers\OpenAi\ToolMapper;
+            $toolDefs = $toolMapper->mapTools(
+                array_map(fn (Tool $tool) => $tool->toDefinition(), $tools),
+            );
 
             foreach ($tools as $tool) {
-                $def = $tool->toDefinition();
-                $toolDefs[] = [
-                    'type' => 'function',
-                    'name' => $def->name,
-                    'description' => $def->description,
-                    'parameters' => $def->parameters,
-                ];
-                $toolMap[$def->name] = $tool::class;
+                $toolMap[$tool->name()] = $tool::class;
             }
 
             $builder->withTools($toolDefs);
@@ -949,19 +946,11 @@ class AgentRequest implements QueueableRequestContract
             $tools,
         ));
 
-        // ToolRegistry is a stateless value object (immutable map) and ToolExecutor
-        // is a thin wrapper with no external dependencies — direct instantiation is
-        // intentional here to avoid unnecessary container overhead.
-        $toolRegistry = new ToolRegistry($tools);
-        $toolExecutor = new ToolExecutor($toolRegistry);
-
-        $middlewareStack = $this->app->make(MiddlewareStack::class);
-
-        $agentExecutor = new AgentExecutor(
+        $agentExecutor = AgentExecutor::forTools(
             driver: $driver,
-            toolExecutor: $toolExecutor,
+            tools: $tools,
             events: $this->events,
-            middlewareStack: $middlewareStack,
+            middlewareStack: $this->app->make(MiddlewareStack::class),
         );
 
         $maxSteps = $this->maxStepsOverride ?? $agent->maxSteps();
@@ -973,11 +962,13 @@ class AgentRequest implements QueueableRequestContract
             maxSteps: $maxSteps,
             concurrent: $concurrent,
             meta: $meta,
-            agentKey: $agent->key(),
-            provider: $provider,
-            model: $model,
-            traceId: $traceId,
-            broadcastChannel: $this->broadcastChannel,
+            context: new ExecutionContext(
+                agentKey: $agent->key(),
+                provider: $provider,
+                model: $model,
+                traceId: $traceId,
+                broadcastChannel: $this->broadcastChannel,
+            ),
         );
     }
 

@@ -251,7 +251,7 @@ it('withProviderTools includes provider tools in built request', function () {
     expect($request->providerTools[0])->toBeInstanceOf(WebSearch::class);
 });
 
-it('hasTools is true when tools are set', function () {
+it('routes atlas tools through executor', function () {
     $tool = new class extends Tool
     {
         public function name(): string
@@ -287,19 +287,22 @@ it('hasTools is true when tools are set', function () {
     expect($result->steps)->toHaveCount(1);
 });
 
-it('hasTools is true when only providerTools are set', function () {
+it('routes provider-only tools directly to driver without executor', function () {
     $driver = Mockery::mock(Driver::class);
     $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
     $driver->shouldReceive('text')->once()->andReturn(
         new TextResponse('provider tool response', new Usage(10, 5), FinishReason::Stop)
     );
 
+    // Provider-only tools skip the executor — they are handled server-side
     $result = createTextPending($driver)
         ->withProviderTools([new WebSearch])
         ->message('test')
         ->asText();
 
     expect($result->text)->toBe('provider tool response');
+    // No steps array — did not go through executor
+    expect($result->steps)->toBeEmpty();
 });
 
 it('asStream with tools returns StreamResponse via executor', function () {

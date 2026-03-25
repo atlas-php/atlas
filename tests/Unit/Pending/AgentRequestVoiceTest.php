@@ -183,7 +183,12 @@ it('registers tool definitions from agent tools', function () {
     $recorded = $fake->recorded();
     expect($recorded)->toHaveCount(1);
     expect($recorded[0]->request->tools)->not->toBeEmpty();
-    expect($recorded[0]->request->tools[0]['name'])->toBe('echo');
+
+    $toolDef = $recorded[0]->request->tools[0];
+    expect($toolDef['name'])->toBe('echo');
+    expect($toolDef['type'])->toBe('function');
+    expect($toolDef['description'])->toBe('Echoes input.');
+    expect($toolDef)->toHaveKey('parameters');
 });
 
 // ─── Cache storage ─────────────────────────────────────────────────────────

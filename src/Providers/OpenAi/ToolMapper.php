@@ -20,7 +20,7 @@ class ToolMapper implements ToolMapperContract
     /**
      * Map Atlas ToolDefinitions to Responses API flat function format.
      *
-     * @param  array<int, mixed>  $tools
+     * @param  array<int, ToolDefinition>  $tools
      * @return array<int, array<string, mixed>>
      */
     public function mapTools(array $tools): array
@@ -30,7 +30,7 @@ class ToolMapper implements ToolMapperContract
                 'type' => 'function',
                 'name' => $tool->name,
                 'description' => $tool->description,
-                'parameters' => $tool->parameters !== [] ? $tool->parameters : (object) [],
+                'parameters' => $tool->hasParameters() ? $tool->parameters : (object) [],
             ];
 
             // Strict mode requires ALL properties in required — only enable
@@ -69,7 +69,7 @@ class ToolMapper implements ToolMapperContract
     /**
      * Map Atlas provider tools to their native Responses API format.
      *
-     * @param  array<int, mixed>  $providerTools
+     * @param  array<int, ProviderTool>  $providerTools
      * @return array<int, array<string, mixed>>
      */
     public function mapProviderTools(array $providerTools): array
@@ -88,7 +88,7 @@ class ToolMapper implements ToolMapperContract
         return array_map(fn (array $item) => new ToolCall(
             id: $item['call_id'] ?? '',
             name: $item['name'] ?? '',
-            arguments: json_decode($item['arguments'] ?? '{}', true) ?? [],
+            arguments: json_decode($item['arguments'] ?? '{}', true, 512, JSON_THROW_ON_ERROR),
         ), $rawToolCalls);
     }
 }

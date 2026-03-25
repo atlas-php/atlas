@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Providers\Anthropic\ToolMapper;
+use Atlasphp\Atlas\Providers\Tools\WebSearch;
 use Atlasphp\Atlas\Tools\ToolDefinition;
+use Illuminate\Support\Facades\Log;
 
 it('maps tools to input_schema format', function () {
     $mapper = new ToolMapper;
@@ -63,6 +65,21 @@ it('parses empty tool calls returns empty', function () {
     $mapper = new ToolMapper;
 
     $result = $mapper->parseToolCalls([]);
+
+    expect($result)->toBe([]);
+});
+
+it('logs warning when provider tools are passed', function () {
+    Log::shouldReceive('warning')
+        ->once()
+        ->withArgs(function (string $message, array $context) {
+            return str_contains($message, 'not supported')
+                && $context['provider'] === 'anthropic'
+                && $context['tools'] === ['web_search'];
+        });
+
+    $mapper = new ToolMapper;
+    $result = $mapper->mapProviderTools([new WebSearch]);
 
     expect($result)->toBe([]);
 });
