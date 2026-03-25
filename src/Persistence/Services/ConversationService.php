@@ -242,9 +242,19 @@ class ConversationService
      *
      * @throws \RuntimeException If the last response cannot be retried
      */
-    public function prepareRetry(Conversation $conversation): int
+    /**
+     * Prepare a conversation for retry by deactivating the current active response.
+     *
+     * Returns the parent user message ID and the IDs of deactivated messages,
+     * so the caller can restore them if execution fails.
+     *
+     * @return array{parentId: int, deactivatedIds: array<int, int>}
+     *
+     * @throws \RuntimeException If the last response cannot be retried
+     */
+    public function prepareRetry(Conversation $conversation): array
     {
-        return DB::transaction(function () use ($conversation): int {
+        return DB::transaction(function () use ($conversation): array {
             /** @var class-string<Message> $messageModel */
             $messageModel = $this->messageModel;
 
@@ -272,14 +282,37 @@ class ConversationService
                 throw new \RuntimeException('Cannot retry a message without a parent.');
             }
 
-            // Deactivate the current active group (all messages with this parent that are active)
-            $messageModel::where('conversation_id', $conversation->id)
+            // Collect IDs before deactivating so we can restore on failure
+            $deactivatedIds = $messageModel::where('conversation_id', $conversation->id)
                 ->where('parent_id', $parentId)
                 ->where('is_active', true)
+                ->pluck('id')
+                ->all();
+
+            // Deactivate the current active group
+            $messageModel::whereIn('id', $deactivatedIds)
                 ->update(['is_active' => false]);
 
-            return $parentId;
+            return ['parentId' => $parentId, 'deactivatedIds' => $deactivatedIds];
         });
+    }
+
+    /**
+     * Restore messages deactivated by prepareRetry() when execution fails.
+     *
+     * @param  array<int, int>  $messageIds
+     */
+    public function restoreRetryTarget(array $messageIds): void
+    {
+        if ($messageIds === []) {
+            return;
+        }
+
+        /** @var class-string<Message> $messageModel */
+        $messageModel = $this->messageModel;
+
+        $messageModel::whereIn('id', $messageIds)
+            ->update(['is_active' => true]);
     }
 
     /**

@@ -39,7 +39,7 @@ it('performs a full retry lifecycle preserving sequences', function () {
         ->and($responseA->sequence)->toBe(1);
 
     // prepareRetry deactivates seq 1
-    $parentId = $this->service->prepareRetry($conversation);
+    $parentId = $this->service->prepareRetry($conversation)['parentId'];
 
     expect($parentId)->toBe($userMsg->id);
 
@@ -96,7 +96,7 @@ it('toggles active state so loadMessages returns only the active sibling', funct
     );
 
     // Retry → deactivates Response A
-    $parentId = $this->service->prepareRetry($conversation);
+    $parentId = $this->service->prepareRetry($conversation)['parentId'];
 
     // Response B (active)
     $this->service->addAssistantMessages(
@@ -229,7 +229,7 @@ it('maintains parent_id consistency across multiple retries', function () {
     );
 
     // Retry 1 → get parentId
-    $parentId1 = $this->service->prepareRetry($conversation);
+    $parentId1 = $this->service->prepareRetry($conversation)['parentId'];
 
     // Response 2
     $this->service->addAssistantMessages(
@@ -240,7 +240,7 @@ it('maintains parent_id consistency across multiple retries', function () {
     );
 
     // Retry 2 → get parentId again
-    $parentId2 = $this->service->prepareRetry($conversation);
+    $parentId2 = $this->service->prepareRetry($conversation)['parentId'];
 
     // Response 3
     $this->service->addAssistantMessages(
@@ -390,7 +390,7 @@ it('excludes inactive sibling tool messages from loadMessages', function () {
     );
 
     // Retry → deactivates execution A messages
-    $parentId = $this->service->prepareRetry($conversation);
+    $parentId = $this->service->prepareRetry($conversation)['parentId'];
 
     // ── Execution B (active) ────────────────────────────────────
     $executionB = Execution::factory()->completed()->create([
@@ -521,7 +521,7 @@ it('groups multi-step responses as single sibling groups', function () {
     );
 
     // Retry → deactivates execution A messages
-    $parentId = $this->service->prepareRetry($conversation);
+    $parentId = $this->service->prepareRetry($conversation)['parentId'];
 
     // ── Execution B: 2-step response ──
     $executionB = Execution::factory()->completed()->create([
@@ -600,7 +600,7 @@ it('cycleSibling activates all messages in a multi-step group', function () {
     );
 
     // Retry
-    $parentId = $this->service->prepareRetry($conversation);
+    $parentId = $this->service->prepareRetry($conversation)['parentId'];
 
     // ── Execution B: 2 steps ──
     $executionB = Execution::factory()->completed()->create([

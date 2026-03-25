@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\Enums\FinishReason;
+use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Exceptions\MaxStepsExceededException;
 use Atlasphp\Atlas\Executor\ExecutorResult;
 use Atlasphp\Atlas\Middleware\AgentContext;
@@ -184,6 +185,41 @@ it('falls back to config defaults when agent provider and model are null', funct
 
     expect($execution->provider)->toBe('config-provider')
         ->and($execution->model)->toBe('config-model');
+});
+
+it('handles Provider enum returned from agent provider method', function () {
+    $middleware = app(TrackExecution::class);
+
+    $agent = new class extends Agent
+    {
+        public function key(): string
+        {
+            return 'enum-provider-agent';
+        }
+
+        public function provider(): Provider|string|null
+        {
+            return Provider::xAI;
+        }
+
+        public function model(): ?string
+        {
+            return 'grok-4';
+        }
+    };
+
+    $context = new AgentContext(
+        request: makeExecutionTextRequest(),
+        agent: $agent,
+        meta: [],
+    );
+
+    $result = $middleware->handle($context, fn () => makeExecutionFakeResult());
+
+    $execution = Execution::latest('id')->first();
+
+    expect($execution->provider)->toBe('xai')
+        ->and($execution->model)->toBe('grok-4');
 });
 
 it('marks execution failed when MaxStepsExceededException is thrown', function () {

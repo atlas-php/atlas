@@ -204,9 +204,10 @@ it('deactivates current active group and returns parentId', function () {
         'sequence' => 1,
     ]);
 
-    $parentId = $this->service->prepareRetry($conversation);
+    $result = $this->service->prepareRetry($conversation);
 
-    expect($parentId)->toBe($userMsg->id);
+    expect($result['parentId'])->toBe($userMsg->id)
+        ->and($result['deactivatedIds'])->toBe([$assistantMsg->id]);
 
     // The assistant message should now be inactive
     $assistantMsg->refresh();

@@ -8,6 +8,7 @@ use App\Tools\GenerateImageTool;
 use App\Tools\GenerateSpeechTool;
 use App\Tools\GenerateVideoTool;
 use Atlasphp\Atlas\Agent;
+use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Persistence\Concerns\HasConversations;
 use Atlasphp\Atlas\Persistence\Memory\Tools\MemoryRecall;
 use Atlasphp\Atlas\Persistence\Memory\Tools\MemorySearch;
@@ -35,6 +36,16 @@ class AssistantAgent extends Agent
     public function name(): string
     {
         return 'Sarah';
+    }
+
+    public function provider(): Provider|string|null
+    {
+        return Provider::xAI;
+    }
+
+    public function model(): ?string
+    {
+        return 'grok-4.20-0309-reasoning';
     }
 
     public function instructions(): string

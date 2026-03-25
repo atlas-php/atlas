@@ -70,8 +70,14 @@ class PersistConversation
         $consumerMeta = $context->request->meta;
 
         // ── Retry preparation — deactivate current response BEFORE loading history
+        // so the old response is excluded from the conversation context sent to the LLM.
+        // If execution fails, the deactivated messages are restored (see catch below).
+        $deactivatedIds = [];
+
         if ($agent->isRetrying()) {
-            $agent->setRetryParentId($this->conversations->prepareRetry($conversation));
+            $retry = $this->conversations->prepareRetry($conversation);
+            $agent->setRetryParentId($retry['parentId']);
+            $deactivatedIds = $retry['deactivatedIds'];
         }
 
         // ── Capture the user message BEFORE prepending history
@@ -131,7 +137,17 @@ class PersistConversation
         }
 
         // ── Execute the agent ────────────────────────────────────
-        $result = $next($context);
+        try {
+            $result = $next($context);
+        } catch (\Throwable $e) {
+            // If execution fails during a retry, restore the deactivated messages
+            // so the user doesn't lose their previous assistant response.
+            if ($deactivatedIds !== []) {
+                $this->conversations->restoreRetryTarget($deactivatedIds);
+            }
+
+            throw $e;
+        }
 
         // Conversation persistence only applies to ExecutorResult (agent with tools).
         // Tool-free agent calls return TextResponse and skip persistence here.
