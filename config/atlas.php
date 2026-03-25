@@ -332,9 +332,9 @@ return [
         // Model overrides — extend base models with your own
         'models' => [
             // 'conversation'        => \Atlasphp\Atlas\Persistence\Models\Conversation::class,
-            // 'message'             => \Atlasphp\Atlas\Persistence\Models\Message::class,
+            // 'conversation_message' => \Atlasphp\Atlas\Persistence\Models\ConversationMessage::class,
             // 'asset'               => \Atlasphp\Atlas\Persistence\Models\Asset::class,
-            // 'message_attachment'   => \Atlasphp\Atlas\Persistence\Models\MessageAttachment::class,
+            // 'conversation_message_asset' => \Atlasphp\Atlas\Persistence\Models\ConversationMessageAsset::class,
             // 'execution'           => \Atlasphp\Atlas\Persistence\Models\Execution::class,
             // 'execution_step'      => \Atlasphp\Atlas\Persistence\Models\ExecutionStep::class,
             // 'execution_tool_call' => \Atlasphp\Atlas\Persistence\Models\ExecutionToolCall::class,

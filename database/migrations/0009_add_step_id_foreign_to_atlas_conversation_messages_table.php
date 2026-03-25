@@ -20,7 +20,7 @@ return new class extends Migration
 
     public function up(): void
     {
-        Schema::table($this->tableName('messages'), function (Blueprint $table) {
+        Schema::table($this->tableName('conversation_messages'), function (Blueprint $table) {
             $table->foreign('step_id')
                 ->references('id')
                 ->on($this->tableName('execution_steps'))
@@ -30,7 +30,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table($this->tableName('messages'), function (Blueprint $table) {
+        Schema::table($this->tableName('conversation_messages'), function (Blueprint $table) {
             $table->dropForeign(['step_id']);
         });
     }

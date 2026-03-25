@@ -5,8 +5,8 @@ declare(strict_types=1);
 use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Persistence\Enums\MessageStatus;
 use Atlasphp\Atlas\Persistence\Models\Conversation;
+use Atlasphp\Atlas\Persistence\Models\ConversationMessage;
 use Atlasphp\Atlas\Persistence\Models\Execution;
-use Atlasphp\Atlas\Persistence\Models\Message;
 use Atlasphp\Atlas\Persistence\ProcessQueuedMessage;
 use Atlasphp\Atlas\Persistence\Services\ConversationService;
 use Illuminate\Contracts\Queue\Job;
@@ -71,13 +71,13 @@ it('returns early when queue is empty', function () {
     $conversations = app(ConversationService::class);
     $job->handle($conversations);
 
-    expect(Message::count())->toBe(0);
+    expect(ConversationMessage::count())->toBe(0);
 });
 
 it('delivers next queued message and re-queues on agent failure', function () {
     $conversation = Conversation::factory()->create();
 
-    $message = Message::factory()->queued()->create([
+    $message = ConversationMessage::factory()->queued()->create([
         'conversation_id' => $conversation->id,
         'content' => 'Hello from queue',
         'sequence' => 0,
@@ -106,7 +106,7 @@ it('delivers next queued message and re-queues on agent failure', function () {
 it('marks message as failed when all retries exhausted', function () {
     $conversation = Conversation::factory()->create();
 
-    $message = Message::factory()->create([
+    $message = ConversationMessage::factory()->create([
         'conversation_id' => $conversation->id,
         'content' => 'Will fail permanently',
         'status' => MessageStatus::Delivered,

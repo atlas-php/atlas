@@ -5,10 +5,10 @@ declare(strict_types=1);
 use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Persistence\Enums\MessageRole;
 use Atlasphp\Atlas\Persistence\Models\Conversation;
+use Atlasphp\Atlas\Persistence\Models\ConversationMessage;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\ExecutionStep;
 use Atlasphp\Atlas\Persistence\Models\ExecutionToolCall;
-use Atlasphp\Atlas\Persistence\Models\Message;
 use Atlasphp\Atlas\Persistence\Services\ConversationService;
 
 beforeEach(function () {
@@ -62,7 +62,7 @@ it('performs a full retry lifecycle preserving sequences', function () {
         ->and($responseA->parent_id)->toBe($userMsg->id);
 
     // Sequences are 0, 1, 2 — no gaps
-    $allSequences = Message::where('conversation_id', $conversation->id)
+    $allSequences = ConversationMessage::where('conversation_id', $conversation->id)
         ->orderBy('sequence')
         ->pluck('sequence')
         ->all();
@@ -185,7 +185,7 @@ it('cycles through three retry groups correctly', function () {
     // cycleSibling to group 1 → R1 active
     $this->service->cycleSibling($conversation, $userMsg->id, 1);
 
-    $r1 = Message::where('conversation_id', $conversation->id)
+    $r1 = ConversationMessage::where('conversation_id', $conversation->id)
         ->where('content', 'R1')
         ->first();
     $infoR1 = $this->service->siblingInfo($r1);
@@ -255,7 +255,7 @@ it('maintains parent_id consistency across multiple retries', function () {
         ->and($parentId2)->toBe($userMsg->id);
 
     // All three assistant messages have identical parent_id pointing to user message
-    $parentIds = Message::where('conversation_id', $conversation->id)
+    $parentIds = ConversationMessage::where('conversation_id', $conversation->id)
         ->where('role', MessageRole::Assistant)
         ->pluck('parent_id')
         ->unique()
@@ -476,7 +476,7 @@ it('increments sequences correctly across retries with no gaps or collisions', f
         ->and($second[1]->sequence)->toBe(4);
 
     // Verify all sequences: 0, 1, 2, 3, 4
-    $allSequences = Message::where('conversation_id', $conversation->id)
+    $allSequences = ConversationMessage::where('conversation_id', $conversation->id)
         ->orderBy('sequence')
         ->pluck('sequence')
         ->all();
@@ -548,7 +548,7 @@ it('groups multi-step responses as single sibling groups', function () {
     );
 
     // Should be 2 groups, not 4
-    $anyChild = Message::where('parent_id', $userMsg->id)->first();
+    $anyChild = ConversationMessage::where('parent_id', $userMsg->id)->first();
     $groups = $anyChild->siblingGroups();
 
     expect($groups)->toHaveCount(2)
@@ -556,7 +556,7 @@ it('groups multi-step responses as single sibling groups', function () {
         ->and($groups[1])->toHaveCount(2);
 
     // siblingInfo reflects correct grouping
-    $activeMessage = Message::where('parent_id', $userMsg->id)
+    $activeMessage = ConversationMessage::where('parent_id', $userMsg->id)
         ->where('is_active', true)
         ->first();
     $info = $this->service->siblingInfo($activeMessage);
@@ -627,7 +627,7 @@ it('cycleSibling activates all messages in a multi-step group', function () {
     );
 
     // Active should be B (both steps)
-    $active = Message::where('conversation_id', $conversation->id)
+    $active = ConversationMessage::where('conversation_id', $conversation->id)
         ->where('parent_id', $userMsg->id)
         ->where('is_active', true)
         ->pluck('content')
@@ -637,7 +637,7 @@ it('cycleSibling activates all messages in a multi-step group', function () {
     // Cycle to group 1 → both A steps should activate
     $this->service->cycleSibling($conversation, $userMsg->id, 1);
 
-    $active = Message::where('conversation_id', $conversation->id)
+    $active = ConversationMessage::where('conversation_id', $conversation->id)
         ->where('parent_id', $userMsg->id)
         ->where('is_active', true)
         ->pluck('content')

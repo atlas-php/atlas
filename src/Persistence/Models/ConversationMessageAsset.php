@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Models;
 
-use Atlasphp\Atlas\Database\Factories\MessageAttachmentFactory;
+use Atlasphp\Atlas\Database\Factories\ConversationMessageAssetFactory;
 use Atlasphp\Atlas\Persistence\Concerns\HasAtlasTable;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 
 /**
- * Class MessageAttachment
+ * Class MessageAsset
  *
  * Join model linking messages to assets. A message can have multiple attachments and an asset
  * can be referenced by multiple messages. No direction column — the parent message's role
@@ -25,19 +25,19 @@ use Illuminate\Support\Carbon;
  * @property array<string, mixed>|null $metadata
  * @property Carbon $created_at
  */
-class MessageAttachment extends Model
+class ConversationMessageAsset extends Model
 {
     /** @use HasFactory<Factory<static>> */
     use HasAtlasTable, HasFactory;
 
-    protected static function newFactory(): MessageAttachmentFactory
+    protected static function newFactory(): ConversationMessageAssetFactory
     {
-        return MessageAttachmentFactory::new();
+        return ConversationMessageAssetFactory::new();
     }
 
     public const UPDATED_AT = null;
 
-    protected $table = 'message_attachments';
+    protected $table = 'conversation_message_assets';
 
     protected $fillable = [
         'message_id',
@@ -54,11 +54,11 @@ class MessageAttachment extends Model
 
     // ─── Relationships ──────────────────────────────────────────
 
-    /** @return BelongsTo<Message, $this> */
+    /** @return BelongsTo<ConversationMessage, $this> */
     public function message(): BelongsTo
     {
-        /** @var class-string<Message> $model */
-        $model = config('atlas.persistence.models.message', Message::class);
+        /** @var class-string<ConversationMessage> $model */
+        $model = config('atlas.persistence.models.conversation_message', ConversationMessage::class);
 
         return $this->belongsTo($model);
     }

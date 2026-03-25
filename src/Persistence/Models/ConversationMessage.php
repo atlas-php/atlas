@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Models;
 
-use Atlasphp\Atlas\Database\Factories\MessageFactory;
+use Atlasphp\Atlas\Database\Factories\ConversationMessageFactory;
 use Atlasphp\Atlas\Messages\AssistantMessage;
 use Atlasphp\Atlas\Messages\Message as AtlasMessage;
 use Atlasphp\Atlas\Messages\SystemMessage;
@@ -25,7 +25,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 /**
- * Class Message
+ * Class ConversationMessage
  *
  * Represents a single message within a conversation. Supports user, assistant, and system roles
  * with polymorphic ownership, read/queue status tracking, sibling/retry grouping, and conversion
@@ -48,34 +48,34 @@ use Illuminate\Support\Collection;
  * @property Carbon|null $embedding_at
  * @property array<mixed>|null $metadata
  */
-class Message extends Model
+class ConversationMessage extends Model
 {
     /** @use HasFactory<Factory<static>> */
     use HasAtlasTable, HasFactory, HasOwner;
 
-    protected static function newFactory(): MessageFactory
+    protected static function newFactory(): ConversationMessageFactory
     {
-        return MessageFactory::new();
+        return ConversationMessageFactory::new();
     }
 
-    protected $table = 'messages';
+    protected $table = 'conversation_messages';
 
     protected $fillable = [
         'conversation_id',
         'parent_id',
         'step_id',
-        'role',
-        'status',
         'owner_type',
         'owner_id',
         'agent',
+        'role',
+        'status',
         'content',
         'sequence',
         'is_active',
         'read_at',
+        'metadata',
         'embedding',
         'embedding_at',
-        'metadata',
     ];
 
     protected function casts(): array
@@ -150,11 +150,11 @@ class Message extends Model
         return $this->hasMany(static::class, 'parent_id');
     }
 
-    /** @return HasMany<MessageAttachment, $this> */
+    /** @return HasMany<ConversationMessageAsset, $this> */
     public function attachments(): HasMany
     {
-        /** @var class-string<MessageAttachment> $model */
-        $model = config('atlas.persistence.models.message_attachment', MessageAttachment::class);
+        /** @var class-string<ConversationMessageAsset> $model */
+        $model = config('atlas.persistence.models.conversation_message_asset', ConversationMessageAsset::class);
 
         return $this->hasMany($model);
     }
@@ -377,7 +377,7 @@ class Message extends Model
      * Groups by execution_id (via step relationship) so multi-step responses
      * stay together. Messages without a step are each treated as their own group.
      */
-    /** @return array<int, Collection<int, Message>> */
+    /** @return array<int, Collection<int, ConversationMessage>> */
     public function siblingGroups(): array
     {
         if ($this->parent_id === null) {

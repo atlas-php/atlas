@@ -26,20 +26,20 @@ return new class extends Migration
             DB::statement('CREATE EXTENSION IF NOT EXISTS vector');
         }
 
-        Schema::create($this->tableName('messages'), function (Blueprint $table) {
+        Schema::create($this->tableName('conversation_messages'), function (Blueprint $table) {
             $table->id();
             $table->foreignId('conversation_id')
                 ->constrained($this->tableName('conversations'))
                 ->cascadeOnDelete();
             $table->foreignId('parent_id')
                 ->nullable()
-                ->constrained($this->tableName('messages'))
+                ->constrained($this->tableName('conversation_messages'))
                 ->nullOnDelete();
-            $table->unsignedBigInteger('step_id')->nullable(); // FK added in 0008 after execution_steps exists
-            $table->string('role', 20);
-            $table->string('status', 20)->default('delivered');
+            $table->unsignedBigInteger('step_id')->nullable(); // FK added in 0009 after execution_steps exists
             $table->nullableMorphs('owner');
             $table->string('agent', 255)->nullable();
+            $table->string('role', 20);
+            $table->string('status', 20)->default('delivered');
             $table->text('content')->nullable();
             $table->unsignedInteger('sequence')->default(0);
             $table->boolean('is_active')->default(true);
@@ -67,7 +67,7 @@ return new class extends Migration
 
         // Add HNSW vector index — PostgreSQL only
         if ($this->isPostgres()) {
-            $table = $this->tableName('messages');
+            $table = $this->tableName('conversation_messages');
             DB::statement(
                 "CREATE INDEX {$table}_embedding_idx ON {$table} USING hnsw (embedding vector_cosine_ops)"
             );
@@ -76,6 +76,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists($this->tableName('messages'));
+        Schema::dropIfExists($this->tableName('conversation_messages'));
     }
 };

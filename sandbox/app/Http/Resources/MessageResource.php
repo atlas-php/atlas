@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Resources;
 
 use Atlasphp\Atlas\Persistence\Models\Execution;
-use Atlasphp\Atlas\Persistence\Models\Message;
 
 /**
  * Formats a message with its full execution trace for the API.
@@ -21,7 +20,7 @@ class MessageResource
      *
      * @return array<string, mixed>
      */
-    public static function make(Message $msg): array
+    public static function make(ConversationMessage $msg): array
     {
         $data = [
             'id' => $msg->id,
@@ -62,7 +61,7 @@ class MessageResource
      *
      * @return array<string, mixed>|null
      */
-    protected static function buildExecution(Message $msg): ?array
+    protected static function buildExecution(ConversationMessage $msg): ?array
     {
         $execution = Execution::where('message_id', $msg->id)->first();
 

@@ -141,7 +141,7 @@ class GenerateChartTool extends Tool
 }
 ```
 
-When the agent execution completes, Atlas links the tool-generated asset to the stored assistant message via `MessageAttachment`. This happens automatically — no extra code needed.
+When the agent execution completes, Atlas links the tool-generated asset to the stored assistant message via `MessageAsset`. This happens automatically — no extra code needed.
 
 ### Media from Atlas Modality Calls
 

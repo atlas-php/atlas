@@ -97,11 +97,11 @@ class Execution extends Model
         return $this->belongsTo($model);
     }
 
-    /** @return BelongsTo<Message, $this> */
+    /** @return BelongsTo<ConversationMessage, $this> */
     public function triggerMessage(): BelongsTo
     {
-        /** @var class-string<Message> $model */
-        $model = config('atlas.persistence.models.message', Message::class);
+        /** @var class-string<ConversationMessage> $model */
+        $model = config('atlas.persistence.models.conversation_message', ConversationMessage::class);
 
         return $this->belongsTo($model, 'message_id');
     }

@@ -319,7 +319,7 @@ return [
             // 'conversation'        => \Atlasphp\Atlas\Persistence\Models\Conversation::class,
             // 'message'             => \Atlasphp\Atlas\Persistence\Models\Message::class,
             // 'asset'               => \Atlasphp\Atlas\Persistence\Models\Asset::class,
-            // 'message_attachment'   => \Atlasphp\Atlas\Persistence\Models\MessageAttachment::class,
+            // 'message_asset'   => \Atlasphp\Atlas\Persistence\Models\MessageAsset::class,
             // 'execution'           => \Atlasphp\Atlas\Persistence\Models\Execution::class,
             // 'execution_step'      => \Atlasphp\Atlas\Persistence\Models\ExecutionStep::class,
             // 'execution_tool_call' => \Atlasphp\Atlas\Persistence\Models\ExecutionToolCall::class,

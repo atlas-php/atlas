@@ -9,7 +9,6 @@ use Atlasphp\Atlas\Persistence\Models\Conversation;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\ExecutionStep;
 use Atlasphp\Atlas\Persistence\Models\ExecutionToolCall;
-use Atlasphp\Atlas\Persistence\Models\Message;
 
 $app = require __DIR__.'/bootstrap.php';
 
@@ -41,7 +40,7 @@ echo "\n--- Conversations ---\n";
 Conversation::all()->each(fn ($c) => print "  [{$c->id}] {$c->agent} | {$c->title}\n");
 
 echo "\n--- Messages ---\n";
-Message::orderBy('sequence')->get()->each(function ($m) {
+ConversationMessage::orderBy('sequence')->get()->each(function ($m) {
     $content = mb_substr($m->content ?? '', 0, 90);
     echo "  [{$m->id}] {$m->role->value} | parent={$m->parent_id} | step={$m->step_id} | {$content}\n";
 });

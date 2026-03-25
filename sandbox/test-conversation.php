@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Models\User;
 use Atlasphp\Atlas\Facades\Atlas;
-use Atlasphp\Atlas\Persistence\Models\Message;
 
 $app = require __DIR__.'/bootstrap.php';
 
@@ -38,7 +37,7 @@ foreach ($messages as $i => $msg) {
 
 echo "--- Conversation {$conversationId} messages ---\n";
 
-$msgs = Message::where('conversation_id', $conversationId)
+$msgs = ConversationMessage::where('conversation_id', $conversationId)
     ->where('is_active', true)
     ->orderBy('sequence')
     ->get();

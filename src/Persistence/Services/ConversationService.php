@@ -13,8 +13,8 @@ use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Enums\MessageRole;
 use Atlasphp\Atlas\Persistence\Enums\MessageStatus;
 use Atlasphp\Atlas\Persistence\Models\Conversation;
+use Atlasphp\Atlas\Persistence\Models\ConversationMessage;
 use Atlasphp\Atlas\Persistence\Models\Execution;
-use Atlasphp\Atlas\Persistence\Models\Message;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -32,7 +32,7 @@ class ConversationService
     /** @var class-string<Conversation> */
     private readonly string $conversationModel;
 
-    /** @var class-string<Message> */
+    /** @var class-string<ConversationMessage> */
     private readonly string $messageModel;
 
     /** @var class-string<Execution> */
@@ -41,7 +41,7 @@ class ConversationService
     public function __construct()
     {
         $this->conversationModel = config('atlas.persistence.models.conversation', Conversation::class);
-        $this->messageModel = config('atlas.persistence.models.message', Message::class);
+        $this->messageModel = config('atlas.persistence.models.conversation_message', ConversationMessage::class);
         $this->executionModel = config('atlas.persistence.models.execution', Execution::class);
     }
 
@@ -136,7 +136,7 @@ class ConversationService
      */
     protected function remapAtlasMessage(
         AtlasMessage $atlasMessage,
-        Message $sourceMessage,
+        ConversationMessage $sourceMessage,
         string $forAgent,
     ): AtlasMessage {
         // System messages always pass through
@@ -181,7 +181,7 @@ class ConversationService
         ?int $parentId = null,
         ?int $stepId = null,
         ?array $metadata = null,
-    ): Message {
+    ): ConversationMessage {
         return $this->createMessageFromAtlas(
             message: $message,
             conversationId: $conversation->id,
@@ -202,7 +202,7 @@ class ConversationService
      * Does NOT store ToolResultMessages — they live in execution_tool_calls.
      *
      * @param  array<int, array{text: string|null, step_id?: int|null}|object>  $steps  Step objects or arrays with 'text' and 'step_id'
-     * @return array<int, Message>
+     * @return array<int, ConversationMessage>
      */
     public function addAssistantMessages(
         Conversation $conversation,
@@ -255,7 +255,7 @@ class ConversationService
     public function prepareRetry(Conversation $conversation): array
     {
         return DB::transaction(function () use ($conversation): array {
-            /** @var class-string<Message> $messageModel */
+            /** @var class-string<ConversationMessage> $messageModel */
             $messageModel = $this->messageModel;
 
             // Find the last active assistant message
@@ -308,7 +308,7 @@ class ConversationService
             return;
         }
 
-        /** @var class-string<Message> $messageModel */
+        /** @var class-string<ConversationMessage> $messageModel */
         $messageModel = $this->messageModel;
 
         $messageModel::whereIn('id', $messageIds)
@@ -359,9 +359,9 @@ class ConversationService
     /**
      * Get sibling info for a message — for building "2 of 3" UI.
      *
-     * @return array{current: int, total: int, groups: array<int, Collection<int, Message>>}
+     * @return array{current: int, total: int, groups: array<int, Collection<int, ConversationMessage>>}
      */
-    public function siblingInfo(Message $message): array
+    public function siblingInfo(ConversationMessage $message): array
     {
         if ($message->parent_id === null) {
             return ['current' => 1, 'total' => 1, 'groups' => []];
@@ -420,7 +420,7 @@ class ConversationService
             ->count();
     }
 
-    // ─── Message Queuing ────────────────────────────────────────
+    // ─── ConversationMessage Queuing ────────────────────────────────────────
 
     /**
      * Store a user message as queued — visible in UI but invisible to the agent
@@ -437,8 +437,8 @@ class ConversationService
         AtlasMessage $message,
         ?Model $owner = null,
         array $requestContext = [],
-    ): Message {
-        return DB::transaction(function () use ($conversation, $message, $owner, $requestContext): Message {
+    ): ConversationMessage {
+        return DB::transaction(function () use ($conversation, $message, $owner, $requestContext): ConversationMessage {
             $stored = $this->createMessageFromAtlas(
                 message: $message,
                 conversationId: $conversation->id,
@@ -461,7 +461,7 @@ class ConversationService
      */
     public function lastUserMessageId(Conversation $conversation): ?int
     {
-        /** @var class-string<Message> $messageModel */
+        /** @var class-string<ConversationMessage> $messageModel */
         $messageModel = $this->messageModel;
 
         return $messageModel::where('conversation_id', $conversation->id)
@@ -476,7 +476,7 @@ class ConversationService
      */
     public function hasAssistantReply(Conversation $conversation, int $userMessageId): bool
     {
-        /** @var class-string<Message> $messageModel */
+        /** @var class-string<ConversationMessage> $messageModel */
         $messageModel = $this->messageModel;
 
         return $messageModel::where('conversation_id', $conversation->id)
@@ -502,7 +502,7 @@ class ConversationService
      * Get the next queued message in a conversation (by sequence order).
      * Returns null if no queued messages exist.
      */
-    public function nextQueuedMessage(Conversation $conversation): ?Message
+    public function nextQueuedMessage(Conversation $conversation): ?ConversationMessage
     {
         $messageModel = $this->messageModel;
 
@@ -517,7 +517,7 @@ class ConversationService
      * Deliver the next queued message — transition from queued to delivered.
      * Returns the message if one was delivered, null if queue is empty.
      */
-    public function deliverNextQueued(Conversation $conversation): ?Message
+    public function deliverNextQueued(Conversation $conversation): ?ConversationMessage
     {
         $message = $this->nextQueuedMessage($conversation);
 
@@ -530,10 +530,10 @@ class ConversationService
         return $message;
     }
 
-    // ─── Message Factory ───────────────────────────────────────
+    // ─── ConversationMessage Factory ───────────────────────────────────────
 
     /**
-     * Create a Message record from an Atlas message DTO.
+     * Create a ConversationMessage record from an Atlas message DTO.
      *
      * Only creates user, assistant, and system messages.
      * Tool interactions are NOT stored as messages — they live in execution tables.
@@ -550,7 +550,7 @@ class ConversationService
         ?int $stepId = null,
         MessageStatus $status = MessageStatus::Delivered,
         ?array $metadata = null,
-    ): Message {
+    ): ConversationMessage {
         $messageModel = $this->messageModel;
 
         $attributes = [

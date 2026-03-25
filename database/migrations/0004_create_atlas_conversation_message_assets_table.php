@@ -20,10 +20,10 @@ return new class extends Migration
 
     public function up(): void
     {
-        Schema::create($this->tableName('message_attachments'), function (Blueprint $table) {
+        Schema::create($this->tableName('conversation_message_assets'), function (Blueprint $table) {
             $table->id();
             $table->foreignId('message_id')
-                ->constrained($this->tableName('messages'))
+                ->constrained($this->tableName('conversation_messages'))
                 ->cascadeOnDelete();
             $table->foreignId('asset_id')
                 ->constrained($this->tableName('assets'))
@@ -38,6 +38,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists($this->tableName('message_attachments'));
+        Schema::dropIfExists($this->tableName('conversation_message_assets'));
     }
 };

@@ -20,8 +20,8 @@ All tables are prefixed with `atlas_` by default (configurable via `persistence.
 | Table | Purpose |
 |-------|---------|
 | `atlas_conversations` | Conversation threads between users and agents |
-| `atlas_messages` | Individual messages within conversations |
-| `atlas_message_attachments` | Links messages to generated files (images, audio, etc.) |
+| `atlas_conversation_messages` | Individual messages within conversations |
+| `atlas_conversation_message_assets` | Links messages to generated files (images, audio, etc.) |
 | `atlas_executions` | Every AI provider call — agent or direct — with tokens and timing |
 | `atlas_execution_steps` | Each round trip in the agent tool loop |
 | `atlas_execution_tool_calls` | Individual tool invocations with arguments and results |
@@ -187,7 +187,7 @@ Message
 ├── belongs to Conversation
 ├── has many siblings (same parent_id)
 ├── has many responses (children where parent_id = this.id)
-├── has many MessageAttachments
+├── has many MessageAssets
 └── belongs to Author (polymorphic)
 
 Execution
@@ -205,7 +205,7 @@ ExecutionToolCall
 └── belongs to ExecutionStep
 
 Asset
-├── has many MessageAttachments
+├── has many MessageAssets
 └── belongs to Execution (optional)
 ```
 
@@ -351,9 +351,9 @@ A stored file (image, audio, video, document) with content hashing for deduplica
 |-------|-------------|
 | `forExecution(int $executionId)` | Filter by execution |
 
-### MessageAttachment
+### MessageAsset
 
-`Atlasphp\Atlas\Persistence\Models\MessageAttachment`
+`Atlasphp\Atlas\Persistence\Models\MessageAsset`
 
 Join model linking a message to an asset. Carries metadata about which tool produced it.
 

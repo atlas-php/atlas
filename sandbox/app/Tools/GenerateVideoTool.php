@@ -8,7 +8,7 @@ use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Input\Image;
 use Atlasphp\Atlas\Persistence\Enums\AssetType;
 use Atlasphp\Atlas\Persistence\Enums\MessageRole;
-use Atlasphp\Atlas\Persistence\Models\MessageAttachment;
+use Atlasphp\Atlas\Persistence\Models\ConversationMessageAsset;
 use Atlasphp\Atlas\Schema\Fields\IntegerField;
 use Atlasphp\Atlas\Schema\Schema;
 use Atlasphp\Atlas\Tools\Tool;
@@ -64,7 +64,7 @@ class GenerateVideoTool extends Tool
             $conversationId = $context['conversation_id'] ?? null;
 
             if ($conversationId !== null) {
-                $attachment = MessageAttachment::whereHas('message', fn ($q) => $q->where('conversation_id', $conversationId)->where('role', MessageRole::User))
+                $attachment = ConversationMessageAsset::whereHas('message', fn ($q) => $q->where('conversation_id', $conversationId)->where('role', MessageRole::User))
                     ->whereHas('asset', fn ($q) => $q->where('type', AssetType::Image))
                     ->with('asset')
                     ->latest('id')

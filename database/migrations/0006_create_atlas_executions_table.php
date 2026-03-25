@@ -28,7 +28,7 @@ return new class extends Migration
                 ->nullOnDelete();
             $table->foreignId('message_id')
                 ->nullable()
-                ->constrained($this->tableName('messages'))
+                ->constrained($this->tableName('conversation_messages'))
                 ->nullOnDelete();
             $table->foreignId('voice_call_id')
                 ->nullable()

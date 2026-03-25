@@ -209,7 +209,7 @@ When persistence is enabled and an agent tool generates assets, those assets are
 1. Agent executes with tools
 2. A tool generates an image/file (via Atlas media call or `ToolAssets::store()`)
 3. `PersistConversation` middleware stores the assistant response as a message
-4. Tool-generated assets are linked to the message via `MessageAttachment` records
+4. Tool-generated assets are linked to the message via `MessageAsset` records
 
 ### Querying Attachments
 

@@ -7,13 +7,13 @@ namespace Atlasphp\Atlas\Database\Factories;
 use Atlasphp\Atlas\Persistence\Enums\MessageRole;
 use Atlasphp\Atlas\Persistence\Enums\MessageStatus;
 use Atlasphp\Atlas\Persistence\Models\Conversation;
-use Atlasphp\Atlas\Persistence\Models\Message;
+use Atlasphp\Atlas\Persistence\Models\ConversationMessage;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/** @extends Factory<Message> */
-class MessageFactory extends Factory
+/** @extends Factory<ConversationMessage> */
+class ConversationMessageFactory extends Factory
 {
-    protected $model = Message::class;
+    protected $model = ConversationMessage::class;
 
     /** @return array<string, mixed> */
     public function definition(): array

@@ -9,36 +9,36 @@ use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Persistence\Enums\MessageRole;
 use Atlasphp\Atlas\Persistence\Enums\MessageStatus;
 use Atlasphp\Atlas\Persistence\Models\Conversation;
+use Atlasphp\Atlas\Persistence\Models\ConversationMessage;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\ExecutionStep;
 use Atlasphp\Atlas\Persistence\Models\ExecutionToolCall;
-use Atlasphp\Atlas\Persistence\Models\Message;
 use Atlasphp\Atlas\Persistence\Services\ConversationService;
 use Illuminate\Database\Eloquent\Model;
 
 it('creates a valid user message via factory', function () {
-    $message = Message::factory()->fromUser()->create();
+    $message = ConversationMessage::factory()->fromUser()->create();
 
     expect($message->exists)->toBeTrue()
         ->and($message->role)->toBe(MessageRole::User);
 });
 
 it('creates a valid assistant message via factory', function () {
-    $message = Message::factory()->fromAssistant()->create();
+    $message = ConversationMessage::factory()->fromAssistant()->create();
 
     expect($message->exists)->toBeTrue()
         ->and($message->role)->toBe(MessageRole::Assistant);
 });
 
 it('creates a valid system message via factory', function () {
-    $message = Message::factory()->system()->create();
+    $message = ConversationMessage::factory()->system()->create();
 
     expect($message->exists)->toBeTrue()
         ->and($message->role)->toBe(MessageRole::System);
 });
 
 it('toAtlasMessage returns UserMessage for user role', function () {
-    $message = Message::factory()->fromUser()->create(['content' => 'Hello']);
+    $message = ConversationMessage::factory()->fromUser()->create(['content' => 'Hello']);
 
     $atlas = $message->toAtlasMessage();
 
@@ -47,7 +47,7 @@ it('toAtlasMessage returns UserMessage for user role', function () {
 });
 
 it('toAtlasMessage returns AssistantMessage for assistant role', function () {
-    $message = Message::factory()->fromAssistant()->create(['content' => 'Hi there']);
+    $message = ConversationMessage::factory()->fromAssistant()->create(['content' => 'Hi there']);
 
     $atlas = $message->toAtlasMessage();
 
@@ -56,7 +56,7 @@ it('toAtlasMessage returns AssistantMessage for assistant role', function () {
 });
 
 it('toAtlasMessage returns SystemMessage for system role', function () {
-    $message = Message::factory()->system()->create(['content' => 'You are helpful']);
+    $message = ConversationMessage::factory()->system()->create(['content' => 'You are helpful']);
 
     $atlas = $message->toAtlasMessage();
 
@@ -65,31 +65,31 @@ it('toAtlasMessage returns SystemMessage for system role', function () {
 });
 
 it('isFromUser returns true only for user messages', function () {
-    $user = Message::factory()->fromUser()->create();
-    $assistant = Message::factory()->fromAssistant()->create();
+    $user = ConversationMessage::factory()->fromUser()->create();
+    $assistant = ConversationMessage::factory()->fromAssistant()->create();
 
     expect($user->isFromUser())->toBeTrue()
         ->and($assistant->isFromUser())->toBeFalse();
 });
 
 it('isFromAssistant returns true only for assistant messages', function () {
-    $assistant = Message::factory()->fromAssistant()->create();
-    $user = Message::factory()->fromUser()->create();
+    $assistant = ConversationMessage::factory()->fromAssistant()->create();
+    $user = ConversationMessage::factory()->fromUser()->create();
 
     expect($assistant->isFromAssistant())->toBeTrue()
         ->and($user->isFromAssistant())->toBeFalse();
 });
 
 it('isSystem returns true only for system messages', function () {
-    $system = Message::factory()->system()->create();
-    $user = Message::factory()->fromUser()->create();
+    $system = ConversationMessage::factory()->system()->create();
+    $user = ConversationMessage::factory()->fromUser()->create();
 
     expect($system->isSystem())->toBeTrue()
         ->and($user->isSystem())->toBeFalse();
 });
 
 it('markAsRead sets read_at and isRead/isUnread reflect state', function () {
-    $message = Message::factory()->create();
+    $message = ConversationMessage::factory()->create();
 
     expect($message->isUnread())->toBeTrue()
         ->and($message->isRead())->toBeFalse();
@@ -102,7 +102,7 @@ it('markAsRead sets read_at and isRead/isUnread reflect state', function () {
 });
 
 it('markDelivered transitions queued to delivered', function () {
-    $message = Message::factory()->queued()->create();
+    $message = ConversationMessage::factory()->queued()->create();
 
     expect($message->isQueued())->toBeTrue()
         ->and($message->isDelivered())->toBeFalse();
@@ -114,8 +114,8 @@ it('markDelivered transitions queued to delivered', function () {
 });
 
 it('isDelivered and isQueued reflect correct status', function () {
-    $delivered = Message::factory()->create(['status' => MessageStatus::Delivered]);
-    $queued = Message::factory()->queued()->create();
+    $delivered = ConversationMessage::factory()->create(['status' => MessageStatus::Delivered]);
+    $queued = ConversationMessage::factory()->queued()->create();
 
     expect($delivered->isDelivered())->toBeTrue()
         ->and($delivered->isQueued())->toBeFalse()
@@ -126,12 +126,12 @@ it('isDelivered and isQueued reflect correct status', function () {
 it('canRetry returns true for last active assistant message', function () {
     $conversation = Conversation::factory()->create();
 
-    $userMsg = Message::factory()->fromUser()->create([
+    $userMsg = ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
         'sequence' => 0,
     ]);
 
-    $assistantMsg = Message::factory()->fromAssistant()->create([
+    $assistantMsg = ConversationMessage::factory()->fromAssistant()->create([
         'conversation_id' => $conversation->id,
         'sequence' => 1,
         'parent_id' => $userMsg->id,
@@ -143,19 +143,19 @@ it('canRetry returns true for last active assistant message', function () {
 it('canRetry returns false when conversation has continued', function () {
     $conversation = Conversation::factory()->create();
 
-    $userMsg = Message::factory()->fromUser()->create([
+    $userMsg = ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
         'sequence' => 0,
     ]);
 
-    $assistantMsg = Message::factory()->fromAssistant()->create([
+    $assistantMsg = ConversationMessage::factory()->fromAssistant()->create([
         'conversation_id' => $conversation->id,
         'sequence' => 1,
         'parent_id' => $userMsg->id,
     ]);
 
     // Another user message after the assistant message
-    Message::factory()->fromUser()->create([
+    ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
         'sequence' => 2,
         'is_active' => true,
@@ -167,18 +167,18 @@ it('canRetry returns false when conversation has continued', function () {
 it('parent and responses relationships work', function () {
     $conversation = Conversation::factory()->create();
 
-    $parent = Message::factory()->fromUser()->create([
+    $parent = ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
         'sequence' => 0,
     ]);
 
-    $response1 = Message::factory()->fromAssistant()->create([
+    $response1 = ConversationMessage::factory()->fromAssistant()->create([
         'conversation_id' => $conversation->id,
         'parent_id' => $parent->id,
         'sequence' => 1,
     ]);
 
-    $response2 = Message::factory()->fromAssistant()->create([
+    $response2 = ConversationMessage::factory()->fromAssistant()->create([
         'conversation_id' => $conversation->id,
         'parent_id' => $parent->id,
         'sequence' => 2,
@@ -257,7 +257,7 @@ it('toAtlasMessagesWithTools reconstructs tool calls from execution step', funct
     ]);
 
     $conversation = Conversation::factory()->create();
-    $message = Message::factory()->fromAssistant()->create([
+    $message = ConversationMessage::factory()->fromAssistant()->create([
         'conversation_id' => $conversation->id,
         'step_id' => $step->id,
         'content' => 'Let me search that for you',
@@ -278,7 +278,7 @@ it('toAtlasMessagesWithTools reconstructs tool calls from execution step', funct
 });
 
 it('toAtlasMessagesWithTools returns simple AssistantMessage when no step', function () {
-    $message = Message::factory()->fromAssistant()->create([
+    $message = ConversationMessage::factory()->fromAssistant()->create([
         'content' => 'Hello there',
         'step_id' => null,
     ]);
@@ -294,26 +294,26 @@ it('toAtlasMessagesWithTools returns simple AssistantMessage when no step', func
 it('siblingGroups returns grouped retry runs', function () {
     $conversation = Conversation::factory()->create();
 
-    $parent = Message::factory()->fromUser()->create([
+    $parent = ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
         'sequence' => 0,
     ]);
 
     // First retry group
-    Message::factory()->fromAssistant()->create([
+    ConversationMessage::factory()->fromAssistant()->create([
         'conversation_id' => $conversation->id,
         'parent_id' => $parent->id,
         'sequence' => 1,
     ]);
 
     // Second retry group
-    Message::factory()->fromAssistant()->create([
+    ConversationMessage::factory()->fromAssistant()->create([
         'conversation_id' => $conversation->id,
         'parent_id' => $parent->id,
         'sequence' => 2,
     ]);
 
-    $groups = Message::where('parent_id', $parent->id)->first()->siblingGroups();
+    $groups = ConversationMessage::where('parent_id', $parent->id)->first()->siblingGroups();
 
     expect($groups)->toHaveCount(2);
 });
@@ -321,24 +321,24 @@ it('siblingGroups returns grouped retry runs', function () {
 it('siblingCount returns correct count', function () {
     $conversation = Conversation::factory()->create();
 
-    $parent = Message::factory()->fromUser()->create([
+    $parent = ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
         'sequence' => 0,
     ]);
 
-    Message::factory()->fromAssistant()->create([
+    ConversationMessage::factory()->fromAssistant()->create([
         'conversation_id' => $conversation->id,
         'parent_id' => $parent->id,
         'sequence' => 1,
     ]);
 
-    Message::factory()->fromAssistant()->create([
+    ConversationMessage::factory()->fromAssistant()->create([
         'conversation_id' => $conversation->id,
         'parent_id' => $parent->id,
         'sequence' => 2,
     ]);
 
-    $child = Message::where('parent_id', $parent->id)->first();
+    $child = ConversationMessage::where('parent_id', $parent->id)->first();
 
     expect($child->siblingCount())->toBe(2);
 });
@@ -346,18 +346,18 @@ it('siblingCount returns correct count', function () {
 it('siblingIndex returns 1-based index of current message', function () {
     $conversation = Conversation::factory()->create();
 
-    $parent = Message::factory()->fromUser()->create([
+    $parent = ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
         'sequence' => 0,
     ]);
 
-    $first = Message::factory()->fromAssistant()->create([
+    $first = ConversationMessage::factory()->fromAssistant()->create([
         'conversation_id' => $conversation->id,
         'parent_id' => $parent->id,
         'sequence' => 1,
     ]);
 
-    $second = Message::factory()->fromAssistant()->create([
+    $second = ConversationMessage::factory()->fromAssistant()->create([
         'conversation_id' => $conversation->id,
         'parent_id' => $parent->id,
         'sequence' => 2,
@@ -368,13 +368,13 @@ it('siblingIndex returns 1-based index of current message', function () {
 });
 
 it('ownerName returns agent key for agent-authored message', function () {
-    $message = Message::factory()->fromAssistant('writer-agent')->create();
+    $message = ConversationMessage::factory()->fromAssistant('writer-agent')->create();
 
     expect($message->ownerName())->toBe('writer-agent');
 });
 
 it('ownerName returns null for messages without author or agent', function () {
-    $message = Message::factory()->fromUser()->create([
+    $message = ConversationMessage::factory()->fromUser()->create([
         'agent' => null,
         'owner_type' => null,
         'owner_id' => null,
@@ -386,69 +386,69 @@ it('ownerName returns null for messages without author or agent', function () {
 it('scopeActive filters to active messages only', function () {
     $conversation = Conversation::factory()->create();
 
-    Message::factory()->create([
+    ConversationMessage::factory()->create([
         'conversation_id' => $conversation->id,
         'is_active' => true,
         'sequence' => 0,
     ]);
-    Message::factory()->create([
+    ConversationMessage::factory()->create([
         'conversation_id' => $conversation->id,
         'is_active' => true,
         'sequence' => 1,
     ]);
-    Message::factory()->inactive()->create([
+    ConversationMessage::factory()->inactive()->create([
         'conversation_id' => $conversation->id,
         'sequence' => 2,
     ]);
 
-    expect(Message::where('conversation_id', $conversation->id)->active()->count())->toBe(2);
+    expect(ConversationMessage::where('conversation_id', $conversation->id)->active()->count())->toBe(2);
 });
 
 it('scopeDelivered filters delivered messages', function () {
     $conversation = Conversation::factory()->create();
 
-    Message::factory()->create([
+    ConversationMessage::factory()->create([
         'conversation_id' => $conversation->id,
         'status' => MessageStatus::Delivered,
         'sequence' => 0,
     ]);
-    Message::factory()->queued()->create([
+    ConversationMessage::factory()->queued()->create([
         'conversation_id' => $conversation->id,
         'sequence' => 1,
     ]);
 
-    expect(Message::where('conversation_id', $conversation->id)->delivered()->count())->toBe(1);
+    expect(ConversationMessage::where('conversation_id', $conversation->id)->delivered()->count())->toBe(1);
 });
 
 it('scopeQueued filters queued messages', function () {
     $conversation = Conversation::factory()->create();
 
-    Message::factory()->create([
+    ConversationMessage::factory()->create([
         'conversation_id' => $conversation->id,
         'status' => MessageStatus::Delivered,
         'sequence' => 0,
     ]);
-    Message::factory()->queued()->create([
+    ConversationMessage::factory()->queued()->create([
         'conversation_id' => $conversation->id,
         'sequence' => 1,
     ]);
-    Message::factory()->queued()->create([
+    ConversationMessage::factory()->queued()->create([
         'conversation_id' => $conversation->id,
         'sequence' => 2,
     ]);
 
-    expect(Message::where('conversation_id', $conversation->id)->queued()->count())->toBe(2);
+    expect(ConversationMessage::where('conversation_id', $conversation->id)->queued()->count())->toBe(2);
 });
 
 it('scopeByOwner filters by polymorphic owner', function () {
     $conversation = Conversation::factory()->create();
-    Message::factory()->create([
+    ConversationMessage::factory()->create([
         'conversation_id' => $conversation->id,
         'owner_type' => 'App\\Models\\User',
         'owner_id' => 5,
         'sequence' => 0,
     ]);
-    Message::factory()->create([
+    ConversationMessage::factory()->create([
         'conversation_id' => $conversation->id,
         'owner_type' => 'App\\Models\\User',
         'owner_id' => 10,
@@ -470,7 +470,7 @@ it('scopeByOwner filters by polymorphic owner', function () {
         }
     };
 
-    $results = Message::byOwner($author)->get();
+    $results = ConversationMessage::byOwner($author)->get();
 
     expect($results)->toHaveCount(1)
         ->and($results->first()->owner_id)->toBe(5);
@@ -478,16 +478,16 @@ it('scopeByOwner filters by polymorphic owner', function () {
 
 it('scopeByAgent filters by agent key', function () {
     $conversation = Conversation::factory()->create();
-    Message::factory()->fromAssistant('agent-a')->create([
+    ConversationMessage::factory()->fromAssistant('agent-a')->create([
         'conversation_id' => $conversation->id,
         'sequence' => 0,
     ]);
-    Message::factory()->fromAssistant('agent-b')->create([
+    ConversationMessage::factory()->fromAssistant('agent-b')->create([
         'conversation_id' => $conversation->id,
         'sequence' => 1,
     ]);
 
-    $results = Message::byAgent('agent-a')->get();
+    $results = ConversationMessage::byAgent('agent-a')->get();
 
     expect($results)->toHaveCount(1)
         ->and($results->first()->agent)->toBe('agent-a');
@@ -495,16 +495,16 @@ it('scopeByAgent filters by agent key', function () {
 
 it('siblings relationship returns messages with same parent', function () {
     $conversation = Conversation::factory()->create();
-    $parent = Message::factory()->fromUser()->create([
+    $parent = ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
         'sequence' => 0,
     ]);
-    $sibling1 = Message::factory()->fromAssistant('agent')->create([
+    $sibling1 = ConversationMessage::factory()->fromAssistant('agent')->create([
         'conversation_id' => $conversation->id,
         'parent_id' => $parent->id,
         'sequence' => 1,
     ]);
-    Message::factory()->fromAssistant('agent')->create([
+    ConversationMessage::factory()->fromAssistant('agent')->create([
         'conversation_id' => $conversation->id,
         'parent_id' => $parent->id,
         'sequence' => 2,

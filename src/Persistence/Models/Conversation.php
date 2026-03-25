@@ -70,11 +70,11 @@ class Conversation extends Model
         return $this->morphTo();
     }
 
-    /** @return HasMany<Message, $this> */
+    /** @return HasMany<ConversationMessage, $this> */
     public function messages(): HasMany
     {
-        /** @var class-string<Message> $model */
-        $model = config('atlas.persistence.models.message', Message::class);
+        /** @var class-string<ConversationMessage> $model */
+        $model = config('atlas.persistence.models.conversation_message', ConversationMessage::class);
 
         return $this->hasMany($model)->orderBy('sequence');
     }
@@ -109,7 +109,7 @@ class Conversation extends Model
      * Get the last N active, delivered messages for conversation replay.
      * Excludes inactive siblings (retries) and queued messages.
      */
-    /** @return Collection<int, Message> */
+    /** @return Collection<int, ConversationMessage> */
     public function recentMessages(int $limit = 50): Collection
     {
         return $this->messages()

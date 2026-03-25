@@ -19,8 +19,8 @@ use Atlasphp\Atlas\Persistence\Enums\MessageStatus;
 use Atlasphp\Atlas\Persistence\Middleware\PersistConversation;
 use Atlasphp\Atlas\Persistence\Models\Asset;
 use Atlasphp\Atlas\Persistence\Models\Conversation;
-use Atlasphp\Atlas\Persistence\Models\Message;
-use Atlasphp\Atlas\Persistence\Models\MessageAttachment;
+use Atlasphp\Atlas\Persistence\Models\ConversationMessage;
+use Atlasphp\Atlas\Persistence\Models\ConversationMessageAsset;
 use Atlasphp\Atlas\Persistence\ProcessQueuedMessage;
 use Atlasphp\Atlas\Persistence\Services\ConversationService;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
@@ -225,7 +225,7 @@ it('links assistant response to pre-stored user message', function () {
 
     $middleware->handle($context, fn () => makeFakeExecutorResult());
 
-    $assistantMessage = Message::where('conversation_id', $conversation->id)
+    $assistantMessage = ConversationMessage::where('conversation_id', $conversation->id)
         ->where('role', MessageRole::Assistant)
         ->first();
 
@@ -267,7 +267,7 @@ it('stores assistant messages from steps', function () {
 
     $middleware->handle($context, fn () => makeFakeExecutorResultWithSteps());
 
-    $assistantMessages = Message::where('conversation_id', $conversation->id)
+    $assistantMessages = ConversationMessage::where('conversation_id', $conversation->id)
         ->where('role', MessageRole::Assistant)
         ->orderBy('sequence')
         ->get();
@@ -286,7 +286,7 @@ it('deactivates current response and sets retryParentId in retry mode', function
     $conversation = Conversation::create(['agent' => 'test-agent']);
 
     // Set up existing user + assistant messages
-    $userMsg = Message::create([
+    $userMsg = ConversationMessage::create([
         'conversation_id' => $conversation->id,
         'role' => MessageRole::User,
         'content' => 'Question',
@@ -294,7 +294,7 @@ it('deactivates current response and sets retryParentId in retry mode', function
         'is_active' => true,
     ]);
 
-    Message::create([
+    ConversationMessage::create([
         'conversation_id' => $conversation->id,
         'role' => MessageRole::Assistant,
         'content' => 'Old answer',
@@ -318,11 +318,11 @@ it('deactivates current response and sets retryParentId in retry mode', function
     $middleware->handle($context, fn () => makeFakeExecutorResultWithSteps());
 
     // Old response should be deactivated
-    $oldMsg = Message::where('content', 'Old answer')->first();
+    $oldMsg = ConversationMessage::where('content', 'Old answer')->first();
     expect($oldMsg->is_active)->toBeFalse();
 
     // New response should be active with same parent_id
-    $newMsgs = Message::where('conversation_id', $conversation->id)
+    $newMsgs = ConversationMessage::where('conversation_id', $conversation->id)
         ->where('role', MessageRole::Assistant)
         ->where('is_active', true)
         ->get();
@@ -355,7 +355,7 @@ it('prepends conversation history to context messages', function () {
     $conversation = Conversation::create(['agent' => 'test-agent']);
 
     // Existing message in conversation
-    Message::create([
+    ConversationMessage::create([
         'conversation_id' => $conversation->id,
         'role' => MessageRole::User,
         'content' => 'Previous message',
@@ -401,7 +401,7 @@ it('dispatches ProcessQueuedMessage when queued messages exist', function () {
     $conversation = Conversation::create(['agent' => 'test-agent']);
 
     // Create a queued message waiting to be processed
-    Message::create([
+    ConversationMessage::create([
         'conversation_id' => $conversation->id,
         'role' => MessageRole::User,
         'content' => 'Queued question',
@@ -457,7 +457,7 @@ it('uses last user message as parentId in respond mode', function () {
 
     $conversation = Conversation::create(['agent' => 'test-agent']);
 
-    $userMsg = Message::create([
+    $userMsg = ConversationMessage::create([
         'conversation_id' => $conversation->id,
         'role' => MessageRole::User,
         'content' => 'User said this',
@@ -478,7 +478,7 @@ it('uses last user message as parentId in respond mode', function () {
 
     $middleware->handle($context, fn () => makeFakeExecutorResultWithSteps());
 
-    $assistantMsg = Message::where('conversation_id', $conversation->id)
+    $assistantMsg = ConversationMessage::where('conversation_id', $conversation->id)
         ->where('role', MessageRole::Assistant)
         ->first();
 
@@ -493,13 +493,13 @@ it('prepends conversation history into the request messages', function () {
     $conversation = Conversation::create(['agent' => 'test-agent']);
 
     // Seed two prior messages
-    Message::factory()->fromUser()->create([
+    ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
         'content' => 'Prior question',
         'sequence' => 0,
     ]);
 
-    Message::factory()->fromAssistant('test-agent')->create([
+    ConversationMessage::factory()->fromAssistant('test-agent')->create([
         'conversation_id' => $conversation->id,
         'content' => 'Prior answer',
         'sequence' => 1,
@@ -597,13 +597,13 @@ it('prepends history before existing request messages without duplication', func
 
     $conversation = Conversation::create(['agent' => 'test-agent']);
 
-    Message::factory()->fromUser()->create([
+    ConversationMessage::factory()->fromUser()->create([
         'conversation_id' => $conversation->id,
         'content' => 'Prior question',
         'sequence' => 0,
     ]);
 
-    Message::factory()->fromAssistant('test-agent')->create([
+    ConversationMessage::factory()->fromAssistant('test-agent')->create([
         'conversation_id' => $conversation->id,
         'content' => 'Prior answer',
         'sequence' => 1,
@@ -657,8 +657,8 @@ it('respects message limit when loading history', function () {
     // Seed 5 messages
     for ($i = 0; $i < 5; $i++) {
         $factory = $i % 2 === 0
-            ? Message::factory()->fromUser()
-            : Message::factory()->fromAssistant('test-agent');
+            ? ConversationMessage::factory()->fromUser()
+            : ConversationMessage::factory()->fromAssistant('test-agent');
 
         $factory->create([
             'conversation_id' => $conversation->id,
@@ -770,11 +770,11 @@ it('attaches tool-created assets to stored assistant message', function () {
     $middleware->handle($context, fn () => makeFakeExecutorResult());
 
     // Verify asset is attached to the stored assistant message
-    $assistantMsg = Message::where('conversation_id', $conversation->id)
+    $assistantMsg = ConversationMessage::where('conversation_id', $conversation->id)
         ->where('role', MessageRole::Assistant)
         ->first();
 
-    $attachment = MessageAttachment::where('message_id', $assistantMsg->id)
+    $attachment = ConversationMessageAsset::where('message_id', $assistantMsg->id)
         ->where('asset_id', $asset->id)
         ->first();
 
@@ -812,7 +812,7 @@ it('returns TextResponse unchanged without persistence', function () {
     expect($result)->toBe($textResponse);
 
     // No assistant messages should be stored
-    $assistantMessages = Message::where('conversation_id', $conversation->id)
+    $assistantMessages = ConversationMessage::where('conversation_id', $conversation->id)
         ->where('role', MessageRole::Assistant)
         ->count();
 

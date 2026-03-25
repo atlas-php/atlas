@@ -8,10 +8,10 @@ use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
 use Atlasphp\Atlas\Persistence\Enums\ToolCallType;
 use Atlasphp\Atlas\Persistence\Models\Asset;
 use Atlasphp\Atlas\Persistence\Models\Conversation;
+use Atlasphp\Atlas\Persistence\Models\ConversationMessage;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\ExecutionStep;
 use Atlasphp\Atlas\Persistence\Models\ExecutionToolCall;
-use Atlasphp\Atlas\Persistence\Models\Message;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 
 beforeEach(function () {
@@ -38,7 +38,7 @@ it('creates execution in pending status with correct provider and model', functi
 
 it('creates execution with optional parameters', function () {
     $conversation = Conversation::factory()->create();
-    $message = Message::factory()->create([
+    $message = ConversationMessage::factory()->create([
         'conversation_id' => $conversation->id,
     ]);
 

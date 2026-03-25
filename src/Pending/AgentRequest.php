@@ -35,8 +35,8 @@ use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
 use Atlasphp\Atlas\Persistence\Enums\VoiceCallStatus;
 use Atlasphp\Atlas\Persistence\Models\Asset;
+use Atlasphp\Atlas\Persistence\Models\ConversationMessageAsset;
 use Atlasphp\Atlas\Persistence\Models\Execution;
-use Atlasphp\Atlas\Persistence\Models\MessageAttachment;
 use Atlasphp\Atlas\Persistence\Models\VoiceCall;
 use Atlasphp\Atlas\Persistence\Services\ConversationService;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
@@ -745,7 +745,7 @@ class AgentRequest implements QueueableRequestContract
                 $mime = $input->mimeType();
 
                 $assetModel = config('atlas.persistence.models.asset', Asset::class);
-                $attachmentModel = config('atlas.persistence.models.message_attachment', MessageAttachment::class);
+                $attachmentModel = config('atlas.persistence.models.conversation_message_asset', ConversationMessageAsset::class);
 
                 $type = match (true) {
                     str_starts_with($mime, 'image/') => AssetType::Image,

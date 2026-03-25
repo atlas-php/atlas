@@ -8,7 +8,7 @@ use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Pending\AgentRequest;
 use Atlasphp\Atlas\Persistence\Concerns\HasConversations;
 use Atlasphp\Atlas\Persistence\Models\Conversation;
-use Atlasphp\Atlas\Persistence\Models\Message;
+use Atlasphp\Atlas\Persistence\Models\ConversationMessage;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Testing\AtlasFake;
 use Atlasphp\Atlas\Testing\TextResponseFake;
@@ -141,7 +141,7 @@ it('stores user message to conversation eagerly', function () {
     $method->invoke($request);
 
     // Should have stored the message
-    $messages = Message::where('conversation_id', $conversation->id)->get();
+    $messages = ConversationMessage::where('conversation_id', $conversation->id)->get();
     expect($messages)->toHaveCount(1);
     expect($messages->first()->role->value)->toBe('user');
 });
@@ -178,7 +178,7 @@ it('skips eager store when persistence is disabled', function () {
     $method = new ReflectionMethod($request, 'storeUserMessageEagerly');
     $method->invoke($request);
 
-    $messages = Message::where('conversation_id', $conversation->id)->count();
+    $messages = ConversationMessage::where('conversation_id', $conversation->id)->count();
     expect($messages)->toBe(0);
 });
 
@@ -194,7 +194,7 @@ it('skips eager store when no message is set', function () {
     $method = new ReflectionMethod($request, 'storeUserMessageEagerly');
     $method->invoke($request);
 
-    $messages = Message::where('conversation_id', $conversation->id)->count();
+    $messages = ConversationMessage::where('conversation_id', $conversation->id)->count();
     expect($messages)->toBe(0);
 });
 
@@ -208,7 +208,7 @@ it('skips eager store when no conversationId is set', function () {
     $method = new ReflectionMethod($request, 'storeUserMessageEagerly');
     $method->invoke($request);
 
-    $messages = Message::count();
+    $messages = ConversationMessage::count();
     expect($messages)->toBe(0);
 });
 
@@ -226,7 +226,7 @@ it('skips eager store in respond mode', function () {
     $method = new ReflectionMethod($request, 'storeUserMessageEagerly');
     $method->invoke($request);
 
-    $messages = Message::where('conversation_id', $conversation->id)->count();
+    $messages = ConversationMessage::where('conversation_id', $conversation->id)->count();
     expect($messages)->toBe(0);
 });
 

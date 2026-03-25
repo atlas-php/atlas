@@ -5,9 +5,9 @@ declare(strict_types=1);
 use Atlasphp\Atlas\Persistence\Enums\AssetType;
 use Atlasphp\Atlas\Persistence\Models\Asset;
 use Atlasphp\Atlas\Persistence\Models\Conversation;
+use Atlasphp\Atlas\Persistence\Models\ConversationMessage;
+use Atlasphp\Atlas\Persistence\Models\ConversationMessageAsset;
 use Atlasphp\Atlas\Persistence\Models\Execution;
-use Atlasphp\Atlas\Persistence\Models\Message;
-use Atlasphp\Atlas\Persistence\Models\MessageAttachment;
 use Illuminate\Database\Eloquent\Model;
 
 it('creates a valid record via factory', function () {
@@ -147,10 +147,10 @@ it('execution relationship returns related execution', function () {
 it('attachments relationship returns message attachments', function () {
     $asset = Asset::factory()->create();
     $conversation = Conversation::factory()->create();
-    $message = Message::factory()->create([
+    $message = ConversationMessage::factory()->create([
         'conversation_id' => $conversation->id,
     ]);
-    MessageAttachment::factory()->create([
+    ConversationMessageAsset::factory()->create([
         'message_id' => $message->id,
         'asset_id' => $asset->id,
     ]);

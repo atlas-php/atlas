@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Persistence\Enums\VoiceCallStatus;
 use Atlasphp\Atlas\Persistence\Http\StoreVoiceTranscriptController;
-use Atlasphp\Atlas\Persistence\Models\Message;
+use Atlasphp\Atlas\Persistence\Models\ConversationMessage;
 use Atlasphp\Atlas\Persistence\Models\VoiceCall;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -130,5 +130,5 @@ it('does not create any messages in the messages table', function () {
         ],
     ]);
 
-    expect(Message::count())->toBe(0);
+    expect(ConversationMessage::count())->toBe(0);
 });

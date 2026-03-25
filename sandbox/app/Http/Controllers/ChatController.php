@@ -10,8 +10,8 @@ use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Input\Image;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Models\Conversation;
+use Atlasphp\Atlas\Persistence\Models\ConversationMessage;
 use Atlasphp\Atlas\Persistence\Models\Execution;
-use Atlasphp\Atlas\Persistence\Models\Message;
 use Atlasphp\Atlas\Persistence\Services\ConversationService;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Http\JsonResponse;
@@ -215,7 +215,7 @@ class ChatController
     public function siblings(int $conversationId, int $messageId): JsonResponse
     {
         Conversation::findOrFail($conversationId);
-        $message = Message::findOrFail($messageId);
+        $message = ConversationMessage::findOrFail($messageId);
 
         $info = $this->conversations->siblingInfo($message);
 
@@ -233,7 +233,7 @@ class ChatController
         $request->validate(['index' => 'required|integer|min:1']);
 
         $conversation = Conversation::findOrFail($conversationId);
-        $message = Message::findOrFail($messageId);
+        $message = ConversationMessage::findOrFail($messageId);
 
         $this->conversations->cycleSibling(
             $conversation,
@@ -302,7 +302,7 @@ class ChatController
      */
     protected function loadMessages(Conversation $conversation, int $limit, ?int $beforeId = null): array
     {
-        $query = Message::where('conversation_id', $conversation->id)
+        $query = ConversationMessage::where('conversation_id', $conversation->id)
             ->where('is_active', true)
             ->with(['attachments.asset']);
 
@@ -315,7 +315,7 @@ class ChatController
             ->get()
             ->reverse()
             ->values()
-            ->map(fn (Message $msg) => MessageResource::make($msg))
+            ->map(fn (ConversationMessage $msg) => MessageResource::make($msg))
             ->all();
     }
 }

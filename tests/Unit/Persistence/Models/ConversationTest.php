@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Persistence\Enums\MessageStatus;
 use Atlasphp\Atlas\Persistence\Models\Conversation;
+use Atlasphp\Atlas\Persistence\Models\ConversationMessage;
 use Atlasphp\Atlas\Persistence\Models\Execution;
-use Atlasphp\Atlas\Persistence\Models\Message;
 use Illuminate\Database\Eloquent\Model;
 
 it('creates a valid record via factory', function () {
@@ -23,7 +23,7 @@ it('recentMessages returns only active delivered messages', function () {
     // Active + delivered — should be included
     $delivered = collect();
     for ($i = 0; $i < 3; $i++) {
-        $delivered->push(Message::factory()->create([
+        $delivered->push(ConversationMessage::factory()->create([
             'conversation_id' => $conversation->id,
             'is_active' => true,
             'status' => MessageStatus::Delivered,
@@ -32,14 +32,14 @@ it('recentMessages returns only active delivered messages', function () {
     }
 
     // Inactive — should be excluded
-    Message::factory()->inactive()->create([
+    ConversationMessage::factory()->inactive()->create([
         'conversation_id' => $conversation->id,
         'status' => MessageStatus::Delivered,
         'sequence' => $conversation->nextSequence(),
     ]);
 
     // Queued — should be excluded
-    Message::factory()->queued()->create([
+    ConversationMessage::factory()->queued()->create([
         'conversation_id' => $conversation->id,
         'is_active' => true,
         'sequence' => $conversation->nextSequence(),
@@ -57,14 +57,14 @@ it('nextSequence returns the correct next value', function () {
 
     expect($conversation->nextSequence())->toBe(0);
 
-    Message::factory()->create([
+    ConversationMessage::factory()->create([
         'conversation_id' => $conversation->id,
         'sequence' => 0,
     ]);
 
     expect($conversation->nextSequence())->toBe(1);
 
-    Message::factory()->create([
+    ConversationMessage::factory()->create([
         'conversation_id' => $conversation->id,
         'sequence' => 5,
     ]);
@@ -99,9 +99,9 @@ it('supports soft deletes', function () {
 it('messages relationship returns ordered by sequence', function () {
     $conversation = Conversation::factory()->create();
 
-    Message::factory()->create(['conversation_id' => $conversation->id, 'sequence' => 2]);
-    Message::factory()->create(['conversation_id' => $conversation->id, 'sequence' => 0]);
-    Message::factory()->create(['conversation_id' => $conversation->id, 'sequence' => 1]);
+    ConversationMessage::factory()->create(['conversation_id' => $conversation->id, 'sequence' => 2]);
+    ConversationMessage::factory()->create(['conversation_id' => $conversation->id, 'sequence' => 0]);
+    ConversationMessage::factory()->create(['conversation_id' => $conversation->id, 'sequence' => 1]);
 
     $messages = $conversation->messages;
 

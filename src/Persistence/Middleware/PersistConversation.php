@@ -15,8 +15,9 @@ use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Middleware\AgentContext;
 use Atlasphp\Atlas\Persistence\Concerns\HasConversations;
 use Atlasphp\Atlas\Persistence\Models\Asset;
+use Atlasphp\Atlas\Persistence\Models\ConversationMessage;
+use Atlasphp\Atlas\Persistence\Models\ConversationMessageAsset;
 use Atlasphp\Atlas\Persistence\Models\Execution;
-use Atlasphp\Atlas\Persistence\Models\MessageAttachment;
 use Atlasphp\Atlas\Persistence\ProcessQueuedMessage;
 use Atlasphp\Atlas\Persistence\Services\ConversationService;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
@@ -157,7 +158,7 @@ class PersistConversation
 
         // ── Store assistant response after execution (atomic) ────
 
-        /** @var array<int, \Atlasphp\Atlas\Persistence\Models\Message> $storedMessages */
+        /** @var array<int, ConversationMessage> $storedMessages */
         $storedMessages = DB::transaction(function () use ($agentKey, $conversation, $result, $parentId): array {
             // Safe to access here: completeStep() retains the reference, and
             // this middleware wraps TrackExecution so the scoped service is still active.
@@ -241,7 +242,7 @@ class PersistConversation
      * stored assistant message. Asset metadata carries tool_call_id and
      * tool_name for tracing which tool produced the asset.
      *
-     * @param  array<int, \Atlasphp\Atlas\Persistence\Models\Message>  $storedMessages
+     * @param  array<int, ConversationMessage>  $storedMessages
      */
     protected function attachToolAssets(Execution $execution, array $storedMessages): void
     {
@@ -261,8 +262,8 @@ class PersistConversation
         }
 
         $attachmentModel = config(
-            'atlas.persistence.models.message_attachment',
-            MessageAttachment::class,
+            'atlas.persistence.models.conversation_message_asset',
+            ConversationMessageAsset::class,
         );
 
         $message = $storedMessages[0];

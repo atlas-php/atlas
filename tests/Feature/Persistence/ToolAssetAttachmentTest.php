@@ -6,11 +6,11 @@ use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
 use Atlasphp\Atlas\Persistence\Middleware\PersistConversation;
 use Atlasphp\Atlas\Persistence\Models\Asset;
 use Atlasphp\Atlas\Persistence\Models\Conversation;
+use Atlasphp\Atlas\Persistence\Models\ConversationMessage;
+use Atlasphp\Atlas\Persistence\Models\ConversationMessageAsset;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\ExecutionStep;
 use Atlasphp\Atlas\Persistence\Models\ExecutionToolCall;
-use Atlasphp\Atlas\Persistence\Models\Message;
-use Atlasphp\Atlas\Persistence\Models\MessageAttachment;
 use Atlasphp\Atlas\Persistence\Services\ConversationService;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 
@@ -58,7 +58,7 @@ it('attaches tool-generated asset to assistant message via step_id', function ()
         ],
     ]);
 
-    $message = Message::factory()->fromAssistant('test-agent')->create([
+    $message = ConversationMessage::factory()->fromAssistant('test-agent')->create([
         'conversation_id' => $conversation->id,
         'step_id' => $step->id,
         'content' => 'Here is your image',
@@ -66,9 +66,9 @@ it('attaches tool-generated asset to assistant message via step_id', function ()
 
     callAttachToolAssets($execution, [$message]);
 
-    expect(MessageAttachment::count())->toBe(1);
+    expect(ConversationMessageAsset::count())->toBe(1);
 
-    $attachment = MessageAttachment::first();
+    $attachment = ConversationMessageAsset::first();
     expect($attachment->message_id)->toBe($message->id);
     expect($attachment->asset_id)->toBe($asset->id);
     expect($attachment->metadata['tool_call_id'])->toBe($toolCall->id);
@@ -116,7 +116,7 @@ it('handles multiple assets from different tool calls in same step', function ()
         ],
     ]);
 
-    $message = Message::factory()->fromAssistant('test-agent')->create([
+    $message = ConversationMessage::factory()->fromAssistant('test-agent')->create([
         'conversation_id' => $conversation->id,
         'step_id' => $step->id,
         'content' => 'Here are your files',
@@ -124,7 +124,7 @@ it('handles multiple assets from different tool calls in same step', function ()
 
     callAttachToolAssets($execution, [$message]);
 
-    expect(MessageAttachment::count())->toBe(2);
+    expect(ConversationMessageAsset::count())->toBe(2);
 });
 
 it('does not attach assets without tool_execution source', function () {
@@ -153,14 +153,14 @@ it('does not attach assets without tool_execution source', function () {
         ],
     ]);
 
-    $message = Message::factory()->fromAssistant('test-agent')->create([
+    $message = ConversationMessage::factory()->fromAssistant('test-agent')->create([
         'conversation_id' => $conversation->id,
         'step_id' => $step->id,
     ]);
 
     callAttachToolAssets($execution, [$message]);
 
-    expect(MessageAttachment::count())->toBe(0);
+    expect(ConversationMessageAsset::count())->toBe(0);
 });
 
 it('does not attach assets from different execution', function () {
@@ -194,14 +194,14 @@ it('does not attach assets from different execution', function () {
         ],
     ]);
 
-    $message = Message::factory()->fromAssistant('test-agent')->create([
+    $message = ConversationMessage::factory()->fromAssistant('test-agent')->create([
         'conversation_id' => $conversation->id,
         'step_id' => $step->id,
     ]);
 
     callAttachToolAssets($execution, [$message]);
 
-    expect(MessageAttachment::count())->toBe(0);
+    expect(ConversationMessageAsset::count())->toBe(0);
 });
 
 it('attaches to correct message when multiple steps exist', function () {
@@ -254,7 +254,7 @@ it('attaches to correct message when multiple steps exist', function () {
     ]);
 
     // Single assistant message (final response) — all assets attach to it
-    $message = Message::factory()->fromAssistant('test-agent')->create([
+    $message = ConversationMessage::factory()->fromAssistant('test-agent')->create([
         'conversation_id' => $conversation->id,
         'step_id' => $step2->id,
         'sequence' => 1,
@@ -262,10 +262,10 @@ it('attaches to correct message when multiple steps exist', function () {
 
     callAttachToolAssets($execution, [$message]);
 
-    expect(MessageAttachment::count())->toBe(2);
+    expect(ConversationMessageAsset::count())->toBe(2);
 
     // Both assets attached to the single assistant message
-    $attachments = MessageAttachment::where('message_id', $message->id)
+    $attachments = ConversationMessageAsset::where('message_id', $message->id)
         ->orderBy('id')
         ->get();
 

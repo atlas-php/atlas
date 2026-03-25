@@ -7,7 +7,7 @@ namespace Atlasphp\Atlas\Persistence;
 use Atlasphp\Atlas\Concerns\ConfiguresAtlasJob;
 use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Persistence\Enums\MessageStatus;
-use Atlasphp\Atlas\Persistence\Models\Message;
+use Atlasphp\Atlas\Persistence\Models\ConversationMessage;
 use Atlasphp\Atlas\Persistence\Services\ConversationService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -97,7 +97,7 @@ class ProcessQueuedMessage implements ShouldBeUnique, ShouldQueue
      * Rebuilds the exact same agent call the consumer would have made,
      * applying any stored variables, meta, and provider options.
      */
-    protected function executeAgent(Message $message): void
+    protected function executeAgent(ConversationMessage $message): void
     {
         $context = $message->metadata ?? [];
 
@@ -128,8 +128,8 @@ class ProcessQueuedMessage implements ShouldBeUnique, ShouldQueue
      */
     public function failed(Throwable $exception): void
     {
-        /** @var class-string<Message> $messageModel */
-        $messageModel = config('atlas.persistence.models.message', Message::class);
+        /** @var class-string<ConversationMessage> $messageModel */
+        $messageModel = config('atlas.persistence.models.conversation_message', ConversationMessage::class);
 
         if ($this->deliveredMessageId !== null) {
             $message = $messageModel::find($this->deliveredMessageId);
