@@ -7,7 +7,7 @@
     <a href="https://github.com/atlas-php/atlas/actions"><img src="https://github.com/atlas-php/atlas/workflows/Automated%20Tests/badge.svg" alt="Automated Tests"></a>
     <a href="https://codecov.io/gh/atlas-php/atlas"><img src="https://codecov.io/gh/atlas-php/atlas/branch/main/graph/badge.svg" alt="Code Coverage"></a>
     <img src="https://img.shields.io/badge/php-8.2%2B-blue?style=flat-square" alt="PHP Version">
-    <img src="https://img.shields.io/badge/laravel-11%2B-orange?style=flat-square" alt="Laravel">
+    <img src="https://img.shields.io/badge/laravel-11%20%7C%2012%20%7C%2013-orange?style=flat-square" alt="Laravel">
     <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License">
 </p>
 <p align="center">
@@ -37,6 +37,8 @@ Built on [Prism PHP](https://prismphp.com), Atlas stays intentionally lightweigh
 ```bash
 composer require atlas-php/atlas
 ```
+
+Supports Laravel 11, 12, and 13.
 
 ```bash
 # Publish Atlas configuration
