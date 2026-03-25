@@ -50,17 +50,18 @@ $response = Atlas::agent('support')
 
 Atlas automatically loads the conversation history and sends it to the provider so the agent has full context.
 
-### Set Message Author
+### Set Message Owner
 
-In multi-user scenarios, track who sent each message:
+In multi-user scenarios, track who sent each message using the `as:` parameter:
 
 ```php
 $response = Atlas::agent('support')
-    ->for($team)
-    ->asUser($currentUser)
+    ->for($team, as: $currentUser)
     ->message('Can someone help?')
     ->asText();
 ```
+
+When `as:` is omitted, the conversation owner is used as the message sender.
 
 ## Message History
 
@@ -358,7 +359,7 @@ Atlas supports message queuing for rate limiting or sequential processing:
 $service = app(ConversationService::class);
 
 // Queue a message for later processing
-$service->queueMessage($conversation, $userMessage, $author);
+$service->queueMessage($conversation, $userMessage, $owner);
 
 // Process the next queued message
 $service->deliverNextQueued($conversation);
@@ -378,7 +379,6 @@ Two or more agents can participate in the same conversation. Each agent reads th
 // Support agent handles the initial request
 $response = Atlas::agent('support')
     ->for($user)
-    ->asUser($user)
     ->message('I need a refund for order #123')
     ->asText();
 
@@ -393,25 +393,25 @@ When the billing agent reads the thread, the support agent's messages appear as 
 
 ### Multi-User Conversations
 
-Multiple users can participate in a single conversation with the same agent. Use `asUser()` to identify who is sending each message.
+Multiple users can participate in a single conversation with the same agent. Use the `as:` parameter on `for()` to identify who is sending each message.
 
 ```php
 // User A sends a message
 Atlas::agent('team-assistant')
+    ->for($team, as: $userA)
     ->forConversation($conversationId)
-    ->asUser($userA)
     ->message('Can someone review the Q4 report?')
     ->asText();
 
 // User B sends a message in the same thread
 Atlas::agent('team-assistant')
+    ->for($team, as: $userB)
     ->forConversation($conversationId)
-    ->asUser($userB)
     ->message('I can take a look at it.')
     ->asText();
 ```
 
-The agent sees both messages as `user` role in the conversation history. The `asUser()` call tracks authorship in the database (the `author` relationship on the message model) so your application can display who said what, but from the agent's perspective they are all user messages in a single thread.
+The agent sees both messages as `user` role in the conversation history. The `as:` parameter tracks ownership in the database (the `owner` relationship on the message model) so your application can display who said what, but from the agent's perspective they are all user messages in a single thread.
 
 ### How Role Remapping Works
 
@@ -441,9 +441,9 @@ For the complete database schema including all tables, columns, and relationship
 
 | Method | Description |
 |--------|-------------|
-| `->for(Model $owner)` | Set conversation owner (creates/finds conversation) |
+| `->for(Model $owner, ?Model $as = null)` | Set conversation owner. Optionally pass `as:` to set a different message sender |
 | `->forConversation(int $id)` | Join an existing conversation |
-| `->asUser(Model $author)` | Set message author |
+| `->asUser(Model $owner)` | *(Deprecated)* Use `for($owner, as: $user)` instead |
 | `->withMessageLimit(int $limit)` | Override message history limit |
 | `->respond()` | Respond without a new user message |
 | `->retry()` | Retry the last assistant response |
@@ -467,7 +467,7 @@ For the complete database schema including all tables, columns, and relationship
 | `cycleSibling($conversation, $parentId, $index)` | `void` | Switch active sibling group |
 | `siblingInfo($message)` | `array` | Current index, total count, groups |
 | `lastUserMessageId($conversation)` | `?int` | Last active user message ID |
-| `queueMessage($conversation, $message, $author)` | `Message` | Queue a message for later |
+| `queueMessage($conversation, $message, $owner)` | `Message` | Queue a message for later |
 | `deliverNextQueued($conversation)` | `?Message` | Process next queued message |
 
 ## Next Steps

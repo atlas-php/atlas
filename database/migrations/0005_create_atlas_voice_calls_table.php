@@ -22,6 +22,7 @@ return new class extends Migration
                 ->constrained($this->tableName('conversations'))
                 ->nullOnDelete();
             $table->string('voice_session_id', 100)->unique();
+            $table->nullableMorphs('owner');
             $table->string('agent', 255)->nullable();
             $table->string('provider', 50);
             $table->string('model', 100);

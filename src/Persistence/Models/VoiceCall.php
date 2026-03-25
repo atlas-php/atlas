@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Persistence\Models;
 
 use Atlasphp\Atlas\Persistence\Concerns\HasAtlasTable;
+use Atlasphp\Atlas\Persistence\Concerns\HasOwner;
 use Atlasphp\Atlas\Persistence\Enums\VoiceCallStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -23,6 +24,8 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int|null $conversation_id
  * @property string $voice_session_id
+ * @property string|null $owner_type
+ * @property int|null $owner_id
  * @property string|null $agent
  * @property string $provider
  * @property string $model
@@ -36,13 +39,15 @@ use Illuminate\Support\Carbon;
  */
 class VoiceCall extends Model
 {
-    use HasAtlasTable;
+    use HasAtlasTable, HasOwner;
 
     protected $table = 'voice_calls';
 
     protected $fillable = [
         'conversation_id',
         'voice_session_id',
+        'owner_type',
+        'owner_id',
         'agent',
         'provider',
         'model',

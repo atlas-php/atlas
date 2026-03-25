@@ -26,6 +26,7 @@ return new class extends Migration
             $table->unsignedBigInteger('owner_id')->nullable();
             $table->string('agent', 255)->nullable();
             $table->string('title', 255)->nullable();
+            $table->text('summary')->nullable();
             $table->json('metadata')->nullable();
             $table->timestamps();
             $table->softDeletes();

@@ -28,7 +28,7 @@ class MessageResource
             'role' => $msg->role->value,
             'status' => $msg->status->value,
             'content' => $msg->content,
-            'author' => $msg->authorInfo(),
+            'owner' => $msg->ownerInfo(),
             'parent_id' => $msg->parent_id,
             'sequence' => $msg->sequence,
             'created_at' => $msg->created_at,

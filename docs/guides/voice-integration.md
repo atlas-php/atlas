@@ -28,7 +28,6 @@ class VoiceController
 
         $session = Atlas::agent('support')
             ->for($user)
-            ->asUser($user)
             ->forConversation($request->integer('conversation_id'))
             ->asVoice();
 

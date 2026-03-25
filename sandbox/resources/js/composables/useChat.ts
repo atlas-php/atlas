@@ -51,7 +51,7 @@ export interface ChatMessage {
     role: string;
     status: string;
     content: string | null;
-    author: { type: string; id: number | null; key: string | null; name: string };
+    owner: { type: string; id: number | null; key: string | null; name: string };
     parent_id: number | null;
     sequence: number;
     created_at: string;
@@ -188,7 +188,7 @@ export function useChat() {
             role: 'user',
             status: 'delivered',
             content: text,
-            author: { type: 'user', id: 1, key: null, name: 'You' },
+            owner: { type: 'user', id: 1, key: null, name: 'You' },
             parent_id: null,
             sequence: messages.value.length + 1,
             created_at: new Date().toISOString(),

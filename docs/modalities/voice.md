@@ -27,7 +27,6 @@ The simplest way — uses the agent's tools, instructions, and persistence autom
 ```php
 $session = Atlas::agent('support')
     ->for($user)
-    ->asUser($user)
     ->forConversation($conversationId)
     ->asVoice();
 

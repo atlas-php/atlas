@@ -116,7 +116,7 @@ class AgentRequest implements QueueableRequestContract
     // Conversation support — stored here, transferred to agent on resolve
     protected ?Model $conversationOwner = null;
 
-    protected ?Model $messageAuthor = null;
+    protected ?Model $messageOwner = null;
 
     protected ?int $conversationId = null;
 
@@ -265,21 +265,31 @@ class AgentRequest implements QueueableRequestContract
     // ─── Conversation Support ───────────────────────────────────────
 
     /**
-     * Set the conversation owner (creates/finds conversation for this model).
+     * Set the conversation owner and optionally the message sender.
+     *
+     * When `as:` is omitted, the owner is used as the message sender.
+     * Use `as:` for multi-user conversations where the sender differs
+     * from the thread owner.
      */
-    public function for(Model $owner): static
+    public function for(Model $owner, ?Model $as = null): static
     {
         $this->conversationOwner = $owner;
+
+        if ($as !== null) {
+            $this->messageOwner = $as;
+        }
 
         return $this;
     }
 
     /**
-     * Set the author of the incoming message.
+     * Set the owner of the incoming message.
+     *
+     * @deprecated Use for($owner, as: $user) instead.
      */
-    public function asUser(Model $author): static
+    public function asUser(Model $owner): static
     {
-        $this->messageAuthor = $author;
+        $this->messageOwner = $owner;
 
         return $this;
     }
@@ -579,9 +589,13 @@ class AgentRequest implements QueueableRequestContract
                 /** @var class-string<VoiceCall> $voiceCallModel */
                 $voiceCallModel = config('atlas.persistence.models.voice_call', VoiceCall::class);
 
+                $voiceOwner = $this->messageOwner ?? $this->conversationOwner;
+
                 $voiceCall = $voiceCallModel::create([
                     'conversation_id' => $this->conversationId,
                     'voice_session_id' => $session->sessionId,
+                    'owner_type' => $voiceOwner?->getMorphClass(),
+                    'owner_id' => $voiceOwner?->getKey(),
                     'agent' => $agent->key(),
                     'provider' => $providerKey,
                     'model' => $model ?? '',
@@ -610,7 +624,7 @@ class AgentRequest implements QueueableRequestContract
         if ($toolMap !== [] || config('atlas.persistence.enabled')) {
             Cache::put("voice:{$session->sessionId}:tools", [
                 'tools' => $toolMap,
-                'user_id' => $this->messageAuthor?->getKey(),
+                'user_id' => $this->messageOwner?->getKey(),
                 'execution_id' => $executionId,
             ], (int) config('atlas.persistence.voice_session_ttl', 60) * 60);
         }
@@ -682,14 +696,14 @@ class AgentRequest implements QueueableRequestContract
             $stored = $conversations->addMessage(
                 $conversation,
                 $userMessage,
-                author: $this->messageAuthor,
+                owner: $this->messageOwner,
             );
 
             $stored->markAsRead();
 
             // Store media attachments
             if ($this->messageMedia !== []) {
-                $this->storeEagerMediaAttachments($stored->id, $this->messageMedia, $this->messageAuthor);
+                $this->storeEagerMediaAttachments($stored->id, $this->messageMedia, $this->messageOwner);
             }
 
             // Auto-set conversation title from first user message
@@ -721,7 +735,7 @@ class AgentRequest implements QueueableRequestContract
      *
      * @param  array<int, Input>  $media
      */
-    private function storeEagerMediaAttachments(int $messageId, array $media, ?Model $author): void
+    private function storeEagerMediaAttachments(int $messageId, array $media, ?Model $owner): void
     {
         foreach ($media as $input) {
             try {
@@ -740,7 +754,7 @@ class AgentRequest implements QueueableRequestContract
                     default => AssetType::Document,
                 };
 
-                DB::transaction(function () use ($assetModel, $attachmentModel, $messageId, $path, $disk, $mime, $contents, $author, $type): void {
+                DB::transaction(function () use ($assetModel, $attachmentModel, $messageId, $path, $disk, $mime, $contents, $owner, $type): void {
                     $asset = $assetModel::create([
                         'type' => $type,
                         'mime_type' => $mime,
@@ -749,8 +763,8 @@ class AgentRequest implements QueueableRequestContract
                         'disk' => $disk,
                         'size_bytes' => strlen($contents),
                         'content_hash' => hash('sha256', $contents),
-                        'author_type' => $author?->getMorphClass(),
-                        'author_id' => $author?->getKey(),
+                        'owner_type' => $owner?->getMorphClass(),
+                        'owner_id' => $owner?->getKey(),
                         'metadata' => ['source' => 'user_upload'],
                     ]);
 
@@ -794,8 +808,8 @@ class AgentRequest implements QueueableRequestContract
             $agent->for($this->conversationOwner); // @phpstan-ignore method.notFound
         }
 
-        if ($this->messageAuthor !== null) {
-            $agent->asUser($this->messageAuthor); // @phpstan-ignore method.notFound
+        if ($this->messageOwner !== null) {
+            $agent->asUser($this->messageOwner); // @phpstan-ignore method.notFound
         }
 
         if ($this->conversationId !== null) {
@@ -1035,8 +1049,8 @@ class AgentRequest implements QueueableRequestContract
             'conversation_id' => $this->conversationId,
             'owner_type' => $this->conversationOwner?->getMorphClass(),
             'owner_id' => $this->conversationOwner?->getKey(),
-            'author_type' => $this->messageAuthor?->getMorphClass(),
-            'author_id' => $this->messageAuthor?->getKey(),
+            'message_owner_type' => $this->messageOwner?->getMorphClass(),
+            'message_owner_id' => $this->messageOwner?->getKey(),
             'message_limit' => $this->runtimeMessageLimit,
             'respond_mode' => $this->respondMode,
             'retry_mode' => $this->retryMode,
@@ -1124,12 +1138,13 @@ class AgentRequest implements QueueableRequestContract
         // Restore conversation state
         if ($payload['owner_type'] !== null && $payload['owner_id'] !== null) {
             $owner = $payload['owner_type']::findOrFail($payload['owner_id']);
-            $request->for($owner);
-        }
+            $messageOwner = null;
 
-        if ($payload['author_type'] !== null && $payload['author_id'] !== null) {
-            $author = $payload['author_type']::findOrFail($payload['author_id']);
-            $request->asUser($author);
+            if (($payload['message_owner_type'] ?? null) !== null && ($payload['message_owner_id'] ?? null) !== null) {
+                $messageOwner = $payload['message_owner_type']::findOrFail($payload['message_owner_id']);
+            }
+
+            $request->for($owner, as: $messageOwner);
         }
 
         if ($payload['conversation_id'] !== null) {

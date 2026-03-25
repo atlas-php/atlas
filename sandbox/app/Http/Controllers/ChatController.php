@@ -65,7 +65,6 @@ class ChatController
         // history, and response persistence via PersistConversation middleware.
         $agentRequest = Atlas::agent('sarah-text')
             ->for($user)
-            ->asUser($user)
             ->message($request->string('message')->toString(), $media)
             ->queue()
             ->withDelay(3);

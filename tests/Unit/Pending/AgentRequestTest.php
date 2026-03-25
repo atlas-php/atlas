@@ -866,8 +866,8 @@ it('executeFromPayload rebuilds and executes asText', function () {
             'conversation_id' => null,
             'owner_type' => null,
             'owner_id' => null,
-            'author_type' => null,
-            'author_id' => null,
+            'message_owner_type' => null,
+            'message_owner_id' => null,
             'message_limit' => null,
             'respond_mode' => false,
             'retry_mode' => false,
@@ -903,8 +903,8 @@ it('executeFromPayload applies overrides', function () {
             'conversation_id' => null,
             'owner_type' => null,
             'owner_id' => null,
-            'author_type' => null,
-            'author_id' => null,
+            'message_owner_type' => null,
+            'message_owner_id' => null,
             'message_limit' => 10,
             'respond_mode' => false,
             'retry_mode' => false,
@@ -947,8 +947,8 @@ it('executeFromPayload throws on unknown terminal', function () {
             'conversation_id' => null,
             'owner_type' => null,
             'owner_id' => null,
-            'author_type' => null,
-            'author_id' => null,
+            'message_owner_type' => null,
+            'message_owner_id' => null,
             'message_limit' => null,
             'respond_mode' => false,
             'retry_mode' => false,
@@ -1014,7 +1014,7 @@ it('for() sets conversation owner and returns self', function () {
     expect($result)->toBe($request);
 });
 
-it('asUser() sets message author and returns self', function () {
+it('asUser() sets message owner and returns self', function () {
     $author = new class extends Model
     {
         protected $table = 'users';

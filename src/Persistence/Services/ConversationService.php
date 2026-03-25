@@ -151,7 +151,7 @@ class ConversationService
 
         // ToolResultMessages from other agents become user context
         if ($atlasMessage instanceof ToolResultMessage) {
-            $name = $sourceMessage->authorName() ?? 'Unknown';
+            $name = $sourceMessage->ownerName() ?? 'Unknown';
 
             return new UserMessage(
                 content: "[{$name} tool:{$atlasMessage->toolName}]: {$atlasMessage->content}",
@@ -159,7 +159,7 @@ class ConversationService
         }
 
         // Other assistant/user messages become user with name prefix
-        $name = $sourceMessage->authorName() ?? 'Unknown';
+        $name = $sourceMessage->ownerName() ?? 'Unknown';
         $content = "[{$name}]: ".($atlasMessage->content ?? '');
 
         return new UserMessage(content: $content);
@@ -176,7 +176,7 @@ class ConversationService
     public function addMessage(
         Conversation $conversation,
         AtlasMessage $message,
-        ?Model $author = null,
+        ?Model $owner = null,
         ?string $agent = null,
         ?int $parentId = null,
         ?int $stepId = null,
@@ -186,7 +186,7 @@ class ConversationService
             message: $message,
             conversationId: $conversation->id,
             sequence: $conversation->nextSequence(),
-            author: $author,
+            owner: $owner,
             agent: $agent,
             parentId: $parentId,
             stepId: $stepId,
@@ -435,15 +435,15 @@ class ConversationService
     public function queueMessage(
         Conversation $conversation,
         AtlasMessage $message,
-        ?Model $author = null,
+        ?Model $owner = null,
         array $requestContext = [],
     ): Message {
-        return DB::transaction(function () use ($conversation, $message, $author, $requestContext): Message {
+        return DB::transaction(function () use ($conversation, $message, $owner, $requestContext): Message {
             $stored = $this->createMessageFromAtlas(
                 message: $message,
                 conversationId: $conversation->id,
                 sequence: $conversation->nextSequence(),
-                author: $author,
+                owner: $owner,
                 status: MessageStatus::Queued,
             );
 
@@ -544,7 +544,7 @@ class ConversationService
         AtlasMessage $message,
         int $conversationId,
         int $sequence,
-        ?Model $author = null,
+        ?Model $owner = null,
         ?string $agent = null,
         ?int $parentId = null,
         ?int $stepId = null,
@@ -556,8 +556,8 @@ class ConversationService
         $attributes = [
             'conversation_id' => $conversationId,
             'sequence' => $sequence,
-            'author_type' => $author?->getMorphClass(),
-            'author_id' => $author?->getKey(),
+            'owner_type' => $owner?->getMorphClass(),
+            'owner_id' => $owner?->getKey(),
             'agent' => $agent,
             'parent_id' => $parentId,
             'step_id' => $stepId,

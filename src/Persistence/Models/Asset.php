@@ -6,7 +6,7 @@ namespace Atlasphp\Atlas\Persistence\Models;
 
 use Atlasphp\Atlas\Database\Factories\AssetFactory;
 use Atlasphp\Atlas\Persistence\Concerns\HasAtlasTable;
-use Atlasphp\Atlas\Persistence\Concerns\HasAuthor;
+use Atlasphp\Atlas\Persistence\Concerns\HasOwner;
 use Atlasphp\Atlas\Persistence\Enums\AssetType;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -36,15 +36,15 @@ use Illuminate\Support\Carbon;
  * @property array<mixed>|null $embedding
  * @property Carbon|null $embedding_at
  * @property array<mixed>|null $metadata
- * @property string|null $author_type
- * @property int|null $author_id
+ * @property string|null $owner_type
+ * @property int|null $owner_id
  * @property string|null $agent
  * @property int|null $execution_id
  */
 class Asset extends Model
 {
     /** @use HasFactory<Factory<static>> */
-    use HasAtlasTable, HasAuthor, HasFactory, SoftDeletes;
+    use HasAtlasTable, HasFactory, HasOwner, SoftDeletes;
 
     protected static function newFactory(): AssetFactory
     {
@@ -66,8 +66,8 @@ class Asset extends Model
         'embedding',
         'embedding_at',
         'metadata',
-        'author_type',
-        'author_id',
+        'owner_type',
+        'owner_id',
         'agent',
         'execution_id',
     ];
@@ -130,7 +130,7 @@ class Asset extends Model
         return $this->type->isMedia();
     }
 
-    // ─── Scopes (byAuthor + byAgent provided by HasAuthor) ─────
+    // ─── Scopes (byOwner + byAgent provided by HasOwner) ──────
 
     /** @param Builder<static> $query */
     public function scopeForExecution(Builder $query, int $executionId): void

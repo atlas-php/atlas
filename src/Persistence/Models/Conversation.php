@@ -28,6 +28,7 @@ use Illuminate\Support\Collection;
  * @property int|null $owner_id
  * @property string|null $agent
  * @property string|null $title
+ * @property string|null $summary
  * @property array<string, mixed>|null $metadata
  * @property Carbon $created_at
  * @property Carbon $updated_at
@@ -50,6 +51,7 @@ class Conversation extends Model
         'owner_id',
         'agent',
         'title',
+        'summary',
         'metadata',
     ];
 

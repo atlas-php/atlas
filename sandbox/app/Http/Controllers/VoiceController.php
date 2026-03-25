@@ -27,8 +27,7 @@ class VoiceController
         $user = User::findOrFail(1);
 
         $builder = Atlas::agent('sarah-voice')
-            ->for($user)
-            ->asUser($user);
+            ->for($user);
 
         if (! empty($validated['conversation_id'])) {
             $builder->forConversation($validated['conversation_id']);

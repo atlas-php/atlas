@@ -60,8 +60,8 @@ All tables are prefixed with `atlas_` by default (configurable via `persistence.
 | `step_id` | `bigint nullable` | FK → execution_steps. Links assistant messages to their execution step so tool calls can be reconstructed when loading history |
 | `role` | `string` | `user`, `assistant`, or `system`. Determines how the message is sent to the AI provider |
 | `status` | `string` | `delivered` (normal) or `queued` (waiting to be processed). Enables message queuing for rate limiting |
-| `author_type` | `string nullable` | Polymorphic — who sent this message (User model, etc.). Separate from `role` because multiple users can send `user` role messages |
-| `author_id` | `bigint nullable` | Polymorphic — the author's ID |
+| `owner_type` | `string nullable` | Polymorphic — who sent this message (User model, etc.). Separate from `role` because multiple users can send `user` role messages |
+| `owner_id` | `bigint nullable` | Polymorphic — the owner's ID |
 | `agent` | `string nullable` | Which agent authored this message. Enables multi-agent conversations where different agents respond in the same thread |
 | `content` | `text` | The message text |
 | `sequence` | `int` | Ordering within the conversation. Unique per conversation — ensures consistent message order |
@@ -170,8 +170,8 @@ All tables are prefixed with `atlas_` by default (configurable via `persistence.
 | `size_bytes` | `int` | File size in bytes |
 | `content_hash` | `string` | SHA-256 hash of the content. Enables deduplication |
 | `description` | `text nullable` | Optional description |
-| `author_type` | `string nullable` | Polymorphic — who generated this asset |
-| `author_id` | `bigint nullable` | |
+| `owner_type` | `string nullable` | Polymorphic — who generated this asset |
+| `owner_id` | `bigint nullable` | |
 | `agent` | `string nullable` | Which agent generated this asset |
 | `execution_id` | `bigint nullable` | FK → executions. Which execution produced this asset |
 | `metadata` | `json nullable` | Additional context (tool_call_id, tool_name, provider, model) |
@@ -291,7 +291,7 @@ A single message in a conversation — user input, assistant response, or system
 |-------|-------------|
 | `active()` | Only active messages (`is_active = true`) |
 | `byAgent(string $agent)` | Filter by agent key |
-| `byAuthor(Model $author)` | Filter by polymorphic author |
+| `byOwner(Model $owner)` | Filter by polymorphic owner |
 | `read()` / `unread()` | Filter by read status |
 | `delivered()` / `queued()` | Filter by delivery status |
 

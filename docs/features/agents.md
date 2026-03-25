@@ -186,7 +186,6 @@ Start a real-time voice session using the agent's tools, instructions, and voice
 ```php
 $session = Atlas::agent('sarah-voice')
     ->for($user)
-    ->asUser($user)
     ->forConversation($conversationId)
     ->asVoice();
 
@@ -347,11 +346,10 @@ $response = Atlas::agent('support')
     ->message('What about my billing?')
     ->asText();
 
-// Set the message author (for multi-user conversations)
+// Multi-user conversation — specify who is sending the message
 $response = Atlas::agent('support')
-    ->for($user)
+    ->for($team, as: $currentUser)
     ->forConversation($conversationId)
-    ->asUser($admin)
     ->message('Adding a note to this conversation.')
     ->asText();
 ```
@@ -477,9 +475,9 @@ Returned by `Atlas::agent('key')`. Chain these before a terminal method.
 | `->withProviderOptions(array $options)` | Override provider-specific options |
 | `->withSchema(Schema $schema)` | Set structured output schema |
 | `->withMessages(array $messages)` | Provide conversation history |
-| `->for(Model $owner)` | Set conversation owner (persistence) |
+| `->for(Model $owner, ?Model $as = null)` | Set conversation owner. Optionally pass `as:` to set a different message sender (persistence) |
 | `->forConversation(int $id)` | Join an existing conversation (persistence) |
-| `->asUser(Model $author)` | Set message author (persistence) |
+| `->asUser(Model $owner)` | *(Deprecated)* Use `for($owner, as: $user)` instead |
 | `->withMessageLimit(int $limit)` | Override message history limit (persistence) |
 | `->respond()` | Respond without a new user message (persistence) |
 | `->retry()` | Retry the last assistant response (persistence) |

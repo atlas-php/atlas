@@ -34,33 +34,33 @@ it('isMedia returns true for image, audio, and video', function () {
         ->and($text->isMedia())->toBeFalse();
 });
 
-it('isHumanAuthored returns true when author is set', function () {
+it('isHumanOwned returns true when owner is set', function () {
     $humanAuthored = Asset::factory()->create([
-        'author_type' => 'App\\Models\\User',
-        'author_id' => 1,
+        'owner_type' => 'App\\Models\\User',
+        'owner_id' => 1,
     ]);
 
     $agentAuthored = Asset::factory()->byAgent('writer')->create();
 
-    expect($humanAuthored->isHumanAuthored())->toBeTrue()
-        ->and($agentAuthored->isHumanAuthored())->toBeFalse();
+    expect($humanAuthored->isHumanOwned())->toBeTrue()
+        ->and($agentAuthored->isHumanOwned())->toBeFalse();
 });
 
-it('isAgentAuthored returns true when agent is set', function () {
+it('isAgentOwned returns true when agent is set', function () {
     $agentAuthored = Asset::factory()->byAgent('writer')->create();
     $humanAuthored = Asset::factory()->create([
-        'author_type' => 'App\\Models\\User',
-        'author_id' => 1,
+        'owner_type' => 'App\\Models\\User',
+        'owner_id' => 1,
     ]);
 
-    expect($agentAuthored->isAgentAuthored())->toBeTrue()
-        ->and($humanAuthored->isAgentAuthored())->toBeFalse();
+    expect($agentAuthored->isAgentOwned())->toBeTrue()
+        ->and($humanAuthored->isAgentOwned())->toBeFalse();
 });
 
-it('authorName returns agent name for agent-authored assets', function () {
+it('ownerName returns agent name for agent-owned assets', function () {
     $asset = Asset::factory()->byAgent('writer')->create();
 
-    expect($asset->authorName())->toBe('writer');
+    expect($asset->ownerName())->toBe('writer');
 });
 
 it('scopeByAgent filters correctly', function () {
@@ -97,23 +97,23 @@ it('supports soft deletes', function () {
         ->and(Asset::count())->toBe(1);
 });
 
-it('scopeByAuthor filters by polymorphic author', function () {
-    // Create assets with specific author_type and author_id
+it('scopeByOwner filters by polymorphic author', function () {
+    // Create assets with specific owner_type and owner_id
     Asset::factory()->create([
-        'author_type' => 'App\\Models\\User',
-        'author_id' => 1,
+        'owner_type' => 'App\\Models\\User',
+        'owner_id' => 1,
     ]);
     Asset::factory()->create([
-        'author_type' => 'App\\Models\\User',
-        'author_id' => 1,
+        'owner_type' => 'App\\Models\\User',
+        'owner_id' => 1,
     ]);
     Asset::factory()->create([
-        'author_type' => 'App\\Models\\User',
-        'author_id' => 2,
+        'owner_type' => 'App\\Models\\User',
+        'owner_id' => 2,
     ]);
     Asset::factory()->create([
-        'author_type' => 'App\\Models\\Team',
-        'author_id' => 1,
+        'owner_type' => 'App\\Models\\Team',
+        'owner_id' => 1,
     ]);
 
     // Use a Conversation model as a stand-in for the polymorphic query
@@ -133,7 +133,7 @@ it('scopeByAuthor filters by polymorphic author', function () {
         }
     };
 
-    expect(Asset::byAuthor($author)->count())->toBe(2);
+    expect(Asset::byOwner($author)->count())->toBe(2);
 });
 
 it('execution relationship returns related execution', function () {

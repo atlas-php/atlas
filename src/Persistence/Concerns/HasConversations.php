@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Model;
  * Trait HasConversations
  *
  * Consumer-facing API for conversation management on Agent classes.
- * Provides fluent methods for setting conversation ownership, authorship,
+ * Provides fluent methods for setting conversation ownership,
  * response/retry modes, message limits, and conversation resolution.
  */
 trait HasConversations
@@ -21,7 +21,7 @@ trait HasConversations
 
     protected ?Model $conversationOwner = null;
 
-    protected ?Model $messageAuthor = null;
+    protected ?Model $messageOwner = null;
 
     protected ?int $conversationId = null;
 
@@ -36,41 +36,45 @@ trait HasConversations
     // ─── Conversation Ownership ─────────────────────────────────
 
     /**
-     * Own a conversation as this model.
-     * Creates or finds a conversation where this model is the owner.
+     * Set the conversation owner and optionally the message sender.
      *
      * Accepts any Eloquent model — User, Team, Account, or even
      * another Execution for agent-to-agent delegation with memory.
+     *
+     * When `as:` is omitted, the owner is used as the message sender.
+     * Use `as:` for multi-user conversations where the sender differs
+     * from the thread owner.
      */
-    public function for(Model $owner): static
+    public function for(Model $owner, ?Model $as = null): static
     {
         $this->conversationOwner = $owner;
 
+        if ($as !== null) {
+            $this->messageOwner = $as;
+        }
+
         return $this;
     }
 
     /**
-     * Set the human author of the incoming message.
-     * Used for authorship tracking — who sent this message.
-     * In group conversations this is what produces the "[Tim]:" prefix.
+     * Set the human owner of the incoming message.
      *
-     * In 1:1 conversations, the owner IS the author, so this is optional.
-     * When not set, the middleware falls back to the conversation owner.
+     * @deprecated Use for($owner, as: $user) instead.
      */
-    public function asUser(Model $author): static
+    public function asUser(Model $owner): static
     {
-        $this->messageAuthor = $author;
+        $this->messageOwner = $owner;
 
         return $this;
     }
 
     /**
-     * Resolve who authored the user message.
-     * Explicit asUser() wins, otherwise falls back to conversation owner.
+     * Resolve who owns the user message.
+     * Explicit as: wins, otherwise falls back to conversation owner.
      */
-    public function resolveAuthor(): ?Model
+    public function resolveOwner(): ?Model
     {
-        return $this->messageAuthor ?? $this->conversationOwner;
+        return $this->messageOwner ?? $this->conversationOwner;
     }
 
     /**

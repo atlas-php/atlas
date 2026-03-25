@@ -12,7 +12,7 @@ use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Messages\ToolResultMessage;
 use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Persistence\Concerns\HasAtlasTable;
-use Atlasphp\Atlas\Persistence\Concerns\HasAuthor;
+use Atlasphp\Atlas\Persistence\Concerns\HasOwner;
 use Atlasphp\Atlas\Persistence\Enums\MessageRole;
 use Atlasphp\Atlas\Persistence\Enums\MessageStatus;
 use Illuminate\Database\Eloquent\Builder;
@@ -28,7 +28,7 @@ use Illuminate\Support\Collection;
  * Class Message
  *
  * Represents a single message within a conversation. Supports user, assistant, and system roles
- * with polymorphic authorship, read/queue status tracking, sibling/retry grouping, and conversion
+ * with polymorphic ownership, read/queue status tracking, sibling/retry grouping, and conversion
  * to/from Atlas typed messages for provider replay.
  *
  * @property int $id
@@ -37,8 +37,8 @@ use Illuminate\Support\Collection;
  * @property int|null $step_id
  * @property MessageRole $role
  * @property MessageStatus $status
- * @property string|null $author_type
- * @property int|null $author_id
+ * @property string|null $owner_type
+ * @property int|null $owner_id
  * @property string|null $agent
  * @property string|null $content
  * @property int $sequence
@@ -51,7 +51,7 @@ use Illuminate\Support\Collection;
 class Message extends Model
 {
     /** @use HasFactory<Factory<static>> */
-    use HasAtlasTable, HasAuthor, HasFactory;
+    use HasAtlasTable, HasFactory, HasOwner;
 
     protected static function newFactory(): MessageFactory
     {
@@ -66,8 +66,8 @@ class Message extends Model
         'step_id',
         'role',
         'status',
-        'author_type',
-        'author_id',
+        'owner_type',
+        'owner_id',
         'agent',
         'content',
         'sequence',
@@ -159,37 +159,37 @@ class Message extends Model
         return $this->hasMany($model);
     }
 
-    // ─── Authorship — provided by HasAuthor trait ──────────────
+    // ─── Ownership — provided by HasOwner trait ────────────────
 
     /**
-     * Unified author info for the UI.
+     * Unified owner info for the UI.
      *
-     * Returns a consistent structure regardless of whether the author
+     * Returns a consistent structure regardless of whether the owner
      * is a human (model) or an agent (key string):
      *   ['type' => 'user', 'id' => 1, 'name' => 'Tim']
      *   ['type' => 'agent', 'key' => 'assistant', 'name' => 'assistant']
      *
      * @return array{type: string, id: int|null, key: string|null, name: string|null}
      */
-    public function authorInfo(): array
+    public function ownerInfo(): array
     {
+        if ($this->owner_type !== null) {
+            $owner = $this->owner;
+
+            return [
+                'type' => 'user',
+                'id' => $this->owner_id,
+                'key' => null,
+                'name' => $owner->name ?? null,
+            ];
+        }
+
         if ($this->agent !== null) {
             return [
                 'type' => 'agent',
                 'id' => null,
                 'key' => $this->agent,
                 'name' => $this->agent,
-            ];
-        }
-
-        if ($this->author_type !== null) {
-            $author = $this->author;
-
-            return [
-                'type' => 'user',
-                'id' => $this->author_id,
-                'key' => null,
-                'name' => $author->name ?? null,
             ];
         }
 

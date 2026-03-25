@@ -367,20 +367,20 @@ it('siblingIndex returns 1-based index of current message', function () {
         ->and($second->siblingIndex())->toBe(2);
 });
 
-it('authorName returns agent key for agent-authored message', function () {
+it('ownerName returns agent key for agent-authored message', function () {
     $message = Message::factory()->fromAssistant('writer-agent')->create();
 
-    expect($message->authorName())->toBe('writer-agent');
+    expect($message->ownerName())->toBe('writer-agent');
 });
 
-it('authorName returns null for messages without author or agent', function () {
+it('ownerName returns null for messages without author or agent', function () {
     $message = Message::factory()->fromUser()->create([
         'agent' => null,
-        'author_type' => null,
-        'author_id' => null,
+        'owner_type' => null,
+        'owner_id' => null,
     ]);
 
-    expect($message->authorName())->toBeNull();
+    expect($message->ownerName())->toBeNull();
 });
 
 it('scopeActive filters to active messages only', function () {
@@ -440,18 +440,18 @@ it('scopeQueued filters queued messages', function () {
     expect(Message::where('conversation_id', $conversation->id)->queued()->count())->toBe(2);
 });
 
-it('scopeByAuthor filters by polymorphic author', function () {
+it('scopeByOwner filters by polymorphic owner', function () {
     $conversation = Conversation::factory()->create();
     Message::factory()->create([
         'conversation_id' => $conversation->id,
-        'author_type' => 'App\\Models\\User',
-        'author_id' => 5,
+        'owner_type' => 'App\\Models\\User',
+        'owner_id' => 5,
         'sequence' => 0,
     ]);
     Message::factory()->create([
         'conversation_id' => $conversation->id,
-        'author_type' => 'App\\Models\\User',
-        'author_id' => 10,
+        'owner_type' => 'App\\Models\\User',
+        'owner_id' => 10,
         'sequence' => 1,
     ]);
 
@@ -470,10 +470,10 @@ it('scopeByAuthor filters by polymorphic author', function () {
         }
     };
 
-    $results = Message::byAuthor($author)->get();
+    $results = Message::byOwner($author)->get();
 
     expect($results)->toHaveCount(1)
-        ->and($results->first()->author_id)->toBe(5);
+        ->and($results->first()->owner_id)->toBe(5);
 });
 
 it('scopeByAgent filters by agent key', function () {

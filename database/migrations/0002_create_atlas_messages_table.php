@@ -38,7 +38,7 @@ return new class extends Migration
             $table->unsignedBigInteger('step_id')->nullable(); // FK added in 0008 after execution_steps exists
             $table->string('role', 20);
             $table->string('status', 20)->default('delivered');
-            $table->nullableMorphs('author');
+            $table->nullableMorphs('owner');
             $table->string('agent', 255)->nullable();
             $table->text('content')->nullable();
             $table->unsignedInteger('sequence')->default(0);
@@ -62,7 +62,7 @@ return new class extends Migration
             $table->unique(['conversation_id', 'sequence']);
             $table->index(['conversation_id', 'status']);
             $table->index(['conversation_id', 'is_active']);
-            // author index already created by nullableMorphs('author') above
+            // owner index already created by nullableMorphs('owner') above
         });
 
         // Add HNSW vector index — PostgreSQL only

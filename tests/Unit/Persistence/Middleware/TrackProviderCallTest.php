@@ -1059,7 +1059,7 @@ it('captures author metadata in asset from context meta', function () {
         model: 'dall-e-3',
         method: 'image',
         request: new stdClass,
-        meta: ['author_type' => 'App\\Models\\User', 'author_id' => 42],
+        meta: ['owner_type' => 'App\\Models\\User', 'owner_id' => 42],
     );
 
     $response = new class implements StorableContract
@@ -1087,6 +1087,6 @@ it('captures author metadata in asset from context meta', function () {
     $asset = Asset::latest('id')->first();
 
     expect($asset)->not->toBeNull();
-    expect($asset->author_type)->toBe('App\\Models\\User');
-    expect($asset->author_id)->toBe(42);
+    expect($asset->owner_type)->toBe('App\\Models\\User');
+    expect($asset->owner_id)->toBe(42);
 });

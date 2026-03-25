@@ -26,36 +26,36 @@ it('for() sets conversation owner and returns self', function () {
     $result = $agent->for($owner);
 
     expect($result)->toBe($agent)
-        ->and($agent->resolveAuthor())->toBe($owner);
+        ->and($agent->resolveOwner())->toBe($owner);
 });
 
-it('asUser() sets message author and returns self', function () {
+it('asUser() sets message owner and returns self', function () {
     $agent = makeConversationAgent();
     $author = Conversation::factory()->create();
 
     $result = $agent->asUser($author);
 
     expect($result)->toBe($agent)
-        ->and($agent->resolveAuthor())->toBe($author);
+        ->and($agent->resolveOwner())->toBe($author);
 });
 
-it('resolveAuthor returns explicit author when set', function () {
+it('resolveOwner returns explicit owner when set', function () {
     $agent = makeConversationAgent();
     $owner = Conversation::factory()->create();
     $author = Conversation::factory()->create();
 
     $agent->for($owner)->asUser($author);
 
-    expect($agent->resolveAuthor())->toBe($author);
+    expect($agent->resolveOwner())->toBe($author);
 });
 
-it('resolveAuthor falls back to owner when no explicit author', function () {
+it('resolveOwner falls back to owner when no explicit owner', function () {
     $agent = makeConversationAgent();
     $owner = Conversation::factory()->create();
 
     $agent->for($owner);
 
-    expect($agent->resolveAuthor())->toBe($owner);
+    expect($agent->resolveOwner())->toBe($owner);
 });
 
 it('forConversation() sets conversation ID', function () {

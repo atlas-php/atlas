@@ -387,7 +387,7 @@ class ProcessAgentResponseService
 | Events              | Past tense                | `AgentCreated`, `ToolExecuted`   |
 | Enums (shared)      | Singular noun             | `Role`, `Provider`, `Modality`   |
 | Enums (persistence) | Context-prefixed          | `ExecutionStatus`, `MessageRole` |
-| Traits (capability) | `Has*`                    | `HasMeta`, `HasAuthor`           |
+| Traits (capability) | `Has*`                    | `HasMeta`, `HasOwner`            |
 | Traits (builder)    | `Builds*`                 | `BuildsHeaders`                  |
 | Traits (resolver)   | `Resolves*`               | `ResolvesProvider`               |
 | Traits (action)     | `{Verb}s*`                | `TracksExecution`, `StoresMedia` |
