@@ -540,11 +540,216 @@ it('AgentToolCallFailed broadcastWith includes error message', function () {
         ->and($data['stepNumber'])->toBe(3);
 });
 
+// ─── broadcastAs ──────────────────────────────────────────────────────────
+
+it('each orchestration event has correct broadcastAs', function () {
+    $channel = new Channel('test');
+    $toolCall = new ToolCall('tc-1', 'search', []);
+
+    $expectations = [
+        [new AgentStarted(agentKey: null, maxSteps: null, concurrent: false, channel: $channel), 'AgentStarted'],
+        [new AgentStepStarted(stepNumber: 1, channel: $channel), 'AgentStepStarted'],
+        [new AgentStepCompleted(stepNumber: 1, finishReason: FinishReason::Stop, usage: new Usage(0, 0), channel: $channel), 'AgentStepCompleted'],
+        [new AgentToolCallStarted(toolCall: $toolCall, channel: $channel), 'AgentToolCallStarted'],
+        [new AgentToolCallCompleted(toolCall: $toolCall, result: new ToolResult($toolCall, 'ok'), channel: $channel), 'AgentToolCallCompleted'],
+        [new AgentToolCallFailed(toolCall: $toolCall, exception: new RuntimeException('fail'), channel: $channel), 'AgentToolCallFailed'],
+        [new AgentCompleted(steps: [], usage: new Usage(0, 0), channel: $channel), 'AgentCompleted'],
+        [new AgentMaxStepsExceeded(limit: 3, steps: [], channel: $channel), 'AgentMaxStepsExceeded'],
+    ];
+
+    foreach ($expectations as [$event, $expected]) {
+        expect($event->broadcastAs())->toBe($expected);
+    }
+});
+
+// ─── broadcastWith for all events ─────────────────────────────────────────
+
+it('AgentStarted broadcastWith includes agentKey, maxSteps, concurrent', function () {
+    $event = new AgentStarted(
+        agentKey: 'my-agent',
+        maxSteps: 10,
+        concurrent: true,
+        provider: 'openai',
+        model: 'gpt-4o',
+        traceId: 'trace-001',
+        channel: new Channel('test'),
+    );
+
+    $data = $event->broadcastWith();
+
+    expect($data)->toBe([
+        'agentKey' => 'my-agent',
+        'maxSteps' => 10,
+        'concurrent' => true,
+    ]);
+});
+
+it('AgentStarted broadcastWith excludes provider, model, traceId', function () {
+    $event = new AgentStarted(
+        agentKey: 'test',
+        maxSteps: 5,
+        concurrent: false,
+        provider: 'openai',
+        model: 'gpt-4o',
+        traceId: 'trace-secret',
+        channel: new Channel('test'),
+    );
+
+    $data = $event->broadcastWith();
+
+    expect($data)->not->toHaveKey('provider')
+        ->and($data)->not->toHaveKey('model')
+        ->and($data)->not->toHaveKey('traceId');
+});
+
+it('AgentStepStarted broadcastWith includes agentKey and stepNumber', function () {
+    $event = new AgentStepStarted(
+        stepNumber: 3,
+        agentKey: 'my-agent',
+        channel: new Channel('test'),
+    );
+
+    $data = $event->broadcastWith();
+
+    expect($data)->toBe([
+        'agentKey' => 'my-agent',
+        'stepNumber' => 3,
+    ]);
+});
+
+it('AgentStepCompleted broadcastWith includes all step context', function () {
+    $event = new AgentStepCompleted(
+        stepNumber: 2,
+        finishReason: FinishReason::ToolCalls,
+        usage: new Usage(100, 200),
+        agentKey: 'my-agent',
+        channel: new Channel('test'),
+    );
+
+    $data = $event->broadcastWith();
+
+    expect($data)->toBe([
+        'agentKey' => 'my-agent',
+        'stepNumber' => 2,
+        'finishReason' => 'tool_calls',
+        'usage' => [
+            'inputTokens' => 100,
+            'outputTokens' => 200,
+        ],
+    ]);
+});
+
+it('AgentCompleted broadcastWith includes summary without raw steps', function () {
+    $step1 = new Step(text: null, toolCalls: [], toolResults: [], usage: new Usage(50, 100));
+    $step2 = new Step(text: 'done', toolCalls: [], toolResults: [], usage: new Usage(50, 100));
+
+    $event = new AgentCompleted(
+        steps: [$step1, $step2],
+        usage: new Usage(100, 200),
+        agentKey: 'my-agent',
+        finishReason: FinishReason::Stop,
+        channel: new Channel('test'),
+    );
+
+    $data = $event->broadcastWith();
+
+    expect($data)->toBe([
+        'agentKey' => 'my-agent',
+        'stepCount' => 2,
+        'usage' => [
+            'inputTokens' => 100,
+            'outputTokens' => 200,
+        ],
+        'finishReason' => 'stop',
+    ]);
+});
+
+it('AgentCompleted broadcastWith handles null finishReason', function () {
+    $event = new AgentCompleted(
+        steps: [],
+        usage: new Usage(0, 0),
+        agentKey: 'my-agent',
+        channel: new Channel('test'),
+    );
+
+    expect($event->broadcastWith()['finishReason'])->toBeNull();
+});
+
+it('AgentMaxStepsExceeded broadcastWith includes summary without raw steps', function () {
+    $step = new Step(text: null, toolCalls: [], toolResults: [], usage: new Usage(10, 20));
+
+    $event = new AgentMaxStepsExceeded(
+        limit: 5,
+        steps: [$step, $step, $step],
+        agentKey: 'my-agent',
+        channel: new Channel('test'),
+    );
+
+    $data = $event->broadcastWith();
+
+    expect($data)->toBe([
+        'agentKey' => 'my-agent',
+        'limit' => 5,
+        'stepCount' => 3,
+    ]);
+});
+
+// ─── broadcastWith truncation ─────────────────────────────────────────────
+
+it('AgentToolCallCompleted broadcastWith truncates large result content', function () {
+    $toolCall = new ToolCall('tc-1', 'search', []);
+    $result = new ToolResult(toolCall: $toolCall, content: str_repeat('x', 1000));
+
+    $event = new AgentToolCallCompleted(
+        toolCall: $toolCall,
+        result: $result,
+        channel: new Channel('test'),
+    );
+
+    $data = $event->broadcastWith();
+
+    expect(mb_strlen($data['result']))->toBe(500);
+});
+
+it('AgentToolCallFailed broadcastWith truncates large error message', function () {
+    $toolCall = new ToolCall('tc-1', 'fetch', []);
+    $exception = new RuntimeException(str_repeat('e', 1000));
+
+    $event = new AgentToolCallFailed(
+        toolCall: $toolCall,
+        exception: $exception,
+        channel: new Channel('test'),
+    );
+
+    $data = $event->broadcastWith();
+
+    expect(mb_strlen($data['error']))->toBe(500);
+});
+
+it('AgentToolCallStarted broadcastWith does not truncate non-string arguments', function () {
+    $event = new AgentToolCallStarted(
+        toolCall: new ToolCall('tc-1', 'calculate', ['value' => 42, 'enabled' => true]),
+        channel: new Channel('test'),
+    );
+
+    $data = $event->broadcastWith();
+
+    expect($data['arguments']['value'])->toBe(42)
+        ->and($data['arguments']['enabled'])->toBeTrue();
+});
+
+// ─── channel defaults ─────────────────────────────────────────────────────
+
 it('channel defaults to null on all orchestration events', function () {
+    $toolCall = new ToolCall('tc-1', 'search', []);
+
     $events = [
         new AgentStarted(agentKey: null, maxSteps: null, concurrent: false),
         new AgentStepStarted(stepNumber: 1),
         new AgentStepCompleted(stepNumber: 1, finishReason: FinishReason::Stop, usage: new Usage(0, 0)),
+        new AgentToolCallStarted(toolCall: $toolCall),
+        new AgentToolCallCompleted(toolCall: $toolCall, result: new ToolResult($toolCall, 'ok')),
+        new AgentToolCallFailed(toolCall: $toolCall, exception: new RuntimeException('fail')),
         new AgentCompleted(steps: [], usage: new Usage(0, 0)),
         new AgentMaxStepsExceeded(limit: 3, steps: []),
     ];
