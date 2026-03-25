@@ -41,7 +41,13 @@ class VoiceToolController
         ]);
 
         $name = $validated['name'];
-        $args = json_decode($validated['arguments'], true) ?? [];
+        try {
+            $args = json_decode($validated['arguments'], true, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            return response()->json([
+                'output' => json_encode(['error' => 'Invalid JSON in arguments'], JSON_THROW_ON_ERROR),
+            ], 400);
+        }
         $callId = $validated['call_id'] ?? Str::uuid()->toString();
 
         // Verify the session exists and load registered tools
@@ -50,7 +56,7 @@ class VoiceToolController
 
         if ($sessionData === null) {
             return response()->json([
-                'output' => json_encode(['error' => 'Session not found or expired']),
+                'output' => json_encode(['error' => 'Session not found or expired'], JSON_THROW_ON_ERROR),
             ], 404);
         }
 
@@ -61,7 +67,7 @@ class VoiceToolController
 
         if ($toolClass === null) {
             return response()->json([
-                'output' => json_encode(['error' => "Unknown tool: {$name}"]),
+                'output' => json_encode(['error' => "Unknown tool: {$name}"], JSON_THROW_ON_ERROR),
             ], 404);
         }
 
@@ -134,7 +140,7 @@ class VoiceToolController
             $errorMessage = config('app.debug') ? $e->getMessage() : 'Tool execution failed';
 
             return response()->json([
-                'output' => json_encode(['error' => $errorMessage]),
+                'output' => json_encode(['error' => $errorMessage], JSON_THROW_ON_ERROR),
             ]);
         }
     }

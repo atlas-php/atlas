@@ -18,7 +18,7 @@ use Atlasphp\Atlas\Pending\Concerns\HasProviderOptions;
 use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Queue\PendingExecution;
-use Atlasphp\Atlas\Queue\QueueableRequest;
+use Atlasphp\Atlas\Queue\QueueableRequestContract;
 use Atlasphp\Atlas\Requests\AudioRequest as AudioRequestObject;
 use Atlasphp\Atlas\Responses\AudioResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
@@ -28,7 +28,7 @@ use Illuminate\Support\Str;
 /**
  * Fluent builder for audio generation and audio-to-text requests.
  */
-class AudioRequest implements QueueableRequest
+class AudioRequest implements QueueableRequestContract
 {
     use AppliesQueueMeta;
     use HasMeta;

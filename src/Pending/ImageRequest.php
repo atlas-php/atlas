@@ -18,7 +18,7 @@ use Atlasphp\Atlas\Pending\Concerns\HasProviderOptions;
 use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Queue\PendingExecution;
-use Atlasphp\Atlas\Queue\QueueableRequest;
+use Atlasphp\Atlas\Queue\QueueableRequestContract;
 use Atlasphp\Atlas\Requests\ImageRequest as ImageRequestObject;
 use Atlasphp\Atlas\Responses\ImageResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
@@ -28,7 +28,7 @@ use Illuminate\Support\Str;
 /**
  * Fluent builder for image generation and image-to-text requests.
  */
-class ImageRequest implements QueueableRequest
+class ImageRequest implements QueueableRequestContract
 {
     use AppliesQueueMeta;
     use HasMeta;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Atlasphp\Atlas\Concerns;
+namespace Atlasphp\Atlas\Pending\Concerns;
 
 use Atlasphp\Atlas\Enums\Role;
 use Atlasphp\Atlas\Messages\AssistantMessage;

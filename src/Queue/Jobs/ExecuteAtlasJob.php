@@ -8,7 +8,7 @@ use Atlasphp\Atlas\Concerns\ConfiguresAtlasJob;
 use Atlasphp\Atlas\Events\ExecutionCompleted;
 use Atlasphp\Atlas\Events\ExecutionFailed;
 use Atlasphp\Atlas\Exceptions\MaxStepsExceededException;
-use Atlasphp\Atlas\Queue\QueueableRequest;
+use Atlasphp\Atlas\Queue\QueueableRequestContract;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Bus\Queueable;
@@ -22,7 +22,7 @@ use Throwable;
 /**
  * Single job class for all Atlas modality executions.
  *
- * Every pending request type implements QueueableRequest, which defines
+ * Every pending request type implements QueueableRequestContract, which defines
  * how it serializes and rebuilds. This job handles the dispatch lifecycle,
  * persistence transitions, callbacks, and broadcasting.
  */
@@ -46,7 +46,7 @@ class ExecuteAtlasJob implements ShouldQueue
     public ?SerializableClosure $catchCallback = null;
 
     /**
-     * @param  class-string<QueueableRequest>  $requestClass
+     * @param  class-string<QueueableRequestContract>  $requestClass
      * @param  string  $terminal  Terminal method name (e.g. 'asText', 'asImage')
      * @param  array<string, mixed>  $payload  Serialized request state
      * @param  int|null  $executionId  Pre-created execution ID for persistence

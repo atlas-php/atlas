@@ -17,7 +17,7 @@ use Atlasphp\Atlas\Pending\Concerns\HasProviderOptions;
 use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Queue\PendingExecution;
-use Atlasphp\Atlas\Queue\QueueableRequest;
+use Atlasphp\Atlas\Queue\QueueableRequestContract;
 use Atlasphp\Atlas\Requests\EmbedRequest as EmbedRequestObject;
 use Atlasphp\Atlas\Responses\EmbeddingsResponse;
 use Illuminate\Broadcasting\Channel;
@@ -26,7 +26,7 @@ use Illuminate\Support\Str;
 /**
  * Fluent builder for embedding requests.
  */
-class EmbedRequest implements QueueableRequest
+class EmbedRequest implements QueueableRequestContract
 {
     use AppliesQueueMeta;
     use HasMeta;

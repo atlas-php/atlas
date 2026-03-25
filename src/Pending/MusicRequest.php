@@ -19,7 +19,7 @@ use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Queue\PendingExecution;
-use Atlasphp\Atlas\Queue\QueueableRequest;
+use Atlasphp\Atlas\Queue\QueueableRequestContract;
 use Atlasphp\Atlas\Requests\AudioRequest as AudioRequestObject;
 use Atlasphp\Atlas\Responses\AudioResponse;
 use Illuminate\Broadcasting\Channel;
@@ -28,7 +28,7 @@ use Illuminate\Support\Str;
 /**
  * Fluent builder for music generation requests.
  */
-class MusicRequest implements QueueableRequest
+class MusicRequest implements QueueableRequestContract
 {
     use AppliesQueueMeta;
     use HasMeta;

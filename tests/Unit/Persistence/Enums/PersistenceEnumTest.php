@@ -73,9 +73,9 @@ it('fromDriverMethod maps all driver methods correctly', function (string $metho
     ['rerank', ExecutionType::Rerank],
 ]);
 
-it('fromDriverMethod defaults to Text for unknown method', function () {
-    expect(ExecutionType::fromDriverMethod('nonexistent'))->toBe(ExecutionType::Text);
-});
+it('fromDriverMethod throws ValueError for unknown method', function () {
+    ExecutionType::fromDriverMethod('nonexistent');
+})->throws(ValueError::class, 'Unknown driver method: nonexistent');
 
 // ─── ExecutionStatus ────────────────────────────────────────────
 

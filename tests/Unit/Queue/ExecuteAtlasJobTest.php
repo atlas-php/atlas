@@ -6,7 +6,7 @@ use Atlasphp\Atlas\Events\ExecutionCompleted;
 use Atlasphp\Atlas\Events\ExecutionFailed;
 use Atlasphp\Atlas\Exceptions\MaxStepsExceededException;
 use Atlasphp\Atlas\Queue\Jobs\ExecuteAtlasJob;
-use Atlasphp\Atlas\Queue\QueueableRequest;
+use Atlasphp\Atlas\Queue\QueueableRequestContract;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Contracts\Queue\Job;
 use Illuminate\Support\Facades\Event;
@@ -15,8 +15,8 @@ use Laravel\SerializableClosure\SerializableClosure;
 it('calls executeFromPayload on the request class', function () {
     Event::fake();
 
-    // Create a temporary test class that implements QueueableRequest
-    $requestClass = new class implements QueueableRequest
+    // Create a temporary test class that implements QueueableRequestContract
+    $requestClass = new class implements QueueableRequestContract
     {
         public static bool $wasCalled = false;
 
@@ -64,7 +64,7 @@ it('calls executeFromPayload on the request class', function () {
 it('fires ExecutionCompleted event on success', function () {
     Event::fake([ExecutionCompleted::class]);
 
-    $requestClass = new class implements QueueableRequest
+    $requestClass = new class implements QueueableRequestContract
     {
         public function toQueuePayload(): array
         {
@@ -136,7 +136,7 @@ it('invokes thenCallback with result on success', function () {
 
     $callbackResult = null;
 
-    $requestClass = new class implements QueueableRequest
+    $requestClass = new class implements QueueableRequestContract
     {
         public function toQueuePayload(): array
         {
@@ -196,7 +196,7 @@ it('invokes catchCallback with exception on failure', function () {
 it('fails immediately on MaxStepsExceededException without retrying', function () {
     Event::fake();
 
-    $requestClass = new class implements QueueableRequest
+    $requestClass = new class implements QueueableRequestContract
     {
         public function toQueuePayload(): array
         {
@@ -236,7 +236,7 @@ it('consumes StreamResponse iterator during handle', function () {
 
     $consumed = false;
 
-    $requestClass = new class implements QueueableRequest
+    $requestClass = new class implements QueueableRequestContract
     {
         public static bool $consumed = false;
 

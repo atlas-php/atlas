@@ -4,8 +4,15 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Enums;
 
+use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
+
 /**
  * Identifies the type of operation for modality lifecycle events.
+ *
+ * @see ExecutionType — persistence-layer counterpart with
+ *      near-identical cases. Modality includes SpeechToText (fired as a sub-operation event);
+ *      ExecutionType omits it (a single execution tracks the parent Speech request).
+ *      When adding a new modality, update both enums.
  */
 enum Modality: string
 {

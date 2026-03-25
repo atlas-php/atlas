@@ -12,7 +12,7 @@ use Illuminate\Broadcasting\Channel;
  * Every pending request class implements this to define how it serializes
  * for the queue and how it rebuilds and executes in the worker.
  */
-interface QueueableRequest
+interface QueueableRequestContract
 {
     /**
      * Serialize this request into a payload that survives the queue.

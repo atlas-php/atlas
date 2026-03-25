@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Concerns\NormalizesMessages;
 use Atlasphp\Atlas\Messages\AssistantMessage;
 use Atlasphp\Atlas\Messages\Message;
 use Atlasphp\Atlas\Messages\SystemMessage;
 use Atlasphp\Atlas\Messages\ToolResultMessage;
 use Atlasphp\Atlas\Messages\UserMessage;
+use Atlasphp\Atlas\Pending\Concerns\NormalizesMessages;
 
 class NormalizesMessagesTestHelper
 {

@@ -4,8 +4,14 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Enums;
 
+use Atlasphp\Atlas\Enums\Modality;
+
 /**
  * Type classification for executions — maps 1:1 to Driver dispatch methods.
+ *
+ * @see Modality — event-layer counterpart with near-identical cases.
+ *      Modality includes SpeechToText; ExecutionType omits it (executions track the parent
+ *      Speech request, not sub-operations). When adding a new modality, update both enums.
  */
 enum ExecutionType: string
 {
@@ -72,7 +78,7 @@ enum ExecutionType: string
             'moderate' => self::Moderate,
             'rerank' => self::Rerank,
             'voice' => self::Voice,
-            default => self::Text,
+            default => throw new \ValueError("Unknown driver method: {$method}"),
         };
     }
 }

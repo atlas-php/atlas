@@ -18,7 +18,7 @@ use Atlasphp\Atlas\Pending\Concerns\HasProviderOptions;
 use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Queue\PendingExecution;
-use Atlasphp\Atlas\Queue\QueueableRequest;
+use Atlasphp\Atlas\Queue\QueueableRequestContract;
 use Atlasphp\Atlas\Requests\VideoRequest as VideoRequestObject;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\VideoResponse;
@@ -28,7 +28,7 @@ use Illuminate\Support\Str;
 /**
  * Fluent builder for video generation and video-to-text requests.
  */
-class VideoRequest implements QueueableRequest
+class VideoRequest implements QueueableRequestContract
 {
     use AppliesQueueMeta;
     use HasMeta;

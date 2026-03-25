@@ -77,35 +77,30 @@ HttpClient (sends HTTP, fires transport events)
 
 ```
 package-root/
-├── composer.json
-├── AGENTS.md
-├── README.md
 ├── docs/                 # VitePress documentation
 ├── src/
-│   ├── Agent.php                    # Abstract agent base class
-│   ├── AtlasManager.php             # Central manager
-│   ├── AtlasServiceProvider.php     # Service provider
-│   ├── Concerns/          (4)       # Cross-domain traits (HasQueueDispatch, HasVariables, etc.)
-│   ├── Console/           (2)       # Artisan commands (MakeAgentCommand, MakeToolCommand)
-│   ├── Embeddings/        (4)       # EmbeddingCache, EmbeddingResolver, VectorQueryMacros, SimilaritySearch
-│   ├── Enums/             (4)       # Shared enums (Provider, Role, FinishReason, ChunkType)
-│   ├── Events/           (13)       # Transport and orchestration events
-│   ├── Exceptions/        (9)       # Exception hierarchy
-│   ├── Executor/          (6)       # Agent executor, tool loop, steps
-│   ├── Facades/           (1)       # Atlas facade
-│   ├── Input/             (5)       # Media input types (Image, Audio, Video, Document)
-│   ├── Messages/          (6)       # Typed conversation messages + ToolCall
-│   ├── Middleware/         (5)       # MiddlewareStack + context objects
-│   ├── Pending/           (9+3)     # Fluent builders + Concerns/ (HasMeta, HasMiddleware, ResolvesProvider)
-│   ├── Persistence/                 # Models, Services, Middleware, Enums, Concerns, ToolAssets, ProcessQueuedMessage
-│   ├── Providers/                   # Driver, HttpClient, Contracts/, Concerns/, Handlers/, Tools/, ResponsesDriver, {Provider}/
-│   ├── Queue/                       # PendingExecution, QueueableRequest, Jobs/ (ExecuteAtlasJob, TracksExecution)
-│   ├── Requests/          (7)       # Immutable request DTOs
-│   ├── Responses/        (12)       # Response objects (TextResponse, Usage, StreamChunk, etc.)
-│   ├── Schema/            (2+8)     # Schema builder + Fields/
-│   ├── Support/           (2)       # Pure utilities (VariableInterpolator, VariableRegistry)
-│   ├── Testing/          (12)       # Fakes (AtlasFake, FakeDriver, response fakes)
-│   └── Tools/             (3)       # Tool, ToolDefinition, ToolSerializer (infrastructure only)
+│   ├── Concerns/         # Cross-domain traits
+│   ├── Console/          # Artisan commands
+│   ├── Embeddings/       # Vector embeddings and similarity search
+│   ├── Enums/            # Shared enums (Provider, Role, Modality, FinishReason, etc.)
+│   ├── Events/           # Transport and orchestration events
+│   ├── Exceptions/       # Exception hierarchy
+│   ├── Executor/         # Agent executor, tool loop, steps
+│   ├── Facades/          # Atlas facade
+│   ├── Input/            # Media input types (Image, Audio, Video, Document)
+│   ├── Messages/         # Typed conversation messages
+│   ├── Middleware/        # MiddlewareStack and context objects
+│   ├── Pending/          # Fluent request builders + Concerns/
+│   ├── Persistence/      # Models/, Services/, Middleware/, Enums/, Concerns/
+│   ├── Providers/        # Contracts/, Concerns/, Handlers/, Tools/, {Provider}/
+│   ├── Queue/            # Queue dispatch infrastructure + Jobs/
+│   ├── Requests/         # Immutable request DTOs
+│   ├── Responses/        # Response objects and StorableContract
+│   ├── Schema/           # JSON schema builder + Fields/
+│   ├── Support/          # Pure utilities
+│   ├── Testing/          # Fakes for testing
+│   ├── Tools/            # Tool infrastructure (definition, serialization)
+│   └── Voice/            # Voice session HTTP controllers
 ├── config/
 ├── tests/
 │   ├── Unit/
@@ -379,16 +374,25 @@ class ProcessAgentResponseService
 
 ### Class Naming
 
-| Type            | Pattern                   | Example                         |
-|-----------------|---------------------------|---------------------------------|
-| Providers       | `*ServiceProvider`        | `PackageServiceProvider`        |
-| Model Services  | `{Model}ModelService`     | `AgentModelService`             |
-| Domain Services | `{Action}{Domain}Service` | `CreateAgentService`            |
-| Contracts       | `*Contract`               | `LlmClientContract`             |
-| Models          | Singular                  | `Agent`, `Tool`, `Conversation` |
-| Exceptions      | `*Exception`              | `AgentNotFoundException`        |
-| DTOs            | `*Data` or `*Dto`         | `CompletionResponseData`        |
-| Events          | Past tense                | `AgentCreated`, `ToolExecuted`  |
+| Type                | Pattern                   | Example                          |
+|---------------------|---------------------------|----------------------------------|
+| Providers           | `*ServiceProvider`        | `PackageServiceProvider`         |
+| Model Services      | `{Model}ModelService`     | `AgentModelService`              |
+| Domain Services     | `{Action}{Domain}Service` | `CreateAgentService`             |
+| Contracts           | `*Contract`               | `MediaResolverContract`          |
+| Handler interfaces  | `*Handler`                | `TextHandler`, `AudioHandler`    |
+| Models              | Singular                  | `Agent`, `Tool`, `Conversation`  |
+| Exceptions          | `*Exception`              | `AgentNotFoundException`         |
+| DTOs                | `*Data` or `*Dto`         | `CompletionResponseData`         |
+| Events              | Past tense                | `AgentCreated`, `ToolExecuted`   |
+| Enums (shared)      | Singular noun             | `Role`, `Provider`, `Modality`   |
+| Enums (persistence) | Context-prefixed          | `ExecutionStatus`, `MessageRole` |
+| Traits (capability) | `Has*`                    | `HasMeta`, `HasAuthor`           |
+| Traits (builder)    | `Builds*`                 | `BuildsHeaders`                  |
+| Traits (resolver)   | `Resolves*`               | `ResolvesProvider`               |
+| Traits (action)     | `{Verb}s*`                | `TracksExecution`, `StoresMedia` |
+
+> **Handler vs Contract interfaces:** Handler interfaces (`src/Providers/Handlers/`) use `*Handler` naming — they define modality capabilities (what a provider can do). Resolver contracts (`src/Providers/Contracts/`) use `*Contract` naming — they define composition seams (how provider internals plug together). Both are PHP interfaces; the naming distinction reflects their architectural role.
 
 ### Methods
 

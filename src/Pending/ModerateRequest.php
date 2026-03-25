@@ -17,7 +17,7 @@ use Atlasphp\Atlas\Pending\Concerns\HasProviderOptions;
 use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Queue\PendingExecution;
-use Atlasphp\Atlas\Queue\QueueableRequest;
+use Atlasphp\Atlas\Queue\QueueableRequestContract;
 use Atlasphp\Atlas\Requests\ModerateRequest as ModerateRequestObject;
 use Atlasphp\Atlas\Responses\ModerationResponse;
 use Illuminate\Broadcasting\Channel;
@@ -26,7 +26,7 @@ use Illuminate\Support\Str;
 /**
  * Fluent builder for content moderation requests.
  */
-class ModerateRequest implements QueueableRequest
+class ModerateRequest implements QueueableRequestContract
 {
     use AppliesQueueMeta;
     use HasMeta;
