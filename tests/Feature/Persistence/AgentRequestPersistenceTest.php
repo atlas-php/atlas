@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Agent;
-use Atlasphp\Atlas\Agents\AgentRegistry;
+use Atlasphp\Atlas\AgentRegistry;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Pending\AgentRequest;
 use Atlasphp\Atlas\Persistence\Concerns\HasConversations;

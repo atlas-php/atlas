@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Listeners;
 
-use Atlasphp\Atlas\Agents\AgentRegistry;
+use Atlasphp\Atlas\AgentRegistry;
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Events\VoiceCallCompleted;
-use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Persistence\Models\VoiceCall;
 
 /**

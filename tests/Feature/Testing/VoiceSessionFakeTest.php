@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Enums\VoiceTransport;
-use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Responses\VoiceSession;
 use Atlasphp\Atlas\Testing\VoiceSessionFake;
 

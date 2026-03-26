@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Pending;
 
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Enums\Modality;
-use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
 use Illuminate\Broadcasting\Channel;
 

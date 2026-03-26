@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Cache\AtlasCache;
+use Atlasphp\Atlas\Atlas;
+use Atlasphp\Atlas\AtlasCache;
 use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
 use Atlasphp\Atlas\Exceptions\AtlasException;
-use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Testing\EmbeddingsResponseFake;
 
 beforeEach(function () {

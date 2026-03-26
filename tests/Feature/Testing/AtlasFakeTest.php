@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Enums\Provider;
-use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Responses\AudioResponse;
 use Atlasphp\Atlas\Responses\EmbeddingsResponse;
 use Atlasphp\Atlas\Responses\ImageResponse;

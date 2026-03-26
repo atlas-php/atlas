@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Atlasphp\Atlas\Embeddings;
+namespace Atlasphp\Atlas\Tools;
 
+use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
 use Atlasphp\Atlas\Schema\Schema;
-use Atlasphp\Atlas\Tools\Tool;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
 use RuntimeException;

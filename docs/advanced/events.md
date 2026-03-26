@@ -395,7 +395,7 @@ Atlas fires this event and stores the transcript. Post-processing is entirely co
 
 ```php
 use Atlasphp\Atlas\Events\VoiceCallCompleted;
-use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Messages\SystemMessage;
 use Atlasphp\Atlas\Persistence\Models\VoiceCall;
 use Atlasphp\Atlas\Persistence\Services\ConversationService;

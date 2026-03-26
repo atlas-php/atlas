@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Atlasphp\Atlas\Responses;
+namespace Atlasphp\Atlas\Responses\Contracts;
 
 /**
  * Marks a response type that produces storable binary content.

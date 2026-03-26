@@ -5,7 +5,7 @@ List available voices from audio providers. Useful for building voice selectors 
 ## List Voices
 
 ```php
-use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 
 $voices = Atlas::provider('openai')->voices();
 

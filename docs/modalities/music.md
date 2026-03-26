@@ -5,7 +5,7 @@ Generate music from text prompts or structured composition plans.
 ## Quick Example
 
 ```php
-use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 
 $response = Atlas::music('elevenlabs')
     ->instructions('An upbeat jazz piano track with a walking bass line')

@@ -104,7 +104,7 @@ The `key()` method defaults to the class name in kebab-case, minus the "Agent" s
 ## Using Agents
 
 ```php
-use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 
 $response = Atlas::agent('support')
     ->withVariables([

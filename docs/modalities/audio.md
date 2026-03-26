@@ -7,7 +7,7 @@ Atlas provides three focused audio modalities — speech, music, and sound effec
 Convert text to speech or transcribe audio to text:
 
 ```php
-use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 
 $response = Atlas::speech('openai', 'tts-1')
     ->instructions('Hello, welcome to Atlas!')

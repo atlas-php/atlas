@@ -14,10 +14,10 @@ declare(strict_types=1);
  */
 $app = require __DIR__.'/bootstrap.php';
 
-use Atlasphp\Atlas\Cache\AtlasCache;
+use Atlasphp\Atlas\Atlas;
+use Atlasphp\Atlas\AtlasCache;
 use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Enums\FinishReason;
-use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
 use Atlasphp\Atlas\Providers\Concerns\BuildsHeaders;
 use Atlasphp\Atlas\Providers\Driver;

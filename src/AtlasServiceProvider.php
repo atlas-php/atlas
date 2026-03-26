@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas;
 
-use Atlasphp\Atlas\Agents\AgentRegistry;
-use Atlasphp\Atlas\Cache\AtlasCache;
 use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
 use Atlasphp\Atlas\Embeddings\VectorQueryMacros;
 use Atlasphp\Atlas\Enums\Provider;

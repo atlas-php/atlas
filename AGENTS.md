@@ -135,6 +135,7 @@ package-root/
 | Embedding/vector feature           | `src/Embeddings/`                   |
 | Cross-domain trait                 | `src/Concerns/`                     |
 | Domain-scoped trait                | `src/{Domain}/Concerns/`            |
+| Domain-scoped contract             | `src/{Domain}/Contracts/`           |
 | Persistence model/service          | `src/Persistence/Models/` or `src/Persistence/Services/` |
 | Queue infrastructure               | `src/Queue/`                        |
 | Fluent builder                     | `src/Pending/`                      |
@@ -379,7 +380,7 @@ class ProcessAgentResponseService
 | Providers           | `*ServiceProvider`        | `PackageServiceProvider`         |
 | Model Services      | `{Model}ModelService`     | `AgentModelService`              |
 | Domain Services     | `{Action}{Domain}Service` | `CreateAgentService`             |
-| Contracts           | `*Contract`               | `MediaResolverContract`          |
+| Contracts           | Domain noun               | `MediaResolver`, `Storable`      |
 | Handler interfaces  | `*Handler`                | `TextHandler`, `AudioHandler`    |
 | Models              | Singular                  | `Agent`, `Tool`, `Conversation`  |
 | Exceptions          | `*Exception`              | `AgentNotFoundException`         |

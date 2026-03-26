@@ -5,7 +5,7 @@ Generate images and extract text descriptions from existing images.
 ## Quick Example
 
 ```php
-use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 
 $response = Atlas::image('openai', 'dall-e-3')
     ->instructions('A serene mountain landscape at sunset')

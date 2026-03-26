@@ -18,7 +18,7 @@ Both can be used simultaneously — the requesting client receives SSE while oth
 Return a stream directly from a Laravel route. `StreamResponse` implements Laravel's `Responsable` interface — it automatically sends proper SSE headers.
 
 ```php
-use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 
 Route::post('/chat', function (Request $request) {
     return Atlas::text('openai', 'gpt-4o')

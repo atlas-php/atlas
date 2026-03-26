@@ -18,7 +18,7 @@ Transcript persistence is optional and automatic when enabled.
 ### Using an Agent (Recommended)
 
 ```php
-use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 
 class VoiceController
 {
@@ -290,7 +290,7 @@ Event::listen(VoiceCallCompleted::class, HandleVoiceCallCompleted::class);
 ```php
 // app/Listeners/HandleVoiceCallCompleted.php
 use Atlasphp\Atlas\Events\VoiceCallCompleted;
-use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Messages\SystemMessage;
 use Atlasphp\Atlas\Persistence\Models\VoiceCall;
 use Atlasphp\Atlas\Persistence\Services\ConversationService;

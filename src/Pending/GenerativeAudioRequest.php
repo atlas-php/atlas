@@ -15,8 +15,8 @@ use Atlasphp\Atlas\Pending\Concerns\HasQueueDispatch;
 use Atlasphp\Atlas\Pending\Concerns\HasVariables;
 use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
+use Atlasphp\Atlas\Queue\Contracts\QueueableRequest;
 use Atlasphp\Atlas\Queue\PendingExecution;
-use Atlasphp\Atlas\Queue\QueueableRequestContract;
 use Atlasphp\Atlas\Requests\AudioRequest as AudioRequestObject;
 use Atlasphp\Atlas\Responses\AudioResponse;
 use Illuminate\Support\Str;
@@ -27,7 +27,7 @@ use Illuminate\Support\Str;
  * Subclasses define the modality, audio mode, and execution type while
  * inheriting all shared properties, fluent setters, and terminal logic.
  */
-abstract class GenerativeAudioRequest implements QueueableRequestContract
+abstract class GenerativeAudioRequest implements QueueableRequest
 {
     use HasMeta;
     use HasMiddleware;

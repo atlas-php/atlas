@@ -239,7 +239,7 @@ When the model decides to call a tool, Atlas executes the handler, sends the res
 You can also attach tools to direct (non-agent) text requests:
 
 ```php
-use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 
 $response = Atlas::text('openai', 'gpt-4o')
     ->withTools([LookupOrderTool::class])

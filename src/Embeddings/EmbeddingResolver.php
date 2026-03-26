@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Embeddings;
 
-use Atlasphp\Atlas\Cache\AtlasCache;
+use Atlasphp\Atlas\Atlas;
+use Atlasphp\Atlas\AtlasCache;
 use Atlasphp\Atlas\Exceptions\AtlasException;
-use Atlasphp\Atlas\Facades\Atlas;
 
 /**
  * Resolves a text string into an embedding vector.

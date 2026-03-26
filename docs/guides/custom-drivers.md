@@ -217,7 +217,7 @@ Override keys correspond to handler interfaces. The `'text'` key controls `text(
 
 ```php
 // In a service provider
-use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 
 Atlas::providers()->register('my-tts', function ($app, $config) {
     $providerConfig = \Atlasphp\Atlas\Providers\ProviderConfig::fromArray($config);

@@ -29,9 +29,9 @@ $app['config']->set('atlas.providers.lmstudio', [
     ],
 ]);
 
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Enums\FinishReason;
-use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Messages\AssistantMessage;
 use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Messages\ToolResultMessage;

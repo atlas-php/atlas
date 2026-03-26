@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\AtlasManager;
-use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 
 it('resolves providers() through the facade', function () {

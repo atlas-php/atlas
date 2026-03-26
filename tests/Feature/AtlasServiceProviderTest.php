@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Agents\AgentRegistry;
+use Atlasphp\Atlas\AgentRegistry;
 use Atlasphp\Atlas\AtlasManager;
 use Atlasphp\Atlas\AtlasServiceProvider;
 use Atlasphp\Atlas\Providers\Cohere\CohereDriver;

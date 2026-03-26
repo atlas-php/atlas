@@ -2,9 +2,8 @@
 
 declare(strict_types=1);
 
-namespace Atlasphp\Atlas\Facades;
+namespace Atlasphp\Atlas;
 
-use Atlasphp\Atlas\AtlasManager;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Pending\AgentRequest;
 use Atlasphp\Atlas\Pending\AudioRequest;

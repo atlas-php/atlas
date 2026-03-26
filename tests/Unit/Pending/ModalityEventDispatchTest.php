@@ -3,12 +3,12 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Agent;
-use Atlasphp\Atlas\Agents\AgentRegistry;
+use Atlasphp\Atlas\AgentRegistry;
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Events\ModalityCompleted;
 use Atlasphp\Atlas\Events\ModalityStarted;
-use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Queue\PendingExecution;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\Usage;

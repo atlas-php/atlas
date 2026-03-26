@@ -5,7 +5,7 @@ Generate videos from text prompts and analyze existing videos.
 ## Quick Example
 
 ```php
-use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 
 $response = Atlas::video('xai', 'grok-2-video')
     ->instructions('A drone flyover of a tropical beach at sunset')

@@ -24,10 +24,10 @@ $app['config']->set('atlas.providers', [
     ],
 ]);
 
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Enums\Provider;
-use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Input\Image;
 use Atlasphp\Atlas\Messages\AssistantMessage;
 use Atlasphp\Atlas\Messages\ToolCall;

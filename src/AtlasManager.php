@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas;
 
-use Atlasphp\Atlas\Agents\AgentRegistry;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Pending\AgentRequest;

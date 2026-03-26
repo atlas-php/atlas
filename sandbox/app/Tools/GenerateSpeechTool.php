@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tools;
 
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Enums\Provider;
-use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Schema\Fields\StringField;
 use Atlasphp\Atlas\Tools\Tool;
 

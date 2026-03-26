@@ -185,7 +185,7 @@ Build a complete schema for structured responses:
 
 ```php
 use Atlasphp\Atlas\Schema\Schema;
-use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 
 $schema = Schema::object('analysis', 'Sentiment analysis result')
     ->enum('sentiment', 'Overall sentiment', ['positive', 'negative', 'neutral'])

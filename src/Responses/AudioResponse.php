@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Responses;
 
 use Atlasphp\Atlas\Concerns\StoresMedia;
+use Atlasphp\Atlas\Responses\Contracts\Storable;
 
 /**
  * Response from an audio generation request.
  */
-class AudioResponse implements StorableContract
+class AudioResponse implements Storable
 {
     use StoresMedia;
 

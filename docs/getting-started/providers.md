@@ -50,7 +50,7 @@ class SupportAgent extends Agent
 Use the facade to call providers directly without an agent:
 
 ```php
-use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 
 // Text generation
 $response = Atlas::text('openai', 'gpt-4o')
@@ -299,7 +299,7 @@ Configure defaults per modality so you can omit provider/model from calls:
 Query provider capabilities and available models at runtime:
 
 ```php
-use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 
 // List available models
 $models = Atlas::provider('openai')->models();

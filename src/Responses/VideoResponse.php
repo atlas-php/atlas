@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Responses;
 
 use Atlasphp\Atlas\Concerns\StoresMedia;
+use Atlasphp\Atlas\Responses\Contracts\Storable;
 
 /**
  * Response from a video generation request.
  */
-class VideoResponse implements StorableContract
+class VideoResponse implements Storable
 {
     use StoresMedia;
 

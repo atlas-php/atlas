@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Agents\AgentRegistry;
+use Atlasphp\Atlas\AgentRegistry;
+use Atlasphp\Atlas\AtlasCache;
 use Atlasphp\Atlas\AtlasManager;
-use Atlasphp\Atlas\Cache\AtlasCache;
 use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;

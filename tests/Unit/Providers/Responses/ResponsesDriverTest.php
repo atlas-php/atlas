@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Cache\AtlasCache;
+use Atlasphp\Atlas\AtlasCache;
 use Atlasphp\Atlas\Providers\ChatCompletions\Handlers\Provider;
 use Atlasphp\Atlas\Providers\Handlers\AudioHandler;
 use Atlasphp\Atlas\Providers\Handlers\EmbedHandler;

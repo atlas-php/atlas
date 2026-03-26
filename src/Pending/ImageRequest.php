@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Pending;
 
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Events\ModalityCompleted;
 use Atlasphp\Atlas\Events\ModalityStarted;
-use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
 use Atlasphp\Atlas\Pending\Concerns\HasProviderOptions;
@@ -16,8 +16,8 @@ use Atlasphp\Atlas\Pending\Concerns\HasQueueDispatch;
 use Atlasphp\Atlas\Pending\Concerns\HasVariables;
 use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
+use Atlasphp\Atlas\Queue\Contracts\QueueableRequest;
 use Atlasphp\Atlas\Queue\PendingExecution;
-use Atlasphp\Atlas\Queue\QueueableRequestContract;
 use Atlasphp\Atlas\Requests\ImageRequest as ImageRequestObject;
 use Atlasphp\Atlas\Responses\ImageResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
@@ -27,7 +27,7 @@ use Illuminate\Support\Str;
 /**
  * Fluent builder for image generation and image-to-text requests.
  */
-class ImageRequest implements QueueableRequestContract
+class ImageRequest implements QueueableRequest
 {
     use HasMeta;
     use HasMiddleware;

@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Agent;
-use Atlasphp\Atlas\Agents\AgentRegistry;
+use Atlasphp\Atlas\AgentRegistry;
 use Atlasphp\Atlas\Exceptions\AgentNotFoundException;
 
 // ─── Test agents ────────────────────────────────────────────────────────────

@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Agent;
-use Atlasphp\Atlas\Agents\AgentRegistry;
+use Atlasphp\Atlas\AgentRegistry;
 use Atlasphp\Atlas\Input\Audio;
 use Atlasphp\Atlas\Input\Image;
 use Atlasphp\Atlas\Input\Input;

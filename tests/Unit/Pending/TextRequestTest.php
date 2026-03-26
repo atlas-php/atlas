@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Events\ModalityCompleted;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
-use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Messages\AssistantMessage;
 use Atlasphp\Atlas\Messages\SystemMessage;
 use Atlasphp\Atlas\Messages\ToolCall;

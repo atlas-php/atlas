@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\User;
-use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Persistence\Models\ExecutionStep;
 
 $app = require __DIR__.'/bootstrap.php';

@@ -8,7 +8,7 @@ use App\Agents\AssistantAgent;
 use App\Agents\VoiceAssistantAgent;
 use App\Console\FreshCommand;
 use App\Listeners\SummarizeVoiceCall;
-use Atlasphp\Atlas\Agents\AgentRegistry;
+use Atlasphp\Atlas\AgentRegistry;
 use Atlasphp\Atlas\Embeddings\VectorQueryMacros;
 use Atlasphp\Atlas\Events\VoiceCallCompleted;
 use Atlasphp\Atlas\Persistence\Middleware\PersistConversation;

@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Enums\ChunkType;
-use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Responses\StreamChunk;
 
 /**

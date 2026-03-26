@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Pending\AudioRequest;
 use Atlasphp\Atlas\Pending\EmbedRequest;
 use Atlasphp\Atlas\Pending\ImageRequest;

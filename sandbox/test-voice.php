@@ -16,7 +16,7 @@ require __DIR__.'/vendor/autoload.php';
 $app = require __DIR__.'/bootstrap/app.php';
 $app->make(Kernel::class)->bootstrap();
 
-use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 use Illuminate\Contracts\Console\Kernel;
 
 echo "═══ Atlas Realtime Session Tests ═══\n\n";

@@ -220,7 +220,7 @@ Generate a summary and store it on the VoiceCall record:
 
 ```php
 use Atlasphp\Atlas\Events\VoiceCallCompleted;
-use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Persistence\Models\VoiceCall;
 
 Event::listen(VoiceCallCompleted::class, function ($event) {
@@ -323,7 +323,7 @@ Voice transcripts are **not** automatically added to conversation messages. This
 ## Testing
 
 ```php
-use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Testing\VoiceSessionFake;
 
 Atlas::fake([

@@ -5,7 +5,7 @@ Re-order documents by semantic relevance to a query. Useful for improving RAG re
 ## Quick Example
 
 ```php
-use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 
 $response = Atlas::rerank('cohere', 'rerank-v3.5')
     ->query('What is dependency injection?')

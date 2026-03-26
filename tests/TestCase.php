@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Tests;
 
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\AtlasServiceProvider;
-use Atlasphp\Atlas\Facades\Atlas;
 use Illuminate\Foundation\Application;
 use Orchestra\Testbench\TestCase as BaseTestCase;
 

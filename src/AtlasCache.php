@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Atlasphp\Atlas\Cache;
+namespace Atlasphp\Atlas;
 
 use Closure;
 use Illuminate\Contracts\Cache\Repository;

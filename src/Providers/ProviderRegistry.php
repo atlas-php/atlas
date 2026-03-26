@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Providers;
 
-use Atlasphp\Atlas\Cache\AtlasCache;
+use Atlasphp\Atlas\AtlasCache;
 use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Exceptions\ProviderNotFoundException;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;

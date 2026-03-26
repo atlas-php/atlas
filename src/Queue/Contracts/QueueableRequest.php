@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Atlasphp\Atlas\Queue;
+namespace Atlasphp\Atlas\Queue\Contracts;
 
 use Illuminate\Broadcasting\Channel;
 

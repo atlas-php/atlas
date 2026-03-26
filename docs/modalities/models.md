@@ -5,7 +5,7 @@ List available models from any configured provider. Useful for building model se
 ## List Models
 
 ```php
-use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 
 $models = Atlas::provider('openai')->models();
 

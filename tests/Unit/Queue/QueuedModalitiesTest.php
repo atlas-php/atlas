@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Agent;
-use Atlasphp\Atlas\Agents\AgentRegistry;
-use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\AgentRegistry;
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Queue\PendingExecution;
 use Illuminate\Support\Facades\Queue;
 

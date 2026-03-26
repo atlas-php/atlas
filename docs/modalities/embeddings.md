@@ -5,7 +5,7 @@ Generate vector embeddings for semantic search, RAG pipelines, and similarity co
 ## Quick Example
 
 ```php
-use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 
 $response = Atlas::embed('openai', 'text-embedding-3-small')
     ->fromInput('What is Laravel?')

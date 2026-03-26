@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Pending;
 
 use Atlasphp\Atlas\Agent;
-use Atlasphp\Atlas\Agents\AgentRegistry;
+use Atlasphp\Atlas\AgentRegistry;
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Enums\Role;
@@ -17,7 +18,6 @@ use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Executor\AgentExecutor;
 use Atlasphp\Atlas\Executor\ExecutionContext;
 use Atlasphp\Atlas\Executor\ExecutorResult;
-use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Input\Input;
 use Atlasphp\Atlas\Messages\Message;
 use Atlasphp\Atlas\Messages\UserMessage;
@@ -44,8 +44,8 @@ use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\OpenAi\ToolMapper;
 use Atlasphp\Atlas\Providers\Tools\ProviderTool;
+use Atlasphp\Atlas\Queue\Contracts\QueueableRequest;
 use Atlasphp\Atlas\Queue\PendingExecution;
-use Atlasphp\Atlas\Queue\QueueableRequestContract;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
@@ -69,7 +69,7 @@ use Illuminate\Support\Str;
  * and dispatches through the AgentExecutor (with tools) or directly to the
  * driver (without tools). Supports runtime overrides for all agent config.
  */
-class AgentRequest implements QueueableRequestContract
+class AgentRequest implements QueueableRequest
 {
     use Concerns\ConvertsResultToChunks;
     use HasMeta;

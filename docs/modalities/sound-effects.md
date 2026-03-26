@@ -5,7 +5,7 @@ Generate sound effects from text descriptions.
 ## Quick Example
 
 ```php
-use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 
 $response = Atlas::sfx('elevenlabs')
     ->instructions('Thunder with heavy rain')

@@ -32,8 +32,8 @@ $app['config']->set('atlas.cache.store', 'array');
 $app['config']->set('atlas.cache.ttl.models', 0);
 $app['config']->set('atlas.cache.ttl.voices', 0);
 
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Enums\Provider;
-use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Input\Audio;
 use Illuminate\Http\Client\RequestException;
 

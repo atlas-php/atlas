@@ -5,7 +5,7 @@ Analyze text content for policy violations and harmful content.
 ## Quick Example
 
 ```php
-use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 
 $response = Atlas::moderate()
     ->fromInput('This is a normal message.')

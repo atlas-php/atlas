@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Responses;
 
 use Atlasphp\Atlas\Concerns\StoresMedia;
+use Atlasphp\Atlas\Responses\Contracts\Storable;
 
 /**
  * Response from an image generation request.
  */
-class ImageResponse implements StorableContract
+class ImageResponse implements Storable
 {
     use StoresMedia;
 

@@ -5,7 +5,7 @@ Convert text to speech (TTS) and transcribe audio to text (STT).
 ## Text-to-Speech
 
 ```php
-use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 
 $response = Atlas::speech('openai', 'tts-1')
     ->instructions('Hello, welcome to Atlas!')

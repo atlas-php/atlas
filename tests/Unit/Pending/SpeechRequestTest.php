@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Events\ModalityCompleted;
 use Atlasphp\Atlas\Events\ModalityStarted;
-use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Pending\SpeechRequest;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;

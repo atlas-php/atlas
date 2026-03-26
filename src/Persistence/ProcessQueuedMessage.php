@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence;
 
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Concerns\ConfiguresAtlasJob;
-use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Persistence\Enums\MessageStatus;
 use Atlasphp\Atlas\Persistence\Models\ConversationMessage;
 use Atlasphp\Atlas\Persistence\Services\ConversationService;

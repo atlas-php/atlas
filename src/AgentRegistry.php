@@ -2,9 +2,8 @@
 
 declare(strict_types=1);
 
-namespace Atlasphp\Atlas\Agents;
+namespace Atlasphp\Atlas;
 
-use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\Exceptions\AgentNotFoundException;
 use Illuminate\Contracts\Foundation\Application;
 

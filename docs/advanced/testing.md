@@ -5,7 +5,7 @@ Atlas provides a first-class testing system built around `Atlas::fake()`. Fake t
 ## Quick Start
 
 ```php
-use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Testing\TextResponseFake;
 
 public function test_support_agent_responds(): void

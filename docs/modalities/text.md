@@ -5,7 +5,7 @@ Generate text, stream responses, and extract structured data from AI models.
 ## Quick Example
 
 ```php
-use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 
 $response = Atlas::text('openai', 'gpt-4o')
     ->instructions('You are a helpful assistant.')

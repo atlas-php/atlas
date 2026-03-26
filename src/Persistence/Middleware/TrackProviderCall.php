@@ -10,7 +10,7 @@ use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
 use Atlasphp\Atlas\Persistence\Models\Asset;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 use Atlasphp\Atlas\Persistence\Support\MimeTypeMap;
-use Atlasphp\Atlas\Responses\StorableContract;
+use Atlasphp\Atlas\Responses\Contracts\Storable;
 use Atlasphp\Atlas\Responses\Usage;
 use Closure;
 use Illuminate\Support\Facades\Storage;
@@ -100,7 +100,7 @@ class TrackProviderCall
 
     protected function isStorableResponse(mixed $response): bool
     {
-        return $response instanceof StorableContract;
+        return $response instanceof Storable;
     }
 
     /**

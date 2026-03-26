@@ -23,8 +23,8 @@ $app['config']->set('atlas.providers', [
     ],
 ]);
 
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Enums\Provider;
-use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Input\Audio;
 use Atlasphp\Atlas\Middleware\ProviderContext;
 use Atlasphp\Atlas\Responses\StreamResponse;

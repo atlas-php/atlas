@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Pending;
 
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Events\ModalityCompleted;
@@ -11,7 +12,6 @@ use Atlasphp\Atlas\Events\ModalityStarted;
 use Atlasphp\Atlas\Executor\AgentExecutor;
 use Atlasphp\Atlas\Executor\ExecutionContext;
 use Atlasphp\Atlas\Executor\ExecutorResult;
-use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Input\Input;
 use Atlasphp\Atlas\Messages\AssistantMessage;
 use Atlasphp\Atlas\Messages\SystemMessage;
@@ -27,8 +27,8 @@ use Atlasphp\Atlas\Pending\Concerns\NormalizesMessages;
 use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Tools\ProviderTool;
+use Atlasphp\Atlas\Queue\Contracts\QueueableRequest;
 use Atlasphp\Atlas\Queue\PendingExecution;
-use Atlasphp\Atlas\Queue\QueueableRequestContract;
 use Atlasphp\Atlas\Requests\TextRequest as TextRequestObject;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
@@ -47,7 +47,7 @@ use Illuminate\Support\Str;
  * When tools are present, terminal methods route through the executor's step loop
  * for automatic tool call handling. Without tools, calls go directly to the driver.
  */
-class TextRequest implements QueueableRequestContract
+class TextRequest implements QueueableRequest
 {
     use ConvertsResultToChunks;
     use HasMeta;

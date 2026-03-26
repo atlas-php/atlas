@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Cache\AtlasCache;
+use Atlasphp\Atlas\AtlasCache;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Providers\ElevenLabs\ElevenLabsDriver;
 use Atlasphp\Atlas\Providers\HttpClient;

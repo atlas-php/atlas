@@ -5,7 +5,7 @@ use App\Models\User;
 use App\Tools\GenerateImageTool;
 use App\Tools\GenerateSpeechTool;
 use App\Tools\GenerateVideoTool;
-use Atlasphp\Atlas\Facades\Atlas;
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Persistence\ToolAssets;
 
 /**
