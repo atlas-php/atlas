@@ -163,6 +163,8 @@ return response()->json($session->toClientPayload());
 // Returns ephemeral token + connection URL for WebRTC/WebSocket
 ```
 
+See the [Voice Integration Guide](https://atlasphp.org/guides/voice-integration.html) for full setup instructions.
+
 ## 💡 Why Atlas?
 
 **The problem:** Prompts scattered across controllers, duplicated configurations, business logic tightly coupled with AI calls, and no consistent way to add logging, validation, or error handling.

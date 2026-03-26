@@ -414,6 +414,22 @@ it('returns empty array for non-existent layer', function () {
     expect($resolver->forLayer('nonexistent'))->toBeEmpty();
 });
 
+it('silently ignores non-object non-string entries like arrays', function () {
+    $resolver = new MiddlewareResolver(app(), [
+        [],                    // empty array
+        ['agent' => []],       // old keyed format
+        null,                  // null
+        42,                    // integer
+        true,                  // boolean
+    ]);
+
+    expect($resolver->forLayer('agent'))->toBeEmpty();
+    expect($resolver->forLayer('step'))->toBeEmpty();
+    expect($resolver->forProvider('text'))->toBeEmpty();
+    expect($resolver->forVoiceHttp())->toBeEmpty();
+    expect($resolver->all())->each->toBeArray();
+});
+
 it('silently ignores middleware with no recognized interface', function () {
     $mw = new class
     {

@@ -35,13 +35,15 @@ function formatTime(dateStr: string): string {
 <template>
     <aside class="flex w-[280px] flex-col border-r border-sidebar-border bg-sidebar">
         <!-- Header -->
-        <div class="flex items-center justify-between border-b border-sidebar-border px-4 py-3">
-            <h1 class="text-lg font-semibold text-sidebar-accent-foreground">Atlas</h1>
+        <div class="flex flex-col gap-3 border-b border-sidebar-border px-4 py-4">
+            <div class="flex items-center justify-center px-6 pt-2">
+                <img src="/atlas-logo.png" alt="Atlas" class="w-full h-auto" />
+            </div>
             <button
-                class="flex items-center gap-1.5 rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-brand-foreground hover:bg-brand/90 transition-colors"
+                class="flex w-full items-center justify-center gap-2 rounded-md bg-brand px-3 py-2 text-sm font-medium text-brand-foreground hover:bg-brand/90 transition-colors"
                 @click="emit('new-chat')"
             >
-                <Plus class="size-3.5" />
+                <Plus class="size-4" />
                 New Chat
             </button>
         </div>

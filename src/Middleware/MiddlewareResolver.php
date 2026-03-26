@@ -148,6 +148,10 @@ class MiddlewareResolver
                 continue;
             }
 
+            if (! is_string($entry) && ! is_object($entry)) {
+                continue;
+            }
+
             $class = is_string($entry) ? $entry : $entry::class;
             $instance = is_string($entry) ? $this->container->make($entry) : $entry;
 
@@ -189,6 +193,10 @@ class MiddlewareResolver
             if ($entry instanceof Closure) {
                 $this->providerByMethod[''][] = $entry;
 
+                continue;
+            }
+
+            if (! is_string($entry) && ! is_object($entry)) {
                 continue;
             }
 
