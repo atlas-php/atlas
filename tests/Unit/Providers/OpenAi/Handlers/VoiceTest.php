@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Enums\TurnDetectionMode;
 use Atlasphp\Atlas\Enums\VoiceTransport;
-use Atlasphp\Atlas\Providers\HttpClient;
+use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Voice;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Providers\WebSocketConnection;

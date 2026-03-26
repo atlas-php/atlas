@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\Anthropic\Handlers\Text;
 use Atlasphp\Atlas\Providers\Anthropic\MediaResolver;
 use Atlasphp\Atlas\Providers\Anthropic\MessageFactory;
 use Atlasphp\Atlas\Providers\Anthropic\ResponseParser;
 use Atlasphp\Atlas\Providers\Anthropic\ToolMapper;
-use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\StructuredResponse;

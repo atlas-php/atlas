@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Providers\Handlers;
 
 use Atlasphp\Atlas\AtlasCache;
+use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\Concerns\BuildsHeaders;
-use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ModelList;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Providers\VoiceList;

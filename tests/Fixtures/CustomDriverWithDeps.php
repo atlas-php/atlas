@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Tests\Fixtures;
 
 use Atlasphp\Atlas\AtlasCache;
+use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
 use Atlasphp\Atlas\Providers\Driver;
-use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 

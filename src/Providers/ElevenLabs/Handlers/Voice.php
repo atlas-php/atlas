@@ -6,9 +6,9 @@ namespace Atlasphp\Atlas\Providers\ElevenLabs\Handlers;
 
 use Atlasphp\Atlas\Enums\VoiceTransport;
 use Atlasphp\Atlas\Exceptions\ProviderException;
+use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\ElevenLabs\Concerns\BuildsElevenLabsHeaders;
 use Atlasphp\Atlas\Providers\Handlers\VoiceHandler;
-use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Providers\WebSocketConnection;
 use Atlasphp\Atlas\Requests\VoiceRequest;

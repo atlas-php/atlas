@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Enums\VoiceTransport;
 use Atlasphp\Atlas\Exceptions\ProviderException;
+use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\ElevenLabs\Handlers\Voice;
-use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Providers\WebSocketConnection;
 use Atlasphp\Atlas\Requests\VoiceRequest;

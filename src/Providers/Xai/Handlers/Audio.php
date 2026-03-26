@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Providers\Xai\Handlers;
 
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
+use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\Concerns\BuildsHeaders;
 use Atlasphp\Atlas\Providers\Handlers\AudioHandler;
-use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Requests\AudioRequest;
 use Atlasphp\Atlas\Responses\AudioResponse;

@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\ElevenLabs\Handlers\Audio;
-use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Requests\AudioRequest;
 use Atlasphp\Atlas\Responses\AudioResponse;

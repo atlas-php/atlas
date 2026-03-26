@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Providers\Google\Handlers;
 
 use Atlasphp\Atlas\Enums\ChunkType;
+use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\Google\Concerns\BuildsGoogleHeaders;
 use Atlasphp\Atlas\Providers\Google\MediaResolver;
 use Atlasphp\Atlas\Providers\Google\MessageFactory;
 use Atlasphp\Atlas\Providers\Google\ResponseParser;
 use Atlasphp\Atlas\Providers\Google\ToolMapper;
 use Atlasphp\Atlas\Providers\Handlers\TextHandler;
-use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Providers\SseParser;
 use Atlasphp\Atlas\Requests\TextRequest;

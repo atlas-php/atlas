@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Providers\ElevenLabs\Handlers;
 
 use Atlasphp\Atlas\Enums\FinishReason;
+use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Input\Input;
 use Atlasphp\Atlas\Providers\Concerns\ResolvesAudioFile;
 use Atlasphp\Atlas\Providers\ElevenLabs\Concerns\BuildsElevenLabsHeaders;
 use Atlasphp\Atlas\Providers\Handlers\AudioHandler;
-use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Requests\AudioRequest;
 use Atlasphp\Atlas\Responses\AudioResponse;

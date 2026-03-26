@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
+use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\Google\Handlers\Image;
-use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Requests\ImageRequest;
 use Atlasphp\Atlas\Responses\ImageResponse;

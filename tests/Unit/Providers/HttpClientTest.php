@@ -5,7 +5,7 @@ declare(strict_types=1);
 use Atlasphp\Atlas\Events\ProviderRequestCompleted;
 use Atlasphp\Atlas\Events\ProviderRequestFailed;
 use Atlasphp\Atlas\Events\ProviderRequestStarted;
-use Atlasphp\Atlas\Providers\HttpClient;
+use Atlasphp\Atlas\Http\HttpClient;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;

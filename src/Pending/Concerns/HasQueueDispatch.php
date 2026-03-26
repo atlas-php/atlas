@@ -81,14 +81,14 @@ trait HasQueueDispatch
     }
 
     /**
-     * Override job timeout in seconds for this call.
+     * Override job timeout in seconds for this queued call.
      *
      * Use this for long-running operations (e.g. video generation, complex agents)
      * that exceed the default 300-second timeout. Pass 0 for no timeout (Laravel
      * interprets timeout=0 as unlimited). Ensure your queue worker's --timeout
      * flag is also set high enough (Horizon: timeout config per queue).
      */
-    public function withTimeout(int $seconds): static
+    public function withQueueTimeout(int $seconds): static
     {
         $this->queueTimeout = max(0, $seconds);
 
@@ -96,11 +96,11 @@ trait HasQueueDispatch
     }
 
     /**
-     * Override maximum retry attempts for this call.
+     * Override maximum retry attempts for this queued call.
      *
      * Set to 1 for expensive operations where retries waste API credits.
      */
-    public function withTries(int $tries): static
+    public function withQueueTries(int $tries): static
     {
         $this->queueTries = max(1, $tries);
 
@@ -108,9 +108,9 @@ trait HasQueueDispatch
     }
 
     /**
-     * Override retry backoff in seconds for this call.
+     * Override retry backoff in seconds for this queued call.
      */
-    public function withBackoff(int $seconds): static
+    public function withQueueBackoff(int $seconds): static
     {
         $this->queueBackoff = max(0, $seconds);
 

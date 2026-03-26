@@ -14,6 +14,7 @@ use Atlasphp\Atlas\Events\VoiceSessionCreated;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
 use Atlasphp\Atlas\Pending\Concerns\HasProviderOptions;
+use Atlasphp\Atlas\Pending\Concerns\HasRequestConfig;
 use Atlasphp\Atlas\Pending\Concerns\HasVariables;
 use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
@@ -29,6 +30,7 @@ class VoiceRequest
     use HasMeta;
     use HasMiddleware;
     use HasProviderOptions;
+    use HasRequestConfig;
     use HasVariables;
     use ResolvesProvider;
 

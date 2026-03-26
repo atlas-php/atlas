@@ -6,10 +6,10 @@ namespace Atlasphp\Atlas\Providers\OpenAi\Handlers;
 
 use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
+use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Input\Input;
 use Atlasphp\Atlas\Providers\Concerns\BuildsHeaders;
 use Atlasphp\Atlas\Providers\Handlers\VideoHandler;
-use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\OpenAi\Concerns\HasOrganizationHeader;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Requests\VideoRequest;

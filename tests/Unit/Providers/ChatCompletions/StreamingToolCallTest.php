@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Enums\FinishReason;
+use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\ChatCompletions\Handlers\Text;
 use Atlasphp\Atlas\Providers\ChatCompletions\MediaResolver;
 use Atlasphp\Atlas\Providers\ChatCompletions\MessageFactory;
 use Atlasphp\Atlas\Providers\ChatCompletions\ResponseParser;
 use Atlasphp\Atlas\Providers\ChatCompletions\ToolMapper;
-use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Responses\StreamChunk;
 use GuzzleHttp\Psr7\Stream;

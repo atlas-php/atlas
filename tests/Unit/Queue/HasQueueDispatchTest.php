@@ -223,7 +223,7 @@ it('dispatched job applies delay when set', function () {
 it('withTimeout() sets timeout and returns self', function () {
     $pending = createQueueTextPending();
 
-    $result = $pending->withTimeout(1800);
+    $result = $pending->withQueueTimeout(1800);
 
     expect($result)->toBe($pending);
 
@@ -234,7 +234,7 @@ it('withTimeout() sets timeout and returns self', function () {
 it('withTimeout() clamps negative values to zero', function () {
     $pending = createQueueTextPending();
 
-    $pending->withTimeout(-10);
+    $pending->withQueueTimeout(-10);
 
     $property = new ReflectionProperty($pending, 'queueTimeout');
     expect($property->getValue($pending))->toBe(0);
@@ -249,7 +249,7 @@ it('dispatched job applies timeout when set', function () {
     $pending = createQueueTextPending($driver)
         ->message('Hello')
         ->queue()
-        ->withTimeout(3600);
+        ->withQueueTimeout(3600);
 
     $result = $pending->asText();
     $result->dispatch();
@@ -264,7 +264,7 @@ it('dispatched job applies timeout when set', function () {
 it('withTries() sets tries and returns self', function () {
     $pending = createQueueTextPending();
 
-    $result = $pending->withTries(5);
+    $result = $pending->withQueueTries(5);
 
     expect($result)->toBe($pending);
 
@@ -275,7 +275,7 @@ it('withTries() sets tries and returns self', function () {
 it('withTries() clamps to minimum of 1', function () {
     $pending = createQueueTextPending();
 
-    $pending->withTries(0);
+    $pending->withQueueTries(0);
 
     $property = new ReflectionProperty($pending, 'queueTries');
     expect($property->getValue($pending))->toBe(1);
@@ -290,7 +290,7 @@ it('dispatched job applies tries when set', function () {
     $pending = createQueueTextPending($driver)
         ->message('Hello')
         ->queue()
-        ->withTries(1);
+        ->withQueueTries(1);
 
     $result = $pending->asText();
     $result->dispatch();
@@ -305,7 +305,7 @@ it('dispatched job applies tries when set', function () {
 it('withBackoff() sets backoff and returns self', function () {
     $pending = createQueueTextPending();
 
-    $result = $pending->withBackoff(120);
+    $result = $pending->withQueueBackoff(120);
 
     expect($result)->toBe($pending);
 
@@ -316,7 +316,7 @@ it('withBackoff() sets backoff and returns self', function () {
 it('withBackoff() clamps negative values to zero', function () {
     $pending = createQueueTextPending();
 
-    $pending->withBackoff(-5);
+    $pending->withQueueBackoff(-5);
 
     $property = new ReflectionProperty($pending, 'queueBackoff');
     expect($property->getValue($pending))->toBe(0);
@@ -331,7 +331,7 @@ it('dispatched job applies backoff when set', function () {
     $pending = createQueueTextPending($driver)
         ->message('Hello')
         ->queue()
-        ->withBackoff(120);
+        ->withQueueBackoff(120);
 
     $result = $pending->asText();
     $result->dispatch();

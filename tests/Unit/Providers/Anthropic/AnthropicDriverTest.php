@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\AtlasCache;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
+use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\Anthropic\AnthropicDriver;
-use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Requests\AudioRequest;
 use Atlasphp\Atlas\Requests\ImageRequest;

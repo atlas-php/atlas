@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\AtlasCache;
-use Atlasphp\Atlas\Providers\HttpClient;
+use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Providers\Xai\Handlers\Provider;
 use Illuminate\Support\Facades\Http;

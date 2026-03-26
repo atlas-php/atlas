@@ -6,12 +6,12 @@ use Atlasphp\Atlas\AgentRegistry;
 use Atlasphp\Atlas\AtlasCache;
 use Atlasphp\Atlas\AtlasManager;
 use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
+use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 use Atlasphp\Atlas\Providers\Anthropic\AnthropicDriver;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\ElevenLabs\ElevenLabsDriver;
-use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Support\VariableRegistry;
 
 // ─── Singleton Bindings ────────────────────────────────────────────────────

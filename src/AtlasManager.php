@@ -59,8 +59,6 @@ class AtlasManager
 
     public function audio(Provider|string|null $provider = null, ?string $model = null): AudioRequest
     {
-        [$provider, $model] = $this->resolveDefaults('audio', $provider, $model);
-
         return new AudioRequest($provider, $model, $this->providerRegistry);
     }
 

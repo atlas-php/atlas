@@ -7,6 +7,7 @@ namespace Atlasphp\Atlas\Providers;
 use Atlasphp\Atlas\AtlasCache;
 use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Exceptions\ProviderNotFoundException;
+use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
 use Atlasphp\Atlas\Providers\ChatCompletions\ChatCompletionsDriver;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;

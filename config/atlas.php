@@ -6,10 +6,15 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Default Provider & Model
+    | Defaults
     |--------------------------------------------------------------------------
     |
-    | The default provider and model used when none is explicitly specified.
+    | Default provider and model used when no arguments are passed to an entry
+    | point. If a modality has no default configured, provider and model must
+    | be passed explicitly on every call.
+    |
+    | Atlas::text()->message('Hello')->asText();         // uses text defaults
+    | Atlas::text('anthropic', 'claude-opus-4-5')->...   // explicit override
     |
     */
 
@@ -43,52 +48,80 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Provider Configurations
+    | Providers
     |--------------------------------------------------------------------------
     |
-    | Configuration for each AI provider. Each provider requires at minimum
-    | an API key. Additional provider-specific options can be set here.
+    | Credentials and endpoints for each AI provider. Only providers with an
+    | api_key set will be registered and available for use. Remove or comment
+    | out any provider you are not using.
     |
     */
 
     'providers' => [
 
+        /*
+         * OpenAI — https://platform.openai.com
+         * Models: gpt-4o, gpt-4o-mini, o3, o4-mini, dall-e-3, tts-1, whisper-1, ...
+         */
         'openai' => [
             'api_key' => env('OPENAI_API_KEY'),
             'url' => env('OPENAI_URL', 'https://api.openai.com/v1'),
             'organization' => env('OPENAI_ORGANIZATION'),
         ],
 
+        /*
+         * Anthropic — https://console.anthropic.com
+         * Models: claude-opus-4-5, claude-sonnet-4-5, claude-haiku-4-5, ...
+         */
         'anthropic' => [
             'api_key' => env('ANTHROPIC_API_KEY'),
             'url' => env('ANTHROPIC_URL', 'https://api.anthropic.com/v1'),
             'version' => env('ANTHROPIC_VERSION', '2024-10-22'),
         ],
 
+        /*
+         * Google — https://aistudio.google.com
+         * Models: gemini-2.5-pro, gemini-2.0-flash, text-embedding-004, ...
+         */
         'google' => [
             'api_key' => env('GOOGLE_API_KEY'),
             'url' => env('GOOGLE_URL', 'https://generativelanguage.googleapis.com'),
         ],
 
+        /*
+         * xAI — https://console.x.ai
+         * Models: grok-3, grok-3-mini, grok-imagine-image, ...
+         */
         'xai' => [
             'api_key' => env('XAI_API_KEY'),
             'url' => env('XAI_URL', 'https://api.x.ai/v1'),
         ],
 
+        /*
+         * Cohere — https://dashboard.cohere.com
+         * Models: command-r-plus, embed-english-v3.0, rerank-v3.5, ...
+         */
         'cohere' => [
             'api_key' => env('COHERE_API_KEY'),
             'url' => env('COHERE_URL', 'https://api.cohere.com'),
         ],
 
+        /*
+         * Jina — https://jina.ai
+         * Models: jina-embeddings-v3, jina-reranker-v2-base-multilingual, ...
+         */
         'jina' => [
             'api_key' => env('JINA_API_KEY'),
             'url' => env('JINA_URL', 'https://api.jina.ai'),
         ],
 
+        /*
+         * ElevenLabs — https://elevenlabs.io
+         * Models: eleven_multilingual_v2, eleven_turbo_v2_5, ...
+         */
         'elevenlabs' => [
             'api_key' => env('ELEVENLABS_API_KEY'),
             'url' => env('ELEVENLABS_URL', 'https://api.elevenlabs.io/v1'),
-            'media_timeout' => 300,
         ],
 
         // ─── Custom Providers (Chat Completions compatible) ─────────────
@@ -101,76 +134,63 @@ return [
         //     'api_key'  => env('OLLAMA_API_KEY', 'ollama'),
         //     'base_url' => env('OLLAMA_URL', 'http://localhost:11434/v1'),
         // ],
-        //
-        // 'lmstudio' => [
-        //     'driver'   => 'chat_completions',
-        //     'api_key'  => env('LMSTUDIO_API_KEY', 'lm-studio'),
-        //     'base_url' => env('LMSTUDIO_URL', 'http://localhost:1234/v1'),
-        // ],
-        //
-        // 'groq' => [
-        //     'driver'   => 'chat_completions',
-        //     'api_key'  => env('GROQ_API_KEY'),
-        //     'base_url' => 'https://api.groq.com/openai/v1',
-        // ],
-        //
-        // 'together' => [
-        //     'driver'   => 'chat_completions',
-        //     'api_key'  => env('TOGETHER_API_KEY'),
-        //     'base_url' => 'https://api.together.xyz/v1',
-        // ],
-        //
-        // 'deepseek' => [
-        //     'driver'   => 'chat_completions',
-        //     'api_key'  => env('DEEPSEEK_API_KEY'),
-        //     'base_url' => 'https://api.deepseek.com/v1',
-        // ],
-        //
-        // 'openrouter' => [
-        //     'driver'   => 'chat_completions',
-        //     'api_key'  => env('OPENROUTER_API_KEY'),
-        //     'base_url' => 'https://openrouter.ai/api/v1',
-        // ],
-
-        // ─── Custom Provider (own driver class) ─────────────────────────
-        //
-        // Use a custom driver class for non-OpenAI-compatible providers.
-        // The class receives all driver dependencies (ProviderConfig,
-        // HttpClient, MiddlewareStack, AtlasCache) via constructor injection.
-        //
-        // 'my-provider' => [
-        //     'driver'       => \App\Atlas\MyCustomDriver::class,
-        //     'api_key'      => env('MY_PROVIDER_API_KEY'),
-        //     'base_url'     => 'https://api.my-provider.com/v1',
-        //     'capabilities' => ['text' => true, 'stream' => true],
-        // ],
 
     ],
 
     /*
     |--------------------------------------------------------------------------
-    | Timeout Configuration
+    | Retry
     |--------------------------------------------------------------------------
     |
-    | Request timeout values in seconds for different operation types.
+    | Controls how Atlas behaves when a provider call fails or is slow.
+    |
+    | timeout    — Seconds before a single attempt is abandoned.
+    | rate_limit — Retries on 429 (Too Many Requests). Waits for Retry-After.
+    | errors     — Retries on 5xx / connection timeouts. Exponential backoff.
+    |
+    | Permanent failures (401, 403) are never retried.
+    |
+    | Override per call:
+    |   ->withTimeout(120)
+    |   ->withRetry(rateLimit: 5, errors: 3)
+    |   ->withoutRetry()
     |
     */
 
-    'timeout' => [
-        'default' => (int) env('ATLAS_TIMEOUT', 60),
-        'reasoning' => (int) env('ATLAS_TIMEOUT_REASONING', 300),
-        'media' => (int) env('ATLAS_TIMEOUT_MEDIA', 120),
+    'retry' => [
+        'timeout' => (int) env('ATLAS_TIMEOUT', 60),
+        'rate_limit' => (int) env('ATLAS_RETRY_RATE_LIMIT', 3),
+        'errors' => (int) env('ATLAS_RETRY_ERRORS', 2),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Queue
+    |--------------------------------------------------------------------------
+    |
+    | The default queue that async Atlas jobs are dispatched onto. Any call
+    | using ->queue() will use this queue unless overridden per call.
+    |
+    | Worker configuration (retry attempts, backoff, job timeout) belongs
+    | in config/horizon.php or your queue supervisor, not here.
+    |
+    | Override per call:
+    |   ->onQueue('ai')
+    |   ->onConnection('redis')
+    |   ->withDelay(30)
+    |
+    */
+
+    'queue' => env('ATLAS_QUEUE', 'default'),
 
     /*
     |--------------------------------------------------------------------------
     | Streaming
     |--------------------------------------------------------------------------
     |
-    | Settings for streaming responses. The chunk delay adds a small pause
-    | between text chunks when converting tool-loop results to a stream,
-    | creating a visible typing effect for WebSocket/broadcast consumers.
-    | Set to 0 in tests or CLI to eliminate the delay.
+    | The chunk delay adds a small pause between text chunks when converting
+    | tool-loop results to a stream, creating a visible typing effect for
+    | broadcast consumers. Set to 0 in tests or CLI.
     |
     */
 
@@ -183,19 +203,20 @@ return [
     | Middleware
     |--------------------------------------------------------------------------
     |
-    | Global middleware applied at each layer of Atlas execution.
-    | Provider middleware runs on every HTTP call to an AI provider.
-    | Step middleware runs on each executor round trip.
-    | Tool middleware runs on each tool execution.
-    | Agent middleware runs on each agent execution.
+    | Global middleware stacks applied to every call at each layer.
+    |
+    | agent    — Wraps the entire agent execution.
+    | step     — Wraps each round trip in the tool call loop.
+    | tool     — Wraps each individual tool execution.
+    | provider — Wraps every HTTP call to any provider.
     |
     */
 
     'middleware' => [
-        'provider' => [],
+        'agent' => [],
         'step' => [],
         'tool' => [],
-        'agent' => [],
+        'provider' => [],
     ],
 
     /*
@@ -203,16 +224,9 @@ return [
     | Variables
     |--------------------------------------------------------------------------
     |
-    | Static variables available in all instructions across all modalities.
-    | These are the lowest priority — global registry and withVariables()
-    | override them.
-    |
-    | Supports flat keys and nested arrays:
-    |   'APP_NAME' => 'My App'
-    |   'COMPANY' => ['NAME' => 'Acme', 'SUPPORT_EMAIL' => 'help@acme.com']
-    |
-    | Access flat: {APP_NAME}
-    | Access nested: {COMPANY.NAME}, {COMPANY.SUPPORT_EMAIL}
+    | Static values available in all instructions using {VARIABLE} syntax.
+    | These are lowest priority — runtime registry and ->withVariables()
+    | take precedence.
     |
     */
 
@@ -222,37 +236,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Queue
+    | Storage
     |--------------------------------------------------------------------------
     |
-    | Configuration for queued Atlas executions. Use ->queue() on any
-    | pending request to dispatch it asynchronously.
-    |
-    */
-
-    'queue' => [
-        'connection' => env('ATLAS_QUEUE_CONNECTION'),
-        'queue' => env('ATLAS_QUEUE', 'default'),
-        'tries' => (int) env('ATLAS_QUEUE_TRIES', 3),
-        'backoff' => (int) env('ATLAS_QUEUE_BACKOFF', 30),
-        'timeout' => (int) env('ATLAS_QUEUE_TIMEOUT', 300),
-        'after_commit' => (bool) env('ATLAS_QUEUE_AFTER_COMMIT', true),
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Media Storage
-    |--------------------------------------------------------------------------
-    |
-    | Configure how Atlas stores media files (images, audio, video).
-    | Used by Input::store() and Response::store() methods.
+    | Which Laravel disk to use when storing media (images, audio, video)
+    | via ->store() methods. Falls back to your default filesystem disk.
+    | The prefix is prepended to auto-generated filenames.
     |
     */
 
     'storage' => [
         'disk' => env('ATLAS_STORAGE_DISK'),
         'prefix' => 'atlas',
-        'visibility' => 'private',
     ],
 
     /*
@@ -260,12 +255,8 @@ return [
     | Embeddings
     |--------------------------------------------------------------------------
     |
-    | Configuration for embedding generation. The dimensions value controls
-    | vector column size in migrations. For embedding caching, see the
-    | 'cache' section below (atlas.cache.ttl.embeddings).
-    |
-    | Note: 'dimensions' was previously at 'persistence.embedding_dimensions'.
-    | The old location is still supported as a fallback in migrations.
+    | Vector column size for pgvector migrations. Must match the output
+    | dimensions of your embedding model (OpenAI text-embedding-3-small = 1536).
     |
     */
 
@@ -278,7 +269,7 @@ return [
     | Cache
     |--------------------------------------------------------------------------
     |
-    | Unified caching for provider data (models, voices) and embeddings.
+    | Caching for provider data (models, voices) and embeddings.
     | Set any TTL to 0 to disable caching for that type.
     |
     */
@@ -287,9 +278,9 @@ return [
         'store' => env('ATLAS_CACHE_STORE'),
         'prefix' => 'atlas',
         'ttl' => [
-            'models' => (int) env('ATLAS_CACHE_MODELS_TTL', 86400),        // 24 hours
-            'voices' => (int) env('ATLAS_CACHE_VOICES_TTL', 3600),         // 1 hour
-            'embeddings' => (int) env('ATLAS_CACHE_EMBEDDINGS_TTL', 0),    // disabled by default
+            'models' => (int) env('ATLAS_CACHE_MODELS_TTL', 86400),
+            'voices' => (int) env('ATLAS_CACHE_VOICES_TTL', 3600),
+            'embeddings' => (int) env('ATLAS_CACHE_EMBEDDINGS_TTL', 0),
         ],
     ],
 
@@ -298,10 +289,9 @@ return [
     | Persistence
     |--------------------------------------------------------------------------
     |
-    | Optional conversation persistence and execution tracking. If you don't
-    | publish the migrations, Atlas works fully stateless. When enabled,
-    | execution tracking is always active — conversations with tools require
-    | execution data for replay.
+    | Optional conversation persistence and execution tracking. Atlas works
+    | fully stateless when disabled. When enabled, execution tracking is
+    | always active — conversations with tools require execution data.
     |
     */
 
@@ -309,35 +299,24 @@ return [
         'enabled' => env('ATLAS_PERSISTENCE_ENABLED', false),
         'table_prefix' => env('ATLAS_TABLE_PREFIX', 'atlas_'),
         'message_limit' => (int) env('ATLAS_MESSAGE_LIMIT', 50),
-
-        // Auto-store generated files (images, audio, video) as assets.
-        // Only applies to direct calls tracked by TrackProviderCall.
-        // Tool-generated assets use ToolAssets::store() explicitly.
         'auto_store_assets' => env('ATLAS_AUTO_STORE_ASSETS', true),
 
-        // Voice routes — transcript persistence and tool execution.
-        // Only active when persistence.enabled is true.
-        // IMPORTANT: Add your auth middleware here (e.g., ['auth:sanctum']).
-        // Avoid 'web' middleware as it includes CSRF which blocks fetch() calls.
         'voice_transcripts' => [
             'enabled' => env('ATLAS_VOICE_TRANSCRIPTS', true),
             'middleware' => [],
             'route_prefix' => 'atlas',
         ],
 
-        // Minutes before a Processing voice session is considered stale.
-        // Used by atlas:clean-voice-sessions artisan command.
         'voice_session_ttl' => (int) env('ATLAS_VOICE_SESSION_TTL', 60),
 
-        // Model overrides — extend base models with your own
         'models' => [
-            // 'conversation'        => \Atlasphp\Atlas\Persistence\Models\Conversation::class,
-            // 'conversation_message' => \Atlasphp\Atlas\Persistence\Models\ConversationMessage::class,
-            // 'asset'               => \Atlasphp\Atlas\Persistence\Models\Asset::class,
-            // 'conversation_message_asset' => \Atlasphp\Atlas\Persistence\Models\ConversationMessageAsset::class,
-            // 'execution'           => \Atlasphp\Atlas\Persistence\Models\Execution::class,
-            // 'execution_step'      => \Atlasphp\Atlas\Persistence\Models\ExecutionStep::class,
-            // 'execution_tool_call' => \Atlasphp\Atlas\Persistence\Models\ExecutionToolCall::class,
+            // 'conversation'               => \App\Models\AiConversation::class,
+            // 'conversation_message'        => \App\Models\AiMessage::class,
+            // 'asset'                       => \App\Models\AiAsset::class,
+            // 'conversation_message_asset'  => \App\Models\AiMessageAttachment::class,
+            // 'execution'                   => \App\Models\AiExecution::class,
+            // 'execution_step'              => \App\Models\AiExecutionStep::class,
+            // 'execution_tool_call'         => \App\Models\AiExecutionToolCall::class,
         ],
     ],
 

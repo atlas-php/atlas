@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Providers\Xai\Handlers;
 
 use Atlasphp\Atlas\Enums\VoiceTransport;
+use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\Concerns\BuildsHeaders;
 use Atlasphp\Atlas\Providers\Concerns\BuildsVoiceBody;
 use Atlasphp\Atlas\Providers\Handlers\VoiceHandler;
-use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Providers\WebSocketConnection;
 use Atlasphp\Atlas\Requests\VoiceRequest;

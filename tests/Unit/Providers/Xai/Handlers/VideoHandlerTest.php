@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
+use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Input\Image;
-use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Providers\Xai\Handlers\Video;
 use Atlasphp\Atlas\Requests\VideoRequest;

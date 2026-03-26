@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\AtlasCache;
+use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\ChatCompletions\Handlers\Provider;
 use Atlasphp\Atlas\Providers\Handlers\AudioHandler;
 use Atlasphp\Atlas\Providers\Handlers\EmbedHandler;
@@ -11,7 +12,6 @@ use Atlasphp\Atlas\Providers\Handlers\ModerateHandler;
 use Atlasphp\Atlas\Providers\Handlers\ProviderHandler;
 use Atlasphp\Atlas\Providers\Handlers\TextHandler;
 use Atlasphp\Atlas\Providers\Handlers\VideoHandler;
-use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Audio;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Embed;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Image;

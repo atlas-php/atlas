@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Providers\ChatCompletions\Handlers;
 
 use Atlasphp\Atlas\Enums\ChunkType;
+use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Providers\ChatCompletions\MediaResolver;
 use Atlasphp\Atlas\Providers\ChatCompletions\MessageFactory;
 use Atlasphp\Atlas\Providers\ChatCompletions\ResponseParser;
 use Atlasphp\Atlas\Providers\ChatCompletions\ToolMapper;
 use Atlasphp\Atlas\Providers\Handlers\TextHandler;
-use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Providers\SseParser;
 use Atlasphp\Atlas\Requests\TextRequest;

@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\Google\Handlers\Text;
 use Atlasphp\Atlas\Providers\Google\MediaResolver;
 use Atlasphp\Atlas\Providers\Google\MessageFactory;
 use Atlasphp\Atlas\Providers\Google\ResponseParser;
 use Atlasphp\Atlas\Providers\Google\ToolMapper;
-use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\StructuredResponse;

@@ -13,6 +13,7 @@ use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
 use Atlasphp\Atlas\Pending\Concerns\HasProviderOptions;
 use Atlasphp\Atlas\Pending\Concerns\HasQueueDispatch;
+use Atlasphp\Atlas\Pending\Concerns\HasRequestConfig;
 use Atlasphp\Atlas\Pending\Concerns\HasVariables;
 use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
@@ -33,6 +34,7 @@ class AudioRequest implements QueueableRequest
     use HasMiddleware;
     use HasProviderOptions;
     use HasQueueDispatch;
+    use HasRequestConfig;
     use HasVariables;
     use ResolvesProvider;
 

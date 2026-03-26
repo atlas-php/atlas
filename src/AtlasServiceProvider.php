@@ -7,6 +7,8 @@ namespace Atlasphp\Atlas;
 use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
 use Atlasphp\Atlas\Embeddings\VectorQueryMacros;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Http\HttpClient;
+use Atlasphp\Atlas\Http\RetryDecider;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 use Atlasphp\Atlas\Providers\Anthropic\AnthropicDriver;
@@ -14,7 +16,6 @@ use Atlasphp\Atlas\Providers\Cohere\CohereDriver;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\ElevenLabs\ElevenLabsDriver;
 use Atlasphp\Atlas\Providers\Google\GoogleDriver;
-use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\Jina\JinaDriver;
 use Atlasphp\Atlas\Providers\OpenAi\OpenAiDriver;
 use Atlasphp\Atlas\Providers\ProviderConfig;
@@ -38,6 +39,8 @@ class AtlasServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__.'/../config/atlas.php', 'atlas');
 
+        $this->app->singleton(AtlasConfig::class, fn () => AtlasConfig::fromConfig());
+
         $this->app->singleton(ProviderRegistryContract::class, function ($app) {
             return new ProviderRegistry($app);
         });
@@ -53,8 +56,13 @@ class AtlasServiceProvider extends ServiceProvider
             );
         });
 
+        $this->app->singleton(RetryDecider::class);
+
         $this->app->singleton(HttpClient::class, function ($app) {
-            return new HttpClient($app->make(Dispatcher::class));
+            return new HttpClient(
+                $app->make(Dispatcher::class),
+                $app->make(RetryDecider::class),
+            );
         });
 
         $this->app->singleton(MiddlewareStack::class, function ($app) {

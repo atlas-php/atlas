@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Providers\Google\Handlers;
 
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
+use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\Google\Concerns\BuildsGoogleHeaders;
 use Atlasphp\Atlas\Providers\Handlers\ImageHandler;
-use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Requests\ImageRequest;
 use Atlasphp\Atlas\Responses\ImageResponse;
