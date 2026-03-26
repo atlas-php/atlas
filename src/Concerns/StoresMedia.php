@@ -33,7 +33,7 @@ trait StoresMedia
     {
         $disk = $disk ?? $this->defaultDisk();
 
-        Storage::disk($disk)->put($path, $this->contents(), $this->defaultVisibility());
+        Storage::disk($disk)->put($path, $this->contents());
 
         return $path;
     }
@@ -102,11 +102,6 @@ trait StoresMedia
     protected function defaultDisk(): string
     {
         return app(AtlasConfig::class)->storageDisk ?? config('filesystems.default', 'local');
-    }
-
-    protected function defaultVisibility(): string
-    {
-        return 'private';
     }
 
     protected function generatePath(): string

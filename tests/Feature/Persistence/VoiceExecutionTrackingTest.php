@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\AtlasConfig;
-use Atlasphp\Atlas\Events\VoiceSessionClosed;
+use Atlasphp\Atlas\Events\VoiceSessionEnded;
 use Atlasphp\Atlas\Events\VoiceToolCallStarted;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
@@ -261,14 +261,14 @@ it('is idempotent — double close does not error', function () {
     expect($response->getStatusCode())->toBe(204);
 });
 
-it('fires VoiceSessionClosed event', function () {
-    Event::fake([VoiceSessionClosed::class]);
+it('fires VoiceSessionEnded event', function () {
+    Event::fake([VoiceSessionEnded::class]);
 
     createVoiceExecution('sess-close-3');
 
     invokeCloseController('sess-close-3');
 
-    Event::assertDispatched(VoiceSessionClosed::class, function (VoiceSessionClosed $event) {
+    Event::assertDispatched(VoiceSessionEnded::class, function (VoiceSessionEnded $event) {
         return $event->sessionId === 'sess-close-3';
     });
 });

@@ -14,6 +14,6 @@ class VoiceCallStarted
         public readonly ?int $conversationId,
         public readonly string $sessionId,
         public readonly string $provider,
-        public readonly ?string $agent,
+        public readonly ?string $agentKey,
     ) {}
 }

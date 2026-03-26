@@ -12,13 +12,13 @@ it('ConversationMessageStored stores conversationId, messageId, role, and agent'
         conversationId: 1,
         messageId: 42,
         role: Role::User,
-        agent: 'research-agent',
+        agentKey: 'research-agent',
     );
 
     expect($event->conversationId)->toBe(1)
         ->and($event->messageId)->toBe(42)
         ->and($event->role)->toBe(Role::User)
-        ->and($event->agent)->toBe('research-agent');
+        ->and($event->agentKey)->toBe('research-agent');
 });
 
 it('ConversationMessageStored stores assistant role', function () {
@@ -26,25 +26,25 @@ it('ConversationMessageStored stores assistant role', function () {
         conversationId: 5,
         messageId: 100,
         role: Role::Assistant,
-        agent: 'writer-agent',
+        agentKey: 'writer-agent',
     );
 
     expect($event->conversationId)->toBe(5)
         ->and($event->messageId)->toBe(100)
         ->and($event->role)->toBe(Role::Assistant)
-        ->and($event->agent)->toBe('writer-agent');
+        ->and($event->agentKey)->toBe('writer-agent');
 });
 
-it('ConversationMessageStored stores null agent', function () {
+it('ConversationMessageStored stores null agentKey', function () {
     $event = new ConversationMessageStored(
         conversationId: 3,
         messageId: 77,
         role: Role::User,
-        agent: null,
+        agentKey: null,
     );
 
     expect($event->conversationId)->toBe(3)
         ->and($event->messageId)->toBe(77)
         ->and($event->role)->toBe(Role::User)
-        ->and($event->agent)->toBeNull();
+        ->and($event->agentKey)->toBeNull();
 });

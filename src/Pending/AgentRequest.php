@@ -613,7 +613,7 @@ class AgentRequest implements QueueableRequest
                     conversationId: $this->conversationId,
                     sessionId: $session->sessionId,
                     provider: $providerKey,
-                    agent: $agent->key(),
+                    agentKey: $agent->key(),
                 ));
             } catch (\Throwable $e) {
                 // Don't let persistence failures destroy a live voice session
@@ -719,7 +719,7 @@ class AgentRequest implements QueueableRequest
                 conversationId: $conversation->id,
                 messageId: $stored->id,
                 role: Role::User,
-                agent: $agent->key(),
+                agentKey: $agent->key(),
             ));
 
             // Switch to respond mode so the job doesn't store the user message again

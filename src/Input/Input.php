@@ -132,7 +132,7 @@ abstract class Input
     {
         $disk = $disk ?? $this->defaultDisk();
 
-        Storage::disk($disk)->put($path, $this->contents(), $this->defaultVisibility());
+        Storage::disk($disk)->put($path, $this->contents());
 
         $this->transitionToStorage($path, $disk);
 

@@ -15,5 +15,6 @@ class ProviderRequestCompleted
     public function __construct(
         public readonly string $url,
         public readonly array $data,
+        public readonly int $statusCode = 200,
     ) {}
 }

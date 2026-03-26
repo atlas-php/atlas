@@ -9,7 +9,7 @@ namespace Atlasphp\Atlas\Events;
  *
  * Listeners can use this for logging, metrics, or circuit-breaker logic.
  */
-class ProviderRetrying
+class ProviderRequestRetrying
 {
     public function __construct(
         public readonly string $url,

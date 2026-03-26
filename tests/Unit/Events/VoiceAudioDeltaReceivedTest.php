@@ -9,19 +9,18 @@ it('constructs with all properties', function () {
     $event = new VoiceAudioDeltaReceived(
         sessionId: 'rt_123',
         audioData: 'base64audio',
-        channelName: 'voice.rt_123',
+        channel: new Channel('voice.rt_123'),
     );
 
     expect($event->sessionId)->toBe('rt_123');
     expect($event->audioData)->toBe('base64audio');
-    expect($event->channelName)->toBe('voice.rt_123');
 });
 
 it('broadcasts on correct channel', function () {
     $event = new VoiceAudioDeltaReceived(
         sessionId: 'rt_123',
         audioData: 'base64audio',
-        channelName: 'voice.rt_123',
+        channel: new Channel('voice.rt_123'),
     );
 
     $channels = $event->broadcastOn();
@@ -35,7 +34,7 @@ it('broadcasts with correct event name', function () {
     $event = new VoiceAudioDeltaReceived(
         sessionId: 'rt_123',
         audioData: 'base64audio',
-        channelName: 'voice.rt_123',
+        channel: new Channel('voice.rt_123'),
     );
 
     expect($event->broadcastAs())->toBe('voice.audio.delta');

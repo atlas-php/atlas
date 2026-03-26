@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Events\VoiceSessionClosed;
+use Atlasphp\Atlas\Events\VoiceSessionEnded;
 
 it('constructs with all properties', function () {
-    $event = new VoiceSessionClosed(
+    $event = new VoiceSessionEnded(
         provider: 'openai',
         sessionId: 'rt_123',
         durationMs: 5000,
@@ -17,7 +17,7 @@ it('constructs with all properties', function () {
 });
 
 it('allows null duration', function () {
-    $event = new VoiceSessionClosed(
+    $event = new VoiceSessionEnded(
         provider: 'openai',
         sessionId: 'rt_123',
     );

@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Events;
 
 /**
- * Dispatched when a voice session is closed.
+ * Dispatched when a voice session ends.
  */
-class VoiceSessionClosed
+class VoiceSessionEnded
 {
     public function __construct(
         public readonly string $provider,

@@ -720,7 +720,7 @@ it('dispatches ConversationMessageStored event after storing assistant message',
     Event::assertDispatched(ConversationMessageStored::class, function ($event) use ($conversation) {
         return $event->conversationId === $conversation->id
             && $event->role === Role::Assistant
-            && $event->agent === 'test-agent'
+            && $event->agentKey === 'test-agent'
             && $event->messageId !== null;
     });
 });

@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Events\VoiceCallCompleted;
-use Atlasphp\Atlas\Events\VoiceSessionClosed;
+use Atlasphp\Atlas\Events\VoiceSessionEnded;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
 use Atlasphp\Atlas\Persistence\Enums\VoiceCallStatus;
@@ -133,14 +133,14 @@ it('fires VoiceCallCompleted event with correct data', function () {
     });
 });
 
-it('fires VoiceSessionClosed event', function () {
-    Event::fake([VoiceSessionClosed::class]);
+it('fires VoiceSessionEnded event', function () {
+    Event::fake([VoiceSessionEnded::class]);
 
     $call = createCloseTestVoiceCall('sess-close-event-sc');
 
     invokeClose('sess-close-event-sc');
 
-    Event::assertDispatched(VoiceSessionClosed::class, function (VoiceSessionClosed $event) {
+    Event::assertDispatched(VoiceSessionEnded::class, function (VoiceSessionEnded $event) {
         return $event->sessionId === 'sess-close-event-sc'
             && $event->provider === 'xai';
     });

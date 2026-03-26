@@ -370,7 +370,7 @@ OpenAI and xAI use PCM16 at 24kHz. ElevenLabs uses PCM16 at 16kHz by default (co
 
 Fires events in order:
 1. `VoiceCallCompleted` — with full transcript and duration (for post-processing)
-2. `VoiceSessionClosed` — with provider and session ID (for cleanup)
+2. `VoiceSessionEnded` — with provider and session ID (for cleanup)
 
 Idempotent. Cleans up cached session data and marks the linked execution as completed.
 

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Events\ProviderRequestCompleted;
 use Atlasphp\Atlas\Events\ProviderRequestFailed;
+use Atlasphp\Atlas\Events\ProviderRequestRetrying;
 use Atlasphp\Atlas\Events\ProviderRequestStarted;
-use Atlasphp\Atlas\Events\ProviderRetrying;
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Http\RetryDecider;
 use Atlasphp\Atlas\RequestConfig;
@@ -296,7 +296,7 @@ it('stream returns an Illuminate Response', function () {
 
 // ─── RETRY ──────────────────────────────────────────────────────────────────
 
-it('post retries with RequestConfig and fires ProviderRetrying', function () {
+it('post retries with RequestConfig and fires ProviderRequestRetrying', function () {
     Event::fake();
 
     $callCount = 0;
@@ -336,7 +336,7 @@ it('post retries with RequestConfig and fires ProviderRetrying', function () {
     expect($callCount)->toBe(2);
     expect($decider->retryCount)->toBe(1);
 
-    Event::assertDispatched(ProviderRetrying::class, function ($event) {
+    Event::assertDispatched(ProviderRequestRetrying::class, function ($event) {
         return $event->url === 'https://api.test.com/chat'
             && $event->attempt === 1
             && $event->waitMicroseconds === 0;
@@ -377,7 +377,7 @@ it('post does not retry when config is null', function () {
         // expected
     }
 
-    Event::assertNotDispatched(ProviderRetrying::class);
+    Event::assertNotDispatched(ProviderRequestRetrying::class);
 });
 
 it('post does not retry when retry is disabled', function () {
@@ -396,7 +396,7 @@ it('post does not retry when retry is disabled', function () {
         // expected
     }
 
-    Event::assertNotDispatched(ProviderRetrying::class);
+    Event::assertNotDispatched(ProviderRequestRetrying::class);
 });
 
 it('postRaw retries with RequestConfig', function () {

@@ -8,7 +8,7 @@ Observe the full lifecycle of providers, agents, tools, streams, and queued exec
 
 ## Overview
 
-Atlas fires events across six groups. Events fire automatically — no configuration needed to enable them. Every event is a standard Laravel event, so you can listen with `Event::listen`, an `EventServiceProvider`, or Laravel's event discovery.
+Atlas fires events across seven groups. Events fire automatically — no configuration needed to enable them. Every event is a standard Laravel event, so you can listen with `Event::listen`, an `EventServiceProvider`, or Laravel's event discovery.
 
 All events live in the `Atlasphp\Atlas\Events` namespace.
 
@@ -20,9 +20,10 @@ Fired by the shared `HttpClient` on every API call to a provider.
 
 | Event | Properties |
 |-------|-----------|
-| `ProviderRequestStarted`<br><small>Before the HTTP request is sent</small> | `string $url`, `array $body` |
-| `ProviderRequestCompleted`<br><small>After a successful response is parsed</small> | `string $url`, `array $data` |
+| `ProviderRequestStarted`<br><small>Before the HTTP request is sent</small> | `string $url`, `array $body`, `string $method` |
+| `ProviderRequestCompleted`<br><small>After a successful response is parsed</small> | `string $url`, `array $data`, `int $statusCode` |
 | `ProviderRequestFailed`<br><small>When the HTTP request fails</small> | `string $url`, `Response $response` |
+| `ProviderRequestRetrying`<br><small>Before retrying a failed request</small> | `string $url`, `Throwable $exception`, `int $attempt`, `int $waitMicroseconds` |
 
 </div>
 
@@ -97,7 +98,7 @@ Fired when conversation messages are stored to the database.
 
 | Event | Properties |
 |-------|-----------|
-| `ConversationMessageStored`<br><small>After a message is persisted to a conversation</small> | `int $conversationId`, `int $messageId`, `Role $role`, `?string $agent` |
+| `ConversationMessageStored`<br><small>After a message is persisted to a conversation</small> | `int $conversationId`, `int $messageId`, `Role $role`, `?string $agentKey` |
 
 </div>
 
@@ -325,7 +326,7 @@ If the agent fails, `ExecutionFailed` fires instead of `ExecutionCompleted`.
 
 ## API Reference
 
-All 23 events at a glance:
+All 33 events at a glance:
 
 <div class="full-width-table">
 
@@ -334,32 +335,36 @@ All 23 events at a glance:
 | 1 | `ProviderRequestStarted` | Provider | No |
 | 2 | `ProviderRequestCompleted` | Provider | No |
 | 3 | `ProviderRequestFailed` | Provider | No |
-| 4 | `AgentStarted` | Executor | No |
-| 5 | `AgentStepStarted` | Executor | No |
-| 6 | `AgentStepCompleted` | Executor | No |
-| 7 | `AgentToolCallStarted` | Executor | No |
-| 8 | `AgentToolCallCompleted` | Executor | No |
-| 9 | `AgentToolCallFailed` | Executor | No |
-| 10 | `AgentCompleted` | Executor | No |
-| 11 | `AgentMaxStepsExceeded` | Executor | No |
-| 12 | `StreamStarted` | Stream | Yes |
-| 13 | `StreamChunkReceived` | Stream | Yes |
-| 14 | `StreamToolCallReceived` | Stream | Yes |
-| 15 | `StreamThinkingReceived` | Stream | Yes |
-| 16 | `StreamCompleted` | Stream | Yes |
-| 17 | `ModalityStarted` | Modality | No |
-| 18 | `ModalityCompleted` | Modality | No |
-| 19 | `ExecutionQueued` | Execution | Yes |
-| 20 | `ExecutionProcessing` | Execution | Yes |
-| 21 | `ExecutionCompleted` | Execution | Yes |
-| 22 | `ExecutionFailed` | Execution | Yes |
-| 23 | `ConversationMessageStored` | Persistence | No |
-| 24 | `VoiceCallStarted` | Voice | No |
-| 25 | `VoiceCallCompleted` | Voice | No |
-| 26 | `VoiceSessionClosed` | Voice | No |
-| 27 | `VoiceToolCallStarted` | Voice | No |
-| 28 | `VoiceAudioDeltaReceived` | Voice | Yes |
-| 29 | `VoiceTranscriptDeltaReceived` | Voice | Yes |
+| 4 | `ProviderRequestRetrying` | Provider | No |
+| 5 | `AgentStarted` | Executor | No |
+| 6 | `AgentStepStarted` | Executor | No |
+| 7 | `AgentStepCompleted` | Executor | No |
+| 8 | `AgentToolCallStarted` | Executor | No |
+| 9 | `AgentToolCallCompleted` | Executor | No |
+| 10 | `AgentToolCallFailed` | Executor | No |
+| 11 | `AgentCompleted` | Executor | No |
+| 12 | `AgentMaxStepsExceeded` | Executor | No |
+| 13 | `StreamStarted` | Stream | Yes |
+| 14 | `StreamChunkReceived` | Stream | Yes |
+| 15 | `StreamToolCallReceived` | Stream | Yes |
+| 16 | `StreamThinkingReceived` | Stream | Yes |
+| 17 | `StreamCompleted` | Stream | Yes |
+| 18 | `ModalityStarted` | Modality | No |
+| 19 | `ModalityCompleted` | Modality | No |
+| 20 | `ExecutionQueued` | Execution | Yes |
+| 21 | `ExecutionProcessing` | Execution | Yes |
+| 22 | `ExecutionCompleted` | Execution | Yes |
+| 23 | `ExecutionFailed` | Execution | Yes |
+| 24 | `ConversationMessageStored` | Persistence | No |
+| 25 | `VoiceSessionCreated` | Voice | No |
+| 26 | `VoiceSessionEnded` | Voice | No |
+| 27 | `VoiceCallStarted` | Voice | No |
+| 28 | `VoiceCallCompleted` | Voice | No |
+| 29 | `VoiceToolCallStarted` | Voice | No |
+| 30 | `VoiceToolCallCompleted` | Voice | No |
+| 31 | `VoiceToolCallFailed` | Voice | No |
+| 32 | `VoiceAudioDeltaReceived` | Voice | Yes |
+| 33 | `VoiceTranscriptDeltaReceived` | Voice | Yes |
 
 </div>
 
@@ -377,7 +382,7 @@ Fired when a voice call record is created and the session is ready for connectio
 | `conversationId` | `?int` | Linked conversation (nullable) |
 | `sessionId` | `string` | Provider session ID |
 | `provider` | `string` | Provider name |
-| `agent` | `?string` | Agent key |
+| `agentKey` | `?string` | Agent key |
 
 ### VoiceCallCompleted
 

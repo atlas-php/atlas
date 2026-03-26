@@ -10,14 +10,14 @@ it('constructs with all properties', function () {
         conversationId: 7,
         sessionId: 'rt_abc123',
         provider: 'openai',
-        agent: 'support-agent',
+        agentKey: 'support-agent',
     );
 
     expect($event->voiceCallId)->toBe(42)
         ->and($event->conversationId)->toBe(7)
         ->and($event->sessionId)->toBe('rt_abc123')
         ->and($event->provider)->toBe('openai')
-        ->and($event->agent)->toBe('support-agent');
+        ->and($event->agentKey)->toBe('support-agent');
 });
 
 it('accepts null conversationId', function () {
@@ -26,22 +26,22 @@ it('accepts null conversationId', function () {
         conversationId: null,
         sessionId: 'rt_456',
         provider: 'openai',
-        agent: 'my-agent',
+        agentKey: 'my-agent',
     );
 
     expect($event->conversationId)->toBeNull();
 });
 
-it('accepts null agent', function () {
+it('accepts null agentKey', function () {
     $event = new VoiceCallStarted(
         voiceCallId: 10,
         conversationId: 3,
         sessionId: 'rt_789',
         provider: 'openai',
-        agent: null,
+        agentKey: null,
     );
 
-    expect($event->agent)->toBeNull();
+    expect($event->agentKey)->toBeNull();
 });
 
 it('accepts null conversationId and agent simultaneously', function () {
@@ -50,12 +50,12 @@ it('accepts null conversationId and agent simultaneously', function () {
         conversationId: null,
         sessionId: 'rt_def',
         provider: 'anthropic',
-        agent: null,
+        agentKey: null,
     );
 
     expect($event->voiceCallId)->toBe(5)
         ->and($event->conversationId)->toBeNull()
         ->and($event->sessionId)->toBe('rt_def')
         ->and($event->provider)->toBe('anthropic')
-        ->and($event->agent)->toBeNull();
+        ->and($event->agentKey)->toBeNull();
 });

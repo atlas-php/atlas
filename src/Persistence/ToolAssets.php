@@ -48,13 +48,11 @@ class ToolAssets
 
         $disk = app(AtlasConfig::class)->storageDisk ?? config('filesystems.default', 'local');
         $prefix = app(AtlasConfig::class)->storagePrefix;
-        $visibility = 'private';
-
         $extension = MimeTypeMap::toExtension($data['mime_type'] ?? null);
         $filename = Str::random(40).'.'.$extension;
         $path = $prefix.'/assets/'.$filename;
 
-        Storage::disk($disk)->put($path, $content, $visibility);
+        Storage::disk($disk)->put($path, $content);
 
         /** @var class-string<Asset> $assetModel */
         $assetModel = app(AtlasConfig::class)->model('asset', Asset::class);

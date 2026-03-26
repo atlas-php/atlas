@@ -188,7 +188,7 @@ class PersistConversation
                 conversationId: $conversation->id,
                 messageId: $storedMessage->id,
                 role: Role::Assistant,
-                agent: $agentKey,
+                agentKey: $agentKey,
             ));
         }
 

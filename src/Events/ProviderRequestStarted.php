@@ -15,5 +15,6 @@ class ProviderRequestStarted
     public function __construct(
         public readonly string $url,
         public readonly array $body,
+        public readonly string $method = 'POST',
     ) {}
 }

@@ -6,8 +6,8 @@ namespace Atlasphp\Atlas\Http;
 
 use Atlasphp\Atlas\Events\ProviderRequestCompleted;
 use Atlasphp\Atlas\Events\ProviderRequestFailed;
+use Atlasphp\Atlas\Events\ProviderRequestRetrying;
 use Atlasphp\Atlas\Events\ProviderRequestStarted;
-use Atlasphp\Atlas\Events\ProviderRetrying;
 use Atlasphp\Atlas\RequestConfig;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Http\Client\Response;
@@ -37,7 +37,7 @@ class HttpClient
         $response = $this->sendGet($url, $headers, $timeout);
 
         $data = $response->json() ?? [];
-        $this->events->dispatch(new ProviderRequestCompleted($url, $data));
+        $this->events->dispatch(new ProviderRequestCompleted($url, $data, $response->status()));
 
         return $data;
     }
@@ -53,7 +53,7 @@ class HttpClient
     {
         $response = $this->sendGet($url, $headers, $timeout);
 
-        $this->events->dispatch(new ProviderRequestCompleted($url, []));
+        $this->events->dispatch(new ProviderRequestCompleted($url, [], $response->status()));
 
         return $response->body();
     }
@@ -74,7 +74,7 @@ class HttpClient
             $response = $this->sendPost($url, $headers, $body, $timeout);
 
             $data = $response->json() ?? [];
-            $this->events->dispatch(new ProviderRequestCompleted($url, $data));
+            $this->events->dispatch(new ProviderRequestCompleted($url, $data, $response->status()));
 
             return $data;
         });
@@ -93,7 +93,7 @@ class HttpClient
         return $this->withRetry($config, $url, function () use ($url, $headers, $body, $timeout) {
             $response = $this->sendPost($url, $headers, $body, $timeout);
 
-            $this->events->dispatch(new ProviderRequestCompleted($url, []));
+            $this->events->dispatch(new ProviderRequestCompleted($url, [], $response->status()));
 
             return $response->body();
         });
@@ -110,7 +110,7 @@ class HttpClient
     public function postMultipart(string $url, array $headers, array $data, array $attachments, int $timeout, ?RequestConfig $config = null): array
     {
         return $this->withRetry($config, $url, function () use ($url, $headers, $data, $attachments, $timeout) {
-            $this->events->dispatch(new ProviderRequestStarted($url, $data));
+            $this->events->dispatch(new ProviderRequestStarted($url, $data, 'MULTIPART'));
 
             $pending = Http::withHeaders($headers)->timeout($timeout);
 
@@ -126,7 +126,7 @@ class HttpClient
             $this->handleFailure($url, $response);
 
             $result = $response->json() ?? [];
-            $this->events->dispatch(new ProviderRequestCompleted($url, $result));
+            $this->events->dispatch(new ProviderRequestCompleted($url, $result, $response->status()));
 
             return $result;
         });
@@ -141,7 +141,7 @@ class HttpClient
     public function stream(string $url, array $headers, array $body, int $timeout, ?RequestConfig $config = null): Response
     {
         return $this->withRetry($config, $url, function () use ($url, $headers, $body, $timeout) {
-            $this->events->dispatch(new ProviderRequestStarted($url, $body));
+            $this->events->dispatch(new ProviderRequestStarted($url, $body, 'STREAM'));
 
             $response = Http::withHeaders($headers)
                 ->timeout($timeout)
@@ -150,7 +150,7 @@ class HttpClient
 
             $this->handleFailure($url, $response);
 
-            $this->events->dispatch(new ProviderRequestCompleted($url, []));
+            $this->events->dispatch(new ProviderRequestCompleted($url, [], $response->status()));
 
             return $response;
         });
@@ -165,7 +165,7 @@ class HttpClient
      */
     private function sendGet(string $url, array $headers, int $timeout): Response
     {
-        $this->events->dispatch(new ProviderRequestStarted($url, []));
+        $this->events->dispatch(new ProviderRequestStarted($url, [], 'GET'));
 
         $response = Http::withHeaders($headers)->timeout($timeout)->get($url);
         $this->handleFailure($url, $response);
@@ -217,7 +217,7 @@ class HttpClient
 
                 $wait = $this->decider->waitMicroseconds($e, $attempt);
 
-                $this->events->dispatch(new ProviderRetrying($url, $e, $attempt, $wait));
+                $this->events->dispatch(new ProviderRequestRetrying($url, $e, $attempt, $wait));
 
                 if ($wait > 0) {
                     usleep($wait);

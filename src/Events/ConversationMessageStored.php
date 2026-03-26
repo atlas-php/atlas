@@ -15,6 +15,6 @@ class ConversationMessageStored
         public readonly int $conversationId,
         public readonly int $messageId,
         public readonly Role $role,
-        public readonly ?string $agent,
+        public readonly ?string $agentKey,
     ) {}
 }

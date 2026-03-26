@@ -126,12 +126,11 @@ class TrackProviderCall
             $mimeType = $this->resolveMimeType($response, $assetType);
             $disk = app(AtlasConfig::class)->storageDisk ?? config('filesystems.default', 'local');
             $prefix = app(AtlasConfig::class)->storagePrefix;
-            $visibility = 'private';
             $extension = $this->resolveExtension($assetType, $mimeType);
             $filename = Str::uuid()->toString().'.'.$extension;
             $path = $prefix.'/assets/'.$filename;
 
-            Storage::disk($disk)->put($path, $contents, $visibility);
+            Storage::disk($disk)->put($path, $contents);
 
             $assetModel = app(AtlasConfig::class)->model('asset', Asset::class);
 

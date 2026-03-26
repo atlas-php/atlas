@@ -6,7 +6,7 @@ namespace Atlasphp\Atlas\Voice\Http;
 
 use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Events\VoiceCallCompleted;
-use Atlasphp\Atlas\Events\VoiceSessionClosed;
+use Atlasphp\Atlas\Events\VoiceSessionEnded;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Models\VoiceCall;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
@@ -70,7 +70,7 @@ class CloseVoiceSessionController
 
         Cache::forget("voice:{$sessionId}:tools");
 
-        event(new VoiceSessionClosed(
+        event(new VoiceSessionEnded(
             provider: $provider,
             sessionId: $sessionId,
             durationMs: $voiceCall?->duration_ms,

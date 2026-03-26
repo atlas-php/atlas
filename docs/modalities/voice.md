@@ -313,7 +313,7 @@ Voice transcripts are **not** automatically added to conversation messages. This
 |-------|-------------|
 | `VoiceCallStarted` | Voice call created and ready for connection |
 | `VoiceCallCompleted` | Voice call completed with full transcript |
-| `VoiceSessionClosed` | WebSocket connection closed |
+| `VoiceSessionEnded` | WebSocket connection closed |
 | `VoiceAudioDeltaReceived` | Audio chunk (broadcastable) |
 | `VoiceTranscriptDeltaReceived` | Transcript chunk (broadcastable) |
 | `VoiceToolCallStarted` | Tool call received (fired by tool controller) |

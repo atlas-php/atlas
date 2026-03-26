@@ -10,13 +10,12 @@ it('constructs with all properties', function () {
         sessionId: 'rt_123',
         text: 'Hello',
         role: 'assistant',
-        channelName: 'voice.rt_123',
+        channel: new Channel('voice.rt_123'),
     );
 
     expect($event->sessionId)->toBe('rt_123');
     expect($event->text)->toBe('Hello');
     expect($event->role)->toBe('assistant');
-    expect($event->channelName)->toBe('voice.rt_123');
 });
 
 it('broadcasts on correct channel', function () {
@@ -24,7 +23,7 @@ it('broadcasts on correct channel', function () {
         sessionId: 'rt_123',
         text: 'Hello',
         role: 'user',
-        channelName: 'voice.rt_123',
+        channel: new Channel('voice.rt_123'),
     );
 
     $channels = $event->broadcastOn();
@@ -39,7 +38,7 @@ it('broadcasts with correct event name', function () {
         sessionId: 'rt_123',
         text: 'Hello',
         role: 'assistant',
-        channelName: 'voice.rt_123',
+        channel: new Channel('voice.rt_123'),
     );
 
     expect($event->broadcastAs())->toBe('voice.transcript.delta');
