@@ -6,43 +6,45 @@
 <p align="center">
     <a href="https://github.com/atlas-php/atlas/actions"><img src="https://github.com/atlas-php/atlas/workflows/Automated%20Tests/badge.svg" alt="Automated Tests"></a>
     <a href="https://codecov.io/gh/atlas-php/atlas"><img src="https://codecov.io/gh/atlas-php/atlas/branch/main/graph/badge.svg" alt="Code Coverage"></a>
+    <a href="https://packagist.org/packages/atlas-php/atlas"><img src="https://img.shields.io/packagist/dt/atlas-php/atlas.svg?style=flat-square" alt="Total Downloads"></a>
     <img src="https://img.shields.io/badge/php-8.2%2B-blue?style=flat-square" alt="PHP Version">
-    <img src="https://img.shields.io/badge/laravel-11%20%7C%2012%20%7C%2013-orange?style=flat-square" alt="Laravel">
+    <img src="https://img.shields.io/badge/laravel-11%2B-orange?style=flat-square" alt="Laravel">
     <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License">
 </p>
 <p align="center">
-    <a href="https://atlasphp.org"><strong>Documentation</strong></a>
+    📚 <a href="https://atlasphp.org"><strong>Documentation</strong></a>
 </p>
 
-# Atlas
+# 🪐 Atlas
 
 Atlas is a unified AI execution layer for Laravel. It owns its own provider layer — no external AI package dependency. Atlas talks directly to AI provider APIs, manages the tool call loop, and provides optional persistence for conversations, execution tracking, and agent memory.
 
-## Features
+## ✨ Features
 
 - **Agents** — Reusable classes encapsulating provider, model, instructions, tools, and behavior
 - **Tools** — Typed tool classes with parameter schemas and dependency injection
-- **10 Modalities** — Text, images, audio (speech, music, sound effects), video, voice, embeddings, reranking, moderation
+- **10 Modalities** — Text, images, audio (speech, music, sound effects), video, voice, embeddings, reranking
 - **Variable Interpolation** — `{variable}` placeholders in instructions resolved at runtime
 - **Middleware** — Four layers (agent, step, tool, provider) for logging, auth, metrics, and control
 - **Structured Output** — Schema-validated JSON responses from any provider
 - **Streaming** — SSE and Laravel Broadcasting with real-time chunk delivery
 - **Voice** — Real-time bidirectional voice conversations with tool support
 - **Conversations** — Multi-turn chat with message history, retry, and sibling tracking
-- **Persistence** — Optional execution tracking, asset storage, and agent memory
+- **Persistence** — Optional execution tracking and asset storage
 - **Queue Support** — Async execution with broadcasting and callbacks
 - **Testing** — Full fake system with assertions — no API keys required
 - **Provider Tools** — Web search, code interpreter, file search via provider-native tools
+- **Provider Discovery** — List available models, voices, and run content moderation
 - **Custom Providers** — OpenAI-compatible endpoints or fully custom drivers
 - **All Providers** — OpenAI, Anthropic, Google (Gemini), xAI (Grok), ElevenLabs, Cohere, Jina, plus any OpenAI-compatible API (Ollama, Groq, DeepSeek, Together, OpenRouter, LM Studio)
 
-## Quick Start
+## 🚀 Quick Start
 
 ```bash
 composer require atlas-php/atlas
 ```
 
-Supports Laravel 11, 12, and 13.
+Supports Laravel 11+.
 
 ```bash
 php artisan vendor:publish --tag=atlas-config
@@ -146,7 +148,22 @@ $response->usage;   // Token usage
 $response->steps;   // Tool call loop history
 ```
 
-## Why Atlas?
+### Speak with the Agent (Voice to Voice)
+
+```php
+$session = Atlas::agent('support')
+    ->withVariables([
+        'company_name' => 'Acme',
+        'customer_name' => 'Sarah',
+        'account_tier' => 'Premium',
+    ])
+    ->asVoice();
+
+return response()->json($session->toClientPayload());
+// Returns ephemeral token + connection URL for WebRTC/WebSocket
+```
+
+## 💡 Why Atlas?
 
 **The problem:** Prompts scattered across controllers, duplicated configurations, business logic tightly coupled with AI calls, and no consistent way to add logging, validation, or error handling.
 
@@ -157,7 +174,7 @@ $response->steps;   // Tool call loop history
 - **Middleware** — Add logging, auth, or metrics at four execution layers without coupling the codebase.
 - **Testable** — Full fake system with per-modality assertions using standard Laravel testing patterns.
 
-## Documentation
+## 📖 Documentation
 
 **[atlasphp.org](https://atlasphp.org)** — Full guides, API reference, and examples.
 
@@ -172,7 +189,7 @@ $response->steps;   // Tool call loop history
 - [Queue](https://atlasphp.org/guides/queue.html) — Background execution
 - [Testing](https://atlasphp.org/advanced/testing.html) — Fakes and assertions
 
-## Sandbox
+## 🧪 Sandbox
 
 A fully functional chat interface demonstrating Atlas agents in action. Built with Vue 3, Tailwind CSS, and a Laravel JSON API.
 
@@ -182,7 +199,7 @@ A fully functional chat interface demonstrating Atlas agents in action. Built wi
 
 See the [Sandbox README](./sandbox/README.md) for setup instructions and details.
 
-## Testing and Code Quality
+## 🧹 Testing and Code Quality
 
 Atlas uses several tools to maintain high code quality:
 
@@ -197,7 +214,7 @@ composer check
 | [Laravel Pint](https://laravel.com/docs/pint)    | Code style                                                                                                             |
 | [Codecov](https://codecov.io/gh/atlas-php/atlas) | [![codecov](https://codecov.io/gh/atlas-php/atlas/branch/main/graph/badge.svg)](https://codecov.io/gh/atlas-php/atlas) |
 
-## Contributing
+## 🤝 Contributing
 
 We welcome contributions!
 
@@ -205,6 +222,6 @@ Support the community by giving a GitHub star. Thank you!
 
 Please see our [Contributing Guide](.github/CONTRIBUTING.md) for details.
 
-## License
+## 📄 License
 
 Atlas is open-sourced software licensed under the [MIT license](LICENSE).
