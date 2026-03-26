@@ -9,6 +9,7 @@ use Atlasphp\Atlas\Embeddings\VectorQueryMacros;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Http\RetryDecider;
+use Atlasphp\Atlas\Middleware\MiddlewareResolver;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 use Atlasphp\Atlas\Providers\Anthropic\AnthropicDriver;
@@ -74,6 +75,13 @@ class AtlasServiceProvider extends ServiceProvider
             return new MiddlewareStack($app);
         });
 
+        $this->app->singleton(MiddlewareResolver::class, function ($app) {
+            return new MiddlewareResolver(
+                $app,
+                $app->make(AtlasConfig::class)->middleware,
+            );
+        });
+
         $this->app->scoped(ExecutionService::class);
 
         $this->app->singleton(VariableRegistry::class, function ($app) {
@@ -101,6 +109,7 @@ class AtlasServiceProvider extends ServiceProvider
                 Console\MakeAgentCommand::class,
                 Console\MakeToolCommand::class,
                 Console\CleanStaleVoiceSessionsCommand::class,
+                Console\MiddlewareCommand::class,
             ]);
 
             $this->publishes([
@@ -118,9 +127,6 @@ class AtlasServiceProvider extends ServiceProvider
     }
 
     /**
-     * Auto-register persistence middleware when enabled.
-     */
-    /**
      * Append persistence middleware to config before AtlasConfig is created.
      *
      * Called in register() BEFORE the AtlasConfig singleton binding so the
@@ -133,22 +139,13 @@ class AtlasServiceProvider extends ServiceProvider
             return;
         }
 
-        $agent = config('atlas.middleware.agent', []);
-        $agent[] = Persistence\Middleware\PersistConversation::class;
-        $agent[] = Persistence\Middleware\TrackExecution::class;
-        config(['atlas.middleware.agent' => $agent]);
-
-        $step = config('atlas.middleware.step', []);
-        $step[] = Persistence\Middleware\TrackStep::class;
-        config(['atlas.middleware.step' => $step]);
-
-        $tool = config('atlas.middleware.tool', []);
-        $tool[] = Persistence\Middleware\TrackToolCall::class;
-        config(['atlas.middleware.tool' => $tool]);
-
-        $provider = config('atlas.middleware.provider', []);
-        $provider[] = Persistence\Middleware\TrackProviderCall::class;
-        config(['atlas.middleware.provider' => $provider]);
+        config(['atlas.middleware' => array_merge(config('atlas.middleware', []), [
+            Persistence\Middleware\PersistConversation::class,
+            Persistence\Middleware\TrackExecution::class,
+            Persistence\Middleware\TrackStep::class,
+            Persistence\Middleware\TrackToolCall::class,
+            Persistence\Middleware\TrackProviderCall::class,
+        ])]);
     }
 
     /**
@@ -159,7 +156,7 @@ class AtlasServiceProvider extends ServiceProvider
         $this->app->booted(function (): void {
             $config = app(AtlasConfig::class);
             $prefix = $config->voiceTranscripts['route_prefix'] ?? 'atlas';
-            $middleware = $config->voiceTranscripts['middleware'] ?? [];
+            $middleware = app(MiddlewareResolver::class)->forVoiceHttp();
 
             Route::prefix($prefix)
                 ->middleware($middleware)
@@ -241,6 +238,7 @@ class AtlasServiceProvider extends ServiceProvider
                 http: $app->make(HttpClient::class),
                 middlewareStack: $app->make(MiddlewareStack::class),
                 cache: $app->make(AtlasCache::class),
+                middlewareResolver: $app->make(MiddlewareResolver::class),
             );
         });
 
@@ -250,6 +248,7 @@ class AtlasServiceProvider extends ServiceProvider
                 http: $app->make(HttpClient::class),
                 middlewareStack: $app->make(MiddlewareStack::class),
                 cache: $app->make(AtlasCache::class),
+                middlewareResolver: $app->make(MiddlewareResolver::class),
             );
         });
 
@@ -259,6 +258,7 @@ class AtlasServiceProvider extends ServiceProvider
                 http: $app->make(HttpClient::class),
                 middlewareStack: $app->make(MiddlewareStack::class),
                 cache: $app->make(AtlasCache::class),
+                middlewareResolver: $app->make(MiddlewareResolver::class),
             );
         });
 
@@ -268,6 +268,7 @@ class AtlasServiceProvider extends ServiceProvider
                 http: $app->make(HttpClient::class),
                 middlewareStack: $app->make(MiddlewareStack::class),
                 cache: $app->make(AtlasCache::class),
+                middlewareResolver: $app->make(MiddlewareResolver::class),
             );
         });
 
@@ -277,6 +278,7 @@ class AtlasServiceProvider extends ServiceProvider
                 http: $app->make(HttpClient::class),
                 middlewareStack: $app->make(MiddlewareStack::class),
                 cache: $app->make(AtlasCache::class),
+                middlewareResolver: $app->make(MiddlewareResolver::class),
             );
         });
 
@@ -286,6 +288,7 @@ class AtlasServiceProvider extends ServiceProvider
                 http: $app->make(HttpClient::class),
                 middlewareStack: $app->make(MiddlewareStack::class),
                 cache: $app->make(AtlasCache::class),
+                middlewareResolver: $app->make(MiddlewareResolver::class),
             );
         });
 
@@ -295,6 +298,7 @@ class AtlasServiceProvider extends ServiceProvider
                 http: $app->make(HttpClient::class),
                 middlewareStack: $app->make(MiddlewareStack::class),
                 cache: $app->make(AtlasCache::class),
+                middlewareResolver: $app->make(MiddlewareResolver::class),
             );
         });
     }

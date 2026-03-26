@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Persistence\Middleware;
 
 use Atlasphp\Atlas\AtlasConfig;
+use Atlasphp\Atlas\Middleware\Contracts\ProviderMiddleware;
 use Atlasphp\Atlas\Middleware\ProviderContext;
 use Atlasphp\Atlas\Persistence\Enums\AssetType;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
@@ -31,7 +32,7 @@ use Illuminate\Support\Str;
  *    Atlas::image(), the image is stored and linked to the current tool call.
  *    When called directly, the image is linked to the standalone execution.
  */
-class TrackProviderCall
+class TrackProviderCall implements ProviderMiddleware
 {
     public function __construct(
         protected readonly ExecutionService $executionService,

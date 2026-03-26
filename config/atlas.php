@@ -203,20 +203,30 @@ return [
     | Middleware
     |--------------------------------------------------------------------------
     |
-    | Global middleware stacks applied to every call at each layer.
+    | Global middleware registered as a flat array. Each class declares its
+    | execution scope by implementing a marker interface:
     |
-    | agent    — Wraps the entire agent execution.
-    | step     — Wraps each round trip in the tool call loop.
-    | tool     — Wraps each individual tool execution.
-    | provider — Wraps every HTTP call to any provider.
+    |   AgentMiddleware    — Wraps entire agent execution
+    |   StepMiddleware     — Wraps each round trip in the tool call loop
+    |   ToolMiddleware     — Wraps each individual tool execution
+    |   ProviderMiddleware — Wraps every HTTP call to any provider
+    |   VoiceHttpMiddleware — Laravel HTTP middleware for voice routes
+    |
+    | For modality-specific provider middleware, implement a sub-interface:
+    |
+    |   TextMiddleware  — text, stream, structured
+    |   ImageMiddleware — image, imageToText
+    |   AudioMiddleware — audio, audioToText
+    |   VideoMiddleware — video, videoToText
+    |   VoiceMiddleware — voice session creation
+    |   EmbedMiddleware — embed, moderate, rerank
+    |
+    | When persistence is enabled, tracking middleware is auto-registered.
     |
     */
 
     'middleware' => [
-        'agent' => [],
-        'step' => [],
-        'tool' => [],
-        'provider' => [],
+        //
     ],
 
     /*
@@ -302,7 +312,6 @@ return [
         'auto_store_assets' => env('ATLAS_AUTO_STORE_ASSETS', true),
 
         'voice_transcripts' => [
-            'middleware' => [],
             'route_prefix' => 'atlas',
         ],
 

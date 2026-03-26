@@ -14,6 +14,7 @@ use Atlasphp\Atlas\Input\Input;
 use Atlasphp\Atlas\Messages\Message;
 use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Middleware\AgentContext;
+use Atlasphp\Atlas\Middleware\Contracts\AgentMiddleware;
 use Atlasphp\Atlas\Persistence\Concerns\HasConversations;
 use Atlasphp\Atlas\Persistence\Models\Asset;
 use Atlasphp\Atlas\Persistence\Models\ConversationMessage;
@@ -32,7 +33,7 @@ use Illuminate\Support\Facades\DB;
  * state. Loads conversation history before execution and stores user/assistant
  * messages after. Handles respond mode, retry mode, and queued message dispatch.
  */
-class PersistConversation
+class PersistConversation implements AgentMiddleware
 {
     public function __construct(
         protected readonly ConversationService $conversations,

@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas;
 
 use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
 use Atlasphp\Atlas\Exceptions\ProviderNotFoundException;
+use Atlasphp\Atlas\Middleware\MiddlewareResolver;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\ProviderRegistry;
 use Atlasphp\Atlas\Support\VariableRegistry;
@@ -26,7 +27,7 @@ class AtlasConfig
         /** @var array<string, array<string, mixed>> */
         public readonly array $providers = [],
         public readonly string $queue = 'default',
-        /** @var array<string, array<int, class-string>> */
+        /** @var array<int, class-string|object> */
         public readonly array $middleware = [],
         /** @var array<string, mixed> */
         public readonly array $variables = [],
@@ -46,7 +47,7 @@ class AtlasConfig
         public readonly int $messageLimit = 50,
         public readonly bool $autoStoreAssets = true,
         /** @var array<string, mixed> */
-        public readonly array $voiceTranscripts = ['middleware' => [], 'route_prefix' => 'atlas'],
+        public readonly array $voiceTranscripts = ['route_prefix' => 'atlas'],
         public readonly int $voiceSessionTtl = 60,
         /** @var array<string, class-string> */
         public readonly array $persistenceModels = [],
@@ -73,6 +74,7 @@ class AtlasConfig
         app()->forgetInstance(AtlasCache::class);
         app()->forgetInstance(EmbeddingResolver::class);
         app()->forgetInstance(AtlasManager::class);
+        app()->forgetInstance(MiddlewareResolver::class);
 
         // Rebuild ProviderRegistry with new config while preserving factories
         $container = app();
@@ -117,7 +119,7 @@ class AtlasConfig
             tablePrefix: config('atlas.persistence.table_prefix', 'atlas_'),
             messageLimit: (int) config('atlas.persistence.message_limit', 50),
             autoStoreAssets: (bool) config('atlas.persistence.auto_store_assets', true),
-            voiceTranscripts: config('atlas.persistence.voice_transcripts', ['middleware' => [], 'route_prefix' => 'atlas']),
+            voiceTranscripts: config('atlas.persistence.voice_transcripts', ['route_prefix' => 'atlas']),
             voiceSessionTtl: (int) config('atlas.persistence.voice_session_ttl', 60),
             persistenceModels: config('atlas.persistence.models', []),
             agents: config('atlas.agents', ['path' => null, 'namespace' => null]),

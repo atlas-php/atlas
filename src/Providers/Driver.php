@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Providers;
 
 use Atlasphp\Atlas\AtlasCache;
-use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Exceptions\AuthenticationException;
 use Atlasphp\Atlas\Exceptions\AuthorizationException;
 use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Exceptions\RateLimitException;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Http\HttpClient;
+use Atlasphp\Atlas\Middleware\MiddlewareResolver;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
 use Atlasphp\Atlas\Middleware\ProviderContext;
 use Atlasphp\Atlas\Providers\Handlers\AudioHandler;
@@ -60,6 +60,7 @@ abstract class Driver
         protected readonly HttpClient $http,
         protected readonly ?MiddlewareStack $middlewareStack = null,
         protected readonly ?AtlasCache $cache = null,
+        protected readonly ?MiddlewareResolver $middlewareResolver = null,
     ) {}
 
     /**
@@ -184,10 +185,8 @@ abstract class Driver
                 return $handler($request);
             }
 
-            $middleware = array_merge(
-                app(AtlasConfig::class)->middleware['provider'] ?? [],
-                $request->middleware,
-            );
+            $globalMiddleware = $this->middlewareResolver?->forProvider($method) ?? [];
+            $middleware = array_merge($globalMiddleware, $request->middleware);
 
             if ($middleware === []) {
                 return $handler($request);

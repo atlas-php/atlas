@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Persistence\Middleware;
 
 use Atlasphp\Atlas\Executor\ToolResult;
+use Atlasphp\Atlas\Middleware\Contracts\ToolMiddleware;
 use Atlasphp\Atlas\Middleware\ToolContext;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 use Closure;
@@ -16,7 +17,7 @@ use Closure;
  * tool call record before the tool runs, records the result or error after,
  * and tracks wall-clock duration for each call.
  */
-class TrackToolCall
+class TrackToolCall implements ToolMiddleware
 {
     public function __construct(
         protected readonly ExecutionService $executionService,

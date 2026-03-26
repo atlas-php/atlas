@@ -14,6 +14,7 @@ use Atlasphp\Atlas\Exceptions\AgentNotFoundException;
 use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Input\Image;
 use Atlasphp\Atlas\Middleware\AgentContext;
+use Atlasphp\Atlas\Middleware\Contracts\AgentMiddleware;
 use Atlasphp\Atlas\Pending\AgentRequest;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Driver;
@@ -1269,7 +1270,7 @@ it('dispatches through agent middleware when configured', function () {
     $middlewareRan = false;
 
     app()->bind('test-agent-middleware', function () use (&$middlewareRan) {
-        return new class($middlewareRan)
+        return new class($middlewareRan) implements AgentMiddleware
         {
             public function __construct(private bool &$ran) {}
 
@@ -1282,9 +1283,7 @@ it('dispatches through agent middleware when configured', function () {
         };
     });
 
-    config(['atlas.middleware.agent' => ['test-agent-middleware']]);
-    AtlasConfig::refresh();
-    config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+    config(['atlas.middleware' => ['test-agent-middleware'], 'atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
     AtlasConfig::refresh();
 
     $fake = new AtlasFake(app(ProviderRegistryContract::class), [
@@ -1301,9 +1300,7 @@ it('dispatches through agent middleware when configured', function () {
 it('skips middleware stack when no agent middleware configured', function () {
     registerTestAgent(RequestTestMinimalAgent::class);
 
-    config(['atlas.middleware.agent' => []]);
-    AtlasConfig::refresh();
-    config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+    config(['atlas.middleware' => [], 'atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
     AtlasConfig::refresh();
 
     $fake = new AtlasFake(app(ProviderRegistryContract::class), [
@@ -1320,7 +1317,7 @@ it('agent middleware can modify context meta', function () {
     registerTestAgent(RequestTestMinimalAgent::class);
 
     app()->bind('test-mutate-middleware', function () {
-        return new class
+        return new class implements AgentMiddleware
         {
             public function handle(AgentContext $context, Closure $next): mixed
             {
@@ -1331,9 +1328,7 @@ it('agent middleware can modify context meta', function () {
         };
     });
 
-    config(['atlas.middleware.agent' => ['test-mutate-middleware']]);
-    AtlasConfig::refresh();
-    config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+    config(['atlas.middleware' => ['test-mutate-middleware'], 'atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
     AtlasConfig::refresh();
 
     $fake = new AtlasFake(app(ProviderRegistryContract::class), [

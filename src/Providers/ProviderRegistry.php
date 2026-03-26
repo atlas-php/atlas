@@ -9,6 +9,7 @@ use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Exceptions\ProviderNotFoundException;
 use Atlasphp\Atlas\Http\HttpClient;
+use Atlasphp\Atlas\Middleware\MiddlewareResolver;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
 use Atlasphp\Atlas\Providers\ChatCompletions\ChatCompletionsDriver;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
@@ -82,15 +83,17 @@ class ProviderRegistry implements ProviderRegistryContract
         $stack = $this->app->make(MiddlewareStack::class);
 
         $cache = $this->app->make(AtlasCache::class);
+        $resolver = $this->app->make(MiddlewareResolver::class);
 
         return match (true) {
-            $driver === 'chat_completions' => new ChatCompletionsDriver($providerConfig, $http, $stack, $cache),
-            $driver === 'responses' => new ResponsesDriver($providerConfig, $http, $stack, $cache),
+            $driver === 'chat_completions' => new ChatCompletionsDriver($providerConfig, $http, $stack, $cache, $resolver),
+            $driver === 'responses' => new ResponsesDriver($providerConfig, $http, $stack, $cache, $resolver),
             is_string($driver) && class_exists($driver) => $this->app->make($driver, [
                 'config' => $providerConfig,
                 'http' => $http,
                 'middlewareStack' => $stack,
                 'cache' => $this->app->make(AtlasCache::class),
+                'middlewareResolver' => $resolver,
             ]),
             default => throw AtlasException::unknownDriver($driver, $key),
         };

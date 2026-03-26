@@ -16,6 +16,7 @@ use Atlasphp\Atlas\Input\Input;
 use Atlasphp\Atlas\Messages\AssistantMessage;
 use Atlasphp\Atlas\Messages\SystemMessage;
 use Atlasphp\Atlas\Messages\UserMessage;
+use Atlasphp\Atlas\Middleware\MiddlewareResolver;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
 use Atlasphp\Atlas\Pending\Concerns\ConvertsResultToChunks;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
@@ -307,6 +308,7 @@ class TextRequest implements QueueableRequest
             tools: $resolvedTools,
             events: $this->events ?? app(Dispatcher::class),
             middlewareStack: $this->app?->make(MiddlewareStack::class) ?? app(MiddlewareStack::class),
+            middlewareResolver: $this->app?->make(MiddlewareResolver::class) ?? app(MiddlewareResolver::class),
         );
 
         $request = $this->buildRequestWithTools($resolvedTools);

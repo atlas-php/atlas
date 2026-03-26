@@ -8,6 +8,7 @@ use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Executor\ExecutorResult;
 use Atlasphp\Atlas\Middleware\AgentContext;
+use Atlasphp\Atlas\Middleware\Contracts\AgentMiddleware;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
@@ -24,7 +25,7 @@ use Closure;
  * When running from a queued dispatch, adopts the pre-created execution
  * record (via execution_id in meta) instead of creating a duplicate.
  */
-class TrackExecution
+class TrackExecution implements AgentMiddleware
 {
     public function __construct(
         protected readonly ExecutionService $executionService,

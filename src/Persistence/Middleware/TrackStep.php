@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Persistence\Middleware;
 
 use Atlasphp\Atlas\Messages\ToolCall;
+use Atlasphp\Atlas\Middleware\Contracts\StepMiddleware;
 use Atlasphp\Atlas\Middleware\StepContext;
 use Atlasphp\Atlas\Persistence\Enums\ToolCallType;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
@@ -18,7 +19,7 @@ use Closure;
  * loop. Creates a step record before the provider call, records the response
  * data (text, reasoning, token usage, finish reason) after, and completes the step.
  */
-class TrackStep
+class TrackStep implements StepMiddleware
 {
     public function __construct(
         protected readonly ExecutionService $executionService,

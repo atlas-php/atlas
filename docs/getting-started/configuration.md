@@ -480,30 +480,17 @@ ATLAS_TIMEOUT_MEDIA=120       # Image/audio/video generation
 
 ### Middleware
 
-Atlas provides four middleware layers, each running at a different point in the execution lifecycle:
+Atlas middleware is registered as a flat array. Each class declares its scope by implementing a marker interface — Atlas routes it to the right execution layer automatically:
 
 ```php
 'middleware' => [
-    'provider' => [],   // Runs on every HTTP call to an AI provider
-    'step' => [],       // Runs on each executor round trip
-    'tool' => [],       // Runs on each tool execution
-    'agent' => [],      // Runs on each agent execution
+    \App\Atlas\Middleware\LogProviderCalls::class,   // implements ProviderMiddleware
+    \App\Atlas\Middleware\WatermarkImages::class,     // implements ImageMiddleware
+    \App\Atlas\Middleware\AuditAgentRuns::class,      // implements AgentMiddleware
 ],
 ```
 
-Register middleware classes in each array. They execute in order for every request at that layer.
-
-```php
-'middleware' => [
-    'provider' => [
-        \App\Atlas\Middleware\LogProviderCalls::class,
-        \App\Atlas\Middleware\RateLimiter::class,
-    ],
-    'agent' => [
-        \App\Atlas\Middleware\AuditAgentRuns::class,
-    ],
-],
-```
+Use `php artisan atlas:middleware` to see all active middleware. See the [Middleware guide](/features/middleware) for full details on interfaces and modality filtering.
 
 ### Variables
 

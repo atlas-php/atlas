@@ -5,6 +5,8 @@ declare(strict_types=1);
 use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Http\HttpClient;
+use Atlasphp\Atlas\Middleware\Contracts\ProviderMiddleware;
+use Atlasphp\Atlas\Middleware\MiddlewareResolver;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
 use Atlasphp\Atlas\Middleware\ProviderContext;
 use Atlasphp\Atlas\Providers\Driver;
@@ -54,12 +56,12 @@ function makeDispatchTextRequest(array $middleware = []): TextRequest
     );
 }
 
-function makeDispatchDriver(?MiddlewareStack $stack = null): Driver
+function makeDispatchDriver(?MiddlewareStack $stack = null, ?MiddlewareResolver $resolver = null): Driver
 {
     $config = ProviderConfig::fromArray(['api_key' => 'test', 'url' => 'https://api.openai.com/v1']);
     $http = app(HttpClient::class);
 
-    return new class($config, $http, $stack) extends Driver
+    return new class($config, $http, $stack, null, $resolver) extends Driver
     {
         public function name(): string
         {
@@ -262,7 +264,7 @@ it('calls handler directly with no middleware stack', function () {
 });
 
 it('calls handler directly with empty middleware', function () {
-    $driver = makeDispatchDriver(app(MiddlewareStack::class));
+    $driver = makeDispatchDriver(app(MiddlewareStack::class), app(MiddlewareResolver::class));
 
     $response = $driver->text(makeDispatchTextRequest());
 
@@ -272,8 +274,8 @@ it('calls handler directly with empty middleware', function () {
 it('runs global provider middleware on text call', function () {
     $called = false;
 
-    config()->set('atlas.middleware.provider', [
-        new class($called)
+    config()->set('atlas.middleware', [
+        new class($called) implements ProviderMiddleware
         {
             public function __construct(private bool &$called) {}
 
@@ -287,12 +289,12 @@ it('runs global provider middleware on text call', function () {
     ]);
     AtlasConfig::refresh();
 
-    $driver = makeDispatchDriver(app(MiddlewareStack::class));
+    $driver = makeDispatchDriver(app(MiddlewareStack::class), app(MiddlewareResolver::class));
     $driver->text(makeDispatchTextRequest());
 
     expect($called)->toBeTrue();
 
-    config()->set('atlas.middleware.provider', []);
+    config()->set('atlas.middleware', []);
     AtlasConfig::refresh();
 });
 
@@ -311,7 +313,7 @@ it('runs request-level middleware', function () {
         }
     };
 
-    $driver = makeDispatchDriver(app(MiddlewareStack::class));
+    $driver = makeDispatchDriver(app(MiddlewareStack::class), app(MiddlewareResolver::class));
     $driver->text(makeDispatchTextRequest([$middleware]));
 
     expect($called)->toBeTrue();
@@ -320,7 +322,7 @@ it('runs request-level middleware', function () {
 it('merges global and request middleware with global outermost', function () {
     $order = [];
 
-    $globalMw = new class($order)
+    $globalMw = new class($order) implements ProviderMiddleware
     {
         public function __construct(private array &$order) {}
 
@@ -344,15 +346,15 @@ it('merges global and request middleware with global outermost', function () {
         }
     };
 
-    config()->set('atlas.middleware.provider', [$globalMw]);
+    config()->set('atlas.middleware', [$globalMw]);
     AtlasConfig::refresh();
 
-    $driver = makeDispatchDriver(app(MiddlewareStack::class));
+    $driver = makeDispatchDriver(app(MiddlewareStack::class), app(MiddlewareResolver::class));
     $driver->text(makeDispatchTextRequest([$requestMw]));
 
     expect($order)->toBe(['global', 'request']);
 
-    config()->set('atlas.middleware.provider', []);
+    config()->set('atlas.middleware', []);
     AtlasConfig::refresh();
 });
 
@@ -371,7 +373,7 @@ it('provides correct ProviderContext to middleware', function () {
         }
     };
 
-    $driver = makeDispatchDriver(app(MiddlewareStack::class));
+    $driver = makeDispatchDriver(app(MiddlewareStack::class), app(MiddlewareResolver::class));
     $driver->text(makeDispatchTextRequest([$middleware]));
 
     expect($receivedContext)->toBeInstanceOf(ProviderContext::class);
@@ -383,7 +385,7 @@ it('provides correct ProviderContext to middleware', function () {
 it('dispatch method is correct for each modality', function () {
     $methods = [];
 
-    $middleware = new class($methods)
+    $middleware = new class($methods) implements ProviderMiddleware
     {
         public function __construct(private array &$methods) {}
 
@@ -395,10 +397,10 @@ it('dispatch method is correct for each modality', function () {
         }
     };
 
-    config()->set('atlas.middleware.provider', [$middleware]);
+    config()->set('atlas.middleware', [$middleware]);
     AtlasConfig::refresh();
 
-    $driver = makeDispatchDriver(app(MiddlewareStack::class));
+    $driver = makeDispatchDriver(app(MiddlewareStack::class), app(MiddlewareResolver::class));
 
     $driver->text(makeDispatchTextRequest());
     $driver->stream(makeDispatchTextRequest());
@@ -406,7 +408,7 @@ it('dispatch method is correct for each modality', function () {
 
     expect($methods)->toBe(['text', 'stream', 'structured']);
 
-    config()->set('atlas.middleware.provider', []);
+    config()->set('atlas.middleware', []);
     AtlasConfig::refresh();
 });
 
@@ -415,8 +417,8 @@ it('dispatch method is correct for each modality', function () {
 it('dispatch method is correct for image modality', function () {
     $receivedMethod = null;
 
-    config()->set('atlas.middleware.provider', [
-        new class($receivedMethod)
+    config()->set('atlas.middleware', [
+        new class($receivedMethod) implements ProviderMiddleware
         {
             public function __construct(private ?string &$receivedMethod) {}
 
@@ -430,20 +432,20 @@ it('dispatch method is correct for image modality', function () {
     ]);
     AtlasConfig::refresh();
 
-    $driver = makeDispatchDriver(app(MiddlewareStack::class));
+    $driver = makeDispatchDriver(app(MiddlewareStack::class), app(MiddlewareResolver::class));
     $driver->image(makeDispatchImageRequest());
 
     expect($receivedMethod)->toBe('image');
 
-    config()->set('atlas.middleware.provider', []);
+    config()->set('atlas.middleware', []);
     AtlasConfig::refresh();
 });
 
 it('dispatch method is correct for audio modality', function () {
     $receivedMethod = null;
 
-    config()->set('atlas.middleware.provider', [
-        new class($receivedMethod)
+    config()->set('atlas.middleware', [
+        new class($receivedMethod) implements ProviderMiddleware
         {
             public function __construct(private ?string &$receivedMethod) {}
 
@@ -457,20 +459,20 @@ it('dispatch method is correct for audio modality', function () {
     ]);
     AtlasConfig::refresh();
 
-    $driver = makeDispatchDriver(app(MiddlewareStack::class));
+    $driver = makeDispatchDriver(app(MiddlewareStack::class), app(MiddlewareResolver::class));
     $driver->audio(makeDispatchAudioRequest());
 
     expect($receivedMethod)->toBe('audio');
 
-    config()->set('atlas.middleware.provider', []);
+    config()->set('atlas.middleware', []);
     AtlasConfig::refresh();
 });
 
 it('dispatch method is correct for video modality', function () {
     $receivedMethod = null;
 
-    config()->set('atlas.middleware.provider', [
-        new class($receivedMethod)
+    config()->set('atlas.middleware', [
+        new class($receivedMethod) implements ProviderMiddleware
         {
             public function __construct(private ?string &$receivedMethod) {}
 
@@ -484,20 +486,20 @@ it('dispatch method is correct for video modality', function () {
     ]);
     AtlasConfig::refresh();
 
-    $driver = makeDispatchDriver(app(MiddlewareStack::class));
+    $driver = makeDispatchDriver(app(MiddlewareStack::class), app(MiddlewareResolver::class));
     $driver->video(makeDispatchVideoRequest());
 
     expect($receivedMethod)->toBe('video');
 
-    config()->set('atlas.middleware.provider', []);
+    config()->set('atlas.middleware', []);
     AtlasConfig::refresh();
 });
 
 it('dispatch method is correct for embed modality', function () {
     $receivedMethod = null;
 
-    config()->set('atlas.middleware.provider', [
-        new class($receivedMethod)
+    config()->set('atlas.middleware', [
+        new class($receivedMethod) implements ProviderMiddleware
         {
             public function __construct(private ?string &$receivedMethod) {}
 
@@ -511,20 +513,20 @@ it('dispatch method is correct for embed modality', function () {
     ]);
     AtlasConfig::refresh();
 
-    $driver = makeDispatchDriver(app(MiddlewareStack::class));
+    $driver = makeDispatchDriver(app(MiddlewareStack::class), app(MiddlewareResolver::class));
     $driver->embed(makeDispatchEmbedRequest());
 
     expect($receivedMethod)->toBe('embed');
 
-    config()->set('atlas.middleware.provider', []);
+    config()->set('atlas.middleware', []);
     AtlasConfig::refresh();
 });
 
 it('dispatch method is correct for moderate modality', function () {
     $receivedMethod = null;
 
-    config()->set('atlas.middleware.provider', [
-        new class($receivedMethod)
+    config()->set('atlas.middleware', [
+        new class($receivedMethod) implements ProviderMiddleware
         {
             public function __construct(private ?string &$receivedMethod) {}
 
@@ -538,20 +540,20 @@ it('dispatch method is correct for moderate modality', function () {
     ]);
     AtlasConfig::refresh();
 
-    $driver = makeDispatchDriver(app(MiddlewareStack::class));
+    $driver = makeDispatchDriver(app(MiddlewareStack::class), app(MiddlewareResolver::class));
     $driver->moderate(makeDispatchModerateRequest());
 
     expect($receivedMethod)->toBe('moderate');
 
-    config()->set('atlas.middleware.provider', []);
+    config()->set('atlas.middleware', []);
     AtlasConfig::refresh();
 });
 
 it('dispatch method is correct for rerank modality', function () {
     $receivedMethod = null;
 
-    config()->set('atlas.middleware.provider', [
-        new class($receivedMethod)
+    config()->set('atlas.middleware', [
+        new class($receivedMethod) implements ProviderMiddleware
         {
             public function __construct(private ?string &$receivedMethod) {}
 
@@ -565,11 +567,11 @@ it('dispatch method is correct for rerank modality', function () {
     ]);
     AtlasConfig::refresh();
 
-    $driver = makeDispatchDriver(app(MiddlewareStack::class));
+    $driver = makeDispatchDriver(app(MiddlewareStack::class), app(MiddlewareResolver::class));
     $driver->rerank(makeDispatchRerankRequest());
 
     expect($receivedMethod)->toBe('rerank');
 
-    config()->set('atlas.middleware.provider', []);
+    config()->set('atlas.middleware', []);
     AtlasConfig::refresh();
 });

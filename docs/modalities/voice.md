@@ -60,6 +60,37 @@ Add defaults to `config/atlas.php`:
 ],
 ```
 
+## Middleware
+
+Two middleware interfaces target voice specifically:
+
+- **`VoiceMiddleware`** — Provider middleware that only runs on voice session creation calls. Receives `ProviderContext` with method `'voice'`.
+- **`VoiceHttpMiddleware`** — Standard Laravel HTTP middleware applied to the voice webhook routes (tool execution, transcript storage, session close).
+
+```php
+// Provider middleware for voice session creation
+class LogVoiceSessions implements VoiceMiddleware
+{
+    public function handle(ProviderContext $context, Closure $next): mixed
+    {
+        Log::info('Creating voice session', ['provider' => $context->provider]);
+        return $next($context);
+    }
+}
+
+// HTTP middleware for voice webhook routes
+class VerifyVoiceToken implements VoiceHttpMiddleware
+{
+    public function handle(Request $request, Closure $next): mixed
+    {
+        // Authenticate webhook requests
+        return $next($request);
+    }
+}
+```
+
+Register both in `config/atlas.php`'s `middleware` array. See the [Middleware guide](/features/middleware) for details.
+
 ## Fluent API
 
 | Method | Description |

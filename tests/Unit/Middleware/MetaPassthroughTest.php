@@ -5,6 +5,8 @@ declare(strict_types=1);
 use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Http\HttpClient;
+use Atlasphp\Atlas\Middleware\Contracts\ProviderMiddleware;
+use Atlasphp\Atlas\Middleware\MiddlewareResolver;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
 use Atlasphp\Atlas\Middleware\ProviderContext;
 use Atlasphp\Atlas\Providers\Driver;
@@ -36,12 +38,12 @@ function makeMetaTextRequest(array $meta = [], array $middleware = []): TextRequ
     );
 }
 
-function makeMetaTestDriver(?MiddlewareStack $stack = null): Driver
+function makeMetaTestDriver(?MiddlewareStack $stack = null, ?MiddlewareResolver $resolver = null): Driver
 {
     $config = ProviderConfig::fromArray(['api_key' => 'test', 'url' => 'https://api.test.com/v1']);
     $http = app(HttpClient::class);
 
-    return new class($config, $http, $stack) extends Driver
+    return new class($config, $http, $stack, null, $resolver) extends Driver
     {
         public function name(): string
         {
@@ -93,7 +95,7 @@ it('meta from request reaches ProviderContext in middleware', function () {
         }
     };
 
-    $driver = makeMetaTestDriver(app(MiddlewareStack::class));
+    $driver = makeMetaTestDriver(app(MiddlewareStack::class), app(MiddlewareResolver::class));
     $request = makeMetaTextRequest(
         meta: ['user_id' => 123, 'session' => 'abc'],
         middleware: [$middleware],
@@ -107,8 +109,8 @@ it('meta from request reaches ProviderContext in middleware', function () {
 it('meta flows through text dispatch', function () {
     $receivedMeta = null;
 
-    config()->set('atlas.middleware.provider', [
-        new class($receivedMeta)
+    config()->set('atlas.middleware', [
+        new class($receivedMeta) implements ProviderMiddleware
         {
             public function __construct(private ?array &$receivedMeta) {}
 
@@ -122,12 +124,12 @@ it('meta flows through text dispatch', function () {
     ]);
     AtlasConfig::refresh();
 
-    $driver = makeMetaTestDriver(app(MiddlewareStack::class));
+    $driver = makeMetaTestDriver(app(MiddlewareStack::class), app(MiddlewareResolver::class));
     $driver->text(makeMetaTextRequest(meta: ['key' => 'value']));
 
     expect($receivedMeta)->toBe(['key' => 'value']);
 
-    config()->set('atlas.middleware.provider', []);
+    config()->set('atlas.middleware', []);
     AtlasConfig::refresh();
 });
 
@@ -135,8 +137,8 @@ it('meta flows through stream dispatch', function () {
     $receivedMethod = null;
     $receivedMeta = null;
 
-    config()->set('atlas.middleware.provider', [
-        new class($receivedMethod, $receivedMeta)
+    config()->set('atlas.middleware', [
+        new class($receivedMethod, $receivedMeta) implements ProviderMiddleware
         {
             public function __construct(private ?string &$receivedMethod, private ?array &$receivedMeta) {}
 
@@ -151,13 +153,13 @@ it('meta flows through stream dispatch', function () {
     ]);
     AtlasConfig::refresh();
 
-    $driver = makeMetaTestDriver(app(MiddlewareStack::class));
+    $driver = makeMetaTestDriver(app(MiddlewareStack::class), app(MiddlewareResolver::class));
     $driver->stream(makeMetaTextRequest(meta: ['stream_id' => 'xyz']));
 
     expect($receivedMethod)->toBe('stream');
     expect($receivedMeta)->toBe(['stream_id' => 'xyz']);
 
-    config()->set('atlas.middleware.provider', []);
+    config()->set('atlas.middleware', []);
     AtlasConfig::refresh();
 });
 
@@ -176,7 +178,7 @@ it('meta defaults to empty array when not set', function () {
         }
     };
 
-    $driver = makeMetaTestDriver(app(MiddlewareStack::class));
+    $driver = makeMetaTestDriver(app(MiddlewareStack::class), app(MiddlewareResolver::class));
     $driver->text(makeMetaTextRequest(meta: [], middleware: [$middleware]));
 
     expect($receivedMeta)->toBe([]);
@@ -207,7 +209,7 @@ it('middleware can mutate meta for downstream middleware', function () {
         }
     };
 
-    $driver = makeMetaTestDriver(app(MiddlewareStack::class));
+    $driver = makeMetaTestDriver(app(MiddlewareStack::class), app(MiddlewareResolver::class));
     $request = makeMetaTextRequest(
         meta: ['original' => 'data'],
         middleware: [$firstMiddleware, $secondMiddleware],

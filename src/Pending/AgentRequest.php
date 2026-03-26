@@ -23,6 +23,7 @@ use Atlasphp\Atlas\Input\Input;
 use Atlasphp\Atlas\Messages\Message;
 use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Middleware\AgentContext;
+use Atlasphp\Atlas\Middleware\MiddlewareResolver;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
@@ -972,6 +973,7 @@ class AgentRequest implements QueueableRequest
             tools: $tools,
             events: $this->events,
             middlewareStack: $this->app->make(MiddlewareStack::class),
+            middlewareResolver: $this->app->make(MiddlewareResolver::class),
         );
 
         $maxSteps = $this->maxStepsOverride ?? $agent->maxSteps();
@@ -1012,7 +1014,9 @@ class AgentRequest implements QueueableRequest
             meta: $this->meta,
         );
 
-        $middleware = $this->config->middleware['agent'] ?? [];
+        /** @var MiddlewareResolver $resolver */
+        $resolver = $this->app->make(MiddlewareResolver::class);
+        $middleware = $resolver->forLayer('agent');
 
         if ($middleware === []) {
             return $destination($context);

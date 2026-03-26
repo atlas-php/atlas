@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Executor;
 
-use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Events\AgentCompleted;
 use Atlasphp\Atlas\Events\AgentMaxStepsExceeded;
@@ -17,6 +16,7 @@ use Atlasphp\Atlas\Events\AgentToolCallStarted;
 use Atlasphp\Atlas\Exceptions\MaxStepsExceededException;
 use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Messages\UserMessage;
+use Atlasphp\Atlas\Middleware\MiddlewareResolver;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
 use Atlasphp\Atlas\Middleware\StepContext;
 use Atlasphp\Atlas\Middleware\ToolContext;
@@ -45,6 +45,7 @@ class AgentExecutor
         protected readonly ToolExecutor $toolExecutor,
         protected readonly Dispatcher $events,
         protected readonly ?MiddlewareStack $middlewareStack = null,
+        protected readonly ?MiddlewareResolver $middlewareResolver = null,
     ) {
         $this->context = new ExecutionContext;
     }
@@ -62,12 +63,14 @@ class AgentExecutor
         array $tools,
         Dispatcher $events,
         ?MiddlewareStack $middlewareStack = null,
+        ?MiddlewareResolver $middlewareResolver = null,
     ): self {
         return new self(
             driver: $driver,
             toolExecutor: new ToolExecutor(new ToolRegistry($tools)),
             events: $events,
             middlewareStack: $middlewareStack,
+            middlewareResolver: $middlewareResolver,
         );
     }
 
@@ -230,7 +233,7 @@ class AgentExecutor
             return $this->driver->text($request);
         }
 
-        $middleware = app(AtlasConfig::class)->middleware['step'] ?? [];
+        $middleware = $this->middlewareResolver?->forLayer('step') ?? [];
 
         if ($middleware === []) {
             return $this->driver->text($request);
@@ -265,7 +268,7 @@ class AgentExecutor
             return $this->toolExecutor->execute($toolCall, $meta);
         }
 
-        $middleware = app(AtlasConfig::class)->middleware['tool'] ?? [];
+        $middleware = $this->middlewareResolver?->forLayer('tool') ?? [];
 
         if ($middleware === []) {
             return $this->toolExecutor->execute($toolCall, $meta);

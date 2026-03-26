@@ -8,6 +8,9 @@ use Atlasphp\Atlas\Executor\AgentExecutor;
 use Atlasphp\Atlas\Executor\ToolExecutor;
 use Atlasphp\Atlas\Executor\ToolRegistry;
 use Atlasphp\Atlas\Messages\ToolCall;
+use Atlasphp\Atlas\Middleware\Contracts\StepMiddleware;
+use Atlasphp\Atlas\Middleware\Contracts\ToolMiddleware;
+use Atlasphp\Atlas\Middleware\MiddlewareResolver;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
 use Atlasphp\Atlas\Middleware\StepContext;
 use Atlasphp\Atlas\Middleware\ToolContext;
@@ -121,8 +124,8 @@ function makeMiddlewareMockDriver(array $responses): Driver
 it('runs step middleware on each step', function () {
     $stepNumbers = [];
 
-    config()->set('atlas.middleware.step', [
-        new class($stepNumbers)
+    config()->set('atlas.middleware', [
+        new class($stepNumbers) implements StepMiddleware
         {
             public function __construct(private array &$stepNumbers) {}
 
@@ -155,20 +158,20 @@ it('runs step middleware on each step', function () {
     $toolExecutor = new ToolExecutor($registry);
     $dispatcher = makeMiddlewareExecutorDispatcher();
 
-    $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher, app(MiddlewareStack::class));
+    $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher, app(MiddlewareStack::class), app(MiddlewareResolver::class));
     $executor->execute(makeMiddlewareExecutorRequest(), maxSteps: 10, concurrent: false);
 
     expect($stepNumbers)->toBe([1, 2]);
 
-    config()->set('atlas.middleware.step', []);
+    config()->set('atlas.middleware', []);
     AtlasConfig::refresh();
 });
 
 it('step middleware receives accumulated usage', function () {
     $receivedUsage = null;
 
-    config()->set('atlas.middleware.step', [
-        new class($receivedUsage)
+    config()->set('atlas.middleware', [
+        new class($receivedUsage) implements StepMiddleware
         {
             public function __construct(private ?Usage &$receivedUsage) {}
 
@@ -200,22 +203,22 @@ it('step middleware receives accumulated usage', function () {
     ]);
 
     $registry = new ToolRegistry([makeMiddlewareEchoTool()]);
-    $executor = new AgentExecutor($driver, new ToolExecutor($registry), makeMiddlewareExecutorDispatcher(), app(MiddlewareStack::class));
+    $executor = new AgentExecutor($driver, new ToolExecutor($registry), makeMiddlewareExecutorDispatcher(), app(MiddlewareStack::class), app(MiddlewareResolver::class));
     $executor->execute(makeMiddlewareExecutorRequest(), maxSteps: 10, concurrent: false);
 
     expect($receivedUsage)->not->toBeNull();
     expect($receivedUsage->inputTokens)->toBe(100);
     expect($receivedUsage->outputTokens)->toBe(50);
 
-    config()->set('atlas.middleware.step', []);
+    config()->set('atlas.middleware', []);
     AtlasConfig::refresh();
 });
 
 it('runs tool middleware on each tool call', function () {
     $toolNames = [];
 
-    config()->set('atlas.middleware.tool', [
-        new class($toolNames)
+    config()->set('atlas.middleware', [
+        new class($toolNames) implements ToolMiddleware
         {
             public function __construct(private array &$toolNames) {}
 
@@ -244,20 +247,20 @@ it('runs tool middleware on each tool call', function () {
     ]);
 
     $registry = new ToolRegistry([makeMiddlewareEchoTool()]);
-    $executor = new AgentExecutor($driver, new ToolExecutor($registry), makeMiddlewareExecutorDispatcher(), app(MiddlewareStack::class));
+    $executor = new AgentExecutor($driver, new ToolExecutor($registry), makeMiddlewareExecutorDispatcher(), app(MiddlewareStack::class), app(MiddlewareResolver::class));
     $executor->execute(makeMiddlewareExecutorRequest(), maxSteps: 10, concurrent: false);
 
     expect($toolNames)->toBe(['echo']);
 
-    config()->set('atlas.middleware.tool', []);
+    config()->set('atlas.middleware', []);
     AtlasConfig::refresh();
 });
 
 it('runs tool middleware in sequential path with single tool (parallel flag true)', function () {
     $toolNames = [];
 
-    config()->set('atlas.middleware.tool', [
-        new class($toolNames)
+    config()->set('atlas.middleware', [
+        new class($toolNames) implements ToolMiddleware
         {
             public function __construct(private array &$toolNames) {}
 
@@ -286,13 +289,13 @@ it('runs tool middleware in sequential path with single tool (parallel flag true
     ]);
 
     $registry = new ToolRegistry([makeMiddlewareEchoTool()]);
-    $executor = new AgentExecutor($driver, new ToolExecutor($registry), makeMiddlewareExecutorDispatcher(), app(MiddlewareStack::class));
+    $executor = new AgentExecutor($driver, new ToolExecutor($registry), makeMiddlewareExecutorDispatcher(), app(MiddlewareStack::class), app(MiddlewareResolver::class));
     // concurrent: true with single tool falls back to sequential
     $executor->execute(makeMiddlewareExecutorRequest(), maxSteps: 10, concurrent: true);
 
     expect($toolNames)->toBe(['echo']);
 
-    config()->set('atlas.middleware.tool', []);
+    config()->set('atlas.middleware', []);
     AtlasConfig::refresh();
 });
 
@@ -314,7 +317,7 @@ it('works without middleware stack (backward compat)', function () {
 });
 
 it('calls driver directly when middleware stack exists but step middleware config is empty', function () {
-    config()->set('atlas.middleware.step', []);
+    config()->set('atlas.middleware', []);
     AtlasConfig::refresh();
 
     $driver = makeMiddlewareMockDriver([
@@ -326,21 +329,19 @@ it('calls driver directly when middleware stack exists but step middleware confi
     ]);
 
     $registry = new ToolRegistry([]);
-    $executor = new AgentExecutor($driver, new ToolExecutor($registry), makeMiddlewareExecutorDispatcher(), app(MiddlewareStack::class));
+    $executor = new AgentExecutor($driver, new ToolExecutor($registry), makeMiddlewareExecutorDispatcher(), app(MiddlewareStack::class), app(MiddlewareResolver::class));
 
     $result = $executor->execute(makeMiddlewareExecutorRequest(), maxSteps: 10);
 
     expect($result->text)->toBe('direct');
     expect($result->totalSteps())->toBe(1);
 
-    config()->set('atlas.middleware.step', []);
+    config()->set('atlas.middleware', []);
     AtlasConfig::refresh();
 });
 
 it('calls tool executor directly when middleware stack exists but tool middleware config is empty', function () {
-    config()->set('atlas.middleware.step', []);
-    AtlasConfig::refresh();
-    config()->set('atlas.middleware.tool', []);
+    config()->set('atlas.middleware', []);
     AtlasConfig::refresh();
 
     $driver = makeMiddlewareMockDriver([
@@ -358,7 +359,7 @@ it('calls tool executor directly when middleware stack exists but tool middlewar
     ]);
 
     $registry = new ToolRegistry([makeMiddlewareEchoTool()]);
-    $executor = new AgentExecutor($driver, new ToolExecutor($registry), makeMiddlewareExecutorDispatcher(), app(MiddlewareStack::class));
+    $executor = new AgentExecutor($driver, new ToolExecutor($registry), makeMiddlewareExecutorDispatcher(), app(MiddlewareStack::class), app(MiddlewareResolver::class));
 
     $result = $executor->execute(makeMiddlewareExecutorRequest(), maxSteps: 10, concurrent: false);
 
@@ -367,9 +368,7 @@ it('calls tool executor directly when middleware stack exists but tool middlewar
     expect($result->totalToolCalls())->toBe(1);
     expect($result->steps[0]->toolResults[0]->content)->toBe('hi');
 
-    config()->set('atlas.middleware.step', []);
-    AtlasConfig::refresh();
-    config()->set('atlas.middleware.tool', []);
+    config()->set('atlas.middleware', []);
     AtlasConfig::refresh();
 });
 
@@ -377,8 +376,8 @@ it('step middleware can mutate the request before the driver sees it', function 
     $originalInstructions = 'Be helpful';
     $mutatedInstructions = 'Be extremely helpful and detailed';
 
-    config()->set('atlas.middleware.step', [
-        new class($mutatedInstructions)
+    config()->set('atlas.middleware', [
+        new class($mutatedInstructions) implements StepMiddleware
         {
             public function __construct(private string $newInstructions) {}
 
@@ -439,7 +438,7 @@ it('step middleware can mutate the request before the driver sees it', function 
     };
 
     $registry = new ToolRegistry([makeMiddlewareEchoTool()]);
-    $executor = new AgentExecutor($driver, new ToolExecutor($registry), makeMiddlewareExecutorDispatcher(), app(MiddlewareStack::class));
+    $executor = new AgentExecutor($driver, new ToolExecutor($registry), makeMiddlewareExecutorDispatcher(), app(MiddlewareStack::class), app(MiddlewareResolver::class));
 
     $request = new TextRequest(
         model: 'gpt-4o',
@@ -459,6 +458,6 @@ it('step middleware can mutate the request before the driver sees it', function 
 
     expect($receivedInstructions)->toBe($mutatedInstructions);
 
-    config()->set('atlas.middleware.step', []);
+    config()->set('atlas.middleware', []);
     AtlasConfig::refresh();
 });
