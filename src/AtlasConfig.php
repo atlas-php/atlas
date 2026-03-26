@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas;
 
+use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
 use Atlasphp\Atlas\Exceptions\ProviderNotFoundException;
+use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
+use Atlasphp\Atlas\Providers\ProviderRegistry;
+use Atlasphp\Atlas\Support\VariableRegistry;
+use ReflectionProperty;
 
 /**
  * Centralized configuration for the Atlas package.
@@ -17,37 +22,75 @@ class AtlasConfig
 {
     public function __construct(
         /** @var array<string, array{provider?: string|null, model?: string|null}> */
-        public readonly array $defaults,
+        public readonly array $defaults = [],
         /** @var array<string, array<string, mixed>> */
-        public readonly array $providers,
-        public readonly string $queue,
-        /** @var array{agent: array<int, class-string>, step: array<int, class-string>, tool: array<int, class-string>, provider: array<int, class-string>} */
-        public readonly array $middleware,
+        public readonly array $providers = [],
+        public readonly string $queue = 'default',
+        /** @var array<string, array<int, class-string>> */
+        public readonly array $middleware = [],
         /** @var array<string, mixed> */
-        public readonly array $variables,
-        public readonly int $retryTimeout,
-        public readonly int $retryRateLimit,
-        public readonly int $retryErrors,
-        public readonly int $streamChunkDelayUs,
-        public readonly ?string $storageDisk,
-        public readonly string $storagePrefix,
-        public readonly int $embeddingDimensions,
-        public readonly ?string $cacheStore,
-        public readonly string $cachePrefix,
+        public readonly array $variables = [],
+        public readonly int $retryTimeout = 60,
+        public readonly int $retryRateLimit = 3,
+        public readonly int $retryErrors = 2,
+        public readonly int $streamChunkDelayUs = 15_000,
+        public readonly ?string $storageDisk = null,
+        public readonly string $storagePrefix = 'atlas',
+        public readonly int $embeddingDimensions = 1536,
+        public readonly ?string $cacheStore = null,
+        public readonly string $cachePrefix = 'atlas',
         /** @var array{models: int, voices: int, embeddings: int} */
-        public readonly array $cacheTtl,
-        public readonly bool $persistenceEnabled,
-        public readonly string $tablePrefix,
-        public readonly int $messageLimit,
-        public readonly bool $autoStoreAssets,
+        public readonly array $cacheTtl = ['models' => 86400, 'voices' => 3600, 'embeddings' => 0],
+        public readonly bool $persistenceEnabled = false,
+        public readonly string $tablePrefix = 'atlas_',
+        public readonly int $messageLimit = 50,
+        public readonly bool $autoStoreAssets = true,
         /** @var array<string, mixed> */
-        public readonly array $voiceTranscripts,
-        public readonly int $voiceSessionTtl,
+        public readonly array $voiceTranscripts = ['middleware' => [], 'route_prefix' => 'atlas'],
+        public readonly int $voiceSessionTtl = 60,
         /** @var array<string, class-string> */
-        public readonly array $persistenceModels,
+        public readonly array $persistenceModels = [],
         /** @var array{path: string|null, namespace: string|null} */
-        public readonly array $agents,
+        public readonly array $agents = ['path' => null, 'namespace' => null],
     ) {}
+
+    /**
+     * Refresh the singleton instance from current config values.
+     *
+     * Rebuilds the AtlasConfig singleton and forces all dependent
+     * singletons to be re-resolved on next access.
+     * Useful in tests after modifying config at runtime.
+     */
+    public static function refresh(): self
+    {
+        $instance = self::fromConfig();
+        app()->instance(self::class, $instance);
+
+        // Force dependent singletons to re-resolve with the new config.
+        // ProviderRegistry is rebuilt with factory transfer to preserve
+        // registrations from boot(). AtlasManager is forgotten and re-resolved.
+        app()->forgetInstance(VariableRegistry::class);
+        app()->forgetInstance(AtlasCache::class);
+        app()->forgetInstance(EmbeddingResolver::class);
+        app()->forgetInstance(AtlasManager::class);
+
+        // Rebuild ProviderRegistry with new config while preserving factories
+        $container = app();
+        if ($container->resolved(ProviderRegistryContract::class)) {
+            $oldRegistry = $container->make(ProviderRegistryContract::class);
+            $newRegistry = new ProviderRegistry($container, $instance);
+
+            // Re-register all factories from the old registry
+            $factoriesRef = new ReflectionProperty($oldRegistry, 'factories');
+            foreach ($factoriesRef->getValue($oldRegistry) as $key => $factory) {
+                $newRegistry->register($key, $factory);
+            }
+
+            $container->instance(ProviderRegistryContract::class, $newRegistry);
+        }
+
+        return $instance;
+    }
 
     /**
      * Build from the published config file.
@@ -74,7 +117,7 @@ class AtlasConfig
             tablePrefix: config('atlas.persistence.table_prefix', 'atlas_'),
             messageLimit: (int) config('atlas.persistence.message_limit', 50),
             autoStoreAssets: (bool) config('atlas.persistence.auto_store_assets', true),
-            voiceTranscripts: config('atlas.persistence.voice_transcripts', ['enabled' => true, 'middleware' => [], 'route_prefix' => 'atlas']),
+            voiceTranscripts: config('atlas.persistence.voice_transcripts', ['middleware' => [], 'route_prefix' => 'atlas']),
             voiceSessionTtl: (int) config('atlas.persistence.voice_session_ttl', 60),
             persistenceModels: config('atlas.persistence.models', []),
             agents: config('atlas.agents', ['path' => null, 'namespace' => null]),

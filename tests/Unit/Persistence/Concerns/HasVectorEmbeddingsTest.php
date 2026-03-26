@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
 use Atlasphp\Atlas\Persistence\Concerns\HasVectorEmbeddings;
 use Illuminate\Database\Eloquent\Model;
@@ -106,6 +107,7 @@ it('returns empty string when all fields are empty', function () {
 
 it('detects should generate when source is dirty and non-empty', function () {
     config(['atlas.persistence.enabled' => true]);
+    AtlasConfig::refresh();
 
     $model = new FakeEmbeddableModel;
     $model->content = 'Some text';
@@ -116,6 +118,7 @@ it('detects should generate when source is dirty and non-empty', function () {
 
 it('returns false when source field is not dirty', function () {
     config(['atlas.persistence.enabled' => true]);
+    AtlasConfig::refresh();
 
     $model = new FakeEmbeddableModel;
     $model->syncOriginal(); // Mark everything as clean
@@ -125,6 +128,7 @@ it('returns false when source field is not dirty', function () {
 
 it('returns false when persistence is disabled', function () {
     config(['atlas.persistence.enabled' => false]);
+    AtlasConfig::refresh();
 
     $model = new FakeEmbeddableModel;
     $model->content = 'Some text';
@@ -134,6 +138,7 @@ it('returns false when persistence is disabled', function () {
 
 it('returns false when content is empty', function () {
     config(['atlas.persistence.enabled' => true]);
+    AtlasConfig::refresh();
 
     $model = new FakeEmbeddableModel;
     $model->content = '';
@@ -143,6 +148,7 @@ it('returns false when content is empty', function () {
 
 it('generates embedding and sets column and timestamp', function () {
     config(['atlas.persistence.enabled' => true]);
+    AtlasConfig::refresh();
 
     $vector = [0.1, 0.2, 0.3];
 
@@ -164,6 +170,7 @@ it('generates embedding and sets column and timestamp', function () {
 
 it('generates embedding using explicit provider and model', function () {
     config(['atlas.persistence.enabled' => true]);
+    AtlasConfig::refresh();
 
     $vector = [0.4, 0.5, 0.6];
 

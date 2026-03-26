@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Concerns;
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
 use Atlasphp\Atlas\Embeddings\VectorQueryMacros;
 use Illuminate\Database\Eloquent\Builder;
@@ -72,7 +73,7 @@ trait HasVectorEmbeddings
      */
     public function shouldGenerateEmbedding(): bool
     {
-        if (! config('atlas.persistence.enabled', false)) {
+        if (! app(AtlasConfig::class)->persistenceEnabled) {
             return false;
         }
 

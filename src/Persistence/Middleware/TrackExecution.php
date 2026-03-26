@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Middleware;
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Executor\ExecutorResult;
 use Atlasphp\Atlas\Middleware\AgentContext;
@@ -37,14 +38,15 @@ class TrackExecution
         $agent = $context->agent;
 
         // Resolve provider/model from agent (may be null → config defaults)
+        $default = app(AtlasConfig::class)->defaultFor('text');
         $rawProvider = $agent !== null
-            ? ($agent->provider() ?? config('atlas.defaults.text.provider', 'unknown'))
-            : config('atlas.defaults.text.provider', 'unknown');
+            ? ($agent->provider() ?? $default['provider'] ?? 'unknown')
+            : ($default['provider'] ?? 'unknown');
 
         $provider = $rawProvider instanceof Provider
             ? $rawProvider->value
-            : (string) ($rawProvider ?? 'unknown');
-        $model = $agent?->model() ?? (string) config('atlas.defaults.text.model', 'unknown');
+            : (string) $rawProvider;
+        $model = $agent?->model() ?? (string) ($default['model'] ?? 'unknown');
 
         // ── Resolve execution type from meta (set by pending request) ─
         $type = ExecutionType::tryFrom($context->meta['execution_type'] ?? '')

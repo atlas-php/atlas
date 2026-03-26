@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Models;
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Database\Factories\ConversationFactory;
 use Atlasphp\Atlas\Persistence\Concerns\HasAtlasTable;
 use Atlasphp\Atlas\Persistence\Enums\MessageStatus;
@@ -74,7 +75,7 @@ class Conversation extends Model
     public function messages(): HasMany
     {
         /** @var class-string<ConversationMessage> $model */
-        $model = config('atlas.persistence.models.conversation_message', ConversationMessage::class);
+        $model = app(AtlasConfig::class)->model('conversation_message', ConversationMessage::class);
 
         return $this->hasMany($model)->orderBy('sequence');
     }
@@ -83,7 +84,7 @@ class Conversation extends Model
     public function executions(): HasMany
     {
         /** @var class-string<Execution> $model */
-        $model = config('atlas.persistence.models.execution', Execution::class);
+        $model = app(AtlasConfig::class)->model('execution', Execution::class);
 
         return $this->hasMany($model);
     }

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Agent;
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Exceptions\MaxStepsExceededException;
@@ -162,6 +163,7 @@ it('handles null agent gracefully', function () {
 it('falls back to config defaults when agent provider and model are null', function () {
     config()->set('atlas.defaults.text.provider', 'config-provider');
     config()->set('atlas.defaults.text.model', 'config-model');
+    AtlasConfig::refresh();
 
     $middleware = app(TrackExecution::class);
 

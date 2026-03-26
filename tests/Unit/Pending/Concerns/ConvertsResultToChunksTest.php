@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Executor\ExecutorResult;
@@ -40,6 +41,7 @@ function createChunkResult(string $text = 'Hello world', array $steps = [], ?str
 
 it('yields text chunks and a done chunk', function () {
     config(['atlas.stream.chunk_delay_us' => 0]);
+    AtlasConfig::refresh();
 
     $converter = createChunkConverter();
     $chunks = iterator_to_array($converter->convert(createChunkResult('Hello world')));
@@ -53,6 +55,7 @@ it('yields text chunks and a done chunk', function () {
 
 it('respects zero chunk delay config', function () {
     config(['atlas.stream.chunk_delay_us' => 0]);
+    AtlasConfig::refresh();
 
     $converter = createChunkConverter();
     $start = microtime(true);
@@ -65,6 +68,7 @@ it('respects zero chunk delay config', function () {
 
 it('done chunk carries usage and finish reason', function () {
     config(['atlas.stream.chunk_delay_us' => 0]);
+    AtlasConfig::refresh();
 
     $converter = createChunkConverter();
     $chunks = iterator_to_array($converter->convert(createChunkResult('Test')));
@@ -79,6 +83,7 @@ it('done chunk carries usage and finish reason', function () {
 
 it('yields step started and completed markers for each step', function () {
     config(['atlas.stream.chunk_delay_us' => 0]);
+    AtlasConfig::refresh();
 
     $steps = [
         new Step(text: null, toolCalls: [], toolResults: [], usage: new Usage(5, 10)),
@@ -99,6 +104,7 @@ it('yields step started and completed markers for each step', function () {
 
 it('yields tool call started and completed markers', function () {
     config(['atlas.stream.chunk_delay_us' => 0]);
+    AtlasConfig::refresh();
 
     $toolCall = new ToolCall('tc-1', 'web_search', ['q' => 'test']);
     $toolResult = new ToolResult(toolCall: $toolCall, content: 'Found 5 results');
@@ -125,6 +131,7 @@ it('yields tool call started and completed markers', function () {
 
 it('yields tool call failed marker for error results', function () {
     config(['atlas.stream.chunk_delay_us' => 0]);
+    AtlasConfig::refresh();
 
     $toolCall = new ToolCall('tc-1', 'fetch', ['url' => 'http://example.com']);
     $toolResult = new ToolResult(toolCall: $toolCall, content: 'Connection refused', isError: true);
@@ -147,6 +154,7 @@ it('yields tool call failed marker for error results', function () {
 
 it('yields orchestration markers in correct order', function () {
     config(['atlas.stream.chunk_delay_us' => 0]);
+    AtlasConfig::refresh();
 
     $toolCall = new ToolCall('tc-1', 'search', []);
     $toolResult = new ToolResult(toolCall: $toolCall, content: 'ok');
@@ -184,6 +192,7 @@ it('yields orchestration markers in correct order', function () {
 
 it('yields thinking chunk when reasoning is present', function () {
     config(['atlas.stream.chunk_delay_us' => 0]);
+    AtlasConfig::refresh();
 
     $converter = createChunkConverter();
     $chunks = iterator_to_array($converter->convert(createChunkResult('Answer', reasoning: 'Let me think...')));
@@ -196,6 +205,7 @@ it('yields thinking chunk when reasoning is present', function () {
 
 it('does not yield thinking chunk when reasoning is null', function () {
     config(['atlas.stream.chunk_delay_us' => 0]);
+    AtlasConfig::refresh();
 
     $converter = createChunkConverter();
     $chunks = iterator_to_array($converter->convert(createChunkResult('Answer')));
@@ -207,6 +217,7 @@ it('does not yield thinking chunk when reasoning is null', function () {
 
 it('does not yield thinking chunk when reasoning is empty string', function () {
     config(['atlas.stream.chunk_delay_us' => 0]);
+    AtlasConfig::refresh();
 
     $converter = createChunkConverter();
     $chunks = iterator_to_array($converter->convert(createChunkResult('Answer', reasoning: '')));

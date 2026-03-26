@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\AtlasCache;
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Provider;
 use Atlasphp\Atlas\Providers\ProviderConfig;
@@ -100,6 +101,7 @@ it('validate returns false when models endpoint throws', function () {
 it('flushCache clears models and voices cache', function () {
     // Enable caching so remember() actually stores values
     config(['atlas.cache.ttl.models' => 3600, 'atlas.cache.ttl.voices' => 3600]);
+    AtlasConfig::refresh();
 
     $callCount = 0;
 

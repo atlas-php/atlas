@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Atlas;
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Support\VariableRegistry;
 use Atlasphp\Atlas\Testing\TextResponseFake;
 
@@ -45,6 +46,7 @@ it('interpolates message content with withMessageInterpolation', function () {
 
 it('withVariables overrides config and registry', function () {
     config(['atlas.variables' => ['NAME' => 'Config']]);
+    AtlasConfig::refresh();
 
     $registry = app(VariableRegistry::class);
     $registry->register('NAME', 'Registry');

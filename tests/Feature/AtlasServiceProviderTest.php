@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\AgentRegistry;
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\AtlasManager;
 use Atlasphp\Atlas\AtlasServiceProvider;
 use Atlasphp\Atlas\Providers\Cohere\CohereDriver;
@@ -44,6 +45,7 @@ it('resolves openai to OpenAiDriver', function () {
         'api_key' => 'test-key',
         'url' => 'https://api.openai.com/v1',
     ]);
+    AtlasConfig::refresh();
 
     $registry = $this->app->make(ProviderRegistryContract::class);
     $driver = $registry->resolve('openai');
@@ -63,6 +65,7 @@ it('resolves xai to XaiDriver', function () {
         'api_key' => 'test-key',
         'url' => 'https://api.x.ai/v1',
     ]);
+    AtlasConfig::refresh();
 
     $registry = $this->app->make(ProviderRegistryContract::class);
     $driver = $registry->resolve('xai');
@@ -82,6 +85,7 @@ it('resolves google to GoogleDriver', function () {
         'api_key' => 'test-key',
         'url' => 'https://generativelanguage.googleapis.com',
     ]);
+    AtlasConfig::refresh();
 
     $registry = $this->app->make(ProviderRegistryContract::class);
     $driver = $registry->resolve('google');
@@ -101,6 +105,7 @@ it('resolves cohere to CohereDriver', function () {
         'api_key' => 'test-key',
         'url' => 'https://api.cohere.com',
     ]);
+    AtlasConfig::refresh();
 
     $registry = $this->app->make(ProviderRegistryContract::class);
     $driver = $registry->resolve('cohere');
@@ -120,6 +125,7 @@ it('resolves jina to JinaDriver', function () {
         'api_key' => 'test-key',
         'url' => 'https://api.jina.ai',
     ]);
+    AtlasConfig::refresh();
 
     $registry = $this->app->make(ProviderRegistryContract::class);
     $driver = $registry->resolve('jina');
@@ -153,6 +159,7 @@ PHP;
 
     config()->set('atlas.agents.path', $tmpDir);
     config()->set('atlas.agents.namespace', 'AtlasTestAgents');
+    AtlasConfig::refresh();
 
     // Re-trigger discovery by calling discoverAgents via a fresh registry
     $registry = app(AgentRegistry::class);
@@ -168,6 +175,7 @@ PHP;
 it('skips discovery when agents path is null', function () {
     config()->set('atlas.agents.path', null);
     config()->set('atlas.agents.namespace', 'App\\Agents');
+    AtlasConfig::refresh();
 
     // Re-register the provider to trigger discoverAgents with null path
     $provider = new AtlasServiceProvider($this->app);
@@ -181,6 +189,7 @@ it('skips discovery when agents path is null', function () {
 it('skips discovery when agents namespace is null', function () {
     config()->set('atlas.agents.path', '/some/path');
     config()->set('atlas.agents.namespace', null);
+    AtlasConfig::refresh();
 
     // Re-register the provider to trigger discoverAgents with null namespace
     $provider = new AtlasServiceProvider($this->app);

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Pending\TextRequest;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
@@ -108,18 +109,14 @@ it('broadcastOn sets broadcast channel', function () {
     expect($property->getValue($pending))->toBe($channel);
 });
 
-it('resolveQueueConnection uses config fallback', function () {
-    config()->set('atlas.queue.connection', 'redis');
-
+it('resolveQueueConnection returns null when not set', function () {
     $pending = createQueueTextPending();
     $method = new ReflectionMethod($pending, 'resolveQueueConnection');
 
-    expect($method->invoke($pending))->toBe('redis');
+    expect($method->invoke($pending))->toBeNull();
 });
 
-it('resolveQueueConnection prefers explicit over config', function () {
-    config()->set('atlas.queue.connection', 'redis');
-
+it('resolveQueueConnection returns explicit value', function () {
     $pending = createQueueTextPending();
     $pending->onConnection('sqs');
 
@@ -128,8 +125,9 @@ it('resolveQueueConnection prefers explicit over config', function () {
     expect($method->invoke($pending))->toBe('sqs');
 });
 
-it('resolveQueueName uses config fallback', function () {
-    config()->set('atlas.queue.queue', 'atlas-priority');
+it('resolveQueueName uses AtlasConfig queue', function () {
+    config()->set('atlas.queue', 'atlas-priority');
+    AtlasConfig::refresh();
 
     $pending = createQueueTextPending();
     $method = new ReflectionMethod($pending, 'resolveQueueName');
@@ -138,7 +136,8 @@ it('resolveQueueName uses config fallback', function () {
 });
 
 it('resolveQueueName prefers explicit over config', function () {
-    config()->set('atlas.queue.queue', 'atlas-priority');
+    config()->set('atlas.queue', 'atlas-priority');
+    AtlasConfig::refresh();
 
     $pending = createQueueTextPending();
     $pending->onQueue('custom-queue');
@@ -156,10 +155,10 @@ it('resolveQueueName defaults to default from config', function () {
     expect($method->invoke($pending))->toBe('default');
 });
 
-it('withDelay() sets delay and returns self', function () {
+it('withQueueDelay() sets delay and returns self', function () {
     $pending = createQueueTextPending();
 
-    $result = $pending->withDelay(30);
+    $result = $pending->withQueueDelay(30);
 
     expect($result)->toBe($pending);
 
@@ -167,10 +166,10 @@ it('withDelay() sets delay and returns self', function () {
     expect($property->getValue($pending))->toBe(30);
 });
 
-it('withDelay() clamps negative values to zero', function () {
+it('withQueueDelay() clamps negative values to zero', function () {
     $pending = createQueueTextPending();
 
-    $pending->withDelay(-10);
+    $pending->withQueueDelay(-10);
 
     $property = new ReflectionProperty($pending, 'queueDelay');
     expect($property->getValue($pending))->toBe(0);
@@ -206,7 +205,7 @@ it('dispatched job applies delay when set', function () {
     $pending = createQueueTextPending($driver)
         ->message('Hello')
         ->queue()
-        ->withDelay(60);
+        ->withQueueDelay(60);
 
     $result = $pending->asText();
     $result->dispatch(); // Force dispatch before assertion

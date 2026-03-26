@@ -8,6 +8,8 @@ use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Exceptions\RateLimitException;
 use Atlasphp\Atlas\Http\RetryDecider;
 use Atlasphp\Atlas\RequestConfig;
+use Illuminate\Http\Client\RequestException;
+use Illuminate\Support\Facades\Http;
 
 function decider(): RetryDecider
 {
@@ -134,4 +136,51 @@ it('caps backoff at 10 seconds', function () {
     // At attempt 10, 500 * 2^10 = 512000ms which exceeds cap
     $wait = decider()->waitMicroseconds($e, attempt: 10);
     expect($wait)->toBeLessThanOrEqual(10_000 * 1_000); // 10 seconds in microseconds
+});
+
+// ─── RequestException (Laravel HTTP client) ──────────────────
+
+function fakeRequestException(int $status, array $headers = []): RequestException
+{
+    Http::fake(['*' => Http::response('error', $status, $headers)]);
+    $response = Http::get('https://fake.test');
+
+    return new RequestException($response);
+}
+
+it('retries RequestException with 429 status', function () {
+    $e = fakeRequestException(429);
+
+    expect(decider()->shouldRetry($e, configWithRetry(rateLimit: 3), attempt: 1))->toBeTrue();
+});
+
+it('retries RequestException with 500 status', function () {
+    $e = fakeRequestException(500);
+
+    expect(decider()->shouldRetry($e, configWithRetry(errors: 2), attempt: 1))->toBeTrue();
+});
+
+it('does not retry RequestException with 401 status', function () {
+    $e = fakeRequestException(401);
+
+    expect(decider()->shouldRetry($e, configWithRetry(), attempt: 1))->toBeFalse();
+});
+
+it('does not retry RequestException with 400 status', function () {
+    $e = fakeRequestException(400);
+
+    expect(decider()->shouldRetry($e, configWithRetry(), attempt: 1))->toBeFalse();
+});
+
+it('uses Retry-After from RequestException for 429 wait', function () {
+    $e = fakeRequestException(429, ['Retry-After' => '10']);
+
+    expect(decider()->waitMicroseconds($e, attempt: 1))->toBe(10_000_000);
+});
+
+it('uses backoff for RequestException with 500 status', function () {
+    $e = fakeRequestException(500);
+
+    $wait = decider()->waitMicroseconds($e, attempt: 1);
+    expect($wait)->toBeLessThanOrEqual(1_000 * 1_000);
 });

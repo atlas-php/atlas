@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Embeddings;
 
 use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\AtlasCache;
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Exceptions\AtlasException;
 
 /**
@@ -18,6 +19,7 @@ class EmbeddingResolver
 {
     public function __construct(
         protected readonly AtlasCache $cache,
+        protected readonly AtlasConfig $config,
     ) {}
 
     /**
@@ -61,9 +63,10 @@ class EmbeddingResolver
      */
     protected function cacheKey(string $input, ?string $provider = null, ?string $model = null): string
     {
-        $provider ??= config('atlas.defaults.embed.provider', 'default');
-        $model ??= config('atlas.defaults.embed.model', 'default');
-        $dimensions = (int) config('atlas.embeddings.dimensions', 1536);
+        $embedDefault = $this->config->defaultFor('embed');
+        $provider ??= $embedDefault['provider'] ?? 'default';
+        $model ??= $embedDefault['model'] ?? 'default';
+        $dimensions = $this->config->embeddingDimensions;
 
         return hash('xxh128', "{$provider}:{$model}:{$dimensions}:{$input}");
     }

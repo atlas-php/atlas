@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence;
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Persistence\Models\Asset;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 use Atlasphp\Atlas\Persistence\Support\MimeTypeMap;
@@ -45,9 +46,9 @@ class ToolAssets
         $execution = $executionService->getExecution();
         $toolCall = $executionService->getCurrentToolCall();
 
-        $disk = config('atlas.storage.disk') ?? config('filesystems.default');
-        $prefix = config('atlas.storage.prefix', 'atlas');
-        $visibility = config('atlas.storage.visibility', 'private');
+        $disk = app(AtlasConfig::class)->storageDisk ?? config('filesystems.default', 'local');
+        $prefix = app(AtlasConfig::class)->storagePrefix;
+        $visibility = 'private';
 
         $extension = MimeTypeMap::toExtension($data['mime_type'] ?? null);
         $filename = Str::random(40).'.'.$extension;
@@ -56,7 +57,7 @@ class ToolAssets
         Storage::disk($disk)->put($path, $content, $visibility);
 
         /** @var class-string<Asset> $assetModel */
-        $assetModel = config('atlas.persistence.models.asset', Asset::class);
+        $assetModel = app(AtlasConfig::class)->model('asset', Asset::class);
 
         // Derive owner from execution's conversation — canonical source
         $conversation = $execution?->conversation;

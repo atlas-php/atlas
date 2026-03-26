@@ -302,7 +302,6 @@ return [
         'auto_store_assets' => env('ATLAS_AUTO_STORE_ASSETS', true),
 
         'voice_transcripts' => [
-            'enabled' => env('ATLAS_VOICE_TRANSCRIPTS', true),
             'middleware' => [],
             'route_prefix' => 'atlas',
         ],

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Concerns;
 
+use Atlasphp\Atlas\AtlasConfig;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -100,17 +101,17 @@ trait StoresMedia
 
     protected function defaultDisk(): string
     {
-        return config('atlas.storage.disk') ?? config('filesystems.default', 'local');
+        return app(AtlasConfig::class)->storageDisk ?? config('filesystems.default', 'local');
     }
 
     protected function defaultVisibility(): string
     {
-        return config('atlas.storage.visibility', 'private');
+        return 'private';
     }
 
     protected function generatePath(): string
     {
-        $prefix = config('atlas.storage.prefix', 'atlas');
+        $prefix = app(AtlasConfig::class)->storagePrefix;
 
         return $prefix.'/'.Str::uuid().'.'.$this->defaultExtension();
     }

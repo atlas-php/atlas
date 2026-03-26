@@ -332,7 +332,7 @@ Atlas::text('openai', 'gpt-4o')
 // Delay execution
 Atlas::text('openai', 'gpt-4o')
     ->queue()
-    ->withDelay(300)
+    ->withQueueDelay(300)
     ->message('Follow up in 5 minutes')
     ->asText();
 
@@ -361,7 +361,7 @@ Default queue settings in `config/atlas.php`:
 ],
 ```
 
-For per-request overrides (`withTimeout()`, `withTries()`, `withBackoff()`), long-running job configuration, retry behavior, and execution tracking details, see the [Queue & Background Jobs](/guides/queue) guide.
+For per-request queue overrides (`withQueueTimeout()`, `withQueueTries()`, `withQueueBackoff()`), HTTP retry (`withTimeout()`, `withRetry()`, `withoutRetry()`), and execution tracking, see the [Queue & Background Jobs](/guides/queue) guide.
 
 ## Provider Options
 

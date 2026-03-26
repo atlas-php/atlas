@@ -115,20 +115,16 @@ it('fires ExecutionFailed event on failure', function () {
     });
 });
 
-it('reads config values for tries, backoff, timeout', function () {
-    config()->set('atlas.queue.tries', 5);
-    config()->set('atlas.queue.backoff', 60);
-    config()->set('atlas.queue.timeout', 600);
-
+it('has default values for tries, backoff, timeout', function () {
     $job = new ExecuteAtlasJob(
         requestClass: 'Atlasphp\Atlas\Pending\TextRequest',
         terminal: 'asText',
         payload: [],
     );
 
-    expect($job->tries)->toBe(5);
-    expect($job->backoff)->toBe(60);
-    expect($job->timeout)->toBe(600);
+    expect($job->tries)->toBe(3);
+    expect($job->backoff)->toBe(30);
+    expect($job->timeout)->toBe(300);
 });
 
 it('invokes thenCallback with result on success', function () {

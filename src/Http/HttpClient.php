@@ -34,10 +34,7 @@ class HttpClient
      */
     public function get(string $url, array $headers, int $timeout): array
     {
-        $this->events->dispatch(new ProviderRequestStarted($url, []));
-
-        $response = Http::withHeaders($headers)->timeout($timeout)->get($url);
-        $this->handleFailure($url, $response);
+        $response = $this->sendGet($url, $headers, $timeout);
 
         $data = $response->json() ?? [];
         $this->events->dispatch(new ProviderRequestCompleted($url, $data));
@@ -48,14 +45,13 @@ class HttpClient
     /**
      * Send a GET request and return the raw response body.
      *
+     * Used for binary responses such as video content downloads.
+     *
      * @param  array<string, string>  $headers
      */
     public function getRaw(string $url, array $headers, int $timeout): string
     {
-        $this->events->dispatch(new ProviderRequestStarted($url, []));
-
-        $response = Http::withHeaders($headers)->timeout($timeout)->get($url);
-        $this->handleFailure($url, $response);
+        $response = $this->sendGet($url, $headers, $timeout);
 
         $this->events->dispatch(new ProviderRequestCompleted($url, []));
 
@@ -75,10 +71,7 @@ class HttpClient
     public function post(string $url, array $headers, array $body, int $timeout, ?RequestConfig $config = null): array
     {
         return $this->withRetry($config, $url, function () use ($url, $headers, $body, $timeout) {
-            $this->events->dispatch(new ProviderRequestStarted($url, $body));
-
-            $response = Http::withHeaders($headers)->timeout($timeout)->post($url, $body);
-            $this->handleFailure($url, $response);
+            $response = $this->sendPost($url, $headers, $body, $timeout);
 
             $data = $response->json() ?? [];
             $this->events->dispatch(new ProviderRequestCompleted($url, $data));
@@ -90,16 +83,15 @@ class HttpClient
     /**
      * Send a POST request and return the raw response body.
      *
+     * Used for binary responses such as audio generation.
+     *
      * @param  array<string, string>  $headers
      * @param  array<string, mixed>  $body
      */
     public function postRaw(string $url, array $headers, array $body, int $timeout, ?RequestConfig $config = null): string
     {
         return $this->withRetry($config, $url, function () use ($url, $headers, $body, $timeout) {
-            $this->events->dispatch(new ProviderRequestStarted($url, $body));
-
-            $response = Http::withHeaders($headers)->timeout($timeout)->post($url, $body);
-            $this->handleFailure($url, $response);
+            $response = $this->sendPost($url, $headers, $body, $timeout);
 
             $this->events->dispatch(new ProviderRequestCompleted($url, []));
 
@@ -146,7 +138,7 @@ class HttpClient
      * @param  array<string, string>  $headers
      * @param  array<string, mixed>  $body
      */
-    public function stream(string $url, array $headers, array $body, int $timeout, ?RequestConfig $config = null): mixed
+    public function stream(string $url, array $headers, array $body, int $timeout, ?RequestConfig $config = null): Response
     {
         return $this->withRetry($config, $url, function () use ($url, $headers, $body, $timeout) {
             $this->events->dispatch(new ProviderRequestStarted($url, $body));
@@ -162,6 +154,39 @@ class HttpClient
 
             return $response;
         });
+    }
+
+    // ─── Internal ─────────────────────────────────────────────────
+
+    /**
+     * Send a GET request, dispatch start event, and validate the response.
+     *
+     * @param  array<string, string>  $headers
+     */
+    private function sendGet(string $url, array $headers, int $timeout): Response
+    {
+        $this->events->dispatch(new ProviderRequestStarted($url, []));
+
+        $response = Http::withHeaders($headers)->timeout($timeout)->get($url);
+        $this->handleFailure($url, $response);
+
+        return $response;
+    }
+
+    /**
+     * Send a POST request, dispatch start event, and validate the response.
+     *
+     * @param  array<string, string>  $headers
+     * @param  array<string, mixed>  $body
+     */
+    private function sendPost(string $url, array $headers, array $body, int $timeout): Response
+    {
+        $this->events->dispatch(new ProviderRequestStarted($url, $body));
+
+        $response = Http::withHeaders($headers)->timeout($timeout)->post($url, $body);
+        $this->handleFailure($url, $response);
+
+        return $response;
     }
 
     /**

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Support;
 
+use Atlasphp\Atlas\AtlasConfig;
+
 /**
  * Global variable store for template interpolation across all modalities.
  *
@@ -15,6 +17,10 @@ class VariableRegistry
 {
     /** @var array<string, mixed> */
     protected array $variables = [];
+
+    public function __construct(
+        protected readonly AtlasConfig $config,
+    ) {}
 
     /**
      * Register a variable.
@@ -67,11 +73,9 @@ class VariableRegistry
      */
     public function merge(array $runtimeVariables = [], array $meta = []): array
     {
-        /** @var array<string, mixed> $config */
-        $config = config('atlas.variables', []);
         $global = $this->resolve($meta);
 
-        return array_replace_recursive($config, $global, $runtimeVariables);
+        return array_replace_recursive($this->config->variables, $global, $runtimeVariables);
     }
 
     /**

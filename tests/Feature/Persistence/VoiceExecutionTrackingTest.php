@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Events\VoiceSessionClosed;
 use Atlasphp\Atlas\Events\VoiceToolCallStarted;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
@@ -402,6 +403,7 @@ it('does not clean non-voice executions', function () {
 
 it('skips when persistence is disabled', function () {
     config(['atlas.persistence.enabled' => false]);
+    AtlasConfig::refresh();
 
     $this->artisan('atlas:clean-voice-sessions')
         ->assertExitCode(0)

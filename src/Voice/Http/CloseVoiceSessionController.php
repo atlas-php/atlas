@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Voice\Http;
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Events\VoiceCallCompleted;
 use Atlasphp\Atlas\Events\VoiceSessionClosed;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
@@ -24,6 +25,7 @@ class CloseVoiceSessionController
 {
     public function __construct(
         private readonly ExecutionService $executionService,
+        private readonly AtlasConfig $config,
     ) {}
 
     public function __invoke(Request $request, string $sessionId): Response
@@ -31,9 +33,9 @@ class CloseVoiceSessionController
         $voiceCall = null;
         $provider = 'unknown';
 
-        if (config('atlas.persistence.enabled')) {
+        if ($this->config->persistenceEnabled) {
             /** @var class-string<VoiceCall> $voiceCallModel */
-            $voiceCallModel = config('atlas.persistence.models.voice_call', VoiceCall::class);
+            $voiceCallModel = $this->config->model('voice_call', VoiceCall::class);
             $voiceCall = $voiceCallModel::forSession($sessionId)->first();
         }
 

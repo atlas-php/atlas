@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Persistence\Middleware;
 
 use Atlasphp\Atlas\Agent;
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Enums\Role;
 use Atlasphp\Atlas\Events\ConversationMessageStored;
 use Atlasphp\Atlas\Exceptions\AtlasException;
@@ -216,18 +217,8 @@ class PersistConversation
                 agentKey: $agentKey,
             );
 
-            $connection = config('atlas.queue.connection');
-            $queue = config('atlas.queue.queue', 'default');
-
-            if ($connection !== null) {
-                $job->onConnection($connection);
-            }
-
-            $job->onQueue($queue);
-
-            if (config('atlas.queue.after_commit', true)) {
-                $job->afterCommit();
-            }
+            $job->onQueue(app(AtlasConfig::class)->queue);
+            $job->afterCommit();
 
             dispatch($job);
         }
@@ -251,7 +242,7 @@ class PersistConversation
         }
 
         /** @var class-string<Asset> $assetModel */
-        $assetModel = config('atlas.persistence.models.asset', Asset::class);
+        $assetModel = app(AtlasConfig::class)->model('asset', Asset::class);
 
         $toolAssets = $assetModel::where('execution_id', $execution->id)
             ->whereNotNull('tool_call_id')

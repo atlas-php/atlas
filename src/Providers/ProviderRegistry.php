@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Providers;
 
 use Atlasphp\Atlas\AtlasCache;
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Exceptions\ProviderNotFoundException;
 use Atlasphp\Atlas\Http\HttpClient;
@@ -30,6 +31,7 @@ class ProviderRegistry implements ProviderRegistryContract
 
     public function __construct(
         protected readonly Application $app,
+        protected readonly AtlasConfig $config,
     ) {}
 
     /**
@@ -53,15 +55,15 @@ class ProviderRegistry implements ProviderRegistryContract
             return $this->resolved[$key];
         }
 
-        /** @var array<string, mixed> $config */
-        $config = config("atlas.providers.{$key}", []);
+        /** @var array<string, mixed> $providerConfig */
+        $providerConfig = $this->config->providers[$key] ?? [];
 
         if (isset($this->factories[$key])) {
-            return $this->resolved[$key] = ($this->factories[$key])($this->app, $config);
+            return $this->resolved[$key] = ($this->factories[$key])($this->app, $providerConfig);
         }
 
-        if (isset($config['driver'])) {
-            return $this->resolved[$key] = $this->resolveFromDriver($key, $config);
+        if (isset($providerConfig['driver'])) {
+            return $this->resolved[$key] = $this->resolveFromDriver($key, $providerConfig);
         }
 
         throw new ProviderNotFoundException($key);
@@ -102,7 +104,7 @@ class ProviderRegistry implements ProviderRegistryContract
      */
     public function has(string $key): bool
     {
-        return isset($this->factories[$key]) || config("atlas.providers.{$key}.driver") !== null;
+        return isset($this->factories[$key]) || isset($this->config->providers[$key]['driver']);
     }
 
     /**
@@ -115,11 +117,8 @@ class ProviderRegistry implements ProviderRegistryContract
      */
     public function available(): array
     {
-        /** @var array<string, mixed> $configProviders */
-        $configProviders = config('atlas.providers', []);
-
         $configKeys = array_keys(
-            array_filter($configProviders, fn (mixed $v): bool => is_array($v) && isset($v['driver']))
+            array_filter($this->config->providers, fn (array $v): bool => isset($v['driver']))
         );
 
         return array_values(array_unique([...array_keys($this->factories), ...$configKeys]));

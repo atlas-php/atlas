@@ -39,10 +39,14 @@ class AtlasServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__.'/../config/atlas.php', 'atlas');
 
+        // Register persistence middleware into config BEFORE AtlasConfig
+        // singleton is created, so the snapshot includes them.
+        $this->registerPersistenceMiddleware();
+
         $this->app->singleton(AtlasConfig::class, fn () => AtlasConfig::fromConfig());
 
         $this->app->singleton(ProviderRegistryContract::class, function ($app) {
-            return new ProviderRegistry($app);
+            return new ProviderRegistry($app, $app->make(AtlasConfig::class));
         });
 
         $this->app->singleton(AgentRegistry::class, function ($app) {
@@ -53,6 +57,7 @@ class AtlasServiceProvider extends ServiceProvider
             return new AtlasManager(
                 $app->make(ProviderRegistryContract::class),
                 $app,
+                $app->make(AtlasConfig::class),
             );
         });
 
@@ -71,11 +76,18 @@ class AtlasServiceProvider extends ServiceProvider
 
         $this->app->scoped(ExecutionService::class);
 
-        $this->app->singleton(VariableRegistry::class);
+        $this->app->singleton(VariableRegistry::class, function ($app) {
+            return new VariableRegistry($app->make(AtlasConfig::class));
+        });
 
-        $this->app->singleton(AtlasCache::class);
+        $this->app->singleton(AtlasCache::class, function ($app) {
+            return new AtlasCache($app->make(AtlasConfig::class));
+        });
         $this->app->singleton(EmbeddingResolver::class, function ($app) {
-            return new EmbeddingResolver($app->make(AtlasCache::class));
+            return new EmbeddingResolver(
+                $app->make(AtlasCache::class),
+                $app->make(AtlasConfig::class),
+            );
         });
     }
 
@@ -101,7 +113,6 @@ class AtlasServiceProvider extends ServiceProvider
         }
 
         $this->registerBuiltInVariables();
-        $this->registerPersistenceMiddleware();
         $this->registerVoiceRoutes();
         $this->registerVectorMacros();
     }
@@ -109,30 +120,35 @@ class AtlasServiceProvider extends ServiceProvider
     /**
      * Auto-register persistence middleware when enabled.
      */
+    /**
+     * Append persistence middleware to config before AtlasConfig is created.
+     *
+     * Called in register() BEFORE the AtlasConfig singleton binding so the
+     * snapshot includes these middleware classes. Config remains the source
+     * of truth — consumers can see all middleware via config('atlas.middleware').
+     */
     protected function registerPersistenceMiddleware(): void
     {
         if (! config('atlas.persistence.enabled')) {
             return;
         }
 
-        $this->app->booted(function (): void {
-            $agentMiddleware = config('atlas.middleware.agent', []);
-            $agentMiddleware[] = Persistence\Middleware\PersistConversation::class;
-            $agentMiddleware[] = Persistence\Middleware\TrackExecution::class;
-            config(['atlas.middleware.agent' => $agentMiddleware]);
+        $agent = config('atlas.middleware.agent', []);
+        $agent[] = Persistence\Middleware\PersistConversation::class;
+        $agent[] = Persistence\Middleware\TrackExecution::class;
+        config(['atlas.middleware.agent' => $agent]);
 
-            $stepMiddleware = config('atlas.middleware.step', []);
-            $stepMiddleware[] = Persistence\Middleware\TrackStep::class;
-            config(['atlas.middleware.step' => $stepMiddleware]);
+        $step = config('atlas.middleware.step', []);
+        $step[] = Persistence\Middleware\TrackStep::class;
+        config(['atlas.middleware.step' => $step]);
 
-            $toolMiddleware = config('atlas.middleware.tool', []);
-            $toolMiddleware[] = Persistence\Middleware\TrackToolCall::class;
-            config(['atlas.middleware.tool' => $toolMiddleware]);
+        $tool = config('atlas.middleware.tool', []);
+        $tool[] = Persistence\Middleware\TrackToolCall::class;
+        config(['atlas.middleware.tool' => $tool]);
 
-            $providerMiddleware = config('atlas.middleware.provider', []);
-            $providerMiddleware[] = Persistence\Middleware\TrackProviderCall::class;
-            config(['atlas.middleware.provider' => $providerMiddleware]);
-        });
+        $provider = config('atlas.middleware.provider', []);
+        $provider[] = Persistence\Middleware\TrackProviderCall::class;
+        config(['atlas.middleware.provider' => $provider]);
     }
 
     /**
@@ -141,8 +157,9 @@ class AtlasServiceProvider extends ServiceProvider
     protected function registerVoiceRoutes(): void
     {
         $this->app->booted(function (): void {
-            $prefix = config('atlas.persistence.voice_transcripts.route_prefix', 'atlas');
-            $middleware = config('atlas.persistence.voice_transcripts.middleware', []);
+            $config = app(AtlasConfig::class);
+            $prefix = $config->voiceTranscripts['route_prefix'] ?? 'atlas';
+            $middleware = $config->voiceTranscripts['middleware'] ?? [];
 
             Route::prefix($prefix)
                 ->middleware($middleware)
@@ -168,7 +185,7 @@ class AtlasServiceProvider extends ServiceProvider
      */
     protected function registerVectorMacros(): void
     {
-        if (! config('atlas.persistence.enabled', false)) {
+        if (! app(AtlasConfig::class)->persistenceEnabled) {
             return;
         }
 

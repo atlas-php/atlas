@@ -4,15 +4,6 @@ declare(strict_types=1);
 
 return [
 
-    /*
-    |--------------------------------------------------------------------------
-    | Default Provider & Model
-    |--------------------------------------------------------------------------
-    |
-    | The default provider and model used when none is explicitly specified.
-    |
-    */
-
     'defaults' => [
         'text' => ['provider' => env('ATLAS_TEXT_PROVIDER', 'openai'), 'model' => env('ATLAS_TEXT_MODEL', 'gpt-5.2')],
         'image' => ['provider' => env('ATLAS_IMAGE_PROVIDER', 'xai'), 'model' => env('ATLAS_IMAGE_MODEL', 'grok-imagine-image')],
@@ -22,16 +13,6 @@ return [
         'rerank' => ['provider' => env('ATLAS_RERANK_PROVIDER'), 'model' => env('ATLAS_RERANK_MODEL')],
         'voice' => ['provider' => env('ATLAS_VOICE_PROVIDER', 'xai'), 'model' => env('ATLAS_VOICE_MODEL', 'grok-3-fast-realtime')],
     ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Provider Configurations
-    |--------------------------------------------------------------------------
-    |
-    | Configuration for each AI provider. Each provider requires at minimum
-    | an API key. Additional provider-specific options can be set here.
-    |
-    */
 
     'providers' => [
 
@@ -67,8 +48,6 @@ return [
             'url' => env('JINA_URL', 'https://api.jina.ai'),
         ],
 
-        // ─── Custom Providers (Chat Completions compatible) ─────────────
-
         'lmstudio' => [
             'driver' => 'chat_completions',
             'api_key' => env('LMSTUDIO_API_KEY', 'lm-studio'),
@@ -77,33 +56,17 @@ return [
 
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Timeout Configuration
-    |--------------------------------------------------------------------------
-    |
-    | Request timeout values in seconds for different operation types.
-    |
-    */
-
-    'timeout' => [
-        'default' => (int) env('ATLAS_TIMEOUT', 60),
-        'reasoning' => (int) env('ATLAS_TIMEOUT_REASONING', 300),
-        'media' => (int) env('ATLAS_TIMEOUT_MEDIA', 120),
+    'retry' => [
+        'timeout' => (int) env('ATLAS_TIMEOUT', 60),
+        'rate_limit' => (int) env('ATLAS_RETRY_RATE_LIMIT', 3),
+        'errors' => (int) env('ATLAS_RETRY_ERRORS', 2),
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Middleware
-    |--------------------------------------------------------------------------
-    |
-    | Global middleware applied at each layer of Atlas execution.
-    | Provider middleware runs on every HTTP call to an AI provider.
-    | Step middleware runs on each executor round trip.
-    | Tool middleware runs on each tool execution.
-    | Agent middleware runs on each agent execution.
-    |
-    */
+    'queue' => env('ATLAS_QUEUE', 'default'),
+
+    'stream' => [
+        'chunk_delay_us' => (int) env('ATLAS_STREAM_CHUNK_DELAY_US', 15_000),
+    ],
 
     'middleware' => [
         'provider' => [],
@@ -112,86 +75,40 @@ return [
         'agent' => [],
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Variables
-    |--------------------------------------------------------------------------
-    |
-    | Static variables available in all instructions across all modalities.
-    |
-    */
-
     'variables' => [
         'APP_NAME' => env('APP_NAME', 'Atlas Sandbox'),
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Queue
-    |--------------------------------------------------------------------------
-    |
-    | Configuration for queued Atlas executions.
-    |
-    */
-
-    'queue' => [
-        'connection' => env('ATLAS_QUEUE_CONNECTION'),
-        'queue' => env('ATLAS_QUEUE', 'default'),
-        'tries' => (int) env('ATLAS_QUEUE_TRIES', 3),
-        'backoff' => (int) env('ATLAS_QUEUE_BACKOFF', 30),
-        'timeout' => (int) env('ATLAS_QUEUE_TIMEOUT', 300),
-        'after_commit' => (bool) env('ATLAS_QUEUE_AFTER_COMMIT', true),
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Media Storage
-    |--------------------------------------------------------------------------
-    |
-    | Configure how Atlas stores media files (images, audio, video).
-    |
-    */
-
     'storage' => [
         'disk' => env('ATLAS_STORAGE_DISK'),
         'prefix' => 'atlas',
-        'visibility' => 'private',
     ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Embeddings
-    |--------------------------------------------------------------------------
-    */
 
     'embeddings' => [
         'dimensions' => (int) env('ATLAS_EMBEDDING_DIMENSIONS', 1536),
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Persistence
-    |--------------------------------------------------------------------------
-    */
+    'cache' => [
+        'store' => env('ATLAS_CACHE_STORE'),
+        'prefix' => 'atlas',
+        'ttl' => [
+            'models' => (int) env('ATLAS_CACHE_MODELS_TTL', 86400),
+            'voices' => (int) env('ATLAS_CACHE_VOICES_TTL', 3600),
+            'embeddings' => (int) env('ATLAS_CACHE_EMBEDDINGS_TTL', 0),
+        ],
+    ],
 
     'persistence' => [
         'enabled' => env('ATLAS_PERSISTENCE_ENABLED', true),
         'table_prefix' => env('ATLAS_TABLE_PREFIX', 'atlas_'),
         'message_limit' => (int) env('ATLAS_MESSAGE_LIMIT', 50),
         'auto_store_assets' => env('ATLAS_AUTO_STORE_ASSETS', true),
-        'memory_auto_embed' => env('ATLAS_MEMORY_AUTO_EMBED', true),
         'voice_transcripts' => [
-            'enabled' => true,
             'middleware' => [],
             'route_prefix' => 'atlas',
         ],
+        'voice_session_ttl' => (int) env('ATLAS_VOICE_SESSION_TTL', 60),
     ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Agents
-    |--------------------------------------------------------------------------
-    */
 
     'agents' => [
         'path' => __DIR__.'/../app/Agents',

@@ -7,6 +7,7 @@ namespace Atlasphp\Atlas\Pending;
 use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\AgentRegistry;
 use Atlasphp\Atlas\Atlas;
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Enums\Role;
@@ -136,6 +137,7 @@ class AgentRequest implements QueueableRequest
         protected readonly ProviderRegistryContract $providerRegistry,
         protected readonly Application $app,
         protected readonly Dispatcher $events,
+        protected readonly AtlasConfig $config,
     ) {}
 
     // ─── Primary ────────────────────────────────────────────────────
@@ -499,7 +501,7 @@ class AgentRequest implements QueueableRequest
         // Resolve provider/model — voice agents should define their own provider() and model()
         $provider = $this->providerOverride
             ?? $agent->provider()
-            ?? config('atlas.defaults.voice.provider');
+            ?? $this->config->defaultFor('voice')['provider'] ?? null;
 
         if ($provider === null) {
             throw AtlasException::missingDefault('voice');
@@ -507,7 +509,7 @@ class AgentRequest implements QueueableRequest
 
         $model = $this->modelOverride
             ?? $agent->model()
-            ?? config('atlas.defaults.voice.model');
+            ?? $this->config->defaultFor('voice')['model'] ?? null;
 
         $builder = Atlas::voice($provider, $model);
 
@@ -565,12 +567,12 @@ class AgentRequest implements QueueableRequest
         // Create execution record for voice session tracking
         $executionId = null;
 
-        if (config('atlas.persistence.enabled')) {
+        if ($this->config->persistenceEnabled) {
             try {
                 $providerKey = $provider instanceof Provider ? $provider->value : (string) $provider;
 
                 /** @var class-string<Execution> $executionModel */
-                $executionModel = config('atlas.persistence.models.execution', Execution::class);
+                $executionModel = $this->config->model('execution', Execution::class);
 
                 $execution = $executionModel::create([
                     'conversation_id' => $this->conversationId,
@@ -586,7 +588,7 @@ class AgentRequest implements QueueableRequest
 
                 // Create VoiceCall record for transcript storage
                 /** @var class-string<VoiceCall> $voiceCallModel */
-                $voiceCallModel = config('atlas.persistence.models.voice_call', VoiceCall::class);
+                $voiceCallModel = $this->config->model('voice_call', VoiceCall::class);
 
                 $voiceOwner = $this->messageOwner ?? $this->conversationOwner;
 
@@ -620,16 +622,16 @@ class AgentRequest implements QueueableRequest
         }
 
         // Store tool class map + execution IDs in cache for the tool execution endpoint
-        if ($toolMap !== [] || config('atlas.persistence.enabled')) {
+        if ($toolMap !== [] || $this->config->persistenceEnabled) {
             Cache::put("voice:{$session->sessionId}:tools", [
                 'tools' => $toolMap,
                 'user_id' => $this->messageOwner?->getKey(),
                 'execution_id' => $executionId,
-            ], (int) config('atlas.persistence.voice_session_ttl', 60) * 60);
+            ], (int) $this->config->voiceSessionTtl * 60);
         }
 
         // Build endpoint URLs — always available (controllers gracefully skip when persistence is off)
-        $prefix = config('atlas.persistence.voice_transcripts.route_prefix', 'atlas');
+        $prefix = $this->config->voiceTranscripts['route_prefix'] ?? 'atlas';
         $toolEndpoint = $toolMap !== [] ? url("/{$prefix}/voice/{$session->sessionId}/tool") : null;
         $transcriptEndpoint = url("/{$prefix}/voice/{$session->sessionId}/transcript");
         $closeEndpoint = url("/{$prefix}/voice/{$session->sessionId}/close");
@@ -663,7 +665,7 @@ class AgentRequest implements QueueableRequest
      */
     private function storeUserMessageEagerly(): void
     {
-        if (! config('atlas.persistence.enabled')) {
+        if (! $this->config->persistenceEnabled) {
             return;
         }
 
@@ -739,12 +741,12 @@ class AgentRequest implements QueueableRequest
         foreach ($media as $input) {
             try {
                 $contents = $input->contents();
-                $disk = config('atlas.storage.disk') ?? config('filesystems.default', 'local');
-                $prefix = config('atlas.storage.prefix', 'atlas');
+                $disk = $this->config->storageDisk ?? config('filesystems.default', 'local');
+                $prefix = $this->config->storagePrefix;
                 $mime = $input->mimeType();
 
-                $assetModel = config('atlas.persistence.models.asset', Asset::class);
-                $attachmentModel = config('atlas.persistence.models.conversation_message_asset', ConversationMessageAsset::class);
+                $assetModel = $this->config->model('asset', Asset::class);
+                $attachmentModel = $this->config->model('conversation_message_asset', ConversationMessageAsset::class);
 
                 $type = match (true) {
                     str_starts_with($mime, 'image/') => AssetType::Image,
@@ -757,7 +759,7 @@ class AgentRequest implements QueueableRequest
                 $filename = Str::uuid()->toString().'.'.$extension;
                 $path = $prefix.'/assets/'.$filename;
 
-                Storage::disk($disk)->put($path, $contents, config('atlas.storage.visibility', 'private'));
+                Storage::disk($disk)->put($path, $contents, 'private');
 
                 DB::transaction(function () use ($assetModel, $attachmentModel, $messageId, $path, $filename, $disk, $mime, $contents, $owner, $type): void {
                     $asset = $assetModel::create([
@@ -840,7 +842,7 @@ class AgentRequest implements QueueableRequest
     {
         $provider = $this->providerOverride
             ?? $agent->provider()
-            ?? config('atlas.defaults.text.provider');
+            ?? $this->config->defaultFor('text')['provider'] ?? null;
 
         if ($provider === null) {
             throw AtlasException::missingDefault('agent');
@@ -906,7 +908,7 @@ class AgentRequest implements QueueableRequest
         // Resolve model
         $model = $this->modelOverride
             ?? $agent->model()
-            ?? config('atlas.defaults.text.model');
+            ?? $this->config->defaultFor('text')['model'] ?? null;
 
         if ($model === null || $model === '') {
             throw AtlasException::missingDefault('agent model');
@@ -1010,7 +1012,7 @@ class AgentRequest implements QueueableRequest
             meta: $this->meta,
         );
 
-        $middleware = config('atlas.middleware.agent', []);
+        $middleware = $this->config->middleware['agent'] ?? [];
 
         if ($middleware === []) {
             return $destination($context);
@@ -1253,7 +1255,7 @@ class AgentRequest implements QueueableRequest
             return Provider::normalize($provider);
         }
 
-        return (string) config('atlas.defaults.text.provider', 'openai');
+        return (string) ($this->config->defaultFor('text')['provider'] ?? 'openai');
     }
 
     /**
@@ -1267,6 +1269,6 @@ class AgentRequest implements QueueableRequest
 
         $agent = $this->agentRegistry->resolve($this->key);
 
-        return $agent->model() ?? (string) config('atlas.defaults.text.model', '');
+        return $agent->model() ?? (string) ($this->config->defaultFor('text')['model'] ?? '');
     }
 }

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Queue\Jobs;
 
-use Atlasphp\Atlas\Concerns\ConfiguresAtlasJob;
 use Atlasphp\Atlas\Events\ExecutionCompleted;
 use Atlasphp\Atlas\Events\ExecutionFailed;
 use Atlasphp\Atlas\Exceptions\MaxStepsExceededException;
@@ -28,18 +27,17 @@ use Throwable;
  */
 class ExecuteAtlasJob implements ShouldQueue
 {
-    use ConfiguresAtlasJob;
     use Dispatchable;
     use InteractsWithQueue;
     use Queueable;
     use SerializesModels;
     use TracksExecution;
 
-    public int $tries;
+    public int $tries = 3;
 
-    public int $backoff;
+    public int $backoff = 30;
 
-    public int $timeout;
+    public int $timeout = 300;
 
     public ?SerializableClosure $thenCallback = null;
 
@@ -58,9 +56,7 @@ class ExecuteAtlasJob implements ShouldQueue
         public readonly array $payload,
         public readonly ?int $executionId = null,
         public readonly ?Channel $broadcastChannel = null,
-    ) {
-        $this->applyQueueConfig();
-    }
+    ) {}
 
     public function handle(): void
     {

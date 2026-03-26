@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Middleware\ProviderContext;
 use Atlasphp\Atlas\Persistence\Enums\AssetType;
@@ -94,6 +95,7 @@ it('stores asset for image response', function () {
     config()->set('atlas.storage.disk', 'local');
     config()->set('atlas.storage.prefix', 'atlas');
     config()->set('atlas.persistence.auto_store_assets', true);
+    AtlasConfig::refresh();
 
     $service = new ExecutionService;
     $middleware = new TrackProviderCall($service);
@@ -144,6 +146,7 @@ it('stores asset for audio response', function () {
     config()->set('atlas.storage.disk', 'local');
     config()->set('atlas.storage.prefix', 'atlas');
     config()->set('atlas.persistence.auto_store_assets', true);
+    AtlasConfig::refresh();
 
     $service = new ExecutionService;
     $middleware = new TrackProviderCall($service);
@@ -216,6 +219,7 @@ it('respects auto_store_assets config', function () {
     Storage::fake('local');
     config()->set('atlas.storage.disk', 'local');
     config()->set('atlas.persistence.auto_store_assets', false);
+    AtlasConfig::refresh();
 
     $service = new ExecutionService;
     $middleware = new TrackProviderCall($service);
@@ -258,6 +262,7 @@ it('still stores assets when inside agent execution', function () {
     config()->set('atlas.storage.disk', 'local');
     config()->set('atlas.storage.prefix', 'atlas');
     config()->set('atlas.persistence.auto_store_assets', true);
+    AtlasConfig::refresh();
 
     $service = new ExecutionService;
 
@@ -309,6 +314,7 @@ it('stores asset for video response', function () {
     config()->set('atlas.storage.disk', 'local');
     config()->set('atlas.storage.prefix', 'atlas');
     config()->set('atlas.persistence.auto_store_assets', true);
+    AtlasConfig::refresh();
 
     $service = new ExecutionService;
     $middleware = new TrackProviderCall($service);
@@ -429,6 +435,7 @@ it('resolves default extension for unknown mime type', function () {
     config()->set('atlas.storage.disk', 'local');
     config()->set('atlas.storage.prefix', 'atlas');
     config()->set('atlas.persistence.auto_store_assets', true);
+    AtlasConfig::refresh();
 
     $service = new ExecutionService;
     $middleware = new TrackProviderCall($service);
@@ -475,6 +482,7 @@ it('resolves png extension for image/png mime type', function () {
     config()->set('atlas.storage.disk', 'local');
     config()->set('atlas.storage.prefix', 'atlas');
     config()->set('atlas.persistence.auto_store_assets', true);
+    AtlasConfig::refresh();
 
     $service = new ExecutionService;
     $middleware = new TrackProviderCall($service);
@@ -521,6 +529,7 @@ it('links asset to current tool call when inside tool execution', function () {
     config()->set('atlas.storage.disk', 'local');
     config()->set('atlas.storage.prefix', 'atlas');
     config()->set('atlas.persistence.auto_store_assets', true);
+    AtlasConfig::refresh();
 
     $service = new ExecutionService;
 
@@ -593,6 +602,7 @@ it('resolves mp3 extension for audio response with unknown mime type', function 
     config()->set('atlas.storage.disk', 'local');
     config()->set('atlas.storage.prefix', 'atlas');
     config()->set('atlas.persistence.auto_store_assets', true);
+    AtlasConfig::refresh();
 
     $service = new ExecutionService;
     $middleware = new TrackProviderCall($service);
@@ -637,6 +647,7 @@ it('resolves mp4 extension for video response with unknown mime type', function 
     config()->set('atlas.storage.disk', 'local');
     config()->set('atlas.storage.prefix', 'atlas');
     config()->set('atlas.persistence.auto_store_assets', true);
+    AtlasConfig::refresh();
 
     $service = new ExecutionService;
     $middleware = new TrackProviderCall($service);
@@ -681,6 +692,7 @@ it('resolves known mime type extensions in middleware', function (string $method
     config()->set('atlas.storage.disk', 'local');
     config()->set('atlas.storage.prefix', 'atlas');
     config()->set('atlas.persistence.auto_store_assets', true);
+    AtlasConfig::refresh();
 
     $service = new ExecutionService;
     $middleware = new TrackProviderCall($service);
@@ -734,6 +746,7 @@ it('sets asset on response when response has asset property', function () {
     config()->set('atlas.storage.disk', 'local');
     config()->set('atlas.storage.prefix', 'atlas');
     config()->set('atlas.persistence.auto_store_assets', true);
+    AtlasConfig::refresh();
 
     $service = new ExecutionService;
     $middleware = new TrackProviderCall($service);
@@ -782,6 +795,7 @@ it('does not set asset on response without asset property', function () {
     config()->set('atlas.storage.disk', 'local');
     config()->set('atlas.storage.prefix', 'atlas');
     config()->set('atlas.persistence.auto_store_assets', true);
+    AtlasConfig::refresh();
 
     $service = new ExecutionService;
     $middleware = new TrackProviderCall($service);
@@ -827,6 +841,7 @@ it('makes asset available via ExecutionService getLastAsset', function () {
     config()->set('atlas.storage.disk', 'local');
     config()->set('atlas.storage.prefix', 'atlas');
     config()->set('atlas.persistence.auto_store_assets', true);
+    AtlasConfig::refresh();
 
     $service = new ExecutionService;
     $middleware = new TrackProviderCall($service);
@@ -879,6 +894,7 @@ it('getLastAsset is cleared on execution service reset', function () {
     config()->set('atlas.storage.disk', 'local');
     config()->set('atlas.storage.prefix', 'atlas');
     config()->set('atlas.persistence.auto_store_assets', true);
+    AtlasConfig::refresh();
 
     $service = new ExecutionService;
     $middleware = new TrackProviderCall($service);
@@ -927,6 +943,7 @@ it('resolves mime type from response format property when mimeType method is abs
     config()->set('atlas.storage.disk', 'local');
     config()->set('atlas.storage.prefix', 'atlas');
     config()->set('atlas.persistence.auto_store_assets', true);
+    AtlasConfig::refresh();
 
     $service = new ExecutionService;
     $middleware = new TrackProviderCall($service);
@@ -1052,6 +1069,7 @@ it('derives asset owner from execution conversation', function () {
     config()->set('atlas.storage.disk', 'local');
     config()->set('atlas.storage.prefix', 'atlas');
     config()->set('atlas.persistence.auto_store_assets', true);
+    AtlasConfig::refresh();
 
     $service = new ExecutionService;
 

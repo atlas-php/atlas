@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Atlas;
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Testing\ImageResponseFake;
 
 it('interpolates instructions for image requests', function () {
@@ -18,6 +19,7 @@ it('interpolates instructions for image requests', function () {
 
 it('withVariables works on ImageRequest', function () {
     config(['atlas.variables' => ['STYLE' => 'minimalist']]);
+    AtlasConfig::refresh();
 
     $fake = Atlas::fake([ImageResponseFake::make()]);
 

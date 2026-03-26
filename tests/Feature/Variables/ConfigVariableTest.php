@@ -3,11 +3,13 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Atlas;
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Support\VariableRegistry;
 use Atlasphp\Atlas\Testing\TextResponseFake;
 
 it('config variables are available in instructions', function () {
     config(['atlas.variables' => ['BRAND' => 'TestBrand']]);
+    AtlasConfig::refresh();
 
     $fake = Atlas::fake([TextResponseFake::make()]);
 
@@ -23,6 +25,7 @@ it('nested config arrays accessible via dot notation', function () {
     config(['atlas.variables' => [
         'COMPANY' => ['NAME' => 'Acme', 'SUPPORT_EMAIL' => 'help@acme.com'],
     ]]);
+    AtlasConfig::refresh();
 
     $fake = Atlas::fake([TextResponseFake::make()]);
 
@@ -36,6 +39,7 @@ it('nested config arrays accessible via dot notation', function () {
 
 it('config overridden by registry', function () {
     config(['atlas.variables' => ['NAME' => 'Config']]);
+    AtlasConfig::refresh();
 
     $registry = app(VariableRegistry::class);
     $registry->register('NAME', 'Registry');
@@ -52,6 +56,7 @@ it('config overridden by registry', function () {
 
 it('config overridden by per-call variables', function () {
     config(['atlas.variables' => ['NAME' => 'Config']]);
+    AtlasConfig::refresh();
 
     $fake = Atlas::fake([TextResponseFake::make()]);
 
@@ -66,6 +71,7 @@ it('config overridden by per-call variables', function () {
 
 it('empty config causes no errors', function () {
     config(['atlas.variables' => []]);
+    AtlasConfig::refresh();
 
     $fake = Atlas::fake([TextResponseFake::make()]);
 

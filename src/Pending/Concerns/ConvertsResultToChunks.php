@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Pending\Concerns;
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Executor\ExecutorResult;
 use Atlasphp\Atlas\Responses\StreamChunk;
@@ -100,7 +101,7 @@ trait ConvertsResultToChunks
                 // Small delay between chunks so broadcast consumers (WebSocket UI)
                 // receive them as a visible typing stream rather than one instant batch.
                 // Set ATLAS_STREAM_CHUNK_DELAY_US=0 in tests or CLI to eliminate the delay.
-                $delay = (int) config('atlas.stream.chunk_delay_us', 15_000);
+                $delay = app(AtlasConfig::class)->streamChunkDelayUs;
 
                 if ($delay > 0) {
                     usleep($delay);

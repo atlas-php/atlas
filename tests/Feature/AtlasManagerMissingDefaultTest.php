@@ -2,11 +2,13 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\AtlasManager;
 use Atlasphp\Atlas\Exceptions\AtlasException;
 
 it('throws AtlasException when no provider configured for text', function () {
     config()->set('atlas.defaults.text', []);
+    AtlasConfig::refresh();
 
     $manager = app(AtlasManager::class);
     $manager->text();
@@ -14,6 +16,7 @@ it('throws AtlasException when no provider configured for text', function () {
 
 it('throws AtlasException when no provider configured for image', function () {
     config()->set('atlas.defaults.image', []);
+    AtlasConfig::refresh();
 
     $manager = app(AtlasManager::class);
     $manager->image();
@@ -21,6 +24,7 @@ it('throws AtlasException when no provider configured for image', function () {
 
 it('throws AtlasException when no provider configured for video', function () {
     config()->set('atlas.defaults.video', []);
+    AtlasConfig::refresh();
 
     $manager = app(AtlasManager::class);
     $manager->video();
@@ -28,6 +32,7 @@ it('throws AtlasException when no provider configured for video', function () {
 
 it('throws AtlasException when no provider configured for embed', function () {
     config()->set('atlas.defaults.embed', []);
+    AtlasConfig::refresh();
 
     $manager = app(AtlasManager::class);
     $manager->embed();
@@ -35,6 +40,7 @@ it('throws AtlasException when no provider configured for embed', function () {
 
 it('throws AtlasException when no provider configured for moderate', function () {
     config()->set('atlas.defaults.moderate', []);
+    AtlasConfig::refresh();
 
     $manager = app(AtlasManager::class);
     $manager->moderate();
@@ -42,6 +48,7 @@ it('throws AtlasException when no provider configured for moderate', function ()
 
 it('throws AtlasException when no provider configured for rerank', function () {
     config()->set('atlas.defaults.rerank', []);
+    AtlasConfig::refresh();
 
     $manager = app(AtlasManager::class);
     $manager->rerank();
@@ -49,6 +56,7 @@ it('throws AtlasException when no provider configured for rerank', function () {
 
 it('includes env var hint in exception message', function () {
     config()->set('atlas.defaults.text', []);
+    AtlasConfig::refresh();
 
     try {
         app(AtlasManager::class)->text();

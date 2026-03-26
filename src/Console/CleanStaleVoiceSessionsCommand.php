@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Console;
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Persistence\Enums\VoiceCallStatus;
 use Atlasphp\Atlas\Persistence\Models\VoiceCall;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
@@ -27,16 +28,16 @@ class CleanStaleVoiceSessionsCommand extends Command
 
     public function handle(ExecutionService $executionService): int
     {
-        if (! config('atlas.persistence.enabled')) {
+        if (! app(AtlasConfig::class)->persistenceEnabled) {
             $this->info('Persistence is not enabled. Nothing to clean.');
 
             return self::SUCCESS;
         }
 
-        $ttl = (int) ($this->option('ttl') ?? config('atlas.persistence.voice_session_ttl', 60));
+        $ttl = (int) ($this->option('ttl') ?? app(AtlasConfig::class)->voiceSessionTtl);
 
         /** @var class-string<VoiceCall> $voiceCallModel */
-        $voiceCallModel = config('atlas.persistence.models.voice_call', VoiceCall::class);
+        $voiceCallModel = app(AtlasConfig::class)->model('voice_call', VoiceCall::class);
 
         $cutoff = now()->subMinutes($ttl);
 

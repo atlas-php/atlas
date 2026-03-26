@@ -30,32 +30,27 @@ Every modality supports queuing: text, image, audio, video, embeddings, moderati
 
 ## Configuration
 
-Default settings in `config/atlas.php`:
+The default queue name is set in `config/atlas.php`:
 
 ```php
-'queue' => [
-    'connection' => env('ATLAS_QUEUE_CONNECTION'),              // null = Laravel default
-    'queue'      => env('ATLAS_QUEUE', 'default'),              // Queue name
-    'tries'      => (int) env('ATLAS_QUEUE_TRIES', 3),         // Retry attempts
-    'backoff'    => (int) env('ATLAS_QUEUE_BACKOFF', 30),      // Seconds between retries
-    'timeout'    => (int) env('ATLAS_QUEUE_TIMEOUT', 300),     // Job timeout (seconds)
-    'after_commit' => (bool) env('ATLAS_QUEUE_AFTER_COMMIT', true),
-],
+'queue' => env('ATLAS_QUEUE', 'default'),
 ```
+
+Worker configuration (retry attempts, backoff, job timeout) belongs in your queue supervisor or `config/horizon.php`, not in Atlas config. Atlas jobs default to 3 tries, 30s backoff, and 300s timeout.
 
 ## Per-Request Overrides
 
-Override any queue setting on a per-request basis:
+Override queue settings on a per-request basis:
 
 ```php
 Atlas::text('openai', 'gpt-4o')
     ->message('Generate comprehensive report')
-    ->queue('atlas-heavy')          // Custom queue name
-    ->onConnection('redis')         // Custom connection
-    ->withTimeout(3600)             // 1 hour timeout
-    ->withTries(1)                  // No retries (expensive operation)
-    ->withBackoff(60)               // 60s between retries
-    ->withDelay(30)                 // Delay 30s before processing
+    ->queue('atlas-heavy')              // Custom queue name
+    ->onConnection('redis')             // Custom connection
+    ->withQueueTimeout(3600)            // 1 hour job timeout
+    ->withQueueTries(1)                 // No retries (expensive operation)
+    ->withQueueBackoff(60)              // 60s between retries
+    ->withQueueDelay(30)                     // Delay 30s before processing
     ->asText();
 ```
 
@@ -66,22 +61,56 @@ Atlas::text('openai', 'gpt-4o')
 | `queue(?string $name)` | Enable queuing, optionally set queue name | `'default'` |
 | `onConnection(string $conn)` | Override queue connection | Laravel default |
 | `onQueue(string $queue)` | Override queue name | Config value |
-| `withTimeout(int $seconds)` | Override job timeout | `300` (5 min) |
-| `withTries(int $tries)` | Override retry attempts (min: 1) | `3` |
-| `withBackoff(int $seconds)` | Override retry backoff | `30` |
-| `withDelay(int $seconds)` | Delay before processing | `0` |
+| `withQueueTimeout(int $seconds)` | Override job timeout | `300` (5 min) |
+| `withQueueTries(int $tries)` | Override retry attempts (min: 1) | `3` |
+| `withQueueBackoff(int $seconds)` | Override retry backoff | `30` |
+| `withQueueDelay(int $seconds)` | Delay before processing | `0` |
 | `broadcastOn(Channel $ch)` | Broadcast events to WebSocket channel | None |
+
+## HTTP Retry (separate from queue retry)
+
+Atlas also has built-in HTTP-level retry for transient provider failures. This is separate from queue job retries — it handles rate limits (429) and server errors (5xx) automatically:
+
+```php
+// Override HTTP timeout for a slow call
+Atlas::agent('research')
+    ->withTimeout(180)
+    ->message('Deep analysis')
+    ->asText();
+
+// Be more patient on rate limits
+Atlas::agent('batch')
+    ->withRetry(rateLimit: 6)
+    ->message('Process this')
+    ->asText();
+
+// Disable all HTTP retry for a real-time path
+Atlas::agent('chat')
+    ->withoutRetry()
+    ->message($userMessage)
+    ->asText();
+```
+
+Configure defaults in `config/atlas.php`:
+
+```php
+'retry' => [
+    'timeout'    => (int) env('ATLAS_TIMEOUT', 60),
+    'rate_limit' => (int) env('ATLAS_RETRY_RATE_LIMIT', 3),
+    'errors'     => (int) env('ATLAS_RETRY_ERRORS', 2),
+],
+```
 
 ## Long-Running Jobs
 
-For operations that take 30 minutes to an hour (complex agents, large media generation), use `withTimeout()`:
+For operations that take 30 minutes to an hour (complex agents, large media generation), use `withQueueTimeout()`:
 
 ```php
 Atlas::text('openai', 'o3')
     ->message('Analyze this entire dataset...')
     ->queue()
-    ->withTimeout(3600)   // 1 hour
-    ->withTries(1)        // Don't retry expensive operations
+    ->withQueueTimeout(3600)   // 1 hour
+    ->withQueueTries(1)        // Don't retry expensive operations
     ->asText();
 ```
 
@@ -172,13 +201,13 @@ Like all Laravel queue jobs, Atlas uses at-least-once delivery. This means:
 - **Responses may differ** — AI responses are non-deterministic, so retries may produce different output
 - **No built-in idempotency keys** — Atlas does not deduplicate requests at the provider level
 
-For expensive operations where retries are wasteful, set `withTries(1)`:
+For expensive operations where retries are wasteful, set `withQueueTries(1)`:
 
 ```php
 Atlas::image('openai', 'dall-e-3')
     ->instructions('Generate a hero image')
     ->queue()
-    ->withTries(1)   // Don't retry — image generation is expensive
+    ->withQueueTries(1)   // Don't retry — image generation is expensive
     ->asImage();
 ```
 

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Executor\AgentExecutor;
 use Atlasphp\Atlas\Executor\ToolExecutor;
@@ -133,6 +134,7 @@ it('runs step middleware on each step', function () {
             }
         },
     ]);
+    AtlasConfig::refresh();
 
     $driver = makeMiddlewareMockDriver([
         new TextResponse(
@@ -159,6 +161,7 @@ it('runs step middleware on each step', function () {
     expect($stepNumbers)->toBe([1, 2]);
 
     config()->set('atlas.middleware.step', []);
+    AtlasConfig::refresh();
 });
 
 it('step middleware receives accumulated usage', function () {
@@ -180,6 +183,7 @@ it('step middleware receives accumulated usage', function () {
             }
         },
     ]);
+    AtlasConfig::refresh();
 
     $driver = makeMiddlewareMockDriver([
         new TextResponse(
@@ -204,6 +208,7 @@ it('step middleware receives accumulated usage', function () {
     expect($receivedUsage->outputTokens)->toBe(50);
 
     config()->set('atlas.middleware.step', []);
+    AtlasConfig::refresh();
 });
 
 it('runs tool middleware on each tool call', function () {
@@ -222,6 +227,7 @@ it('runs tool middleware on each tool call', function () {
             }
         },
     ]);
+    AtlasConfig::refresh();
 
     $driver = makeMiddlewareMockDriver([
         new TextResponse(
@@ -244,6 +250,7 @@ it('runs tool middleware on each tool call', function () {
     expect($toolNames)->toBe(['echo']);
 
     config()->set('atlas.middleware.tool', []);
+    AtlasConfig::refresh();
 });
 
 it('runs tool middleware in sequential path with single tool (parallel flag true)', function () {
@@ -262,6 +269,7 @@ it('runs tool middleware in sequential path with single tool (parallel flag true
             }
         },
     ]);
+    AtlasConfig::refresh();
 
     $driver = makeMiddlewareMockDriver([
         new TextResponse(
@@ -285,6 +293,7 @@ it('runs tool middleware in sequential path with single tool (parallel flag true
     expect($toolNames)->toBe(['echo']);
 
     config()->set('atlas.middleware.tool', []);
+    AtlasConfig::refresh();
 });
 
 it('works without middleware stack (backward compat)', function () {
@@ -306,6 +315,7 @@ it('works without middleware stack (backward compat)', function () {
 
 it('calls driver directly when middleware stack exists but step middleware config is empty', function () {
     config()->set('atlas.middleware.step', []);
+    AtlasConfig::refresh();
 
     $driver = makeMiddlewareMockDriver([
         new TextResponse(
@@ -324,11 +334,14 @@ it('calls driver directly when middleware stack exists but step middleware confi
     expect($result->totalSteps())->toBe(1);
 
     config()->set('atlas.middleware.step', []);
+    AtlasConfig::refresh();
 });
 
 it('calls tool executor directly when middleware stack exists but tool middleware config is empty', function () {
     config()->set('atlas.middleware.step', []);
+    AtlasConfig::refresh();
     config()->set('atlas.middleware.tool', []);
+    AtlasConfig::refresh();
 
     $driver = makeMiddlewareMockDriver([
         new TextResponse(
@@ -355,7 +368,9 @@ it('calls tool executor directly when middleware stack exists but tool middlewar
     expect($result->steps[0]->toolResults[0]->content)->toBe('hi');
 
     config()->set('atlas.middleware.step', []);
+    AtlasConfig::refresh();
     config()->set('atlas.middleware.tool', []);
+    AtlasConfig::refresh();
 });
 
 it('step middleware can mutate the request before the driver sees it', function () {
@@ -388,6 +403,7 @@ it('step middleware can mutate the request before the driver sees it', function 
             }
         },
     ]);
+    AtlasConfig::refresh();
 
     $receivedInstructions = null;
 
@@ -444,4 +460,5 @@ it('step middleware can mutate the request before the driver sees it', function 
     expect($receivedInstructions)->toBe($mutatedInstructions);
 
     config()->set('atlas.middleware.step', []);
+    AtlasConfig::refresh();
 });

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Concerns;
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Persistence\Models\Conversation;
 use Atlasphp\Atlas\Persistence\Services\ConversationService;
 use Illuminate\Database\Eloquent\Model;
@@ -199,7 +200,7 @@ trait HasConversations
      * Resolution chain:
      *   1. ->withMessageLimit(20) on this call
      *   2. messageLimit() on the agent class
-     *   3. config('atlas.persistence.message_limit')
+     *   3. AtlasConfig::$messageLimit
      *   4. Hardcoded 50
      */
     protected function resolveMessageLimit(): int
@@ -214,7 +215,7 @@ trait HasConversations
             return $agentLimit;
         }
 
-        return (int) config('atlas.persistence.message_limit', 50);
+        return (int) app(AtlasConfig::class)->messageLimit;
     }
 
     // ─── Conversation Resolution ────────────────────────────────

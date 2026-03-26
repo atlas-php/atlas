@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Persistence\Models\Asset;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
@@ -12,7 +13,7 @@ beforeEach(function () {
     Storage::fake('local');
     config()->set('atlas.storage.disk', 'local');
     config()->set('atlas.storage.prefix', 'atlas');
-    config()->set('atlas.storage.visibility', 'private');
+    AtlasConfig::refresh();
 });
 
 it('stores content to disk and creates asset record', function () {

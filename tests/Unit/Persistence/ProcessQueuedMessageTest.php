@@ -36,28 +36,22 @@ it('uniqueId returns conversation-scoped string', function () {
     expect($job->uniqueId())->toBe('atlas-queued-99');
 });
 
-it('reads tries from atlas.queue config', function () {
-    config(['atlas.queue.tries' => 5]);
-
+it('has default tries', function () {
     $job = new ProcessQueuedMessage(conversationId: 1, agentKey: 'test');
 
-    expect($job->tries)->toBe(5);
+    expect($job->tries)->toBe(3);
 });
 
-it('reads backoff from atlas.queue config', function () {
-    config(['atlas.queue.backoff' => 60]);
-
+it('has default backoff', function () {
     $job = new ProcessQueuedMessage(conversationId: 1, agentKey: 'test');
 
-    expect($job->backoff)->toBe(60);
+    expect($job->backoff)->toBe(30);
 });
 
-it('reads timeout from atlas.queue config', function () {
-    config(['atlas.queue.timeout' => 600]);
-
+it('has default timeout', function () {
     $job = new ProcessQueuedMessage(conversationId: 1, agentKey: 'test');
 
-    expect($job->timeout)->toBe(600);
+    expect($job->timeout)->toBe(300);
 });
 
 it('returns early when queue is empty', function () {

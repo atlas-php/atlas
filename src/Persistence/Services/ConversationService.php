@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Services;
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Messages\AssistantMessage;
 use Atlasphp\Atlas\Messages\Message as AtlasMessage;
 use Atlasphp\Atlas\Messages\SystemMessage;
@@ -40,9 +41,9 @@ class ConversationService
 
     public function __construct()
     {
-        $this->conversationModel = config('atlas.persistence.models.conversation', Conversation::class);
-        $this->messageModel = config('atlas.persistence.models.conversation_message', ConversationMessage::class);
-        $this->executionModel = config('atlas.persistence.models.execution', Execution::class);
+        $this->conversationModel = app(AtlasConfig::class)->model('conversation', Conversation::class);
+        $this->messageModel = app(AtlasConfig::class)->model('conversation_message', ConversationMessage::class);
+        $this->executionModel = app(AtlasConfig::class)->model('execution', Execution::class);
     }
 
     /**

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Persistence;
 
 use Atlasphp\Atlas\Atlas;
-use Atlasphp\Atlas\Concerns\ConfiguresAtlasJob;
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Persistence\Enums\MessageStatus;
 use Atlasphp\Atlas\Persistence\Models\ConversationMessage;
 use Atlasphp\Atlas\Persistence\Services\ConversationService;
@@ -32,17 +32,16 @@ use Throwable;
  */
 class ProcessQueuedMessage implements ShouldBeUnique, ShouldQueue
 {
-    use ConfiguresAtlasJob;
     use Dispatchable;
     use InteractsWithQueue;
     use Queueable;
     use SerializesModels;
 
-    public int $tries;
+    public int $tries = 3;
 
-    public int $backoff;
+    public int $backoff = 30;
 
-    public int $timeout;
+    public int $timeout = 300;
 
     /** @var int|null Tracks the delivered message ID for failure recovery. */
     protected ?int $deliveredMessageId = null;
@@ -50,9 +49,7 @@ class ProcessQueuedMessage implements ShouldBeUnique, ShouldQueue
     public function __construct(
         public readonly int $conversationId,
         public readonly string $agentKey,
-    ) {
-        $this->applyQueueConfig();
-    }
+    ) {}
 
     public function uniqueId(): string
     {
@@ -129,7 +126,7 @@ class ProcessQueuedMessage implements ShouldBeUnique, ShouldQueue
     public function failed(Throwable $exception): void
     {
         /** @var class-string<ConversationMessage> $messageModel */
-        $messageModel = config('atlas.persistence.models.conversation_message', ConversationMessage::class);
+        $messageModel = app(AtlasConfig::class)->model('conversation_message', ConversationMessage::class);
 
         if ($this->deliveredMessageId !== null) {
             $message = $messageModel::find($this->deliveredMessageId);

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Services;
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
@@ -57,9 +58,9 @@ class ExecutionService
 
     public function __construct()
     {
-        $this->executionModel = config('atlas.persistence.models.execution', Execution::class);
-        $this->stepModel = config('atlas.persistence.models.execution_step', ExecutionStep::class);
-        $this->toolCallModel = config('atlas.persistence.models.execution_tool_call', ExecutionToolCall::class);
+        $this->executionModel = app(AtlasConfig::class)->model('execution', Execution::class);
+        $this->stepModel = app(AtlasConfig::class)->model('execution_step', ExecutionStep::class);
+        $this->toolCallModel = app(AtlasConfig::class)->model('execution_tool_call', ExecutionToolCall::class);
     }
 
     // ─── Execution Lifecycle ────────────────────────────────────
@@ -104,7 +105,7 @@ class ExecutionService
 
         // Link the trigger message to this execution (message owns the FK)
         if ($messageId !== null) {
-            $messageModel = config('atlas.persistence.models.conversation_message', ConversationMessage::class);
+            $messageModel = app(AtlasConfig::class)->model('conversation_message', ConversationMessage::class);
             $messageModel::where('id', $messageId)->update(['execution_id' => $this->execution->id]);
         }
 

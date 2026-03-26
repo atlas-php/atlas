@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Models;
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Database\Factories\ConversationMessageAssetFactory;
 use Atlasphp\Atlas\Persistence\Concerns\HasAtlasTable;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -58,7 +59,7 @@ class ConversationMessageAsset extends Model
     public function message(): BelongsTo
     {
         /** @var class-string<ConversationMessage> $model */
-        $model = config('atlas.persistence.models.conversation_message', ConversationMessage::class);
+        $model = app(AtlasConfig::class)->model('conversation_message', ConversationMessage::class);
 
         return $this->belongsTo($model);
     }
@@ -67,7 +68,7 @@ class ConversationMessageAsset extends Model
     public function asset(): BelongsTo
     {
         /** @var class-string<Asset> $model */
-        $model = config('atlas.persistence.models.asset', Asset::class);
+        $model = app(AtlasConfig::class)->model('asset', Asset::class);
 
         return $this->belongsTo($model);
     }

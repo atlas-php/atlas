@@ -67,7 +67,7 @@ class ChatController
             ->for($user)
             ->message($request->string('message')->toString(), $media)
             ->queue()
-            ->withDelay(3);
+            ->withQueueDelay(3);
 
         if ($conversationId > 0) {
             // Continue existing conversation

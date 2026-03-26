@@ -28,13 +28,14 @@ use Illuminate\Contracts\Foundation\Application;
  *
  * Provides entry points for all modalities and the provider registry.
  * Each modality accepts optional provider and model arguments; if omitted,
- * defaults from config('atlas.defaults.*') are used.
+ * defaults from AtlasConfig are used.
  */
 class AtlasManager
 {
     public function __construct(
         private readonly ProviderRegistryContract $providerRegistry,
         private readonly Application $app,
+        private readonly AtlasConfig $config,
     ) {}
 
     public function text(Provider|string|null $provider = null, ?string $model = null): TextRequest
@@ -131,6 +132,7 @@ class AtlasManager
             providerRegistry: $this->providerRegistry,
             app: $this->app,
             events: $this->app->make(Dispatcher::class),
+            config: $this->config,
         );
     }
 
@@ -149,11 +151,10 @@ class AtlasManager
      */
     protected function resolveDefaults(string $modality, Provider|string|null $provider, ?string $model): array
     {
-        /** @var array<string, string|null> $defaults */
-        $defaults = config("atlas.defaults.{$modality}", []);
+        $default = $this->config->defaultFor($modality);
 
-        $provider = $provider ?? ($defaults['provider'] ?? null);
-        $model = $model ?? ($defaults['model'] ?? null);
+        $provider = $provider ?? ($default['provider'] ?? null);
+        $model = $model ?? ($default['model'] ?? null);
 
         if ($provider === null) {
             throw AtlasException::missingDefault($modality);

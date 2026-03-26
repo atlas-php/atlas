@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasVariables;
 use Atlasphp\Atlas\Support\VariableRegistry;
@@ -83,6 +84,7 @@ it('interpolate short-circuits when no placeholders', function () {
 
 it('interpolate resolves variables from all layers', function () {
     config(['atlas.variables' => ['BRAND' => 'TestBrand']]);
+    AtlasConfig::refresh();
 
     $registry = app(VariableRegistry::class);
     $registry->register('GREETING', 'Hello');
@@ -97,6 +99,7 @@ it('interpolate resolves variables from all layers', function () {
 
 it('resolveVariables merges all three layers', function () {
     config(['atlas.variables' => ['A' => 'config']]);
+    AtlasConfig::refresh();
 
     $registry = app(VariableRegistry::class);
     $registry->register('B', 'registry');

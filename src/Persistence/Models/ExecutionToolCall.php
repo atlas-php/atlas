@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Models;
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Database\Factories\ExecutionToolCallFactory;
 use Atlasphp\Atlas\Persistence\Concerns\HasAtlasTable;
 use Atlasphp\Atlas\Persistence\Concerns\HasExecutionStatus;
@@ -82,7 +83,7 @@ class ExecutionToolCall extends Model
     public function execution(): BelongsTo
     {
         /** @var class-string<Execution> $model */
-        $model = config('atlas.persistence.models.execution', Execution::class);
+        $model = app(AtlasConfig::class)->model('execution', Execution::class);
 
         return $this->belongsTo($model);
     }
@@ -91,7 +92,7 @@ class ExecutionToolCall extends Model
     public function step(): BelongsTo
     {
         /** @var class-string<ExecutionStep> $model */
-        $model = config('atlas.persistence.models.execution_step', ExecutionStep::class);
+        $model = app(AtlasConfig::class)->model('execution_step', ExecutionStep::class);
 
         return $this->belongsTo($model, 'step_id');
     }

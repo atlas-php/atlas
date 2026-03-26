@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\AgentRegistry;
 use Atlasphp\Atlas\Atlas;
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Queue\PendingExecution;
 use Illuminate\Support\Facades\Queue;
 
@@ -20,6 +21,7 @@ beforeEach(function () {
     Atlas::fake();
     Queue::fake();
     config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+    AtlasConfig::refresh();
 });
 
 // ─── Text ────────────────────────────────────────────────────────────────────

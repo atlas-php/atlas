@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Voice\Http;
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Events\VoiceToolCallCompleted;
 use Atlasphp\Atlas\Events\VoiceToolCallFailed;
 use Atlasphp\Atlas\Events\VoiceToolCallStarted;
@@ -165,7 +166,7 @@ class VoiceToolController
         }
 
         /** @var class-string<ExecutionToolCall> $model */
-        $model = config('atlas.persistence.models.execution_tool_call', ExecutionToolCall::class);
+        $model = app(AtlasConfig::class)->model('execution_tool_call', ExecutionToolCall::class);
 
         return $model::create([
             'execution_id' => $executionId,

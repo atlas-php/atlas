@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Concerns;
 
+use Atlasphp\Atlas\AtlasConfig;
+
 /**
  * Resolves the prefixed table name for persistence models.
  *
@@ -14,7 +16,7 @@ trait HasAtlasTable
 {
     public function getTable(): string
     {
-        $prefix = config('atlas.persistence.table_prefix', 'atlas_');
+        $prefix = app(AtlasConfig::class)->tablePrefix;
 
         // Guard against double-prefixing when Eloquent's newInstance() copies
         // the already-prefixed table name via setTable($this->getTable()).

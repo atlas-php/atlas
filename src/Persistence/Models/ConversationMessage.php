@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Models;
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Database\Factories\ConversationMessageFactory;
 use Atlasphp\Atlas\Messages\AssistantMessage;
 use Atlasphp\Atlas\Messages\Message as AtlasMessage;
@@ -100,7 +101,7 @@ class ConversationMessage extends Model
     public function conversation(): BelongsTo
     {
         /** @var class-string<Conversation> $model */
-        $model = config('atlas.persistence.models.conversation', Conversation::class);
+        $model = app(AtlasConfig::class)->model('conversation', Conversation::class);
 
         return $this->belongsTo($model);
     }
@@ -115,7 +116,7 @@ class ConversationMessage extends Model
     public function step(): BelongsTo
     {
         /** @var class-string<ExecutionStep> $model */
-        $model = config('atlas.persistence.models.execution_step', ExecutionStep::class);
+        $model = app(AtlasConfig::class)->model('execution_step', ExecutionStep::class);
 
         return $this->belongsTo($model, 'step_id');
     }
@@ -128,7 +129,7 @@ class ConversationMessage extends Model
     public function execution(): BelongsTo
     {
         /** @var class-string<Execution> $model */
-        $model = config('atlas.persistence.models.execution', Execution::class);
+        $model = app(AtlasConfig::class)->model('execution', Execution::class);
 
         return $this->belongsTo($model);
     }
@@ -169,7 +170,7 @@ class ConversationMessage extends Model
     public function assets(): HasMany
     {
         /** @var class-string<ConversationMessageAsset> $model */
-        $model = config('atlas.persistence.models.conversation_message_asset', ConversationMessageAsset::class);
+        $model = app(AtlasConfig::class)->model('conversation_message_asset', ConversationMessageAsset::class);
 
         return $this->hasMany($model, 'message_id');
     }

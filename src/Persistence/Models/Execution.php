@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Models;
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Database\Factories\ExecutionFactory;
 use Atlasphp\Atlas\Persistence\Concerns\HasAtlasTable;
 use Atlasphp\Atlas\Persistence\Concerns\HasExecutionStatus;
@@ -86,7 +87,7 @@ class Execution extends Model
     public function conversation(): BelongsTo
     {
         /** @var class-string<Conversation> $model */
-        $model = config('atlas.persistence.models.conversation', Conversation::class);
+        $model = app(AtlasConfig::class)->model('conversation', Conversation::class);
 
         return $this->belongsTo($model);
     }
@@ -95,7 +96,7 @@ class Execution extends Model
     public function message(): HasOne
     {
         /** @var class-string<ConversationMessage> $model */
-        $model = config('atlas.persistence.models.conversation_message', ConversationMessage::class);
+        $model = app(AtlasConfig::class)->model('conversation_message', ConversationMessage::class);
 
         return $this->hasOne($model, 'execution_id');
     }
@@ -104,7 +105,7 @@ class Execution extends Model
     public function voiceCall(): HasOne
     {
         /** @var class-string<VoiceCall> $model */
-        $model = config('atlas.persistence.models.voice_call', VoiceCall::class);
+        $model = app(AtlasConfig::class)->model('voice_call', VoiceCall::class);
 
         return $this->hasOne($model, 'execution_id');
     }
@@ -113,7 +114,7 @@ class Execution extends Model
     public function steps(): HasMany
     {
         /** @var class-string<ExecutionStep> $model */
-        $model = config('atlas.persistence.models.execution_step', ExecutionStep::class);
+        $model = app(AtlasConfig::class)->model('execution_step', ExecutionStep::class);
 
         return $this->hasMany($model)->orderBy('sequence');
     }
@@ -122,7 +123,7 @@ class Execution extends Model
     public function toolCalls(): HasMany
     {
         /** @var class-string<ExecutionToolCall> $model */
-        $model = config('atlas.persistence.models.execution_tool_call', ExecutionToolCall::class);
+        $model = app(AtlasConfig::class)->model('execution_tool_call', ExecutionToolCall::class);
 
         return $this->hasMany($model);
     }
@@ -131,7 +132,7 @@ class Execution extends Model
     public function assets(): HasMany
     {
         /** @var class-string<Asset> $model */
-        $model = config('atlas.persistence.models.asset', Asset::class);
+        $model = app(AtlasConfig::class)->model('asset', Asset::class);
 
         return $this->hasMany($model);
     }

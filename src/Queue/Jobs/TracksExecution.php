@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Queue\Jobs;
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Events\ExecutionProcessing;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Models\Execution;
@@ -125,12 +126,12 @@ trait TracksExecution
             return null;
         }
 
-        if (! config('atlas.persistence.enabled', false)) {
+        if (! app(AtlasConfig::class)->persistenceEnabled) {
             return null;
         }
 
         /** @var class-string<Execution> $executionModel */
-        $executionModel = config('atlas.persistence.models.execution', Execution::class);
+        $executionModel = app(AtlasConfig::class)->model('execution', Execution::class);
 
         return $executionModel::find($this->executionId);
     }

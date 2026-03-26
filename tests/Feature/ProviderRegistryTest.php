@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Exceptions\ProviderNotFoundException;
@@ -95,8 +96,10 @@ it('available includes config-only providers', function () {
         'api_key' => 'test',
         'base_url' => 'http://localhost:11434/v1',
     ]);
+    AtlasConfig::refresh();
+    $registry = app(ProviderRegistryContract::class);
 
-    expect($this->registry->available())->toContain('ollama-avail');
+    expect($registry->available())->toContain('ollama-avail');
 });
 
 it('available does not duplicate keys present in both factories and config', function () {
@@ -139,8 +142,10 @@ it('resolves chat_completions driver from config', function () {
         'api_key' => 'ollama',
         'base_url' => 'http://localhost:11434/v1',
     ]);
+    AtlasConfig::refresh();
+    $registry = app(ProviderRegistryContract::class);
 
-    $driver = $this->registry->resolve('ollama');
+    $driver = $registry->resolve('ollama');
 
     expect($driver)->toBeInstanceOf(ChatCompletionsDriver::class);
     expect($driver->name())->toBe('chat_completions');
@@ -152,8 +157,10 @@ it('resolves responses driver from config', function () {
         'api_key' => 'ollama',
         'base_url' => 'http://localhost:11434/v1',
     ]);
+    AtlasConfig::refresh();
+    $registry = app(ProviderRegistryContract::class);
 
-    $driver = $this->registry->resolve('ollama-responses');
+    $driver = $registry->resolve('ollama-responses');
 
     expect($driver)->toBeInstanceOf(ResponsesDriver::class);
     expect($driver->name())->toBe('responses');
@@ -165,8 +172,10 @@ it('resolves custom driver class from config', function () {
         'api_key' => 'test',
         'url' => 'https://custom.test.com',
     ]);
+    AtlasConfig::refresh();
+    $registry = app(ProviderRegistryContract::class);
 
-    $driver = $this->registry->resolve('custom');
+    $driver = $registry->resolve('custom');
 
     expect($driver)->toBeInstanceOf(Driver::class);
 });
@@ -176,8 +185,10 @@ it('throws AtlasException for unknown driver string', function () {
         'driver' => 'not_a_real_driver',
         'api_key' => 'test',
     ]);
+    AtlasConfig::refresh();
+    $registry = app(ProviderRegistryContract::class);
 
-    $this->registry->resolve('bad');
+    $registry->resolve('bad');
 })->throws(AtlasException::class, "Unknown driver 'not_a_real_driver' for provider 'bad'.");
 
 it('chat_completions driver from config receives cache for provider handler', function () {
@@ -186,8 +197,10 @@ it('chat_completions driver from config receives cache for provider handler', fu
         'api_key' => 'ollama',
         'base_url' => 'http://localhost:11434/v1',
     ]);
+    AtlasConfig::refresh();
+    $registry = app(ProviderRegistryContract::class);
 
-    $driver = $this->registry->resolve('ollama-cache');
+    $driver = $registry->resolve('ollama-cache');
 
     // providerHandler() requires AtlasCache — this would TypeError if cache was null
     $providerHandler = (new ReflectionMethod($driver, 'providerHandler'))->invoke($driver);
@@ -200,8 +213,10 @@ it('responses driver from config receives cache for provider handler', function 
         'api_key' => 'ollama',
         'base_url' => 'http://localhost:11434/v1',
     ]);
+    AtlasConfig::refresh();
+    $registry = app(ProviderRegistryContract::class);
 
-    $driver = $this->registry->resolve('ollama-resp-cache');
+    $driver = $registry->resolve('ollama-resp-cache');
 
     // providerHandler() requires AtlasCache — this would TypeError if cache was null
     $providerHandler = (new ReflectionMethod($driver, 'providerHandler'))->invoke($driver);
@@ -214,9 +229,11 @@ it('caches config-resolved driver instances', function () {
         'api_key' => 'ollama',
         'base_url' => 'http://localhost:11434/v1',
     ]);
+    AtlasConfig::refresh();
+    $registry = app(ProviderRegistryContract::class);
 
-    $first = $this->registry->resolve('ollama');
-    $second = $this->registry->resolve('ollama');
+    $first = $registry->resolve('ollama');
+    $second = $registry->resolve('ollama');
 
     expect($first)->toBe($second);
 });
@@ -229,8 +246,10 @@ it('custom driver class via config receives all four constructor deps', function
         'api_key' => 'test-key',
         'base_url' => 'https://custom.test.com',
     ]);
+    AtlasConfig::refresh();
+    $registry = app(ProviderRegistryContract::class);
 
-    $driver = $this->registry->resolve('custom-full');
+    $driver = $registry->resolve('custom-full');
 
     expect($driver)->toBeInstanceOf(CustomDriverWithDeps::class);
     expect($driver->hasHttp())->toBeTrue();
@@ -245,6 +264,7 @@ it('custom driver class resolved from config can execute a modality call', funct
         'api_key' => 'test-key',
         'base_url' => 'https://custom.test.com',
     ]);
+    AtlasConfig::refresh();
 
     $textHandler = Mockery::mock(TextHandler::class);
     $textHandler->shouldReceive('text')->once()->andReturn(
@@ -255,7 +275,8 @@ it('custom driver class resolved from config can execute a modality call', funct
         )
     );
 
-    $driver = $this->registry->resolve('custom-text')->withHandler('text', $textHandler);
+    $registry = app(ProviderRegistryContract::class);
+    $driver = $registry->resolve('custom-text')->withHandler('text', $textHandler);
     $response = $driver->text(new TextRequest('model', null, null, [], [], null, null, null, [], [], []));
 
     expect($response->text)->toBe('custom response');

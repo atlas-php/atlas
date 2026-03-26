@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Models;
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Database\Factories\AssetFactory;
 use Atlasphp\Atlas\Persistence\Concerns\HasAtlasTable;
 use Atlasphp\Atlas\Persistence\Concerns\HasOwner;
@@ -87,7 +88,7 @@ class Asset extends Model
     public function messageAssets(): HasMany
     {
         /** @var class-string<ConversationMessageAsset> $model */
-        $model = config('atlas.persistence.models.conversation_message_asset', ConversationMessageAsset::class);
+        $model = app(AtlasConfig::class)->model('conversation_message_asset', ConversationMessageAsset::class);
 
         return $this->hasMany($model);
     }
@@ -96,7 +97,7 @@ class Asset extends Model
     public function execution(): BelongsTo
     {
         /** @var class-string<Execution> $model */
-        $model = config('atlas.persistence.models.execution', Execution::class);
+        $model = app(AtlasConfig::class)->model('execution', Execution::class);
 
         return $this->belongsTo($model);
     }
@@ -105,7 +106,7 @@ class Asset extends Model
     public function toolCall(): BelongsTo
     {
         /** @var class-string<ExecutionToolCall> $model */
-        $model = config('atlas.persistence.models.execution_tool_call', ExecutionToolCall::class);
+        $model = app(AtlasConfig::class)->model('execution_tool_call', ExecutionToolCall::class);
 
         return $this->belongsTo($model, 'tool_call_id');
     }

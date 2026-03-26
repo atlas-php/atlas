@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\AgentRegistry;
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Pending\AgentRequest;
 use Atlasphp\Atlas\Persistence\Concerns\HasConversations;
@@ -51,6 +52,7 @@ function makeVoiceHistoryRequest(string $key): AgentRequest
         providerRegistry: app(ProviderRegistryContract::class),
         app: app(),
         events: app(Dispatcher::class),
+        config: app(AtlasConfig::class),
     );
 }
 
@@ -69,6 +71,7 @@ function createVoiceHistoryFake(): AtlasFake
 beforeEach(function () {
     app(AgentRegistry::class)->register(VoiceHistoryTestAgent::class);
     config(['atlas.persistence.enabled' => true]);
+    AtlasConfig::refresh();
 });
 
 // ─── Tests ──────────────────────────────────────────────────────────────────

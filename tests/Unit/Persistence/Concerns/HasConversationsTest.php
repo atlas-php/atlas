@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Agent;
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Persistence\Concerns\HasConversations;
 use Atlasphp\Atlas\Persistence\Models\Conversation;
 
@@ -125,6 +126,7 @@ it('resolveMessageLimit uses runtime override first', function () {
 
 it('resolveMessageLimit falls back to config', function () {
     config()->set('atlas.persistence.message_limit', 75);
+    AtlasConfig::refresh();
 
     $agent = makeConversationAgent();
 

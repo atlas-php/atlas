@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Middleware;
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Middleware\ProviderContext;
 use Atlasphp\Atlas\Persistence\Enums\AssetType;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
@@ -75,7 +76,7 @@ class TrackProviderCall
 
             // ─── Asset storage (always, for file-producing responses) ─
             if ($type->producesFile()
-                && config('atlas.persistence.auto_store_assets', true)
+                && app(AtlasConfig::class)->autoStoreAssets
                 && $this->isStorableResponse($response)
             ) {
                 $this->storeAsset($response, $type, $context);
@@ -123,16 +124,16 @@ class TrackProviderCall
         try {
             $contents = $response->contents();
             $mimeType = $this->resolveMimeType($response, $assetType);
-            $disk = config('atlas.storage.disk') ?? config('filesystems.default', 'local');
-            $prefix = config('atlas.storage.prefix', 'atlas');
-            $visibility = config('atlas.storage.visibility', 'private');
+            $disk = app(AtlasConfig::class)->storageDisk ?? config('filesystems.default', 'local');
+            $prefix = app(AtlasConfig::class)->storagePrefix;
+            $visibility = 'private';
             $extension = $this->resolveExtension($assetType, $mimeType);
             $filename = Str::uuid()->toString().'.'.$extension;
             $path = $prefix.'/assets/'.$filename;
 
             Storage::disk($disk)->put($path, $contents, $visibility);
 
-            $assetModel = config('atlas.persistence.models.asset', Asset::class);
+            $assetModel = app(AtlasConfig::class)->model('asset', Asset::class);
 
             // Derive owner from execution's conversation — canonical source
             $conversation = $execution?->conversation;

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Executor;
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Events\AgentCompleted;
 use Atlasphp\Atlas\Events\AgentMaxStepsExceeded;
@@ -229,7 +230,7 @@ class AgentExecutor
             return $this->driver->text($request);
         }
 
-        $middleware = config('atlas.middleware.step', []);
+        $middleware = app(AtlasConfig::class)->middleware['step'] ?? [];
 
         if ($middleware === []) {
             return $this->driver->text($request);
@@ -264,7 +265,7 @@ class AgentExecutor
             return $this->toolExecutor->execute($toolCall, $meta);
         }
 
-        $middleware = config('atlas.middleware.tool', []);
+        $middleware = app(AtlasConfig::class)->middleware['tool'] ?? [];
 
         if ($middleware === []) {
             return $this->toolExecutor->execute($toolCall, $meta);

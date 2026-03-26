@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Testing;
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\AtlasManager;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
@@ -35,7 +36,7 @@ class AtlasFake extends AtlasManager
             $registry->register($provider->value, fn () => $driver);
         }
 
-        parent::__construct($registry, $app ?? app());
+        parent::__construct($registry, $app ?? app(), app(AtlasConfig::class));
     }
 
     /**

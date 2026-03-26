@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
@@ -119,6 +120,7 @@ it('meta flows through text dispatch', function () {
             }
         },
     ]);
+    AtlasConfig::refresh();
 
     $driver = makeMetaTestDriver(app(MiddlewareStack::class));
     $driver->text(makeMetaTextRequest(meta: ['key' => 'value']));
@@ -126,6 +128,7 @@ it('meta flows through text dispatch', function () {
     expect($receivedMeta)->toBe(['key' => 'value']);
 
     config()->set('atlas.middleware.provider', []);
+    AtlasConfig::refresh();
 });
 
 it('meta flows through stream dispatch', function () {
@@ -146,6 +149,7 @@ it('meta flows through stream dispatch', function () {
             }
         },
     ]);
+    AtlasConfig::refresh();
 
     $driver = makeMetaTestDriver(app(MiddlewareStack::class));
     $driver->stream(makeMetaTextRequest(meta: ['stream_id' => 'xyz']));
@@ -154,6 +158,7 @@ it('meta flows through stream dispatch', function () {
     expect($receivedMeta)->toBe(['stream_id' => 'xyz']);
 
     config()->set('atlas.middleware.provider', []);
+    AtlasConfig::refresh();
 });
 
 it('meta defaults to empty array when not set', function () {

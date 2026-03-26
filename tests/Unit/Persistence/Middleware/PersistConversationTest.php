@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Agent;
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Enums\Role;
 use Atlasphp\Atlas\Events\ConversationMessageStored;
@@ -729,6 +730,7 @@ it('dispatches ConversationMessageStored event after storing assistant message',
 it('attaches tool-created assets to stored assistant message', function () {
     Storage::fake('local');
     config()->set('atlas.storage.disk', 'local');
+    AtlasConfig::refresh();
 
     $middleware = app(PersistConversation::class);
 

@@ -9,13 +9,17 @@ use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Support\Facades\Cache;
 
 /**
- * Class AtlasCache
+ * Unified cache service for Atlas.
  *
- * Unified cache service for Atlas. Handles models, voices, and embeddings
- * with configurable TTLs per type. A TTL of 0 disables caching for that type.
+ * Handles models, voices, and embeddings with configurable TTLs per type.
+ * A TTL of 0 disables caching for that type.
  */
 class AtlasCache
 {
+    public function __construct(
+        protected readonly AtlasConfig $config,
+    ) {}
+
     /**
      * Remember a value by type and key.
      *
@@ -70,21 +74,16 @@ class AtlasCache
 
     protected function store(): Repository
     {
-        /** @var string|null $store */
-        $store = config('atlas.cache.store');
-
-        return Cache::store($store);
+        return Cache::store($this->config->cacheStore);
     }
 
     protected function ttl(string $type): int
     {
-        return (int) config("atlas.cache.ttl.{$type}", 0);
+        return $this->config->cacheTtl[$type] ?? 0;
     }
 
     protected function key(string $type, string $key): string
     {
-        $prefix = config('atlas.cache.prefix', 'atlas');
-
-        return "{$prefix}:{$type}:{$key}";
+        return "{$this->config->cachePrefix}:{$type}:{$key}";
     }
 }

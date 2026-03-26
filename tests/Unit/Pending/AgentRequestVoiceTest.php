@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\AgentRegistry;
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Pending\AgentRequest;
@@ -102,6 +103,7 @@ function makeVoiceAgentRequest(string $key): AgentRequest
         providerRegistry: app(ProviderRegistryContract::class),
         app: app(),
         events: app(Dispatcher::class),
+        config: app(AtlasConfig::class),
     );
 }
 
@@ -126,6 +128,7 @@ it('throws AtlasException when no voice provider is configured', function () {
     registerVoiceTestAgent(VoiceTestNoProviderAgent::class);
 
     config(['atlas.defaults.voice' => ['provider' => null, 'model' => null]]);
+    AtlasConfig::refresh();
 
     expect(fn () => makeVoiceAgentRequest('voice-no-provider')->asVoice())
         ->toThrow(AtlasException::class);

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Pending\Concerns\HasRequestConfig;
 use Atlasphp\Atlas\RequestConfig;
 
@@ -47,6 +48,7 @@ it('withRetry sets rate limit and errors', function () {
 
 it('withRetry preserves unspecified values', function () {
     config(['atlas.retry.rate_limit' => 3, 'atlas.retry.errors' => 2]);
+    AtlasConfig::refresh();
 
     $helper = createRequestConfigHelper();
     $helper->withRetry(rateLimit: 10);
@@ -72,6 +74,7 @@ it('resolveRequestConfig defaults from AtlasConfig', function () {
         'atlas.retry.rate_limit' => 7,
         'atlas.retry.errors' => 4,
     ]);
+    AtlasConfig::refresh();
 
     $helper = createRequestConfigHelper();
     $config = $helper->getResolved();

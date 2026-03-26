@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Http;
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Persistence\Models\VoiceCall;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,9 +27,9 @@ class StoreVoiceTranscriptController
         ]);
 
         /** @var class-string<VoiceCall> $model */
-        $model = config('atlas.persistence.models.voice_call', VoiceCall::class);
+        $model = app(AtlasConfig::class)->model('voice_call', VoiceCall::class);
 
-        if (! config('atlas.persistence.enabled')) {
+        if (! app(AtlasConfig::class)->persistenceEnabled) {
             return response()->json(['saved' => false, 'reason' => 'persistence_disabled']);
         }
 

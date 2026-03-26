@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\AgentRegistry;
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
@@ -151,6 +152,7 @@ function makeAgentRequest(string $key): AgentRequest
         providerRegistry: app(ProviderRegistryContract::class),
         app: app(),
         events: app(Dispatcher::class),
+        config: app(AtlasConfig::class),
     );
 }
 
@@ -209,6 +211,7 @@ it('executes asText without tools via direct driver call', function () {
     app()->instance(AtlasFake::class, $fake);
 
     config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+    AtlasConfig::refresh();
 
     $response = makeAgentRequest('minimal')
         ->message('Hi')
@@ -309,6 +312,7 @@ it('handles null instructions without interpolation', function () {
     ]);
 
     config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+    AtlasConfig::refresh();
 
     makeAgentRequest('minimal')
         ->message('Hello')
@@ -432,6 +436,7 @@ it('passes meta through to the request', function () {
     ]);
 
     config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+    AtlasConfig::refresh();
 
     makeAgentRequest('minimal')
         ->withMeta(['user_id' => 42])
@@ -450,6 +455,7 @@ it('withMeta merges multiple calls', function () {
     ]);
 
     config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+    AtlasConfig::refresh();
 
     makeAgentRequest('minimal')
         ->withMeta(['user_id' => 42])
@@ -465,6 +471,7 @@ it('withVariables merges multiple calls recursively', function () {
     registerTestAgent(RequestTestMinimalAgent::class);
 
     config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+    AtlasConfig::refresh();
 
     $request = makeAgentRequest('minimal')
         ->withVariables(['user' => ['name' => 'Tim']])
@@ -483,6 +490,7 @@ it('executes asStream without tools', function () {
     registerTestAgent(RequestTestMinimalAgent::class);
 
     config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+    AtlasConfig::refresh();
 
     // Use a real fake that supports streaming
     $fake = new AtlasFake(app(ProviderRegistryContract::class), [
@@ -502,6 +510,7 @@ it('executes asStructured', function () {
     registerTestAgent(RequestTestMinimalAgent::class);
 
     config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+    AtlasConfig::refresh();
 
     $fake = new AtlasFake(app(ProviderRegistryContract::class), [
         StructuredResponseFake::make()->withStructured(['name' => 'test']),
@@ -533,6 +542,7 @@ it('throws when no provider is configured anywhere', function () {
     registerTestAgent(RequestTestMinimalAgent::class);
 
     config(['atlas.defaults.text' => ['provider' => null, 'model' => null]]);
+    AtlasConfig::refresh();
 
     makeAgentRequest('minimal')
         ->message('Hello')
@@ -600,6 +610,7 @@ it('resolves Tool instances passed directly (not just class strings)', function 
     registerTestAgent(RequestTestMinimalAgent::class);
 
     config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+    AtlasConfig::refresh();
 
     $toolInstance = new RequestTestEchoTool;
 
@@ -625,6 +636,7 @@ it('throws when withTools receives a non-existent class string', function () {
     registerTestAgent(RequestTestMinimalAgent::class);
 
     config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+    AtlasConfig::refresh();
 
     new AtlasFake(app(ProviderRegistryContract::class), [
         TextResponseFake::make()->withText('OK'),
@@ -693,6 +705,7 @@ it('passes withMessages to the request', function () {
     registerTestAgent(RequestTestMinimalAgent::class);
 
     config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+    AtlasConfig::refresh();
 
     $fake = new AtlasFake(app(ProviderRegistryContract::class), [
         TextResponseFake::make()->withText('OK'),
@@ -716,6 +729,7 @@ it('queued asText returns PendingExecution', function () {
     registerTestAgent(RequestTestMinimalAgent::class);
 
     config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+    AtlasConfig::refresh();
 
     Queue::fake();
 
@@ -731,6 +745,7 @@ it('queued asStream returns PendingExecution', function () {
     registerTestAgent(RequestTestMinimalAgent::class);
 
     config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+    AtlasConfig::refresh();
 
     Queue::fake();
 
@@ -746,6 +761,7 @@ it('queued asStructured returns PendingExecution', function () {
     registerTestAgent(RequestTestMinimalAgent::class);
 
     config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+    AtlasConfig::refresh();
 
     Queue::fake();
 
@@ -762,6 +778,7 @@ it('toQueuePayload serializes agent key and message', function () {
     registerTestAgent(RequestTestMinimalAgent::class);
 
     config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+    AtlasConfig::refresh();
 
     $request = makeAgentRequest('minimal')
         ->message('Hello world');
@@ -784,6 +801,7 @@ it('toQueuePayload serializes all overrides', function () {
     registerTestAgent(RequestTestMinimalAgent::class);
 
     config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+    AtlasConfig::refresh();
 
     $request = makeAgentRequest('minimal')
         ->message('Hello')
@@ -821,6 +839,7 @@ it('toQueuePayload serializes respond and retry modes', function () {
     registerTestAgent(RequestTestMinimalAgent::class);
 
     config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+    AtlasConfig::refresh();
 
     $request = makeAgentRequest('minimal')
         ->forConversation(1)
@@ -845,6 +864,7 @@ it('executeFromPayload rebuilds and executes asText', function () {
     registerTestAgent(RequestTestMinimalAgent::class);
 
     config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+    AtlasConfig::refresh();
 
     $fake = new AtlasFake(app(ProviderRegistryContract::class), [
         TextResponseFake::make()->withText('Rebuilt'),
@@ -926,6 +946,7 @@ it('executeFromPayload throws on unknown terminal', function () {
     registerTestAgent(RequestTestMinimalAgent::class);
 
     config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+    AtlasConfig::refresh();
 
     new AtlasFake(app(ProviderRegistryContract::class), [
         TextResponseFake::make()->withText('OK'),
@@ -963,6 +984,7 @@ it('resolveProviderKey falls back through agent then config', function () {
     registerTestAgent(RequestTestConfiguredAgent::class);
 
     config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+    AtlasConfig::refresh();
 
     // Minimal agent — no provider override, no agent provider → falls to config
     $method = new ReflectionMethod(AgentRequest::class, 'resolveProviderKey');
@@ -984,6 +1006,7 @@ it('resolveModelKey falls back through agent then config', function () {
     registerTestAgent(RequestTestConfiguredAgent::class);
 
     config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+    AtlasConfig::refresh();
 
     $method = new ReflectionMethod(AgentRequest::class, 'resolveModelKey');
 
@@ -1137,6 +1160,7 @@ it('asText fires ModalityCompleted and re-throws on error', function () {
     $registry->register('openai', fn () => $driver);
 
     config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o']]);
+    AtlasConfig::refresh();
 
     try {
         makeAgentRequest('minimal')->message('Hi')->asText();
@@ -1162,6 +1186,7 @@ it('asStream fires ModalityCompleted and re-throws on error', function () {
     $registry->register('openai', fn () => $driver);
 
     config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o']]);
+    AtlasConfig::refresh();
 
     try {
         makeAgentRequest('minimal')->message('Hi')->asStream();
@@ -1187,6 +1212,7 @@ it('asStructured fires ModalityCompleted and re-throws on error', function () {
     $registry->register('openai', fn () => $driver);
 
     config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o']]);
+    AtlasConfig::refresh();
 
     try {
         makeAgentRequest('minimal')->message('Hi')->asStructured();
@@ -1208,6 +1234,7 @@ it('asStream pipes broadcast channel to the stream response', function () {
     ]);
 
     config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o']]);
+    AtlasConfig::refresh();
 
     $channel = new PrivateChannel('test-channel');
 
@@ -1227,6 +1254,7 @@ it('asVoice returns a VoiceSession with the correct provider', function () {
     ]);
 
     config(['atlas.defaults.voice' => ['provider' => 'openai', 'model' => 'gpt-4o-realtime-preview']]);
+    AtlasConfig::refresh();
 
     $session = makeAgentRequest('minimal')->asVoice();
 
@@ -1255,7 +1283,9 @@ it('dispatches through agent middleware when configured', function () {
     });
 
     config(['atlas.middleware.agent' => ['test-agent-middleware']]);
+    AtlasConfig::refresh();
     config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+    AtlasConfig::refresh();
 
     $fake = new AtlasFake(app(ProviderRegistryContract::class), [
         TextResponseFake::make()->withText('middleware ran'),
@@ -1272,7 +1302,9 @@ it('skips middleware stack when no agent middleware configured', function () {
     registerTestAgent(RequestTestMinimalAgent::class);
 
     config(['atlas.middleware.agent' => []]);
+    AtlasConfig::refresh();
     config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+    AtlasConfig::refresh();
 
     $fake = new AtlasFake(app(ProviderRegistryContract::class), [
         TextResponseFake::make()->withText('no middleware'),
@@ -1300,7 +1332,9 @@ it('agent middleware can modify context meta', function () {
     });
 
     config(['atlas.middleware.agent' => ['test-mutate-middleware']]);
+    AtlasConfig::refresh();
     config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+    AtlasConfig::refresh();
 
     $fake = new AtlasFake(app(ProviderRegistryContract::class), [
         TextResponseFake::make()->withText('mutated'),

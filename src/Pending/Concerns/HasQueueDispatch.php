@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Pending\Concerns;
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
 use Atlasphp\Atlas\Persistence\Models\Execution;
@@ -73,7 +74,7 @@ trait HasQueueDispatch
     /**
      * Set delay in seconds before the job is processed.
      */
-    public function withDelay(int $seconds): static
+    public function withQueueDelay(int $seconds): static
     {
         $this->queueDelay = max(0, $seconds);
 
@@ -141,9 +142,11 @@ trait HasQueueDispatch
         // consumer has an ID immediately for UI display. This bypasses
         // the scoped ExecutionService singleton to avoid contaminating
         // any active execution state (e.g., when queuing from inside a tool).
-        if (config('atlas.persistence.enabled', false)) {
+        $config = app(AtlasConfig::class);
+
+        if ($config->persistenceEnabled) {
             /** @var class-string<Execution> $executionModel */
-            $executionModel = config('atlas.persistence.models.execution', Execution::class);
+            $executionModel = $config->model('execution', Execution::class);
             $meta = $this->getQueueMeta();
 
             $execution = $executionModel::create([
@@ -197,9 +200,7 @@ trait HasQueueDispatch
             $job->backoff = $this->queueBackoff;
         }
 
-        if (config('atlas.queue.after_commit', true)) {
-            $job->afterCommit();
-        }
+        $job->afterCommit();
 
         // Return PendingExecution — job is dispatched lazily via __destruct
         // so that then()/catch() callbacks can be set before dispatch
@@ -215,8 +216,7 @@ trait HasQueueDispatch
      */
     protected function resolveQueueConnection(): ?string
     {
-        return $this->queueConnection
-            ?? config('atlas.queue.connection');
+        return $this->queueConnection;
     }
 
     /**
@@ -225,7 +225,7 @@ trait HasQueueDispatch
     protected function resolveQueueName(): string
     {
         return $this->queueName
-            ?? config('atlas.queue.queue', 'default');
+            ?? app(AtlasConfig::class)->queue;
     }
 
     /**

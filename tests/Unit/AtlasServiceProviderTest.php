@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\AgentRegistry;
 use Atlasphp\Atlas\AtlasCache;
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\AtlasManager;
 use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
 use Atlasphp\Atlas\Http\HttpClient;
@@ -164,6 +165,7 @@ it('agent registry is available and handles empty directory gracefully', functio
 
 it('does not discover agents when path is null', function () {
     config(['atlas.agents.path' => null, 'atlas.agents.namespace' => 'App\\Agents']);
+    AtlasConfig::refresh();
 
     $registry = app(AgentRegistry::class);
 
@@ -173,6 +175,7 @@ it('does not discover agents when path is null', function () {
 
 it('does not discover agents when namespace is null', function () {
     config(['atlas.agents.path' => '/some/path', 'atlas.agents.namespace' => null]);
+    AtlasConfig::refresh();
 
     $registry = app(AgentRegistry::class);
 
@@ -183,6 +186,7 @@ it('does not discover agents when namespace is null', function () {
 
 it('resolves anthropic factory to AnthropicDriver', function () {
     config(['atlas.providers.anthropic.api_key' => 'test', 'atlas.providers.anthropic.url' => 'https://api.anthropic.com/v1']);
+    AtlasConfig::refresh();
 
     $registry = app(ProviderRegistryContract::class);
     $driver = $registry->resolve('anthropic');
@@ -192,6 +196,7 @@ it('resolves anthropic factory to AnthropicDriver', function () {
 
 it('resolves elevenlabs factory to ElevenLabsDriver', function () {
     config(['atlas.providers.elevenlabs.api_key' => 'test', 'atlas.providers.elevenlabs.url' => 'https://api.elevenlabs.io/v1']);
+    AtlasConfig::refresh();
 
     $registry = app(ProviderRegistryContract::class);
     $driver = $registry->resolve('elevenlabs');

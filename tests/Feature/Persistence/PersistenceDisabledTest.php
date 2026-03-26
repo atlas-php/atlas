@@ -2,11 +2,13 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 use Atlasphp\Atlas\Responses\Usage;
 
 beforeEach(function () {
     config()->set('atlas.persistence.enabled', false);
+    AtlasConfig::refresh();
 });
 
 it('ExecutionService operations no-op without exceptions when persistence is disabled', function () {

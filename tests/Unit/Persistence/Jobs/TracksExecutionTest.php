@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Events\ExecutionProcessing;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Models\Execution;
@@ -137,6 +138,7 @@ it('transitionToProcessing no-ops when persistence disabled', function () {
     $execution = Execution::factory()->queued()->create();
 
     config()->set('atlas.persistence.enabled', false);
+    AtlasConfig::refresh();
 
     $harness = createTracksExecutionHarness($execution->id);
     $harness->callTransitionToProcessing();
@@ -217,6 +219,7 @@ it('markExecutionCompleted no-ops when persistence disabled', function () {
     $execution = Execution::factory()->processing()->create();
 
     config()->set('atlas.persistence.enabled', false);
+    AtlasConfig::refresh();
 
     $harness = createTracksExecutionHarness($execution->id);
     $harness->callMarkExecutionCompleted();
@@ -254,6 +257,7 @@ it('markExecutionFailed no-ops when persistence disabled', function () {
     $execution = Execution::factory()->processing()->create();
 
     config()->set('atlas.persistence.enabled', false);
+    AtlasConfig::refresh();
 
     $harness = createTracksExecutionHarness($execution->id);
     $harness->callMarkExecutionFailed(new RuntimeException('fail'));

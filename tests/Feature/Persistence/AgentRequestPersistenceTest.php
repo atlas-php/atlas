@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\AgentRegistry;
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Pending\AgentRequest;
 use Atlasphp\Atlas\Persistence\Concerns\HasConversations;
@@ -65,6 +66,7 @@ function makePersistRequest(string $key): AgentRequest
         providerRegistry: app(ProviderRegistryContract::class),
         app: app(),
         events: app(Dispatcher::class),
+        config: app(AtlasConfig::class),
     );
 }
 
@@ -165,6 +167,7 @@ it('sets conversation title from first user message', function () {
 
 it('skips eager store when persistence is disabled', function () {
     config(['atlas.persistence.enabled' => false]);
+    AtlasConfig::refresh();
 
     registerPersistAgent(PersistTestConversationAgent::class);
     setupPersistFake();

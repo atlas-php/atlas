@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Concerns\StoresMedia;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
@@ -135,6 +136,7 @@ it('returns base64 encoded contents via toBase64', function () {
 it('uses atlas.storage.disk config', function () {
     Storage::fake('custom-disk');
     config()->set('atlas.storage.disk', 'custom-disk');
+    AtlasConfig::refresh();
 
     $stub = makeMediaStub('base64', base64_encode('data'));
     $path = $stub->store();
@@ -146,6 +148,7 @@ it('uses atlas.storage.prefix config in auto paths', function () {
     Storage::fake('local');
     config()->set('filesystems.default', 'local');
     config()->set('atlas.storage.prefix', 'my-app');
+    AtlasConfig::refresh();
 
     $stub = makeMediaStub('base64', base64_encode('data'));
     $path = $stub->store();

@@ -5,8 +5,13 @@ declare(strict_types=1);
 use Atlasphp\Atlas\Events\ProviderRequestCompleted;
 use Atlasphp\Atlas\Events\ProviderRequestFailed;
 use Atlasphp\Atlas\Events\ProviderRequestStarted;
+use Atlasphp\Atlas\Events\ProviderRetrying;
 use Atlasphp\Atlas\Http\HttpClient;
+use Atlasphp\Atlas\Http\RetryDecider;
+use Atlasphp\Atlas\RequestConfig;
+use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Http\Client\RequestException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 
@@ -276,4 +281,153 @@ it('fires ProviderRequestCompleted on successful stream', function () {
     Event::assertDispatched(ProviderRequestCompleted::class, function ($event) {
         return $event->url === 'https://api.test.com/chat';
     });
+});
+
+it('stream returns an Illuminate Response', function () {
+    Http::fake([
+        '*' => Http::response('stream-data', 200),
+    ]);
+
+    $client = app(HttpClient::class);
+    $response = $client->stream('https://api.test.com/chat', [], [], 60);
+
+    expect($response)->toBeInstanceOf(Response::class);
+});
+
+// ─── RETRY ──────────────────────────────────────────────────────────────────
+
+it('post retries with RequestConfig and fires ProviderRetrying', function () {
+    Event::fake();
+
+    $callCount = 0;
+
+    Http::fake(function () use (&$callCount) {
+        $callCount++;
+
+        return $callCount === 1
+            ? Http::response(['error' => 'server error'], 500)
+            : Http::response(['data' => 'ok'], 200);
+    });
+
+    // Mock decider to allow one retry then stop
+    $decider = new class extends RetryDecider
+    {
+        public int $retryCount = 0;
+
+        public function shouldRetry(Throwable $e, RequestConfig $config, int $attempt): bool
+        {
+            $this->retryCount++;
+
+            return $attempt <= 1;
+        }
+
+        public function waitMicroseconds(Throwable $e, int $attempt): int
+        {
+            return 0;
+        }
+    };
+
+    $client = new HttpClient(app(Dispatcher::class), $decider);
+    $config = new RequestConfig(60, 3, 2);
+
+    $data = $client->post('https://api.test.com/chat', [], [], 60, $config);
+
+    expect($data)->toBe(['data' => 'ok']);
+    expect($callCount)->toBe(2);
+    expect($decider->retryCount)->toBe(1);
+
+    Event::assertDispatched(ProviderRetrying::class, function ($event) {
+        return $event->url === 'https://api.test.com/chat'
+            && $event->attempt === 1
+            && $event->waitMicroseconds === 0;
+    });
+});
+
+it('post throws after retry limit exhausted', function () {
+    $decider = new class extends RetryDecider
+    {
+        public function shouldRetry(Throwable $e, RequestConfig $config, int $attempt): bool
+        {
+            return false;
+        }
+    };
+
+    $client = new HttpClient(app(Dispatcher::class), $decider);
+    $config = new RequestConfig(60, 0, 0);
+
+    Http::fake([
+        '*' => Http::response(['error' => 'server error'], 500),
+    ]);
+
+    $client->post('https://api.test.com/chat', [], [], 60, $config);
+})->throws(RequestException::class);
+
+it('post does not retry when config is null', function () {
+    Event::fake();
+
+    Http::fake([
+        '*' => Http::response(['error' => 'fail'], 500),
+    ]);
+
+    $client = app(HttpClient::class);
+
+    try {
+        $client->post('https://api.test.com/chat', [], [], 60, null);
+    } catch (RequestException) {
+        // expected
+    }
+
+    Event::assertNotDispatched(ProviderRetrying::class);
+});
+
+it('post does not retry when retry is disabled', function () {
+    Event::fake();
+
+    Http::fake([
+        '*' => Http::response(['error' => 'fail'], 500),
+    ]);
+
+    $client = app(HttpClient::class);
+    $config = (new RequestConfig(60, 3, 2))->withoutRetry();
+
+    try {
+        $client->post('https://api.test.com/chat', [], [], 60, $config);
+    } catch (RequestException) {
+        // expected
+    }
+
+    Event::assertNotDispatched(ProviderRetrying::class);
+});
+
+it('postRaw retries with RequestConfig', function () {
+    $callCount = 0;
+
+    Http::fake(function () use (&$callCount) {
+        $callCount++;
+
+        return $callCount === 1
+            ? Http::response('error', 500)
+            : Http::response('binary-data', 200);
+    });
+
+    $decider = new class extends RetryDecider
+    {
+        public function shouldRetry(Throwable $e, RequestConfig $config, int $attempt): bool
+        {
+            return $attempt <= 1;
+        }
+
+        public function waitMicroseconds(Throwable $e, int $attempt): int
+        {
+            return 0;
+        }
+    };
+
+    $client = new HttpClient(app(Dispatcher::class), $decider);
+    $config = new RequestConfig(60, 3, 2);
+
+    $body = $client->postRaw('https://api.test.com/audio', [], [], 60, $config);
+
+    expect($body)->toBe('binary-data');
+    expect($callCount)->toBe(2);
 });

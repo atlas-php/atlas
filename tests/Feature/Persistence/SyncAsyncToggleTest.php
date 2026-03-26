@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Atlas;
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Queue\Jobs\TracksExecution;
@@ -37,6 +38,7 @@ it('sync image call works with persistence enabled', function () {
 
 it('sync text call works with persistence disabled', function () {
     config()->set('atlas.persistence.enabled', false);
+    AtlasConfig::refresh();
     Atlas::fake();
 
     $response = Atlas::text('openai', 'gpt-5')
@@ -48,6 +50,7 @@ it('sync text call works with persistence disabled', function () {
 
 it('sync image call works with persistence disabled', function () {
     config()->set('atlas.persistence.enabled', false);
+    AtlasConfig::refresh();
     Atlas::fake();
 
     $response = Atlas::image('openai', 'dall-e-3')
@@ -97,6 +100,7 @@ it('queued image creates execution record with correct type', function () {
 
 it('queued text works without persistence — no execution record', function () {
     config()->set('atlas.persistence.enabled', false);
+    AtlasConfig::refresh();
     Atlas::fake();
     Queue::fake();
 
@@ -111,6 +115,7 @@ it('queued text works without persistence — no execution record', function () 
 
 it('queued image works without persistence — no execution record', function () {
     config()->set('atlas.persistence.enabled', false);
+    AtlasConfig::refresh();
     Atlas::fake();
     Queue::fake();
 
@@ -127,6 +132,7 @@ it('queued image works without persistence — no execution record', function ()
 
 it('TracksExecution no-ops when persistence disabled', function () {
     config()->set('atlas.persistence.enabled', false);
+    AtlasConfig::refresh();
 
     $harness = new class(executionId: 999)
     {
