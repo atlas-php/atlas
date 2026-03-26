@@ -632,7 +632,7 @@ class AgentRequest implements QueueableRequest
         }
 
         // Build endpoint URLs — always available (controllers gracefully skip when persistence is off)
-        $prefix = $this->config->voiceTranscripts['route_prefix'] ?? 'atlas';
+        $prefix = $this->config->voiceRoutePrefix;
         $toolEndpoint = $toolMap !== [] ? url("/{$prefix}/voice/{$session->sessionId}/tool") : null;
         $transcriptEndpoint = url("/{$prefix}/voice/{$session->sessionId}/transcript");
         $closeEndpoint = url("/{$prefix}/voice/{$session->sessionId}/close");

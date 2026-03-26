@@ -155,7 +155,7 @@ class AtlasServiceProvider extends ServiceProvider
     {
         $this->app->booted(function (): void {
             $config = app(AtlasConfig::class);
-            $prefix = $config->voiceTranscripts['route_prefix'] ?? 'atlas';
+            $prefix = $config->voiceRoutePrefix;
             $middleware = app(MiddlewareResolver::class)->forVoiceHttp();
 
             Route::prefix($prefix)

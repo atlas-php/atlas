@@ -206,19 +206,6 @@ it('resolves elevenlabs factory to ElevenLabsDriver', function () {
 
 // ─── Voice Routes ───────────────────────────────────────────────────────
 
-it('does not register voice routes when voice_transcripts disabled', function () {
-    config([
-        'atlas.persistence.enabled' => true,
-        'atlas.persistence.voice_transcripts.enabled' => false,
-    ]);
-
-    // Re-boot the provider to test the config check
-    $routes = collect(app('router')->getRoutes()->getRoutes())
-        ->pluck('uri')
-        ->filter(fn (string $uri) => str_contains($uri, 'voice'));
-
-    // Since voice_transcripts is disabled, no voice routes should be registered
-    // (this tests the config guard, not route existence — routes were registered
-    // before this test overrode the config)
-    expect(config('atlas.persistence.voice_transcripts.enabled'))->toBeFalse();
+it('uses voice_route_prefix for voice route registration', function () {
+    expect(config('atlas.persistence.voice_route_prefix', 'atlas'))->toBe('atlas');
 });

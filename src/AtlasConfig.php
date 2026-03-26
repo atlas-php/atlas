@@ -46,8 +46,7 @@ class AtlasConfig
         public readonly string $tablePrefix = 'atlas_',
         public readonly int $messageLimit = 50,
         public readonly bool $autoStoreAssets = true,
-        /** @var array<string, mixed> */
-        public readonly array $voiceTranscripts = ['route_prefix' => 'atlas'],
+        public readonly string $voiceRoutePrefix = 'atlas',
         public readonly int $voiceSessionTtl = 60,
         /** @var array<string, class-string> */
         public readonly array $persistenceModels = [],
@@ -119,7 +118,7 @@ class AtlasConfig
             tablePrefix: config('atlas.persistence.table_prefix', 'atlas_'),
             messageLimit: (int) config('atlas.persistence.message_limit', 50),
             autoStoreAssets: (bool) config('atlas.persistence.auto_store_assets', true),
-            voiceTranscripts: config('atlas.persistence.voice_transcripts', ['route_prefix' => 'atlas']),
+            voiceRoutePrefix: config('atlas.persistence.voice_route_prefix', 'atlas'),
             voiceSessionTtl: (int) config('atlas.persistence.voice_session_ttl', 60),
             persistenceModels: config('atlas.persistence.models', []),
             agents: config('atlas.agents', ['path' => null, 'namespace' => null]),

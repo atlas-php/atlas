@@ -311,9 +311,7 @@ return [
         'message_limit' => (int) env('ATLAS_MESSAGE_LIMIT', 50),
         'auto_store_assets' => env('ATLAS_AUTO_STORE_ASSETS', true),
 
-        'voice_transcripts' => [
-            'route_prefix' => 'atlas',
-        ],
+        'voice_route_prefix' => 'atlas',
 
         'voice_session_ttl' => (int) env('ATLAS_VOICE_SESSION_TTL', 60),
 
