@@ -3,7 +3,7 @@ layout: home
 
 hero:
   text: "AI Agents <span class='text-laravel'>for Laravel</span>"
-  tagline: A unified AI execution layer for Laravel.
+  tagline: A unified AI SDK for Laravel applications.
   image:
     light: /atlas-logo-5.png
     dark: /atlas-logo-2.png
@@ -19,28 +19,28 @@ hero:
 features:
   - icon:
       src: /icons/agent.svg
-      alt: Agent Registry
-    title: Agent Registry
+      alt: Agents
+    title: Agents
     details: Reusable agent classes that encapsulate provider, model, instructions, tools, and behavior. Define once, use anywhere.
     link: /features/agents
   - icon:
       src: /icons/tool.svg
-      alt: Tool Registry
-    title: Tool Registry
+      alt: Tools
+    title: Tools
     details: Typed tool classes with parameter schemas and dependency injection. Let AI call your PHP code safely.
     link: /features/tools
   - icon:
       src: /icons/multi-provider.svg
       alt: Multi-Modal
     title: Multi-Modal
-    details: "Text, images, audio, video, embeddings, moderation, and reranking — all through one consistent API."
+    details: "Text, structured output, images, audio, video, voice, embeddings, and reranking — all through one consistent API."
     link: /getting-started/introduction
   - icon:
-      src: /icons/structured.svg
-      alt: Structured Output
-    title: Structured Output
-    details: Extract typed data from AI responses. Get arrays, objects, or custom schemas instead of raw strings.
-    link: /modalities/text
+      src: /icons/microphone.svg
+      alt: Voice Calls
+    title: Voice Calls
+    details: Real-time voice-to-voice conversations with your agents. WebRTC and WebSocket support with full tool access.
+    link: /modalities/voice
   - icon:
       src: /icons/streaming.svg
       alt: Dynamic Prompts

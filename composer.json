@@ -1,6 +1,6 @@
 {
     "name": "atlas-php/atlas",
-    "description": "A unified AI execution layer for Laravel.",
+    "description": "A unified AI SDK for Laravel applications.",
     "type": "library",
     "license": "MIT",
     "require": {

@@ -1,6 +1,6 @@
 # Introduction
 
-Atlas is a unified AI execution layer for Laravel. It owns its own provider layer — no external AI package dependency. Atlas talks directly to AI provider APIs, manages the tool call loop, and provides optional persistence for conversations and execution tracking.
+Atlas is a unified AI SDK for Laravel applications. It owns its own provider layer — no external AI package dependency. Atlas talks directly to AI provider APIs, manages the tool call loop, and provides optional persistence for conversations and execution tracking.
 
 ## Quick Example
 

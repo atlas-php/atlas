@@ -22,7 +22,7 @@ For workflow, task management, and Claude Code-specific behavioral rules, see `C
 
 ## Atlas v3 Architecture
 
-Atlas v3 is a unified AI execution layer for Laravel. It owns its own provider layer — no external AI package dependency.
+Atlas v3 is a unified AI SDK for Laravel applications. It owns its own provider layer — no external AI package dependency.
 
 ### Layer Model
 

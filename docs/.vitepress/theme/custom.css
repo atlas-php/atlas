@@ -485,6 +485,16 @@ body:has(.VPHome) .VPNavBar .content {
         0 0 40px rgba(1, 205, 254, 0.15) !important;
 }
 
+/* Feature icon alignment - left-align icons with text */
+.VPFeature .box {
+    align-items: flex-start !important;
+}
+
+.VPFeature .icon {
+    display: flex !important;
+    justify-content: flex-start !important;
+}
+
 /* Feature icon images - ensure consistent height for title alignment */
 .VPFeatures .VPFeature .VPImage,
 .VPFeature .icon img,
