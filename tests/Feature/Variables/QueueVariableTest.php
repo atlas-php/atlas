@@ -2,10 +2,15 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Facades\Atlas;
 use Atlasphp\Atlas\Pending\AudioRequest;
 use Atlasphp\Atlas\Pending\ImageRequest;
+use Atlasphp\Atlas\Pending\MusicRequest;
+use Atlasphp\Atlas\Pending\SfxRequest;
 use Atlasphp\Atlas\Pending\TextRequest;
 use Atlasphp\Atlas\Pending\VideoRequest;
+use Atlasphp\Atlas\Responses\AudioResponse;
+use Atlasphp\Atlas\Testing\AudioResponseFake;
 
 it('text queue payload includes variables', function () {
     $request = app(TextRequest::class, [
@@ -65,6 +70,80 @@ it('video queue payload includes variables', function () {
     $payload = $request->toQueuePayload();
 
     expect($payload['variables'])->toBe(['PRODUCT' => 'Atlas']);
+});
+
+it('music queue payload includes variables', function () {
+    $request = app(MusicRequest::class, [
+        'provider' => 'elevenlabs',
+        'model' => 'v2',
+    ]);
+
+    $request->instructions('A {GENRE} track')
+        ->withVariables(['GENRE' => 'ambient'])
+        ->withMessageInterpolation();
+
+    $payload = $request->toQueuePayload();
+
+    expect($payload['variables'])->toBe(['GENRE' => 'ambient']);
+    expect($payload['interpolate_messages'])->toBeTrue();
+    expect($payload['instructions'])->toBe('A {GENRE} track');
+});
+
+it('sfx queue payload includes variables', function () {
+    $request = app(SfxRequest::class, [
+        'provider' => 'elevenlabs',
+        'model' => 'v2',
+    ]);
+
+    $request->instructions('A {TYPE} explosion')
+        ->withVariables(['TYPE' => 'dramatic']);
+
+    $payload = $request->toQueuePayload();
+
+    expect($payload['variables'])->toBe(['TYPE' => 'dramatic']);
+    expect($payload['interpolate_messages'])->toBeFalse();
+});
+
+it('music executeFromPayload restores variables', function () {
+    Atlas::fake([AudioResponseFake::make()]);
+
+    $result = MusicRequest::executeFromPayload(
+        payload: [
+            'provider' => 'openai',
+            'model' => 'test',
+            'instructions' => 'A {GENRE} track',
+            'duration' => 30,
+            'format' => 'mp3',
+            'providerOptions' => [],
+            'meta' => [],
+            'variables' => ['GENRE' => 'ambient'],
+            'interpolate_messages' => true,
+        ],
+        terminal: 'asAudio',
+    );
+
+    expect($result)->toBeInstanceOf(AudioResponse::class);
+});
+
+it('sfx executeFromPayload restores variables', function () {
+    Atlas::fake([AudioResponseFake::make()]);
+
+    $result = SfxRequest::executeFromPayload(
+        payload: [
+            'provider' => 'openai',
+            'model' => 'test',
+            'instructions' => 'A {TYPE} explosion',
+            'duration' => 5,
+            'format' => 'mp3',
+            'providerOptions' => [],
+            'meta' => [],
+            'variables' => ['TYPE' => 'dramatic'],
+            'interpolate_messages' => false,
+        ],
+        terminal: 'asAudio',
+    );
+
+    expect($result)->toBeInstanceOf(AudioResponse::class);
 });
 
 it('text executeFromPayload restores variables', function () {

@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use Atlasphp\Atlas\Concerns\HasVariables;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
+use Atlasphp\Atlas\Pending\Concerns\HasVariables;
 use Atlasphp\Atlas\Support\VariableRegistry;
 
 class HasVariablesTestHelper

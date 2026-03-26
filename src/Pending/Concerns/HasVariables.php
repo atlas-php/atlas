@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Atlasphp\Atlas\Concerns;
+namespace Atlasphp\Atlas\Pending\Concerns;
 
 use Atlasphp\Atlas\Support\VariableInterpolator;
 use Atlasphp\Atlas\Support\VariableRegistry;
@@ -62,6 +62,23 @@ trait HasVariables
         $resolved = $this->resolveVariables();
 
         return VariableInterpolator::interpolate($template, $resolved);
+    }
+
+    /**
+     * Restore variable settings from a payload onto a request instance.
+     *
+     * @param  object  $request  The fluent builder instance (must use HasVariables)
+     * @param  array<string, mixed>  $payload
+     */
+    public static function applyVariables(object $request, array $payload): void
+    {
+        if (! empty($payload['variables'])) {
+            $request->withVariables($payload['variables']);
+        }
+
+        if ($payload['interpolate_messages'] ?? false) {
+            $request->withMessageInterpolation();
+        }
     }
 
     /**

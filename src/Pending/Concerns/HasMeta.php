@@ -34,4 +34,24 @@ trait HasMeta
     {
         return $this->meta;
     }
+
+    /**
+     * Restore meta from a payload onto a request instance.
+     *
+     * @param  object  $request  The fluent builder instance (must use HasMeta)
+     * @param  array<string, mixed>  $payload
+     * @param  int|null  $executionId  Pre-created execution ID for persistence
+     */
+    public static function applyMeta(object $request, array $payload, ?int $executionId): void
+    {
+        $meta = $payload['meta'] ?? [];
+
+        if ($executionId !== null) {
+            $meta['execution_id'] = $executionId;
+        }
+
+        if (! empty($meta)) {
+            $request->withMeta($meta);
+        }
+    }
 }

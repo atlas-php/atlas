@@ -96,6 +96,14 @@ it('voice returns VoiceRequest', function () {
     expect($manager->voice('openai', 'gpt-4o-realtime-preview'))->toBeInstanceOf(VoiceRequest::class);
 });
 
+it('audio uses config defaults when no arguments provided', function () {
+    config(['atlas.defaults.audio' => ['provider' => 'openai', 'model' => 'tts-1']]);
+
+    $manager = app(AtlasManager::class);
+
+    expect($manager->audio())->toBeInstanceOf(AudioRequest::class);
+});
+
 it('accepts Provider enum', function () {
     $manager = app(AtlasManager::class);
 

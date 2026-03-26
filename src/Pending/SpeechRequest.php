@@ -4,17 +4,16 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Pending;
 
-use Atlasphp\Atlas\Concerns\HasQueueDispatch;
-use Atlasphp\Atlas\Concerns\HasVariables;
 use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Events\ModalityCompleted;
 use Atlasphp\Atlas\Events\ModalityStarted;
 use Atlasphp\Atlas\Facades\Atlas;
-use Atlasphp\Atlas\Pending\Concerns\AppliesQueueMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
 use Atlasphp\Atlas\Pending\Concerns\HasProviderOptions;
+use Atlasphp\Atlas\Pending\Concerns\HasQueueDispatch;
+use Atlasphp\Atlas\Pending\Concerns\HasVariables;
 use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
@@ -31,7 +30,6 @@ use Illuminate\Support\Str;
  */
 class SpeechRequest implements QueueableRequestContract
 {
-    use AppliesQueueMeta;
     use HasMeta;
     use HasMiddleware;
     use HasProviderOptions;
@@ -264,15 +262,8 @@ class SpeechRequest implements QueueableRequestContract
             $request->withProviderOptions($payload['providerOptions']);
         }
 
-        static::applyQueueMeta($request, $payload, $executionId);
-
-        if (! empty($payload['variables'])) {
-            $request->withVariables($payload['variables']);
-        }
-
-        if ($payload['interpolate_messages'] ?? false) {
-            $request->withMessageInterpolation();
-        }
+        static::applyMeta($request, $payload, $executionId);
+        static::applyVariables($request, $payload);
 
         return match ($terminal) {
             'asAudio' => $request->asAudio(),

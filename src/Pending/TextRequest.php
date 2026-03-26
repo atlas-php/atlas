@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Pending;
 
-use Atlasphp\Atlas\Concerns\HasQueueDispatch;
-use Atlasphp\Atlas\Concerns\HasVariables;
 use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Events\ModalityCompleted;
@@ -19,11 +17,12 @@ use Atlasphp\Atlas\Messages\AssistantMessage;
 use Atlasphp\Atlas\Messages\SystemMessage;
 use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
-use Atlasphp\Atlas\Pending\Concerns\AppliesQueueMeta;
 use Atlasphp\Atlas\Pending\Concerns\ConvertsResultToChunks;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
 use Atlasphp\Atlas\Pending\Concerns\HasProviderOptions;
+use Atlasphp\Atlas\Pending\Concerns\HasQueueDispatch;
+use Atlasphp\Atlas\Pending\Concerns\HasVariables;
 use Atlasphp\Atlas\Pending\Concerns\NormalizesMessages;
 use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
@@ -50,7 +49,6 @@ use Illuminate\Support\Str;
  */
 class TextRequest implements QueueableRequestContract
 {
-    use AppliesQueueMeta;
     use ConvertsResultToChunks;
     use HasMeta;
     use HasMiddleware;
@@ -475,15 +473,8 @@ class TextRequest implements QueueableRequestContract
             ));
         }
 
-        static::applyQueueMeta($request, $payload, $executionId);
-
-        if (! empty($payload['variables'])) {
-            $request->withVariables($payload['variables']);
-        }
-
-        if ($payload['interpolate_messages'] ?? false) {
-            $request->withMessageInterpolation();
-        }
+        static::applyMeta($request, $payload, $executionId);
+        static::applyVariables($request, $payload);
 
         $result = match ($terminal) {
             'asText' => $request->asText(),

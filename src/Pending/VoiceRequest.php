@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Pending;
 
-use Atlasphp\Atlas\Concerns\HasVariables;
 use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Enums\TurnDetectionMode;
@@ -15,6 +14,7 @@ use Atlasphp\Atlas\Events\VoiceSessionCreated;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
 use Atlasphp\Atlas\Pending\Concerns\HasProviderOptions;
+use Atlasphp\Atlas\Pending\Concerns\HasVariables;
 use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Requests\VoiceRequest as VoiceRequestObject;

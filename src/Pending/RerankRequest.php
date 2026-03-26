@@ -4,16 +4,15 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Pending;
 
-use Atlasphp\Atlas\Concerns\HasQueueDispatch;
 use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Events\ModalityCompleted;
 use Atlasphp\Atlas\Events\ModalityStarted;
 use Atlasphp\Atlas\Facades\Atlas;
-use Atlasphp\Atlas\Pending\Concerns\AppliesQueueMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
 use Atlasphp\Atlas\Pending\Concerns\HasProviderOptions;
+use Atlasphp\Atlas\Pending\Concerns\HasQueueDispatch;
 use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Queue\PendingExecution;
@@ -28,7 +27,6 @@ use Illuminate\Support\Str;
  */
 class RerankRequest implements QueueableRequestContract
 {
-    use AppliesQueueMeta;
     use HasMeta;
     use HasMiddleware;
     use HasProviderOptions;
@@ -204,7 +202,7 @@ class RerankRequest implements QueueableRequestContract
             $request->withProviderOptions($payload['providerOptions']);
         }
 
-        static::applyQueueMeta($request, $payload, $executionId);
+        static::applyMeta($request, $payload, $executionId);
 
         return match ($terminal) {
             'asReranked' => $request->asReranked(),

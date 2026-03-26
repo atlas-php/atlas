@@ -6,8 +6,6 @@ namespace Atlasphp\Atlas\Pending;
 
 use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\Agents\AgentRegistry;
-use Atlasphp\Atlas\Concerns\HasQueueDispatch;
-use Atlasphp\Atlas\Concerns\HasVariables;
 use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Enums\Role;
@@ -28,6 +26,8 @@ use Atlasphp\Atlas\Middleware\MiddlewareStack;
 use Atlasphp\Atlas\Pending\Concerns\HasMeta;
 use Atlasphp\Atlas\Pending\Concerns\HasMiddleware;
 use Atlasphp\Atlas\Pending\Concerns\HasProviderOptions;
+use Atlasphp\Atlas\Pending\Concerns\HasQueueDispatch;
+use Atlasphp\Atlas\Pending\Concerns\HasVariables;
 use Atlasphp\Atlas\Pending\Concerns\NormalizesMessages;
 use Atlasphp\Atlas\Persistence\Concerns\HasConversations;
 use Atlasphp\Atlas\Persistence\Enums\AssetType;
