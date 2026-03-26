@@ -38,7 +38,7 @@ it('markCompleted sets status, completed_at, duration, and usage', function () {
     expect($execution->status)->toBe(ExecutionStatus::Completed)
         ->and($execution->completed_at)->not->toBeNull()
         ->and($execution->duration_ms)->toBe(3000)
-        ->and($execution->usage)->toBe(['input_tokens' => 300, 'output_tokens' => 125]);
+        ->and($execution->getUsageAttribute())->toBe(['input_tokens' => 300, 'output_tokens' => 125]);
 });
 
 it('markFailed sets status, error, completed_at, and usage', function () {
@@ -53,7 +53,7 @@ it('markFailed sets status, error, completed_at, and usage', function () {
         ->and($execution->error)->toBe('Provider timeout')
         ->and($execution->completed_at)->not->toBeNull()
         ->and($execution->duration_ms)->toBe(2000)
-        ->and($execution->usage)->toBe(['input_tokens' => 50, 'output_tokens' => 10]);
+        ->and($execution->getUsageAttribute())->toBe(['input_tokens' => 50, 'output_tokens' => 10]);
 });
 
 it('scopeOfType filters correctly', function () {
@@ -103,6 +103,35 @@ it('scopeForProvider filters by provider', function () {
 
     expect(Execution::forProvider('openai')->count())->toBe(2)
         ->and(Execution::forProvider('anthropic')->count())->toBe(1);
+});
+
+it('usage returns camelCase keys', function () {
+    $execution = Execution::factory()->create([
+        'usage' => ['input_tokens' => 200, 'output_tokens' => 100, 'reasoning_tokens' => 50],
+    ]);
+
+    expect($execution->usage())->toBe([
+        'inputTokens' => 200,
+        'outputTokens' => 100,
+        'reasoningTokens' => 50,
+    ]);
+});
+
+it('usage returns null when no usage stored', function () {
+    $execution = Execution::factory()->create(['usage' => null]);
+
+    expect($execution->usage())->toBeNull();
+});
+
+it('getUsageAttribute returns raw snake_case keys', function () {
+    $execution = Execution::factory()->create([
+        'usage' => ['input_tokens' => 200, 'output_tokens' => 100],
+    ]);
+
+    expect($execution->getUsageAttribute())->toBe([
+        'input_tokens' => 200,
+        'output_tokens' => 100,
+    ]);
 });
 
 it('getTotalTokensAttribute returns sum of input and output from usage JSON', function () {

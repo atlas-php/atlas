@@ -80,7 +80,7 @@ class MessageResource
             'provider' => $execution->provider,
             'model' => $execution->model,
             'duration_ms' => $execution->duration_ms,
-            'usage' => $execution->usage,
+            'usage' => $execution->usage(),
             'steps' => $steps->map(fn ($step) => [
                 'id' => $step->id,
                 'sequence' => $step->sequence,

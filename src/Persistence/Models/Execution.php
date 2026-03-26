@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 
 /**
  * Class Execution
@@ -173,12 +174,50 @@ class Execution extends Model
      */
     public function getUsageObject(): Usage
     {
-        return Usage::fromArray($this->usage);
+        return Usage::fromArray($this->getUsageAttribute());
+    }
+
+    /**
+     * Get usage with camelCase keys for API responses.
+     *
+     * @return array<string, int>|null
+     */
+    public function usage(): ?array
+    {
+        $usage = $this->getUsageAttribute();
+
+        if ($usage === null) {
+            return null;
+        }
+
+        $formatted = [];
+
+        foreach ($usage as $key => $value) {
+            $formatted[Str::camel($key)] = $value;
+        }
+
+        return $formatted;
+    }
+
+    /**
+     * Raw usage array from the database.
+     *
+     * @return array<string, int>|null
+     */
+    public function getUsageAttribute(): ?array
+    {
+        $value = $this->attributes['usage'] ?? null;
+
+        if ($value === null) {
+            return null;
+        }
+
+        return is_array($value) ? $value : json_decode($value, true);
     }
 
     public function getTotalTokensAttribute(): int
     {
-        $usage = $this->usage ?? [];
+        $usage = $this->getUsageAttribute() ?? [];
 
         return ($usage['input_tokens'] ?? 0) + ($usage['output_tokens'] ?? 0);
     }

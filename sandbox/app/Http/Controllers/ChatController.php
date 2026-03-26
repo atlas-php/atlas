@@ -261,7 +261,7 @@ class ChatController
             'started_at' => $execution->started_at,
             'completed_at' => $execution->completed_at,
             'duration_ms' => $execution->duration_ms,
-            'usage' => $execution->usage,
+            'usage' => $execution->usage(),
             'error' => $execution->error,
         ]);
     }
