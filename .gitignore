@@ -55,6 +55,10 @@ sandbox/bootstrap/cache/*
 sandbox/storage/threads/*.json
 sandbox/storage/outputs/*
 sandbox/storage/logs/*
+sandbox/storage/framework/testing/
+sandbox/storage/framework/sessions/*
+sandbox/storage/framework/cache/*
+sandbox/storage/framework/views/*
 !sandbox/storage/threads/.gitkeep
 !sandbox/storage/outputs/.gitkeep
 !sandbox/storage/logs/.gitkeep
@@ -62,6 +66,8 @@ sandbox/storage/logs/*
 /sandbox/storage/app/generated
 /sandbox/storage/app/nexus/*
 /sandbox/storage/app/nexus/
+sandbox/storage/providers/
+atlas-v3*.md
 
 # VitePress
 docs/.vitepress/cache

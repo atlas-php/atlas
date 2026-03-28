@@ -1,21 +1,30 @@
 {
-    "name": "atlas-sandbox-chat",
     "private": true,
     "type": "module",
     "scripts": {
         "dev": "vite",
-        "build": "vite build"
+        "build": "vue-tsc -b && vite build"
     },
     "dependencies": {
-        "markdown-it": "^14.0.0",
-        "vue": "^3.5.0"
+        "@tailwindcss/typography": "^0.5.19",
+        "class-variance-authority": "^0.7.1",
+        "clsx": "^2.1.1",
+        "dompurify": "^3.3.3",
+        "laravel-echo": "^2.3.1",
+        "lucide-vue-next": "^0.474.0",
+        "marked": "^17.0.5",
+        "pusher-js": "^8.4.3",
+        "radix-vue": "^1.9.17",
+        "tailwind-merge": "^3.5.0",
+        "vue": "^3.5.30"
     },
     "devDependencies": {
-        "@tailwindcss/typography": "^0.5.0",
-        "@tailwindcss/vite": "^4.0.0",
-        "@vitejs/plugin-vue": "^5.0.0",
-        "laravel-vite-plugin": "^1.0.0",
-        "tailwindcss": "^4.0.0",
-        "vite": "^6.0.0"
+        "@tailwindcss/vite": "^4.2.2",
+        "@types/dompurify": "^3.2.0",
+        "@vitejs/plugin-vue": "^5.2.4",
+        "laravel-vite-plugin": "^1.3.0",
+        "tailwindcss": "^4.2.2",
+        "typescript": "~5.7.3",
+        "vue-tsc": "^2.2.12"
     }
 }

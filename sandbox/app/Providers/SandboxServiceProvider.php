@@ -4,35 +4,30 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
-use App\Console\Commands\ChatCommand;
-use App\Console\Commands\ComprehensiveToolsCommand;
-use App\Console\Commands\EmbedCommand;
-use App\Console\Commands\ImageCommand;
-use App\Console\Commands\LocalChatCommand;
-use App\Console\Commands\McpCommand;
-use App\Console\Commands\ModelsCommand;
-use App\Console\Commands\ModerationCommand;
-use App\Console\Commands\PackagistTestCommand;
-use App\Console\Commands\PipelineCommand;
-use App\Console\Commands\ProviderResolutionCommand;
-use App\Console\Commands\SpeechCommand;
-use App\Console\Commands\StreamCommand;
-use App\Console\Commands\StructuredCommand;
-use App\Console\Commands\ToolsCommand;
-use App\Console\Commands\VisionCommand;
-use App\Console\Commands\WhenProviderCommand;
-use App\Services\ThreadStorageService;
+use App\Agents\AssistantAgent;
+use App\Agents\VoiceAssistantAgent;
+use App\Console\FreshCommand;
+use App\Listeners\SummarizeVoiceCall;
+use Atlasphp\Atlas\AgentRegistry;
+use Atlasphp\Atlas\Embeddings\VectorQueryMacros;
+use Atlasphp\Atlas\Events\VoiceCallCompleted;
+use Atlasphp\Atlas\Persistence\Middleware\PersistConversation;
+use Atlasphp\Atlas\Persistence\Middleware\TrackExecution;
+use Atlasphp\Atlas\Persistence\Middleware\TrackProviderCall;
+use Atlasphp\Atlas\Persistence\Middleware\TrackStep;
+use Atlasphp\Atlas\Persistence\Middleware\TrackToolCall;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
 /**
  * Service provider for the Atlas sandbox environment.
  *
- * Registers sandbox-specific commands and services for testing
- * Atlas functionality against real AI providers.
- *
- * Agents and tools are auto-discovered from app/Agents and app/Tools
- * directories via the atlas.php configuration.
+ * Registers sandbox-specific configuration, routes, views, migrations,
+ * commands, and persistence middleware. Middleware is registered here
+ * because Orchestra Testbench boots providers before sandbox config
+ * is loaded, so AtlasServiceProvider's auto-registration misses the
+ * persistence.enabled flag.
  */
 class SandboxServiceProvider extends ServiceProvider
 {
@@ -41,11 +36,7 @@ class SandboxServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->singleton(ThreadStorageService::class, function () {
-            return new ThreadStorageService(
-                dirname(__DIR__, 2).'/storage/threads'
-            );
-        });
+        //
     }
 
     /**
@@ -53,13 +44,91 @@ class SandboxServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        $this->registerCommands();
         $this->registerRoutes();
         $this->registerViews();
+        $this->loadMigrations();
+        $this->registerCommands();
+        $this->registerAgents();
+        $this->registerPersistenceMiddleware();
+        $this->registerListeners();
     }
 
     /**
-     * Register web routes.
+     * Register event listeners.
+     */
+    protected function registerListeners(): void
+    {
+        Event::listen(
+            VoiceCallCompleted::class,
+            SummarizeVoiceCall::class,
+        );
+    }
+
+    /**
+     * Register agents with the registry.
+     */
+    protected function registerAgents(): void
+    {
+        /** @var AgentRegistry $registry */
+        $registry = $this->app->make(AgentRegistry::class);
+        $registry->register(AssistantAgent::class);
+        $registry->register(VoiceAssistantAgent::class);
+    }
+
+    /**
+     * Register persistence middleware.
+     *
+     * AtlasServiceProvider auto-registers these when persistence.enabled
+     * is true during boot — but in the sandbox, Orchestra Testbench boots
+     * before our config override is applied. So we wire them explicitly.
+     */
+    protected function registerPersistenceMiddleware(): void
+    {
+        if (! config('atlas.persistence.enabled')) {
+            return;
+        }
+
+        $agentMiddleware = config('atlas.middleware.agent', []);
+
+        if (! in_array(PersistConversation::class, $agentMiddleware, true)) {
+            $agentMiddleware[] = PersistConversation::class;
+        }
+
+        if (! in_array(TrackExecution::class, $agentMiddleware, true)) {
+            $agentMiddleware[] = TrackExecution::class;
+        }
+
+        config(['atlas.middleware.agent' => $agentMiddleware]);
+
+        $stepMiddleware = config('atlas.middleware.step', []);
+
+        if (! in_array(TrackStep::class, $stepMiddleware, true)) {
+            $stepMiddleware[] = TrackStep::class;
+        }
+
+        config(['atlas.middleware.step' => $stepMiddleware]);
+
+        $toolMiddleware = config('atlas.middleware.tool', []);
+
+        if (! in_array(TrackToolCall::class, $toolMiddleware, true)) {
+            $toolMiddleware[] = TrackToolCall::class;
+        }
+
+        config(['atlas.middleware.tool' => $toolMiddleware]);
+
+        $providerMiddleware = config('atlas.middleware.provider', []);
+
+        if (! in_array(TrackProviderCall::class, $providerMiddleware, true)) {
+            $providerMiddleware[] = TrackProviderCall::class;
+        }
+
+        config(['atlas.middleware.provider' => $providerMiddleware]);
+
+        VectorQueryMacros::register();
+    }
+
+    /**
+     * Register web and API routes.
      */
     protected function registerRoutes(): void
     {
@@ -68,6 +137,12 @@ class SandboxServiceProvider extends ServiceProvider
         if (file_exists($routesPath)) {
             Route::middleware('web')->group($routesPath);
         }
+
+        $apiPath = dirname(__DIR__, 2).'/routes/api.php';
+
+        if (file_exists($apiPath)) {
+            Route::prefix('api')->group($apiPath);
+        }
     }
 
     /**
@@ -75,10 +150,30 @@ class SandboxServiceProvider extends ServiceProvider
      */
     protected function registerViews(): void
     {
-        $this->loadViewsFrom(dirname(__DIR__, 2).'/resources/views', 'sandbox');
+        $viewsPath = dirname(__DIR__, 2).'/resources/views';
 
-        // Also register as default view path
-        $this->app['view']->addLocation(dirname(__DIR__, 2).'/resources/views');
+        if (is_dir($viewsPath)) {
+            $this->loadViewsFrom($viewsPath, 'sandbox');
+            $this->app['view']->addLocation($viewsPath);
+        }
+    }
+
+    /**
+     * Load Atlas package and sandbox-specific migrations.
+     */
+    protected function loadMigrations(): void
+    {
+        $packageMigrations = dirname(__DIR__, 3).'/database/migrations';
+
+        if (is_dir($packageMigrations)) {
+            $this->loadMigrationsFrom($packageMigrations);
+        }
+
+        $sandboxMigrations = dirname(__DIR__, 2).'/database/migrations';
+
+        if (is_dir($sandboxMigrations)) {
+            $this->loadMigrationsFrom($sandboxMigrations);
+        }
     }
 
     /**
@@ -88,23 +183,7 @@ class SandboxServiceProvider extends ServiceProvider
     {
         if ($this->app->runningInConsole()) {
             $this->commands([
-                ChatCommand::class,
-                ComprehensiveToolsCommand::class,
-                EmbedCommand::class,
-                ImageCommand::class,
-                LocalChatCommand::class,
-                McpCommand::class,
-                ModelsCommand::class,
-                ModerationCommand::class,
-                PackagistTestCommand::class,
-                PipelineCommand::class,
-                ProviderResolutionCommand::class,
-                SpeechCommand::class,
-                StreamCommand::class,
-                StructuredCommand::class,
-                ToolsCommand::class,
-                VisionCommand::class,
-                WhenProviderCommand::class,
+                FreshCommand::class,
             ]);
         }
     }

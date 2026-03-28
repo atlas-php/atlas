@@ -1,59 +1,6 @@
 # Artisan Commands
 
-Atlas provides artisan commands to scaffold new agents and tools quickly.
-
-## make:tool
-
-Generate a new tool class:
-
-```bash
-php artisan make:tool SearchProducts
-```
-
-This creates `app/Tools/SearchProducts.php` with a ready-to-use skeleton:
-
-```php
-class SearchProducts extends ToolDefinition
-{
-    public function name(): string
-    {
-        return 'search_products';
-    }
-
-    public function description(): string
-    {
-        return 'A description of what this tool does.';
-    }
-
-    public function parameters(): array
-    {
-        return [
-            ToolParameter::string('query', 'The input query', required: true),
-        ];
-    }
-
-    public function handle(array $params, ToolContext $context): ToolResult
-    {
-        // Implement your tool logic here
-
-        return ToolResult::text('Result');
-    }
-}
-```
-
-The tool name is automatically generated as `snake_case` from the class name. A `Tool` suffix is stripped before conversion:
-
-| Class Name | Generated Tool Name |
-|---|---|
-| `SearchProducts` | `search_products` |
-| `LookupOrderTool` | `lookup_order` |
-| `SendEmail` | `send_email` |
-
-### Options
-
-| Option | Description |
-|---|---|
-| `--force`, `-f` | Overwrite the file if it already exists |
+Atlas provides Artisan commands to scaffold agents and tools.
 
 ## make:agent
 
@@ -63,58 +10,144 @@ Generate a new agent class:
 php artisan make:agent CustomerSupport
 ```
 
-This creates `app/Agents/CustomerSupport.php`:
+Creates `app/Agents/CustomerSupport.php`:
 
 ```php
-class CustomerSupport extends AgentDefinition
+use Atlasphp\Atlas\Agent;
+
+class CustomerSupport extends Agent
 {
-    public function systemPrompt(): ?string
+    public function instructions(): ?string
+    {
+        return 'You are a helpful assistant.';
+    }
+}
+```
+
+### With Tools
+
+```bash
+php artisan make:agent CustomerSupport --tools
+```
+
+Includes a `tools()` method stub:
+
+```php
+class CustomerSupport extends Agent
+{
+    public function instructions(): ?string
     {
         return 'You are a helpful assistant.';
     }
 
     public function tools(): array
     {
-        return [];
+        return [
+            // \App\Tools\YourTool::class,
+        ];
     }
 }
 ```
 
-The generated agent includes `systemPrompt()` and `tools()` — the two methods you'll most commonly override. All other methods have sensible defaults in `AgentDefinition`.
+### With Provider Tools
+
+```bash
+php artisan make:agent CustomerSupport --provider-tools
+```
+
+Includes a `providerTools()` method stub for native provider capabilities like web search.
+
+### All Options Combined
+
+```bash
+php artisan make:agent CustomerSupport --tools --provider-tools
+```
+
+Includes both `tools()` and `providerTools()` methods.
 
 ### Options
 
-| Option | Description |
-|---|---|
-| `--force`, `-f` | Overwrite the file if it already exists |
+| Option | Short | Description |
+|--------|-------|-------------|
+| `--tools` | `-t` | Include `tools()` method stub |
+| `--provider-tools` | `-p` | Include `providerTools()` method stub |
+| `--force` | `-f` | Overwrite if file already exists |
 
-## Auto-Discovery
+## make:tool
 
-Generated agents and tools are automatically discovered and registered. No manual registration is needed — just create the class and use it:
+Generate a new tool class:
+
+```bash
+php artisan make:tool SearchProducts
+```
+
+Creates `app/Tools/SearchProducts.php`:
 
 ```php
-// After: php artisan make:agent CustomerSupport
-$response = Atlas::agent('customer-support')->chat('Hello');
+use Atlasphp\Atlas\Schema\Schema;
+use Atlasphp\Atlas\Tools\Tool;
 
-// After: php artisan make:tool SearchProducts
-// Reference in your agent's tools() method
-public function tools(): array
+class SearchProducts extends Tool
 {
-    return [SearchProducts::class];
+    public function name(): string
+    {
+        return 'search_products';
+    }
+
+    public function description(): string
+    {
+        return 'TODO: Describe what this tool does.';
+    }
+
+    public function parameters(): array
+    {
+        return [
+            // Schema::string('query', 'The search query'),
+            // Schema::integer('limit', 'Max results to return')->optional(),
+        ];
+    }
+
+    public function handle(array $args, array $context): mixed
+    {
+        // TODO: Implement your tool logic here.
+
+        return 'Tool result';
+    }
 }
 ```
 
-Configure discovery paths in `config/atlas.php`:
+### Tool Name Derivation
+
+The tool name is automatically generated as `snake_case` from the class name. A `Tool` suffix is stripped:
+
+| Class Name | Generated Tool Name |
+|---|---|
+| `SearchProducts` | `search_products` |
+| `LookupOrderTool` | `lookup_order` |
+| `SendEmail` | `send_email` |
+
+### Options
+
+| Option | Short | Description |
+|--------|-------|-------------|
+| `--force` | `-f` | Overwrite if file already exists |
+
+## Auto-Discovery
+
+Generated agents and tools are automatically discovered when auto-discovery is configured in `config/atlas.php`:
 
 ```php
 'agents' => [
     'path' => app_path('Agents'),
     'namespace' => 'App\\Agents',
 ],
-
-'tools' => [
-    'path' => app_path('Tools'),
-    'namespace' => 'App\\Tools',
-],
 ```
 
+After scaffolding, use them immediately:
+
+```php
+// After: php artisan make:agent CustomerSupport
+$response = Atlas::agent('customer-support')
+    ->message('Hello')
+    ->asText();
+```

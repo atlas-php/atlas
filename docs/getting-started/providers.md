@@ -1,49 +1,37 @@
 # Providers
 
-Atlas supports all AI providers available through Prism. Configure your preferred provider and use it with any Atlas agent or capability.
+Atlas has its own provider layer with first-party drivers for major AI services. No external AI package required.
 
-::: tip Prism Reference
-For detailed provider configuration, API keys, and model-specific options, see the [Prism Providers documentation](https://prismphp.com/providers/openai.html).
-:::
-
-## Available Providers
-
-Atlas has first-party support for these AI providers:
+## Built-in Providers
 
 <div class="full-width-table">
 
-| Provider | Documentation |
-|----------|---------------|
-| Anthropic | [Prism Anthropic](https://prismphp.com/providers/anthropic.html) |
-| DeepSeek | [Prism DeepSeek](https://prismphp.com/providers/deepseek.html) |
-| ElevenLabs | [Prism ElevenLabs](https://prismphp.com/providers/elevenlabs.html) |
-| Gemini | [Prism Gemini](https://prismphp.com/providers/gemini.html) |
-| Groq | [Prism Groq](https://prismphp.com/providers/groq.html) |
-| Mistral | [Prism Mistral](https://prismphp.com/providers/mistral.html) |
-| Ollama | [Prism Ollama](https://prismphp.com/providers/ollama.html) |
-| OpenAI | [Prism OpenAI](https://prismphp.com/providers/openai.html) |
-| OpenRouter | [Prism OpenRouter](https://prismphp.com/providers/openrouter.html) |
-| Voyage AI | [Prism Voyage AI](https://prismphp.com/providers/voyageai.html) |
-| xAI | [Prism xAI](https://prismphp.com/providers/xai.html) |
+| Provider | Key | Capabilities |
+|----------|-----|-------------|
+| OpenAI | `openai` | Text, stream, structured, image, audio, video, embed, moderate, voice, vision, tool calling |
+| Anthropic | `anthropic` | Text, stream, structured, vision, tool calling |
+| Google | `google` | Text, stream, structured, image, embed, vision, tool calling |
+| xAI | `xai` | Text, stream, structured, image, audio, video, voice, vision, tool calling |
+| ElevenLabs | `elevenlabs` | Audio (TTS, STT, sound effects, music), voice |
+| Cohere | `cohere` | Reranking |
+| Jina | `jina` | Reranking, content extraction |
 
 </div>
 
-## Provider Support
-
-Not all providers support all features. Check the [Prism Provider Support Matrix](https://prismphp.com/getting-started/introduction.html#provider-support) for detailed compatibility.
-
 ::: warning Model Dependent
-Support may be model dependent. Check with your provider for model-specific features and support.
+Capability support may vary by model. Check with your provider for model-specific features.
 :::
 
 ## Using Providers
 
-### In Agent Definitions
+### In Agents
+
+Define `provider()` and `model()` on your agent class:
 
 ```php
-use Atlasphp\Atlas\Agents\AgentDefinition;
+use Atlasphp\Atlas\Agent;
 
-class MyAgent extends AgentDefinition
+class SupportAgent extends Agent
 {
     public function provider(): ?string
     {
@@ -57,69 +45,280 @@ class MyAgent extends AgentDefinition
 }
 ```
 
-### Runtime Override
+### Direct Calls
+
+Use the facade to call providers directly without an agent:
 
 ```php
 use Atlasphp\Atlas\Atlas;
 
-$response = Atlas::agent('my-agent')
-    ->withProvider('openai', 'gpt-4o')
-    ->chat('Hello');
+// Text generation
+$response = Atlas::text('openai', 'gpt-4o')
+    ->message('Explain quantum computing in one paragraph.')
+    ->asText();
+
+// Image generation
+$response = Atlas::image('openai', 'dall-e-3')
+    ->message('A sunset over a mountain lake')
+    ->asImage();
+
+// Audio generation
+$response = Atlas::audio('elevenlabs', 'eleven_multilingual_v2')
+    ->message('Welcome to Atlas.')
+    ->asAudio();
+
+// Embeddings
+$response = Atlas::embed('openai', 'text-embedding-3-small')
+    ->message('The quick brown fox')
+    ->asEmbed();
+
+// Moderation
+$response = Atlas::moderate('openai', 'omni-moderation-latest')
+    ->message('Check this content')
+    ->asModerate();
+
+// Reranking
+$response = Atlas::rerank('cohere', 'rerank-v3.5')
+    ->query('search query')
+    ->documents(['doc one', 'doc two'])
+    ->asRerank();
 ```
 
-### Direct Prism Usage
+### Runtime Override
+
+Override the provider and model on any agent at call time:
 
 ```php
-$response = Atlas::text()
-    ->using('anthropic', 'claude-sonnet-4-20250514')
-    ->withPrompt('Hello')
+$response = Atlas::agent('support')
+    ->withProvider('anthropic', 'claude-sonnet-4-20250514')
+    ->message('Hello')
     ->asText();
 ```
 
-## Configuration
+## Custom Providers
 
-Configure provider API keys in your `.env` file:
+Atlas supports two patterns for adding custom providers:
+
+### OpenAI-Compatible APIs
+
+Any service that speaks the OpenAI protocol (Ollama, LM Studio, Groq, DeepSeek, OpenRouter, etc.) can be added with just config — no code required:
+
+```php
+// config/atlas.php → providers
+'ollama' => [
+    'driver'   => 'chat_completions',
+    'api_key'  => env('OLLAMA_API_KEY', 'ollama'),
+    'base_url' => env('OLLAMA_URL', 'http://localhost:11434/v1'),
+],
+```
+
+```php
+$response = Atlas::text('ollama', 'llama3')
+    ->message('Hello')
+    ->asText();
+```
+
+See the [Custom Providers Guide](/guides/custom-providers) for step-by-step setup of Ollama, LM Studio, Groq, Together, DeepSeek, OpenRouter, and more.
+
+### Non-Compatible APIs (Custom Drivers)
+
+For providers that don't follow the OpenAI protocol, create a custom driver class with full control over HTTP calls, payload format, and response parsing:
+
+```php
+'my-provider' => [
+    'driver'       => \App\Atlas\MyProviderDriver::class,
+    'api_key'      => env('MY_PROVIDER_API_KEY'),
+    'base_url'     => 'https://api.my-provider.com/v1',
+    'capabilities' => ['text' => true, 'stream' => true],
+],
+```
+
+See the [Custom Drivers Guide](/guides/custom-drivers) for creating driver classes, implementing handler interfaces, streaming, and handler overrides.
+
+## Provider Reference
+
+Each provider is configured in `config/atlas.php` under the `providers` key. Add your API key to `.env` and you're ready to go.
+
+## OpenAI
+
+Text, images, audio, video, embeddings, moderation, structured output, streaming, vision, tool calling.
+
+**Get your key:** [platform.openai.com/api-keys](https://platform.openai.com/api-keys) · [Docs](https://platform.openai.com/docs)
 
 ```env
 OPENAI_API_KEY=sk-...
-ANTHROPIC_API_KEY=sk-ant-...
+OPENAI_ORGANIZATION=org-...     # optional
+OPENAI_URL=https://api.openai.com/v1  # optional, custom endpoint
 ```
 
-See [Configuration](/getting-started/configuration) for full configuration options.
+```php
+// config/atlas.php → providers
+'openai' => [
+    'api_key'      => env('OPENAI_API_KEY'),
+    'url'          => env('OPENAI_URL', 'https://api.openai.com/v1'),
+    'organization' => env('OPENAI_ORGANIZATION'),
+],
+```
 
-## API Reference
+
+## Anthropic
+
+Text, structured output, streaming, vision, tool calling.
+
+**Get your key:** [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) · [Docs](https://docs.anthropic.com)
+
+```env
+ANTHROPIC_API_KEY=sk-ant-...
+ANTHROPIC_VERSION=2024-10-22    # optional, API version
+ANTHROPIC_URL=https://api.anthropic.com/v1  # optional
+```
 
 ```php
-// Agent provider configuration (override in agent class)
-public function provider(): ?string;    // e.g., 'openai', 'anthropic', 'gemini'
-public function model(): ?string;       // e.g., 'gpt-4o', 'claude-sonnet-4-20250514'
+'anthropic' => [
+    'api_key' => env('ANTHROPIC_API_KEY'),
+    'url'     => env('ANTHROPIC_URL', 'https://api.anthropic.com/v1'),
+    'version' => env('ANTHROPIC_VERSION', '2024-10-22'),
+],
+```
 
-// Runtime provider override
-Atlas::agent('agent')
-    ->withProvider(string $provider, ?string $model = null)
-    ->chat(string $input);
 
-// Direct Prism usage
-Atlas::text()->using(string $provider, string $model);
-Atlas::image()->using(string $provider, string $model);
-Atlas::audio()->using(string $provider, string $model);
-Atlas::embeddings()->using(string $provider, string $model);
-Atlas::moderation()->using(string $provider, string $model);
+## Google (Gemini)
 
-// Common provider/model combinations
-->using('openai', 'gpt-4o')
-->using('openai', 'gpt-4o-mini')
-->using('anthropic', 'claude-sonnet-4-20250514')
-->using('anthropic', 'claude-opus-4-20250514')
-->using('gemini', 'gemini-2.0-flash')
-->using('mistral', 'mistral-large-latest')
-->using('groq', 'llama-3.3-70b-versatile')
-->using('deepseek', 'deepseek-chat')
-->using('ollama', 'llama3.2')
+Text, images, embeddings, structured output, streaming, vision, tool calling.
+
+**Get your key:** [aistudio.google.com/apikey](https://aistudio.google.com/apikey) · [Docs](https://ai.google.dev/docs)
+
+```env
+GOOGLE_API_KEY=...
+GOOGLE_URL=https://generativelanguage.googleapis.com  # optional
+```
+
+```php
+'google' => [
+    'api_key' => env('GOOGLE_API_KEY'),
+    'url'     => env('GOOGLE_URL', 'https://generativelanguage.googleapis.com'),
+],
+```
+
+
+## xAI (Grok)
+
+Text, images, audio, video, voice, structured output, streaming, vision, tool calling.
+
+**Get your key:** [console.x.ai](https://console.x.ai) · [Docs](https://docs.x.ai)
+
+```env
+XAI_API_KEY=...
+XAI_URL=https://api.x.ai/v1  # optional
+```
+
+```php
+'xai' => [
+    'api_key' => env('XAI_API_KEY'),
+    'url'     => env('XAI_URL', 'https://api.x.ai/v1'),
+],
+```
+
+
+## ElevenLabs
+
+Text-to-speech, speech-to-text, sound effects, music generation, voice cloning, voice (Conversational AI).
+
+**Get your key:** [elevenlabs.io/app/settings/api-keys](https://elevenlabs.io/app/settings/api-keys) · [Docs](https://elevenlabs.io/docs)
+
+```env
+ELEVENLABS_API_KEY=...
+ELEVENLABS_URL=https://api.elevenlabs.io/v1  # optional
+```
+
+```php
+'elevenlabs' => [
+    'api_key'       => env('ELEVENLABS_API_KEY'),
+    'url'           => env('ELEVENLABS_URL', 'https://api.elevenlabs.io/v1'),
+    'media_timeout' => 300,  // longer timeout for audio/music generation
+],
+```
+
+
+## Cohere
+
+Semantic reranking for RAG and search quality.
+
+**Get your key:** [dashboard.cohere.com/api-keys](https://dashboard.cohere.com/api-keys) · [Docs](https://docs.cohere.com)
+
+```env
+COHERE_API_KEY=...
+COHERE_URL=https://api.cohere.com  # optional
+```
+
+```php
+'cohere' => [
+    'api_key' => env('COHERE_API_KEY'),
+    'url'     => env('COHERE_URL', 'https://api.cohere.com'),
+],
+```
+
+
+## Jina
+
+Semantic reranking and content extraction.
+
+**Get your key:** [jina.ai/api](https://jina.ai/api) · [Docs](https://docs.jina.ai)
+
+```env
+JINA_API_KEY=...
+JINA_URL=https://api.jina.ai  # optional
+```
+
+```php
+'jina' => [
+    'api_key' => env('JINA_API_KEY'),
+    'url'     => env('JINA_URL', 'https://api.jina.ai'),
+],
+```
+
+
+### Default Provider & Model
+
+Configure defaults per modality so you can omit provider/model from calls:
+
+```php
+'defaults' => [
+    'text'     => ['provider' => env('ATLAS_TEXT_PROVIDER'), 'model' => env('ATLAS_TEXT_MODEL')],
+    'image'    => ['provider' => env('ATLAS_IMAGE_PROVIDER'), 'model' => env('ATLAS_IMAGE_MODEL')],
+    'video'    => ['provider' => env('ATLAS_VIDEO_PROVIDER'), 'model' => env('ATLAS_VIDEO_MODEL')],
+    'embed'    => ['provider' => env('ATLAS_EMBED_PROVIDER'), 'model' => env('ATLAS_EMBED_MODEL')],
+    'moderate' => ['provider' => env('ATLAS_MODERATE_PROVIDER'), 'model' => env('ATLAS_MODERATE_MODEL')],
+    'rerank'   => ['provider' => env('ATLAS_RERANK_PROVIDER'), 'model' => env('ATLAS_RERANK_MODEL')],
+    'voice'    => ['provider' => env('ATLAS_VOICE_PROVIDER'), 'model' => env('ATLAS_VOICE_MODEL')],
+],
+```
+
+## Provider Interrogation
+
+Query provider capabilities and available models at runtime:
+
+```php
+use Atlasphp\Atlas\Atlas;
+
+// List available models
+$models = Atlas::provider('openai')->models();
+
+// List available voices (ElevenLabs, OpenAI)
+$voices = Atlas::provider('elevenlabs')->voices();
+
+// Validate API key connectivity
+$valid = Atlas::provider('openai')->validate();
+
+// Query provider capabilities
+$capabilities = Atlas::provider('openai')->capabilities();
+
+// Get provider display name
+$name = Atlas::provider('openai')->name();
 ```
 
 ## Next Steps
 
-- [Configuration](/getting-started/configuration) — Configure providers and defaults
-- [Agents](/core-concepts/agents) — Create agents with specific providers
-- [Custom Providers](/advanced/custom-providers) — Register custom providers
+- [Configuration](/getting-started/configuration) — Full configuration reference
+- [Agents](/features/agents) — Create agents with specific providers
+- [Text](/modalities/text) — Text generation and streaming

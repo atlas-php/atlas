@@ -1,0 +1,303 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Atlasphp\Atlas\Providers;
+
+use Atlasphp\Atlas\AtlasCache;
+use Atlasphp\Atlas\Exceptions\AuthenticationException;
+use Atlasphp\Atlas\Exceptions\AuthorizationException;
+use Atlasphp\Atlas\Exceptions\ProviderException;
+use Atlasphp\Atlas\Exceptions\RateLimitException;
+use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
+use Atlasphp\Atlas\Http\HttpClient;
+use Atlasphp\Atlas\Middleware\MiddlewareResolver;
+use Atlasphp\Atlas\Middleware\MiddlewareStack;
+use Atlasphp\Atlas\Middleware\ProviderContext;
+use Atlasphp\Atlas\Providers\Handlers\AudioHandler;
+use Atlasphp\Atlas\Providers\Handlers\EmbedHandler;
+use Atlasphp\Atlas\Providers\Handlers\ImageHandler;
+use Atlasphp\Atlas\Providers\Handlers\ModerateHandler;
+use Atlasphp\Atlas\Providers\Handlers\ProviderHandler;
+use Atlasphp\Atlas\Providers\Handlers\RerankHandler;
+use Atlasphp\Atlas\Providers\Handlers\TextHandler;
+use Atlasphp\Atlas\Providers\Handlers\VideoHandler;
+use Atlasphp\Atlas\Providers\Handlers\VoiceHandler;
+use Atlasphp\Atlas\Requests\AudioRequest;
+use Atlasphp\Atlas\Requests\EmbedRequest;
+use Atlasphp\Atlas\Requests\ImageRequest;
+use Atlasphp\Atlas\Requests\ModerateRequest;
+use Atlasphp\Atlas\Requests\RerankRequest;
+use Atlasphp\Atlas\Requests\TextRequest;
+use Atlasphp\Atlas\Requests\VideoRequest;
+use Atlasphp\Atlas\Requests\VoiceRequest;
+use Atlasphp\Atlas\Responses\AudioResponse;
+use Atlasphp\Atlas\Responses\EmbeddingsResponse;
+use Atlasphp\Atlas\Responses\ImageResponse;
+use Atlasphp\Atlas\Responses\ModerationResponse;
+use Atlasphp\Atlas\Responses\RerankResponse;
+use Atlasphp\Atlas\Responses\StreamResponse;
+use Atlasphp\Atlas\Responses\StructuredResponse;
+use Atlasphp\Atlas\Responses\TextResponse;
+use Atlasphp\Atlas\Responses\VideoResponse;
+use Atlasphp\Atlas\Responses\VoiceSession;
+use Closure;
+use Illuminate\Http\Client\RequestException;
+
+/**
+ * Abstract driver that coordinates modality handlers for a provider.
+ *
+ * Every modality call routes through dispatch() which applies provider
+ * middleware from global config and the request object.
+ */
+abstract class Driver
+{
+    /** @var array<string, object> */
+    private array $handlerOverrides = [];
+
+    public function __construct(
+        protected readonly ProviderConfig $config,
+        protected readonly HttpClient $http,
+        protected readonly ?MiddlewareStack $middlewareStack = null,
+        protected readonly ?AtlasCache $cache = null,
+        protected readonly ?MiddlewareResolver $middlewareResolver = null,
+    ) {}
+
+    /**
+     * Return a new driver instance with a handler override applied.
+     *
+     * Accepted keys map to handler interfaces, not individual methods:
+     * - 'text' → TextHandler (covers text, stream, structured)
+     * - 'image' → ImageHandler (covers image, imageToText)
+     * - 'audio' → AudioHandler (covers audio, audioToText)
+     * - 'video' → VideoHandler (covers video, videoToText)
+     * - 'embed' → EmbedHandler
+     * - 'moderate' → ModerateHandler
+     * - 'rerank' → RerankHandler
+     * - 'voice' → VoiceHandler (covers createVoiceSession, connectVoice)
+     * - 'provider' → ProviderHandler (covers models, voices, validate)
+     */
+    public function withHandler(string $modality, object $handler): static
+    {
+        $clone = clone $this;
+        $clone->handlerOverrides[$modality] = $handler;
+
+        return $clone;
+    }
+
+    /**
+     * Resolve handler, preferring overrides over the driver's built-in handler.
+     */
+    protected function resolveHandler(string $modality, Closure $default): object
+    {
+        return $this->handlerOverrides[$modality] ?? $default();
+    }
+
+    // ─── Modality Methods ────────────────────────────────────────────────
+
+    public function text(TextRequest $request): TextResponse
+    {
+        return $this->dispatch('text', $request, fn (TextRequest $r) => $this->resolveHandler('text', fn () => $this->textHandler())->text($r));
+    }
+
+    public function stream(TextRequest $request): StreamResponse
+    {
+        return $this->dispatch('stream', $request, fn (TextRequest $r) => $this->resolveHandler('text', fn () => $this->textHandler())->stream($r));
+    }
+
+    public function structured(TextRequest $request): StructuredResponse
+    {
+        return $this->dispatch('structured', $request, fn (TextRequest $r) => $this->resolveHandler('text', fn () => $this->textHandler())->structured($r));
+    }
+
+    public function image(ImageRequest $request): ImageResponse
+    {
+        return $this->dispatch('image', $request, fn (ImageRequest $r) => $this->resolveHandler('image', fn () => $this->imageHandler())->image($r));
+    }
+
+    public function imageToText(ImageRequest $request): TextResponse
+    {
+        return $this->dispatch('imageToText', $request, fn (ImageRequest $r) => $this->resolveHandler('image', fn () => $this->imageHandler())->imageToText($r));
+    }
+
+    public function audio(AudioRequest $request): AudioResponse
+    {
+        return $this->dispatch('audio', $request, fn (AudioRequest $r) => $this->resolveHandler('audio', fn () => $this->audioHandler())->audio($r));
+    }
+
+    public function audioToText(AudioRequest $request): TextResponse
+    {
+        return $this->dispatch('audioToText', $request, fn (AudioRequest $r) => $this->resolveHandler('audio', fn () => $this->audioHandler())->audioToText($r));
+    }
+
+    public function video(VideoRequest $request): VideoResponse
+    {
+        return $this->dispatch('video', $request, fn (VideoRequest $r) => $this->resolveHandler('video', fn () => $this->videoHandler())->video($r));
+    }
+
+    public function videoToText(VideoRequest $request): TextResponse
+    {
+        return $this->dispatch('videoToText', $request, fn (VideoRequest $r) => $this->resolveHandler('video', fn () => $this->videoHandler())->videoToText($r));
+    }
+
+    public function embed(EmbedRequest $request): EmbeddingsResponse
+    {
+        return $this->dispatch('embed', $request, fn (EmbedRequest $r) => $this->resolveHandler('embed', fn () => $this->embedHandler())->embed($r));
+    }
+
+    public function moderate(ModerateRequest $request): ModerationResponse
+    {
+        return $this->dispatch('moderate', $request, fn (ModerateRequest $r) => $this->resolveHandler('moderate', fn () => $this->moderateHandler())->moderate($r));
+    }
+
+    public function rerank(RerankRequest $request): RerankResponse
+    {
+        return $this->dispatch('rerank', $request, fn (RerankRequest $r) => $this->resolveHandler('rerank', fn () => $this->rerankHandler())->rerank($r));
+    }
+
+    public function createVoiceSession(VoiceRequest $request): VoiceSession
+    {
+        return $this->dispatch('voice', $request, fn (VoiceRequest $r) => $this->resolveHandler('voice', fn () => $this->voiceHandler())->createSession($r));
+    }
+
+    /**
+     * Open a persistent WebSocket connection for an existing voice session.
+     *
+     * Not dispatched through middleware — this is a follow-up to session creation.
+     */
+    public function connectVoice(VoiceSession $session): WebSocketConnection
+    {
+        return $this->resolveHandler('voice', fn () => $this->voiceHandler())->connect($session);
+    }
+
+    // ─── Middleware Dispatch ─────────────────────────────────────────────
+
+    /**
+     * Dispatch a handler call through provider middleware.
+     *
+     * Merges middleware from global config and the request object.
+     * Global config middleware runs outermost, request middleware innermost.
+     */
+    protected function dispatch(string $method, mixed $request, Closure $handler): mixed
+    {
+        try {
+            if ($this->middlewareStack === null) {
+                return $handler($request);
+            }
+
+            $globalMiddleware = $this->middlewareResolver?->forProvider($method) ?? [];
+            $middleware = array_merge($globalMiddleware, $request->middleware);
+
+            if ($middleware === []) {
+                return $handler($request);
+            }
+
+            $context = new ProviderContext(
+                provider: $this->name(),
+                model: $request->model,
+                method: $method,
+                request: $request,
+                meta: $request->meta,
+            );
+
+            return $this->middlewareStack->run(
+                $context,
+                $middleware,
+                fn (ProviderContext $ctx) => $handler($ctx->request),
+            );
+        } catch (RequestException $e) {
+            // handleRequestException() is declared never — always re-throws as a typed Atlas exception
+            $this->handleRequestException($request->model, $e);
+        }
+    }
+
+    // ─── Handler Resolution ──────────────────────────────────────────────
+
+    protected function textHandler(): TextHandler
+    {
+        throw UnsupportedFeatureException::make('text', $this->name());
+    }
+
+    protected function imageHandler(): ImageHandler
+    {
+        throw UnsupportedFeatureException::make('image', $this->name());
+    }
+
+    protected function audioHandler(): AudioHandler
+    {
+        throw UnsupportedFeatureException::make('audio', $this->name());
+    }
+
+    protected function videoHandler(): VideoHandler
+    {
+        throw UnsupportedFeatureException::make('video', $this->name());
+    }
+
+    protected function embedHandler(): EmbedHandler
+    {
+        throw UnsupportedFeatureException::make('embed', $this->name());
+    }
+
+    protected function moderateHandler(): ModerateHandler
+    {
+        throw UnsupportedFeatureException::make('moderate', $this->name());
+    }
+
+    protected function rerankHandler(): RerankHandler
+    {
+        throw UnsupportedFeatureException::make('rerank', $this->name());
+    }
+
+    protected function voiceHandler(): VoiceHandler
+    {
+        throw UnsupportedFeatureException::make('voice', $this->name());
+    }
+
+    // ─── Provider Interrogation ──────────────────────────────────────────
+
+    public function models(): ModelList
+    {
+        return $this->resolveHandler('provider', fn () => $this->providerHandler('models'))->models();
+    }
+
+    public function voices(): VoiceList
+    {
+        return $this->resolveHandler('provider', fn () => $this->providerHandler('voices'))->voices();
+    }
+
+    public function validate(): bool
+    {
+        return $this->resolveHandler('provider', fn () => $this->providerHandler('validate'))->validate();
+    }
+
+    /**
+     * Resolve the provider handler for interrogation endpoints.
+     *
+     * @throws UnsupportedFeatureException
+     */
+    protected function providerHandler(string $feature = 'provider'): ProviderHandler
+    {
+        throw UnsupportedFeatureException::make($feature, $this->name());
+    }
+
+    // ─── Capabilities & Identity ─────────────────────────────────────────
+
+    abstract public function capabilities(): ProviderCapabilities;
+
+    abstract public function name(): string;
+
+    // ─── Error Handling ──────────────────────────────────────────────────
+
+    /**
+     * Map a request exception to the appropriate Atlas exception.
+     */
+    public function handleRequestException(string $model, RequestException $e): never
+    {
+        match ($e->response->status()) {
+            401 => throw new AuthenticationException($this->name(), $e),
+            403 => throw new AuthorizationException($this->name(), $model, $e),
+            429 => throw RateLimitException::from($this->name(), $model, $e),
+            default => throw ProviderException::from($this->name(), $model, $e),
+        };
+    }
+}

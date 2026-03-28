@@ -4,62 +4,28 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Tools;
 
-use Atlasphp\Atlas\Tools\Contracts\ToolContract;
-use Prism\Prism\Contracts\Schema;
-use Prism\Prism\Tool as PrismTool;
-
 /**
- * Base class for tool definitions.
+ * Normalized tool definition consumed by the driver layer.
  *
- * Provides conversion to Prism Tool format and sensible defaults.
- * Extend this class to create custom tools with minimal boilerplate.
+ * Drivers never see the Tool class — they receive ToolDefinition instances
+ * containing the name, description, and JSON Schema parameters.
  */
-abstract class ToolDefinition implements ToolContract
+class ToolDefinition
 {
     /**
-     * Get the parameters this tool accepts.
-     *
-     * @return array<int, Schema>
+     * @param  array<string, mixed>  $parameters
      */
-    public function parameters(): array
-    {
-        return [];
-    }
+    public function __construct(
+        public readonly string $name,
+        public readonly string $description,
+        public readonly array $parameters,
+    ) {}
 
     /**
-     * Configure the Prism Tool with additional options.
-     *
-     * Override this method to access the full Prism Tool API:
-     * - `$tool->failed($handler)` - Custom error handling
-     * - `$tool->withErrorHandling()` - Enable error handling
-     * - `$tool->withoutErrorHandling()` - Disable error handling
-     * - `$tool->withProviderOptions($options)` - Provider-specific config
-     *
-     * @param  PrismTool  $tool  The fully-built Prism Tool.
-     * @return PrismTool The configured tool (can chain methods).
+     * Whether this tool definition has parameters defined.
      */
-    protected function configurePrismTool(PrismTool $tool): PrismTool
+    public function hasParameters(): bool
     {
-        return $tool;
-    }
-
-    /**
-     * Convert this tool to a Prism Tool instance.
-     *
-     * @param  callable  $handler  The handler function to execute the tool.
-     */
-    public function toPrismTool(callable $handler): PrismTool
-    {
-        $tool = new PrismTool;
-        $tool->as($this->name());
-        $tool->for($this->description());
-
-        foreach ($this->parameters() as $schema) {
-            $tool->withParameter($schema);
-        }
-
-        $tool->using($handler);
-
-        return $this->configurePrismTool($tool);
+        return $this->parameters !== [];
     }
 }

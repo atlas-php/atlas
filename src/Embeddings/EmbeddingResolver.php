@@ -1,0 +1,91 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Atlasphp\Atlas\Embeddings;
+
+use Atlasphp\Atlas\Atlas;
+use Atlasphp\Atlas\AtlasCache;
+use Atlasphp\Atlas\AtlasConfig;
+use Atlasphp\Atlas\Exceptions\AtlasException;
+
+/**
+ * Resolves a text string into an embedding vector.
+ *
+ * Acts as the single bridge between raw text and the vector array needed
+ * by query macros and traits. Uses AtlasCache when enabled.
+ */
+class EmbeddingResolver
+{
+    public function __construct(
+        protected readonly AtlasCache $cache,
+        protected readonly AtlasConfig $config,
+    ) {}
+
+    /**
+     * Generate an embedding using configured defaults.
+     *
+     * @return array<int, float>
+     */
+    public function resolve(string $input): array
+    {
+        return $this->cache->remember(
+            'embeddings',
+            $this->cacheKey($input),
+            fn (): array => $this->generate($input),
+        );
+    }
+
+    /**
+     * Generate an embedding with explicit provider and model.
+     *
+     * @return array<int, float>
+     */
+    public function resolveUsing(string $input, ?string $provider = null, ?string $model = null): array
+    {
+        return $this->cache->remember(
+            'embeddings',
+            $this->cacheKey($input, $provider, $model),
+            fn (): array => $this->generate($input, $provider, $model),
+        );
+    }
+
+    /**
+     * Remove a cached embedding.
+     */
+    public function forget(string $input, ?string $provider = null, ?string $model = null): bool
+    {
+        return $this->cache->forget('embeddings', $this->cacheKey($input, $provider, $model));
+    }
+
+    /**
+     * Build a unique cache key for an embedding.
+     */
+    protected function cacheKey(string $input, ?string $provider = null, ?string $model = null): string
+    {
+        $embedDefault = $this->config->defaultFor('embed');
+        $provider ??= $embedDefault['provider'] ?? 'default';
+        $model ??= $embedDefault['model'] ?? 'default';
+        $dimensions = $this->config->embeddingDimensions;
+
+        return hash('xxh128', "{$provider}:{$model}:{$dimensions}:{$input}");
+    }
+
+    /**
+     * Call Atlas embed API and return the first embedding vector.
+     *
+     * @return array<int, float>
+     */
+    protected function generate(string $input, ?string $provider = null, ?string $model = null): array
+    {
+        $response = Atlas::embed($provider, $model)
+            ->fromInput($input)
+            ->asEmbeddings();
+
+        if (empty($response->embeddings)) {
+            throw new AtlasException('Provider returned no embeddings for the given input.');
+        }
+
+        return $response->embeddings[0];
+    }
+}

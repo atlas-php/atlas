@@ -3,7 +3,7 @@ layout: home
 
 hero:
   text: "AI Agents <span class='text-laravel'>for Laravel</span>"
-  tagline: The architecture layer for crafting AI-powered Laravel applications.
+  tagline: A unified AI SDK for Laravel applications.
   image:
     light: /atlas-logo-5.png
     dark: /atlas-logo-2.png
@@ -19,38 +19,38 @@ hero:
 features:
   - icon:
       src: /icons/agent.svg
-      alt: Agent Registry
-    title: Agent Registry
-    details: Create AI agents with custom personalities, tools, and behaviors. Define once, reuse everywhere.
-    link: /core-concepts/agents
+      alt: Agents
+    title: Agents
+    details: Reusable agent classes that encapsulate provider, model, instructions, tools, and behavior. Define once, use anywhere.
+    link: /features/agents
   - icon:
       src: /icons/tool.svg
-      alt: Tool Registry
-    title: Tool Registry
-    details: Let AI call your PHP code. Define typed tools that interact with your database, APIs, and services.
-    link: /core-concepts/tools
+      alt: Tools
+    title: Tools
+    details: Typed tool classes with parameter schemas and dependency injection. Let AI call your PHP code safely.
+    link: /features/tools
   - icon:
-      src: /icons/prism-logo.webp
-      alt: Built on Prism
-    title: Built on Prism
-    details: Full access to Prism's multi-provider support, streaming, and multimodal capabilities. Atlas organizes without limiting.
+      src: /icons/multi-provider.svg
+      alt: Multi-Modal
+    title: Multi-Modal
+    details: "Text, structured output, images, audio, video, voice, embeddings, and reranking — all through one consistent API."
     link: /getting-started/introduction
   - icon:
-      src: /icons/structured.svg
-      alt: Structured Output
-    title: Structured Output
-    details: Extract typed data from AI responses. Get arrays, objects, or custom schemas instead of raw strings.
-    link: /capabilities/structured-output
+      src: /icons/microphone.svg
+      alt: Voice Calls
+    title: Voice Calls
+    details: Real-time voice-to-voice conversations with your agents. WebRTC and WebSocket support with full tool access.
+    link: /modalities/voice
   - icon:
       src: /icons/streaming.svg
       alt: Dynamic Prompts
     title: Dynamic Prompts
-    details: System prompts with {variable} interpolation. Inject user context, session data, or custom values at runtime.
-    link: /core-concepts/system-prompts
+    details: "Instructions with {variable} interpolation. Inject user context, session data, or custom values at runtime."
+    link: /features/instructions
   - icon:
       src: /icons/pipeline.svg
-      alt: Extensible Pipelines
-    title: Extensible Pipelines
-    details: Hook into every operation with middleware pipelines. Add logging, authentication, caching, or custom logic anywhere.
-    link: /core-concepts/pipelines
+      alt: Middleware & Events
+    title: Middleware & Events
+    details: Four middleware layers and 34 lifecycle events. Full observability from request to response.
+    link: /advanced/events
 ---

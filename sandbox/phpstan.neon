@@ -3,12 +3,7 @@ includes:
 
 parameters:
     paths:
-        - app/Agents
-        - app/Console
-        - app/Pipelines
         - app/Providers
-        - app/Services
-        - app/Tools
     # Level 4 is appropriate for sandbox testing code
     level: 4
     ignoreErrors:
@@ -17,22 +12,5 @@ parameters:
         - '#Class Atlasphp\\Atlas\\.+ not found#'
         - '#Call to an undefined method Atlasphp\\Atlas#'
         - '#has invalid type Atlasphp\\Atlas#'
-        # env() calls in sandbox commands are acceptable for testing
-        - identifier: larastan.noEnvCallsOutsideOfConfig
-        # Comparison warnings
-        - identifier: greater.alwaysTrue
-        - identifier: notIdentical.alwaysTrue
-        # Property access on response
-        - identifier: property.notFound
-        # Null coalescing on always-set offsets (common in sandbox code)
-        - identifier: isset.offset
-        - identifier: nullCoalesce.expr
-        - identifier: nullCoalesce.offset
-        # PrismProxy uses __call() to proxy methods — PHPStan can't resolve them
-        - '#Call to an undefined method Prism\\Prism#'
-        # Sandbox demo code uses write-only properties for pipeline demonstration
-        - identifier: property.onlyWritten
-        # Method void result usage
-        - identifier: method.void
     # Report unmatched ignores is noisy when classes can't be resolved
     reportUnmatchedIgnoredErrors: false

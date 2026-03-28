@@ -32,43 +32,57 @@ export default defineConfig({
                 ]
             },
             {
-                text: 'Core Concepts',
+                text: 'Features',
                 items: [
-                    { text: 'Agents', link: '/core-concepts/agents' },
-                    { text: 'Tools', link: '/core-concepts/tools' },
-                    { text: 'System Prompts', link: '/core-concepts/system-prompts' },
-                    { text: 'Pipelines', link: '/core-concepts/pipelines' },
+                    { text: 'Agents', link: '/features/agents' },
+                    { text: 'Tools', link: '/features/tools' },
+                    { text: 'Instructions', link: '/features/instructions' },
+                    { text: 'Schema', link: '/features/schema' },
+                    { text: 'Middleware', link: '/features/middleware' },
                 ]
             },
             {
-                text: 'Capabilities',
+                text: 'Modalities',
                 items: [
-                    { text: 'Chat', link: '/capabilities/chat' },
-                    { text: 'Text', link: '/capabilities/text' },
-                    { text: 'Images', link: '/capabilities/images' },
-                    { text: 'Audio', link: '/capabilities/audio' },
-                    { text: 'Models', link: '/capabilities/models' },
-                    { text: 'Embeddings', link: '/capabilities/embeddings' },
-                    { text: 'Structured', link: '/capabilities/structured-output' },
-                    { text: 'Streaming', link: '/capabilities/streaming' },
-                    { text: 'Moderation', link: '/capabilities/moderation' },
-                    { text: 'MCP', link: '/capabilities/mcp' },
+                    { text: 'Text', link: '/modalities/text' },
+                    { text: 'Images', link: '/modalities/images' },
+                    {
+                        text: 'Audio',
+                        link: '/modalities/audio',
+                        items: [
+                            { text: 'Speech', link: '/modalities/speech' },
+                            { text: 'Music', link: '/modalities/music' },
+                            { text: 'Sound Effects', link: '/modalities/sound-effects' },
+                        ]
+                    },
+                    { text: 'Video', link: '/modalities/video' },
+                    { text: 'Voice', link: '/modalities/voice' },
+                    { text: 'Embeddings', link: '/modalities/embeddings' },
+                    { text: 'Reranking', link: '/modalities/reranking' },
+                    { text: 'Moderation', link: '/modalities/moderation' },
+                    { text: 'Models', link: '/modalities/models' },
+                    { text: 'Voices', link: '/modalities/voices' },
                 ]
             },
             {
                 text: 'Guides',
-                collapsed: true,
                 items: [
+                    { text: 'Conversations', link: '/guides/conversations' },
+                    { text: 'Streaming', link: '/guides/streaming' },
+                    { text: 'Queue & Background Jobs', link: '/guides/queue' },
+                    { text: 'Media & Assets', link: '/guides/media-storage' },
+                    { text: 'Voice Integration', link: '/guides/voice-integration' },
+                    { text: 'Custom Providers', link: '/guides/custom-providers' },
+                    { text: 'Custom Drivers', link: '/guides/custom-drivers' },
                     { text: 'Artisan Commands', link: '/guides/artisan-commands' },
                 ]
             },
             {
                 text: 'Advanced',
-                collapsed: true,
                 items: [
+                    { text: 'Persistence', link: '/advanced/persistence' },
                     { text: 'Events', link: '/advanced/events' },
                     { text: 'Testing', link: '/advanced/testing' },
-                    { text: 'Custom Providers', link: '/advanced/custom-providers' },
                     { text: 'Error Handling', link: '/advanced/error-handling' },
                 ]
             },
@@ -82,7 +96,7 @@ export default defineConfig({
 
         footer: {
             message: 'Released under the MIT License.',
-            copyright: 'Copyright 2025 Atlas PHP · Created by <a href="https://marois.dev" target="_blank">Timothy Marois</a>'
+            copyright: 'Copyright 2025-2026 Atlas PHP · Created by <a href="https://marois.dev" target="_blank">Timothy Marois</a>'
         }
     },
 

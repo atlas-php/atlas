@@ -4,229 +4,72 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Schema;
 
-use Prism\Prism\Contracts\Schema as PrismSchema;
-use Prism\Prism\Schema\ArraySchema;
-use Prism\Prism\Schema\BooleanSchema;
-use Prism\Prism\Schema\EnumSchema;
-use Prism\Prism\Schema\NumberSchema;
-use Prism\Prism\Schema\ObjectSchema;
-use Prism\Prism\Schema\StringSchema;
+use Atlasphp\Atlas\Schema\Fields\ArrayField;
+use Atlasphp\Atlas\Schema\Fields\BooleanField;
+use Atlasphp\Atlas\Schema\Fields\EnumField;
+use Atlasphp\Atlas\Schema\Fields\IntegerField;
+use Atlasphp\Atlas\Schema\Fields\NumberField;
+use Atlasphp\Atlas\Schema\Fields\ObjectField;
+use Atlasphp\Atlas\Schema\Fields\ObjectFieldBuilder;
+use Atlasphp\Atlas\Schema\Fields\StringField;
+use Closure;
 
 /**
- * Fluent builder for creating Prism object schemas.
+ * Static factory for creating schema field instances.
  *
- * Provides a clean API for defining schema properties with automatic
- * tracking of required fields. All fields are required by default.
- *
- * @example
- * $schema = Schema::object('order', 'Order details')
- *     ->string('id', 'Order ID')
- *     ->number('total', 'Total amount')
- *     ->string('notes', 'Notes')->optional()
- *     ->build();
+ * Provides a clean entry point for building JSON Schema structures from PHP.
+ * Extended by Schema to expose these factories as Schema::string(), Schema::object(), etc.
  */
-class SchemaBuilder
+abstract class SchemaBuilder
 {
-    /**
-     * @var array<int, SchemaProperty>
-     */
-    protected array $properties = [];
-
-    /**
-     * @var array<int, string>
-     */
-    protected array $requiredFields = [];
-
-    public function __construct(
-        protected string $name,
-        protected string $description,
-    ) {}
-
-    /**
-     * Add a string property to the schema.
-     *
-     * @param  string  $name  The property name.
-     * @param  string  $description  The property description.
-     */
-    public function string(string $name, string $description): SchemaProperty
+    public static function string(string $name, string $description): StringField
     {
-        $schema = new StringSchema($name, $description);
+        return new StringField($name, $description);
+    }
 
-        return $this->addProperty($name, $schema);
+    public static function integer(string $name, string $description): IntegerField
+    {
+        return new IntegerField($name, $description);
+    }
+
+    public static function number(string $name, string $description): NumberField
+    {
+        return new NumberField($name, $description);
+    }
+
+    public static function boolean(string $name, string $description): BooleanField
+    {
+        return new BooleanField($name, $description);
     }
 
     /**
-     * Add a number property to the schema.
-     *
-     * @param  string  $name  The property name.
-     * @param  string  $description  The property description.
+     * @param  array<int, string>  $options
      */
-    public function number(string $name, string $description): SchemaProperty
+    public static function enum(string $name, string $description, array $options): EnumField
     {
-        $schema = new NumberSchema($name, $description);
+        return new EnumField($name, $description, $options);
+    }
 
-        return $this->addProperty($name, $schema);
+    public static function stringArray(string $name, string $description): ArrayField
+    {
+        return ArrayField::ofStrings($name, $description);
+    }
+
+    public static function numberArray(string $name, string $description): ArrayField
+    {
+        return ArrayField::ofNumbers($name, $description);
     }
 
     /**
-     * Add an integer property to the schema.
-     *
-     * Note: Prism uses NumberSchema for both integers and floats.
-     *
-     * @param  string  $name  The property name.
-     * @param  string  $description  The property description.
+     * @param  Closure(ObjectFieldBuilder): void  $callback
      */
-    public function integer(string $name, string $description): SchemaProperty
+    public static function array(string $name, string $description, Closure $callback): ArrayField
     {
-        $schema = new NumberSchema($name, $description);
-
-        return $this->addProperty($name, $schema);
+        return ArrayField::ofObjects($name, $description, $callback);
     }
 
-    /**
-     * Add a boolean property to the schema.
-     *
-     * @param  string  $name  The property name.
-     * @param  string  $description  The property description.
-     */
-    public function boolean(string $name, string $description): SchemaProperty
+    public static function object(string $name, string $description): ObjectField
     {
-        $schema = new BooleanSchema($name, $description);
-
-        return $this->addProperty($name, $schema);
-    }
-
-    /**
-     * Add an enum property to the schema.
-     *
-     * @param  string  $name  The property name.
-     * @param  string  $description  The property description.
-     * @param  array<int, string|int|float>  $options  The allowed values.
-     */
-    public function enum(string $name, string $description, array $options): SchemaProperty
-    {
-        $schema = new EnumSchema($name, $description, $options);
-
-        return $this->addProperty($name, $schema);
-    }
-
-    /**
-     * Add a string array property to the schema.
-     *
-     * @param  string  $name  The property name.
-     * @param  string  $description  The property description.
-     */
-    public function stringArray(string $name, string $description): SchemaProperty
-    {
-        $itemSchema = new StringSchema('item', 'Array item');
-        $schema = new ArraySchema($name, $description, $itemSchema);
-
-        return $this->addProperty($name, $schema);
-    }
-
-    /**
-     * Add a number array property to the schema.
-     *
-     * @param  string  $name  The property name.
-     * @param  string  $description  The property description.
-     */
-    public function numberArray(string $name, string $description): SchemaProperty
-    {
-        $itemSchema = new NumberSchema('item', 'Array item');
-        $schema = new ArraySchema($name, $description, $itemSchema);
-
-        return $this->addProperty($name, $schema);
-    }
-
-    /**
-     * Add a nested object property to the schema.
-     *
-     * @param  string  $name  The property name.
-     * @param  string  $description  The property description.
-     * @param  callable(SchemaBuilder): SchemaBuilder  $callback  Builder callback.
-     */
-    public function object(string $name, string $description, callable $callback): SchemaProperty
-    {
-        $nestedBuilder = new self($name, $description);
-        $callback($nestedBuilder);
-        $schema = $nestedBuilder->build();
-
-        return $this->addProperty($name, $schema);
-    }
-
-    /**
-     * Add an array of objects property to the schema.
-     *
-     * @param  string  $name  The property name.
-     * @param  string  $description  The property description.
-     * @param  callable(SchemaBuilder): SchemaBuilder  $callback  Builder callback for item schema.
-     */
-    public function array(string $name, string $description, callable $callback): SchemaProperty
-    {
-        $itemBuilder = new self('item', 'Array item');
-        $callback($itemBuilder);
-        $itemSchema = $itemBuilder->build();
-        $schema = new ArraySchema($name, $description, $itemSchema);
-
-        return $this->addProperty($name, $schema);
-    }
-
-    /**
-     * Build the final ObjectSchema.
-     */
-    public function build(): ObjectSchema
-    {
-        $prismSchemas = [];
-
-        foreach ($this->properties as $property) {
-            $prismSchemas[] = $property->toPrismSchema();
-        }
-
-        return new ObjectSchema(
-            name: $this->name,
-            description: $this->description,
-            properties: $prismSchemas,
-            requiredFields: $this->requiredFields,
-        );
-    }
-
-    /**
-     * Add a property and track as required by default.
-     */
-    protected function addProperty(string $name, PrismSchema $schema): SchemaProperty
-    {
-        $property = new SchemaProperty($this, $name, $schema);
-        $this->properties[] = $property;
-        $this->requiredFields[] = $name;
-
-        return $property;
-    }
-
-    /**
-     * Remove a field from the required fields list.
-     *
-     * @internal Used by SchemaProperty::optional()
-     */
-    public function markOptional(string $name): void
-    {
-        $this->requiredFields = array_values(
-            array_filter($this->requiredFields, fn (string $field): bool => $field !== $name)
-        );
-    }
-
-    /**
-     * Update a property's schema with a nullable version.
-     *
-     * @internal Used by SchemaProperty::nullable()
-     */
-    public function updatePropertySchema(string $name, PrismSchema $schema): void
-    {
-        foreach ($this->properties as $property) {
-            if ($property->getName() === $name) {
-                $property->setSchema($schema);
-
-                return;
-            }
-        }
+        return new ObjectField($name, $description);
     }
 }

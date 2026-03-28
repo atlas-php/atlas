@@ -20,63 +20,31 @@ For workflow, task management, and Claude Code-specific behavioral rules, see `C
 
 ---
 
-## Atlas and Prism Philosophy
+## Atlas v3 Architecture
 
-Atlas is a **Prism complement** that adds application-level AI concerns. It does NOT replace Prism—it enhances it.
+Atlas v3 is a unified AI SDK for Laravel applications. It owns its own provider layer — no external AI package dependency.
+
+### Layer Model
+
+```
+Consumer API (Facade, fluent builders)
+         ↓
+Executor (tool loop, steps, orchestration events)
+         ↓
+Driver (routes modality calls to handlers)
+         ↓
+Handlers + Resolvers (build HTTP payloads, parse responses)
+         ↓
+HttpClient (sends HTTP, fires transport events)
+```
 
 ### Key Principles
 
-1. **Defer to Prism** — Atlas wraps Prism, never replaces it
-2. **Users access Prism directly** — All Prism methods remain available through Atlas
-3. **No feature duplication** — If Prism does it, don't rebuild it
-
-### Atlas Unique Value (document fully)
-
-| Feature        | Description                                              |
-|----------------|----------------------------------------------------------|
-| Agent Registry | Define agents once, resolve by key/class/instance        |
-| Tool Registry  | Register tools, resolve by name, attach to agents        |
-| System Prompts | Variable interpolation ({var_name}), SystemPromptBuilder |
-| Pipelines      | Before/after hooks for observability and extension        |
-| AgentContext   | Stateless context carrier with media support             |
-| Testing        | AtlasFake for agent testing without API calls            |
-
-### Prism Handles (link, don't document)
-
-- Text generation, Chat responses
-- Tool/function calling syntax and execution
-- Structured output and schemas
-- Streaming implementation
-- Embeddings, Images, Audio, Moderation
-- Provider configuration
-- Error handling and rate limits
-
----
-
-## Prism Compatibility
-
-Atlas depends on Prism (`prism-php/prism`). Periodically review Prism releases for breaking changes.
-
-### Review Process
-
-1. **Check releases**: https://github.com/prism-php/prism/releases
-2. **Check last review**: See `NOTES.md` "Prism Compatibility Tracking" for last reviewed version
-3. **Assess impact**: Focus on changes to terminal methods, Tool API, Response/Request structure, streaming events
-4. **Update NOTES.md**: Record the review date, versions, and findings
-5. **If changes needed**: Create tasks for code updates
-
-### Why Atlas is Resilient
-
-Atlas uses a thin proxy pattern — captures Prism method calls via `__call()` for later replay, wraps terminal methods with pipeline hooks, converts Atlas tools to Prism tools. Never re-implements Prism internals. Most Prism changes are transparent to Atlas.
-
-### Key Integration Files
-
-| File                                         | Purpose                                |
-|----------------------------------------------|----------------------------------------|
-| `src/Agents/Services/AgentExecutor.php`      | Calls terminal methods                 |
-| `src/Tools/Services/ToolBuilder.php`         | Converts Atlas tools to Prism tools    |
-| `src/PrismProxy.php`                         | Pipeline hooks around terminal methods |
-| `src/Agents/Support/PendingAgentRequest.php` | Captures Prism method calls            |
+1. **Own the provider layer** — Atlas talks directly to AI provider APIs
+2. **Drivers are thin coordinators** — they route to modality handlers, never build HTTP payloads
+3. **Handlers compose resolvers** — MessageFactory, MediaResolver, ToolMapper, ResponseParser
+4. **Stateless drivers** — one request → one response; the executor handles loops
+5. **Shared HttpClient** — all providers use the same transport with consistent event dispatching
 
 ---
 
@@ -107,92 +75,71 @@ Atlas uses a thin proxy pattern — captures Prism method calls via `__call()` f
 
 ## Package Structure
 
-Each package must follow this layout. **No new top-level directories are allowed.**
-
 ```
 package-root/
-├── composer.json
-├── AGENTS.md
-├── README.md
 ├── docs/                 # VitePress documentation
-│   ├── getting-started/
-│   ├── core-concepts/
-│   ├── capabilities/
-│   ├── guides/
-│   └── api-reference/
 ├── src/
-│   ├── Agents/
-│   ├── Contracts/
-│   ├── Conversations/
-│   ├── Delegation/
-│   ├── Foundation/
-│   ├── Logging/
-│   ├── Memory/
-│   ├── Processes/
-│   ├── Providers/
-│   ├── Streaming/
-│   └── Tools/
+│   ├── Concerns/         # Cross-domain traits
+│   ├── Console/          # Artisan commands
+│   ├── Embeddings/       # Vector embeddings and similarity search
+│   ├── Enums/            # Shared enums (Provider, Role, Modality, FinishReason, etc.)
+│   ├── Events/           # Transport and orchestration events
+│   ├── Exceptions/       # Exception hierarchy
+│   ├── Executor/         # Agent executor, tool loop, steps
+│   ├── Facades/          # Atlas facade
+│   ├── Input/            # Media input types (Image, Audio, Video, Document)
+│   ├── Messages/         # Typed conversation messages
+│   ├── Middleware/        # MiddlewareStack and context objects
+│   ├── Pending/          # Fluent request builders + Concerns/
+│   ├── Persistence/      # Models/, Services/, Middleware/, Enums/, Concerns/
+│   ├── Providers/        # Contracts/, Concerns/, Handlers/, Tools/, {Provider}/
+│   ├── Queue/            # Queue dispatch infrastructure + Jobs/
+│   ├── Requests/         # Immutable request DTOs
+│   ├── Responses/        # Response objects and StorableContract
+│   ├── Schema/           # JSON schema builder + Fields/
+│   ├── Support/          # Pure utilities
+│   ├── Testing/          # Fakes for testing
+│   ├── Tools/            # Tool infrastructure (definition, serialization)
+│   └── Voice/            # Voice session HTTP controllers
 ├── config/
-├── database/
-│   ├── factories/
-│   └── migrations/
 ├── tests/
 │   ├── Unit/
 │   └── Feature/
 └── sandbox/
 ```
 
----
+### Directory Rules
 
-## Module Organization
+1. **Domain-organized** – Each top-level `src/` directory represents a domain concern, not a generic pattern
+2. **Namespacing follows structure** – e.g., `Atlasphp\Atlas\Messages\UserMessage`
+3. **Cross-domain references are allowed** – Domains may import types from other domains
+4. **Domain-local contracts** – Interfaces live with their domain (e.g., `Providers/Contracts/`), not in a shared `Contracts/` directory
+5. **Domain-local concerns** – Traits scoped to a single domain live in that domain's `Concerns/` subdirectory; only genuinely cross-cutting traits live in the top-level `Concerns/`
+6. **Provider sub-structure** – `Providers/` contains subdirectories for handlers (`Handlers/`), resolver contracts (`Contracts/`), provider tools (`Tools/`), and per-provider implementations (`OpenAi/`, `Anthropic/`, etc.)
+7. **No unnecessary nesting** – Don't create subdirectories until there are enough files to justify them
 
-Each domain module is self-contained with its own enums, models, and services.
+### Adding Files
 
-### Module Structure
-
-```
-src/
-├── ExampleModule/
-│   ├── Enums/
-│   ├── Models/
-│   └── Services/
-├── AnotherModule/
-│   ├── Enums/
-│   ├── Models/
-│   ├── Services/
-│   ├── Events/
-│   ├── Jobs/
-│   └── Exceptions/
-└── Foundation/
-    └── PackageServiceProvider.php
-```
-
-### Module Rules
-
-1. **Self-contained modules** – Each module contains its own `Enums/`, `Models/`, `Services/`, `Events/`, `Jobs/`, and `Exceptions/` subdirectories as needed
-2. **No top-level shared directories** – Do NOT create `src/Enums/`, `src/Models/`, or `src/Services/` directories; these belong inside their respective modules
-3. **Namespacing follows structure** – e.g., `Vendor\Package\Processes\Models\Process`
-4. **Cross-module references are allowed** – Modules may reference models/enums from other modules where needed
-5. **Contracts remain centralized** – Interfaces that span modules live in `src/Contracts/`
-6. **Foundation is infrastructure** – Service providers, configuration, and package setup live in `src/Foundation/`
-
-### Adding to a Module
-
-| Adding...                | Location                 |
-|--------------------------|--------------------------|
-| New enum for a module    | `src/{Module}/Enums/`    |
-| New model for a module   | `src/{Module}/Models/`   |
-| New service for a module | `src/{Module}/Services/` |
-| New event for a module   | `src/{Module}/Events/`   |
-| Cross-module contract    | `src/Contracts/`         |
-
-### Creating a New Module
-
-1. Create the module directory under `src/`
-2. Add subdirectories as needed: `Enums/`, `Models/`, `Services/`, `Events/`, etc.
-3. Register services in the package service provider
-4. Create corresponding test directories under `tests/Unit/{Module}/` and `tests/Feature/`
-5. Document the module in the appropriate VitePress docs section
+| Adding...                          | Location                            |
+|------------------------------------|-------------------------------------|
+| New enum                           | `src/Enums/`                        |
+| New message type                   | `src/Messages/`                     |
+| New request/response object        | `src/Requests/` or `src/Responses/` |
+| New exception                      | `src/Exceptions/`                   |
+| New event                          | `src/Events/`                       |
+| New handler interface              | `src/Providers/Handlers/`           |
+| New resolver contract              | `src/Providers/Contracts/`          |
+| Provider-specific implementation   | `src/Providers/{ProviderName}/`     |
+| Provider-scoped contract           | `src/Providers/Contracts/`          |
+| New tool class                     | `src/Tools/`                        |
+| Embedding/vector feature           | `src/Embeddings/`                   |
+| Cross-domain trait                 | `src/Concerns/`                     |
+| Domain-scoped trait                | `src/{Domain}/Concerns/`            |
+| Domain-scoped contract             | `src/{Domain}/Contracts/`           |
+| Persistence model/service          | `src/Persistence/Models/` or `src/Persistence/Services/` |
+| Queue infrastructure               | `src/Queue/`                        |
+| Fluent builder                     | `src/Pending/`                      |
+| Test fake                          | `src/Testing/`                      |
 
 ---
 
@@ -428,16 +375,25 @@ class ProcessAgentResponseService
 
 ### Class Naming
 
-| Type            | Pattern                   | Example                         |
-|-----------------|---------------------------|---------------------------------|
-| Providers       | `*ServiceProvider`        | `PackageServiceProvider`        |
-| Model Services  | `{Model}ModelService`     | `AgentModelService`             |
-| Domain Services | `{Action}{Domain}Service` | `CreateAgentService`            |
-| Contracts       | `*Contract`               | `LlmClientContract`             |
-| Models          | Singular                  | `Agent`, `Tool`, `Conversation` |
-| Exceptions      | `*Exception`              | `AgentNotFoundException`        |
-| DTOs            | `*Data` or `*Dto`         | `CompletionResponseData`        |
-| Events          | Past tense                | `AgentCreated`, `ToolExecuted`  |
+| Type                | Pattern                   | Example                          |
+|---------------------|---------------------------|----------------------------------|
+| Providers           | `*ServiceProvider`        | `PackageServiceProvider`         |
+| Model Services      | `{Model}ModelService`     | `AgentModelService`              |
+| Domain Services     | `{Action}{Domain}Service` | `CreateAgentService`             |
+| Contracts           | Domain noun               | `MediaResolver`, `Storable`      |
+| Handler interfaces  | `*Handler`                | `TextHandler`, `AudioHandler`    |
+| Models              | Singular                  | `Agent`, `Tool`, `Conversation`  |
+| Exceptions          | `*Exception`              | `AgentNotFoundException`         |
+| DTOs                | `*Data` or `*Dto`         | `CompletionResponseData`         |
+| Events              | Past tense                | `AgentCreated`, `ToolExecuted`   |
+| Enums (shared)      | Singular noun             | `Role`, `Provider`, `Modality`   |
+| Enums (persistence) | Context-prefixed          | `ExecutionStatus`, `MessageRole` |
+| Traits (capability) | `Has*`                    | `HasMeta`, `HasOwner`            |
+| Traits (builder)    | `Builds*`                 | `BuildsHeaders`                  |
+| Traits (resolver)   | `Resolves*`               | `ResolvesProvider`               |
+| Traits (action)     | `{Verb}s*`                | `TracksExecution`, `StoresMedia` |
+
+> **Handler vs Contract interfaces:** Handler interfaces (`src/Providers/Handlers/`) use `*Handler` naming — they define modality capabilities (what a provider can do). Resolver contracts (`src/Providers/Contracts/`) use `*Contract` naming — they define composition seams (how provider internals plug together). Both are PHP interfaces; the naming distinction reflects their architectural role.
 
 ### Methods
 

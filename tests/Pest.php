@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Tests\PersistenceTestCase;
 use Atlasphp\Atlas\Tests\TestCase;
 
 /*
@@ -15,5 +16,50 @@ use Atlasphp\Atlas\Tests\TestCase;
 |
 */
 
-pest()->extend(TestCase::class)->in('Feature');
-pest()->extend(TestCase::class)->in('Unit');
+// Persistence tests use PersistenceTestCase which loads migrations and enables persistence config.
+// Registered before TestCase bindings to avoid duplicate-folder conflicts.
+pest()->extend(PersistenceTestCase::class)->in('Unit/Persistence');
+pest()->extend(PersistenceTestCase::class)->in('Feature/Persistence');
+
+// Feature tests — list subdirectories and individual top-level files
+// to avoid conflicting with Feature/Persistence binding above.
+pest()->extend(TestCase::class)->in(
+    'Feature/Console',
+    'Feature/Testing',
+    'Feature/Variables',
+    'Feature/Voice',
+    'Feature/AtlasManagerEntryPointTest.php',
+    'Feature/AtlasManagerMissingDefaultTest.php',
+    'Feature/AtlasServiceProviderTest.php',
+    'Feature/ConfigTest.php',
+    'Feature/FacadeTest.php',
+    'Feature/ProviderRegistryTest.php',
+);
+pest()->extend(TestCase::class)->in(
+    'Unit/Agents',
+    'Unit/AgentTest.php',
+    'Unit/AtlasConfigTest.php',
+    'Unit/AtlasServiceProviderTest.php',
+    'Unit/Concerns',
+    'Unit/Console',
+    'Unit/Embeddings',
+    'Unit/Enums',
+    'Unit/Events',
+    'Unit/Http',
+    'Unit/Exceptions',
+    'Unit/Executor',
+    'Unit/Input',
+    'Unit/Messages',
+    'Unit/Middleware',
+    'Unit/Pending',
+    'Unit/Providers',
+    'Unit/Queue',
+    'Unit/RequestConfigTest.php',
+    'Unit/Requests',
+    'Unit/Responses',
+    'Unit/Schema',
+    'Unit/Streaming',
+    'Unit/Support',
+    'Unit/Testing',
+    'Unit/Tools',
+);

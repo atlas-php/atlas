@@ -2,306 +2,255 @@
 
 Strategies for handling errors in Atlas-powered applications.
 
-::: tip Prism Reference
-Provider-level exceptions (rate limits, overloaded, context too large) are handled by Prism. See [Prism Error Handling](https://prismphp.com/advanced/error-handling.html) for provider exceptions and retry strategies.
-:::
+## Exception Hierarchy
 
-## Atlas Exceptions
-
-Atlas provides exceptions for agent and tool-related errors.
-
-### Exception Hierarchy
+Atlas maps provider HTTP errors and configuration problems to typed exceptions:
 
 ```
-Exception
-├── AtlasException (base for Atlas errors)
-├── AgentException (agent-related errors)
-│   ├── AgentNotFoundException
-│   └── InvalidAgentException
-└── ToolException (tool-related errors)
-    └── ToolNotFoundException
+AtlasException (base — extends RuntimeException, catch all Atlas errors)
+├── AuthenticationException        (401 — invalid API key)
+├── AuthorizationException         (403 — model access denied)
+├── RateLimitException             (429 — rate limit with retry info)
+├── ProviderException              (all other HTTP errors)
+├── UnsupportedFeatureException    (modality not supported by provider)
+├── ProviderNotFoundException      (provider key not registered)
+├── AgentNotFoundException         (agent key not found)
+├── ToolNotFoundException          (tool name not in registry)
+└── MaxStepsExceededException      (executor exceeded step limit)
 ```
 
-### AtlasException
+All exceptions live in `Atlasphp\Atlas\Exceptions`.
 
-Base exception for Atlas configuration errors:
+## Provider Exceptions
+
+Atlas automatically maps HTTP error codes to specific exception types:
+
+```php
+use Atlasphp\Atlas\Exceptions\AuthenticationException;
+use Atlasphp\Atlas\Exceptions\AuthorizationException;
+use Atlasphp\Atlas\Exceptions\RateLimitException;
+use Atlasphp\Atlas\Exceptions\ProviderException;
+
+try {
+    $response = Atlas::text(Provider::OpenAI, 'gpt-4o-mini')
+        ->message('Hello')
+        ->asText();
+} catch (AuthenticationException $e) {
+    // 401 — Invalid or missing API key
+    // $e->getMessage() includes provider name
+} catch (AuthorizationException $e) {
+    // 403 — No access to this model
+} catch (RateLimitException $e) {
+    // 429 — Too many requests
+    $retryAfter = $e->retryAfter; // Seconds to wait (from Retry-After header)
+} catch (ProviderException $e) {
+    // All other HTTP errors (400, 500, etc.)
+    $e->statusCode;        // HTTP status code
+    $e->providerMessage;   // Error message from provider
+    $e->provider;          // Provider name (e.g., 'openai')
+}
+```
+
+### Catching All Atlas Errors
 
 ```php
 use Atlasphp\Atlas\Exceptions\AtlasException;
 
 try {
-    $response = Atlas::agent('agent')->chat('Hello');
+    $response = Atlas::agent('assistant')
+        ->message('Hello')
+        ->asText();
 } catch (AtlasException $e) {
+    // Catches any Atlas exception (provider errors, config errors, etc.)
     Log::error('Atlas error', ['message' => $e->getMessage()]);
 }
 ```
 
-### AgentNotFoundException
+## Agent & Configuration Exceptions
 
-When an agent cannot be resolved from the registry:
+### Agent Not Found
 
 ```php
-use Atlasphp\Atlas\Agents\Exceptions\AgentNotFoundException;
+use Atlasphp\Atlas\Exceptions\AgentNotFoundException;
 
 try {
-    $response = Atlas::agent('nonexistent-agent')->chat('Hello');
+    $response = Atlas::agent('unknown-agent')->message('Hi')->asText();
 } catch (AgentNotFoundException $e) {
-    // "No agent found with key 'nonexistent-agent'."
+    // "Agent [unknown-agent] is not registered."
 }
 ```
 
-### InvalidAgentException
-
-When an agent configuration is invalid:
+### Max Steps Exceeded
 
 ```php
-use Atlasphp\Atlas\Agents\Exceptions\InvalidAgentException;
+use Atlasphp\Atlas\Exceptions\MaxStepsExceededException;
 
 try {
-    $response = Atlas::agent($invalidAgent)->chat('Hello');
-} catch (InvalidAgentException $e) {
-    // Agent configuration issue
+    $response = Atlas::agent('assistant')->message('Hi')->asText();
+} catch (MaxStepsExceededException $e) {
+    // Agent executor exceeded the configured step limit
+    // $e->limit — the max steps value
+    // $e->steps — the steps completed before exceeding
 }
 ```
 
-### ToolNotFoundException
-
-When a tool cannot be resolved from the registry:
+### Unsupported Feature
 
 ```php
-use Atlasphp\Atlas\Tools\Exceptions\ToolNotFoundException;
+use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 
 try {
-    $tool = $registry->get('nonexistent_tool');
+    $response = Atlas::image(Provider::Anthropic, 'claude-sonnet-4-5-20250929')
+        ->prompt('Draw a cat')
+        ->asImage();
+} catch (UnsupportedFeatureException $e) {
+    // Provider does not support this modality
+}
+```
+
+### Tool Not Found
+
+```php
+use Atlasphp\Atlas\Exceptions\ToolNotFoundException;
+
+try {
+    $response = Atlas::agent('assistant')
+        ->tools(['nonexistent_tool'])
+        ->message('Hi')
+        ->asText();
 } catch (ToolNotFoundException $e) {
-    // "Tool not found: nonexistent_tool"
+    // "Tool [nonexistent_tool] is not registered."
 }
 ```
 
-## Provider Exceptions
-
-Provider-level exceptions (API errors, rate limits, context limits) come from Prism and pass through Atlas. Handle them in your application:
+### Provider Not Found
 
 ```php
-use Atlasphp\Atlas\Agents\Exceptions\AgentNotFoundException;
+use Atlasphp\Atlas\Exceptions\ProviderNotFoundException;
 
 try {
-    $response = Atlas::agent($agentKey)->chat($input);
-} catch (AgentNotFoundException $e) {
-    return response()->json(['error' => 'Agent not configured'], 404);
-} catch (\Exception $e) {
-    // Provider errors pass through from Prism
-    Log::error('Request failed', ['error' => $e->getMessage()]);
-    return response()->json(['error' => 'Service error'], 500);
+    $response = Atlas::text('invalid-provider', 'some-model')
+        ->message('Hello')
+        ->asText();
+} catch (ProviderNotFoundException $e) {
+    // Provider key not registered in config
 }
 ```
-
-See [Prism Error Handling](https://prismphp.com/advanced/error-handling.html) for catching specific provider exceptions like rate limits and context overflow.
 
 ## Tool Error Handling
 
-### Return Errors, Don't Throw
-
-In tool handlers, return errors instead of throwing exceptions:
+In tool handlers, return error strings instead of throwing exceptions. This lets the AI retry or adjust its approach:
 
 ```php
-public function handle(array $params, ToolContext $context): ToolResult
+public function handle(array $args, array $context): mixed
 {
     try {
-        $order = Order::findOrFail($params['order_id']);
-        return ToolResult::json($order);
+        $order = Order::findOrFail($args['order_id']);
+        return $order->toArray();
     } catch (ModelNotFoundException $e) {
-        return ToolResult::error('Order not found');
-    } catch (\Exception $e) {
-        Log::error('Tool error', ['error' => $e->getMessage()]);
-        return ToolResult::error('Unable to process request');
+        return 'Order not found: '.$args['order_id'];
     }
 }
 ```
 
-### Why Return Errors?
+When a tool returns an error string, the AI can try a different approach. If a tool throws an exception, Atlas catches it and sends the exception message back to the model as an error result — the agent loop continues. The `AgentToolCallFailed` event fires with the original exception type so listeners can respond appropriately (e.g., retry on `RateLimitException`).
 
-When a tool returns an error, the AI can:
-- Try a different approach
-- Ask the user for more information
-- Gracefully handle the situation
+::: warning
+Exception messages are sent verbatim to the model. Ensure your tool exceptions do not contain sensitive information (credentials, file paths, etc.).
+:::
 
-Throwing exceptions stops execution entirely.
+## Rate Limit Handling
 
-### Parameter Validation
+The `RateLimitException` includes retry information from the provider:
 
 ```php
-public function handle(array $params, ToolContext $context): ToolResult
-{
-    if (empty($params['order_id'])) {
-        return ToolResult::error('Order ID is required');
-    }
+use Atlasphp\Atlas\Exceptions\RateLimitException;
 
-    if (! preg_match('/^ORD-\d+$/', $params['order_id'])) {
-        return ToolResult::error('Invalid order ID format');
-    }
+try {
+    $response = Atlas::text(Provider::OpenAI, 'gpt-4o')
+        ->message('Hello')
+        ->asText();
+} catch (RateLimitException $e) {
+    $seconds = $e->retryAfter;
 
-    // Continue with processing...
+    if ($seconds) {
+        // Queue a retry after the specified delay
+        dispatch(fn () => $this->retry($input))
+            ->delay(now()->addSeconds($seconds));
+    }
 }
 ```
 
-## Pipeline Error Handling
+## Provider Fallback
 
-Add error handling middleware to pipelines:
+Build resilience by falling back across providers:
 
 ```php
-use Atlasphp\Atlas\Contracts\PipelineContract;
-
-class ErrorLoggingMiddleware implements PipelineContract
+class ResilientService
 {
-    public function handle(mixed $data, Closure $next): mixed
+    public function respond(string $input): TextResponse
     {
-        try {
-            return $next($data);
-        } catch (\Exception $e) {
-            Log::error('Pipeline error', [
-                'agent' => $data['agent']->key(),
-                'error' => $e->getMessage(),
-            ]);
+        $providers = [
+            [Provider::OpenAI, 'gpt-4o-mini'],
+            [Provider::Anthropic, 'claude-sonnet-4-5-20250929'],
+        ];
 
-            throw $e;
-        }
-    }
-}
-
-$registry->register('agent.before_execute', ErrorLoggingMiddleware::class, priority: 1000);
-```
-
-### Error Recovery via Pipeline
-
-The `agent.on_error` pipeline supports returning a recovery response instead of throwing:
-
-```php
-$registry->register('agent.on_error', function (mixed $data, Closure $next) {
-    if ($data['exception'] instanceof RateLimitException) {
-        $data['recovery'] = new PrismResponse(/* fallback response */);
-    }
-
-    return $next($data);
-});
-```
-
-When a `recovery` key is set with a valid response, the exception is suppressed and the recovery response is returned. See [Pipelines](/core-concepts/pipelines#agent-on_error) for full details.
-
-## Graceful Degradation
-
-### Provider Fallback
-
-```php
-class ResilientChatService
-{
-    private array $providers = ['openai', 'anthropic'];
-
-    public function respond(string $input): mixed
-    {
-        $lastException = null;
-
-        foreach ($this->providers as $provider) {
+        foreach ($providers as [$provider, $model]) {
             try {
-                return Atlas::agent('support-agent')
-                    ->withProvider($provider)
-                    ->chat($input);
-            } catch (\Exception $e) {
-                Log::warning("Provider {$provider} failed");
-                $lastException = $e;
+                return Atlas::text($provider, $model)
+                    ->message($input)
+                    ->asText();
+            } catch (RateLimitException $e) {
+                Log::warning("Rate limited on {$provider->value}, trying next");
+                continue;
+            } catch (ProviderException $e) {
+                Log::warning("Provider error on {$provider->value}: {$e->getMessage()}");
+                continue;
             }
         }
 
-        throw $lastException;
+        throw new \RuntimeException('All providers failed');
     }
 }
 ```
 
-## Input Validation
+## Laravel Exception Handler
 
-Validate input before sending to Atlas:
+Integrate Atlas exceptions into your application's exception handler for consistent error responses:
 
 ```php
-class ChatController extends Controller
-{
-    public function respond(Request $request)
-    {
-        $validated = $request->validate([
-            'message' => 'required|string|max:10000',
-            'agent' => 'required|string|in:support,sales,help',
+use Atlasphp\Atlas\Exceptions\AtlasException;
+use Atlasphp\Atlas\Exceptions\RateLimitException;
+use Atlasphp\Atlas\Exceptions\AuthenticationException;
+
+// In bootstrap/app.php or your exception handler
+->withExceptions(function (Exceptions $exceptions) {
+    $exceptions->render(function (RateLimitException $e) {
+        return response()->json([
+            'error' => 'Service temporarily unavailable. Please retry.',
+            'retry_after' => $e->retryAfter,
+        ], 429);
+    });
+
+    $exceptions->render(function (AuthenticationException $e) {
+        Log::critical('AI provider authentication failed', [
+            'message' => $e->getMessage(),
         ]);
 
-        try {
-            $response = Atlas::agent($validated['agent'])->chat($validated['message']);
-            return response()->json(['message' => $response->text]);
-        } catch (\Exception $e) {
-            return response()->json(['error' => 'Service error'], 503);
-        }
-    }
-}
-```
+        return response()->json([
+            'error' => 'AI service configuration error.',
+        ], 500);
+    });
 
-## API Reference
-
-```php
-// Atlas exception hierarchy
-use Atlasphp\Atlas\Exceptions\AtlasException;
-use Atlasphp\Atlas\Agents\Exceptions\AgentException;
-use Atlasphp\Atlas\Agents\Exceptions\AgentNotFoundException;
-use Atlasphp\Atlas\Agents\Exceptions\InvalidAgentException;
-use Atlasphp\Atlas\Tools\Exceptions\ToolException;
-use Atlasphp\Atlas\Tools\Exceptions\ToolNotFoundException;
-
-// Base exception - catch all Atlas errors
-try {
-    $response = Atlas::agent('agent')->chat('Hello');
-} catch (AtlasException $e) {
-    // Any Atlas configuration error
-}
-
-// Agent exceptions
-try {
-    $response = Atlas::agent('unknown')->chat('Hello');
-} catch (AgentNotFoundException $e) {
-    $e->getMessage();  // "No agent found with key 'unknown'."
-} catch (InvalidAgentException $e) {
-    $e->getMessage();  // Invalid agent configuration
-} catch (AgentException $e) {
-    // Any agent-related error
-}
-
-// Tool exceptions
-try {
-    $tool = $registry->get('unknown_tool');
-} catch (ToolNotFoundException $e) {
-    $e->getMessage();  // "Tool not found: unknown_tool"
-} catch (ToolException $e) {
-    // Any tool-related error
-}
-
-// ToolResult for tool error handling (don't throw, return errors)
-use Atlasphp\Atlas\Tools\Support\ToolResult;
-
-ToolResult::text(string $text): ToolResult;   // Success with text
-ToolResult::json(array $data): ToolResult;    // Success with JSON
-ToolResult::error(string $message): ToolResult; // Error result
-
-$result->succeeded(): bool;  // Check if successful
-$result->failed(): bool;     // Check if failed
-
-// Prism exceptions (pass through Atlas)
-// See: https://prismphp.com/advanced/error-handling.html
-use Prism\Prism\Exceptions\PrismException;
-use Prism\Prism\Exceptions\PrismRateLimitException;
-use Prism\Prism\Exceptions\PrismContextLengthExceededException;
-
-// Retry configuration (via Prism passthrough)
-Atlas::agent('agent')
-    ->withClientRetry(int $times, int $sleepMs)  // Automatic retries
-    ->chat('Hello');
+    $exceptions->render(function (AtlasException $e) {
+        return response()->json([
+            'error' => 'An error occurred processing your request.',
+        ], 500);
+    });
+})
 ```
 
 ## Next Steps
 
-- [Pipelines](/core-concepts/pipelines) — Add error handling middleware
-- [Testing](/advanced/testing) — Test error scenarios
+- [Testing](/advanced/testing) — Test error scenarios with Atlas::fake()
+- [Middleware](/features/middleware) — Add error handling middleware

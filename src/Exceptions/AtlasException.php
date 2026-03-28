@@ -4,44 +4,31 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Exceptions;
 
-use Exception;
+use RuntimeException;
 
 /**
- * Base exception for all Atlas-related errors.
- *
- * Provides static factory methods for common error scenarios.
+ * Base exception for all Atlas errors.
  */
-class AtlasException extends Exception
+class AtlasException extends RuntimeException
 {
     /**
-     * Create an exception for duplicate registration attempts.
-     *
-     * @param  string  $type  The type of item being registered.
-     * @param  string  $key  The duplicate key.
+     * Create an exception for a missing modality default.
      */
-    public static function duplicateRegistration(string $type, string $key): self
+    public static function missingDefault(string $modality): self
     {
-        return new self("A {$type} with key '{$key}' has already been registered.");
+        $envVar = 'ATLAS_'.strtoupper($modality).'_PROVIDER';
+
+        return new self(
+            "No provider specified and no default configured for {$modality}. "
+            ."Set {$envVar} in your .env or pass a provider."
+        );
     }
 
     /**
-     * Create an exception for items not found.
-     *
-     * @param  string  $type  The type of item being searched.
-     * @param  string  $key  The key that was not found.
+     * Create an exception for an unknown driver.
      */
-    public static function notFound(string $type, string $key): self
+    public static function unknownDriver(string $driver, string $key): self
     {
-        return new self("No {$type} found with key '{$key}'.");
-    }
-
-    /**
-     * Create an exception for invalid configuration.
-     *
-     * @param  string  $message  The configuration error message.
-     */
-    public static function invalidConfiguration(string $message): self
-    {
-        return new self("Invalid configuration: {$message}");
+        return new self("Unknown driver '{$driver}' for provider '{$key}'.");
     }
 }

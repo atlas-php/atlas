@@ -1,15 +1,16 @@
 /vendor/
 /node_modules/
 /public/build/
-/public/atlas-logo.png
-/database/database.sqlite
+/public/hot
 .env
 
-# Storage - ignore contents but keep .gitkeep
+# Storage - ignore generated assets and runtime files
+/storage/app/*
+/storage/assets/*
+/storage/outputs/*
+/storage/providers/*
 /storage/framework/cache/*
 /storage/framework/sessions/*
 /storage/framework/views/*
 /storage/logs/*
-/storage/outputs/*
-/storage/threads/*
 !storage/**/.gitkeep

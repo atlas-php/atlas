@@ -4,332 +4,302 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas;
 
-use Atlasphp\Atlas\Agents\Contracts\AgentContract;
-use Atlasphp\Atlas\Agents\Contracts\AgentExecutorContract;
-use Atlasphp\Atlas\Agents\Contracts\AgentRegistryContract;
-use Atlasphp\Atlas\Agents\Services\AgentExecutor;
-use Atlasphp\Atlas\Agents\Services\AgentExtensionRegistry;
-use Atlasphp\Atlas\Agents\Services\AgentRegistry;
-use Atlasphp\Atlas\Agents\Services\AgentResolver;
-use Atlasphp\Atlas\Agents\Services\MediaConverter;
-use Atlasphp\Atlas\Agents\Services\SystemPromptBuilder;
-use Atlasphp\Atlas\Models\Services\ListModelsService;
-use Atlasphp\Atlas\Pipelines\Middleware\CacheEmbeddings;
-use Atlasphp\Atlas\Pipelines\PipelineRegistry;
-use Atlasphp\Atlas\Pipelines\PipelineRunner;
-use Atlasphp\Atlas\Support\ClassDiscovery;
-use Atlasphp\Atlas\Tools\Contracts\ToolContract;
-use Atlasphp\Atlas\Tools\Contracts\ToolRegistryContract;
-use Atlasphp\Atlas\Tools\Services\ToolBuilder;
-use Atlasphp\Atlas\Tools\Services\ToolExecutor;
-use Atlasphp\Atlas\Tools\Services\ToolRegistry;
-use Illuminate\Cache\CacheManager;
-use Illuminate\Cache\Repository;
-use Illuminate\Contracts\Container\Container;
-use Illuminate\Http\Client\Factory as HttpFactory;
+use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
+use Atlasphp\Atlas\Embeddings\VectorQueryMacros;
+use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Http\HttpClient;
+use Atlasphp\Atlas\Http\RetryDecider;
+use Atlasphp\Atlas\Middleware\MiddlewareResolver;
+use Atlasphp\Atlas\Middleware\MiddlewareStack;
+use Atlasphp\Atlas\Persistence\Services\ExecutionService;
+use Atlasphp\Atlas\Providers\Anthropic\AnthropicDriver;
+use Atlasphp\Atlas\Providers\Cohere\CohereDriver;
+use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
+use Atlasphp\Atlas\Providers\ElevenLabs\ElevenLabsDriver;
+use Atlasphp\Atlas\Providers\Google\GoogleDriver;
+use Atlasphp\Atlas\Providers\Jina\JinaDriver;
+use Atlasphp\Atlas\Providers\OpenAi\OpenAiDriver;
+use Atlasphp\Atlas\Providers\ProviderConfig;
+use Atlasphp\Atlas\Providers\ProviderRegistry;
+use Atlasphp\Atlas\Providers\Xai\XaiDriver;
+use Atlasphp\Atlas\Support\VariableRegistry;
+use Illuminate\Contracts\Events\Dispatcher;
+use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
 /**
  * Service provider for the Atlas package.
  *
- * Registers all services, bindings, and configuration for the package.
- * Acts as a thin wrapper around Prism with pipeline support for observability.
+ * Registers the provider registry, manager, and HTTP client as singletons,
+ * merges configuration, and publishes the config file.
  */
 class AtlasServiceProvider extends ServiceProvider
 {
-    /**
-     * Register services.
-     */
     public function register(): void
     {
         $this->mergeConfigFrom(__DIR__.'/../config/atlas.php', 'atlas');
 
-        $this->registerFoundationServices();
-        $this->registerAgentServices();
-        $this->registerToolServices();
-        $this->registerModelServices();
-        $this->registerAtlasManager();
-        $this->registerDiscoveryService();
-    }
+        // Register persistence middleware into config BEFORE AtlasConfig
+        // singleton is created, so the snapshot includes them.
+        $this->registerPersistenceMiddleware();
 
-    /**
-     * Bootstrap services.
-     */
-    public function boot(): void
-    {
-        $this->publishConfig();
-        $this->registerCommands();
-        $this->defineCorePipelines();
-        $this->configurePipelinesState();
-        $this->registerEmbeddingCacheMiddleware();
-        $this->discoverAgents();
-        $this->discoverTools();
-    }
+        $this->app->singleton(AtlasConfig::class, fn () => AtlasConfig::fromConfig());
 
-    /**
-     * Register foundation services.
-     */
-    protected function registerFoundationServices(): void
-    {
-        $this->app->singleton(PipelineRegistry::class, function (Container $app): PipelineRegistry {
-            $registry = new PipelineRegistry;
-            $registry->setContainer($app);
-
-            return $registry;
+        $this->app->singleton(ProviderRegistryContract::class, function ($app) {
+            return new ProviderRegistry($app, $app->make(AtlasConfig::class));
         });
 
-        $this->app->singleton(PipelineRunner::class, function (Container $app): PipelineRunner {
-            return new PipelineRunner(
-                $app->make(PipelineRegistry::class),
-                $app,
-            );
-        });
-    }
-
-    /**
-     * Register agent services.
-     */
-    protected function registerAgentServices(): void
-    {
-        $this->app->singleton(AgentRegistryContract::class, function (Container $app): AgentRegistry {
+        $this->app->singleton(AgentRegistry::class, function ($app) {
             return new AgentRegistry($app);
         });
 
-        $this->app->singleton(AgentResolver::class, function (Container $app): AgentResolver {
-            return new AgentResolver(
-                $app->make(AgentRegistryContract::class),
-                $app,
-                $app->make(AgentExtensionRegistry::class),
-            );
-        });
-
-        $this->app->singleton(SystemPromptBuilder::class, function (Container $app): SystemPromptBuilder {
-            return new SystemPromptBuilder(
-                $app->make(PipelineRunner::class),
-            );
-        });
-
-        $this->app->singleton(MediaConverter::class, function (): MediaConverter {
-            return new MediaConverter;
-        });
-
-        $this->app->singleton(AgentExecutorContract::class, function (Container $app): AgentExecutor {
-            return new AgentExecutor(
-                $app->make(ToolBuilder::class),
-                $app->make(SystemPromptBuilder::class),
-                $app->make(PipelineRunner::class),
-                $app->make(MediaConverter::class),
-            );
-        });
-
-        $this->app->singleton(AgentExtensionRegistry::class, function (): AgentExtensionRegistry {
-            return new AgentExtensionRegistry;
-        });
-    }
-
-    /**
-     * Register tool services.
-     */
-    protected function registerToolServices(): void
-    {
-        $this->app->singleton(ToolRegistryContract::class, function (Container $app): ToolRegistry {
-            return new ToolRegistry($app);
-        });
-
-        $this->app->singleton(ToolExecutor::class, function (Container $app): ToolExecutor {
-            return new ToolExecutor(
-                $app->make(PipelineRunner::class),
-            );
-        });
-
-        $this->app->singleton(ToolBuilder::class, function (Container $app): ToolBuilder {
-            return new ToolBuilder(
-                $app->make(ToolRegistryContract::class),
-                $app->make(ToolExecutor::class),
-                $app,
-                $app->make(PipelineRunner::class),
-            );
-        });
-    }
-
-    /**
-     * Register model listing services.
-     */
-    protected function registerModelServices(): void
-    {
-        $this->app->singleton(ListModelsService::class, function (Container $app): ListModelsService {
-            /** @var CacheManager $cacheManager */
-            $cacheManager = $app->make('cache');
-            $store = config('atlas.models.cache.store');
-
-            /** @var Repository $cacheStore */
-            $cacheStore = $cacheManager->store($store);
-
-            return new ListModelsService(
-                $app->make(HttpFactory::class),
-                $cacheStore,
-            );
-        });
-    }
-
-    /**
-     * Register the AtlasManager.
-     */
-    protected function registerAtlasManager(): void
-    {
-        $this->app->singleton(AtlasManager::class, function (Container $app): AtlasManager {
+        $this->app->singleton(AtlasManager::class, function ($app) {
             return new AtlasManager(
-                $app->make(AgentResolver::class),
-                $app->make(AgentExecutorContract::class),
-                $app->make(PipelineRunner::class),
-                $app->make(ListModelsService::class),
+                $app->make(ProviderRegistryContract::class),
+                $app,
+                $app->make(AtlasConfig::class),
+            );
+        });
+
+        $this->app->singleton(RetryDecider::class);
+
+        $this->app->singleton(HttpClient::class, function ($app) {
+            return new HttpClient(
+                $app->make(Dispatcher::class),
+                $app->make(RetryDecider::class),
+            );
+        });
+
+        $this->app->singleton(MiddlewareStack::class, function ($app) {
+            return new MiddlewareStack($app);
+        });
+
+        $this->app->singleton(MiddlewareResolver::class, function ($app) {
+            return new MiddlewareResolver(
+                $app,
+                $app->make(AtlasConfig::class)->middleware,
+            );
+        });
+
+        $this->app->scoped(ExecutionService::class);
+
+        $this->app->singleton(VariableRegistry::class, function ($app) {
+            return new VariableRegistry($app->make(AtlasConfig::class));
+        });
+
+        $this->app->singleton(AtlasCache::class, function ($app) {
+            return new AtlasCache($app->make(AtlasConfig::class));
+        });
+        $this->app->singleton(EmbeddingResolver::class, function ($app) {
+            return new EmbeddingResolver(
+                $app->make(AtlasCache::class),
+                $app->make(AtlasConfig::class),
             );
         });
     }
 
-    /**
-     * Register the discovery service.
-     */
-    protected function registerDiscoveryService(): void
+    public function boot(): void
     {
-        $this->app->singleton(ClassDiscovery::class, function (): ClassDiscovery {
-            return new ClassDiscovery;
-        });
-    }
+        $this->registerProviders();
+        $this->discoverAgents();
 
-    /**
-     * Publish configuration files.
-     */
-    protected function publishConfig(): void
-    {
         if ($this->app->runningInConsole()) {
+            $this->commands([
+                Console\MakeAgentCommand::class,
+                Console\MakeToolCommand::class,
+                Console\CleanStaleVoiceSessionsCommand::class,
+                Console\MiddlewareCommand::class,
+            ]);
+
             $this->publishes([
                 __DIR__.'/../config/atlas.php' => config_path('atlas.php'),
             ], 'atlas-config');
 
+            $this->publishes([
+                __DIR__.'/../database/migrations' => database_path('migrations'),
+            ], 'atlas-migrations');
         }
+
+        $this->registerBuiltInVariables();
+        $this->registerVoiceRoutes();
+        $this->registerVectorMacros();
     }
 
     /**
-     * Register artisan commands.
+     * Append persistence middleware to config before AtlasConfig is created.
+     *
+     * Called in register() BEFORE the AtlasConfig singleton binding so the
+     * snapshot includes these middleware classes. Config remains the source
+     * of truth — consumers can see all middleware via config('atlas.middleware').
      */
-    protected function registerCommands(): void
+    protected function registerPersistenceMiddleware(): void
     {
-        if ($this->app->runningInConsole()) {
-            $this->commands([
-                Foundation\Console\MakeToolCommand::class,
-                Foundation\Console\MakeAgentCommand::class,
-            ]);
-        }
-    }
-
-    /**
-     * Define core pipelines for the package.
-     */
-    protected function defineCorePipelines(): void
-    {
-        $registry = $this->app->make(PipelineRegistry::class);
-
-        // Agent pipelines
-        foreach ([
-            'agent.before_execute',
-            'agent.context.validate',
-            'agent.tools.merged',
-            'agent.after_execute',
-            'agent.stream.after',
-            'agent.system_prompt.before_build',
-            'agent.system_prompt.after_build',
-            'agent.on_error',
-        ] as $event) {
-            $registry->define($event);
-        }
-
-        // Tool pipelines
-        foreach ([
-            'tool.before_resolve',
-            'tool.after_resolve',
-            'tool.before_execute',
-            'tool.after_execute',
-            'tool.on_error',
-        ] as $event) {
-            $registry->define($event);
-        }
-
-        // Prism pipelines (from PrismProxy configuration)
-        foreach (PrismProxy::getPipelineEvents() as $event) {
-            $registry->define($event);
-        }
-    }
-
-    /**
-     * Configure pipelines enabled state based on config.
-     */
-    protected function configurePipelinesState(): void
-    {
-        if (config('atlas.pipelines.enabled', true) === false) {
-            $registry = $this->app->make(PipelineRegistry::class);
-
-            // Disable all defined pipelines
-            foreach ($registry->definitions() as $name => $definition) {
-                $registry->setActive($name, false);
-            }
-        }
-    }
-
-    /**
-     * Register the embedding cache middleware when enabled via config.
-     */
-    protected function registerEmbeddingCacheMiddleware(): void
-    {
-        if (config('atlas.embeddings.cache.enabled', false) !== true) {
+        if (! config('atlas.persistence.enabled')) {
             return;
         }
 
-        $registry = $this->app->make(PipelineRegistry::class);
-        $registry->register('embeddings.before_embeddings', CacheEmbeddings::class, 100);
+        config(['atlas.middleware' => array_merge(config('atlas.middleware', []), [
+            Persistence\Middleware\PersistConversation::class,
+            Persistence\Middleware\TrackExecution::class,
+            Persistence\Middleware\TrackStep::class,
+            Persistence\Middleware\TrackToolCall::class,
+            Persistence\Middleware\TrackProviderCall::class,
+        ])]);
     }
 
     /**
-     * Discover and register agents from configured path.
+     * Register package HTTP routes for voice sessions and transcript persistence.
+     */
+    protected function registerVoiceRoutes(): void
+    {
+        $this->app->booted(function (): void {
+            $config = app(AtlasConfig::class);
+            $prefix = $config->voiceRoutePrefix;
+            $middleware = app(MiddlewareResolver::class)->forVoiceHttp();
+
+            Route::prefix($prefix)
+                ->middleware($middleware)
+                ->group(function (): void {
+                    Route::post(
+                        '/voice/{sessionId}/tool',
+                        Voice\Http\VoiceToolController::class,
+                    );
+                    Route::post(
+                        '/voice/{sessionId}/transcript',
+                        Persistence\Http\StoreVoiceTranscriptController::class,
+                    );
+                    Route::post(
+                        '/voice/{sessionId}/close',
+                        Voice\Http\CloseVoiceSessionController::class,
+                    );
+                });
+        });
+    }
+
+    /**
+     * Register pgvector query macros when persistence is enabled.
+     */
+    protected function registerVectorMacros(): void
+    {
+        if (! app(AtlasConfig::class)->persistenceEnabled) {
+            return;
+        }
+
+        VectorQueryMacros::register();
+    }
+
+    /**
+     * Auto-discover agent classes from the configured directory.
      */
     protected function discoverAgents(): void
     {
-        $path = config('atlas.agents.path');
-        $namespace = config('atlas.agents.namespace');
+        /** @var array<string, string|null> $config */
+        $config = $this->app['config']->get('atlas.agents', []);
 
-        if ($path === null || $path === '' || $namespace === null) {
-            return;
-        }
+        $path = $config['path'] ?? null;
+        $namespace = $config['namespace'] ?? null;
 
-        $discovery = $this->app->make(ClassDiscovery::class);
-        $registry = $this->app->make(AgentRegistryContract::class);
-
-        $agents = $discovery->discover($path, $namespace, AgentContract::class);
-
-        foreach ($agents as $agentClass) {
-            $registry->register($agentClass);
+        if ($path !== null && $namespace !== null) {
+            /** @var AgentRegistry $registry */
+            $registry = $this->app->make(AgentRegistry::class);
+            $registry->discover($path, $namespace);
         }
     }
 
     /**
-     * Discover and register tools from configured path.
+     * Register built-in variables available across all modalities.
      */
-    protected function discoverTools(): void
+    protected function registerBuiltInVariables(): void
     {
-        $path = config('atlas.tools.path');
-        $namespace = config('atlas.tools.namespace');
+        /** @var VariableRegistry $registry */
+        $registry = $this->app->make(VariableRegistry::class);
 
-        if ($path === null || $path === '' || $namespace === null) {
-            return;
-        }
+        $registry->register('DATE', fn () => now()->toDateString());
+        $registry->register('DATETIME', fn () => now()->toDateTimeString());
+        $registry->register('TIME', fn () => now()->format('H:i:s'));
+        $registry->register('TIMEZONE', fn () => config('app.timezone', 'UTC'));
+        $registry->register('APP_NAME', fn () => config('app.name', 'Laravel'));
+        $registry->register('APP_ENV', fn () => config('app.env', 'production'));
+        $registry->register('APP_URL', fn () => config('app.url', 'http://localhost'));
+    }
 
-        $discovery = $this->app->make(ClassDiscovery::class);
-        $registry = $this->app->make(ToolRegistryContract::class);
+    /**
+     * Register built-in provider factories.
+     */
+    protected function registerProviders(): void
+    {
+        /** @var ProviderRegistryContract $registry */
+        $registry = $this->app->make(ProviderRegistryContract::class);
 
-        $tools = $discovery->discover($path, $namespace, ToolContract::class);
+        $registry->register(Provider::OpenAI->value, function (Application $app, array $config) {
+            return new OpenAiDriver(
+                config: ProviderConfig::fromArray($config),
+                http: $app->make(HttpClient::class),
+                middlewareStack: $app->make(MiddlewareStack::class),
+                cache: $app->make(AtlasCache::class),
+                middlewareResolver: $app->make(MiddlewareResolver::class),
+            );
+        });
 
-        foreach ($tools as $toolClass) {
-            $registry->register($toolClass);
-        }
+        $registry->register(Provider::xAI->value, function (Application $app, array $config) {
+            return new XaiDriver(
+                config: ProviderConfig::fromArray($config),
+                http: $app->make(HttpClient::class),
+                middlewareStack: $app->make(MiddlewareStack::class),
+                cache: $app->make(AtlasCache::class),
+                middlewareResolver: $app->make(MiddlewareResolver::class),
+            );
+        });
+
+        $registry->register(Provider::Anthropic->value, function (Application $app, array $config) {
+            return new AnthropicDriver(
+                config: ProviderConfig::fromArray($config),
+                http: $app->make(HttpClient::class),
+                middlewareStack: $app->make(MiddlewareStack::class),
+                cache: $app->make(AtlasCache::class),
+                middlewareResolver: $app->make(MiddlewareResolver::class),
+            );
+        });
+
+        $registry->register(Provider::Google->value, function (Application $app, array $config) {
+            return new GoogleDriver(
+                config: ProviderConfig::fromArray($config),
+                http: $app->make(HttpClient::class),
+                middlewareStack: $app->make(MiddlewareStack::class),
+                cache: $app->make(AtlasCache::class),
+                middlewareResolver: $app->make(MiddlewareResolver::class),
+            );
+        });
+
+        $registry->register(Provider::ElevenLabs->value, function (Application $app, array $config) {
+            return new ElevenLabsDriver(
+                config: ProviderConfig::fromArray($config),
+                http: $app->make(HttpClient::class),
+                middlewareStack: $app->make(MiddlewareStack::class),
+                cache: $app->make(AtlasCache::class),
+                middlewareResolver: $app->make(MiddlewareResolver::class),
+            );
+        });
+
+        $registry->register('cohere', function (Application $app, array $config) {
+            return new CohereDriver(
+                config: ProviderConfig::fromArray($config),
+                http: $app->make(HttpClient::class),
+                middlewareStack: $app->make(MiddlewareStack::class),
+                cache: $app->make(AtlasCache::class),
+                middlewareResolver: $app->make(MiddlewareResolver::class),
+            );
+        });
+
+        $registry->register('jina', function (Application $app, array $config) {
+            return new JinaDriver(
+                config: ProviderConfig::fromArray($config),
+                http: $app->make(HttpClient::class),
+                middlewareStack: $app->make(MiddlewareStack::class),
+                cache: $app->make(AtlasCache::class),
+                middlewareResolver: $app->make(MiddlewareResolver::class),
+            );
+        });
     }
 }
