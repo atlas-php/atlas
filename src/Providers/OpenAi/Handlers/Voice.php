@@ -47,12 +47,9 @@ class Voice implements VoiceHandler
     {
         $url = $session->connectionUrl ?? $this->buildWebSocketUrl($session->model);
 
-        $client = new Client($url, [
-            'headers' => [
-                'Authorization' => "Bearer {$this->config->apiKey}",
-                'OpenAI-Beta' => 'realtime=v1',
-            ],
-        ]);
+        $client = new Client($url);
+        $client->addHeader('Authorization', "Bearer {$this->config->apiKey}");
+        $client->addHeader('OpenAI-Beta', 'realtime=v1');
 
         return new WebSocketConnection($client, $session->sessionId);
     }

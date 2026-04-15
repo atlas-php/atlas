@@ -6,7 +6,7 @@ namespace Atlasphp\Atlas\Providers;
 
 use Atlasphp\Atlas\Responses\VoiceEvent;
 use WebSocket\Client;
-use WebSocket\TimeoutException;
+use WebSocket\Exception\ConnectionTimeoutException;
 
 /**
  * Wraps a WebSocket client for voice provider communication.
@@ -49,8 +49,7 @@ class WebSocketConnection
     public function receive(): ?VoiceEvent
     {
         try {
-            $message = $this->client->receive();
-            $raw = (string) $message;
+            $raw = $this->client->receive()->getContent();
 
             if ($raw === '') {
                 return null;
@@ -68,7 +67,7 @@ class WebSocketConnection
                 eventId: $eventId,
                 data: $data,
             );
-        } catch (TimeoutException) {
+        } catch (ConnectionTimeoutException) {
             return null;
         } catch (\JsonException $e) {
             logger()->warning('[WebSocketConnection] Malformed JSON frame received', [

@@ -8,6 +8,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 ---
 
+## [v3.0.1](https://github.com/atlas-php/atlas/releases/tag/v3.0.1) - 2026-04-14
+
+### Changed
+
+- Replaced unmaintained `textalk/websocket ^1.6` with its maintained successor `phrity/websocket ^3.0` (same author, same `WebSocket\Client` namespace). Unblocks `psr/http-message ^2.0` in consuming apps, which was previously forced to `^1.0` by the old dependency.
+
+### Internal
+
+- `WebSocketConnection` now unwraps `$client->receive()` via `Message::getContent()` (v3 returns `Message`, v1 returned a stringable).
+- `ConnectionTimeoutException` replaces `TimeoutException` in receive-path error handling.
+- Voice handler `Client` construction switched from the removed `['headers' => [...]]` option to `Client::addHeader()` calls.
+- All 2548 tests pass; no public API changes for consumers.
+
+---
+
 ## [v2.5.1](https://github.com/atlas-php/atlas/releases/tag/v2.5.1) - 2026-03-17
 
 ### Changed

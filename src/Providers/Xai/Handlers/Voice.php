@@ -60,11 +60,8 @@ class Voice implements VoiceHandler
 
     public function connect(VoiceSession $session): WebSocketConnection
     {
-        $client = new Client($session->connectionUrl, [
-            'headers' => [
-                'Authorization' => "Bearer {$this->config->apiKey}",
-            ],
-        ]);
+        $client = new Client($session->connectionUrl);
+        $client->addHeader('Authorization', "Bearer {$this->config->apiKey}");
 
         return new WebSocketConnection($client, $session->sessionId);
     }

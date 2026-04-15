@@ -5,7 +5,8 @@ declare(strict_types=1);
 use Atlasphp\Atlas\Providers\WebSocketConnection;
 use Atlasphp\Atlas\Responses\VoiceEvent;
 use WebSocket\Client;
-use WebSocket\TimeoutException;
+use WebSocket\Exception\ConnectionTimeoutException;
+use WebSocket\Message\Text;
 
 function createMockConnection(?Client $client = null): WebSocketConnection
 {
@@ -63,7 +64,7 @@ it('receives and parses a provider event', function () {
     $client = Mockery::mock(Client::class);
     $client->shouldReceive('receive')
         ->once()
-        ->andReturn('{"type":"response.done","event_id":"evt_99","usage":{"tokens":10}}');
+        ->andReturn(new Text('{"type":"response.done","event_id":"evt_99","usage":{"tokens":10}}'));
 
     $conn = createMockConnection($client);
     $event = $conn->receive();
@@ -76,7 +77,7 @@ it('receives and parses a provider event', function () {
 
 it('returns null on empty message', function () {
     $client = Mockery::mock(Client::class);
-    $client->shouldReceive('receive')->once()->andReturn('');
+    $client->shouldReceive('receive')->once()->andReturn(new Text(''));
 
     $conn = createMockConnection($client);
 
@@ -87,7 +88,7 @@ it('returns null on timeout exception', function () {
     $client = Mockery::mock(Client::class);
     $client->shouldReceive('receive')
         ->once()
-        ->andThrow(new TimeoutException('timeout'));
+        ->andThrow(new ConnectionTimeoutException);
 
     $conn = createMockConnection($client);
 
@@ -98,7 +99,7 @@ it('returns null on malformed JSON', function () {
     $client = Mockery::mock(Client::class);
     $client->shouldReceive('receive')
         ->once()
-        ->andReturn('not valid json {{{');
+        ->andReturn(new Text('not valid json {{{'));
 
     $conn = createMockConnection($client);
 
@@ -126,7 +127,7 @@ it('handles event with no event_id in response', function () {
     $client = Mockery::mock(Client::class);
     $client->shouldReceive('receive')
         ->once()
-        ->andReturn('{"type":"ping","timestamp":12345}');
+        ->andReturn(new Text('{"type":"ping","timestamp":12345}'));
 
     $conn = createMockConnection($client);
     $event = $conn->receive();
@@ -140,7 +141,7 @@ it('defaults to unknown type when type is missing', function () {
     $client = Mockery::mock(Client::class);
     $client->shouldReceive('receive')
         ->once()
-        ->andReturn('{"data":"something"}');
+        ->andReturn(new Text('{"data":"something"}'));
 
     $conn = createMockConnection($client);
     $event = $conn->receive();
