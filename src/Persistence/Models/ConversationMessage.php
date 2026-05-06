@@ -16,6 +16,7 @@ use Atlasphp\Atlas\Persistence\Concerns\HasAtlasTable;
 use Atlasphp\Atlas\Persistence\Concerns\HasOwner;
 use Atlasphp\Atlas\Persistence\Enums\MessageRole;
 use Atlasphp\Atlas\Persistence\Enums\MessageStatus;
+use Atlasphp\Atlas\Providers\Google\GoogleToolCall;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -267,11 +268,9 @@ class ConversationMessage extends Model
         }
 
         // Build AssistantMessage with toolCalls array
-        $toolCalls = $toolCallRecords->map(fn (ExecutionToolCall $tc) => new ToolCall(
-            id: $tc->tool_call_id,
-            name: $tc->name,
-            arguments: $tc->arguments ?? [],
-        ))->all();
+        $toolCalls = $toolCallRecords->map(
+            fn (ExecutionToolCall $tc) => $this->toToolCall($tc),
+        )->all();
 
         $messages = [
             new AssistantMessage(
@@ -290,6 +289,26 @@ class ConversationMessage extends Model
         }
 
         return $messages;
+    }
+
+    protected function toToolCall(ExecutionToolCall $toolCall): ToolCall
+    {
+        $thoughtSignature = $toolCall->metadata[GoogleToolCall::THOUGHT_SIGNATURE_METADATA_KEY] ?? null;
+
+        if (is_string($thoughtSignature)) {
+            return new GoogleToolCall(
+                id: $toolCall->tool_call_id,
+                name: $toolCall->name,
+                arguments: $toolCall->arguments ?? [],
+                thoughtSignature: $thoughtSignature,
+            );
+        }
+
+        return new ToolCall(
+            id: $toolCall->tool_call_id,
+            name: $toolCall->name,
+            arguments: $toolCall->arguments ?? [],
+        );
     }
 
     // ─── Query Helpers ──────────────────────────────────────────

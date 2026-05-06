@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Enums\FinishReason;
+use Atlasphp\Atlas\Providers\Google\GoogleToolCall;
 use Atlasphp\Atlas\Providers\Google\ResponseParser;
 use Atlasphp\Atlas\Providers\Google\ToolMapper;
 use Atlasphp\Atlas\Responses\StreamChunk;
@@ -44,6 +45,27 @@ it('parses function calls from candidates', function () {
     expect($result->toolCalls)->toHaveCount(1);
     expect($result->toolCalls[0]->name)->toBe('search');
     expect($result->toolCalls[0]->arguments)->toBe(['query' => 'test']);
+});
+
+it('preserves function call thought signatures in assistant messages', function () {
+    $parser = makeGoogleResponseParser();
+
+    $result = $parser->parseText([
+        'candidates' => [
+            ['content' => ['parts' => [
+                [
+                    'functionCall' => ['name' => 'search', 'args' => ['query' => 'test']],
+                    'thoughtSignature' => 'signature-from-gemini',
+                ],
+            ], 'role' => 'model'], 'finishReason' => 'STOP'],
+        ],
+        'usageMetadata' => ['promptTokenCount' => 10, 'candidatesTokenCount' => 5],
+    ]);
+
+    $message = $result->toMessage();
+
+    expect($message->toolCalls[0])->toBeInstanceOf(GoogleToolCall::class);
+    expect($message->toolCalls[0]->thoughtSignature)->toBe('signature-from-gemini');
 });
 
 it('parses thinking parts as reasoning', function () {
@@ -157,13 +179,18 @@ it('parses stream chunk with function call', function () {
 
     $result = $parser->parseStreamChunk([
         'candidates' => [['content' => ['parts' => [
-            ['functionCall' => ['name' => 'search', 'args' => ['q' => 'test']]],
+            [
+                'functionCall' => ['name' => 'search', 'args' => ['q' => 'test']],
+                'thoughtSignature' => 'signature-from-gemini',
+            ],
         ]]]],
     ]);
 
     expect($result->type)->toBe(ChunkType::ToolCall);
     expect($result->toolCalls)->toHaveCount(1);
+    expect($result->toolCalls[0])->toBeInstanceOf(GoogleToolCall::class);
     expect($result->toolCalls[0]->name)->toBe('search');
+    expect($result->toolCalls[0]->thoughtSignature)->toBe('signature-from-gemini');
 });
 
 it('parses stream chunk with thinking', function () {

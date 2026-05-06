@@ -66,12 +66,18 @@ class MessageFactory implements MessageFactoryContract
         }
 
         foreach ($message->toolCalls as $toolCall) {
-            $parts[] = [
+            $part = [
                 'functionCall' => [
                     'name' => $toolCall->name,
                     'args' => $toolCall->arguments ?: (object) [],
                 ],
             ];
+
+            if ($toolCall instanceof GoogleToolCall && $toolCall->thoughtSignature !== null) {
+                $part['thoughtSignature'] = $toolCall->thoughtSignature;
+            }
+
+            $parts[] = $part;
         }
 
         return [

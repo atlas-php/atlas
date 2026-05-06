@@ -248,6 +248,11 @@ $response = Atlas::text('openai', 'gpt-4o')
     ->asText();
 ```
 
+## Provider Compatibility
+
+Atlas adapts tool definitions to each provider's tool-calling format. For example, the Google provider normalizes tool parameter schemas
+for Gemini function declarations and preserves Gemini continuation metadata when a tool call must be sent back with the next request.
+
 ## Provider Tools
 
 Provider tools are native capabilities offered by AI providers (not your PHP code). They run server-side at the provider level. Atlas includes configuration objects for common provider tools:
