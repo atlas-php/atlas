@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Messages\ToolCall;
+use Atlasphp\Atlas\Providers\Google\GoogleToolCall;
 use Atlasphp\Atlas\Providers\Google\ToolMapper;
 use Atlasphp\Atlas\Providers\Tools\CodeExecution;
 use Atlasphp\Atlas\Providers\Tools\GoogleSearch;
@@ -32,6 +33,90 @@ it('maps tools with empty parameters to object with empty properties', function 
     expect($result[0]['parameters'])->toEqual(['type' => 'object', 'properties' => (object) []]);
 });
 
+it('removes unsupported Gemini schema keywords from tool parameters', function () {
+    $mapper = new ToolMapper;
+
+    $result = $mapper->mapTools([
+        new ToolDefinition('search', 'Search the web', [
+            'type' => 'object',
+            'additionalProperties' => false,
+            'properties' => [
+                'query' => [
+                    'type' => 'string',
+                ],
+                'filters' => [
+                    'type' => 'object',
+                    'additionalProperties' => false,
+                    'properties' => [
+                        'status' => ['type' => 'string'],
+                    ],
+                ],
+                'additionalProperties' => [
+                    'type' => 'string',
+                    'description' => 'A regular tool argument that happens to share a JSON Schema keyword name.',
+                ],
+            ],
+        ]),
+    ]);
+
+    expect($result[0]['parameters'])->toBe([
+        'type' => 'object',
+        'properties' => [
+            'query' => [
+                'type' => 'string',
+            ],
+            'filters' => [
+                'type' => 'object',
+                'properties' => [
+                    'status' => ['type' => 'string'],
+                ],
+            ],
+            'additionalProperties' => [
+                'type' => 'string',
+                'description' => 'A regular tool argument that happens to share a JSON Schema keyword name.',
+            ],
+        ],
+    ]);
+});
+
+it('keeps empty Gemini object properties encoded as objects', function () {
+    $mapper = new ToolMapper;
+
+    $result = $mapper->mapTools([
+        new ToolDefinition('empty', 'Inspect an empty object', [
+            'type' => 'object',
+            'additionalProperties' => false,
+            'properties' => [],
+        ]),
+        new ToolDefinition('inspect', 'Inspect an empty object', [
+            'type' => 'object',
+            'additionalProperties' => false,
+            'properties' => [
+                'payload' => [
+                    'type' => 'object',
+                    'additionalProperties' => false,
+                    'properties' => [],
+                ],
+            ],
+        ]),
+    ]);
+
+    expect($result[0]['parameters'])->toEqual([
+        'type' => 'object',
+        'properties' => (object) [],
+    ]);
+
+    expect($result[1]['parameters'])->toEqual([
+        'type' => 'object',
+        'properties' => [
+            'payload' => [
+                'type' => 'object',
+                'properties' => (object) [],
+            ],
+        ],
+    ]);
+});
+
 it('parses tool calls extracting name and args from functionCall parts', function () {
     $mapper = new ToolMapper;
 
@@ -43,6 +128,20 @@ it('parses tool calls extracting name and args from functionCall parts', functio
     expect($result[0])->toBeInstanceOf(ToolCall::class);
     expect($result[0]->name)->toBe('search');
     expect($result[0]->arguments)->toBe(['query' => 'test']);
+});
+
+it('preserves thought signatures from functionCall parts', function () {
+    $mapper = new ToolMapper;
+
+    $result = $mapper->parseToolCalls([
+        [
+            'functionCall' => ['id' => 'call-1', 'name' => 'search', 'args' => ['query' => 'test']],
+            'thoughtSignature' => 'signature-from-gemini',
+        ],
+    ]);
+
+    expect($result[0])->toBeInstanceOf(GoogleToolCall::class);
+    expect($result[0]->thoughtSignature)->toBe('signature-from-gemini');
 });
 
 it('generates fallback ID when no id field', function () {

@@ -8,6 +8,7 @@ use Atlasphp\Atlas\Messages\SystemMessage;
 use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Messages\ToolResultMessage;
 use Atlasphp\Atlas\Messages\UserMessage;
+use Atlasphp\Atlas\Providers\Google\GoogleToolCall;
 use Atlasphp\Atlas\Providers\Google\MediaResolver;
 use Atlasphp\Atlas\Providers\Google\MessageFactory;
 use Atlasphp\Atlas\Requests\TextRequest;
@@ -61,6 +62,20 @@ it('converts assistant message with tool calls', function () {
     expect($result['parts'])->toHaveCount(1);
     expect($result['parts'][0]['functionCall']['name'])->toBe('search');
     expect($result['parts'][0]['functionCall']['args'])->toBe(['query' => 'test']);
+});
+
+it('converts assistant message with thought signature tool calls', function () {
+    $factory = new MessageFactory;
+
+    $result = $factory->assistant(new AssistantMessage(null, [
+        new GoogleToolCall('call_1', 'search', ['query' => 'test'], 'signature-from-gemini'),
+    ]));
+
+    expect($result['role'])->toBe('model');
+    expect($result['parts'])->toHaveCount(1);
+    expect($result['parts'][0]['functionCall']['name'])->toBe('search');
+    expect($result['parts'][0]['functionCall']['args'])->toBe(['query' => 'test']);
+    expect($result['parts'][0]['thoughtSignature'])->toBe('signature-from-gemini');
 });
 
 it('converts tool result message', function () {

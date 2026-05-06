@@ -181,3 +181,37 @@ it('wraps tools in function_declarations', function () {
             && $tools[0]['function_declarations'][0]['name'] === 'search';
     });
 });
+
+it('sends Gemini-compatible function declaration schemas', function () {
+    Http::fake([
+        'generativelanguage.googleapis.com/*' => Http::response(fakeGeminiTextResponse()),
+    ]);
+
+    $handler = makeGoogleTextHandler();
+    $handler->text(makeGoogleTextRequest([
+        'tools' => [
+            new ToolDefinition('search', 'Search', [
+                'type' => 'object',
+                'additionalProperties' => false,
+                'properties' => [
+                    'q' => [
+                        'type' => 'string',
+                    ],
+                ],
+            ]),
+        ],
+    ]));
+
+    Http::assertSent(function ($request) {
+        $parameters = $request['tools'][0]['function_declarations'][0]['parameters'] ?? [];
+
+        return $parameters === [
+            'type' => 'object',
+            'properties' => [
+                'q' => [
+                    'type' => 'string',
+                ],
+            ],
+        ];
+    });
+});

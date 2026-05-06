@@ -8,6 +8,7 @@ use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\ExecutionStep;
 use Atlasphp\Atlas\Persistence\Models\ExecutionToolCall;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
+use Atlasphp\Atlas\Providers\Google\GoogleToolCall;
 use Atlasphp\Atlas\Responses\Usage;
 
 beforeEach(function () {
@@ -136,6 +137,27 @@ it('tracks multi-step execution with multiple tool calls', function () {
 
     expect(ExecutionStep::count())->toBe(2)
         ->and(ExecutionToolCall::count())->toBe(1);
+});
+
+it('stores Google thought signatures in tool call metadata', function () {
+    $this->service->createExecution(provider: 'google', model: 'gemini-2.5-flash');
+    $this->service->beginExecution();
+
+    $this->service->createStep();
+    $this->service->beginStep();
+
+    $toolCall = new GoogleToolCall(
+        id: 'call_google_1',
+        name: 'inspect',
+        arguments: ['value' => 'test'],
+        thoughtSignature: 'signature-from-gemini',
+    );
+
+    $record = $this->service->createToolCall($toolCall);
+
+    expect($record->metadata)->toBe([
+        GoogleToolCall::THOUGHT_SIGNATURE_METADATA_KEY => 'signature-from-gemini',
+    ]);
 });
 
 it('handles failure path: marks execution and in-flight step as failed', function () {

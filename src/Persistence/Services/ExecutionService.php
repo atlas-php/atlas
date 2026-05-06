@@ -14,6 +14,7 @@ use Atlasphp\Atlas\Persistence\Models\ConversationMessage;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\ExecutionStep;
 use Atlasphp\Atlas\Persistence\Models\ExecutionToolCall;
+use Atlasphp\Atlas\Providers\Google\GoogleToolCall;
 use Atlasphp\Atlas\Responses\Usage;
 use Illuminate\Support\Facades\DB;
 
@@ -285,6 +286,7 @@ class ExecutionService
         }
 
         $toolCallModel = $this->toolCallModel;
+        $metadata = $this->toolCallMetadata($toolCall, $meta);
 
         $this->currentToolCall = $toolCallModel::create([
             'execution_id' => $this->execution->id,
@@ -294,10 +296,23 @@ class ExecutionService
             'type' => $type,
             'status' => ExecutionStatus::Pending,
             'arguments' => $toolCall->arguments,
-            'metadata' => $meta !== [] ? $meta : null,
+            'metadata' => $metadata !== [] ? $metadata : null,
         ]);
 
         return $this->currentToolCall;
+    }
+
+    /**
+     * @param  array<string, mixed>  $meta
+     * @return array<string, mixed>
+     */
+    protected function toolCallMetadata(ToolCall $toolCall, array $meta): array
+    {
+        if ($toolCall instanceof GoogleToolCall && $toolCall->thoughtSignature !== null) {
+            $meta[GoogleToolCall::THOUGHT_SIGNATURE_METADATA_KEY] = $toolCall->thoughtSignature;
+        }
+
+        return $meta;
     }
 
     /**

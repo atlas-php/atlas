@@ -11,6 +11,7 @@ use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\ExecutionStep;
 use Atlasphp\Atlas\Persistence\Models\ExecutionToolCall;
 use Atlasphp\Atlas\Persistence\Services\ConversationService;
+use Atlasphp\Atlas\Providers\Google\GoogleToolCall;
 
 beforeEach(function () {
     $this->service = new ConversationService;
@@ -191,4 +192,47 @@ it('handles multiple tool calls in a single step', function () {
     $toolResultContents = array_map(fn ($m) => $m->content, array_values($toolResults));
     expect($toolResultContents)->toContain('{"temp": 72}')
         ->toContain('{"temp": 85}');
+});
+
+it('reconstructs Google tool calls with thought signatures', function () {
+    $conversation = Conversation::factory()->create();
+    $userMessage = $this->service->addMessage(
+        $conversation,
+        new UserMessage(content: 'Analyze this.'),
+    );
+
+    $execution = Execution::factory()->completed()->create([
+        'conversation_id' => $conversation->id,
+        'provider' => 'google',
+    ]);
+
+    $step = ExecutionStep::factory()->withToolCalls('Let me inspect that.')->create([
+        'execution_id' => $execution->id,
+        'sequence' => 1,
+    ]);
+
+    ExecutionToolCall::factory()->completed('{"status": "ok"}')->create([
+        'execution_id' => $execution->id,
+        'step_id' => $step->id,
+        'tool_call_id' => 'call_google_1',
+        'name' => 'inspect',
+        'arguments' => ['value' => 'test'],
+        'metadata' => [
+            GoogleToolCall::THOUGHT_SIGNATURE_METADATA_KEY => 'signature-from-gemini',
+        ],
+    ]);
+
+    $this->service->addAssistantMessages(
+        $conversation,
+        [['text' => 'Let me inspect that.', 'step_id' => $step->id]],
+        agent: 'google-bot',
+        parentId: $userMessage->id,
+    );
+
+    $messages = $this->service->loadMessages($conversation);
+    $assistant = array_values(array_filter($messages, fn ($message) => $message instanceof AssistantMessage))[0];
+
+    expect($assistant->toolCalls)->toHaveCount(1);
+    expect($assistant->toolCalls[0])->toBeInstanceOf(GoogleToolCall::class);
+    expect($assistant->toolCalls[0]->thoughtSignature)->toBe('signature-from-gemini');
 });

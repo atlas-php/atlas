@@ -27,7 +27,9 @@ class ToolMapper implements ToolMapperContract
         return array_map(fn (ToolDefinition $tool): array => [
             'name' => $tool->name,
             'description' => $tool->description,
-            'parameters' => $tool->hasParameters() ? $tool->parameters : ['type' => 'object', 'properties' => (object) []],
+            'parameters' => $tool->hasParameters()
+                ? $this->sanitizeSchema($tool->parameters)
+                : ['type' => 'object', 'properties' => (object) []],
         ], $tools);
     }
 
@@ -59,13 +61,60 @@ class ToolMapper implements ToolMapperContract
     public function parseToolCalls(array $functionCallParts): array
     {
         return array_map(function (array $part, int $index): ToolCall {
-            $fc = $part['functionCall'];
+            $functionCall = $part['functionCall'];
 
-            return new ToolCall(
-                id: $fc['id'] ?? 'gemini_call_'.$index,
-                name: $fc['name'],
-                arguments: $fc['args'] ?? [],
+            return new GoogleToolCall(
+                id: $functionCall['id'] ?? 'gemini_call_'.$index,
+                name: $functionCall['name'],
+                arguments: $functionCall['args'] ?? [],
+                thoughtSignature: $part['thoughtSignature'] ?? null,
             );
         }, $functionCallParts, array_keys($functionCallParts));
+    }
+
+    /**
+     * Remove JSON Schema keywords unsupported by Gemini function declarations.
+     *
+     * @param  array<string, mixed>  $schema
+     * @return array<string, mixed>
+     */
+    protected function sanitizeSchema(array $schema): array
+    {
+        unset($schema['additionalProperties']);
+
+        foreach ($schema as $key => $value) {
+            if (! is_array($value)) {
+                continue;
+            }
+
+            if ($key === 'properties') {
+                $schema[$key] = $this->sanitizeProperties($value);
+
+                continue;
+            }
+
+            $schema[$key] = $this->sanitizeSchema($value);
+        }
+
+        return $schema;
+    }
+
+    /**
+     * @param  array<string, mixed>  $properties
+     * @return array<string, mixed>|\stdClass
+     */
+    protected function sanitizeProperties(array $properties): array|\stdClass
+    {
+        if ($properties === []) {
+            return (object) [];
+        }
+
+        foreach ($properties as $name => $schema) {
+            if (is_array($schema)) {
+                $properties[$name] = $this->sanitizeSchema($schema);
+            }
+        }
+
+        return $properties;
     }
 }
