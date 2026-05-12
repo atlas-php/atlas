@@ -372,9 +372,9 @@ class Transcript extends Model implements Chunkable
 
 ### Orphan cleanup
 
-Polymorphic relations can't carry FK cascades, so deleting an owner row via Eloquent's mass-delete (`Project::where(...)->delete()`) bypasses the trait's `deleting` hook and would leave chunks behind. The `atlas:chunk` sweep cleans these up automatically — every run prunes any chunk whose `chunkable_id` is no longer present in its owner table. Soft-deleted rows are not treated as orphans (the row still exists in the table); chunks survive soft delete.
+Polymorphic relations can't carry FK cascades, so deleting an owner row via Eloquent's mass-delete (`Project::where(...)->delete()`) bypasses the trait's `deleting` hook and would leave chunks behind. The `atlas:chunk` sweep cleans these up automatically — every run prunes any chunk whose `chunkable_id` is no longer present in its owner table. Soft-deleted rows are not treated as orphans by the sweep — the row still exists in the table.
 
-If you delete owner rows one-by-one via `$model->delete()` or `Model::destroy(...)`, the trait fires its `deleting` hook synchronously and chunks are removed immediately — the sweep has nothing to prune.
+If you delete owner rows one-by-one via `$model->delete()` or `Model::destroy(...)`, the trait fires its `deleting` hook synchronously and chunks are removed immediately. This applies to both hard deletes and soft deletes — `$model->delete()` on a `SoftDeletes` model fires `deleting`, so its chunks are wiped even though the owner row remains. After `restore()`, the owner's content is intact but its chunks are gone. The sweep won't automatically re-chunk the restored row because the delete didn't touch the hash columns — `content_hash` still equals `indexed_hash` from the last successful sweep, so the dirty-row predicate sees no work to do. To regenerate embeddings, call `$model->chunkNow()` inline, run `php artisan atlas:rechunk "App\Models\Project" {id}` to defer to the queue, or touch the indexed field on the model (which triggers the saving hook and re-hashes `content_hash`). This avoids stale embeddings accumulating forever for soft-deleted records that are never restored.
 
 ### Backfill / re-chunk
 

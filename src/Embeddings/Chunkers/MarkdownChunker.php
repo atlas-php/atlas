@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Embeddings\Chunkers;
 
+use Atlasphp\Atlas\Support\TokenCounter;
+
 /**
  * Default chunker for markdown content.
  *
@@ -282,20 +284,33 @@ class MarkdownChunker extends BaseTokenAwareChunker
     }
 
     /**
-     * Code fences and GFM tables are atomic — never split. If one exceeds
-     * chunk_size on its own, emit as a single oversized chunk rather than
-     * sentence-splitting (a broken code block is useless for retrieval).
+     * Code fences and GFM tables are atomic — never sentence-split (a broken
+     * code block or torn table is useless for retrieval). When such a block
+     * exceeds chunk_size but stays under hardMaxTokens it emits as a single
+     * oversized chunk. When it exceeds hardMaxTokens (which would also exceed
+     * the embedding API's token limit) we fall back to a line-based split —
+     * still better than getting rejected at the API and surfacing as a
+     * generic provider exception that increments index_failure_count.
      *
      * @return array<int, string>
      */
     protected function splitOversizedUnit(string $unit): array
     {
         $trimmed = ltrim($unit);
-        if (
-            str_starts_with($trimmed, '```')
+        $isAtomic = str_starts_with($trimmed, '```')
             || str_starts_with($trimmed, '~~~')
-            || str_starts_with($trimmed, '|')
-        ) {
+            || str_starts_with($trimmed, '|');
+
+        if ($isAtomic) {
+            if (TokenCounter::count($unit) > $this->hardMaxTokens()) {
+                @trigger_error(
+                    'MarkdownChunker: atomic block exceeds hardMaxTokens; falling back to line-based split.',
+                    E_USER_WARNING
+                );
+
+                return $this->splitAtomicByLines($unit);
+            }
+
             @trigger_error(
                 'MarkdownChunker: atomic block exceeds chunk_size; emitting as oversized chunk.',
                 E_USER_WARNING
@@ -305,6 +320,48 @@ class MarkdownChunker extends BaseTokenAwareChunker
         }
 
         return parent::splitOversizedUnit($unit);
+    }
+
+    /**
+     * Best-effort line-based split for oversized atomic blocks.
+     *
+     * Packs lines into chunks against the joined-string char budget (rather
+     * than summing per-line `ceil($n/4)` token counts, which undercounts the
+     * newline-join overhead and lets the assembled chunk drift over the cap).
+     *
+     * **Not a hard guarantee**: a single line longer than `hardMaxTokens()` —
+     * e.g. a minified JSON dump pasted as one line — is emitted as-is in its
+     * own chunk, since there's no line boundary to split on. Such a chunk
+     * will still exceed the embedding API's input-token limit. Callers
+     * needing a hard ceiling should pre-process inputs to break long lines.
+     *
+     * @return array<int, string>
+     */
+    protected function splitAtomicByLines(string $unit): array
+    {
+        $lines = explode("\n", $unit);
+        $packed = [];
+        $buffer = [];
+        $bufferChars = 0;
+        $charCap = $this->hardMaxTokens() * 4; // chars/4 heuristic — invert it
+
+        foreach ($lines as $line) {
+            $lineChars = mb_strlen($line);
+            $newlineCost = $buffer === [] ? 0 : 1;
+            if ($buffer !== [] && $bufferChars + $newlineCost + $lineChars > $charCap) {
+                $packed[] = implode("\n", $buffer);
+                $buffer = [];
+                $bufferChars = 0;
+                $newlineCost = 0;
+            }
+            $buffer[] = $line;
+            $bufferChars += $newlineCost + $lineChars;
+        }
+        // explode("\n", $unit) always yields at least one element for any
+        // non-empty $unit, so $buffer is always non-empty here. Flush it.
+        $packed[] = implode("\n", $buffer);
+
+        return $packed;
     }
 
     protected function hardMaxTokens(): int

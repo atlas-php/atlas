@@ -43,7 +43,7 @@
         "lint": "pint",
         "lint:test": "pint --test",
         "analyse": "phpstan analyse --memory-limit=512M",
-        "test": "pest",
+        "test": "@php -d memory_limit=512M ./vendor/bin/pest",
         "check": [
             "@lint:test",
             "@analyse",

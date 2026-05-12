@@ -3,9 +3,12 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
+use Atlasphp\Atlas\Embeddings\VectorEmbeddable;
 use Atlasphp\Atlas\Embeddings\VectorQueryMacros;
+use Atlasphp\Atlas\Persistence\Concerns\HasVectorEmbeddings;
 use Atlasphp\Atlas\Tools\SimilaritySearch;
 use Atlasphp\Atlas\Tools\ToolDefinition;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 it('has default name similarity_search', function () {
@@ -226,4 +229,72 @@ it('usingModel allows chaining withName and withDescription', function () {
 
     expect($tool->name())->toBe('faq_search')
         ->and($tool->description())->toBe('Search the FAQ.');
+});
+
+// Locks in the legacy-path column resolution introduced for v3.1: when the
+// caller passes embedProvider/embedModel (forcing the legacy path), the column
+// must come from the model's embeddable() declaration unless the caller
+// explicitly overrode it. Both tests share the macro/mock/model scaffold via
+// a beforeEach so the Builder::macro is registered cleanly before each test.
+describe('usingModel legacy path column resolution', function () {
+    beforeEach(function () {
+        config(['database.default' => 'pgsql']);
+        VectorQueryMacros::register();
+
+        $resolver = Mockery::mock(EmbeddingResolver::class);
+        $resolver->shouldReceive('resolveUsing')->andReturn([0.1, 0.2]);
+        app()->instance(EmbeddingResolver::class, $resolver);
+
+        // Capture the column the macro received. stdClass holds the slot so
+        // the macro closure (bound to Builder, no access to $this->test) can
+        // still write through a captured reference.
+        $this->capture = new stdClass;
+        $this->capture->column = null;
+        $capture = $this->capture;
+        Builder::macro(
+            'orderByVectorDistance',
+            function (string $column, mixed $embedding, string $direction = 'asc') use ($capture) {
+                $capture->column = $column;
+
+                /** @var Builder $this */
+                return $this;
+            },
+        );
+
+        $this->modelClass = get_class(new class extends Model implements VectorEmbeddable
+        {
+            use HasVectorEmbeddings;
+
+            protected $table = 'fake_legacy_path_docs';
+
+            public function embeddable(): array
+            {
+                return ['column' => 'vector_blob', 'source' => 'body'];
+            }
+        });
+    });
+
+    it('queries the column declared by VectorEmbeddable when no $column is passed', function () {
+        $tool = SimilaritySearch::usingModel($this->modelClass, embedProvider: 'cohere');
+
+        try {
+            $tool->handle(['query' => 'find it'], []);
+        } catch (Throwable) {
+            // Query throws against the non-existent table; we only care that
+            // the macro received the right column before that.
+        }
+
+        expect($this->capture->column)->toBe('vector_blob');
+    });
+
+    it('respects an explicitly passed $column over the model declaration', function () {
+        $tool = SimilaritySearch::usingModel($this->modelClass, column: 'caller_choice', embedProvider: 'cohere');
+
+        try {
+            $tool->handle(['query' => 'find it'], []);
+        } catch (Throwable) {
+        }
+
+        expect($this->capture->column)->toBe('caller_choice');
+    });
 });

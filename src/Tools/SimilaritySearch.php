@@ -51,7 +51,7 @@ class SimilaritySearch extends Tool
      * only the primary key from this builder.
      *
      * @param  class-string<Model>  $model
-     * @param  string  $column  Embedding column (only used in legacy custom-closure mode; auto-detected for both standard modes).
+     * @param  string|null  $column  Embedding column. If null, resolved from the model's `embeddable()['column']` when it implements VectorEmbeddable; otherwise defaults to `'embedding'`. Only consulted on the legacy path; the unified path always reads from `embeddable()`.
      * @param  float|null  $minSimilarity  Cosine similarity floor (0.0–1.0). Null disables the floor.
      * @param  int  $limit  Max results returned to the agent.
      * @param  Closure|null  $query  Additional owner-scope constraints. Receives an Eloquent Builder.
@@ -60,7 +60,7 @@ class SimilaritySearch extends Tool
      */
     public static function usingModel(
         string $model,
-        string $column = 'embedding',
+        ?string $column = null,
         ?float $minSimilarity = null,
         int $limit = 10,
         ?Closure $query = null,
@@ -88,7 +88,23 @@ class SimilaritySearch extends Tool
         } else {
             // Legacy path: explicit provider/model override or model lacks a
             // standard atlas trait. Runs the column-based query directly.
-            $instance = new self(function (string $input) use ($model, $column, $minSimilarity, $limit, $query, $embedProvider, $embedModel) {
+            //
+            // Column resolution priority:
+            //   1. Caller-supplied $column (if not null) — explicit wins.
+            //   2. Model's embeddable()['column'] when VectorEmbeddable.
+            //   3. 'embedding' fallback for non-trait models.
+            // Without this fallback, a VectorEmbeddable model declaring a
+            // non-default column would silently query the wrong column the
+            // moment a consumer added embedProvider/embedModel — surprising
+            // and hard to debug.
+            $resolvedColumn = $column;
+            if ($resolvedColumn === null) {
+                $resolvedColumn = is_subclass_of($model, VectorEmbeddable::class)
+                    ? (new $model)->embeddable()['column']
+                    : 'embedding';
+            }
+
+            $instance = new self(function (string $input) use ($model, $resolvedColumn, $minSimilarity, $limit, $query, $embedProvider, $embedModel) {
                 $resolver = app(EmbeddingResolver::class);
 
                 $embedding = ($embedProvider || $embedModel)
@@ -102,9 +118,9 @@ class SimilaritySearch extends Tool
                 }
 
                 if ($minSimilarity !== null) {
-                    $builder->whereVectorSimilarTo($column, $embedding, $minSimilarity);
+                    $builder->whereVectorSimilarTo($resolvedColumn, $embedding, $minSimilarity);
                 } else {
-                    $builder->orderByVectorDistance($column, $embedding);
+                    $builder->orderByVectorDistance($resolvedColumn, $embedding);
                 }
 
                 return $builder->limit($limit)->get();

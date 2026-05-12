@@ -21,6 +21,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 - The `SimilaritySearch` agent tool now works against both whole-record and chunked embeddings.
 
+### Fixed
+
+- `HasVectorEmbeddings` no longer requires `atlas.persistence.enabled` — using the trait is enough to opt in to auto-embedding on save.
+- `SimilaritySearch::usingModel()` now picks up a `VectorEmbeddable` model's `embeddable()['column']` automatically, even when `embedProvider` or `embedModel` is set.
+
 ### Migration
 
 Re-publish and run package migrations to add the new `atlas_chunks` table:
@@ -33,6 +38,8 @@ php artisan migrate
 `--force` overwrites any previously-published Atlas migration files in your application — back up local edits to those files first if you've customized them. Only the new `atlas_chunks` migration is required for v3.1; the rest are unchanged.
 
 To use `Atlas::similaritySearch()` with existing `HasVectorEmbeddings` models, add `implements VectorEmbeddable` to the model class.
+
+If you previously relied on `atlas.persistence.enabled = false` to suppress auto-embedding on `HasVectorEmbeddings` models, add `protected bool $autoEmbed = false;` to those models — the gate has been removed and the trait now generates embeddings on save unconditionally.
 
 If you're adopting chunked embeddings, optional knobs are available under `config/atlas.php`:
 
@@ -47,8 +54,6 @@ If you're adopting chunked embeddings, optional knobs are available under `confi
     'max_failures'  => 5,     // attempts before a row is excluded from sweeps
 ],
 ```
-
-No breaking changes.
 
 ---
 

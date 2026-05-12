@@ -13,6 +13,7 @@ use Atlasphp\Atlas\Persistence\Models\Chunk;
 use Atlasphp\Atlas\Persistence\Schema\ChunkedEmbeddingColumns;
 use Atlasphp\Atlas\Testing\EmbeddingsResponseFake;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
@@ -40,9 +41,22 @@ class FakeChunkableArticle extends Model implements Chunkable
     public $timestamps = true;
 }
 
+class FakeSoftDeletingChunkable extends Model implements Chunkable
+{
+    use HasChunkedEmbeddings;
+    use SoftDeletes;
+
+    protected $table = 'fake_soft_deleting_chunkables';
+
+    protected $guarded = [];
+
+    public $timestamps = true;
+}
+
 beforeEach(function () {
     Schema::dropIfExists('fake_chunkable_docs');
     Schema::dropIfExists('fake_chunkable_articles');
+    Schema::dropIfExists('fake_soft_deleting_chunkables');
 
     Schema::create('fake_chunkable_docs', function (Blueprint $table) {
         $table->id();
@@ -55,6 +69,14 @@ beforeEach(function () {
         $table->id();
         $table->text('description')->nullable();
         $table->timestamps();
+        ChunkedEmbeddingColumns::add($table);
+    });
+
+    Schema::create('fake_soft_deleting_chunkables', function (Blueprint $table) {
+        $table->id();
+        $table->text('body')->nullable();
+        $table->timestamps();
+        $table->softDeletes();
         ChunkedEmbeddingColumns::add($table);
     });
 });
@@ -198,4 +220,60 @@ it('chunkNow runs the reconciler synchronously without dispatching a job', funct
 
     expect($doc->indexed_hash)->toBe($doc->content_hash);
     expect(Chunk::query()->where('chunkable_id', $doc->id)->count())->toBeGreaterThan(0);
+});
+
+// ─── SoftDeletes behaviour ──────────────────────────────────────────────────
+//
+// Both soft-delete ($model->delete() on a SoftDeletes model) and force-delete
+// fire the trait's `deleting` hook, which removes chunks. Restore brings
+// back an owner with no chunks — consumers call $model->chunkNow() if they
+// want embeddings regenerated. Storage doesn't accumulate cruft from
+// never-restored soft-deletes; the cost is paying the embedding API again
+// on the rare restore. Locked in here so we don't regress this contract.
+
+function seedChunkFor(Model $owner, string $content = 'chunk content'): Chunk
+{
+    return Chunk::create(array_merge([
+        'chunkable_type' => $owner->getMorphClass(),
+        'chunkable_id' => $owner->id,
+        'ord' => 0,
+        'heading_path' => null,
+        'content' => $content,
+        'content_hash' => hash('xxh128', $content),
+        'token_count' => 1,
+        'embedding_model' => 'text-embedding-3-small',
+        'embedded_at' => now(),
+    ], fakeChunkEmbedding()));
+}
+
+it('removes chunks on soft-delete via $model->delete()', function () {
+    $doc = FakeSoftDeletingChunkable::create(['body' => 'Hello.']);
+    seedChunkFor($doc);
+    expect(Chunk::query()->where('chunkable_id', $doc->id)->count())->toBe(1);
+
+    $doc->delete();
+
+    expect($doc->trashed())->toBeTrue();
+    expect(Chunk::query()->where('chunkable_id', $doc->id)->count())->toBe(0);
+});
+
+it('removes chunks on $model->forceDelete()', function () {
+    $doc = FakeSoftDeletingChunkable::create(['body' => 'Hello.']);
+    seedChunkFor($doc);
+    expect(Chunk::query()->where('chunkable_id', $doc->id)->count())->toBe(1);
+
+    $doc->forceDelete();
+
+    expect(Chunk::query()->where('chunkable_id', $doc->id)->count())->toBe(0);
+});
+
+it('restore brings back model with no chunks (consumer calls chunkNow to regenerate)', function () {
+    $doc = FakeSoftDeletingChunkable::create(['body' => 'Hello.']);
+    seedChunkFor($doc);
+
+    $doc->delete();
+    $doc->restore();
+
+    expect($doc->trashed())->toBeFalse();
+    expect($doc->fresh()->chunks)->toHaveCount(0);
 });

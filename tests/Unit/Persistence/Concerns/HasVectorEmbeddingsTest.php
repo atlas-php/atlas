@@ -106,9 +106,6 @@ it('returns empty string when all fields are empty', function () {
 });
 
 it('detects should generate when source is dirty and non-empty', function () {
-    config(['atlas.persistence.enabled' => true]);
-    AtlasConfig::refresh();
-
     $model = new FakeEmbeddableModel;
     $model->content = 'Some text';
     // Model is "new" so content is dirty
@@ -117,29 +114,28 @@ it('detects should generate when source is dirty and non-empty', function () {
 });
 
 it('returns false when source field is not dirty', function () {
-    config(['atlas.persistence.enabled' => true]);
-    AtlasConfig::refresh();
-
     $model = new FakeEmbeddableModel;
     $model->syncOriginal(); // Mark everything as clean
 
     expect($model->shouldGenerateEmbedding())->toBeFalse();
 });
 
-it('returns false when persistence is disabled', function () {
+it('generates embedding even when atlas.persistence.enabled is false', function () {
+    // The trait being applied to a model IS the opt-in — using the trait
+    // means the consumer wants embeddings on save. Previously this method
+    // gated on persistence.enabled and silently no-opped, which surprised
+    // anyone who wanted whole-record embeddings without other persistence
+    // features. Locked in here so we don't reintroduce the gate.
     config(['atlas.persistence.enabled' => false]);
     AtlasConfig::refresh();
 
     $model = new FakeEmbeddableModel;
     $model->content = 'Some text';
 
-    expect($model->shouldGenerateEmbedding())->toBeFalse();
+    expect($model->shouldGenerateEmbedding())->toBeTrue();
 });
 
 it('returns false when content is empty', function () {
-    config(['atlas.persistence.enabled' => true]);
-    AtlasConfig::refresh();
-
     $model = new FakeEmbeddableModel;
     $model->content = '';
 
