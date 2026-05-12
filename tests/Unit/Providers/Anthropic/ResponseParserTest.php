@@ -195,3 +195,49 @@ it('includes meta with id and model', function () {
     expect($result->meta['id'])->toBe('msg_abc123');
     expect($result->meta['model'])->toBe('claude-sonnet-4-5-20250514');
 });
+
+it('parses server_tool_use blocks as tool calls', function () {
+    $parser = makeAnthropicResponseParser();
+
+    $result = $parser->parseText([
+        'id' => 'msg_456',
+        'model' => 'claude-sonnet-4-5-20250514',
+        'content' => [
+            ['type' => 'server_tool_use', 'id' => 'srvtoolu_1', 'name' => 'web_search', 'input' => ['query' => 'php 8.3 release notes']],
+        ],
+        'stop_reason' => 'pause_turn',
+        'usage' => ['input_tokens' => 12, 'output_tokens' => 6],
+    ]);
+
+    expect($result->toolCalls)->toHaveCount(1);
+    expect($result->toolCalls[0]->name)->toBe('web_search');
+    expect($result->toolCalls[0]->id)->toBe('srvtoolu_1');
+    expect($result->toolCalls[0]->arguments)->toBe(['query' => 'php 8.3 release notes']);
+});
+
+it('collects both tool_use and server_tool_use blocks together', function () {
+    $parser = makeAnthropicResponseParser();
+
+    $result = $parser->parseText([
+        'id' => 'msg_789',
+        'model' => 'claude-sonnet-4-5-20250514',
+        'content' => [
+            ['type' => 'server_tool_use', 'id' => 'srvtoolu_a', 'name' => 'web_search', 'input' => ['query' => 'foo']],
+            ['type' => 'tool_use', 'id' => 'toolu_b', 'name' => 'user_tool', 'input' => ['arg' => 1]],
+        ],
+        'stop_reason' => 'tool_use',
+        'usage' => ['input_tokens' => 8, 'output_tokens' => 4],
+    ]);
+
+    expect($result->toolCalls)->toHaveCount(2);
+    expect($result->toolCalls[0]->name)->toBe('web_search');
+    expect($result->toolCalls[1]->name)->toBe('user_tool');
+});
+
+it('maps pause_turn stop reason to ToolCalls', function () {
+    $parser = makeAnthropicResponseParser();
+
+    $result = $parser->parseFinishReason(['stop_reason' => 'pause_turn']);
+
+    expect($result)->toBe(FinishReason::ToolCalls);
+});

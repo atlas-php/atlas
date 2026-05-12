@@ -8,6 +8,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 ---
 
+## [v3.0.3](https://github.com/atlas-php/atlas/releases/tag/v3.0.3) - 2026-05-12
+
+### Added
+
+- `StructuredResponse` now implements `JsonSerializable` and exposes `toArray()` for direct JSON encoding.
+- New `atlas.persistence.connection` config (env: `ATLAS_DB_CONNECTION`) routes Atlas persistence tables to a separate database connection.
+
+### Fixed
+
+- Anthropic native tools (web search, etc.) now flow through as tool calls — `server_tool_use` blocks were previously dropped.
+- Anthropic `pause_turn` stop reason now signals "more tool work" instead of ending the agent loop early.
+
+### Migration
+
+No breaking changes — drop-in upgrade. No consumer action required.
+
+---
+
 ## [v3.0.2](https://github.com/atlas-php/atlas/releases/tag/v3.0.2) - 2026-05-06
 
 ### Fixed

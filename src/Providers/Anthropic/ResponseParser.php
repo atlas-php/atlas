@@ -40,7 +40,8 @@ class ResponseParser implements ResponseParserContract
                 $reasoning = ($reasoning ?? '').($block['thinking'] ?? '');
             }
 
-            if (($block['type'] ?? '') === 'tool_use') {
+            $blockType = $block['type'] ?? '';
+            if ($blockType === 'tool_use' || $blockType === 'server_tool_use') {
                 $toolUseBlocks[] = $block;
             }
         }
@@ -141,7 +142,7 @@ class ResponseParser implements ResponseParserContract
         return match ($reason) {
             'end_turn', 'stop_sequence' => FinishReason::Stop,
             'max_tokens' => FinishReason::Length,
-            'tool_use' => FinishReason::ToolCalls,
+            'tool_use', 'pause_turn' => FinishReason::ToolCalls,
             default => FinishReason::Stop,
         };
     }

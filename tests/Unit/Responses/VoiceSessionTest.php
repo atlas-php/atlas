@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Enums\VoiceTransport;
 use Atlasphp\Atlas\Responses\VoiceSession;
-use DateTimeImmutable;
 
 it('reports not expired when expiresAt is null', function () {
     $session = new VoiceSession(

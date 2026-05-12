@@ -523,6 +523,7 @@ Your custom models must extend the corresponding Atlas base model.
 // config/atlas.php → persistence
 'persistence' => [
     'enabled' => env('ATLAS_PERSISTENCE_ENABLED', false),
+    'connection' => env('ATLAS_DB_CONNECTION'),
     'table_prefix' => env('ATLAS_TABLE_PREFIX', 'atlas_'),
     'message_limit' => (int) env('ATLAS_MESSAGE_LIMIT', 50),
     'auto_store_assets' => env('ATLAS_AUTO_STORE_ASSETS', true),
@@ -532,6 +533,7 @@ Your custom models must extend the corresponding Atlas base model.
 | Option | Default | Purpose |
 |--------|---------|---------|
 | `enabled` | `false` | Enable persistence globally |
+| `connection` | `null` | Database connection name. When `null`, models use the framework's default connection. Set to a connection name (e.g. `analytics`) to route Atlas persistence tables to a separate database. |
 | `table_prefix` | `atlas_` | Prefix for all persistence tables |
 | `message_limit` | `50` | Default conversation history limit |
 | `auto_store_assets` | `true` | Automatically store generated files |
