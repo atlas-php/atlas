@@ -271,3 +271,39 @@ it('uses whereVectorSimilarTo when min_similarity is set, otherwise orderByVecto
     expect($withMin)->toHaveCount(1);
     expect($withoutMin)->toHaveCount(1);
 });
+
+it('rejects a min_similarity below zero', function () {
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
+
+    expect(fn () => app(RecordSearchService::class)->search(
+        FakeRecordSearchDoc::class,
+        'q',
+        ['min_similarity' => -0.1],
+    ))->toThrow(InvalidArgumentException::class, 'min_similarity must be between 0.0 and 1.0');
+});
+
+it('rejects a min_similarity above one', function () {
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
+
+    expect(fn () => app(RecordSearchService::class)->search(
+        FakeRecordSearchDoc::class,
+        'q',
+        ['min_similarity' => 1.5],
+    ))->toThrow(InvalidArgumentException::class, 'min_similarity must be between 0.0 and 1.0');
+});
+
+it('throws AtlasException when rows return without a distance column', function () {
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
+
+    // Override the macro so distance never lands on the row — simulates
+    // VectorQueryMacros not being registered (the only way rawDistance can
+    // be null after a successful search).
+    $noopSelect = fn (string $column, mixed $embedding, string $as = 'distance') => $this;
+    Builder::macro('selectVectorDistance', $noopSelect);
+    QueryBuilder::macro('selectVectorDistance', $noopSelect);
+
+    seedRecord(FakeRecordSearchDoc::class, ['title' => 'X']);
+
+    expect(fn () => app(RecordSearchService::class)->search(FakeRecordSearchDoc::class, 'q'))
+        ->toThrow(AtlasException::class, 'VectorQueryMacros may not be registered');
+});

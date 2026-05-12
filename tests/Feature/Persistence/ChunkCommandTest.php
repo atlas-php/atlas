@@ -230,3 +230,62 @@ it('skips rows that have hit max_failures', function () {
 
     Queue::assertNotPushed(ChunkContentJob::class);
 });
+
+it('fails with a descriptive error when --model targets an unregistered class', function () {
+    Queue::fake();
+
+    // Registry intentionally empty — the requested class isn't in it.
+    $this->artisan('atlas:chunk', ['--model' => FakeCommandDoc::class])
+        ->expectsOutputToContain('is not registered as chunkable')
+        ->assertExitCode(1);
+
+    Queue::assertNotPushed(ChunkContentJob::class);
+});
+
+it('only sweeps the requested class when --model is provided', function () {
+    Queue::fake();
+
+    Schema::dropIfExists('fake_other_command_docs');
+    Schema::create('fake_other_command_docs', function (Blueprint $table) {
+        $table->id();
+        $table->text('body')->nullable();
+        $table->timestamps();
+        ChunkedEmbeddingColumns::add($table);
+    });
+
+    $otherClass = new class extends Model implements Chunkable
+    {
+        use HasChunkedEmbeddings;
+
+        protected $table = 'fake_other_command_docs';
+
+        protected $guarded = [];
+
+        public $timestamps = true;
+
+        protected ?string $chunker = FakeCommandChunker::class;
+    };
+    $otherClassName = get_class($otherClass);
+
+    app(ChunkableRegistry::class)->register(FakeCommandDoc::class);
+    app(ChunkableRegistry::class)->register($otherClassName);
+
+    $a = FakeCommandDoc::create(['body' => 'A body']);
+    $b = $otherClassName::create(['body' => 'B body']);
+    FakeCommandDoc::query()->update(['updated_at' => now()->subMinutes(2)]);
+    $otherClassName::query()->update(['updated_at' => now()->subMinutes(2)]);
+
+    $this->artisan('atlas:chunk', ['--model' => FakeCommandDoc::class])->assertExitCode(0);
+
+    Queue::assertPushed(ChunkContentJob::class, 1);
+    Queue::assertPushed(
+        ChunkContentJob::class,
+        fn (ChunkContentJob $job) => $job->modelClass === FakeCommandDoc::class && $job->modelId === $a->id,
+    );
+    Queue::assertNotPushed(
+        ChunkContentJob::class,
+        fn (ChunkContentJob $job) => $job->modelClass === $otherClassName,
+    );
+
+    Schema::dropIfExists('fake_other_command_docs');
+});

@@ -6,6 +6,7 @@ use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
 use Atlasphp\Atlas\Embeddings\VectorQueryMacros;
 use Atlasphp\Atlas\Tools\SimilaritySearch;
 use Atlasphp\Atlas\Tools\ToolDefinition;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 it('has default name similarity_search', function () {
@@ -226,4 +227,59 @@ it('usingModel allows chaining withName and withDescription', function () {
 
     expect($tool->name())->toBe('faq_search')
         ->and($tool->description())->toBe('Search the FAQ.');
+});
+
+it('usingModel legacy path calls whereVectorSimilarTo when min_similarity is supplied', function () {
+    config(['database.default' => 'pgsql']);
+    VectorQueryMacros::register();
+
+    $resolver = Mockery::mock(EmbeddingResolver::class);
+    $resolver->shouldReceive('resolveUsing')->andReturn([0.1, 0.2, 0.3]);
+    app()->instance(EmbeddingResolver::class, $resolver);
+
+    // Capture whereVectorSimilarTo / orderByVectorDistance invocations on
+    // the builder so we can verify which branch the legacy path took.
+    $calls = [];
+    Builder::macro(
+        'whereVectorSimilarTo',
+        function (string $column, mixed $embedding, float $minSimilarity = 0.5) use (&$calls) {
+            $calls[] = ['where', $column, $embedding, $minSimilarity];
+
+            return $this;
+        },
+    );
+    Builder::macro(
+        'orderByVectorDistance',
+        function (string $column, mixed $embedding, string $direction = 'asc') use (&$calls) {
+            $calls[] = ['order', $column, $embedding, $direction];
+
+            return $this;
+        },
+    );
+
+    $concreteModel = get_class(new class extends Model
+    {
+        protected $table = 'test_min_similarity_items';
+    });
+
+    // embedProvider forces the legacy path even though the model has no
+    // standard atlas trait.
+    $tool = SimilaritySearch::usingModel(
+        $concreteModel,
+        column: 'embedding',
+        minSimilarity: 0.42,
+        embedProvider: 'openai',
+    );
+
+    try {
+        $tool->handle(['query' => 'hello'], []);
+    } catch (Throwable) {
+        // DB query will fail on SQLite — only the macro recording matters.
+    }
+
+    expect($calls)->toHaveCount(1);
+    expect($calls[0][0])->toBe('where');
+    expect($calls[0][1])->toBe('embedding');
+    expect($calls[0][2])->toBe([0.1, 0.2, 0.3]);
+    expect($calls[0][3])->toBe(0.42);
 });

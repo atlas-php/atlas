@@ -139,6 +139,44 @@ it('resolveChunker returns the MarkdownChunker default', function () {
         ->toBeInstanceOf(Chunker::class);
 });
 
+it('chunks returns the MorphMany relation ordered by ord ascending', function () {
+    $doc = FakeChunkableDoc::create(['body' => 'Hello.']);
+    $other = FakeChunkableDoc::create(['body' => 'Other.']);
+
+    // Seed three chunks for $doc in non-monotonic ord order, plus one for
+    // an unrelated doc to verify the morph filter.
+    foreach ([2, 0, 1] as $ord) {
+        Chunk::create(array_merge([
+            'chunkable_type' => $doc->getMorphClass(),
+            'chunkable_id' => $doc->id,
+            'ord' => $ord,
+            'heading_path' => null,
+            'content' => "doc chunk {$ord}",
+            'content_hash' => "h{$ord}",
+            'token_count' => 1,
+            'embedding_model' => 'text-embedding-3-small',
+            'embedded_at' => now(),
+        ], fakeChunkEmbedding()));
+    }
+    Chunk::create(array_merge([
+        'chunkable_type' => $other->getMorphClass(),
+        'chunkable_id' => $other->id,
+        'ord' => 0,
+        'heading_path' => null,
+        'content' => 'other chunk',
+        'content_hash' => 'hOther',
+        'token_count' => 1,
+        'embedding_model' => 'text-embedding-3-small',
+        'embedded_at' => now(),
+    ], fakeChunkEmbedding()));
+
+    $chunks = $doc->chunks()->get();
+
+    expect($chunks)->toHaveCount(3);
+    expect($chunks->pluck('ord')->all())->toBe([0, 1, 2]);
+    expect($chunks->pluck('content')->all())->toBe(['doc chunk 0', 'doc chunk 1', 'doc chunk 2']);
+});
+
 it('chunkNow runs the reconciler synchronously without dispatching a job', function () {
     config([
         'atlas.defaults.embed.provider' => 'openai',

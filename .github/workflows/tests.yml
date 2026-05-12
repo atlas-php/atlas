@@ -60,6 +60,7 @@ jobs:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         with:
           files: ./coverage.xml
+          flags: sqlite
           slug: atlas-php/atlas
           fail_ci_if_error: true
           verbose: true
@@ -87,9 +88,9 @@ jobs:
         with:
           php-version: '8.2'
           extensions: dom, curl, mbstring, zip, pdo_pgsql
-          coverage: none
+          coverage: xdebug
       - run: composer install --prefer-dist --no-interaction --no-progress
-      - name: Run persistence tests against PostgreSQL
+      - name: Run persistence tests with coverage against PostgreSQL
         env:
           DB_CONNECTION: pgsql
           DB_HOST: 127.0.0.1
@@ -98,4 +99,14 @@ jobs:
           DB_USERNAME: atlas
           DB_PASSWORD: secret
           ATLAS_PERSISTENCE_ENABLED: true
-        run: vendor/bin/pest tests/Unit/Persistence tests/Feature/Persistence
+        run: vendor/bin/pest tests/Unit/Persistence tests/Feature/Persistence --coverage --coverage-clover=coverage-persistence.xml
+      - name: Upload persistence coverage to Codecov
+        uses: codecov/codecov-action@v4
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        with:
+          files: ./coverage-persistence.xml
+          flags: persistence
+          slug: atlas-php/atlas
+          fail_ci_if_error: true
+          verbose: true

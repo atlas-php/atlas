@@ -6,9 +6,11 @@ use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Embeddings\Chunkable;
 use Atlasphp\Atlas\Embeddings\SearchResult;
+use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Persistence\Concerns\HasChunkedEmbeddings;
 use Atlasphp\Atlas\Persistence\Models\Chunk;
 use Atlasphp\Atlas\Persistence\Schema\ChunkedEmbeddingColumns;
+use Atlasphp\Atlas\Persistence\Services\ChunkSearchService;
 use Atlasphp\Atlas\Testing\EmbeddingsResponseFake;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -195,4 +197,54 @@ it('preserves chunkable_type, heading_path, content, and ord on each SearchResul
     expect($top->content)->toBe('My content');
     expect($top->ord)->toBe(7);
     expect($top->record->getMorphClass())->toBe(FakeSearchDoc::class);
+});
+
+it('rejects a min_similarity below zero', function () {
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
+
+    expect(fn () => app(ChunkSearchService::class)->search(
+        FakeSearchDoc::class,
+        'q',
+        ['min_similarity' => -0.01],
+    ))->toThrow(InvalidArgumentException::class, 'min_similarity must be between 0.0 and 1.0');
+});
+
+it('rejects a min_similarity above one', function () {
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
+
+    expect(fn () => app(ChunkSearchService::class)->search(
+        FakeSearchDoc::class,
+        'q',
+        ['min_similarity' => 2.0],
+    ))->toThrow(InvalidArgumentException::class, 'min_similarity must be between 0.0 and 1.0');
+});
+
+it('switches to whereVectorSimilarTo when min_similarity is supplied', function () {
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
+
+    $doc = FakeSearchDoc::create(['title' => 'D', 'body' => 'b']);
+    seedFakeChunk($doc, 0, 'S', 'content');
+
+    $results = app(ChunkSearchService::class)
+        ->search(FakeSearchDoc::class, 'q', ['min_similarity' => 0.25, 'limit' => 5]);
+
+    expect($results)->toHaveCount(1);
+    expect($results->first())->toBeInstanceOf(SearchResult::class);
+});
+
+it('throws AtlasException when chunk rows return without a distance column', function () {
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
+
+    // Override the macro so distance never lands on the row — simulates
+    // VectorQueryMacros not being registered (the only way rawDistance can
+    // be null after a successful search).
+    $noopSelect = fn (string $column, mixed $embedding, string $as = 'distance') => $this;
+    Builder::macro('selectVectorDistance', $noopSelect);
+    QueryBuilder::macro('selectVectorDistance', $noopSelect);
+
+    $doc = FakeSearchDoc::create(['title' => 'D', 'body' => 'b']);
+    seedFakeChunk($doc, 0, 'S', 'content');
+
+    expect(fn () => app(ChunkSearchService::class)->search(FakeSearchDoc::class, 'q', ['limit' => 1]))
+        ->toThrow(AtlasException::class, 'VectorQueryMacros may not be registered');
 });
