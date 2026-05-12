@@ -110,7 +110,7 @@ it('prunes orphan chunks left behind by mass-delete', function () {
 
     // Seed chunks for both directly.
     foreach ([$a, $b] as $doc) {
-        Chunk::create([
+        Chunk::create(array_merge([
             'chunkable_type' => $doc->getMorphClass(),
             'chunkable_id' => $doc->id,
             'ord' => 0,
@@ -120,7 +120,7 @@ it('prunes orphan chunks left behind by mass-delete', function () {
             'token_count' => 1,
             'embedding_model' => 'text-embedding-3-small',
             'embedded_at' => now(),
-        ]);
+        ], fakeChunkEmbedding()));
     }
     expect(Chunk::query()->count())->toBe(2);
 
@@ -165,7 +165,7 @@ it('does not treat soft-deleted owners as orphans (preserves chunks for restore)
     app(ChunkableRegistry::class)->register(FakeSoftDeletingDoc::class);
 
     $doc = FakeSoftDeletingDoc::create(['body' => 'content']);
-    Chunk::create([
+    Chunk::create(array_merge([
         'chunkable_type' => $doc->getMorphClass(),
         'chunkable_id' => $doc->id,
         'ord' => 0,
@@ -175,7 +175,7 @@ it('does not treat soft-deleted owners as orphans (preserves chunks for restore)
         'token_count' => 1,
         'embedding_model' => 'text-embedding-3-small',
         'embedded_at' => now(),
-    ]);
+    ], fakeChunkEmbedding()));
 
     // Soft-delete via mass-query — this skips model events (like the trait's
     // deleting hook that synchronously removes chunks). The chunks survive
@@ -200,7 +200,7 @@ it('leaves chunks alone when soft-deleted rows still live in the owner table', f
 
     app(ChunkableRegistry::class)->register(FakeCommandDoc::class);
     $doc = FakeCommandDoc::create(['body' => 'A']);
-    Chunk::create([
+    Chunk::create(array_merge([
         'chunkable_type' => $doc->getMorphClass(),
         'chunkable_id' => $doc->id,
         'ord' => 0,
@@ -210,7 +210,7 @@ it('leaves chunks alone when soft-deleted rows still live in the owner table', f
         'token_count' => 1,
         'embedding_model' => 'text-embedding-3-small',
         'embedded_at' => now(),
-    ]);
+    ], fakeChunkEmbedding()));
 
     $this->artisan('atlas:chunk')->assertExitCode(0);
     expect(Chunk::query()->where('chunkable_id', $doc->id)->count())->toBe(1);

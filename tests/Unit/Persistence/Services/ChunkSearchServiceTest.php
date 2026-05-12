@@ -71,7 +71,7 @@ beforeEach(function () {
 
 function seedFakeChunk(FakeSearchDoc $doc, int $ord, string $heading, string $content): Chunk
 {
-    return Chunk::create([
+    return Chunk::create(array_merge([
         'chunkable_type' => $doc->getMorphClass(),
         'chunkable_id' => $doc->id,
         'ord' => $ord,
@@ -81,11 +81,11 @@ function seedFakeChunk(FakeSearchDoc $doc, int $ord, string $heading, string $co
         'token_count' => max(1, (int) ceil(strlen($content) / 4)),
         'embedding_model' => 'text-embedding-3-small',
         'embedded_at' => now(),
-    ]);
+    ], fakeChunkEmbedding()));
 }
 
 it('returns an empty Collection when no chunks exist', function () {
-    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]])]);
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
 
     $results = Atlas::similaritySearch(FakeSearchDoc::class, 'anything', ['limit' => 5]);
 
@@ -94,7 +94,7 @@ it('returns an empty Collection when no chunks exist', function () {
 });
 
 it('embeds the query string and returns SearchResult objects with hydrated parents', function () {
-    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]])]);
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
 
     $a = FakeSearchDoc::create(['title' => 'Doc A', 'body' => 'body']);
     $b = FakeSearchDoc::create(['title' => 'Doc B', 'body' => 'body']);
@@ -110,7 +110,7 @@ it('embeds the query string and returns SearchResult objects with hydrated paren
 });
 
 it('respects the limit option', function () {
-    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]])]);
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
 
     $doc = FakeSearchDoc::create(['title' => 'D', 'body' => 'b']);
     for ($i = 0; $i < 6; $i++) {
@@ -123,13 +123,13 @@ it('respects the limit option', function () {
 });
 
 it('scopes results to the requested chunkable type', function () {
-    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]])]);
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
 
     $doc = FakeSearchDoc::create(['title' => 'D', 'body' => 'b']);
     seedFakeChunk($doc, 0, 'S', 'mine');
 
     // Insert a chunk under a different morph class — should NOT appear in results.
-    Chunk::create([
+    Chunk::create(array_merge([
         'chunkable_type' => 'App\\Models\\Other',
         'chunkable_id' => 99,
         'ord' => 0,
@@ -139,7 +139,7 @@ it('scopes results to the requested chunkable type', function () {
         'token_count' => 1,
         'embedding_model' => 'text-embedding-3-small',
         'embedded_at' => now(),
-    ]);
+    ], fakeChunkEmbedding()));
 
     $results = Atlas::similaritySearch(FakeSearchDoc::class, 'q', ['limit' => 5]);
 
@@ -148,7 +148,7 @@ it('scopes results to the requested chunkable type', function () {
 });
 
 it('applies the where callback as a scope on the owner table', function () {
-    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]])]);
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
 
     $alice = FakeSearchDoc::create(['title' => 'Alice doc', 'user_id' => 1, 'body' => 'b']);
     $bob = FakeSearchDoc::create(['title' => 'Bob doc', 'user_id' => 2, 'body' => 'b']);
@@ -169,7 +169,7 @@ it('applies the where callback as a scope on the owner table', function () {
 });
 
 it('builds SearchResult similarity from 1 - distance', function () {
-    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]])]);
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
 
     $doc = FakeSearchDoc::create(['title' => 'D', 'body' => 'b']);
     seedFakeChunk($doc, 0, 'S', 'content');
@@ -184,7 +184,7 @@ it('builds SearchResult similarity from 1 - distance', function () {
 });
 
 it('preserves chunkable_type, heading_path, content, and ord on each SearchResult', function () {
-    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]])]);
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
 
     $doc = FakeSearchDoc::create(['title' => 'D', 'body' => 'b']);
     seedFakeChunk($doc, 7, 'My > Heading', 'My content');

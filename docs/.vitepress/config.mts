@@ -11,6 +11,12 @@ export default defineConfig({
         ['meta', { property: 'og:image', content: '/og-image.png' }],
         // Cloudflare Web Analytics
         ['script', { defer: '', src: 'https://static.cloudflareinsights.com/beacon.min.js', 'data-cf-beacon': '{"token": "745294f0eaa04748bca79beeb599f6bc"}' }],
+        // Google Analytics (gtag.js)
+        ['script', { async: '', src: 'https://www.googletagmanager.com/gtag/js?id=G-JEV06LWG7N' }],
+        ['script', {}, `window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'G-JEV06LWG7N');`],
     ],
 
     themeConfig: {

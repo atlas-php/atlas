@@ -6,7 +6,6 @@ use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Embeddings\SearchResult;
 use Atlasphp\Atlas\Embeddings\VectorEmbeddable;
-use Atlasphp\Atlas\Embeddings\VectorQueryMacros;
 use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Persistence\Concerns\HasVectorEmbeddings;
 use Atlasphp\Atlas\Persistence\Services\RecordSearchService;
@@ -28,9 +27,12 @@ class FakeRecordSearchDoc extends Model implements VectorEmbeddable
 
     public $timestamps = true;
 
+    // `embedding` is intentionally NOT cast to array — HasVectorEmbeddings
+    // writes a pgvector literal string on save, and an array cast would
+    // double-encode that literal into a JSON-quoted string.
     protected function casts(): array
     {
-        return ['embedding' => 'array', 'embedding_at' => 'datetime'];
+        return ['embedding_at' => 'datetime'];
     }
 }
 
@@ -51,7 +53,7 @@ class FakeMultiSourceRecordDoc extends Model implements VectorEmbeddable
 
     protected function casts(): array
     {
-        return ['embedding' => 'array', 'embedding_at' => 'datetime'];
+        return ['embedding_at' => 'datetime'];
     }
 }
 
@@ -63,23 +65,34 @@ class FakeBareRecordDoc extends Model
 }
 
 beforeEach(function () {
+    $isPostgres = Schema::getConnection()->getDriverName() === 'pgsql';
+    $dimensions = (int) config('atlas.embeddings.dimensions', 1536);
+
     Schema::dropIfExists('fake_record_search_docs');
-    Schema::create('fake_record_search_docs', function (Blueprint $table) {
+    Schema::create('fake_record_search_docs', function (Blueprint $table) use ($isPostgres, $dimensions) {
         $table->id();
         $table->string('title');
         $table->text('content')->nullable();
         $table->unsignedBigInteger('user_id')->nullable();
-        $table->string('embedding')->nullable();
+        if ($isPostgres) {
+            $table->vector('embedding', $dimensions)->nullable();
+        } else {
+            $table->text('embedding')->nullable();
+        }
         $table->timestamp('embedding_at')->nullable();
         $table->timestamps();
     });
 
     Schema::dropIfExists('fake_multi_source_record_docs');
-    Schema::create('fake_multi_source_record_docs', function (Blueprint $table) {
+    Schema::create('fake_multi_source_record_docs', function (Blueprint $table) use ($isPostgres, $dimensions) {
         $table->id();
         $table->string('title');
         $table->text('content')->nullable();
-        $table->string('embedding')->nullable();
+        if ($isPostgres) {
+            $table->vector('embedding', $dimensions)->nullable();
+        } else {
+            $table->text('embedding')->nullable();
+        }
         $table->timestamp('embedding_at')->nullable();
         $table->timestamps();
     });
@@ -93,6 +106,8 @@ beforeEach(function () {
     config([
         'atlas.defaults.embed.provider' => 'openai',
         'atlas.defaults.embed.model' => 'text-embedding-3-small',
+        // Keep auto-embed disabled so seed() controls the embedding value.
+        'atlas.persistence.enabled' => false,
     ]);
     AtlasConfig::refresh();
 
@@ -119,20 +134,20 @@ function seedRecord(string $modelClass, array $attrs = []): Model
     return $modelClass::create(array_merge([
         'title' => 'Doc',
         'content' => 'embeddable text content',
-        'embedding' => VectorQueryMacros::toVectorLiteral([0.1, 0.2, 0.3]),
+        'embedding' => fakeEmbeddingLiteral(0.1),
         'embedding_at' => now(),
     ], $attrs));
 }
 
 it('throws when the model does not implement VectorEmbeddable', function () {
-    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]])]);
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
 
     expect(fn () => app(RecordSearchService::class)->search(FakeBareRecordDoc::class, 'q'))
         ->toThrow(AtlasException::class, 'is not searchable as a record');
 });
 
 it('returns an empty Collection when no records exist', function () {
-    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]])]);
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
 
     $results = app(RecordSearchService::class)->search(FakeRecordSearchDoc::class, 'q');
 
@@ -141,7 +156,7 @@ it('returns an empty Collection when no records exist', function () {
 });
 
 it('embeds the query and returns SearchResult wrapping each matched record', function () {
-    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]])]);
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
 
     $a = seedRecord(FakeRecordSearchDoc::class, ['title' => 'A', 'content' => 'apple']);
     $b = seedRecord(FakeRecordSearchDoc::class, ['title' => 'B', 'content' => 'banana']);
@@ -157,7 +172,7 @@ it('embeds the query and returns SearchResult wrapping each matched record', fun
 });
 
 it('respects the limit option', function () {
-    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]])]);
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
 
     for ($i = 0; $i < 6; $i++) {
         seedRecord(FakeRecordSearchDoc::class, ['title' => "D{$i}"]);
@@ -169,7 +184,7 @@ it('respects the limit option', function () {
 });
 
 it('applies the where callback as an Eloquent scope on the owner builder', function () {
-    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]])]);
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
 
     seedRecord(FakeRecordSearchDoc::class, ['title' => 'Alice', 'user_id' => 1]);
     seedRecord(FakeRecordSearchDoc::class, ['title' => 'Bob', 'user_id' => 2]);
@@ -185,7 +200,7 @@ it('applies the where callback as an Eloquent scope on the owner builder', funct
 });
 
 it('populates content from getEmbeddableContent (single source)', function () {
-    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]])]);
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
 
     seedRecord(FakeRecordSearchDoc::class, [
         'title' => 'X',
@@ -200,12 +215,12 @@ it('populates content from getEmbeddableContent (single source)', function () {
 });
 
 it('populates content from getEmbeddableContent (multi-source concatenation)', function () {
-    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]])]);
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
 
     FakeMultiSourceRecordDoc::create([
         'title' => 'My title',
         'content' => 'My body content',
-        'embedding' => VectorQueryMacros::toVectorLiteral([0.1, 0.2, 0.3]),
+        'embedding' => fakeEmbeddingLiteral(0.1),
         'embedding_at' => now(),
     ]);
 
@@ -217,7 +232,7 @@ it('populates content from getEmbeddableContent (multi-source concatenation)', f
 });
 
 it('leaves chunk-only fields null on whole-record results', function () {
-    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]])]);
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
 
     seedRecord(FakeRecordSearchDoc::class);
     $top = app(RecordSearchService::class)
@@ -229,7 +244,7 @@ it('leaves chunk-only fields null on whole-record results', function () {
 });
 
 it('similarity is computed as 1 - distance from the macro', function () {
-    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]])]);
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
 
     seedRecord(FakeRecordSearchDoc::class);
     $top = app(RecordSearchService::class)
@@ -243,7 +258,7 @@ it('similarity is computed as 1 - distance from the macro', function () {
 });
 
 it('uses whereVectorSimilarTo when min_similarity is set, otherwise orderByVectorDistance', function () {
-    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]])]);
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
 
     seedRecord(FakeRecordSearchDoc::class, ['title' => 'X']);
 

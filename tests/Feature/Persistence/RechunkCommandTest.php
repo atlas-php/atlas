@@ -110,15 +110,17 @@ it('marks only the specified row dirty when an id is given', function () {
     $a = FakeRechunkDoc::create(['body' => 'A']);
     $b = FakeRechunkDoc::create(['body' => 'B']);
     $c = FakeRechunkDoc::create(['body' => 'C']);
-    FakeRechunkDoc::query()->update(['indexed_hash' => 'set']);
+    // 32 chars to match the char(32) column exactly — PG pads shorter values.
+    $marker = str_repeat('s', 32);
+    FakeRechunkDoc::query()->update(['indexed_hash' => $marker]);
 
     $this->artisan('atlas:rechunk', ['class' => FakeRechunkDoc::class, 'id' => $b->id])
         ->expectsOutputToContain("id={$b->id}")
         ->assertExitCode(0);
 
-    expect($a->fresh()->indexed_hash)->toBe('set');
+    expect($a->fresh()->indexed_hash)->toBe($marker);
     expect($b->fresh()->indexed_hash)->toBeNull();
-    expect($c->fresh()->indexed_hash)->toBe('set');
+    expect($c->fresh()->indexed_hash)->toBe($marker);
 });
 
 it('warns when the given id does not exist', function () {

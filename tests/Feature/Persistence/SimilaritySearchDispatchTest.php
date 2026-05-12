@@ -7,7 +7,6 @@ use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Embeddings\Chunkable;
 use Atlasphp\Atlas\Embeddings\SearchResult;
 use Atlasphp\Atlas\Embeddings\VectorEmbeddable;
-use Atlasphp\Atlas\Embeddings\VectorQueryMacros;
 use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Persistence\Concerns\HasChunkedEmbeddings;
 use Atlasphp\Atlas\Persistence\Concerns\HasVectorEmbeddings;
@@ -36,9 +35,13 @@ class FakeRecordDoc extends Model implements VectorEmbeddable
 
     public $timestamps = true;
 
+    // The trait writes embeddings as pgvector literal strings via
+    // toVectorLiteral(). An `array` cast on the column would double-encode
+    // that string on save, breaking the pgvector parser. Keep the column
+    // raw and let the trait/macros handle the literal format.
     protected function casts(): array
     {
-        return ['embedding' => 'array', 'embedding_at' => 'datetime'];
+        return ['embedding_at' => 'datetime'];
     }
 }
 
@@ -67,12 +70,19 @@ class FakeBareDoc extends Model
 }
 
 beforeEach(function () {
+    $isPostgres = Schema::getConnection()->getDriverName() === 'pgsql';
+    $dimensions = (int) config('atlas.embeddings.dimensions', 1536);
+
     Schema::dropIfExists('fake_record_docs');
-    Schema::create('fake_record_docs', function (Blueprint $table) {
+    Schema::create('fake_record_docs', function (Blueprint $table) use ($isPostgres, $dimensions) {
         $table->id();
         $table->string('title');
         $table->text('content')->nullable();
-        $table->string('embedding')->nullable(); // store as string for the test shim
+        if ($isPostgres) {
+            $table->vector('embedding', $dimensions)->nullable();
+        } else {
+            $table->text('embedding')->nullable();
+        }
         $table->timestamp('embedding_at')->nullable();
         $table->timestamps();
     });
@@ -95,6 +105,8 @@ beforeEach(function () {
     config([
         'atlas.defaults.embed.provider' => 'openai',
         'atlas.defaults.embed.model' => 'text-embedding-3-small',
+        // Auto-embed disabled — the seeds pass the embedding literal directly.
+        'atlas.persistence.enabled' => false,
     ]);
     AtlasConfig::refresh();
 
@@ -119,10 +131,10 @@ beforeEach(function () {
 // ─── Auto-dispatch path ─────────────────────────────────────────────────────
 
 it('dispatches to ChunkSearchService when the model implements Chunkable', function () {
-    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]])]);
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
 
     $doc = FakeChunkDoc::create(['title' => 'My doc', 'body' => 'b']);
-    Chunk::create([
+    Chunk::create(array_merge([
         'chunkable_type' => $doc->getMorphClass(),
         'chunkable_id' => $doc->id,
         'ord' => 3,
@@ -132,7 +144,7 @@ it('dispatches to ChunkSearchService when the model implements Chunkable', funct
         'token_count' => 1,
         'embedding_model' => 'text-embedding-3-small',
         'embedded_at' => now(),
-    ]);
+    ], fakeChunkEmbedding()));
 
     $results = Atlas::similaritySearch(FakeChunkDoc::class, 'find it', ['limit' => 1]);
 
@@ -147,12 +159,12 @@ it('dispatches to ChunkSearchService when the model implements Chunkable', funct
 });
 
 it('dispatches to RecordSearchService when the model uses HasVectorEmbeddings only', function () {
-    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]])]);
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
 
     $doc = FakeRecordDoc::create([
         'title' => 'Whole record',
         'content' => 'The embedded text on the record itself.',
-        'embedding' => VectorQueryMacros::toVectorLiteral([0.1, 0.2, 0.3]),
+        'embedding' => fakeEmbeddingLiteral(0.1),
         'embedding_at' => now(),
     ]);
 
@@ -178,10 +190,10 @@ it('throws AtlasException for models with neither searchable trait', function ()
 // ─── Agent tool path ────────────────────────────────────────────────────────
 
 it('the SimilaritySearch tool routes through the unified dispatch for Chunkable models', function () {
-    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]])]);
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
 
     $doc = FakeChunkDoc::create(['title' => 'D', 'body' => 'b']);
-    Chunk::create([
+    Chunk::create(array_merge([
         'chunkable_type' => $doc->getMorphClass(),
         'chunkable_id' => $doc->id,
         'ord' => 0,
@@ -191,7 +203,7 @@ it('the SimilaritySearch tool routes through the unified dispatch for Chunkable 
         'token_count' => 1,
         'embedding_model' => 'text-embedding-3-small',
         'embedded_at' => now(),
-    ]);
+    ], fakeChunkEmbedding()));
 
     $tool = SimilaritySearch::usingModel(FakeChunkDoc::class, limit: 5);
     $results = $tool->handle(['query' => 'anything'], []);
@@ -203,12 +215,12 @@ it('the SimilaritySearch tool routes through the unified dispatch for Chunkable 
 });
 
 it('the SimilaritySearch tool still works against HasVectorEmbeddings models', function () {
-    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]])]);
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
 
     FakeRecordDoc::create([
         'title' => 'Whole',
         'content' => 'agent-callable record',
-        'embedding' => VectorQueryMacros::toVectorLiteral([0.1, 0.2, 0.3]),
+        'embedding' => fakeEmbeddingLiteral(0.1),
         'embedding_at' => now(),
     ]);
 

@@ -56,7 +56,7 @@ function freshFakeEmbeddings(int $count): EmbeddingsResponseFake
 {
     $vectors = [];
     for ($i = 0; $i < $count; $i++) {
-        $vectors[] = [0.1 + $i * 0.01, 0.2, 0.3];
+        $vectors[] = fakeEmbeddingVector(0.1 + $i * 0.01);
     }
 
     return EmbeddingsResponseFake::make()->withEmbeddings($vectors);

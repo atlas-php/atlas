@@ -83,7 +83,7 @@ beforeEach(function () {
 it('edit → hash invalidation → sweep detects → only changed chunks re-embed', function () {
     Atlas::fake([
         EmbeddingsResponseFake::make()->withEmbeddings([
-            [0.1, 0.2, 0.3], [0.4, 0.5, 0.6], [0.7, 0.8, 0.9], [0.1, 0.1, 0.1],
+            fakeEmbeddingVector(0.1), fakeEmbeddingVector(0.2), fakeEmbeddingVector(0.3), fakeEmbeddingVector(0.4),
         ]),
     ]);
 
@@ -112,7 +112,7 @@ it('edit → hash invalidation → sweep detects → only changed chunks re-embe
         ->all();
 
     // ─── Step 2: edit content → invalidation visible in column state ────
-    $fake = Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([[0.2, 0.2, 0.2]])]);
+    $fake = Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.2)])]);
     InvalidationFlowChunker::$next = [
         new ChunkData(0, 'A', 'Alpha content', 4),
         new ChunkData(1, 'B', 'Beta CHANGED content', 5),
@@ -165,7 +165,7 @@ it('edit → hash invalidation → sweep detects → only changed chunks re-embe
 });
 
 it('the sweep does not pick a row up again once indexed_hash matches', function () {
-    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]])]);
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
     InvalidationFlowChunker::$next = [new ChunkData(0, 'A', 'Alpha', 1)];
 
     $doc = InvalidationFlowDoc::create(['body' => 'body']);

@@ -94,7 +94,7 @@ it('updates content_hash only when the indexable field is dirty', function () {
 it('cascades chunk deletion when the owning model is deleted', function () {
     $doc = FakeChunkableDoc::create(['body' => 'Hello.']);
 
-    Chunk::create([
+    Chunk::create(array_merge([
         'chunkable_type' => $doc->getMorphClass(),
         'chunkable_id' => $doc->id,
         'ord' => 0,
@@ -104,7 +104,7 @@ it('cascades chunk deletion when the owning model is deleted', function () {
         'token_count' => 2,
         'embedding_model' => 'text-embedding-3-small',
         'embedded_at' => now(),
-    ]);
+    ], fakeChunkEmbedding()));
 
     expect(Chunk::query()->where('chunkable_id', $doc->id)->count())->toBe(1);
 
@@ -148,7 +148,7 @@ it('chunkNow runs the reconciler synchronously without dispatching a job', funct
     AtlasConfig::refresh();
 
     Atlas::fake([
-        EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]]),
+        EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)]),
     ]);
 
     $doc = FakeChunkableDoc::create([
