@@ -8,6 +8,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 ---
 
+## [v3.0.2](https://github.com/atlas-php/atlas/releases/tag/v3.0.2) - 2026-05-06
+
+### Fixed
+
+- Improved Google Gemini tool-call compatibility ([#30](https://github.com/atlas-php/atlas/pull/30) by @ianfortier)
+
+### New Contributors
+
+- @ianfortier made their first contribution in [#30](https://github.com/atlas-php/atlas/pull/30)
+
+**Full Changelog:** [v3.0.1...v3.0.2](https://github.com/atlas-php/atlas/compare/v3.0.1...v3.0.2)
+
+---
+
 ## [v3.0.1](https://github.com/atlas-php/atlas/releases/tag/v3.0.1) - 2026-04-14
 
 ### Changed
