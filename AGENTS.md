@@ -528,4 +528,46 @@ Horizon must be **restarted after code changes** to pick up new code. If tests s
 
 ---
 
+## Changelog Release Notes
+
+`CHANGELOG.md` is consumer-facing. Write for someone deciding whether to upgrade, not for someone reading the diff.
+
+### Rules
+
+- **One line per change.** Lead with the user-visible effect, not the internal mechanism.
+- **Section order:** `### Added` → `### Changed` → `### Fixed` → `### Migration`. Omit any empty section (except `### Migration`, which is always present).
+- **Consumer-facing only.** Skip housekeeping, refactors, test cleanup, dependency bumps, and anything else without consumer impact. No internal-only section.
+- **`### Added`** — new capabilities a consumer can use. Mention the config key or method signature only if a consumer needs it.
+- **`### Changed`** — only what a consumer needs to know about behavior that changed.
+- **`### Fixed`** — only what a consumer needs to know about a bug that's been corrected. No class names, file paths, or stack traces.
+- **`### Migration`** — always last, always present. If the release is drop-in, write: `No breaking changes — drop-in upgrade. No consumer action required.` If anything breaks, name what changed and the smallest steps a consumer must take.
+- **Header format:** `## [vX.Y.Z](https://github.com/atlas-php/atlas/releases/tag/vX.Y.Z) - YYYY-MM-DD`
+- **Separator:** trailing `---` between releases.
+
+### Template
+
+```markdown
+## [vX.Y.Z](https://github.com/atlas-php/atlas/releases/tag/vX.Y.Z) - YYYY-MM-DD
+
+### Added
+
+- <one-line user-visible addition>
+
+### Changed
+
+- <one-line consumer-visible behavior change>
+
+### Fixed
+
+- <one-line consumer-visible bug fix>
+
+### Migration
+
+No breaking changes — drop-in upgrade. No consumer action required.
+
+---
+```
+
+---
+
 All agents must follow this document and the referenced guides. Non-compliant contributions will be rejected.

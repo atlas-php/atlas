@@ -97,6 +97,7 @@ return [
 
     'persistence' => [
         'enabled' => env('ATLAS_PERSISTENCE_ENABLED', true),
+        'connection' => env('ATLAS_DB_CONNECTION'),
         'table_prefix' => env('ATLAS_TABLE_PREFIX', 'atlas_'),
         'message_limit' => (int) env('ATLAS_MESSAGE_LIMIT', 50),
         'auto_store_assets' => env('ATLAS_AUTO_STORE_ASSETS', true),

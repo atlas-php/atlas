@@ -7,10 +7,11 @@ namespace Atlasphp\Atlas\Persistence\Concerns;
 use Atlasphp\Atlas\AtlasConfig;
 
 /**
- * Resolves the prefixed table name for persistence models.
+ * Resolves the prefixed table name and database connection for persistence models.
  *
  * Every persistence model uses this trait to support the configurable
- * table prefix from atlas.persistence.table_prefix.
+ * table prefix from atlas.persistence.table_prefix and the optional
+ * connection override from atlas.persistence.connection.
  */
 trait HasAtlasTable
 {
@@ -25,5 +26,10 @@ trait HasAtlasTable
         }
 
         return $prefix.$this->table;
+    }
+
+    public function getConnectionName(): ?string
+    {
+        return app(AtlasConfig::class)->persistenceConnection ?? $this->connection;
     }
 }

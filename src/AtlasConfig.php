@@ -43,6 +43,7 @@ class AtlasConfig
         /** @var array{models: int, voices: int, embeddings: int} */
         public readonly array $cacheTtl = ['models' => 86400, 'voices' => 3600, 'embeddings' => 0],
         public readonly bool $persistenceEnabled = false,
+        public readonly ?string $persistenceConnection = null,
         public readonly string $tablePrefix = 'atlas_',
         public readonly int $messageLimit = 50,
         public readonly bool $autoStoreAssets = true,
@@ -115,6 +116,7 @@ class AtlasConfig
             cachePrefix: config('atlas.cache.prefix', 'atlas'),
             cacheTtl: config('atlas.cache.ttl', ['models' => 86400, 'voices' => 3600, 'embeddings' => 0]),
             persistenceEnabled: (bool) config('atlas.persistence.enabled', false),
+            persistenceConnection: config('atlas.persistence.connection'),
             tablePrefix: config('atlas.persistence.table_prefix', 'atlas_'),
             messageLimit: (int) config('atlas.persistence.message_limit', 50),
             autoStoreAssets: (bool) config('atlas.persistence.auto_store_assets', true),
