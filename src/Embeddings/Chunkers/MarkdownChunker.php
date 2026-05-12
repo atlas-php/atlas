@@ -61,7 +61,7 @@ class MarkdownChunker extends BaseTokenAwareChunker
     /**
      * @return array<int, array{type: string, level?: int, text?: string, content?: string}>
      */
-    private function parseBlocks(string $markdown): array
+    protected function parseBlocks(string $markdown): array
     {
         $blocks = [];
         /** @var array<int, string> $lines */

@@ -197,3 +197,12 @@ it('returns the input as a single-element array from splitSentences when there i
     expect($chunker->callSplitSentences('one continuous fragment without terminator'))
         ->toBe(['one continuous fragment without terminator']);
 });
+
+it('returns the input as a single-element array from splitSentences when preg_split fails on invalid UTF-8', function () {
+    // The /u flag makes preg_split return false on byte sequences that aren't
+    // valid UTF-8 (e.g. 0xC0 0xC1, which is illegal in any UTF-8 codepoint).
+    $chunker = makeBaseChunker(chunkSize: 50);
+    $malformed = "\xC0\xC1 bad utf8 input";
+
+    expect($chunker->callSplitSentences($malformed))->toBe([$malformed]);
+});

@@ -64,6 +64,48 @@ class FakeBareRecordDoc extends Model
     protected $guarded = [];
 }
 
+/**
+ * Row class returned by FakeNonVectorEmbeddableSwapDoc's custom builder.
+ * Does NOT implement VectorEmbeddable — used to drive the per-row guard
+ * inside RecordSearchService's mapping closure.
+ */
+class FakeNonVectorEmbeddableRow extends Model
+{
+    protected $table = 'fake_record_search_docs';
+
+    protected $guarded = [];
+}
+
+/**
+ * Model that satisfies the top-level VectorEmbeddable check in
+ * RecordSearchService::search(), but its custom Eloquent builder hydrates
+ * rows as FakeNonVectorEmbeddableRow so the per-row guard fires.
+ */
+class FakeNonVectorEmbeddableSwapDoc extends Model implements VectorEmbeddable
+{
+    use HasVectorEmbeddings;
+
+    protected $table = 'fake_record_search_docs';
+
+    protected $guarded = [];
+
+    public $timestamps = true;
+
+    public function newEloquentBuilder($query): Builder
+    {
+        return new class($query) extends Builder
+        {
+            public function get($columns = ['*']): Illuminate\Database\Eloquent\Collection
+            {
+                $bare = new FakeNonVectorEmbeddableRow;
+                $bare->setAttribute('distance', 0.25);
+
+                return new Illuminate\Database\Eloquent\Collection([$bare]);
+            }
+        };
+    }
+}
+
 beforeEach(function () {
     $isPostgres = Schema::getConnection()->getDriverName() === 'pgsql';
     $dimensions = (int) config('atlas.embeddings.dimensions', 1536);
@@ -290,6 +332,13 @@ it('rejects a min_similarity above one', function () {
         'q',
         ['min_similarity' => 1.5],
     ))->toThrow(InvalidArgumentException::class, 'min_similarity must be between 0.0 and 1.0');
+});
+
+it('throws AtlasException when a hydrated row no longer implements VectorEmbeddable', function () {
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
+
+    expect(fn () => app(RecordSearchService::class)->search(FakeNonVectorEmbeddableSwapDoc::class, 'q'))
+        ->toThrow(AtlasException::class, 'no longer implements VectorEmbeddable');
 });
 
 it('throws AtlasException when rows return without a distance column', function () {

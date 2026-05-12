@@ -269,10 +269,36 @@ it('attributes pre-heading content to a null heading_path section', function () 
     expect($chunks[1]->content)->toContain('Body of the first section.');
 });
 
-it('attaches a deeper heading to a null section when no top-level heading precedes it', function () {
-    // No H1/H2 anywhere — only H5s. splitLevel becomes 4 (cap), so H5 is
-    // "deeper than splitLevel" and gets inlined as content. With no prior
-    // section, the first inlined H5 must create the initial null-path section.
+it('inlines a deep heading as content under a null heading_path when it precedes any split-level heading', function () {
+    // Deepest heading is H4 → splitLevel=4. H5 appears first, so it hits the
+    // `level > splitLevel + $current === null` branch and seeds the initial
+    // null-path section. The later H4 then opens its own section.
+    $md = <<<'MD'
+    ##### Intro deep heading
+
+    Pre-section paragraph.
+
+    #### Real section
+    Body in the real section.
+    MD;
+
+    $chunks = makeMarkdownChunker(chunkSize: 500)->chunk($md);
+
+    $nullPath = array_values(array_filter($chunks, fn ($c): bool => $c->headingPath === null));
+    expect($nullPath)->not->toBeEmpty();
+    $nullContent = implode("\n", array_map(fn ($c) => $c->content, $nullPath));
+    expect($nullContent)
+        ->toContain('##### Intro deep heading')
+        ->toContain('Pre-section paragraph.');
+
+    $realSection = array_values(array_filter($chunks, fn ($c): bool => $c->headingPath === 'Real section'));
+    expect($realSection)->not->toBeEmpty();
+    expect($realSection[0]->content)->toContain('Body in the real section.');
+});
+
+it('groups every block under a single null-path section when the document has no H1–H4 headings', function () {
+    // Only H5s and H6s — strongestHeadingLevel caps at 4 and finds none, so
+    // splitLevel is null and groupIntoSections takes the no-split path.
     $md = <<<'MD'
     ##### Lone deep heading
 
@@ -286,6 +312,22 @@ it('attaches a deeper heading to a null section when no top-level heading preced
     expect($chunks[0]->content)
         ->toContain('##### Lone deep heading')
         ->toContain('Body content beneath the lone deep heading.');
+});
+
+it('returns an empty array when parseBlocks yields no blocks', function () {
+    // The empty($blocks) guard inside chunk() is defensive: trim()==='' catches
+    // the only input that would produce zero blocks today. A subclass that
+    // overrides parseBlocks lets us exercise the guard directly so a future
+    // change to parseBlocks doesn't silently regress it.
+    $chunker = new class(chunkSize: 100, chunkOverlap: 0) extends MarkdownChunker
+    {
+        protected function parseBlocks(string $markdown): array
+        {
+            return [];
+        }
+    };
+
+    expect($chunker->chunk('non-empty input that produces no blocks'))->toBe([]);
 });
 
 it('treats lines with only table separator characters as table continuation', function () {
