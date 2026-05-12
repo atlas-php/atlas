@@ -216,6 +216,10 @@ return new class extends Migration
 
 This adds `content_hash`, `indexed_hash`, `indexed_at`, `last_index_error`, and `index_failure_count`, plus a composite index on `(content_hash, indexed_hash)`.
 
+::: warning Integer primary keys only
+Chunkable models must use integer primary keys. The polymorphic `atlas_chunks.chunkable_id` column is `unsignedBigInteger` — UUID/ULID-keyed models are not supported.
+:::
+
 You also need atlas's own `atlas_chunks` table. Publish and run the package migrations:
 
 ```bash
@@ -295,16 +299,22 @@ All knobs live under `config('atlas.embeddings')`:
 ```php
 'embeddings' => [
     'dimensions' => 1536,           // vector size — must match your embedding model
-    'chunker' => MarkdownChunker::class,
-    'chunk_size' => 512,            // soft cap per chunk, in tokens (chars/4 heuristic)
-    'chunk_overlap' => 50,          // tokens of overlap between adjacent chunks
+    'chunker' => MarkdownChunker::class,    // changing this does NOT re-chunk existing rows
+    'chunk_size' => 512,            // soft cap per chunk, in tokens (chars/4 heuristic) — does NOT re-chunk on change
+    'chunk_overlap' => 50,          // tokens of overlap between adjacent chunks — does NOT re-chunk on change
     'sweep_batch' => 50,            // rows the sweep dispatches per model per run
     'sweep_settle' => 60,           // seconds since updated_at before a dirty row is eligible
     'max_failures' => 5,            // attempts before a row is excluded from sweeps
 ],
 ```
 
+::: warning Re-chunk after changing chunker, chunk_size, or chunk_overlap
+None of these settings dirty existing rows on their own. Old chunks remain in place until each record is edited. To rebuild every row of a class against the new settings, run `php artisan atlas:rechunk "App\Models\Project"` after deploying the change.
+:::
+
 Internal hard limits (`HARD_MAX_TOKENS`, `MAX_CHUNKS_PER_RECORD`) are class constants on `MarkdownChunker`. If you need different values, ship a custom chunker.
+
+All chunked embeddings go through the configured `atlas.defaults.embed` provider — there is currently no per-model override. Apps mixing chunkable models that need different embedding providers will need to wrap the reconciler manually until the interface is extended.
 
 ### Custom chunkers
 

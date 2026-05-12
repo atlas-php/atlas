@@ -30,6 +30,8 @@ php artisan vendor:publish --tag=atlas-migrations --force
 php artisan migrate
 ```
 
+`--force` overwrites any previously-published Atlas migration files in your application — back up local edits to those files first if you've customized them. Only the new `atlas_chunks` migration is required for v3.1; the rest are unchanged.
+
 To use `Atlas::similaritySearch()` with existing `HasVectorEmbeddings` models, add `implements VectorEmbeddable` to the model class.
 
 If you're adopting chunked embeddings, optional knobs are available under `config/atlas.php`:
