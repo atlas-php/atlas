@@ -21,6 +21,8 @@ After publishing, you'll find the complete configuration at `config/atlas.php`:
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Embeddings\Chunkers\MarkdownChunker;
+
 return [
 
     /*
@@ -259,8 +261,11 @@ return [
     | Embeddings
     |--------------------------------------------------------------------------
     |
-    | Configuration for embedding generation. The dimensions value controls
-    | vector column size in migrations. For embedding caching, see the
+    | Configuration for embedding generation and the chunked-embedding
+    | subsystem. 'dimensions' controls vector column size in migrations.
+    | The 'chunker', 'chunk_size', and 'chunk_overlap' keys drive the
+    | HasChunkedEmbeddings trait; the 'sweep_*' and 'max_failures' keys
+    | tune the atlas:chunk sweep command. For embedding caching, see the
     | 'cache' section below (atlas.cache.ttl.embeddings).
     |
     | Note: 'dimensions' was previously at 'persistence.embedding_dimensions'.
@@ -270,6 +275,12 @@ return [
 
     'embeddings' => [
         'dimensions' => (int) env('ATLAS_EMBEDDING_DIMENSIONS', 1536),
+        'chunker' => MarkdownChunker::class,    // default chunker for HasChunkedEmbeddings models
+        'chunk_size' => 512,                    // soft cap per chunk, in tokens (chars/4 heuristic)
+        'chunk_overlap' => 50,                  // tokens of overlap between adjacent chunks
+        'sweep_batch' => 50,                    // rows the atlas:chunk sweep dispatches per model per run
+        'sweep_settle' => 60,                   // seconds since updated_at before a dirty row is eligible
+        'max_failures' => 5,                    // attempts before a row is excluded from sweeps
     ],
 
     /*
@@ -546,6 +557,8 @@ ATLAS_EMBEDDING_DIMENSIONS=1536
 ```
 
 This value controls vector column size in persistence migrations. The default of 1536 matches OpenAI's `text-embedding-3-small`.
+
+The remaining keys under `embeddings` (`chunker`, `chunk_size`, `chunk_overlap`, `sweep_batch`, `sweep_settle`, `max_failures`) are intentionally **not env-driven** — they are operational tuning that lives with code in `config/atlas.php` rather than per-environment configuration. The chunker is a class reference, and the sweep/chunk-size knobs typically stay consistent across environments so chunk hashes line up between dev, staging, and prod. Override them in `config/atlas.php` directly. See [Chunked Embeddings configuration](/modalities/embeddings#configuration) for the full key reference and re-chunk guidance.
 
 ### Cache
 

@@ -172,7 +172,73 @@ class Note extends Model implements VectorEmbeddable
 
 - On save, if any source field is dirty, the trait calls the embedding provider once and stores the new vector in `embeddable()['column']`.
 - Editing the title regenerates the embedding; editing an unrelated field does not.
-- Disable auto-embedding on a specific model by setting `protected bool $autoEmbed = false;`.
+- Disable auto-embedding on a specific model by setting `protected bool $autoEmbed = false;` (see API reference below).
+
+### API reference
+
+The trait exposes the following methods. Most consumers only override `embeddable()`; the rest are stable extension points for custom workflows.
+
+| Method | Returns | Purpose |
+|---|---|---|
+| `embeddable()` | `array{column: string, source: string\|array<string>}` | Declares which DB column stores the vector and which source field(s) get embedded. Multi-source values are concatenated with `\n\n`. Default: `['column' => 'embedding', 'source' => 'content']`. |
+| `getEmbeddableContent()` | `string` | Returns the exact text that gets sent to the embedding provider. Reads the source field(s), trims empties, joins with `\n\n`. Override to inject synthetic context (titles, breadcrumbs, etc.). |
+| `shouldGenerateEmbedding()` | `bool` | Dirty-check on source fields. Returns `true` when any source field is dirty **and** `getEmbeddableContent()` is non-empty. The auto-save hook gates on this. |
+| `isAutoEmbedEnabled()` | `bool` | Reports whether the auto-save hook should fire — reads the `$autoEmbed` property on the model. Default `true` unless the model declares `protected bool $autoEmbed = false;`. |
+| `generateEmbedding()` | `static` | Generate and assign the embedding **synchronously** using the configured default provider/model. Sets the embedding column and `embedding_at`, but does **not** save the model — the caller is responsible for `->save()`. Called automatically by the saving hook when auto-embed is enabled. |
+| `generateEmbeddingUsing(?string $provider = null, ?string $model = null)` | `static` | Same as `generateEmbedding()` but with an explicit per-call provider/model override. Useful for backfills with a non-default embedding model, A/B-ing providers, or generating a one-off embedding outside the configured defaults. Both arguments are nullable and fall back to defaults individually. |
+| `scopeSimilarTo($embedding, float $minSimilarity = 0.5)` | _Eloquent scope_ | Applies `whereVectorSimilarTo` to the query on the configured embedding column. Accepts either a pre-computed `array<float>` or a string (auto-resolved via `EmbeddingResolver`). |
+
+#### Opt-out property
+
+```php
+class IngestedDoc extends Model implements VectorEmbeddable
+{
+    use HasVectorEmbeddings;
+
+    // Skip the auto-embed hook. Useful when embeddings come from an
+    // upstream batch job and the model is hydrated from that pipeline.
+    protected bool $autoEmbed = false;
+}
+```
+
+When `$autoEmbed = false`, the save hook does not fire, so consumers must call `$model->generateEmbedding()` (or `generateEmbeddingUsing(...)`) explicitly to populate the embedding column.
+
+#### When to use `generateEmbeddingUsing()`
+
+`generateEmbedding()` always goes through `atlas.defaults.embed`. Use `generateEmbeddingUsing()` when you need a different provider or model for a specific call without rebinding the global default:
+
+```php
+// Backfill historical notes with a higher-dimension model than the live default
+Note::query()
+    ->whereNull('embedding')
+    ->chunkById(100, function ($batch): void {
+        foreach ($batch as $note) {
+            $note->generateEmbeddingUsing('openai', 'text-embedding-3-large')->save();
+        }
+    });
+```
+
+`null` falls back to the configured default for that argument, so you can override just the model (`generateEmbeddingUsing(model: 'text-embedding-3-large')`) or just the provider.
+
+::: warning Vector dimensions must match the column
+Switching the embedding model mid-flight produces vectors of a different dimension than the column was created with. Postgres `vector(N)` rejects vectors of the wrong size at write time. If you need to backfill with a higher-dimension model, run a migration to widen (or replace) the column first.
+:::
+
+#### Using `similarTo` directly
+
+The Eloquent scope works without `Atlas::similaritySearch()` if you want raw query control:
+
+```php
+$matches = Note::similarTo($queryEmbedding, minSimilarity: 0.6)
+    ->where('user_id', auth()->id())
+    ->orderByVectorDistance('embedding', $queryEmbedding)
+    ->limit(10)
+    ->get();
+```
+
+`$queryEmbedding` can be a `string` (auto-resolved via the configured embedding provider) or a pre-computed `array<float>`.
+
+For most retrieval, prefer `Atlas::similaritySearch(Note::class, $query, ...)` — same plumbing, returns `Collection<SearchResult>` with `similarity` already computed.
 
 ---
 
