@@ -39,6 +39,7 @@ export default defineConfig({
                     { text: 'Instructions', link: '/features/instructions' },
                     { text: 'Schema', link: '/features/schema' },
                     { text: 'Middleware', link: '/features/middleware' },
+                    { text: 'Similarity Search', link: '/features/similarity-search' },
                 ]
             },
             {

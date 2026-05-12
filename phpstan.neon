@@ -14,5 +14,8 @@ parameters:
             identifier: trait.unused
             path: src/Persistence/Concerns/HasVectorEmbeddings.php
         -
+            identifier: trait.unused
+            path: src/Persistence/Concerns/HasChunkedEmbeddings.php
+        -
             identifier: varTag.unresolvableType
             path: src/Persistence/Middleware/PersistConversation.php

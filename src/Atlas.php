@@ -49,6 +49,9 @@ use Illuminate\Support\Facades\Facade;
  * @method static ProviderRequest provider(Provider|string $provider)
  * @method static AgentRequest agent(string $key)
  * @method static ProviderRegistryContract providers()
+ * @method static void registerChunkable(class-string<\Illuminate\Database\Eloquent\Model> $modelClass)
+ * @method static array<int, class-string<\Illuminate\Database\Eloquent\Model>> chunkables()
+ * @method static \Illuminate\Support\Collection<int, \Atlasphp\Atlas\Embeddings\SearchResult> similaritySearch(class-string<\Illuminate\Database\Eloquent\Model> $chunkable, string $query, array<string, mixed> $options = [])
  *
  * @see AtlasManager
  */

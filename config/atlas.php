@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+use Atlasphp\Atlas\Embeddings\Chunkers\MarkdownChunker;
 
 return [
 
@@ -268,10 +269,25 @@ return [
     | Vector column size for pgvector migrations. Must match the output
     | dimensions of your embedding model (OpenAI text-embedding-3-small = 1536).
     |
+    | The chunked-embeddings keys below are used when a model includes the
+    | HasChunkedEmbeddings trait. The chunker splits long content into pieces
+    | sized to chunk_size (with chunk_overlap tokens of context between
+    | adjacent chunks), and a scheduled sweep reconciles edits against the
+    | atlas_chunks table. Token counts use a chars/4 heuristic — exact for
+    | OpenAI-family models within a few percent and dependency-free. Internal
+    | hard limits live as class constants on MarkdownChunker; consumers who
+    | need different limits swap in a custom chunker.
+    |
     */
 
     'embeddings' => [
         'dimensions' => (int) env('ATLAS_EMBEDDING_DIMENSIONS', 1536),
+        'chunker' => MarkdownChunker::class,
+        'chunk_size' => 512,
+        'chunk_overlap' => 50,
+        'sweep_batch' => 50,
+        'sweep_settle' => 60,
+        'max_failures' => 5,
     ],
 
     /*
@@ -324,6 +340,7 @@ return [
             // 'execution'                   => \App\Models\AiExecution::class,
             // 'execution_step'              => \App\Models\AiExecutionStep::class,
             // 'execution_tool_call'         => \App\Models\AiExecutionToolCall::class,
+            // 'chunk'                       => \App\Models\AiChunk::class,
         ],
     ],
 

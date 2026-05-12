@@ -8,6 +8,48 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 ---
 
+## [v3.1.0](https://github.com/atlas-php/atlas/releases/tag/v3.1.0) - 2026-05-12
+
+### Added
+
+- **Chunked embeddings** — index long-form content; edits only re-embed the chunks that changed. Add `HasChunkedEmbeddings` to a model and schedule `atlas:chunk`.
+- **`Atlas::similaritySearch()`** facade — one call for both whole-record and chunked embeddings.
+- `Chunkable` and `VectorEmbeddable` interfaces.
+- `atlas:chunk` and `atlas:rechunk {class}` artisan commands.
+
+### Changed
+
+- The `SimilaritySearch` agent tool now works against both whole-record and chunked embeddings.
+
+### Migration
+
+Re-publish and run package migrations to add the new `atlas_chunks` table:
+
+```bash
+php artisan vendor:publish --tag=atlas-migrations --force
+php artisan migrate
+```
+
+To use `Atlas::similaritySearch()` with existing `HasVectorEmbeddings` models, add `implements VectorEmbeddable` to the model class.
+
+If you're adopting chunked embeddings, optional knobs are available under `config/atlas.php`:
+
+```php
+'embeddings' => [
+    'dimensions'    => 1536,
+    'chunker'       => \Atlasphp\Atlas\Embeddings\Chunkers\MarkdownChunker::class,
+    'chunk_size'    => 512,   // soft cap per chunk, in tokens
+    'chunk_overlap' => 50,    // tokens of overlap between adjacent chunks
+    'sweep_batch'   => 50,    // rows per sweep run
+    'sweep_settle'  => 60,    // seconds since updated_at before a dirty row is eligible
+    'max_failures'  => 5,     // attempts before a row is excluded from sweeps
+],
+```
+
+No breaking changes.
+
+---
+
 ## [v3.0.3](https://github.com/atlas-php/atlas/releases/tag/v3.0.3) - 2026-05-12
 
 ### Added

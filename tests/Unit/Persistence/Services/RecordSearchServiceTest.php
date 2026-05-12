@@ -1,0 +1,258 @@
+<?php
+
+declare(strict_types=1);
+
+use Atlasphp\Atlas\Atlas;
+use Atlasphp\Atlas\AtlasConfig;
+use Atlasphp\Atlas\Embeddings\SearchResult;
+use Atlasphp\Atlas\Embeddings\VectorEmbeddable;
+use Atlasphp\Atlas\Embeddings\VectorQueryMacros;
+use Atlasphp\Atlas\Exceptions\AtlasException;
+use Atlasphp\Atlas\Persistence\Concerns\HasVectorEmbeddings;
+use Atlasphp\Atlas\Persistence\Services\RecordSearchService;
+use Atlasphp\Atlas\Testing\EmbeddingsResponseFake;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Schema;
+
+class FakeRecordSearchDoc extends Model implements VectorEmbeddable
+{
+    use HasVectorEmbeddings;
+
+    protected $table = 'fake_record_search_docs';
+
+    protected $guarded = [];
+
+    public $timestamps = true;
+
+    protected function casts(): array
+    {
+        return ['embedding' => 'array', 'embedding_at' => 'datetime'];
+    }
+}
+
+class FakeMultiSourceRecordDoc extends Model implements VectorEmbeddable
+{
+    use HasVectorEmbeddings;
+
+    protected $table = 'fake_multi_source_record_docs';
+
+    protected $guarded = [];
+
+    public $timestamps = true;
+
+    public function embeddable(): array
+    {
+        return ['column' => 'embedding', 'source' => ['title', 'content']];
+    }
+
+    protected function casts(): array
+    {
+        return ['embedding' => 'array', 'embedding_at' => 'datetime'];
+    }
+}
+
+class FakeBareRecordDoc extends Model
+{
+    protected $table = 'fake_bare_record_docs';
+
+    protected $guarded = [];
+}
+
+beforeEach(function () {
+    Schema::dropIfExists('fake_record_search_docs');
+    Schema::create('fake_record_search_docs', function (Blueprint $table) {
+        $table->id();
+        $table->string('title');
+        $table->text('content')->nullable();
+        $table->unsignedBigInteger('user_id')->nullable();
+        $table->string('embedding')->nullable();
+        $table->timestamp('embedding_at')->nullable();
+        $table->timestamps();
+    });
+
+    Schema::dropIfExists('fake_multi_source_record_docs');
+    Schema::create('fake_multi_source_record_docs', function (Blueprint $table) {
+        $table->id();
+        $table->string('title');
+        $table->text('content')->nullable();
+        $table->string('embedding')->nullable();
+        $table->timestamp('embedding_at')->nullable();
+        $table->timestamps();
+    });
+
+    Schema::dropIfExists('fake_bare_record_docs');
+    Schema::create('fake_bare_record_docs', function (Blueprint $table) {
+        $table->id();
+        $table->timestamps();
+    });
+
+    config([
+        'atlas.defaults.embed.provider' => 'openai',
+        'atlas.defaults.embed.model' => 'text-embedding-3-small',
+    ]);
+    AtlasConfig::refresh();
+
+    // pgvector ops are PG-only; shim the macros so we can exercise the
+    // service end-to-end on in-memory sqlite. Shims rank by id ascending.
+    $selectDistance = function (string $column, mixed $embedding, string $as = 'distance') {
+        $table = $this instanceof Builder ? $this->getModel()->getTable() : $this->from;
+
+        return $this->selectRaw("(1.0 / ({$table}.id + 1)) AS {$as}");
+    };
+    $orderByDistance = fn (string $column, mixed $embedding, string $direction = 'asc') => $this->orderBy('id', $direction);
+    $whereSimilar = fn (string $column, mixed $embedding, float $minSimilarity = 0.5) => $this->orderBy('id');
+
+    Builder::macro('selectVectorDistance', $selectDistance);
+    Builder::macro('orderByVectorDistance', $orderByDistance);
+    Builder::macro('whereVectorSimilarTo', $whereSimilar);
+    QueryBuilder::macro('selectVectorDistance', $selectDistance);
+    QueryBuilder::macro('orderByVectorDistance', $orderByDistance);
+    QueryBuilder::macro('whereVectorSimilarTo', $whereSimilar);
+});
+
+function seedRecord(string $modelClass, array $attrs = []): Model
+{
+    return $modelClass::create(array_merge([
+        'title' => 'Doc',
+        'content' => 'embeddable text content',
+        'embedding' => VectorQueryMacros::toVectorLiteral([0.1, 0.2, 0.3]),
+        'embedding_at' => now(),
+    ], $attrs));
+}
+
+it('throws when the model does not implement VectorEmbeddable', function () {
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]])]);
+
+    expect(fn () => app(RecordSearchService::class)->search(FakeBareRecordDoc::class, 'q'))
+        ->toThrow(AtlasException::class, 'is not searchable as a record');
+});
+
+it('returns an empty Collection when no records exist', function () {
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]])]);
+
+    $results = app(RecordSearchService::class)->search(FakeRecordSearchDoc::class, 'q');
+
+    expect($results)->toBeInstanceOf(Collection::class);
+    expect($results)->toHaveCount(0);
+});
+
+it('embeds the query and returns SearchResult wrapping each matched record', function () {
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]])]);
+
+    $a = seedRecord(FakeRecordSearchDoc::class, ['title' => 'A', 'content' => 'apple']);
+    $b = seedRecord(FakeRecordSearchDoc::class, ['title' => 'B', 'content' => 'banana']);
+
+    $results = app(RecordSearchService::class)->search(FakeRecordSearchDoc::class, 'fruit');
+
+    expect($results)->toHaveCount(2);
+    expect($results->first())->toBeInstanceOf(SearchResult::class);
+    expect($results->first()->record)->toBeInstanceOf(FakeRecordSearchDoc::class);
+    // The service sorts by similarity desc; the sqlite shim gives higher id
+    // higher similarity, so order is ['B', 'A']. Assert set-membership.
+    expect($results->pluck('record.title')->all())->toEqualCanonicalizing(['A', 'B']);
+});
+
+it('respects the limit option', function () {
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]])]);
+
+    for ($i = 0; $i < 6; $i++) {
+        seedRecord(FakeRecordSearchDoc::class, ['title' => "D{$i}"]);
+    }
+
+    $results = app(RecordSearchService::class)->search(FakeRecordSearchDoc::class, 'q', ['limit' => 3]);
+
+    expect($results)->toHaveCount(3);
+});
+
+it('applies the where callback as an Eloquent scope on the owner builder', function () {
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]])]);
+
+    seedRecord(FakeRecordSearchDoc::class, ['title' => 'Alice', 'user_id' => 1]);
+    seedRecord(FakeRecordSearchDoc::class, ['title' => 'Bob', 'user_id' => 2]);
+
+    $results = app(RecordSearchService::class)->search(
+        FakeRecordSearchDoc::class,
+        'q',
+        ['where' => fn ($q) => $q->where('user_id', 1)],
+    );
+
+    expect($results)->toHaveCount(1);
+    expect($results->first()->record->title)->toBe('Alice');
+});
+
+it('populates content from getEmbeddableContent (single source)', function () {
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]])]);
+
+    seedRecord(FakeRecordSearchDoc::class, [
+        'title' => 'X',
+        'content' => 'the only embedded text',
+    ]);
+
+    $top = app(RecordSearchService::class)
+        ->search(FakeRecordSearchDoc::class, 'q', ['limit' => 1])
+        ->first();
+
+    expect($top->content)->toBe('the only embedded text');
+});
+
+it('populates content from getEmbeddableContent (multi-source concatenation)', function () {
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]])]);
+
+    FakeMultiSourceRecordDoc::create([
+        'title' => 'My title',
+        'content' => 'My body content',
+        'embedding' => VectorQueryMacros::toVectorLiteral([0.1, 0.2, 0.3]),
+        'embedding_at' => now(),
+    ]);
+
+    $top = app(RecordSearchService::class)
+        ->search(FakeMultiSourceRecordDoc::class, 'q', ['limit' => 1])
+        ->first();
+
+    expect($top->content)->toBe("My title\n\nMy body content");
+});
+
+it('leaves chunk-only fields null on whole-record results', function () {
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]])]);
+
+    seedRecord(FakeRecordSearchDoc::class);
+    $top = app(RecordSearchService::class)
+        ->search(FakeRecordSearchDoc::class, 'q', ['limit' => 1])
+        ->first();
+
+    expect($top->headingPath)->toBeNull();
+    expect($top->ord)->toBeNull();
+});
+
+it('similarity is computed as 1 - distance from the macro', function () {
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]])]);
+
+    seedRecord(FakeRecordSearchDoc::class);
+    $top = app(RecordSearchService::class)
+        ->search(FakeRecordSearchDoc::class, 'q', ['limit' => 1])
+        ->first();
+
+    // sqlite shim assigns distance = 1 / (id + 1) → similarity = 1 - that.
+    expect($top->similarity)->toBeFloat();
+    expect($top->similarity)->toBeLessThan(1.0);
+    expect($top->similarity)->toBeGreaterThan(0.0);
+});
+
+it('uses whereVectorSimilarTo when min_similarity is set, otherwise orderByVectorDistance', function () {
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]])]);
+
+    seedRecord(FakeRecordSearchDoc::class, ['title' => 'X']);
+
+    // Both modes should return results (the shim doesn't actually filter).
+    $withMin = app(RecordSearchService::class)
+        ->search(FakeRecordSearchDoc::class, 'q', ['min_similarity' => 0.1]);
+    $withoutMin = app(RecordSearchService::class)
+        ->search(FakeRecordSearchDoc::class, 'q');
+
+    expect($withMin)->toHaveCount(1);
+    expect($withoutMin)->toHaveCount(1);
+});

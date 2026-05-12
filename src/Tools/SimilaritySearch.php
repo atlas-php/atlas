@@ -4,18 +4,22 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Tools;
 
+use Atlasphp\Atlas\Atlas;
+use Atlasphp\Atlas\Embeddings\Chunkable;
 use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
+use Atlasphp\Atlas\Embeddings\VectorEmbeddable;
 use Atlasphp\Atlas\Schema\Schema;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
 use RuntimeException;
 
 /**
- * Agent tool for performing similarity searches against Eloquent model vector columns.
+ * Agent tool for performing similarity searches against an Eloquent model.
  *
- * Can be constructed with a custom closure or built from an Eloquent model class
- * using the `usingModel()` factory. Accepts a text query from the agent and
- * returns matching records ordered by vector similarity.
+ * Built with `usingModel($class)`. The model can use either HasChunkedEmbeddings
+ * (chunked search) or HasVectorEmbeddings (whole-record search) — the tool
+ * auto-dispatches by inspecting the model's traits. Same JSON-shape result
+ * for the agent either way (Collection<SearchResult>).
  */
 class SimilaritySearch extends Tool
 {
@@ -36,36 +40,76 @@ class SimilaritySearch extends Tool
     /**
      * Create a SimilaritySearch tool from an Eloquent model.
      *
+     * The model's traits determine the search mode:
+     *   - HasChunkedEmbeddings / Chunkable → searches atlas_chunks
+     *   - HasVectorEmbeddings / VectorEmbeddable → searches the model's embedding column
+     *   - Chunkable wins if a model uses both
+     *
+     * The `query` callback receives an Eloquent Builder for the OWNER model
+     * (even in chunk-mode, where it's applied as a subquery). Do NOT call
+     * `->select(...)` inside the callback — the service expects to select
+     * only the primary key from this builder.
+     *
      * @param  class-string<Model>  $model
-     * @param  Closure|null  $query  Additional query constraints callback
+     * @param  string  $column  Embedding column (only used in legacy custom-closure mode; auto-detected for both standard modes).
+     * @param  float|null  $minSimilarity  Cosine similarity floor (0.0–1.0). Null disables the floor.
+     * @param  int  $limit  Max results returned to the agent.
+     * @param  Closure|null  $query  Additional owner-scope constraints. Receives an Eloquent Builder.
+     * @param  string|null  $embedProvider  Override the default embed provider (only respected for legacy whole-record path).
+     * @param  string|null  $embedModel  Override the default embed model.
      */
     public static function usingModel(
         string $model,
         string $column = 'embedding',
-        float $minSimilarity = 0.5,
+        ?float $minSimilarity = null,
         int $limit = 10,
         ?Closure $query = null,
         ?string $embedProvider = null,
         ?string $embedModel = null,
     ): self {
-        $instance = new self(function (string $input) use ($model, $column, $minSimilarity, $limit, $query, $embedProvider, $embedModel) {
-            $resolver = app(EmbeddingResolver::class);
+        // For models that use one of atlas's standard embedding traits,
+        // delegate to Atlas::similaritySearch() so we get auto-dispatch
+        // (chunked vs whole-record) for free. The legacy custom-column /
+        // explicit-provider path keeps its old behavior for callers that
+        // configure SimilaritySearch on models without a standard trait.
+        $usesStandardTraits = is_subclass_of($model, Chunkable::class)
+            || is_subclass_of($model, VectorEmbeddable::class);
 
-            $embedding = ($embedProvider || $embedModel)
-                ? $resolver->resolveUsing($input, $embedProvider, $embedModel)
-                : $resolver->resolve($input);
+        if ($usesStandardTraits && $embedProvider === null && $embedModel === null) {
+            $instance = new self(function (string $input) use ($model, $minSimilarity, $limit, $query) {
+                // The predicate is intentionally `!== null` (not falsy) so
+                // legitimate floor values like 0.0 and limit 0 pass through.
+                return Atlas::similaritySearch($model, $input, array_filter([
+                    'limit' => $limit,
+                    'min_similarity' => $minSimilarity,
+                    'where' => $query,
+                ], fn ($v): bool => $v !== null));
+            });
+        } else {
+            // Legacy path: explicit provider/model override or model lacks a
+            // standard atlas trait. Runs the column-based query directly.
+            $instance = new self(function (string $input) use ($model, $column, $minSimilarity, $limit, $query, $embedProvider, $embedModel) {
+                $resolver = app(EmbeddingResolver::class);
 
-            $builder = $model::query();
+                $embedding = ($embedProvider || $embedModel)
+                    ? $resolver->resolveUsing($input, $embedProvider, $embedModel)
+                    : $resolver->resolve($input);
 
-            if ($query !== null) {
-                $query($builder);
-            }
+                $builder = $model::query();
 
-            return $builder
-                ->whereVectorSimilarTo($column, $embedding, $minSimilarity)
-                ->limit($limit)
-                ->get();
-        });
+                if ($query !== null) {
+                    $query($builder);
+                }
+
+                if ($minSimilarity !== null) {
+                    $builder->whereVectorSimilarTo($column, $embedding, $minSimilarity);
+                } else {
+                    $builder->orderByVectorDistance($column, $embedding);
+                }
+
+                return $builder->limit($limit)->get();
+            });
+        }
 
         $shortName = class_basename($model);
         $instance->toolDescription = "Search {$shortName} records by semantic similarity.";
