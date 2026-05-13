@@ -102,6 +102,21 @@ Fired when conversation messages are stored to the database.
 
 </div>
 
+## Chunking Events
+
+Fired by the chunked-embedding reconciler — once per record per sweep run.
+
+<div class="full-width-table">
+
+| Event | Properties |
+|-------|-----------|
+| `ContentChunked`<br><small>Reconciliation succeeded for a chunkable record</small> | `string $chunkableType`, `int $chunkableId`, `int $chunkCount`, `int $embeddedCount` |
+| `ContentChunkingFailed`<br><small>Reconciliation failed; `index_failure_count` was incremented before this event fired</small> | `string $chunkableType`, `int $chunkableId`, `string $error` |
+
+</div>
+
+`embeddedCount` is the number of chunks that hit the embedding provider this run (new or changed); `chunkCount` is the total chunks now present for the record. Listen for `ContentChunkingFailed` to page on repeated failures for the same `chunkableId`, and for `ContentChunked` to invalidate downstream search caches once a record finishes reindexing.
+
 ## Listening to Events
 
 ### EventServiceProvider
@@ -326,7 +341,7 @@ If the agent fails, `ExecutionFailed` fires instead of `ExecutionCompleted`.
 
 ## API Reference
 
-All 33 events at a glance:
+All 35 events at a glance:
 
 <div class="full-width-table">
 
@@ -356,15 +371,17 @@ All 33 events at a glance:
 | 22 | `ExecutionCompleted` | Execution | Yes |
 | 23 | `ExecutionFailed` | Execution | Yes |
 | 24 | `ConversationMessageStored` | Persistence | No |
-| 25 | `VoiceSessionCreated` | Voice | No |
-| 26 | `VoiceSessionEnded` | Voice | No |
-| 27 | `VoiceCallStarted` | Voice | No |
-| 28 | `VoiceCallCompleted` | Voice | No |
-| 29 | `VoiceToolCallStarted` | Voice | No |
-| 30 | `VoiceToolCallCompleted` | Voice | No |
-| 31 | `VoiceToolCallFailed` | Voice | No |
-| 32 | `VoiceAudioDeltaReceived` | Voice | Yes |
-| 33 | `VoiceTranscriptDeltaReceived` | Voice | Yes |
+| 25 | `ContentChunked` | Chunking | No |
+| 26 | `ContentChunkingFailed` | Chunking | No |
+| 27 | `VoiceSessionCreated` | Voice | No |
+| 28 | `VoiceSessionEnded` | Voice | No |
+| 29 | `VoiceCallStarted` | Voice | No |
+| 30 | `VoiceCallCompleted` | Voice | No |
+| 31 | `VoiceToolCallStarted` | Voice | No |
+| 32 | `VoiceToolCallCompleted` | Voice | No |
+| 33 | `VoiceToolCallFailed` | Voice | No |
+| 34 | `VoiceAudioDeltaReceived` | Voice | Yes |
+| 35 | `VoiceTranscriptDeltaReceived` | Voice | Yes |
 
 </div>
 

@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas;
 
+use Atlasphp\Atlas\Embeddings\Chunkable;
+use Atlasphp\Atlas\Embeddings\ChunkableRegistry;
+use Atlasphp\Atlas\Embeddings\SearchResult;
+use Atlasphp\Atlas\Embeddings\VectorEmbeddable;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Pending\AgentRequest;
@@ -19,9 +23,13 @@ use Atlasphp\Atlas\Pending\SpeechRequest;
 use Atlasphp\Atlas\Pending\TextRequest;
 use Atlasphp\Atlas\Pending\VideoRequest;
 use Atlasphp\Atlas\Pending\VoiceRequest;
+use Atlasphp\Atlas\Persistence\Services\ChunkSearchService;
+use Atlasphp\Atlas\Persistence\Services\RecordSearchService;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 
 /**
  * Central manager for Atlas, accessible via the Atlas facade.
@@ -142,6 +150,69 @@ class AtlasManager
     public function providers(): ProviderRegistryContract
     {
         return $this->providerRegistry;
+    }
+
+    /**
+     * Register an Eloquent model class for chunked-embedding sweeps.
+     *
+     * Call in AppServiceProvider::boot():
+     *
+     *   Atlas::registerChunkable(\App\Models\Project::class);
+     *
+     * @param  class-string<Model>  $modelClass
+     */
+    public function registerChunkable(string $modelClass): void
+    {
+        $this->app->make(ChunkableRegistry::class)->register($modelClass);
+    }
+
+    /**
+     * List the model classes currently registered for chunked-embedding sweeps.
+     *
+     * @return array<int, class-string<Model>>
+     */
+    public function chunkables(): array
+    {
+        return $this->app->make(ChunkableRegistry::class)->all();
+    }
+
+    /**
+     * Run a similarity search over a model's embeddings, auto-detecting mode.
+     *
+     * Dispatches based on what the model class opts into:
+     *  - implements Chunkable (HasChunkedEmbeddings) → searches atlas_chunks
+     *    rows belonging to that model class. Returns chunk-level results
+     *    with heading_path + ord populated.
+     *  - implements VectorEmbeddable (HasVectorEmbeddings) → searches the
+     *    model's embedding column directly (one vector per record). Returns
+     *    record-level results with heading_path/ord = null.
+     *  - models implementing both: Chunkable wins (more granular results).
+     *
+     * Same return type in both modes — Collection<SearchResult> — so callers
+     * (and agent tools) don't need to know which mode produced results.
+     *
+     * @param  class-string<Model>  $model  The model class to search.
+     * @param  string  $query  Raw text query — embedded automatically.
+     * @param  array{limit?: int, min_similarity?: float|null, where?: \Closure, ids?: int|string|array<int, int|string>}  $options
+     *                                                                                                                               `ids` scopes the search to specific owner IDs (single int/string or array). Combines
+     *                                                                                                                               with `where` (both apply). Empty array short-circuits to zero results.
+     * @return Collection<int, SearchResult>
+     *
+     * @throws AtlasException When the model uses neither trait.
+     */
+    public function similaritySearch(string $model, string $query, array $options = []): Collection
+    {
+        if (is_subclass_of($model, Chunkable::class)) {
+            return $this->app->make(ChunkSearchService::class)->search($model, $query, $options);
+        }
+
+        if (is_subclass_of($model, VectorEmbeddable::class)) {
+            return $this->app->make(RecordSearchService::class)->search($model, $query, $options);
+        }
+
+        throw new AtlasException(
+            "[{$model}] is not searchable. Implement Chunkable (with HasChunkedEmbeddings) for chunked search, or VectorEmbeddable (with HasVectorEmbeddings) for whole-record search."
+        );
     }
 
     /**

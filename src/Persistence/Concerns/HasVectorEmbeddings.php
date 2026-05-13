@@ -4,16 +4,21 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Concerns;
 
-use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
+use Atlasphp\Atlas\Embeddings\VectorEmbeddable;
 use Atlasphp\Atlas\Embeddings\VectorQueryMacros;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Provides vector embedding support for Eloquent models.
  *
  * Adds auto-embedding on save when source fields change, manual embedding
  * generation, and a `similarTo` Eloquent scope for similarity queries.
+ *
+ * @phpstan-require-extends Model
+ *
+ * @phpstan-require-implements VectorEmbeddable
  */
 trait HasVectorEmbeddings
 {
@@ -70,29 +75,23 @@ trait HasVectorEmbeddings
 
     /**
      * Determine if the embedding should be (re)generated.
+     *
+     * The trait being applied to a model is itself the opt-in — using the
+     * trait means the consumer wants embeddings on save. Disable per-model
+     * with `protected bool $autoEmbed = false;` if needed.
      */
     public function shouldGenerateEmbedding(): bool
     {
-        if (! app(AtlasConfig::class)->persistenceEnabled) {
-            return false;
-        }
-
         $source = $this->embeddable()['source'];
         $fields = is_array($source) ? $source : [$source];
 
-        $isDirty = false;
         foreach ($fields as $field) {
             if ($this->isDirty($field)) {
-                $isDirty = true;
-                break;
+                return $this->getEmbeddableContent() !== '';
             }
         }
 
-        if (! $isDirty) {
-            return false;
-        }
-
-        return $this->getEmbeddableContent() !== '';
+        return false;
     }
 
     /**

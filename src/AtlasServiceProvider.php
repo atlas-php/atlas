@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas;
 
+use Atlasphp\Atlas\Embeddings\ChunkableRegistry;
 use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
 use Atlasphp\Atlas\Embeddings\VectorQueryMacros;
 use Atlasphp\Atlas\Enums\Provider;
@@ -53,6 +54,8 @@ class AtlasServiceProvider extends ServiceProvider
         $this->app->singleton(AgentRegistry::class, function ($app) {
             return new AgentRegistry($app);
         });
+
+        $this->app->singleton(ChunkableRegistry::class, fn () => new ChunkableRegistry);
 
         $this->app->singleton(AtlasManager::class, function ($app) {
             return new AtlasManager(
@@ -110,6 +113,8 @@ class AtlasServiceProvider extends ServiceProvider
                 Console\MakeToolCommand::class,
                 Console\CleanStaleVoiceSessionsCommand::class,
                 Console\MiddlewareCommand::class,
+                Console\ChunkCommand::class,
+                Console\RechunkCommand::class,
             ]);
 
             $this->publishes([
@@ -178,14 +183,15 @@ class AtlasServiceProvider extends ServiceProvider
     }
 
     /**
-     * Register pgvector query macros when persistence is enabled.
+     * Register pgvector query macros.
+     *
+     * The macros self-gate on pgvector availability (no-op on non-PG drivers
+     * or when the extension is missing), so unconditional registration is
+     * safe and necessary — chunked-embedding similarity search relies on
+     * them whether or not full persistence is enabled.
      */
     protected function registerVectorMacros(): void
     {
-        if (! app(AtlasConfig::class)->persistenceEnabled) {
-            return;
-        }
-
         VectorQueryMacros::register();
     }
 

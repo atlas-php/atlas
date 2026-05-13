@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\AtlasManager;
+use Atlasphp\Atlas\Embeddings\Chunkable;
+use Atlasphp\Atlas\Embeddings\ChunkableRegistry;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Pending\AgentRequest;
 use Atlasphp\Atlas\Pending\AudioRequest;
@@ -17,6 +19,22 @@ use Atlasphp\Atlas\Pending\SpeechRequest;
 use Atlasphp\Atlas\Pending\TextRequest;
 use Atlasphp\Atlas\Pending\VideoRequest;
 use Atlasphp\Atlas\Pending\VoiceRequest;
+use Atlasphp\Atlas\Persistence\Concerns\HasChunkedEmbeddings;
+use Illuminate\Database\Eloquent\Model;
+
+class FakeManagerChunkableA extends Model implements Chunkable
+{
+    use HasChunkedEmbeddings;
+
+    protected $guarded = [];
+}
+
+class FakeManagerChunkableB extends Model implements Chunkable
+{
+    use HasChunkedEmbeddings;
+
+    protected $guarded = [];
+}
 
 it('text returns TextRequest', function () {
     $manager = app(AtlasManager::class);
@@ -101,4 +119,28 @@ it('accepts Provider enum', function () {
 
     expect($manager->text(Provider::OpenAI, 'gpt-4o'))->toBeInstanceOf(TextRequest::class);
     expect($manager->provider(Provider::Anthropic))->toBeInstanceOf(ProviderRequest::class);
+});
+
+it('registerChunkable adds the class to the ChunkableRegistry', function () {
+    app(ChunkableRegistry::class)->clear();
+    $manager = app(AtlasManager::class);
+
+    $manager->registerChunkable(FakeManagerChunkableA::class);
+
+    expect(app(ChunkableRegistry::class)->has(FakeManagerChunkableA::class))->toBeTrue();
+});
+
+it('chunkables returns the list of registered chunkable model classes', function () {
+    app(ChunkableRegistry::class)->clear();
+    $manager = app(AtlasManager::class);
+
+    expect($manager->chunkables())->toBe([]);
+
+    $manager->registerChunkable(FakeManagerChunkableA::class);
+    $manager->registerChunkable(FakeManagerChunkableB::class);
+
+    expect($manager->chunkables())
+        ->toContain(FakeManagerChunkableA::class)
+        ->toContain(FakeManagerChunkableB::class)
+        ->toHaveCount(2);
 });

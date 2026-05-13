@@ -8,7 +8,9 @@ use App\Agents\AssistantAgent;
 use App\Agents\VoiceAssistantAgent;
 use App\Console\FreshCommand;
 use App\Listeners\SummarizeVoiceCall;
+use App\Models\Project;
 use Atlasphp\Atlas\AgentRegistry;
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Embeddings\VectorQueryMacros;
 use Atlasphp\Atlas\Events\VoiceCallCompleted;
 use Atlasphp\Atlas\Persistence\Middleware\PersistConversation;
@@ -49,8 +51,22 @@ class SandboxServiceProvider extends ServiceProvider
         $this->loadMigrations();
         $this->registerCommands();
         $this->registerAgents();
+        $this->registerChunkables();
         $this->registerPersistenceMiddleware();
         $this->registerListeners();
+    }
+
+    /**
+     * Register models that participate in chunked-embedding sweeps.
+     *
+     * The HasChunkedEmbeddings trait self-registers on first model touch,
+     * but the atlas:chunk artisan command runs in a fresh process where no
+     * model has been touched yet — so explicit registration here is what
+     * makes the sweep see the model.
+     */
+    protected function registerChunkables(): void
+    {
+        Atlas::registerChunkable(Project::class);
     }
 
     /**

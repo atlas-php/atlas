@@ -464,6 +464,103 @@ public function test_embeddings(): void
 }
 ```
 
+### Chunked embeddings (reconciliation)
+
+Test the chunked-embedding subsystem by calling `ChunkContentService::reconcile()` directly. The fake captures the embed call so no provider is hit, and `chunkNow()` (or the service) runs the same reconciler the `atlas:chunk` sweep would dispatch — just inline. No queue worker, no Horizon, no scheduled command.
+
+```php
+use Atlasphp\Atlas\Atlas;
+use Atlasphp\Atlas\Persistence\Services\ChunkContentService;
+use Atlasphp\Atlas\Testing\EmbeddingsResponseFake;
+
+it('chunks and embeds a project body', function () {
+    Atlas::fake([
+        // One vector per chunk the chunker will produce. Size to match
+        // your model's configured dimensions; here we stub a single chunk.
+        EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]]),
+    ]);
+
+    $project = Project::factory()->create([
+        'body' => "# Hello\n\nworld",
+    ]);
+
+    app(ChunkContentService::class)->reconcile($project);
+    $project->refresh();
+
+    expect($project->indexed_hash)->toBe($project->content_hash);
+    expect($project->chunks)->toHaveCount(1);
+});
+```
+
+For tests that should exercise the `HasChunkedEmbeddings::chunkNow()` shortcut specifically (controller-after-save flows, for example), call `$project->chunkNow()` instead of `app(ChunkContentService::class)->reconcile($project)` — they hit the same code path.
+
+To assert the diff/dedup behavior (single-paragraph edits re-embed only changed chunks), seed the model, reconcile once, then edit the body and reconcile again — the second `Atlas::fake()` should record fewer embeddings than chunks present.
+
+### similaritySearch()
+
+`Atlas::similaritySearch()` calls `EmbeddingResolver`, which routes through the same `Atlas::embed()` pipeline the fake intercepts. Stub the query embedding and seed expected chunk/record rows; the vector ranking on SQLite has to be shimmed (pgvector ops are PG-only) but the service plumbing — auto-dispatch, where-scope, owner hydration, SearchResult shape — exercises end-to-end.
+
+```php
+use Atlasphp\Atlas\Atlas;
+use Atlasphp\Atlas\Testing\EmbeddingsResponseFake;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
+
+it('returns chunked results scoped to the chunkable class', function () {
+    Atlas::fake([
+        EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]]),
+    ]);
+
+    // On Postgres CI, real pgvector macros are registered automatically.
+    // On SQLite/local, shim them so the service can build a runnable query.
+    if (DB::connection()->getDriverName() !== 'pgsql') {
+        $shimDistance = fn ($column, $embedding, $as = 'distance') => $this->selectRaw("(1.0 / (id + 1)) AS {$as}");
+        $shimOrder = fn ($column, $embedding, $direction = 'asc') => $this->orderBy('id', $direction);
+        $shimWhere = fn ($column, $embedding, $minSimilarity = 0.5) => $this->orderBy('id');
+
+        Builder::macro('selectVectorDistance', $shimDistance);
+        Builder::macro('orderByVectorDistance', $shimOrder);
+        Builder::macro('whereVectorSimilarTo', $shimWhere);
+        QueryBuilder::macro('selectVectorDistance', $shimDistance);
+        QueryBuilder::macro('orderByVectorDistance', $shimOrder);
+        QueryBuilder::macro('whereVectorSimilarTo', $shimWhere);
+    }
+
+    $project = Project::factory()->create();
+    // Seed a chunk row directly — assumes ChunkContentService has run
+    // previously or the test bypasses the reconciler.
+    \Atlasphp\Atlas\Persistence\Models\Chunk::create([
+        'chunkable_type' => $project->getMorphClass(),
+        'chunkable_id' => $project->id,
+        'ord' => 0,
+        'heading_path' => 'Intro',
+        'content' => 'project body chunk',
+        'content_hash' => 'h0',
+        'token_count' => 5,
+        'embedding_model' => 'text-embedding-3-small',
+        'embedded_at' => now(),
+        // Postgres: 'embedding' => fakeEmbeddingVector(0.1),
+    ]);
+
+    $results = Atlas::similaritySearch(Project::class, 'find it', ['limit' => 5]);
+
+    expect($results)->toHaveCount(1);
+    expect($results->first()->record)->toBeInstanceOf(Project::class);
+    expect($results->first()->headingPath)->toBe('Intro');
+    expect($results->first()->content)->toBe('project body chunk');
+});
+```
+
+For whole-record search (`HasVectorEmbeddings`), the same shim applies — pre-populate the model's `embedding` column on PG, then call `Atlas::similaritySearch(Note::class, $query)` and assert the returned `Collection<SearchResult>`.
+
+The fake records the embedding request so you can also assert `min_similarity` / scope behavior didn't accidentally double-embed:
+
+```php
+$fake = Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3]])]);
+Atlas::similaritySearch(Project::class, 'q', ['limit' => 5]);
+expect($fake->recorded())->toHaveCount(1);
+```
+
 ### Moderation
 
 ```php

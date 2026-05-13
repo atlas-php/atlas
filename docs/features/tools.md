@@ -319,6 +319,29 @@ $response->annotations;
 
 When [persistence](/advanced/persistence) is enabled, provider tool calls are automatically logged as `ExecutionToolCall` records with `type = provider`.
 
+## Built-in Tools
+
+Atlas ships one tool consumers can attach to an agent without writing any PHP: `SimilaritySearch`. It runs semantic search over an Eloquent model and auto-detects whether to query the model's whole-record embedding column or its chunked embeddings — same agent-facing shape either way.
+
+```php
+use Atlasphp\Atlas\Agent;
+use Atlasphp\Atlas\Tools\SimilaritySearch;
+
+class SupportAgent extends Agent
+{
+    public function tools(): array
+    {
+        return [
+            SimilaritySearch::usingModel(Project::class, limit: 5)
+                ->withName('search_projects')
+                ->withDescription('Search project briefs by semantic similarity.'),
+        ];
+    }
+}
+```
+
+See [Similarity Search](/features/similarity-search) for the full options reference, including `minSimilarity`, owner-scope callbacks, and the legacy custom-column path for non-standard models.
+
 ## API Reference
 
 ### Tool Methods
