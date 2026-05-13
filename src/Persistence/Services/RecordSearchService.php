@@ -32,7 +32,7 @@ class RecordSearchService
 
     /**
      * @param  class-string<Model>  $model
-     * @param  array{limit?: int, min_similarity?: float|null, where?: Closure}  $options
+     * @param  array{limit?: int, min_similarity?: float|null, where?: Closure, ids?: int|string|array<int, int|string>}  $options
      * @return Collection<int, SearchResult>
      */
     public function search(string $model, string $query, array $options = []): Collection
@@ -46,15 +46,26 @@ class RecordSearchService
         $config = $sample->embeddable();
         $column = $config['column'];
         $tableName = $sample->getTable();
+        $keyName = $sample->getKeyName();
 
         $limit = (int) ($options['limit'] ?? 5);
         $minSimilarity = $options['min_similarity'] ?? null;
         $whereCallback = $options['where'] ?? null;
+        $ids = $this->normalizeIds($options['ids'] ?? null);
 
         if ($minSimilarity !== null && ($minSimilarity < 0.0 || $minSimilarity > 1.0)) {
             throw new \InvalidArgumentException(
                 "min_similarity must be between 0.0 and 1.0, got {$minSimilarity}."
             );
+        }
+
+        // Empty `ids => []` means "no records to search" — return without
+        // touching the embedding API at all.
+        if ($ids === []) {
+            /** @var Collection<int, SearchResult> $empty */
+            $empty = new Collection;
+
+            return $empty;
         }
 
         $vector = $this->resolver->resolve($query);
@@ -70,6 +81,10 @@ class RecordSearchService
             $builder->whereVectorSimilarTo($column, $vector, (float) $minSimilarity);
         } else {
             $builder->orderByVectorDistance($column, $vector);
+        }
+
+        if ($ids !== null) {
+            $builder->whereIn($keyName, $ids);
         }
 
         if ($whereCallback instanceof Closure) {
@@ -98,5 +113,24 @@ class RecordSearchService
                 similarity: 1.0 - (float) $rawDistance,
             );
         })->sortByDesc('similarity')->values();
+    }
+
+    /**
+     * Coerce the `ids` option into a flat array, or null if not set.
+     *
+     * Accepts a single int|string or an array of either. An empty array
+     * passes through (caller signaled "search nothing"); null means "no
+     * scoping" and the search runs across all records of the model.
+     *
+     * @param  int|string|array<int, int|string>|null  $ids
+     * @return array<int, int|string>|null
+     */
+    protected function normalizeIds(int|string|array|null $ids): ?array
+    {
+        if ($ids === null) {
+            return null;
+        }
+
+        return is_array($ids) ? array_values($ids) : [$ids];
     }
 }

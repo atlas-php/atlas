@@ -55,6 +55,7 @@ class SimilaritySearch extends Tool
      * @param  float|null  $minSimilarity  Cosine similarity floor (0.0–1.0). Null disables the floor.
      * @param  int  $limit  Max results returned to the agent.
      * @param  Closure|null  $query  Additional owner-scope constraints. Receives an Eloquent Builder.
+     * @param  int|string|array<int, int|string>|null  $ids  Restrict the search to specific owner IDs. Pass a single id or an array; an empty array short-circuits to zero results. Combines with `$query` (both apply).
      * @param  string|null  $embedProvider  Override the default embed provider (only respected for legacy whole-record path).
      * @param  string|null  $embedModel  Override the default embed model.
      */
@@ -64,6 +65,7 @@ class SimilaritySearch extends Tool
         ?float $minSimilarity = null,
         int $limit = 10,
         ?Closure $query = null,
+        int|string|array|null $ids = null,
         ?string $embedProvider = null,
         ?string $embedModel = null,
     ): self {
@@ -76,13 +78,16 @@ class SimilaritySearch extends Tool
             || is_subclass_of($model, VectorEmbeddable::class);
 
         if ($usesStandardTraits && $embedProvider === null && $embedModel === null) {
-            $instance = new self(function (string $input) use ($model, $minSimilarity, $limit, $query) {
+            $instance = new self(function (string $input) use ($model, $minSimilarity, $limit, $query, $ids) {
                 // The predicate is intentionally `!== null` (not falsy) so
                 // legitimate floor values like 0.0 and limit 0 pass through.
+                // An empty `ids => []` is preserved (it means "search nothing"
+                // in the services); the `is_array && empty` arm catches that.
                 return Atlas::similaritySearch($model, $input, array_filter([
                     'limit' => $limit,
                     'min_similarity' => $minSimilarity,
                     'where' => $query,
+                    'ids' => $ids,
                 ], fn ($v): bool => $v !== null));
             });
         } else {
@@ -104,7 +109,12 @@ class SimilaritySearch extends Tool
                     : 'embedding';
             }
 
-            $instance = new self(function (string $input) use ($model, $resolvedColumn, $minSimilarity, $limit, $query, $embedProvider, $embedModel) {
+            $instance = new self(function (string $input) use ($model, $resolvedColumn, $minSimilarity, $limit, $query, $ids, $embedProvider, $embedModel) {
+                // Empty `ids => []` short-circuits without touching the embedding API.
+                if (is_array($ids) && $ids === []) {
+                    return collect();
+                }
+
                 $resolver = app(EmbeddingResolver::class);
 
                 $embedding = ($embedProvider || $embedModel)
@@ -112,6 +122,11 @@ class SimilaritySearch extends Tool
                     : $resolver->resolve($input);
 
                 $builder = $model::query();
+
+                if ($ids !== null) {
+                    $sample = new $model;
+                    $builder->whereIn($sample->getKeyName(), is_array($ids) ? $ids : [$ids]);
+                }
 
                 if ($query !== null) {
                     $query($builder);

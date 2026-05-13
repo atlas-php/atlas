@@ -148,13 +148,22 @@ it('skips registration when pgvector is not available', function () {
 // SQL generation tests require a real PostgreSQL connection.
 // Here we test that macros are correctly registered and validate inputs.
 
-it('registers all four macros on pgsql', function () {
+it('registers all five macros on pgsql', function () {
+    // Laravel 11+ ships native methods for `whereVectorSimilarTo`,
+    // `whereVectorDistanceLessThan`, `orWhereVectorDistanceLessThan`,
+    // `selectVectorDistance`, and `orderByVectorDistance` on Query\Builder.
+    // Macro registrations are still made for back-compat with older Laravel
+    // versions; on modern Laravel the native methods shadow the macros via
+    // normal PHP method resolution. `orWhereVectorSimilarTo` is the only one
+    // Laravel does not ship natively — that macro is reachable on every
+    // supported Laravel.
     $original = config('database.default');
     config(['database.default' => 'pgsql']);
     VectorQueryMacros::register();
     config(['database.default' => $original]);
 
     expect(Builder::hasMacro('whereVectorSimilarTo'))->toBeTrue()
+        ->and(Builder::hasMacro('orWhereVectorSimilarTo'))->toBeTrue()
         ->and(Builder::hasMacro('whereVectorDistanceLessThan'))->toBeTrue()
         ->and(Builder::hasMacro('selectVectorDistance'))->toBeTrue()
         ->and(Builder::hasMacro('orderByVectorDistance'))->toBeTrue();

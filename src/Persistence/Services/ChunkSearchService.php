@@ -35,7 +35,7 @@ class ChunkSearchService
 
     /**
      * @param  class-string<Model>  $chunkable
-     * @param  array{limit?: int, min_similarity?: float|null, where?: Closure}  $options
+     * @param  array{limit?: int, min_similarity?: float|null, where?: Closure, ids?: int|string|array<int, int|string>}  $options
      * @return Collection<int, SearchResult>
      */
     public function search(string $chunkable, string $query, array $options = []): Collection
@@ -47,11 +47,21 @@ class ChunkSearchService
         $limit = (int) ($options['limit'] ?? 5);
         $minSimilarity = $options['min_similarity'] ?? null;
         $whereCallback = $options['where'] ?? null;
+        $ids = $this->normalizeIds($options['ids'] ?? null);
 
         if ($minSimilarity !== null && ($minSimilarity < 0.0 || $minSimilarity > 1.0)) {
             throw new \InvalidArgumentException(
                 "min_similarity must be between 0.0 and 1.0, got {$minSimilarity}."
             );
+        }
+
+        // Empty `ids => []` means "no records to search" — return immediately
+        // rather than running a query whose whereIn would match nothing anyway.
+        if ($ids === []) {
+            /** @var Collection<int, SearchResult> $empty */
+            $empty = new Collection;
+
+            return $empty;
         }
 
         $vector = $this->resolver->resolve($query);
@@ -70,6 +80,13 @@ class ChunkSearchService
             $chunkQuery->whereVectorSimilarTo('embedding', $vector, (float) $minSimilarity);
         } else {
             $chunkQuery->orderByVectorDistance('embedding', $vector);
+        }
+
+        // Direct whereIn on chunkable_id — faster than the owner-subquery
+        // path used by the where callback because no join into the owner
+        // table is needed when the consumer already has the IDs.
+        if ($ids !== null) {
+            $chunkQuery->whereIn('chunkable_id', $ids);
         }
 
         if ($whereCallback instanceof Closure) {
@@ -118,5 +135,24 @@ class ChunkSearchService
             })
             ->sortByDesc('similarity')
             ->values();
+    }
+
+    /**
+     * Coerce the `ids` option into a flat array, or null if not set.
+     *
+     * Accepts a single int|string or an array of either. An empty array
+     * passes through (caller signaled "search nothing"); null means "no
+     * scoping" and the search runs across all records of the chunkable.
+     *
+     * @param  int|string|array<int, int|string>|null  $ids
+     * @return array<int, int|string>|null
+     */
+    protected function normalizeIds(int|string|array|null $ids): ?array
+    {
+        if ($ids === null) {
+            return null;
+        }
+
+        return is_array($ids) ? array_values($ids) : [$ids];
     }
 }

@@ -248,3 +248,77 @@ it('throws AtlasException when chunk rows return without a distance column', fun
     expect(fn () => app(ChunkSearchService::class)->search(FakeSearchDoc::class, 'q', ['limit' => 1]))
         ->toThrow(AtlasException::class, 'VectorQueryMacros may not be registered');
 });
+
+// ─── ids filter ─────────────────────────────────────────────────────────────
+//
+// The `ids` option scopes search to specific owner records. Single int or
+// array of ints. Empty array short-circuits without touching the embedding
+// API. Combines with `where` callback (both filters apply).
+
+it('scopes results to a single id when ids is an int', function () {
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
+
+    $a = FakeSearchDoc::create(['title' => 'A', 'body' => 'b']);
+    $b = FakeSearchDoc::create(['title' => 'B', 'body' => 'b']);
+    $c = FakeSearchDoc::create(['title' => 'C', 'body' => 'b']);
+    seedFakeChunk($a, 0, 'S', 'content A');
+    seedFakeChunk($b, 0, 'S', 'content B');
+    seedFakeChunk($c, 0, 'S', 'content C');
+
+    $results = Atlas::similaritySearch(FakeSearchDoc::class, 'q', ['limit' => 5, 'ids' => $b->id]);
+
+    expect($results)->toHaveCount(1);
+    expect($results->first()->record->id)->toBe($b->id);
+    expect($results->first()->content)->toBe('content B');
+});
+
+it('scopes results to multiple ids when ids is an array', function () {
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
+
+    $a = FakeSearchDoc::create(['title' => 'A', 'body' => 'b']);
+    $b = FakeSearchDoc::create(['title' => 'B', 'body' => 'b']);
+    $c = FakeSearchDoc::create(['title' => 'C', 'body' => 'b']);
+    seedFakeChunk($a, 0, 'S', 'content A');
+    seedFakeChunk($b, 0, 'S', 'content B');
+    seedFakeChunk($c, 0, 'S', 'content C');
+
+    $results = Atlas::similaritySearch(FakeSearchDoc::class, 'q', ['limit' => 5, 'ids' => [$a->id, $c->id]]);
+
+    expect($results)->toHaveCount(2);
+    expect($results->pluck('record.id')->all())->toEqualCanonicalizing([$a->id, $c->id]);
+});
+
+it('returns empty Collection without calling the embedding API when ids is an empty array', function () {
+    $fake = Atlas::fake();
+
+    FakeSearchDoc::create(['title' => 'A', 'body' => 'b']);
+
+    $results = Atlas::similaritySearch(FakeSearchDoc::class, 'q', ['ids' => []]);
+
+    expect($results)->toBeInstanceOf(Collection::class);
+    expect($results)->toHaveCount(0);
+    // Critical: no embed call — the short-circuit must avoid the API hit
+    // entirely (this is the fast-path for "user has no records to search").
+    expect(count($fake->recorded()))->toBe(0);
+});
+
+it('combines ids and where callback (both filters apply)', function () {
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
+
+    $a = FakeSearchDoc::create(['title' => 'A', 'user_id' => 1, 'body' => 'b']);
+    $b = FakeSearchDoc::create(['title' => 'B', 'user_id' => 2, 'body' => 'b']);
+    $c = FakeSearchDoc::create(['title' => 'C', 'user_id' => 1, 'body' => 'b']);
+    seedFakeChunk($a, 0, 'S', 'A content');
+    seedFakeChunk($b, 0, 'S', 'B content');
+    seedFakeChunk($c, 0, 'S', 'C content');
+
+    // ids says {a, b}; where says user_id=1. Intersection: {a}.
+    $results = Atlas::similaritySearch(FakeSearchDoc::class, 'q', [
+        'limit' => 5,
+        'ids' => [$a->id, $b->id],
+        'where' => fn ($q) => $q->where('user_id', 1),
+    ]);
+
+    expect($results)->toHaveCount(1);
+    expect($results->first()->record->id)->toBe($a->id);
+});

@@ -30,6 +30,7 @@ class VectorQueryMacros
         }
 
         static::registerWhereVectorSimilarTo();
+        static::registerOrWhereVectorSimilarTo();
         static::registerWhereVectorDistanceLessThan();
         static::registerSelectVectorDistance();
         static::registerOrderByVectorDistance();
@@ -124,6 +125,30 @@ class VectorQueryMacros
 
             /** @var Builder $this */
             return $this->whereRaw("{$column} <=> ?::vector <= ?", [$literal, $maxDistance]);
+        });
+    }
+
+    /**
+     * OR variant of whereVectorSimilarTo. Same predicate (`<= maxDistance`),
+     * but combined into the surrounding WHERE group with OR. Does NOT add
+     * the ORDER BY clause — when you're mixing similarity into an OR group,
+     * the caller decides ordering.
+     *
+     * Laravel 11+ ships `whereVectorSimilarTo` natively but does not ship
+     * an `orWhereVectorSimilarTo` variant, so this macro is reachable as
+     * a real call (not shadowed by a native Query\Builder method).
+     */
+    protected static function registerOrWhereVectorSimilarTo(): void
+    {
+        Builder::macro('orWhereVectorSimilarTo', function (string $column, string|array $embedding, float $minSimilarity = 0.5): Builder {
+            VectorQueryMacros::validateColumnName($column);
+
+            $vector = VectorQueryMacros::resolveEmbedding($embedding);
+            $literal = VectorQueryMacros::toVectorLiteral($vector);
+            $maxDistance = 1.0 - $minSimilarity;
+
+            /** @var Builder $this */
+            return $this->orWhereRaw("{$column} <=> ?::vector <= ?", [$literal, $maxDistance]);
         });
     }
 

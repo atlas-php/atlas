@@ -44,7 +44,7 @@ The return type is the same in both modes: `Collection<SearchResult>`. Consumers
 
 ```php
 $results = Atlas::similaritySearch(
-    chunkable: Project::class,
+    model: Project::class,
     query: 'when does the contract end',
 );
 ```
@@ -57,6 +57,7 @@ Default limit is 5; no minimum similarity floor.
 $results = Atlas::similaritySearch(Project::class, $query, [
     'limit' => 10,                       // top-K, default 5
     'min_similarity' => 0.6,             // optional cosine-similarity floor (0.0–1.0)
+    'ids' => [1, 2, 5, 8, 13],           // optional scope to specific owner IDs
     'where' => fn ($q) => $q             // optional scope on the owner table
         ->where('user_id', auth()->id())
         ->where('archived', false),
@@ -64,6 +65,33 @@ $results = Atlas::similaritySearch(Project::class, $query, [
 ```
 
 The `where` callback receives an Eloquent Builder for the **owner model** — even in chunk-mode, where the underlying query is on `atlas_chunks`. The service applies your scope as a subquery against the owner table, so a query like `where('user_id', auth()->id())` works the same whether the model uses chunked or whole-record embeddings.
+
+### Scoping to specific records (`ids`)
+
+Pass `ids` to restrict the search to a known set of owner records — a single ID or an array. Combines with `where` (both filters apply). An empty array short-circuits to zero results without touching the embedding API at all.
+
+```php
+// Single record
+$results = Atlas::similaritySearch(Project::class, $query, ['ids' => 42]);
+
+// "These 5 projects, not the other 3" — the user's effective scope
+$results = Atlas::similaritySearch(Project::class, $query, [
+    'ids' => [1, 2, 5, 8, 13],
+]);
+
+// Combine with a permission scope — both filters apply (intersection)
+$results = Atlas::similaritySearch(Project::class, $query, [
+    'ids' => $userVisibleProjectIds,
+    'where' => fn ($q) => $q->where('archived', false),
+]);
+
+// Empty list short-circuits without an embedding API call
+// — useful when "the user has no records in scope" is a normal state
+$results = Atlas::similaritySearch(Project::class, $query, ['ids' => []]);
+// $results is an empty Collection; zero latency, zero API cost.
+```
+
+In chunked mode, `ids` translates to `WHERE chunkable_id IN (...)` directly on `atlas_chunks` — faster than the owner-table subquery the `where` callback uses. Reach for `ids` whenever you already have the IDs in hand; reach for `where` when you need a non-key predicate.
 
 ### SearchResult
 
@@ -115,7 +143,26 @@ SimilaritySearch::usingModel(
     limit: 10,                    // top-K
     query: fn ($q) => $q          // optional Builder scope
         ->where('archived', false),
+    ids: [1, 2, 5, 8, 13],        // optional fixed-scope owner IDs
 );
+```
+
+The `ids` parameter is the agent-facing equivalent of the facade's `ids` option. It's wired at tool-construction time, so it's the right shape for "this agent searches a specific tenant / team / topic." When the consumer doesn't know the IDs ahead of time and needs them per request, build a fresh tool inside the agent's `tools()` method:
+
+```php
+class ProjectSearchAgent extends Agent
+{
+    public function tools(): array
+    {
+        $teamProjectIds = auth()->user()->team->projects()->pluck('id')->all();
+
+        return [
+            SimilaritySearch::usingModel(Project::class, ids: $teamProjectIds, limit: 5)
+                ->withName('search_projects')
+                ->withDescription('Search this team\'s project briefs.'),
+        ];
+    }
+}
 ```
 
 For models without either trait, you can still construct a tool with a custom search closure:
@@ -131,6 +178,61 @@ SimilaritySearch::usingModel(
 ```
 
 That legacy path runs the column-based query directly without going through the unified dispatcher. Use it only when you need a non-default embedding provider or your model doesn't fit either standard trait.
+
+## Direct macro usage
+
+For consumers who need custom SQL — hybrid keyword + vector ranking, joins atlas's services don't model, distance thresholds with bespoke ordering — pgvector query-builder methods are available on `Illuminate\Database\Eloquent\Builder` and `Illuminate\Database\Query\Builder`. They wrap pgvector's cosine distance operator (`<=>`) and accept either a pre-computed `array<float>` or a `string` (auto-resolved via `EmbeddingResolver` when invoked through atlas's macros).
+
+::: info Laravel 11+ ships these methods natively
+On Laravel 11 and later, `Query\Builder` defines `selectVectorDistance`, `whereVectorSimilarTo`, `whereVectorDistanceLessThan`, `orWhereVectorDistanceLessThan`, and `orderByVectorDistance` as native methods. PHP's `__call` resolves real methods before macros, so on modern Laravel the native implementations execute — atlas's `Builder::macro(...)` registrations of the same names are present for back-compat with older Laravel versions but are shadowed at runtime. Atlas owns one variant Laravel does not ship: `orWhereVectorSimilarTo` is reachable as an atlas macro on every supported Laravel.
+
+The signatures below are Laravel's native ones on Laravel 11+, since that's what actually runs in production. The `String` input shorthand (passing a query string instead of a vector) only works through atlas's macros — Laravel's native methods accept an array vector only. If you need string-input auto-resolution on Laravel 11+, resolve the vector first via `app(EmbeddingResolver::class)->resolve($query)`.
+:::
+
+| Method | Signature | SQL it emits |
+|---|---|---|
+| `whereVectorSimilarTo` | `(string $column, array $vector, float $minSimilarity = 0.6, bool $order = true)` | `WHERE {column} <=> ?::vector <= (1 - minSimilarity)`, plus `ORDER BY {column} <=> ?::vector ASC` when `$order` is true. Combined predicate + ordering — the common case. |
+| `whereVectorDistanceLessThan` | `(string $column, array $vector, float $maxDistance, string $boolean = 'and')` | `WHERE {column} <=> ?::vector <= maxDistance`. Predicate only — pair with your own ordering. The `$boolean` parameter accepts `'or'` to compose into an OR group inline. |
+| `orWhereVectorDistanceLessThan` | `(string $column, array $vector, float $maxDistance)` | Same as above with `$boolean = 'or'`. |
+| `orWhereVectorSimilarTo` _(atlas)_ | `(string $column, string\|array $embedding, float $minSimilarity = 0.5)` | `OR {column} <=> ?::vector <= (1 - minSimilarity)`. No ORDER BY appended — caller decides ordering in an OR group. Reachable via atlas's macro because Laravel doesn't ship this variant. |
+| `selectVectorDistance` | `(string $column, array $vector, ?string $as = null)` | `SELECT ..., ({column} <=> ?::vector) AS {as}`. Exposes the raw distance for hybrid ranking. Default alias is `vector_distance`. |
+| `orderByVectorDistance` | `(string $column, array $vector)` | `ORDER BY {column} <=> ?::vector ASC`. Distance-ascending ordering without a floor. Laravel's native version has no direction parameter — pass through SQL ordering separately if you need DESC. |
+
+All Laravel-native methods throw `RuntimeException("Vector distance queries are only supported by Postgres.")` if invoked on a non-PostgreSQL connection.
+
+### Example: hybrid keyword + vector ranking
+
+```php
+$results = Project::query()
+    ->select('projects.*')
+    ->selectVectorDistance('embedding', $query, 'distance')
+    ->where('archived', false)
+    ->where(function ($q) use ($keyword) {
+        $q->where('title', 'ilike', "%{$keyword}%")
+          ->orWhereVectorDistanceLessThan('embedding', $keyword, 0.4);
+    })
+    ->orderBy('distance')
+    ->limit(20)
+    ->get();
+```
+
+`distance` is on every row, so you can rank with your own weighting (`similarity = 1 - distance`).
+
+### Example: distance threshold with custom ordering
+
+```php
+$candidates = Project::query()
+    ->whereVectorDistanceLessThan('embedding', $query, 0.35)
+    ->orderByDesc('priority')   // domain ordering, not similarity
+    ->limit(10)
+    ->get();
+```
+
+### Registration
+
+The macros register automatically when atlas boots, but **only on PostgreSQL connections**. `VectorQueryMacros::isPgvectorAvailable()` short-circuits on other drivers, so calling these macros on SQLite/MySQL fails loudly with "method does not exist" rather than producing invalid SQL.
+
+For the few cases where you need them registered before atlas boots (early service-provider work, console commands that bypass the kernel), call `VectorQueryMacros::register()` directly.
 
 ## Direct service access
 

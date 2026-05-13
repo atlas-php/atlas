@@ -193,7 +193,9 @@ class AtlasManager
      *
      * @param  class-string<Model>  $model  The model class to search.
      * @param  string  $query  Raw text query — embedded automatically.
-     * @param  array{limit?: int, min_similarity?: float|null, where?: \Closure}  $options
+     * @param  array{limit?: int, min_similarity?: float|null, where?: \Closure, ids?: int|string|array<int, int|string>}  $options
+     *                                                                                                                               `ids` scopes the search to specific owner IDs (single int/string or array). Combines
+     *                                                                                                                               with `where` (both apply). Empty array short-circuits to zero results.
      * @return Collection<int, SearchResult>
      *
      * @throws AtlasException When the model uses neither trait.

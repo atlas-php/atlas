@@ -356,3 +356,67 @@ it('throws AtlasException when rows return without a distance column', function 
     expect(fn () => app(RecordSearchService::class)->search(FakeRecordSearchDoc::class, 'q'))
         ->toThrow(AtlasException::class, 'VectorQueryMacros may not be registered');
 });
+
+// ─── ids filter ─────────────────────────────────────────────────────────────
+
+it('scopes results to a single id when ids is an int', function () {
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
+
+    $a = seedRecord(FakeRecordSearchDoc::class, ['title' => 'A']);
+    $b = seedRecord(FakeRecordSearchDoc::class, ['title' => 'B']);
+    seedRecord(FakeRecordSearchDoc::class, ['title' => 'C']);
+
+    $results = app(RecordSearchService::class)
+        ->search(FakeRecordSearchDoc::class, 'q', ['ids' => $b->id]);
+
+    expect($results)->toHaveCount(1);
+    expect($results->first()->record->id)->toBe($b->id);
+});
+
+it('scopes results to multiple ids when ids is an array', function () {
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
+
+    $a = seedRecord(FakeRecordSearchDoc::class, ['title' => 'A']);
+    $b = seedRecord(FakeRecordSearchDoc::class, ['title' => 'B']);
+    $c = seedRecord(FakeRecordSearchDoc::class, ['title' => 'C']);
+
+    $results = app(RecordSearchService::class)
+        ->search(FakeRecordSearchDoc::class, 'q', ['ids' => [$a->id, $c->id]]);
+
+    expect($results)->toHaveCount(2);
+    expect($results->pluck('record.id')->all())->toEqualCanonicalizing([$a->id, $c->id]);
+});
+
+it('returns empty Collection without calling the embedding API when ids is an empty array', function () {
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
+    seedRecord(FakeRecordSearchDoc::class, ['title' => 'A']);
+
+    // Re-fake to clear the recorded auto-embed call from the seed and
+    // measure only the search-time API hits.
+    $fake = Atlas::fake();
+
+    $results = app(RecordSearchService::class)
+        ->search(FakeRecordSearchDoc::class, 'q', ['ids' => []]);
+
+    expect($results)->toHaveCount(0);
+    // Critical: no embed call — the short-circuit must avoid the API hit
+    // entirely (this is the fast-path for "user has no records to search").
+    expect(count($fake->recorded()))->toBe(0);
+});
+
+it('combines ids and where callback (both filters apply)', function () {
+    Atlas::fake([EmbeddingsResponseFake::make()->withEmbeddings([fakeEmbeddingVector(0.1)])]);
+
+    $a = seedRecord(FakeRecordSearchDoc::class, ['title' => 'A', 'user_id' => 1]);
+    $b = seedRecord(FakeRecordSearchDoc::class, ['title' => 'B', 'user_id' => 2]);
+    $c = seedRecord(FakeRecordSearchDoc::class, ['title' => 'C', 'user_id' => 1]);
+
+    $results = app(RecordSearchService::class)->search(
+        FakeRecordSearchDoc::class,
+        'q',
+        ['ids' => [$a->id, $b->id], 'where' => fn ($q) => $q->where('user_id', 1)]
+    );
+
+    expect($results)->toHaveCount(1);
+    expect($results->first()->record->id)->toBe($a->id);
+});

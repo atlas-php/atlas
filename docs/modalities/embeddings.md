@@ -310,6 +310,20 @@ class Project extends Model implements Chunkable
 
 `implements Chunkable` is required — the chunking services type-hint against this interface. The trait provides default implementations of every interface method.
 
+##### Override points
+
+`Chunkable` defines five methods; `HasChunkedEmbeddings` ships a working default for every one. Override on the model when you need to customize.
+
+| Method | Default behavior | Override when |
+|---|---|---|
+| `getChunkableField(): string` | Reads `protected string $chunkableField` if defined, else `'body'`. | The indexable column has a non-default name and you'd rather declare it once than ship the property. |
+| `shouldBeChunked(): bool` | Returns `true` when the indexable field is non-empty. | You want domain rules — only chunk published rows, only paid-tier users, only rows past a moderation gate. |
+| `getChunkableContent(): string` | Returns the indexable field as-is. | You want to inject synthetic context before chunking — prepend the title as an H1, append a structured-data summary, include parent-document breadcrumbs. |
+| `chunks(): MorphMany` | `$this->morphMany(Chunk::class, 'chunkable')->orderBy('ord')`. | Almost never — only if you're using a custom Chunk model and need a different relation configuration. |
+| `resolveChunker(): Chunker` | Per-model `protected ?string $chunker` → `config('atlas.embeddings.chunker')` → `MarkdownChunker`. | You want chunker selection driven by row data (e.g. `body_format === 'markdown'` vs `'transcript'`) rather than a static class reference. |
+
+The trait also exposes `chunkNow()` as a public method (see [Direct synchronous use](#direct-synchronous-use-no-queue-no-command)) — not part of the `Chunkable` interface, but always available on models that use the trait.
+
 #### 3. Register the model
 
 In `AppServiceProvider::boot()`:
@@ -324,6 +338,21 @@ public function boot(): void
 ```
 
 This registration is what the `atlas:chunk` sweep iterates. The trait also self-registers on first instantiation, but a fresh artisan process touches no models before the sweep runs, so the explicit registration is required.
+
+##### Registry API
+
+| Method | Purpose |
+|---|---|
+| `Atlas::registerChunkable(class-string<Model> $modelClass)` | Add a model class to the sweep registry. Throws `InvalidArgumentException` if the class isn't an Eloquent model or doesn't implement `Chunkable`. Idempotent — calling twice with the same class is safe. |
+| `Atlas::chunkables(): array<int, class-string<Model>>` | List every currently-registered class. Useful for diagnostics, dashboards, and writing your own conditional sweep logic. The `atlas:chunk --model=<class>` option validates against this list. |
+
+```php
+// In a health check or diagnostic command
+foreach (Atlas::chunkables() as $class) {
+    $dirty = $class::query()->whereColumn('content_hash', '!=', 'indexed_hash')->count();
+    $this->line("{$class}: {$dirty} dirty rows");
+}
+```
 
 #### 4. Schedule the sweep
 
