@@ -11,17 +11,37 @@ use Atlasphp\Atlas\Embeddings\Chunkers\Chunker;
 use Atlasphp\Atlas\Embeddings\Chunkers\MarkdownChunker;
 use Atlasphp\Atlas\Persistence\Models\Chunk;
 use Atlasphp\Atlas\Persistence\Services\ChunkContentService;
+use Atlasphp\Atlas\Queue\Jobs\ChunkContentJob;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Queue\SyncQueue;
+use Illuminate\Support\Facades\Queue;
 
 /**
  * Adds chunked embedding support to an Eloquent model.
  *
- * Maintains a content_hash column on save (so the sweep can find dirty rows)
- * and cascade-deletes related atlas_chunks rows on delete (no FK because the
- * relation is polymorphic). The actual chunking + embedding happens out of
- * band in the atlas:chunk artisan command — saving is intentionally
- * lightweight and synchronous.
+ * The trait wires three hooks:
+ *
+ *  1. `saving` — stamps `content_hash` from the chunkable field whenever
+ *     the field is dirty. Cheap, synchronous, runs on every save.
+ *  2. `saved` — dispatches `ChunkContentJob` with a settle-window delay
+ *     when `content_hash` actually changed. This is the on-demand
+ *     trigger that replaces polling: chunking happens within ~settle
+ *     seconds of an edit instead of waiting for the next sweep tick.
+ *     Disable with `atlas.embeddings.dispatch_on_save = false` to fall
+ *     back to sweep-only behavior.
+ *  3. `deleting` — cascade-deletes chunks for this owner (the relation
+ *     is polymorphic, so no FK can carry the delete).
+ *
+ * The `atlas:chunk` sweep stays as a backstop — it catches rows that
+ * bypass the save hook (raw `DB::table()->update()`, factories, etc.)
+ * and rows where dispatch was lost (Redis crash, worker outage). With
+ * dispatch-on-save enabled, the recommended cadence drops from
+ * every-minute to hourly.
+ *
+ * Multi-tenant: dispatch runs in the request's tenant context, so the
+ * queued job inherits the right connection through whichever tenancy
+ * package the consumer uses. Atlas itself stores nothing about tenancy.
  *
  * To opt a model in:
  *   1. Add the trait
@@ -56,6 +76,45 @@ trait HasChunkedEmbeddings
                 'content_hash',
                 $value === '' ? null : hash('xxh128', $value),
             );
+        });
+
+        static::saved(function (Chunkable&Model $model): void {
+            // `wasChanged()` only reports changes on UPDATE — Eloquent
+            // does not call `syncChanges()` in `performInsert()`, so a
+            // fresh INSERT looks unchanged. Compare the current attribute
+            // against `getOriginal()` instead: that returns null for
+            // newly-created rows (their original snapshot hasn't been
+            // synced yet at the `saved` event) and the prior value for
+            // updates.
+            if ($model->getAttribute('content_hash') === $model->getOriginal('content_hash')) {
+                return;
+            }
+
+            $config = app(AtlasConfig::class);
+            if (! $config->chunkDispatchOnSave) {
+                return;
+            }
+
+            // The sync queue runs jobs immediately and treats `release()`
+            // as a no-op delete (the job vanishes), while ShouldBeUnique
+            // keeps the lock held for `uniqueFor` seconds — so a sync
+            // consumer would lose chunked work and block re-dispatch.
+            // Skip the dispatch path entirely on sync; the safety-net
+            // sweep still catches the dirty row. Resolves the default
+            // queue connection (the one the dispatch would actually use).
+            if (Queue::connection() instanceof SyncQueue) {
+                return;
+            }
+
+            // `$model::class` not `static::class` — `static` here resolves
+            // to the trait-using class at trait-boot time, but multiple
+            // models share the trait and the closure runs late, so we
+            // want the actual instance's class. ChunkContentJob uses this
+            // to query::find(); morph map aliases would silently break
+            // that lookup.
+            ChunkContentJob::dispatch($model::class, $model->getKey())
+                ->onQueue($config->queue)
+                ->delay(now()->addSeconds($config->chunkSweepSettle));
         });
 
         static::deleting(function (Model $model): void {

@@ -88,8 +88,13 @@ it('throws AtlasException when the model class does not implement Chunkable', fu
     expect($spy->reconciled)->toBe([]);
 });
 
-it('calls reconcile on the ChunkContentService when the model is Chunkable', function () {
+it('reconciles a chunkable model whose updated_at is past the settle window', function () {
     $doc = FakeJobChunkableDoc::create(['body' => 'some body content']);
+    // Backdate past the default settle (60s) so the debounce guard doesn't
+    // release the job back to the queue.
+    FakeJobChunkableDoc::query()->whereKey($doc->id)
+        ->update(['updated_at' => now()->subMinutes(5)]);
+
     $job = new ChunkContentJob(FakeJobChunkableDoc::class, $doc->id);
     $spy = app(SpyChunkContentService::class);
 
@@ -98,4 +103,62 @@ it('calls reconcile on the ChunkContentService when the model is Chunkable', fun
     expect($spy->reconciled)->toHaveCount(1);
     expect($spy->reconciled[0])->toBeInstanceOf(FakeJobChunkableDoc::class);
     expect($spy->reconciled[0]->id)->toBe($doc->id);
+});
+
+it('short-circuits when content_hash matches indexed_hash', function () {
+    $doc = FakeJobChunkableDoc::create(['body' => 'already indexed body']);
+    $doc->indexed_hash = $doc->content_hash;
+    $doc->saveQuietly();
+
+    $job = new ChunkContentJob(FakeJobChunkableDoc::class, $doc->id);
+    $spy = app(SpyChunkContentService::class);
+
+    $job->handle($spy);
+
+    expect($spy->reconciled)->toBe([]);
+});
+
+it('short-circuits when index_failure_count is at or above max_failures', function () {
+    config(['atlas.embeddings.max_failures' => 3]);
+    AtlasConfig::refresh();
+
+    $doc = FakeJobChunkableDoc::create(['body' => 'poisoned content']);
+    $doc->index_failure_count = 3;
+    $doc->saveQuietly();
+    // Past the settle window so the debounce guard doesn't engage first.
+    FakeJobChunkableDoc::query()->whereKey($doc->id)
+        ->update(['updated_at' => now()->subMinutes(5)]);
+
+    $job = new ChunkContentJob(FakeJobChunkableDoc::class, $doc->id);
+    $spy = app(SpyChunkContentService::class);
+
+    $job->handle($spy);
+
+    expect($spy->reconciled)->toBe([]);
+});
+
+it('releases itself when the model was updated within the settle window', function () {
+    // settle = 60s (default). updated_at = now() (within the window).
+    $doc = FakeJobChunkableDoc::create(['body' => 'fresh edit']);
+
+    $job = new ChunkContentJob(FakeJobChunkableDoc::class, $doc->id);
+    $spy = app(SpyChunkContentService::class);
+
+    // No reconcile occurs. release() is a no-op on an unattached job
+    // ($this->job is null), so this just confirms the guard short-circuits.
+    // The integration test in HasChunkedEmbeddingsTest covers the full
+    // dispatch → release → re-process cycle.
+    $job->handle($spy);
+
+    expect($spy->reconciled)->toBe([]);
+});
+
+it('reports the correct unique id and retry budget', function () {
+    $job = new ChunkContentJob(FakeJobChunkableDoc::class, 42);
+
+    expect($job->uniqueId())->toBe(FakeJobChunkableDoc::class.':42');
+    expect($job->retryUntil())->toBeInstanceOf(DateTimeInterface::class);
+    // retryUntil should be ~1 hour from now (±a few seconds for test runtime).
+    $hourFromNow = now()->addHour()->getTimestamp();
+    expect(abs($job->retryUntil()->getTimestamp() - $hourFromNow))->toBeLessThan(5);
 });

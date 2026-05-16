@@ -13,26 +13,48 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Sweeps registered chunkable models for dirty rows and dispatches reconciler jobs.
+ * Sweeps registered chunkable models for dirty rows and dispatches
+ * reconciler jobs. Also prunes orphan chunk rows on every tick.
  *
- * Schedule:
- *   Schedule::command('atlas:chunk')->everyMinute()->withoutOverlapping();
+ * As of the dispatch-on-save release, the trait's `saved` hook is
+ * the primary trigger and this command is a backstop for rows that
+ * bypass model events (raw `DB::table()->update()`, mass factory
+ * seeds, prior data, queue outages) plus the legacy code path for
+ * consumers running with `atlas.embeddings.dispatch_on_save = false`.
  *
- * The settle period (config: embeddings.sweep_settle) prevents re-embedding
- * mid-edit: a row whose updated_at is more recent than NOW() - settle is
- * not eligible. After max_failures consecutive failures, a row is excluded
- * from sweeps and shows up via the model's index_failure_count column.
+ * Recommended schedule:
+ *   Schedule::command('atlas:chunk')->hourly()->withoutOverlapping();
+ *
+ * The previously-recommended every-minute cadence still works; it's
+ * just unnecessary now that dispatch-on-save handles the hot path.
+ * Consumers wanting to split the orphan scan onto a different
+ * cadence can run `atlas:chunk --skip-orphans` here and schedule
+ * `atlas:prune-chunks` (daily) separately.
+ *
+ * Mechanics: scans each registered chunkable model for rows whose
+ * `content_hash` differs from `indexed_hash`, filters out rows
+ * inside the settle window or past the failure cap, and dispatches
+ * a `ChunkContentJob` per remaining row (capped at `sweep_batch`
+ * per tick). Orphan chunks (chunk rows whose owner no longer
+ * exists) are deleted unless `--skip-orphans` is passed.
+ *
+ * Scale note: the dirty predicate (`IS DISTINCT FROM`) is not
+ * served by a regular btree on `(content_hash, indexed_hash)`.
+ * Consumers expecting >1M-row tables should add a partial index
+ * — see ChunkedEmbeddingColumns docblock for the recommended DDL.
  */
 class ChunkCommand extends Command
 {
     protected $signature = 'atlas:chunk
-        {--model= : Only sweep this fully-qualified model class (default: all registered)}';
+        {--model= : Only sweep this fully-qualified model class (default: all registered)}
+        {--skip-orphans : Skip the orphan-chunk purge step (run atlas:prune-chunks separately)}';
 
     protected $description = 'Sweep dirty chunkable records and dispatch embedding reconciliation jobs.';
 
     public function handle(ChunkableRegistry $registry, AtlasConfig $config): int
     {
         $only = $this->option('model');
+        $skipOrphans = (bool) $this->option('skip-orphans');
         $classes = $registry->all();
 
         if ($only !== null) {
@@ -57,9 +79,11 @@ class ChunkCommand extends Command
 
         $totalDispatched = 0;
         $totalOrphansDeleted = 0;
-        // PG supports IS DISTINCT FROM and has a partial index keyed on it
-        // (see ChunkedEmbeddingColumns::add); use the same predicate so the
-        // index can be applied. Other drivers fall back to COALESCE.
+        // Postgres treats NULL-vs-value as distinct under `IS DISTINCT
+        // FROM`, which is the semantics we need (a fresh row has
+        // indexed_hash = NULL and content_hash = some-hash, and must be
+        // picked up). Other drivers don't have that operator; COALESCE
+        // approximates it.
         $isPostgres = DB::connection()->getDriverName() === 'pgsql';
         $dirtyPredicate = $isPostgres
             ? 'content_hash IS DISTINCT FROM indexed_hash'
@@ -78,22 +102,25 @@ class ChunkCommand extends Command
             // Polymorphic relations can't carry FK cascades, so chunks for
             // a hard-deleted owner can outlive the owner — most commonly
             // when a consumer mass-deletes (Eloquent skips model events on
-            // query-builder delete). Prune those orphans on every sweep.
+            // query-builder delete). Prune those orphans unless the caller
+            // opted out (e.g. running this hourly + atlas:prune-chunks daily).
             //
             // Use withoutGlobalScopes() so SoftDeletes-using owners are NOT
             // treated as orphans — the row still exists in the DB and can be
             // restored. Without this guard the sweep would prune chunks the
             // moment an owner is soft-deleted, losing the embedding work.
-            $orphanDeleted = $chunkModel::query()
-                ->where('chunkable_type', $morphClass)
-                ->whereNotIn(
-                    'chunkable_id',
-                    $class::query()->withoutGlobalScopes()->select($key),
-                )
-                ->delete();
-            if ($orphanDeleted > 0) {
-                $totalOrphansDeleted += $orphanDeleted;
-                $this->info('['.$class.'] pruned '.$orphanDeleted.' orphan chunk(s).');
+            if (! $skipOrphans) {
+                $orphanDeleted = $chunkModel::query()
+                    ->where('chunkable_type', $morphClass)
+                    ->whereNotIn(
+                        'chunkable_id',
+                        $class::query()->withoutGlobalScopes()->select($key),
+                    )
+                    ->delete();
+                if ($orphanDeleted > 0) {
+                    $totalOrphansDeleted += $orphanDeleted;
+                    $this->info('['.$class.'] pruned '.$orphanDeleted.' orphan chunk(s).');
+                }
             }
 
             $ids = $class::query()

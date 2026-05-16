@@ -272,11 +272,24 @@ return [
     | The chunked-embeddings keys below are used when a model includes the
     | HasChunkedEmbeddings trait. The chunker splits long content into pieces
     | sized to chunk_size (with chunk_overlap tokens of context between
-    | adjacent chunks), and a scheduled sweep reconciles edits against the
-    | atlas_chunks table. Token counts use a chars/4 heuristic — exact for
+    | adjacent chunks). Token counts use a chars/4 heuristic — exact for
     | OpenAI-family models within a few percent and dependency-free. Internal
     | hard limits live as class constants on MarkdownChunker; consumers who
     | need different limits swap in a custom chunker.
+    |
+    | Indexing trigger:
+    |   - `dispatch_on_save = true` (default): a chunkable model's `saved`
+    |     hook dispatches `ChunkContentJob` with a `sweep_settle` second
+    |     delay. Chunking happens within seconds of an edit. `atlas:chunk`
+    |     becomes a backstop and can run hourly.
+    |   - `dispatch_on_save = false`: skips the save-time dispatch entirely;
+    |     `atlas:chunk` runs every minute as the sole trigger (legacy mode).
+    |
+    | Cadences:
+    |   - sweep_settle  — delay before chunking after the last edit. Also
+    |                     filters the safety-net sweep's eligibility window.
+    |   - sweep_batch   — max jobs the safety-net sweep dispatches per tick.
+    |   - max_failures  — failure count past which a row is excluded.
     |
     */
 
@@ -285,6 +298,7 @@ return [
         'chunker' => MarkdownChunker::class,
         'chunk_size' => 512,
         'chunk_overlap' => 50,
+        'dispatch_on_save' => true,
         'sweep_batch' => 50,
         'sweep_settle' => 60,
         'max_failures' => 5,

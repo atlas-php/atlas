@@ -10,15 +10,28 @@ use Illuminate\Database\Schema\Blueprint;
  * Schema helper for adding chunked-embedding tracking columns to a consumer model's table.
  *
  * Adds the five columns the HasChunkedEmbeddings trait expects:
- *  - content_hash, indexed_hash: drives the dirty-row detection in the sweep.
+ *  - content_hash, indexed_hash: drives the dirty-row detection.
  *  - indexed_at: last successful chunk run.
  *  - last_index_error, index_failure_count: backoff for repeated failures.
  *
- * Also adds a composite index on (content_hash, indexed_hash) — useful for
- * point lookups on either column during diagnostics. The sweep's main
- * dirty-row predicate (`IS DISTINCT FROM`) isn't directly served by this
- * index; that path benefits from the partial index the sweep creates at
- * its own query layer.
+ * Also adds a composite btree index on (content_hash, indexed_hash) for
+ * diagnostic point lookups.
+ *
+ * Scale note. The safety-net sweep's dirty predicate is
+ * `content_hash IS DISTINCT FROM indexed_hash`, which a regular btree
+ * cannot serve — Postgres has no equality/range bound to use either
+ * column. With dispatch-on-save enabled (default) this rarely matters:
+ * the safety net runs hourly and processes a small bounded batch.
+ * Consumers expecting >1M rows in a chunkable table — particularly if
+ * they also disable dispatch-on-save — should add a partial index in
+ * their own migration:
+ *
+ *   CREATE INDEX {table}_dirty_idx
+ *   ON {table} (updated_at)
+ *   WHERE content_hash IS DISTINCT FROM indexed_hash;
+ *
+ * Atlas does not create this automatically — it's Postgres-only DDL and
+ * the cost/benefit only kicks in at scale.
  *
  * Usage in a consumer migration:
  *

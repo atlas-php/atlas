@@ -134,7 +134,7 @@ The tool name is automatically generated as `snake_case` from the class name. A 
 
 ## atlas:chunk
 
-Sweep registered chunkable models for dirty rows and dispatch reconciler jobs:
+Safety-net sweep for chunkable rows that bypassed dispatch-on-save (raw `DB::table()->update()`, mass seeds, queue outages, or consumers running with `dispatch_on_save = false`). Also prunes orphan chunks unless `--skip-orphans` is passed.
 
 ```bash
 php artisan atlas:chunk
@@ -142,21 +142,39 @@ php artisan atlas:chunk
 
 A row is "dirty" when its `content_hash` differs from `indexed_hash` and its `updated_at` is older than `atlas.embeddings.sweep_settle` seconds (default 60). Each dirty row dispatches one `ChunkContentJob` onto the configured queue. Rows that have hit `atlas.embeddings.max_failures` are excluded.
 
-Schedule it in `routes/console.php`:
+Recommended schedule:
 
 ```php
 use Illuminate\Support\Facades\Schedule;
 
-Schedule::command('atlas:chunk')->everyMinute()->withoutOverlapping();
+Schedule::command('atlas:chunk')->hourly()->withoutOverlapping();
+Schedule::command('atlas:prune-chunks')->daily()->withoutOverlapping();
 ```
 
-The sweep also prunes orphan chunks left behind by mass-delete (query-builder `delete()`, which skips model events). Soft-deleted owners are not treated as orphans — their chunks survive for restore.
+With dispatch-on-save enabled (default), the trait's `saved` hook handles the hot path; `atlas:chunk` is just a backstop. If you keep the orphan scan here, you can drop `atlas:prune-chunks`; if you split them, pass `--skip-orphans` to `atlas:chunk`.
 
 ### Options
 
 | Option | Description |
 |--------|-------------|
 | `--model={class}` | Only sweep the given fully-qualified model class. Default: every model registered via `Atlas::registerChunkable()`. |
+| `--skip-orphans` | Skip the orphan-chunk purge — run `atlas:prune-chunks` separately. |
+
+## atlas:prune-chunks
+
+Delete chunk rows whose owner record no longer exists. Use this when you want the orphan scan on a slower cadence than `atlas:chunk` (it's the more expensive of the two — a full `atlas_chunks` scan per chunkable type).
+
+```bash
+php artisan atlas:prune-chunks
+```
+
+Recommended cadence: daily. Soft-deleted owners are not treated as orphans — their chunks survive for restore.
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `--model={class}` | Only prune for the given chunkable class. Default: every registered chunkable model. |
 
 ## atlas:rechunk
 

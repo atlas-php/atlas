@@ -138,6 +138,36 @@ it('prunes orphan chunks left behind by mass-delete', function () {
     expect(Chunk::query()->where('chunkable_id', $a->id)->count())->toBe(1);
 });
 
+it('skips the orphan purge when --skip-orphans is passed', function () {
+    Queue::fake();
+
+    app(ChunkableRegistry::class)->register(FakeCommandDoc::class);
+    $a = FakeCommandDoc::create(['body' => 'A body']);
+    $b = FakeCommandDoc::create(['body' => 'B body']);
+
+    foreach ([$a, $b] as $doc) {
+        Chunk::create(array_merge([
+            'chunkable_type' => $doc->getMorphClass(),
+            'chunkable_id' => $doc->id,
+            'ord' => 0,
+            'heading_path' => null,
+            'content' => 'chunk for '.$doc->id,
+            'content_hash' => hash('xxh128', (string) $doc->id),
+            'token_count' => 1,
+            'embedding_model' => 'text-embedding-3-small',
+            'embedded_at' => now(),
+        ], fakeChunkEmbedding()));
+    }
+    FakeCommandDoc::query()->whereKey($b->id)->delete();
+    expect(Chunk::query()->where('chunkable_id', $b->id)->count())->toBe(1);
+
+    $this->artisan('atlas:chunk', ['--skip-orphans' => true])->assertExitCode(0);
+
+    // Orphan survived — consumer using --skip-orphans is expected to run
+    // atlas:prune-chunks separately.
+    expect(Chunk::query()->where('chunkable_id', $b->id)->count())->toBe(1);
+});
+
 class FakeSoftDeletingDoc extends Model implements Chunkable
 {
     use HasChunkedEmbeddings;
@@ -177,42 +207,12 @@ it('does not treat soft-deleted owners as orphans (preserves chunks for restore)
         'embedded_at' => now(),
     ], fakeChunkEmbedding()));
 
-    // Soft-delete via mass-query — this skips model events (like the trait's
-    // deleting hook that synchronously removes chunks). The chunks survive
-    // until the sweep runs, which used to wrongly prune them since the
-    // default query builder filters out soft-deleted rows. With the fix,
-    // withoutGlobalScopes() includes them in the owner subquery, so they're
-    // not flagged as orphans.
+    // Soft-delete via mass-query — this skips model events.
     FakeSoftDeletingDoc::query()->whereKey($doc->id)->delete();
     expect(Chunk::query()->where('chunkable_id', $doc->id)->count())->toBe(1);
 
     $this->artisan('atlas:chunk')->assertExitCode(0);
 
-    expect(Chunk::query()->where('chunkable_id', $doc->id)->count())->toBe(1);
-});
-
-it('leaves chunks alone when soft-deleted rows still live in the owner table', function () {
-    // The orphan check uses whereNotIn against the bare table query, so soft
-    // deletes (rows still present with deleted_at set) are NOT treated as
-    // orphans. That's deliberate: soft-deleted records can be restored, and
-    // re-chunking would be wasted work.
-    Queue::fake();
-
-    app(ChunkableRegistry::class)->register(FakeCommandDoc::class);
-    $doc = FakeCommandDoc::create(['body' => 'A']);
-    Chunk::create(array_merge([
-        'chunkable_type' => $doc->getMorphClass(),
-        'chunkable_id' => $doc->id,
-        'ord' => 0,
-        'heading_path' => null,
-        'content' => 'X',
-        'content_hash' => 'abc',
-        'token_count' => 1,
-        'embedding_model' => 'text-embedding-3-small',
-        'embedded_at' => now(),
-    ], fakeChunkEmbedding()));
-
-    $this->artisan('atlas:chunk')->assertExitCode(0);
     expect(Chunk::query()->where('chunkable_id', $doc->id)->count())->toBe(1);
 });
 

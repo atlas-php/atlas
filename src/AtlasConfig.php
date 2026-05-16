@@ -44,6 +44,7 @@ class AtlasConfig
         public readonly int $chunkSweepBatch = 50,
         public readonly int $chunkSweepSettle = 60,
         public readonly int $chunkMaxFailures = 5,
+        public readonly bool $chunkDispatchOnSave = true,
         public readonly ?string $cacheStore = null,
         public readonly string $cachePrefix = 'atlas',
         /** @var array{models: int, voices: int, embeddings: int} */
@@ -124,6 +125,7 @@ class AtlasConfig
             chunkSweepBatch: (int) config('atlas.embeddings.sweep_batch', 50),
             chunkSweepSettle: (int) config('atlas.embeddings.sweep_settle', 60),
             chunkMaxFailures: (int) config('atlas.embeddings.max_failures', 5),
+            chunkDispatchOnSave: (bool) config('atlas.embeddings.dispatch_on_save', true),
             cacheStore: config('atlas.cache.store'),
             cachePrefix: config('atlas.cache.prefix', 'atlas'),
             cacheTtl: config('atlas.cache.ttl', ['models' => 86400, 'voices' => 3600, 'embeddings' => 0]),

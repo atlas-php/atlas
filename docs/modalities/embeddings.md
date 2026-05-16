@@ -249,11 +249,13 @@ For long-form content that gets edited continuously, a single whole-record embed
 ### How it works
 
 1. The model uses the `HasChunkedEmbeddings` trait and declares which column holds the content.
-2. On save, the trait recomputes a `content_hash` of the column. **No embedding work happens on the save path.**
-3. A scheduled `atlas:chunk` artisan command sweeps dirty rows (`content_hash != indexed_hash`) past a settle period and dispatches a reconciler job per row.
+2. On save, the trait recomputes a `content_hash` of the column and dispatches `ChunkContentJob` with a `sweep_settle`-second delay. **No embedding work happens on the save path itself.**
+3. The job is `ShouldBeUnique` per row, so rapid edits collapse into a single queued job; it self-releases until `sweep_settle` seconds have passed since the last edit. Chunking runs once per edit burst, against the latest content.
 4. The job runs the configured chunker, diffs the result against existing chunks by content hash, and embeds only the chunks that are new or changed.
 
-A single-paragraph edit on a 20-chunk record re-embeds 1–2 chunks, not 20.
+A single-paragraph edit on a 20-chunk record re-embeds 1–2 chunks, not 20. A 60-save typing burst within a minute triggers one embed at the end, not 60.
+
+Set `atlas.embeddings.dispatch_on_save = false` to disable the save-hook trigger and rely solely on the `atlas:chunk` sweep (legacy mode).
 
 ### Setup
 
@@ -354,15 +356,16 @@ foreach (Atlas::chunkables() as $class) {
 }
 ```
 
-#### 4. Schedule the sweep
+#### 4. Schedule the safety-net commands
 
-In `routes/console.php` or `App\Console\Kernel`:
+Dispatch-on-save handles the hot path. Schedule `atlas:chunk` as a backstop (raw SQL updates, queue outages) and `atlas:prune-chunks` for orphan cleanup:
 
 ```php
-Schedule::command('atlas:chunk')->everyMinute()->withoutOverlapping();
+Schedule::command('atlas:chunk')->hourly()->withoutOverlapping();
+Schedule::command('atlas:prune-chunks')->daily()->withoutOverlapping();
 ```
 
-Saving a model with a non-empty `body` marks it dirty; the next sweep picks it up after the settle period.
+If you prefer everything in one command, keep the legacy `Schedule::command('atlas:chunk')->everyMinute()` — it still works and still does the orphan scan.
 
 ### Direct synchronous use (no queue, no command)
 
@@ -397,8 +400,9 @@ All knobs live under `config('atlas.embeddings')`:
     'chunker' => MarkdownChunker::class,    // changing this does NOT re-chunk existing rows
     'chunk_size' => 512,            // soft cap per chunk, in tokens (chars/4 heuristic) — does NOT re-chunk on change
     'chunk_overlap' => 50,          // tokens of overlap between adjacent chunks — does NOT re-chunk on change
-    'sweep_batch' => 50,            // rows the sweep dispatches per model per run
-    'sweep_settle' => 60,           // seconds since updated_at before a dirty row is eligible
+    'dispatch_on_save' => true,     // dispatch ChunkContentJob from the saved hook (false = sweep-only)
+    'sweep_batch' => 50,            // rows the safety-net sweep dispatches per model per run
+    'sweep_settle' => 60,           // seconds to wait after the last edit before chunking (also debounces dispatch-on-save)
     'max_failures' => 5,            // attempts before a row is excluded from sweeps
 ],
 ```
@@ -467,7 +471,7 @@ class Transcript extends Model implements Chunkable
 
 ### Orphan cleanup
 
-Polymorphic relations can't carry FK cascades, so deleting an owner row via Eloquent's mass-delete (`Project::where(...)->delete()`) bypasses the trait's `deleting` hook and would leave chunks behind. The `atlas:chunk` sweep cleans these up automatically — every run prunes any chunk whose `chunkable_id` is no longer present in its owner table. Soft-deleted rows are not treated as orphans by the sweep — the row still exists in the table.
+Polymorphic relations can't carry FK cascades, so deleting an owner row via Eloquent's mass-delete (`Project::where(...)->delete()`) bypasses the trait's `deleting` hook and would leave chunks behind. Both `atlas:chunk` (when run without `--skip-orphans`) and the dedicated `atlas:prune-chunks` command clean these up — every run prunes any chunk whose `chunkable_id` is no longer present in its owner table. Split the orphan scan onto its own daily schedule (`atlas:prune-chunks`) if you want `atlas:chunk` to run frequently without paying for the full `atlas_chunks` scan each tick. Soft-deleted rows are not treated as orphans — the row still exists in the table.
 
 If you delete owner rows one-by-one via `$model->delete()` or `Model::destroy(...)`, the trait fires its `deleting` hook synchronously and chunks are removed immediately. This applies to both hard deletes and soft deletes — `$model->delete()` on a `SoftDeletes` model fires `deleting`, so its chunks are wiped even though the owner row remains. After `restore()`, the owner's content is intact but its chunks are gone. The sweep won't automatically re-chunk the restored row because the delete didn't touch the hash columns — `content_hash` still equals `indexed_hash` from the last successful sweep, so the dirty-row predicate sees no work to do. To regenerate embeddings, call `$model->chunkNow()` inline, run `php artisan atlas:rechunk "App\Models\Project" {id}` to defer to the queue, or touch the indexed field on the model (which triggers the saving hook and re-hashes `content_hash`). This avoids stale embeddings accumulating forever for soft-deleted records that are never restored.
 
