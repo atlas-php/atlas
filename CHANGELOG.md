@@ -8,6 +8,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 ---
 
+## [v3.1.1](https://github.com/atlas-php/atlas/releases/tag/v3.1.1) - 2026-05-16
+
+### Added
+
+- Dispatch-on-save chunked indexing — edits embed within seconds, no polling. Opt out: `atlas.embeddings.dispatch_on_save = false`.
+- `atlas:prune-chunks` — split the orphan scan onto its own (daily) schedule.
+- `atlas:chunk --skip-orphans` flag for when running prune separately.
+
+### Changed
+
+- Rapid edits to the same record collapse into one queued job and debounce until `sweep_settle` seconds after the last save (`ShouldBeUnique`).
+- Recommended `atlas:chunk` cadence: `hourly()` (was every-minute). It's a safety net now.
+
+### Migration
+
+**No breaking changes.** 
+
+Existing schedules keep working. Recommended:
+
+```php
+$schedule->command('atlas:chunk')->hourly()->withoutOverlapping();
+$schedule->command('atlas:prune-chunks')->daily()->withoutOverlapping();
+```
+
+---
+
 ## [v3.1.0](https://github.com/atlas-php/atlas/releases/tag/v3.1.0) - 2026-05-12
 
 ### Added

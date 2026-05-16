@@ -114,6 +114,7 @@ class AtlasServiceProvider extends ServiceProvider
                 Console\CleanStaleVoiceSessionsCommand::class,
                 Console\MiddlewareCommand::class,
                 Console\ChunkCommand::class,
+                Console\PruneChunksCommand::class,
                 Console\RechunkCommand::class,
             ]);
 

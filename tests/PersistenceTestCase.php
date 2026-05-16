@@ -32,6 +32,12 @@ abstract class PersistenceTestCase extends TestCase
     {
         $app['config']->set('atlas.persistence.enabled', true);
         $app['config']->set('atlas.persistence.table_prefix', 'atlas_');
+        // Disable dispatch-on-save by default in persistence tests so that
+        // creating chunkable models in test setup doesn't fan out to the
+        // queue (where the sync driver would invoke the real chunker +
+        // embedding call). Tests that specifically verify the dispatch
+        // path enable it explicitly with config() + AtlasConfig::refresh().
+        $app['config']->set('atlas.embeddings.dispatch_on_save', false);
         // Respect DB_CONNECTION from environment (e.g. CI PostgreSQL job).
         // Only set SQLite in-memory config when no external DB is configured.
         $dbConnection = env('DB_CONNECTION');

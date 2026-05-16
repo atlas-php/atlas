@@ -278,8 +278,9 @@ return [
         'chunker' => MarkdownChunker::class,    // default chunker for HasChunkedEmbeddings models
         'chunk_size' => 512,                    // soft cap per chunk, in tokens (chars/4 heuristic)
         'chunk_overlap' => 50,                  // tokens of overlap between adjacent chunks
+        'dispatch_on_save' => true,             // dispatch ChunkContentJob from the saved hook (set false to use sweep-only)
         'sweep_batch' => 50,                    // rows the atlas:chunk sweep dispatches per model per run
-        'sweep_settle' => 60,                   // seconds since updated_at before a dirty row is eligible
+        'sweep_settle' => 60,                   // seconds to wait after the last edit before chunking (also debounces dispatch-on-save)
         'max_failures' => 5,                    // attempts before a row is excluded from sweeps
     ],
 

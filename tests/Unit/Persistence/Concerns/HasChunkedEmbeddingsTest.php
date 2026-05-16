@@ -11,10 +11,12 @@ use Atlasphp\Atlas\Embeddings\Chunkers\MarkdownChunker;
 use Atlasphp\Atlas\Persistence\Concerns\HasChunkedEmbeddings;
 use Atlasphp\Atlas\Persistence\Models\Chunk;
 use Atlasphp\Atlas\Persistence\Schema\ChunkedEmbeddingColumns;
+use Atlasphp\Atlas\Queue\Jobs\ChunkContentJob;
 use Atlasphp\Atlas\Testing\EmbeddingsResponseFake;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
 
 class FakeChunkableDoc extends Model implements Chunkable
@@ -276,4 +278,92 @@ it('restore brings back model with no chunks (consumer calls chunkNow to regener
 
     expect($doc->trashed())->toBeFalse();
     expect($doc->fresh()->chunks)->toHaveCount(0);
+});
+
+// ─── Dispatch-on-save behaviour ─────────────────────────────────────────────
+//
+// PersistenceTestCase disables dispatch_on_save by default so tests above
+// can create chunkable models without queuing jobs. These tests opt back
+// in via config() + AtlasConfig::refresh().
+
+it('dispatches ChunkContentJob with a settle delay when content_hash changes on save', function () {
+    Queue::fake();
+    config(['atlas.embeddings.dispatch_on_save' => true]);
+    config(['atlas.embeddings.sweep_settle' => 60]);
+    AtlasConfig::refresh();
+
+    $doc = FakeChunkableDoc::create(['body' => 'first content']);
+
+    Queue::assertPushed(ChunkContentJob::class, function (ChunkContentJob $job) use ($doc) {
+        return $job->modelClass === FakeChunkableDoc::class
+            && $job->modelId === $doc->id
+            && $job->delay !== null;
+    });
+});
+
+it('does not dispatch ChunkContentJob when an unrelated column changes', function () {
+    config(['atlas.embeddings.dispatch_on_save' => true]);
+    AtlasConfig::refresh();
+
+    $doc = FakeChunkableDoc::create(['body' => 'stable content']);
+
+    Queue::fake();
+
+    // Touch timestamps without changing body — content_hash stays the same,
+    // saved() should observe no change and skip dispatch.
+    $doc->touch();
+
+    Queue::assertNotPushed(ChunkContentJob::class);
+});
+
+it('does not dispatch ChunkContentJob when dispatch_on_save is disabled', function () {
+    Queue::fake();
+    config(['atlas.embeddings.dispatch_on_save' => false]);
+    AtlasConfig::refresh();
+
+    FakeChunkableDoc::create(['body' => 'content that would have dispatched']);
+
+    Queue::assertNotPushed(ChunkContentJob::class);
+});
+
+it('collapses many rapid saves into a single queued job via ShouldBeUnique', function () {
+    Queue::fake();
+    config(['atlas.embeddings.dispatch_on_save' => true]);
+    AtlasConfig::refresh();
+
+    // Simulate a typing burst: many saves on the same row in quick
+    // succession. ShouldBeUnique (keyed on modelClass:modelId) should
+    // collapse all of these into one queued job — the second through
+    // Nth dispatches no-op because the unique lock is held.
+    $doc = FakeChunkableDoc::create(['body' => 'edit 0']);
+    for ($i = 1; $i <= 10; $i++) {
+        $doc->update(['body' => "edit {$i}"]);
+    }
+
+    Queue::assertPushed(ChunkContentJob::class, 1);
+    Queue::assertPushed(
+        ChunkContentJob::class,
+        fn (ChunkContentJob $job) => $job->modelClass === FakeChunkableDoc::class && $job->modelId === $doc->id,
+    );
+});
+
+it('dispatches separate unique jobs for different models', function () {
+    Queue::fake();
+    config(['atlas.embeddings.dispatch_on_save' => true]);
+    AtlasConfig::refresh();
+
+    // ShouldBeUnique keys per (modelClass, modelId), so distinct rows
+    // each get their own queued job.
+    $a = FakeChunkableDoc::create(['body' => 'doc A']);
+    $b = FakeChunkableDoc::create(['body' => 'doc B']);
+
+    Queue::assertPushed(ChunkContentJob::class, 2);
+    Queue::assertPushed(
+        ChunkContentJob::class,
+        fn (ChunkContentJob $job) => $job->modelId === $a->id,
+    );
+    Queue::assertPushed(
+        ChunkContentJob::class,
+        fn (ChunkContentJob $job) => $job->modelId === $b->id,
+    );
 });
