@@ -112,9 +112,33 @@ trait HasChunkedEmbeddings
             // want the actual instance's class. ChunkContentJob uses this
             // to query::find(); morph map aliases would silently break
             // that lookup.
-            ChunkContentJob::dispatch($model::class, $model->getKey())
-                ->onQueue($config->queue)
-                ->delay(now()->addSeconds($config->chunkSweepSettle));
+            //
+            // The whole dispatch is wrapped in `Connection::afterCommit()`
+            // so that everything — including the ShouldBeUnique cache lock
+            // acquisition inside `PendingDispatch::__destruct` — runs
+            // OUTSIDE any wrapping `DB::transaction()`. The Laravel-shipped
+            // `->afterCommit()` modifier on PendingDispatch only defers the
+            // queue push, not the lock check; with the database cache
+            // driver on Postgres the lock's INSERT-then-fallback-UPDATE
+            // pattern aborts the wrapping transaction (SQLSTATE 25P02).
+            //
+            // `Connection::afterCommit` invokes the closure immediately
+            // when no transaction is active and defers it to commit
+            // otherwise — works on every SQL driver (the method ships on
+            // the base Connection class), every cache driver (lock acquire
+            // always happens outside the transaction), every queue driver,
+            // with no consumer configuration. Using the model's connection
+            // (not the default) keeps tenant-per-connection setups correct.
+            $modelClass = $model::class;
+            $modelKey = $model->getKey();
+            $queue = $config->queue;
+            $delaySeconds = $config->chunkSweepSettle;
+
+            $model->getConnection()->afterCommit(static function () use ($modelClass, $modelKey, $queue, $delaySeconds): void {
+                ChunkContentJob::dispatch($modelClass, $modelKey)
+                    ->onQueue($queue)
+                    ->delay(now()->addSeconds($delaySeconds));
+            });
         });
 
         static::deleting(function (Model $model): void {

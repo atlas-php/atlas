@@ -8,6 +8,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 ---
 
+## [v3.1.2](https://github.com/atlas-php/atlas/releases/tag/v3.1.2) - 2026-05-16
+
+### Fixed
+
+- Chunkable saves wrapped in `DB::transaction()` no longer abort with SQLSTATE 25P02 on Postgres + database cache. Verified across redis, file, array, and database cache drivers.
+- Rolled-back saves no longer queue a job for content that never persisted.
+
+### Migration
+
+**No breaking changes.**
+
+---
+
 ## [v3.1.1](https://github.com/atlas-php/atlas/releases/tag/v3.1.1) - 2026-05-16
 
 ### Added

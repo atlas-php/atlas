@@ -29,6 +29,7 @@ use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\Usage;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
@@ -449,6 +450,93 @@ it('does not dispatch ProcessQueuedMessage when no queued messages exist', funct
 
     $middleware->handle($context, fn () => makeFakeExecutorResult());
 
+    Queue::assertNotPushed(ProcessQueuedMessage::class);
+});
+
+// Regression tests for v3.1.2 — the dispatch path must work when the
+// middleware runs inside a consumer-wrapping `DB::transaction()`. Before
+// the fix, ShouldBeUnique's cache-lock acquisition (in
+// PendingDispatch::__destruct) ran INSIDE the wrapping transaction and
+// on Postgres + database cache aborted it with SQLSTATE 25P02.
+
+it('defers ProcessQueuedMessage dispatch until the wrapping DB::transaction commits', function () {
+    Queue::fake();
+
+    $middleware = app(PersistConversation::class);
+
+    $conversation = Conversation::create(['agent' => 'test-agent']);
+
+    ConversationMessage::create([
+        'conversation_id' => $conversation->id,
+        'role' => MessageRole::User,
+        'content' => 'Queued question',
+        'sequence' => 1,
+        'is_active' => true,
+        'status' => MessageStatus::Queued,
+    ]);
+
+    $agent = makeTestAgent();
+    $agent->forConversation($conversation->id);
+
+    $context = new AgentContext(
+        request: makePersistConversationRequest(),
+        agent: $agent,
+        messages: [new UserMessage(content: 'Current message')],
+        meta: [],
+    );
+
+    DB::transaction(function () use ($middleware, $context) {
+        $middleware->handle($context, fn () => makeFakeExecutorResult());
+
+        // Inside the wrapping transaction the dispatch is registered via
+        // Connection::afterCommit and the job has NOT been pushed yet.
+        Queue::assertNotPushed(ProcessQueuedMessage::class);
+    });
+
+    // After commit, the deferred callback fires and pushes the job.
+    Queue::assertPushed(ProcessQueuedMessage::class, function ($job) use ($conversation) {
+        return $job->conversationId === $conversation->id;
+    });
+});
+
+it('does not dispatch ProcessQueuedMessage when the wrapping DB::transaction rolls back', function () {
+    Queue::fake();
+
+    $middleware = app(PersistConversation::class);
+
+    $conversation = Conversation::create(['agent' => 'test-agent']);
+
+    ConversationMessage::create([
+        'conversation_id' => $conversation->id,
+        'role' => MessageRole::User,
+        'content' => 'Queued question',
+        'sequence' => 1,
+        'is_active' => true,
+        'status' => MessageStatus::Queued,
+    ]);
+
+    $agent = makeTestAgent();
+    $agent->forConversation($conversation->id);
+
+    $context = new AgentContext(
+        request: makePersistConversationRequest(),
+        agent: $agent,
+        messages: [new UserMessage(content: 'Current message')],
+        meta: [],
+    );
+
+    $threw = null;
+    try {
+        DB::transaction(function () use ($middleware, $context) {
+            $middleware->handle($context, fn () => makeFakeExecutorResult());
+
+            throw new RuntimeException('rollback');
+        });
+    } catch (RuntimeException $e) {
+        $threw = $e;
+    }
+
+    expect($threw)->toBeInstanceOf(RuntimeException::class);
     Queue::assertNotPushed(ProcessQueuedMessage::class);
 });
 

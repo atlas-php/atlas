@@ -213,15 +213,23 @@ class PersistConversation implements AgentMiddleware
         $nextQueued = $this->conversations->nextQueuedMessage($conversation);
 
         if ($nextQueued !== null) {
-            $job = new ProcessQueuedMessage(
-                conversationId: $conversation->id,
-                agentKey: $agentKey,
-            );
+            // Defer the dispatch through the connection's afterCommit
+            // hook so the ENTIRE chain — including ShouldBeUnique's
+            // cache-lock acquisition in PendingDispatch::__destruct —
+            // runs OUTSIDE any consumer-wrapping transaction. The
+            // job's built-in `afterCommit()` flag only defers the
+            // queue push, not the lock check; on Postgres with a
+            // database cache that would abort the wrapping
+            // transaction (SQLSTATE 25P02). `afterCommit` here
+            // invokes the closure immediately when no transaction
+            // is active — same as the legacy direct-dispatch path.
+            $conversationId = $conversation->id;
+            $queue = app(AtlasConfig::class)->queue;
 
-            $job->onQueue(app(AtlasConfig::class)->queue);
-            $job->afterCommit();
-
-            dispatch($job);
+            $conversation->getConnection()->afterCommit(static function () use ($conversationId, $agentKey, $queue): void {
+                ProcessQueuedMessage::dispatch($conversationId, $agentKey)
+                    ->onQueue($queue);
+            });
         }
 
         return $result;

@@ -16,6 +16,7 @@ use Atlasphp\Atlas\Testing\EmbeddingsResponseFake;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
 
@@ -366,4 +367,56 @@ it('dispatches separate unique jobs for different models', function () {
         ChunkContentJob::class,
         fn (ChunkContentJob $job) => $job->modelId === $b->id,
     );
+});
+
+// ─── Transaction safety (regression test for v3.1.1) ───────────────────────
+//
+// v3.1.1 dispatched ChunkContentJob from the trait's saved hook, which ran
+// inside the consumer's wrapping DB::transaction(). On Postgres with the
+// database cache driver, ShouldBeUnique's lock acquire aborted the
+// transaction with SQLSTATE 25P02 and crashed page saves in production.
+// The fix wraps the entire dispatch in Connection::afterCommit() so the
+// lock acquire runs OUTSIDE the wrapping transaction. These tests lock
+// down the deferral behavior so a future PR can't silently regress it.
+
+it('defers ChunkContentJob dispatch until the wrapping DB::transaction commits', function () {
+    Queue::fake();
+    config(['atlas.embeddings.dispatch_on_save' => true]);
+    AtlasConfig::refresh();
+
+    $doc = null;
+    DB::transaction(function () use (&$doc) {
+        $doc = FakeChunkableDoc::create(['body' => 'inside an explicit transaction']);
+
+        // While the transaction is open, the dispatch is registered via
+        // Connection::afterCommit but the job has NOT been pushed yet.
+        Queue::assertNotPushed(ChunkContentJob::class);
+    });
+
+    // After the transaction commits, the registered callback fires and
+    // pushes the job.
+    Queue::assertPushed(ChunkContentJob::class, 1);
+    Queue::assertPushed(
+        ChunkContentJob::class,
+        fn (ChunkContentJob $job) => $job->modelClass === FakeChunkableDoc::class && $job->modelId === $doc->id,
+    );
+});
+
+it('does not dispatch ChunkContentJob when the wrapping DB::transaction rolls back', function () {
+    Queue::fake();
+    config(['atlas.embeddings.dispatch_on_save' => true]);
+    AtlasConfig::refresh();
+
+    $threw = null;
+    try {
+        DB::transaction(function () {
+            FakeChunkableDoc::create(['body' => 'this save will be rolled back']);
+            throw new RuntimeException('rollback');
+        });
+    } catch (RuntimeException $e) {
+        $threw = $e;
+    }
+
+    expect($threw)->toBeInstanceOf(RuntimeException::class);
+    Queue::assertNotPushed(ChunkContentJob::class);
 });
