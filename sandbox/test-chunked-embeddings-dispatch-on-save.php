@@ -41,6 +41,7 @@ use App\Models\Project;
 use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Persistence\Models\Chunk;
 use Atlasphp\Atlas\Queue\Jobs\ChunkContentJob;
+use Illuminate\Bus\UniqueLock;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -371,8 +372,8 @@ function runTransactionSaveScenario(string $cacheDriver, $app, bool $forceLockCo
         // Derive the lock key from the real job (project will be id=1 in the
         // fresh DB) so it matches the job's current uniqueId(), which is now
         // database-scoped for multi-tenant safety. Never hardcode the format.
-        $lockKey = $prefix.\Illuminate\Bus\UniqueLock::getKey(
-            new \Atlasphp\Atlas\Queue\Jobs\ChunkContentJob(\App\Models\Project::class, 1)
+        $lockKey = $prefix.UniqueLock::getKey(
+            new ChunkContentJob(Project::class, 1)
         );
         DB::table('cache_locks')->insert([
             'key' => $lockKey,
