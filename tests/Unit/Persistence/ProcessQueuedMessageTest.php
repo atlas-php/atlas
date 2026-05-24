@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Persistence\Enums\MessageStatus;
 use Atlasphp\Atlas\Persistence\Models\Conversation;
@@ -12,6 +13,7 @@ use Atlasphp\Atlas\Persistence\Services\ConversationService;
 use Illuminate\Contracts\Queue\Job;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Support\Facades\DB;
 
 it('stores correct properties', function () {
     $job = new ProcessQueuedMessage(
@@ -30,10 +32,31 @@ it('implements ShouldQueue and ShouldBeUnique', function () {
         ->and($job)->toBeInstanceOf(ShouldBeUnique::class);
 });
 
-it('uniqueId returns conversation-scoped string', function () {
+it('uniqueId is scoped to the conversation and the persistence database', function () {
     $job = new ProcessQueuedMessage(conversationId: 99, agentKey: 'writer');
 
-    expect($job->uniqueId())->toBe('atlas-queued-99');
+    $db = DB::connection()->getDatabaseName();
+
+    expect($job->uniqueId())->toBe('atlas-queued-'.$db.'-99');
+});
+
+it('uniqueId differs across tenant databases for the same conversation id', function () {
+    $job = new ProcessQueuedMessage(conversationId: 1, agentKey: 'writer');
+
+    config()->set('database.connections.tenant_a', ['driver' => 'sqlite', 'database' => 'tenant_a_db', 'prefix' => '']);
+    config()->set('database.connections.tenant_b', ['driver' => 'sqlite', 'database' => 'tenant_b_db', 'prefix' => '']);
+
+    config()->set('atlas.persistence.connection', 'tenant_a');
+    AtlasConfig::refresh();
+    $keyA = $job->uniqueId();
+
+    config()->set('atlas.persistence.connection', 'tenant_b');
+    AtlasConfig::refresh();
+    $keyB = $job->uniqueId();
+
+    expect($keyA)->toBe('atlas-queued-tenant_a_db-1')
+        ->and($keyB)->toBe('atlas-queued-tenant_b_db-1')
+        ->and($keyA)->not->toBe($keyB);
 });
 
 it('has default tries', function () {

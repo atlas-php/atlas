@@ -8,6 +8,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 ---
 
+## [v3.1.3](https://github.com/atlas-php/atlas/releases/tag/v3.1.3) - 2026-05-24
+
+### Fixed
+
+- Multi-tenant (database-per-tenant) support: queued jobs no longer collide across tenants that share the same row IDs — one tenant's job could previously suppress another's. Job lock keys are now scoped per database.
+
+### Migration
+
+**No breaking changes.** Drop-in upgrade.
+
+---
+
 ## [v3.1.2](https://github.com/atlas-php/atlas/releases/tag/v3.1.2) - 2026-05-16
 
 ### Fixed

@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Persistence;
 
 use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\AtlasConfig;
+use Atlasphp\Atlas\Concerns\ResolvesDatabaseScope;
 use Atlasphp\Atlas\Persistence\Enums\MessageStatus;
 use Atlasphp\Atlas\Persistence\Models\ConversationMessage;
 use Atlasphp\Atlas\Persistence\Services\ConversationService;
@@ -28,13 +29,16 @@ use Throwable;
  * The agent's own middleware stack handles all lifecycle concerns. The
  * execution path is identical to a direct consumer call — only timing differs.
  *
- * Unique per conversation to prevent concurrent processing.
+ * Unique per conversation (and per database, so concurrent same-id
+ * conversations in different tenant databases don't collide) to prevent
+ * concurrent processing.
  */
 class ProcessQueuedMessage implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
     use Queueable;
+    use ResolvesDatabaseScope;
     use SerializesModels;
 
     public int $tries = 3;
@@ -53,7 +57,14 @@ class ProcessQueuedMessage implements ShouldBeUnique, ShouldQueue
 
     public function uniqueId(): string
     {
-        return 'atlas-queued-'.$this->conversationId;
+        // Scope the lock to the persistence database so the same conversation id
+        // in two different tenant databases doesn't share one lock (which would
+        // drop the second tenant's job). AtlasConfig is resolved from the
+        // container rather than constructor-injected to keep the queued payload
+        // small — same reason failed() resolves it via app() below.
+        $scope = $this->databaseScope(app(AtlasConfig::class)->persistenceConnection);
+
+        return 'atlas-queued-'.$scope.'-'.$this->conversationId;
     }
 
     public function handle(ConversationService $conversations): void
