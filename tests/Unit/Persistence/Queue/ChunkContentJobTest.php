@@ -12,6 +12,7 @@ use Atlasphp\Atlas\Queue\Jobs\ChunkContentJob;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 class FakeJobChunkableDoc extends Model implements Chunkable
@@ -28,6 +29,19 @@ class FakeJobChunkableDoc extends Model implements Chunkable
 class FakeJobBareDoc extends Model
 {
     protected $table = 'fake_job_bare_docs';
+
+    protected $guarded = [];
+
+    public $timestamps = true;
+}
+
+class FakeScopedChunkableDoc extends Model implements Chunkable
+{
+    use HasChunkedEmbeddings;
+
+    protected $connection = 'tenant_scope';
+
+    protected $table = 'fake_scoped_chunkable_docs';
 
     protected $guarded = [];
 
@@ -156,9 +170,26 @@ it('releases itself when the model was updated within the settle window', functi
 it('reports the correct unique id and retry budget', function () {
     $job = new ChunkContentJob(FakeJobChunkableDoc::class, 42);
 
-    expect($job->uniqueId())->toBe(FakeJobChunkableDoc::class.':42');
+    $db = DB::connection()->getDatabaseName();
+
+    expect($job->uniqueId())->toBe(FakeJobChunkableDoc::class.':'.$db.':42');
     expect($job->retryUntil())->toBeInstanceOf(DateTimeInterface::class);
     // retryUntil should be ~1 hour from now (±a few seconds for test runtime).
     $hourFromNow = now()->addHour()->getTimestamp();
     expect(abs($job->retryUntil()->getTimestamp() - $hourFromNow))->toBeLessThan(5);
+});
+
+it('scopes uniqueId by the model connection database (no cross-tenant collision)', function () {
+    // A chunkable model pinned to a named connection whose database we vary,
+    // the way a DB-per-tenant package repoints a connection between tenants.
+    config()->set('database.connections.tenant_scope', ['driver' => 'sqlite', 'database' => 'chunk_tenant_a', 'prefix' => '']);
+    $keyA = (new ChunkContentJob(FakeScopedChunkableDoc::class, 7))->uniqueId();
+
+    DB::purge('tenant_scope');
+    config()->set('database.connections.tenant_scope.database', 'chunk_tenant_b');
+    $keyB = (new ChunkContentJob(FakeScopedChunkableDoc::class, 7))->uniqueId();
+
+    expect($keyA)->toBe(FakeScopedChunkableDoc::class.':chunk_tenant_a:7')
+        ->and($keyB)->toBe(FakeScopedChunkableDoc::class.':chunk_tenant_b:7')
+        ->and($keyA)->not->toBe($keyB);
 });

@@ -217,9 +217,15 @@ if (! Schema::hasTable('cache_locks')) {
     // the previous dispatch's lock hasn't expired yet (ShouldBeUnique
     // releases the lock when the job completes, but a recently-completed
     // or in-flight job leaves it set for the rest of its TTL).
+    // Derive the lock key from the real job via the framework's own helper so
+    // it always matches the job's current uniqueId() (which is database-scoped
+    // for multi-tenant safety) — never hardcode the format.
     $prefix = (string) ($app['config']->get('cache.prefix') ?: '');
+    $lockKey = $prefix.\Illuminate\Bus\UniqueLock::getKey(
+        new ProcessQueuedMessage($conversation->id, 'test-agent')
+    );
     DB::table('cache_locks')->insert([
-        'key' => $prefix.'laravel_unique_job:Atlasphp\\Atlas\\Persistence\\ProcessQueuedMessage:atlas-queued-'.$conversation->id,
+        'key' => $lockKey,
         'owner' => 'sandbox-pre-seed-different-owner',
         'expiration' => time() + 3600,
     ]);

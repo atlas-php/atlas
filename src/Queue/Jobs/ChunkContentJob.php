@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Queue\Jobs;
 
 use Atlasphp\Atlas\AtlasConfig;
+use Atlasphp\Atlas\Concerns\ResolvesDatabaseScope;
 use Atlasphp\Atlas\Embeddings\Chunkable;
 use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Persistence\Services\ChunkContentService;
@@ -26,8 +27,9 @@ use Illuminate\Queue\SerializesModels;
  *      bypassed Eloquent saves).
  *
  * Debounce semantics. The job implements `ShouldBeUnique` keyed by
- * `modelClass:modelId`, so concurrent dispatches for the same row
- * collapse into a single queued job. On execution the job checks
+ * `modelClass:database:modelId` (the database segment keeps same-id rows
+ * in different tenant databases from sharing one lock), so concurrent
+ * dispatches for the same row collapse into a single queued job. On execution the job checks
  * `updated_at` against the settle window — if the row was edited
  * within `sweep_settle` seconds, the job releases itself forward
  * until the window passes since the last edit. The unique lock
@@ -53,6 +55,7 @@ class ChunkContentJob implements ShouldBeUnique, ShouldQueue
     use Dispatchable;
     use InteractsWithQueue;
     use Queueable;
+    use ResolvesDatabaseScope;
     use SerializesModels;
 
     /**
@@ -83,13 +86,20 @@ class ChunkContentJob implements ShouldBeUnique, ShouldQueue
     ) {}
 
     /**
-     * Per-row unique key. Two dispatches for the same model collapse
-     * into one queued job; the second dispatch is silently dropped
-     * (returns the existing job's payload).
+     * Per-row unique key, scoped to the row's database. Two dispatches for
+     * the same model collapse into one queued job; the second dispatch is
+     * silently dropped (returns the existing job's payload). The database
+     * segment keeps the same row id in different tenant databases from
+     * colliding on one lock.
      */
     public function uniqueId(): string
     {
-        return $this->modelClass.':'.$this->modelId;
+        // getConnectionName() reads the model's static $connection property — it
+        // does not open a database connection. Eloquent boots each model class
+        // once per process, so the instantiation is cheap on repeat calls.
+        $scope = $this->databaseScope((new $this->modelClass)->getConnectionName());
+
+        return $this->modelClass.':'.$scope.':'.$this->modelId;
     }
 
     /**

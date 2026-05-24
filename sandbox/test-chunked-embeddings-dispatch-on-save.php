@@ -368,8 +368,14 @@ function runTransactionSaveScenario(string $cacheDriver, $app, bool $forceLockCo
         // sandbox cache prefix is the Laravel default for the database
         // driver — see config('cache.prefix') in the sandbox.
         $prefix = (string) ($app['config']->get('cache.prefix') ?: $app['config']->get('cache.stores.database.prefix') ?: '');
+        // Derive the lock key from the real job (project will be id=1 in the
+        // fresh DB) so it matches the job's current uniqueId(), which is now
+        // database-scoped for multi-tenant safety. Never hardcode the format.
+        $lockKey = $prefix.\Illuminate\Bus\UniqueLock::getKey(
+            new \Atlasphp\Atlas\Queue\Jobs\ChunkContentJob(\App\Models\Project::class, 1)
+        );
         DB::table('cache_locks')->insert([
-            'key' => $prefix.'laravel_unique_job:Atlasphp\\Atlas\\Queue\\Jobs\\ChunkContentJob:App\\Models\\Project:1',
+            'key' => $lockKey,
             'owner' => 'sandbox-pre-seed-different-owner',
             'expiration' => time() + 3600,
         ]);
