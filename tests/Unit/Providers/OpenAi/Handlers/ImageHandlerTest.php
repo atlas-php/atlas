@@ -211,6 +211,56 @@ it('prefers a hosted URL and leaves base64 null when both url and b64_json are p
     expect($response->format)->toBeNull();
 });
 
+it('returns an empty reference when the response has no url or b64_json', function () {
+    Http::fake([
+        'api.openai.com/v1/images/generations' => Http::response([
+            'data' => [],
+        ]),
+    ]);
+
+    $request = new ImageRequest(
+        model: 'gpt-image-1',
+        instructions: 'A blue square',
+        media: [],
+        size: '1024x1024',
+        quality: null,
+        format: null,
+    );
+
+    $response = makeImageHandler()->image($request);
+
+    expect($response->url)->toBe('');
+    expect($response->base64)->toBeNull();
+    expect($response->format)->toBeNull();
+});
+
+it('returns empty strings for items missing url and b64_json when count > 1', function () {
+    Http::fake([
+        'api.openai.com/v1/images/generations' => Http::response([
+            'data' => [
+                [],
+                ['unexpected' => 'shape'],
+            ],
+        ]),
+    ]);
+
+    $request = new ImageRequest(
+        model: 'gpt-image-1',
+        instructions: 'Two squares',
+        media: [],
+        size: '1024x1024',
+        quality: null,
+        format: null,
+        count: 2,
+    );
+
+    $response = makeImageHandler()->image($request);
+
+    expect($response->url)->toBe(['', '']);
+    expect($response->base64)->toBeNull();
+    expect($response->format)->toBeNull();
+});
+
 it('returns data URIs and first base64 when count > 1 with b64_json', function () {
     $a = base64_encode('img-a');
     $b = base64_encode('img-b');

@@ -378,6 +378,27 @@ test('web search provider tool', function () {
 
 // ── Image Generation ─────────────────────────────────────────────────────────
 
+echo "\n\n── Vision";
+
+test('image understanding from base64', function () {
+    // Create a minimal red PNG
+    $img = imagecreatetruecolor(10, 10);
+    $red = imagecolorallocate($img, 255, 0, 0);
+    imagefill($img, 0, 0, $red);
+    ob_start();
+    imagepng($img);
+    $pngData = ob_get_clean();
+    imagedestroy($img);
+
+    $r = Atlas::text(Provider::OpenAI, 'gpt-4o-mini')
+        ->instructions('Describe what you see in the image. Be brief.')
+        ->message('What color is this image?', [Image::fromBase64(base64_encode($pngData), 'image/png')])
+        ->asText();
+
+    assert_true($r->text !== '', 'Should describe the image');
+    assert_true(str_contains(strtolower($r->text), 'red'), "Should identify red color, got: {$r->text}");
+});
+
 echo "\n\n── Image Generation";
 
 test('gpt-image-1 image generation', function () {

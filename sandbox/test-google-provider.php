@@ -27,6 +27,7 @@ use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Input\Image;
 use Atlasphp\Atlas\Messages\AssistantMessage;
 use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Messages\ToolResultMessage;
@@ -361,6 +362,29 @@ test('Google Search grounding returns response', function () {
 
     assert_true($r->text !== '', 'Should return a response with Google Search grounding');
     assert_true($r->finishReason === FinishReason::Stop, 'Should finish with Stop');
+});
+
+// ── Vision ───────────────────────────────────────────────────────────────────
+
+echo "\n\n── Vision";
+
+test('image understanding from base64', function () {
+    // Create a minimal red PNG
+    $img = imagecreatetruecolor(10, 10);
+    $red = imagecolorallocate($img, 255, 0, 0);
+    imagefill($img, 0, 0, $red);
+    ob_start();
+    imagepng($img);
+    $pngData = ob_get_clean();
+    imagedestroy($img);
+
+    $r = Atlas::text(Provider::Google, 'gemini-2.5-flash')
+        ->instructions('Describe what you see in the image. Be brief.')
+        ->message('What color is this image?', [Image::fromBase64(base64_encode($pngData), 'image/png')])
+        ->asText();
+
+    assert_true($r->text !== '', 'Should describe the image');
+    assert_true(str_contains(strtolower($r->text), 'red'), "Should identify red color, got: {$r->text}");
 });
 
 // ── Embeddings ───────────────────────────────────────────────────────────────
