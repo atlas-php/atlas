@@ -15,7 +15,10 @@ use Atlasphp\Atlas\Responses\ImageResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
 
 /**
- * OpenAI image handler using the DALL-E image generation endpoint.
+ * OpenAI image handler for the images/generations endpoint.
+ *
+ * Handles both response shapes: hosted URLs (legacy DALL-E) and base64
+ * payloads (b64_json, the only mode for gpt-image-* models).
  */
 class Image implements ImageHandler
 {
@@ -50,18 +53,27 @@ class Image implements ImageHandler
         /** @var array<int, array<string, mixed>> $results */
         $results = $data['data'] ?? [];
 
+        $format = $this->resolveFormat($request);
+
         if ($request->count === 1) {
             $first = $results[0] ?? [];
+            $base64 = $this->base64For($first);
 
             return new ImageResponse(
-                url: (string) ($first['url'] ?? $first['b64_json'] ?? ''),
+                url: $this->referenceFor($first, $base64, $format),
                 revisedPrompt: isset($first['revised_prompt']) ? (string) $first['revised_prompt'] : null,
                 meta: ['model' => $request->model],
+                base64: $base64,
+                format: $base64 !== null ? $format : null,
             );
         }
 
+        // Only the first result is surfaced on the base64 property; callers
+        // needing every payload should decode from the urls array (data URIs).
+        $firstBase64 = $this->base64For($results[0] ?? []);
+
         $urls = array_map(
-            fn (array $item): string => (string) ($item['url'] ?? $item['b64_json'] ?? ''),
+            fn (array $item): string => $this->referenceFor($item, $this->base64For($item), $format),
             $results,
         );
 
@@ -73,7 +85,59 @@ class Image implements ImageHandler
             url: $urls,
             revisedPrompt: $revisedPrompt,
             meta: ['model' => $request->model, 'count' => count($results)],
+            base64: $firstBase64,
+            format: $firstBase64 !== null ? $format : null,
         );
+    }
+
+    /**
+     * Extract the base64 payload for a result item, but only when no hosted URL
+     * is present — a real URL always wins so storage resolves it over inline data.
+     *
+     * @param  array<string, mixed>  $item
+     */
+    private function base64For(array $item): ?string
+    {
+        if (isset($item['url'])) {
+            return null;
+        }
+
+        return isset($item['b64_json']) ? (string) $item['b64_json'] : null;
+    }
+
+    /**
+     * Build the URL reference for a result item. Prefers a hosted URL; when the
+     * provider returns base64 (b64_json) — the only mode for gpt-image-* models —
+     * falls back to a data URI so the value remains a usable, renderable reference.
+     *
+     * @param  array<string, mixed>  $item
+     */
+    private function referenceFor(array $item, ?string $base64, string $format): string
+    {
+        if (isset($item['url'])) {
+            return (string) $item['url'];
+        }
+
+        if ($base64 !== null) {
+            return "data:image/{$format};base64,{$base64}";
+        }
+
+        return '';
+    }
+
+    /**
+     * Resolve the output image format from the request or provider options,
+     * defaulting to png (the OpenAI image default).
+     */
+    private function resolveFormat(ImageRequest $request): string
+    {
+        if ($request->format !== null) {
+            return $request->format;
+        }
+
+        $option = $request->providerOptions['output_format'] ?? null;
+
+        return is_string($option) ? $option : 'png';
     }
 
     public function imageToText(ImageRequest $request): TextResponse

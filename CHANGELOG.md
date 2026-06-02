@@ -8,6 +8,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 ---
 
+## [v3.1.4](https://github.com/atlas-php/atlas/releases/tag/v3.1.4) - 2026-06-02
+
+### Fixed
+
+- OpenAI image responses that return base64 data can now be saved, stored, and auto-persisted. The base64 payload was previously mistaken for a URL, so storing the image failed; it is now decoded correctly. URL-based responses are unaffected.
+
+### Migration
+
+No breaking changes — drop-in upgrade. No consumer action required.
+
+---
+
 ## [v3.1.3](https://github.com/atlas-php/atlas/releases/tag/v3.1.3) - 2026-05-24
 
 ### Fixed
