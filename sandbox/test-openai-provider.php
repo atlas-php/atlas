@@ -25,6 +25,7 @@ $app['config']->set('atlas.providers', [
 ]);
 
 use Atlasphp\Atlas\Atlas;
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Enums\Provider;
@@ -377,24 +378,45 @@ test('web search provider tool', function () {
 
 // ── Image Generation ─────────────────────────────────────────────────────────
 
+echo "\n\n── Vision";
+
+test('image understanding from base64', function () {
+    // Create a minimal red PNG
+    $img = imagecreatetruecolor(10, 10);
+    $red = imagecolorallocate($img, 255, 0, 0);
+    imagefill($img, 0, 0, $red);
+    ob_start();
+    imagepng($img);
+    $pngData = ob_get_clean();
+    imagedestroy($img);
+
+    $r = Atlas::text(Provider::OpenAI, 'gpt-4o-mini')
+        ->instructions('Describe what you see in the image. Be brief.')
+        ->message('What color is this image?', [Image::fromBase64(base64_encode($pngData), 'image/png')])
+        ->asText();
+
+    assert_true($r->text !== '', 'Should describe the image');
+    assert_true(str_contains(strtolower($r->text), 'red'), "Should identify red color, got: {$r->text}");
+});
+
 echo "\n\n── Image Generation";
 
-test('DALL-E image generation', function () {
-    $r = Atlas::image(Provider::OpenAI, 'dall-e-3')
+test('gpt-image-1 image generation', function () {
+    $r = Atlas::image(Provider::OpenAI, 'gpt-image-1')
         ->instructions('A simple blue square on a white background')
         ->withSize('1024x1024')
+        ->withQuality('low')
         ->asImage();
 
-    assert_true($r->url !== '', 'Should have an image URL');
-    assert_true(str_starts_with($r->url, 'https://'), 'URL should be HTTPS');
-    assert_true($r->revisedPrompt !== null, 'DALL-E 3 should return revised prompt');
-    assert_true(strlen($r->revisedPrompt) > 10, 'Revised prompt should be substantial');
+    // gpt-image-1 returns base64 (b64_json), not a hosted URL.
+    assert_true($r->base64 !== null, 'Should have base64 image data');
+    assert_true($r->format === 'png', "Format should be png, got: {$r->format}");
+    assert_true(str_starts_with($r->url, 'data:image/png;base64,'), 'URL should be a data URI');
 
-    // Download and save the image
-    $imgData = file_get_contents($r->url);
-    if ($imgData !== false) {
-        saveFile('image-dalle3', $imgData, 'png');
-    }
+    // contents() must decode the base64 (not try to fetch it as a URL).
+    $imgData = $r->contents();
+    assert_true(strlen($imgData) > 1000, 'Decoded image should be substantial ('.strlen($imgData).' bytes)');
+    saveFile('image-gpt-image-1', $imgData, 'png');
 });
 
 // ── Audio TTS ────────────────────────────────────────────────────────────────
@@ -551,7 +573,7 @@ test('models list returns known models', function () {
     assert_true(count($models->models) > 10, 'Should have many models, got: '.count($models->models));
     assert_true(in_array('gpt-4o', $models->models, true), 'Should include gpt-4o');
     assert_true(in_array('gpt-4o-mini', $models->models, true), 'Should include gpt-4o-mini');
-    assert_true(in_array('dall-e-3', $models->models, true), 'Should include dall-e-3');
+    assert_true(in_array('gpt-image-1', $models->models, true), 'Should include gpt-image-1');
 
     // Verify sorted
     $sorted = $models->models;
@@ -649,14 +671,15 @@ echo "\n\n── Media Storage";
 test('store generated image to disk', function () {
     Storage::fake('test');
 
-    $response = Atlas::image(Provider::OpenAI, 'dall-e-3')
+    $response = Atlas::image(Provider::OpenAI, 'gpt-image-1')
         ->instructions('A small red dot')
         ->withSize('1024x1024')
+        ->withQuality('low')
         ->asImage();
 
-    assert_true($response->url !== '', 'Should have image URL');
+    assert_true($response->base64 !== null, 'Should have base64 image data');
 
-    // Store the image via the URL
+    // Store the image (decodes base64 for gpt-image-1)
     $path = $response->storeAs('generated/image.png', 'test');
 
     assert_true($path === 'generated/image.png', "Path should match, got: {$path}");
@@ -738,10 +761,13 @@ test('audio response toBase64 and contents', function () {
 test('image response auto-generates storage path', function () {
     Storage::fake('test');
     config()->set('atlas.storage.prefix', 'atlas-test');
+    // AtlasConfig is a boot-time singleton snapshot — forget it so the prefix above is read.
+    app()->forgetInstance(AtlasConfig::class);
 
-    $response = Atlas::image(Provider::OpenAI, 'dall-e-3')
+    $response = Atlas::image(Provider::OpenAI, 'gpt-image-1')
         ->instructions('A tiny green square')
         ->withSize('1024x1024')
+        ->withQuality('low')
         ->asImage();
 
     $path = $response->store('test');
