@@ -390,7 +390,7 @@ class AgentExecutor
         }
 
         /** @var array<int, ToolResult> $results */
-        $results = Concurrency::driver($driver)->run($tasks);
+        $results = $this->runConcurrentTasks($driver, $tasks);
 
         // Post-process: fire completion or error events
         foreach ($results as $result) {
@@ -435,6 +435,20 @@ class AgentExecutor
         foreach (array_keys(DB::getConnections()) as $name) {
             DB::purge($name);
         }
+    }
+
+    /**
+     * Dispatch the prepared tool tasks on the resolved concurrency driver.
+     *
+     * Isolated from executeToolsConcurrently so the fork DB-safety guard and the
+     * driver dispatch can be exercised independently in tests without forking.
+     *
+     * @param  array<int, callable(): ToolResult>  $tasks
+     * @return array<int, ToolResult>
+     */
+    protected function runConcurrentTasks(string $driver, array $tasks): array
+    {
+        return Concurrency::driver($driver)->run($tasks);
     }
 
     /**
