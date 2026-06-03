@@ -29,6 +29,9 @@ use Illuminate\Support\Str;
  *
  * @property int $id
  * @property int|null $conversation_id
+ * @property int|null $parent_execution_id
+ * @property int|null $parent_tool_call_id
+ * @property int $depth
  * @property string|null $agent
  * @property ExecutionType $type
  * @property string $provider
@@ -55,6 +58,9 @@ class Execution extends Model
 
     protected $fillable = [
         'conversation_id',
+        'parent_execution_id',
+        'parent_tool_call_id',
+        'depth',
         'agent',
         'type',
         'provider',
@@ -78,6 +84,7 @@ class Execution extends Model
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
             'duration_ms' => 'integer',
+            'depth' => 'integer',
         ];
     }
 
@@ -135,6 +142,87 @@ class Execution extends Model
         $model = app(AtlasConfig::class)->model('asset', Asset::class);
 
         return $this->hasMany($model);
+    }
+
+    // ─── Delegation lineage ─────────────────────────────────────
+
+    /**
+     * The parent execution that delegated to this one (sub-agent runs).
+     *
+     * @return BelongsTo<Execution, $this>
+     */
+    public function parent(): BelongsTo
+    {
+        /** @var class-string<Execution> $model */
+        $model = app(AtlasConfig::class)->model('execution', self::class);
+
+        return $this->belongsTo($model, 'parent_execution_id');
+    }
+
+    /**
+     * Child executions spawned by this one via sub-agent delegation.
+     *
+     * @return HasMany<Execution, $this>
+     */
+    public function children(): HasMany
+    {
+        /** @var class-string<Execution> $model */
+        $model = app(AtlasConfig::class)->model('execution', self::class);
+
+        return $this->hasMany($model, 'parent_execution_id');
+    }
+
+    /**
+     * The delegating tool call that spawned this execution.
+     *
+     * @return BelongsTo<ExecutionToolCall, $this>
+     */
+    public function parentToolCall(): BelongsTo
+    {
+        /** @var class-string<ExecutionToolCall> $model */
+        $model = app(AtlasConfig::class)->model('execution_tool_call', ExecutionToolCall::class);
+
+        return $this->belongsTo($model, 'parent_tool_call_id');
+    }
+
+    /**
+     * Token usage for this execution plus all descendant (sub-agent) executions.
+     *
+     * Sums input/output/total tokens across the whole delegation subtree, so an
+     * orchestrator's true cost — including every sub-agent it delegated to — is
+     * available from the root. Sweeps the tree breadth-first, one query per
+     * depth level (bounded by max_delegation_depth), never one query per node.
+     *
+     * @return array{input_tokens: int, output_tokens: int, total_tokens: int}
+     */
+    public function totalUsage(): array
+    {
+        $usage = $this->usage ?? [];
+        $input = (int) ($usage['input_tokens'] ?? 0);
+        $output = (int) ($usage['output_tokens'] ?? 0);
+
+        $frontier = [$this->getKey()];
+
+        while ($frontier !== []) {
+            $children = static::query()
+                ->whereIn('parent_execution_id', $frontier)
+                ->get(['id', 'usage']);
+
+            $frontier = [];
+
+            foreach ($children as $child) {
+                $childUsage = $child->usage ?? [];
+                $input += (int) ($childUsage['input_tokens'] ?? 0);
+                $output += (int) ($childUsage['output_tokens'] ?? 0);
+                $frontier[] = $child->getKey();
+            }
+        }
+
+        return [
+            'input_tokens' => $input,
+            'output_tokens' => $output,
+            'total_tokens' => $input + $output,
+        ];
     }
 
     // ─── Lifecycle ──────────────────────────────────────────────

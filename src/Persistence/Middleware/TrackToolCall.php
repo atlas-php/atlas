@@ -7,6 +7,7 @@ namespace Atlasphp\Atlas\Persistence\Middleware;
 use Atlasphp\Atlas\Executor\ToolResult;
 use Atlasphp\Atlas\Middleware\Contracts\ToolMiddleware;
 use Atlasphp\Atlas\Middleware\ToolContext;
+use Atlasphp\Atlas\Persistence\Enums\ToolCallType;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 use Closure;
 
@@ -31,7 +32,8 @@ class TrackToolCall implements ToolMiddleware
         }
 
         // ── Create tool call in pending, begin processing ────────
-        $record = $this->executionService->createToolCall($context->toolCall, meta: $context->meta);
+        $type = $context->isDelegation ? ToolCallType::Agent : ToolCallType::Local;
+        $record = $this->executionService->createToolCall($context->toolCall, $type, meta: $context->meta);
         $startTime = $this->executionService->beginToolCall($record);
 
         try {

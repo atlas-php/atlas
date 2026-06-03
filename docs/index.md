@@ -20,8 +20,8 @@ features:
   - icon:
       src: /icons/agent.svg
       alt: Agents
-    title: Agents
-    details: Reusable agent classes that encapsulate provider, model, instructions, tools, and behavior. Define once, use anywhere.
+    title: Agents & Sub-agents
+    details: Reusable agent classes that encapsulate provider, model, instructions, tools, and behavior. Agents can delegate to specialist sub-agents. Define once, use anywhere.
     link: /features/agents
   - icon:
       src: /icons/tool.svg

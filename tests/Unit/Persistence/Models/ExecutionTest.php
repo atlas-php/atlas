@@ -185,3 +185,29 @@ it('message relationship returns the linked message', function () {
     expect($execution->message)->toBeInstanceOf(ConversationMessage::class)
         ->and($execution->message->id)->toBe($message->id);
 });
+
+it('parent and children relations link sub-agent executions', function () {
+    $parent = Execution::factory()->create();
+    $child = Execution::factory()->create(['parent_execution_id' => $parent->id, 'depth' => 1]);
+    Execution::factory()->create(); // unrelated root execution
+
+    expect($child->parent)->not->toBeNull()
+        ->and($child->parent->id)->toBe($parent->id)
+        ->and($parent->parent)->toBeNull()
+        ->and($parent->children)->toHaveCount(1)
+        ->and($parent->children->first()->id)->toBe($child->id);
+});
+
+it('parentToolCall links to the delegating tool call', function () {
+    $parentExec = Execution::factory()->create();
+    $toolCall = ExecutionToolCall::factory()->create(['execution_id' => $parentExec->id]);
+    $child = Execution::factory()->create([
+        'parent_execution_id' => $parentExec->id,
+        'parent_tool_call_id' => $toolCall->id,
+        'depth' => 1,
+    ]);
+
+    expect($child->parentToolCall)->toBeInstanceOf(ExecutionToolCall::class)
+        ->and($child->parentToolCall->id)->toBe($toolCall->id)
+        ->and($parentExec->parentToolCall)->toBeNull();
+});

@@ -48,6 +48,16 @@ class ExecutionService
     /** @var float Precise start time for current step duration */
     protected float $stepStartTime = 0;
 
+    /**
+     * Snapshots of the active execution context, pushed when a sub-agent run
+     * creates a nested execution and popped when it completes. Lets the single
+     * scoped service track a parent → child delegation tree without losing the
+     * parent's in-flight state.
+     *
+     * @var array<int, array<string, mixed>>
+     */
+    protected array $contextStack = [];
+
     /** @var class-string<Execution> */
     private readonly string $executionModel;
 
@@ -94,8 +104,22 @@ class ExecutionService
     ): Execution {
         $executionModel = $this->executionModel;
 
-        $this->execution = $executionModel::create([
+        // A new execution created while another is mid-tool-call is a nested
+        // (sub-agent) run: the sub-agent runs inside the parent's delegating
+        // tool call. Capture the parent link + a snapshot to restore on
+        // completion. (A merely-active-but-idle execution from a prior run is
+        // NOT nesting — gating on currentToolCall avoids that false positive.)
+        $nested = $this->execution !== null && $this->currentToolCall !== null;
+        $snapshot = $nested ? $this->snapshotContext() : null;
+        $parentExecutionId = $nested ? $this->execution->id : null;
+        $parentToolCallId = $nested ? $this->currentToolCall->id : null;
+        $depth = $nested ? $this->execution->depth + 1 : 0;
+
+        $execution = $executionModel::create([
             'conversation_id' => $conversationId,
+            'parent_execution_id' => $parentExecutionId,
+            'parent_tool_call_id' => $parentToolCallId,
+            'depth' => $depth,
             'agent' => $agent,
             'type' => $type ?? ExecutionType::Text,
             'provider' => $provider,
@@ -103,6 +127,14 @@ class ExecutionService
             'status' => ExecutionStatus::Pending,
             'metadata' => ! empty($meta) ? $this->filterMetaForStorage($meta) : null,
         ]);
+
+        // Only mutate service state once the child record exists, so a failed
+        // create leaves the parent context fully intact (no leaked snapshot).
+        if ($snapshot !== null) {
+            $this->contextStack[] = $snapshot;
+        }
+
+        $this->execution = $execution;
 
         // Link the trigger message to this execution (message owns the FK)
         if ($messageId !== null) {
@@ -186,6 +218,8 @@ class ExecutionService
         }
 
         $this->execution->markCompleted($this->elapsedMs($this->executionStartTime), $usage);
+
+        $this->restoreParentContext();
     }
 
     /**
@@ -208,6 +242,47 @@ class ExecutionService
             get_class($exception).': '.$exception->getMessage(),
             $durationMs,
         );
+
+        $this->restoreParentContext();
+    }
+
+    /**
+     * Capture the active execution context for later restoration.
+     *
+     * @return array<string, mixed>
+     */
+    protected function snapshotContext(): array
+    {
+        return [
+            'execution' => $this->execution,
+            'currentStep' => $this->currentStep,
+            'currentToolCall' => $this->currentToolCall,
+            'lastAsset' => $this->lastAsset,
+            'stepSequence' => $this->stepSequence,
+            'executionStartTime' => $this->executionStartTime,
+            'stepStartTime' => $this->stepStartTime,
+        ];
+    }
+
+    /**
+     * Restore the parent execution context after a nested sub-agent run.
+     * No-op when not nested (the stack is empty).
+     */
+    protected function restoreParentContext(): void
+    {
+        $snapshot = array_pop($this->contextStack);
+
+        if ($snapshot === null) {
+            return;
+        }
+
+        $this->execution = $snapshot['execution'] instanceof Execution ? $snapshot['execution'] : null;
+        $this->currentStep = $snapshot['currentStep'] instanceof ExecutionStep ? $snapshot['currentStep'] : null;
+        $this->currentToolCall = $snapshot['currentToolCall'] instanceof ExecutionToolCall ? $snapshot['currentToolCall'] : null;
+        $this->lastAsset = $snapshot['lastAsset'] instanceof Asset ? $snapshot['lastAsset'] : null;
+        $this->stepSequence = (int) $snapshot['stepSequence'];
+        $this->executionStartTime = (float) $snapshot['executionStartTime'];
+        $this->stepStartTime = (float) $snapshot['stepStartTime'];
     }
 
     // ─── Step Lifecycle ─────────────────────────────────────────
@@ -286,7 +361,7 @@ class ExecutionService
         }
 
         $toolCallModel = $this->toolCallModel;
-        $metadata = $this->toolCallMetadata($toolCall, $meta);
+        $metadata = $this->filterMetaForStorage($this->toolCallMetadata($toolCall, $meta));
 
         $this->currentToolCall = $toolCallModel::create([
             'execution_id' => $this->execution->id,
@@ -296,7 +371,7 @@ class ExecutionService
             'type' => $type,
             'status' => ExecutionStatus::Pending,
             'arguments' => $toolCall->arguments,
-            'metadata' => $metadata !== [] ? $metadata : null,
+            'metadata' => $metadata,
         ]);
 
         return $this->currentToolCall;
@@ -367,6 +442,10 @@ class ExecutionService
             'completed_at' => now(),
             'duration_ms' => $this->elapsedMs($this->executionStartTime),
         ]);
+
+        // Symmetry with complete/failExecution: pop any nested context. A no-op
+        // when not nested (empty stack), so the next run starts clean.
+        $this->restoreParentContext();
     }
 
     // ─── Asset Linking ──────────────────────────────────────────
@@ -490,6 +569,7 @@ class ExecutionService
         $this->stepSequence = 1;
         $this->executionStartTime = 0;
         $this->stepStartTime = 0;
+        $this->contextStack = [];
     }
 
     /**

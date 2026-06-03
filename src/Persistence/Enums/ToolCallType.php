@@ -12,4 +12,5 @@ enum ToolCallType: string
     case Local = 'local';
     case Mcp = 'mcp';
     case Provider = 'provider';
+    case Agent = 'agent';
 }

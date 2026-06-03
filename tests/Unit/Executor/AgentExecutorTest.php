@@ -28,6 +28,7 @@ use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\Usage;
 use Atlasphp\Atlas\Tools\Tool;
 use Illuminate\Contracts\Events\Dispatcher;
+use Illuminate\Support\Facades\DB;
 
 function makeTextRequest(): TextRequest
 {
@@ -1136,4 +1137,200 @@ it('creates a working executor via forTools factory', function () {
 
     expect($result->totalSteps())->toBe(2);
     expect($result->steps[0]->toolResults[0]->content)->toBe('hello');
+});
+
+it('executes a concurrent batch containing a delegation tool through the concurrent path', function () {
+    // Sub-agent delegations are no longer forced sequential: a batch that mixes a
+    // delegation with a regular tool runs through the concurrent path, and every
+    // tool result still comes back correctly for the parent loop to continue on.
+    $delegationTool = new class extends Tool
+    {
+        public function name(): string
+        {
+            return 'delegate';
+        }
+
+        public function description(): string
+        {
+            return 'Delegates to a sub-agent.';
+        }
+
+        public function isDelegation(): bool
+        {
+            return true;
+        }
+
+        public function handle(array $args, array $context): mixed
+        {
+            return 'delegated-result';
+        }
+    };
+
+    $driver = makeMockDriver([
+        new TextResponse(
+            'working',
+            new Usage(10, 10),
+            FinishReason::ToolCalls,
+            toolCalls: [
+                new ToolCall('tc-1', 'delegate', []),
+                new ToolCall('tc-2', 'echo', ['text' => 'hi']),
+            ],
+        ),
+        new TextResponse('done', new Usage(5, 5), FinishReason::Stop),
+    ]);
+
+    $dispatcher = makeFakeDispatcher();
+    $registry = new ToolRegistry([$delegationTool, makeEchoTool()]);
+    $executor = new AgentExecutor($driver, new ToolExecutor($registry), $dispatcher);
+
+    $result = $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: true, meta: []);
+
+    // Both tools execute and their results are returned to the parent.
+    expect($result->text)->toBe('done')
+        ->and($result->totalToolCalls())->toBe(2);
+
+    $completed = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentToolCallCompleted);
+    expect($completed)->toHaveCount(2);
+});
+
+it('does not reset database connections through the real concurrency driver when persistence is disabled', function () {
+    // Integration guard over the real driver path: the fork DB-reset must NEVER
+    // fire when persistence is off, so an in-memory test database (which exists
+    // only for the life of its connection) is never dropped out from under a
+    // concurrent run. Uses the real concurrencyDriver()/Concurrency::run() path.
+    config()->set('atlas.persistence.enabled', false);
+
+    $driver = makeMockDriver([
+        new TextResponse(
+            'working',
+            new Usage(10, 10),
+            FinishReason::ToolCalls,
+            toolCalls: [
+                new ToolCall('tc-1', 'echo', ['text' => 'a']),
+                new ToolCall('tc-2', 'echo', ['text' => 'b']),
+            ],
+        ),
+        new TextResponse('done', new Usage(5, 5), FinishReason::Stop),
+    ]);
+
+    $registry = new ToolRegistry([makeEchoTool()]);
+    $executor = new class($driver, new ToolExecutor($registry), makeFakeDispatcher()) extends AgentExecutor
+    {
+        public int $disconnectCalls = 0;
+
+        protected function disconnectDatabase(): void
+        {
+            $this->disconnectCalls++;
+        }
+    };
+
+    $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: true, meta: []);
+
+    expect($executor->disconnectCalls)->toBe(0);
+});
+
+/**
+ * Build an AgentExecutor spy that records disconnectDatabase() calls, forces a
+ * concurrency driver, and runs the tool tasks in-process (no real fork) so the
+ * fork DB-safety guard can be asserted deterministically — independent of
+ * whether pcntl/spatie-fork are available in the test environment.
+ */
+function makeForkSafetySpy(string $forcedDriver): AgentExecutor
+{
+    $driver = makeMockDriver([
+        new TextResponse(
+            'working',
+            new Usage(10, 10),
+            FinishReason::ToolCalls,
+            toolCalls: [
+                new ToolCall('tc-1', 'echo', ['text' => 'a']),
+                new ToolCall('tc-2', 'echo', ['text' => 'b']),
+            ],
+        ),
+        new TextResponse('done', new Usage(5, 5), FinishReason::Stop),
+    ]);
+
+    return new class($driver, new ToolExecutor(new ToolRegistry([makeEchoTool()])), makeFakeDispatcher(), $forcedDriver) extends AgentExecutor
+    {
+        public int $disconnectCalls = 0;
+
+        public function __construct(Driver $driver, ToolExecutor $toolExecutor, Dispatcher $events, private readonly string $forcedDriver)
+        {
+            parent::__construct($driver, $toolExecutor, $events);
+        }
+
+        protected function concurrencyDriver(): string
+        {
+            return $this->forcedDriver;
+        }
+
+        protected function disconnectDatabase(): void
+        {
+            $this->disconnectCalls++;
+        }
+
+        /**
+         * @param  array<int, callable>  $tasks
+         * @return array<int, mixed>
+         */
+        protected function runConcurrentTasks(string $driver, array $tasks): array
+        {
+            // Run in-process so we assert the guard, never a real fork.
+            return array_map(fn ($task) => $task(), array_values($tasks));
+        }
+    };
+}
+
+it('resets database connections before forking when the fork driver is active and persistence is enabled', function () {
+    config()->set('atlas.persistence.enabled', true);
+
+    $executor = makeForkSafetySpy('fork');
+    $result = $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: true, meta: []);
+
+    // The guard fired exactly once, and the tasks still ran and returned results.
+    expect($executor->disconnectCalls)->toBe(1)
+        ->and($result->totalToolCalls())->toBe(2)
+        ->and($result->steps[0]->toolResults[0]->content)->toBe('a')
+        ->and($result->steps[0]->toolResults[1]->content)->toBe('b');
+});
+
+it('does not reset database connections on the sync driver even when persistence is enabled', function () {
+    config()->set('atlas.persistence.enabled', true);
+
+    $executor = makeForkSafetySpy('sync');
+    $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: true, meta: []);
+
+    // The in-process sync driver shares no fork boundary — resetting would needlessly
+    // drop the live connection (and an in-memory test DB with it).
+    expect($executor->disconnectCalls)->toBe(0);
+});
+
+it('does not reset database connections on the sync driver when persistence is disabled', function () {
+    config()->set('atlas.persistence.enabled', false);
+
+    $executor = makeForkSafetySpy('sync');
+    $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: true, meta: []);
+
+    expect($executor->disconnectCalls)->toBe(0);
+});
+
+it('disconnectDatabase purges every resolved database connection', function () {
+    // Verify the reset itself: each resolved connection is purged (so forked
+    // children rebuild their own), without depending on a real database.
+    DB::shouldReceive('getConnections')->once()->andReturn(['pgsql' => null, 'analytics' => null]);
+    DB::shouldReceive('purge')->once()->with('pgsql');
+    DB::shouldReceive('purge')->once()->with('analytics');
+
+    $executor = new class(makeMockDriver([new TextResponse('x', new Usage(1, 1), FinishReason::Stop)]), new ToolExecutor(new ToolRegistry([])), makeFakeDispatcher()) extends AgentExecutor
+    {
+        public function callDisconnect(): void
+        {
+            $this->disconnectDatabase();
+        }
+    };
+
+    $executor->callDisconnect();
+
+    // Mockery verifies the purge expectations on teardown.
+    expect(true)->toBeTrue();
 });

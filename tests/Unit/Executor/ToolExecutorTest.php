@@ -128,3 +128,52 @@ it('does not catch handle exceptions', function () {
 
     $executor->execute(new ToolCall('tc-1', 'exploder', []), []);
 })->throws(InvalidArgumentException::class, 'Boom!');
+
+it('reports whether a named tool is a delegation tool', function () {
+    $normal = new class extends Tool
+    {
+        public function name(): string
+        {
+            return 'normal';
+        }
+
+        public function description(): string
+        {
+            return 'A normal tool.';
+        }
+
+        public function handle(array $args, array $context): mixed
+        {
+            return 'ok';
+        }
+    };
+
+    $delegating = new class extends Tool
+    {
+        public function name(): string
+        {
+            return 'delegate';
+        }
+
+        public function description(): string
+        {
+            return 'A delegation tool.';
+        }
+
+        public function isDelegation(): bool
+        {
+            return true;
+        }
+
+        public function handle(array $args, array $context): mixed
+        {
+            return 'ok';
+        }
+    };
+
+    $executor = new ToolExecutor(new ToolRegistry([$normal, $delegating]));
+
+    expect($executor->isDelegation('delegate'))->toBeTrue()
+        ->and($executor->isDelegation('normal'))->toBeFalse()
+        ->and($executor->isDelegation('does-not-exist'))->toBeFalse();
+});

@@ -21,5 +21,6 @@ class ToolContext
         public array $meta = [],
         public readonly ?int $stepNumber = null,
         public readonly ?string $agentKey = null,
+        public readonly bool $isDelegation = false,
     ) {}
 }

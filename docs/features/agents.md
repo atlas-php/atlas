@@ -270,6 +270,10 @@ class ResearchAgent extends Agent
 }
 ```
 
+::: tip Delegating to another agent
+You can also list an **agent** in `tools()` to hand a task off to it. See [Sub-agents](/features/sub-agents).
+:::
+
 Use `maxSteps()` to limit tool loop iterations and prevent runaway execution.
 
 ## Concurrent Tool Execution
@@ -305,28 +309,72 @@ $response = Atlas::agent('research')
 
 When the model requests multiple tool calls in a single step, Atlas runs them simultaneously using Laravel's `Concurrency` facade:
 
-- **With `spatie/fork` + `pcntl`** — true parallel execution via OS-level forking
+- **With `spatie/fork` + `pcntl`** — true parallel execution via OS-level process forking
 - **Without** — falls back to sequential execution through the sync driver
 
-### Requirements
+A step that contains only **one** tool call always runs inline — there is nothing to parallelize.
 
-Atlas ships with `spatie/fork` as a dependency — no extra installation needed. However, true parallelism requires the `pcntl` PHP extension, which is standard on most Linux/macOS setups but **not available on Windows**. Without `pcntl`, concurrent mode falls back to sequential execution.
+### Concurrent Sub-agents
+
+Sub-agent delegations parallelize too. When the model delegates to several [sub-agents](/features/sub-agents) in a single step, they run **at the same time** — each in its own forked process — and every sub-agent's response is returned to the parent. The parent's tool loop resumes only once **all** of them complete, so it always continues with the full set of results:
+
+```php
+class CoordinatorAgent extends Agent
+{
+    public function concurrent(): bool
+    {
+        return true;
+    }
+
+    public function tools(): array
+    {
+        // Three independent sub-agents the model can fan out to in one step.
+        return [ResearchAgent::class, PricingAgent::class, LegalAgent::class];
+    }
+}
+```
+
+The complete execution lineage is preserved across the fork boundary: the parent → child tree, each sub-agent's own token usage, the rolled-up subtree usage, and the depth/cycle guards all behave exactly as they do sequentially. Only wall-clock time changes.
+
+::: warning Real-time events from concurrent sub-agents
+The parent still emits its own `AgentToolCallStarted` / `AgentToolCallCompleted` events for each delegation (so the call and its result broadcast normally). But a sub-agent's **internal** orchestration events — its own `AgentStarted` / `AgentCompleted`, step events, and nested tool-call events — fire inside the forked child process and are **not** delivered to in-process listeners in the parent. There is no inter-process channel back.
+
+This affects only **live, in-process** observability *while a sub-agent is still running* (broadcasting each step as it happens, listener-driven side effects). It does **not** limit what you can show **after** it completes. The child writes its full execution / step / tool-call tree to the database from inside the fork, so once a concurrent sub-agent finishes you can load and display **everything** it did — its final response, each step's text, and every tool it ran (with arguments, results, and timing) — by drilling into the [delegation tree](/features/sub-agents#auditing-the-delegation-tree):
+
+```php
+use Atlasphp\Atlas\Persistence\Models\Execution;
+
+// Open a completed delegation tool call → the sub-agent that ran it.
+$child = Execution::where('parent_tool_call_id', $toolCallId)->first();
+
+$child->steps;      // each step, with ->content (response text) and ->reasoning
+$child->toolCalls;  // every tool it ran, with ->arguments, ->result, ->duration_ms
+$child->usage;      // its own token usage
+```
+
+So a UI that opens a finished sub-agent call shows its complete response, steps, and tools. Only the **live, as-it-happens** stream of a sub-agent's internals is unavailable under concurrency — for that, use **sequential** delegation (the default).
+:::
+
+### Persistence & Fork Safety
+
+Persistence tracking writes to the database from **inside** the forked child processes. Database connections (PostgreSQL, MySQL) are not fork-safe — a child that inherits and uses the parent's connection socket would corrupt the wire protocol.
+
+**Atlas handles this for you.** Before forking, it closes the parent's resolved database connections so each child opens its own fresh connection; the parent transparently reconnects on its next query. This reset runs **only** when the fork driver is active *and* persistence is enabled, so the in-process sync driver and non-persistent runs are never affected. Concurrent execution with persistence tracking is safe out of the box — no configuration required.
+
+### Requirements & Environment
+
+- Atlas ships with `spatie/fork` as a dependency — no extra installation needed. True parallelism requires the **`pcntl`** PHP extension (standard on Linux/macOS, **not available on Windows**). Without `pcntl`, concurrent mode falls back to sequential execution.
+- Fork-based parallelism runs in **CLI, queue-worker, and Artisan** contexts. It does **not** run inside PHP-FPM web requests (forking a live web worker is unsafe), where Atlas falls back to sequential. To parallelize long-running agent work from a web request without blocking it, dispatch the execution to the [queue](/guides/queue) and let workers run concurrently.
 
 ### When to Use
 
 Enable concurrency when:
-- Tools are **independent** and don't depend on each other's results
-- Tools make **external API calls** where parallelism reduces wall-clock time
-- You're **not using persistence** or understand the fork-safety implications
+- Tools or sub-agents are **independent** and don't depend on each other's results
+- They make **external API calls** (including sub-agent model calls) where parallelism reduces wall-clock time
 
 Keep sequential (default) when:
 - Tools have **side effects** that depend on execution order
-- You need **reliable persistence tracking** for every tool call
-- You're running on Windows or an environment without `pcntl`
-
-::: warning Fork Safety
-When using the fork driver with persistence enabled, tool call tracking runs inside forked child processes. Database connections are not fork-safe — the child inherits the parent's TCP socket. For production use with persistence, prefer sequential execution or ensure your database driver handles reconnection after fork.
-:::
+- You're running on Windows or an environment without `pcntl` (it falls back to sequential anyway)
 
 ## Conversations (Optional)
 
