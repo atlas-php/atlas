@@ -1,14 +1,30 @@
-import { defineConfig } from 'vitepress';
+import { defineConfig, type HeadConfig } from 'vitepress';
+
+const HOSTNAME = 'https://atlasphp.org';
 
 export default defineConfig({
     title: 'Atlas',
     description: 'AI Agents for Laravel - Build AI-powered applications with structure and scale',
 
+    // Keep .html URLs — these are the indexed, canonical URLs and must not change.
+    cleanUrls: false,
+    // Adds git-based last-updated times, which VitePress also writes as <lastmod> in sitemap.xml.
+    lastUpdated: true,
+
     head: [
-        ['link', { rel: 'icon', href: '/favicon.ico' }],
+        ['link', { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }],
+        ['link', { rel: 'icon', type: 'image/png', sizes: '256x256', href: '/favicon.png' }],
+        ['link', { rel: 'apple-touch-icon', href: '/favicon.png' }],
+        ['meta', { name: 'theme-color', content: '#1e1b4b' }],
+        ['meta', { property: 'og:type', content: 'website' }],
+        ['meta', { property: 'og:site_name', content: 'Atlas' }],
         ['meta', { property: 'og:title', content: 'Atlas - AI Agents for Laravel' }],
         ['meta', { property: 'og:description', content: 'Build AI-powered applications with structure and scale' }],
-        ['meta', { property: 'og:image', content: '/og-image.png' }],
+        ['meta', { property: 'og:image', content: `${HOSTNAME}/og-image.png` }],
+        ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
+        ['meta', { name: 'twitter:title', content: 'Atlas - AI Agents for Laravel' }],
+        ['meta', { name: 'twitter:description', content: 'Build AI-powered applications with structure and scale' }],
+        ['meta', { name: 'twitter:image', content: `${HOSTNAME}/og-image.png` }],
         // Cloudflare Web Analytics
         ['script', { defer: '', src: 'https://static.cloudflareinsights.com/beacon.min.js', 'data-cf-beacon': '{"token": "745294f0eaa04748bca79beeb599f6bc"}' }],
         // Google Analytics (gtag.js)
@@ -18,6 +34,21 @@ function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
 gtag('config', 'G-JEV06LWG7N');`],
     ],
+
+    // Emit a per-page canonical (and og:url) pointing at the .html URL so search
+    // engines consolidate on it and never index the extensionless variant.
+    transformHead: ({ pageData }) => {
+        const canonical = HOSTNAME + '/' + pageData.relativePath
+            .replace(/index\.md$/, '')
+            .replace(/\.md$/, '.html');
+
+        const tags: HeadConfig[] = [
+            ['link', { rel: 'canonical', href: canonical }],
+            ['meta', { property: 'og:url', content: canonical }],
+        ];
+
+        return tags;
+    },
 
     themeConfig: {
         siteTitle: 'ATLAS',
