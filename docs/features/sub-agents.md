@@ -81,7 +81,7 @@ Delegation is bounded to prevent runaway nesting:
 
 ## Auditing the delegation tree
 
-With [persistence](/features/persistence) enabled, every delegation is recorded as an auditable tree. Each sub-agent run is its own `Execution`, linked to its parent by `parent_execution_id`, `parent_tool_call_id` (the delegating call, typed `agent`), and `depth` (`0` for the root, incremented per level):
+With [persistence](/advanced/persistence) enabled, every delegation is recorded as an auditable tree. Each sub-agent run is its own `Execution`, linked to its parent by `parent_execution_id`, `parent_tool_call_id` (the delegating call, typed `agent`), and `depth` (`0` for the root, incremented per level):
 
 ```php
 use Atlasphp\Atlas\Persistence\Models\Execution;

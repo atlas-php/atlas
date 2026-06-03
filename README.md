@@ -21,25 +21,44 @@ Atlas is a unified AI SDK for Laravel applications. It owns its own provider lay
 
 ## ✨ Features
 
-- **Agents** — Reusable classes encapsulating provider, model, instructions, tools, and behavior
-- **Tools** — Typed tool classes with parameter schemas and dependency injection
-- **Sub-agents** — Delegate tasks to other agents as tools, with isolated context, depth/cycle guards, and an auditable parent → child execution tree. Fan out to multiple sub-agents **concurrently** (true parallel execution via forking) so independent work runs at the same time
-- **10 Modalities** — Text, images, audio (speech, music, sound effects), video, voice, embeddings, reranking
-- **Similarity Search** — Unified `Atlas::similaritySearch()` over whole-record or chunked embeddings; also available as an agent tool
-- **Chunked Embeddings** — Index long-form, frequently-edited content with diff-based reconciliation — edits re-embed only what changed
-- **Variable Interpolation** — `{variable}` placeholders in instructions resolved at runtime
-- **Middleware** — Four layers (agent, step, tool, provider) for logging, auth, metrics, and control
-- **Structured Output** — Schema-validated JSON responses from any provider
-- **Streaming** — SSE and Laravel Broadcasting with real-time chunk delivery
-- **Voice** — Real-time bidirectional voice conversations with tool support
-- **Conversations** — Multi-turn chat with message history, retry, and sibling tracking
-- **Persistence** — Optional execution tracking and asset storage
-- **Queue Support** — Async execution with broadcasting and callbacks
-- **Testing** — Full fake system with assertions — no API keys required
-- **Provider Tools** — Web search, code interpreter, file search via provider-native tools
-- **Provider Discovery** — List available models, voices, and run content moderation
-- **Custom Providers** — OpenAI-compatible endpoints or fully custom drivers
-- **All Providers** — OpenAI, Anthropic, Google (Gemini), xAI (Grok), ElevenLabs, Cohere, Jina, plus any OpenAI-compatible API (Ollama, Groq, DeepSeek, Together, OpenRouter, LM Studio)
+- **Agents**
+  - Reusable classes encapsulating provider, model, instructions, tools, and behavior
+- **Tools**
+  - Typed tool classes with parameter schemas and dependency injection
+- **Sub-agents**
+  - Delegate tasks to other agents as tools, with isolated context, depth/cycle guards, and an auditable parent → child execution tree. Fan out to multiple sub-agents **concurrently** (true parallel execution via forking) so independent work runs at the same time
+- **10 Modalities**
+  - Text, images, audio (speech, music, sound effects), video, voice, embeddings, reranking
+- **Similarity Search**
+  - Unified `Atlas::similaritySearch()` over whole-record or chunked embeddings; also available as an agent tool
+- **Chunked Embeddings**
+  - Index long-form, frequently-edited content with diff-based reconciliation — edits re-embed only what changed
+- **Variable Interpolation**
+  - `{variable}` placeholders in instructions resolved at runtime
+- **Middleware**
+  - Four layers (agent, step, tool, provider) for logging, auth, metrics, and control
+- **Structured Output**
+  - Schema-validated JSON responses from any provider
+- **Streaming**
+  - SSE and Laravel Broadcasting with real-time chunk delivery
+- **Voice**
+  - Real-time bidirectional voice conversations with tool support
+- **Conversations**
+  - Multi-turn chat with message history, retry, and sibling tracking
+- **Persistence**
+  - Optional execution tracking and asset storage
+- **Queue Support**
+  - Async execution with broadcasting and callbacks
+- **Testing**
+  - Full fake system with assertions — no API keys required
+- **Provider Tools**
+  - Web search, code interpreter, file search via provider-native tools
+- **Provider Discovery**
+  - List available models, voices, and run content moderation
+- **Custom Providers**
+  - OpenAI-compatible endpoints or fully custom drivers
+- **All Providers**
+  - OpenAI, Anthropic, Google (Gemini), xAI (Grok), ElevenLabs, Cohere, Jina, plus any OpenAI-compatible API (Ollama, Groq, DeepSeek, Together, OpenRouter, LM Studio)
 
 ## 🚀 Quick Start
 

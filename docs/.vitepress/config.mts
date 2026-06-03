@@ -71,6 +71,15 @@ export default defineConfig({
     // Adds git-based last-updated times, which VitePress also writes as <lastmod> in sitemap.xml.
     lastUpdated: true,
 
+    markdown: {
+        // `env` isn't a Shiki-bundled grammar; alias it to `ini` so ```env
+        // blocks (KEY=value, # comments) highlight without a "language not
+        // loaded" warning falling back to plain text.
+        languageAlias: {
+            env: 'ini',
+        },
+    },
+
     head: [
         ['link', { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }],
         ['link', { rel: 'icon', type: 'image/png', sizes: '256x256', href: '/favicon.png' }],
