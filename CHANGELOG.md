@@ -8,6 +8,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 ---
 
+## [v3.2.0](https://github.com/atlas-php/atlas/releases/tag/v3.2.0) - 2026-06-02
+
+### Added
+
+- Sub-agents: one agent can now hand off work to another. List an agent in another agent's `tools()` and it can delegate a task to that specialist, which runs on its own and returns its answer — the same way any tool call works (including in the UI).
+- With persistence enabled, each delegation is tracked: you can see which agent called which, and the token cost of every agent individually as well as the whole chain.
+
+### Migration
+
+Run `php artisan migrate` to add the new tracking columns. No other changes needed — drop-in upgrade.
+
+---
+
 ## [v3.1.4](https://github.com/atlas-php/atlas/releases/tag/v3.1.4) - 2026-06-02
 
 ### Fixed

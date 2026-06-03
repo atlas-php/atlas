@@ -99,6 +99,9 @@ All tables are prefixed with `atlas_` by default (configurable via `persistence.
 |--------|------|-----|
 | `id` | `bigint` | Primary key |
 | `conversation_id` | `bigint nullable` | FK → conversations. Set when the execution is part of a conversation. Null for standalone direct calls |
+| `parent_execution_id` | `bigint nullable` | FK → executions (self). Set when this is a sub-agent run, pointing to the execution that delegated to it. Null for a root run |
+| `parent_tool_call_id` | `bigint nullable` | FK → execution_tool_calls. The delegating tool call (typed `agent`) that spawned this sub-agent run |
+| `depth` | `unsignedTinyInteger` | Delegation depth: `0` for a root agent run, incremented per nested sub-agent level |
 | `status` | `unsignedTinyInteger` | Lifecycle state as int-backed `ExecutionStatus` enum: `0` (Pending) → `1` (Queued) → `2` (Processing) → `3` (Completed) or `4` (Failed) |
 | `agent` | `string(255) nullable` | Agent key. Null for direct modality calls |
 | `type` | `string(30)` | What type of execution, backed by `ExecutionType` enum: `text`, `structured`, `stream`, `image`, `image_to_text`, `audio`, `audio_to_text`, `video`, `video_to_text`, `music`, `sfx`, `speech`, `embed`, `moderate`, `rerank`, `voice` |
@@ -150,7 +153,7 @@ All tables are prefixed with `atlas_` by default (configurable via `persistence.
 | `tool_call_id` | `string(100)` | The provider's unique ID for this tool call (used to match results back to requests) |
 | `status` | `unsignedTinyInteger` | Int-backed `ExecutionStatus` enum: `0` (Pending) → `2` (Processing) → `3` (Completed) or `4` (Failed) |
 | `name` | `string(100)` | Tool name (e.g. `lookup_order`, `web_search`) |
-| `type` | `string(20)` | `local` for user-defined tools, `mcp` for MCP tools, `provider` for native provider tools (backed by `ToolCallType` enum) |
+| `type` | `string(20)` | `local` for user-defined tools, `mcp` for MCP tools, `provider` for native provider tools, `agent` for sub-agent delegation (backed by `ToolCallType` enum) |
 | `arguments` | `json nullable` | The arguments the model passed to the tool. Stored as JSON for inspection |
 | `result` | `text nullable` | The serialized return value from the tool. What was sent back to the model |
 | `started_at` | `timestamp nullable` | When tool execution started |
@@ -234,6 +237,9 @@ ConversationMessage
 
 Execution
 ├── belongs to Conversation (optional)
+├── belongs to Execution parent (via parent_execution_id, for sub-agent runs)
+├── belongs to ExecutionToolCall parentToolCall (the delegating call)
+├── has many Execution children (sub-agent runs it spawned)
 ├── has one ConversationMessage (via conversation_messages.execution_id)
 ├── has one VoiceCall (via conversation_voice_calls.execution_id)
 ├── has many ExecutionSteps

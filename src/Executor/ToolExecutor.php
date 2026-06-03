@@ -36,4 +36,12 @@ class ToolExecutor
             content: ToolSerializer::serialize($result),
         );
     }
+
+    /**
+     * Whether the named tool delegates to a sub-agent.
+     */
+    public function isDelegation(string $name): bool
+    {
+        return $this->registry->has($name) && $this->registry->resolve($name)->isDelegation();
+    }
 }

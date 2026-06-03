@@ -55,6 +55,7 @@ use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\VoiceSession;
 use Atlasphp\Atlas\Schema\Schema;
+use Atlasphp\Atlas\Tools\AgentTool;
 use Atlasphp\Atlas\Tools\Tool;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Contracts\Events\Dispatcher;
@@ -86,6 +87,12 @@ class AgentRequest implements QueueableRequest
     use NormalizesMessages;
 
     // ─── Runtime overrides ──────────────────────────────────────────
+
+    /**
+     * Pre-resolved agent instance. When set, resolveAgent() uses it instead
+     * of looking the agent up by key — used to run unregistered sub-agents.
+     */
+    protected ?Agent $agentInstance = null;
 
     protected ?string $instructionsOverride = null;
 
@@ -789,11 +796,34 @@ class AgentRequest implements QueueableRequest
     // ─── Internal: Resolution ───────────────────────────────────────
 
     /**
+     * Run a pre-resolved agent instance instead of resolving by key.
+     *
+     * Lets callers (e.g. AgentTool sub-agent delegation) execute an agent that
+     * may not be registered in the AgentRegistry.
+     */
+    public function forInstance(Agent $agent): static
+    {
+        $this->agentInstance = $agent;
+
+        return $this;
+    }
+
+    /**
+     * The target agent: a pre-resolved instance (via forInstance) or the
+     * registered agent for this request's key. Single source of truth so the
+     * instance-preference never diverges between resolution sites.
+     */
+    protected function lookupAgent(): Agent
+    {
+        return $this->agentInstance ?? $this->agentRegistry->resolve($this->key);
+    }
+
+    /**
      * Resolve the agent instance and transfer conversation state.
      */
     protected function resolveAgent(): Agent
     {
-        $agent = $this->agentRegistry->resolve($this->key);
+        $agent = $this->lookupAgent();
 
         $this->transferConversationState($agent);
 
@@ -866,7 +896,13 @@ class AgentRequest implements QueueableRequest
 
         foreach ($raw as $item) {
             if ($item instanceof Tool) {
+                // Includes an explicit AgentTool::for($agent).
                 $tools[] = $item;
+            } elseif ($item instanceof Agent) {
+                // Implicit: an agent listed in tools() becomes a delegation tool.
+                $tools[] = AgentTool::for($item);
+            } elseif (is_string($item) && is_subclass_of($item, Agent::class)) {
+                $tools[] = AgentTool::for($this->app->make($item));
             } elseif (is_string($item) && class_exists($item)) {
                 $tools[] = $this->app->make($item);
             } elseif (is_string($item)) {
@@ -896,6 +932,13 @@ class AgentRequest implements QueueableRequest
      */
     protected function buildRequest(Agent $agent, array $tools): TextRequest
     {
+        // Forward the consumer's own variables to any sub-agents, captured before
+        // this agent's identity is injected (identity is per-agent and must not
+        // leak downward). AgentTool reads this and re-applies via withVariables().
+        if ($this->variables !== []) {
+            $this->meta[AgentTool::VARIABLES_META_KEY] = $this->variables;
+        }
+
         // Inject agent identity variables
         $this->variables = array_merge([
             'NAME' => $agent->name(),
@@ -1252,7 +1295,7 @@ class AgentRequest implements QueueableRequest
             return Provider::normalize($this->providerOverride);
         }
 
-        $agent = $this->agentRegistry->resolve($this->key);
+        $agent = $this->lookupAgent();
         $provider = $agent->provider();
 
         if ($provider !== null) {
@@ -1271,8 +1314,6 @@ class AgentRequest implements QueueableRequest
             return $this->modelOverride;
         }
 
-        $agent = $this->agentRegistry->resolve($this->key);
-
-        return $agent->model() ?? (string) ($this->config->defaultFor('text')['model'] ?? '');
+        return $this->lookupAgent()->model() ?? (string) ($this->config->defaultFor('text')['model'] ?? '');
     }
 }

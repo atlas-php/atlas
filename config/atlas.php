@@ -40,11 +40,19 @@ return [
     | Auto-discovery path and namespace for agent classes. Agents found in
     | the configured directory are automatically registered at boot time.
     |
+    | Sub-agents: an agent listed in another agent's tools() is exposed as a
+    | delegation tool. max_delegation_depth bounds how deeply agents may nest
+    | (cycles are always rejected). delegation_errors controls what happens
+    | when a sub-agent throws: 'throw' surfaces it as a failed tool call,
+    | 'return' hands the error message back to the parent model as the result.
+    |
     */
 
     'agents' => [
         'path' => null,
         'namespace' => null,
+        'max_delegation_depth' => env('ATLAS_MAX_DELEGATION_DEPTH', 5),
+        'delegation_errors' => env('ATLAS_DELEGATION_ERRORS', 'throw'),
     ],
 
     /*

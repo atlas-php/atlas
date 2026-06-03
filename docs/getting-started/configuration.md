@@ -48,14 +48,17 @@ return [
     | Agents
     |--------------------------------------------------------------------------
     |
-    | Auto-discovery path and namespace for agent classes. Agents found in
-    | the configured directory are automatically registered at boot time.
+    | Auto-discovery path and namespace for agent classes, plus sub-agent
+    | delegation limits. Agents found in the configured directory are
+    | automatically registered at boot time.
     |
     */
 
     'agents' => [
         'path' => null,
         'namespace' => null,
+        'max_delegation_depth' => env('ATLAS_MAX_DELEGATION_DEPTH', 5),
+        'delegation_errors' => env('ATLAS_DELEGATION_ERRORS', 'throw'),
     ],
 
     /*
@@ -611,6 +614,13 @@ Both values are `null` by default (auto-discovery disabled). Set them to enable 
 ```bash
 php artisan make:agent SupportAgent
 ```
+
+### Sub-agent Delegation
+
+When one agent delegates to another (see [Sub-agents](/features/sub-agents)):
+
+- `max_delegation_depth` (default `5`) — how deeply agents may nest before `MaxDelegationDepthException` is thrown. Cycles are always rejected.
+- `delegation_errors` (default `'throw'`) — what happens when a sub-agent fails: `'throw'` records a failed tool call; `'return'` hands the error message back to the parent model so it can recover.
 
 ## Next Steps
 

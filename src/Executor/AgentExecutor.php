@@ -279,6 +279,7 @@ class AgentExecutor
             meta: $meta,
             stepNumber: $stepNumber,
             agentKey: $this->context->agentKey,
+            isDelegation: $this->toolExecutor->isDelegation($toolCall->name),
         );
 
         return $this->middlewareStack->run(
@@ -328,6 +329,17 @@ class AgentExecutor
     {
         if (count($toolCalls) === 1) {
             return $this->executeToolsSequentially($toolCalls, $meta, $stepNumber);
+        }
+
+        // Sub-agent delegation runs nested executions through the shared (scoped)
+        // ExecutionService. Under fork-based concurrency the child's tracking state
+        // never propagates back to the parent process, which would corrupt the
+        // parent's execution context. Run the whole batch sequentially if any tool
+        // delegates, so lineage tracking stays correct.
+        foreach ($toolCalls as $toolCall) {
+            if ($this->toolExecutor->isDelegation($toolCall->name)) {
+                return $this->executeToolsSequentially($toolCalls, $meta, $stepNumber);
+            }
         }
 
         $toolCalls = array_values($toolCalls);

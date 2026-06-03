@@ -42,6 +42,7 @@ gtag('config', 'G-JEV06LWG7N');`],
                 items: [
                     { text: 'Agents', link: '/features/agents' },
                     { text: 'Tools', link: '/features/tools' },
+                    { text: 'Sub-agents', link: '/features/sub-agents' },
                     { text: 'Instructions', link: '/features/instructions' },
                     { text: 'Schema', link: '/features/schema' },
                     { text: 'Middleware', link: '/features/middleware' },
@@ -103,7 +104,7 @@ gtag('config', 'G-JEV06LWG7N');`],
 
         footer: {
             message: 'Released under the MIT License.',
-            copyright: 'Copyright 2025-2026 Atlas PHP · Created by <a href="https://marois.dev" target="_blank">Timothy Marois</a>'
+            copyright: 'Copyright 2025-2026 Atlas PHP · Created by <a href="https://marois.dev" target="_blank">Tim Marois</a>'
         }
     },
 

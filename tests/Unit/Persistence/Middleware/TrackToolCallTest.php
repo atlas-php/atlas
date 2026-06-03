@@ -7,6 +7,7 @@ use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Middleware\ToolContext;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionType;
+use Atlasphp\Atlas\Persistence\Enums\ToolCallType;
 use Atlasphp\Atlas\Persistence\Middleware\TrackToolCall;
 use Atlasphp\Atlas\Persistence\Models\ExecutionToolCall;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
@@ -145,4 +146,23 @@ it('records duration', function () {
 
     expect($record->duration_ms)->not->toBeNull();
     expect($record->duration_ms)->toBeGreaterThanOrEqual(0);
+});
+
+it('types a delegation tool call as agent', function () {
+    $service = makeServiceWithExecutionAndStep();
+    $middleware = new TrackToolCall($service);
+
+    $context = new ToolContext(toolCall: makeToolCall(), meta: [], isDelegation: true);
+    $middleware->handle($context, fn () => makeToolResult());
+
+    expect(ExecutionToolCall::firstOrFail()->type)->toBe(ToolCallType::Agent);
+});
+
+it('types a normal tool call as local', function () {
+    $service = makeServiceWithExecutionAndStep();
+    $middleware = new TrackToolCall($service);
+
+    $middleware->handle(makeToolContext(), fn () => makeToolResult());
+
+    expect(ExecutionToolCall::firstOrFail()->type)->toBe(ToolCallType::Local);
 });

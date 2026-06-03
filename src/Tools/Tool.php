@@ -45,6 +45,17 @@ abstract class Tool
     }
 
     /**
+     * Whether this tool delegates to a sub-agent.
+     *
+     * Lets the persistence layer classify the resulting tool call without
+     * coupling the Tools layer to persistence enums. Overridden by AgentTool.
+     */
+    public function isDelegation(): bool
+    {
+        return false;
+    }
+
+    /**
      * Convert to a ToolDefinition for the driver layer.
      */
     public function toDefinition(): ToolDefinition

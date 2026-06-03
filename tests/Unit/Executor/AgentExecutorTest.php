@@ -1137,3 +1137,54 @@ it('creates a working executor via forTools factory', function () {
     expect($result->totalSteps())->toBe(2);
     expect($result->steps[0]->toolResults[0]->content)->toBe('hello');
 });
+
+it('falls back to sequential execution when a concurrent batch contains a delegation tool', function () {
+    $delegationTool = new class extends Tool
+    {
+        public function name(): string
+        {
+            return 'delegate';
+        }
+
+        public function description(): string
+        {
+            return 'Delegates to a sub-agent.';
+        }
+
+        public function isDelegation(): bool
+        {
+            return true;
+        }
+
+        public function handle(array $args, array $context): mixed
+        {
+            return 'delegated-result';
+        }
+    };
+
+    $driver = makeMockDriver([
+        new TextResponse(
+            'working',
+            new Usage(10, 10),
+            FinishReason::ToolCalls,
+            toolCalls: [
+                new ToolCall('tc-1', 'delegate', []),
+                new ToolCall('tc-2', 'echo', ['text' => 'hi']),
+            ],
+        ),
+        new TextResponse('done', new Usage(5, 5), FinishReason::Stop),
+    ]);
+
+    $dispatcher = makeFakeDispatcher();
+    $registry = new ToolRegistry([$delegationTool, makeEchoTool()]);
+    $executor = new AgentExecutor($driver, new ToolExecutor($registry), $dispatcher);
+
+    $result = $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: true, meta: []);
+
+    // The whole batch still executes correctly via the sequential fallback.
+    expect($result->text)->toBe('done')
+        ->and($result->totalToolCalls())->toBe(2);
+
+    $completed = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentToolCallCompleted);
+    expect($completed)->toHaveCount(2);
+});

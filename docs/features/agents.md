@@ -270,6 +270,10 @@ class ResearchAgent extends Agent
 }
 ```
 
+::: tip Delegating to another agent
+You can also list an **agent** in `tools()` to hand a task off to it. See [Sub-agents](/features/sub-agents).
+:::
+
 Use `maxSteps()` to limit tool loop iterations and prevent runaway execution.
 
 ## Concurrent Tool Execution
