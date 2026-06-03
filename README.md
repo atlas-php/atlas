@@ -185,7 +185,7 @@ return response()->json($session->toClientPayload());
 // Returns ephemeral token + connection URL for WebRTC/WebSocket
 ```
 
-See the [Voice Integration Guide](https://atlasphp.org/guides/voice-integration.html) for full setup instructions.
+See the [Voice Integration Guide](https://atlasphp.org/guides/voice-integration/) for full setup instructions.
 
 ## 💡 Why Atlas?
 
@@ -202,18 +202,18 @@ See the [Voice Integration Guide](https://atlasphp.org/guides/voice-integration.
 
 **[atlasphp.org](https://atlasphp.org)** — Full guides, API reference, and examples.
 
-- [Getting Started](https://atlasphp.org/getting-started/installation.html) — Installation and configuration
-- [Agents](https://atlasphp.org/features/agents.html) — Define reusable AI configurations
-- [Tools](https://atlasphp.org/features/tools.html) — Connect agents to your application
-- [Sub-agents](https://atlasphp.org/features/sub-agents.html) — Agent-to-agent delegation, including concurrent (parallel) fan-out
-- [Middleware](https://atlasphp.org/features/middleware.html) — Extend with four middleware layers
-- [Similarity Search](https://atlasphp.org/features/similarity-search.html) — Semantic search over whole-record or chunked embeddings
-- [Modalities](https://atlasphp.org/modalities/text.html) — Text, images, audio, video, voice, embeddings, and more
-- [Conversations](https://atlasphp.org/guides/conversations.html) — Multi-turn chat with persistence
-- [Voice](https://atlasphp.org/guides/voice-integration.html) — Real-time voice conversations
-- [Streaming](https://atlasphp.org/guides/streaming.html) — SSE and broadcasting
-- [Queue](https://atlasphp.org/guides/queue.html) — Background execution
-- [Testing](https://atlasphp.org/advanced/testing.html) — Fakes and assertions
+- [Getting Started](https://atlasphp.org/getting-started/installation/) — Installation and configuration
+- [Agents](https://atlasphp.org/features/agents/) — Define reusable AI configurations
+- [Tools](https://atlasphp.org/features/tools/) — Connect agents to your application
+- [Sub-agents](https://atlasphp.org/features/sub-agents/) — Agent-to-agent delegation, including concurrent (parallel) fan-out
+- [Middleware](https://atlasphp.org/features/middleware/) — Extend with four middleware layers
+- [Similarity Search](https://atlasphp.org/features/similarity-search/) — Semantic search over whole-record or chunked embeddings
+- [Modalities](https://atlasphp.org/modalities/text/) — Text, images, audio, video, voice, embeddings, and more
+- [Conversations](https://atlasphp.org/guides/conversations/) — Multi-turn chat with persistence
+- [Voice](https://atlasphp.org/guides/voice-integration/) — Real-time voice conversations
+- [Streaming](https://atlasphp.org/guides/streaming/) — SSE and broadcasting
+- [Queue](https://atlasphp.org/guides/queue/) — Background execution
+- [Testing](https://atlasphp.org/advanced/testing/) — Fakes and assertions
 
 ## 🧪 Sandbox
 
