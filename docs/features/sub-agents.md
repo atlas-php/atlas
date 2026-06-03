@@ -37,6 +37,31 @@ The parent model sees a single string parameter, `task`, which it fills with a c
 
 Each sub-agent invocation runs in isolation: its own instructions, model, and tools, starting from a fresh history. The parent's conversation history is **not** shared — pass everything the sub-agent needs in the `task`. Context you set with `withMeta()` (auth, tenant) **is** forwarded, so authorization still works.
 
+## Running sub-agents concurrently
+
+By default delegations run one at a time. If the parent agent enables [concurrent execution](/features/agents#concurrent-tool-execution) (via `concurrent()` or `->withConcurrent()`) and the model delegates to **several sub-agents in a single step**, those sub-agents run **at the same time** — each in its own forked process:
+
+```php
+class CoordinatorAgent extends Agent
+{
+    public function concurrent(): bool
+    {
+        return true; // fan out to sub-agents in parallel
+    }
+
+    public function tools(): array
+    {
+        return [ResearchAgent::class, PricingAgent::class, LegalAgent::class];
+    }
+}
+```
+
+The parent's tool loop waits for **all** of them to finish, then continues with the complete set of responses — so the parent always reasons over every sub-agent's result, exactly as it would sequentially. Only wall-clock time changes: three sub-agents that each take ~3s finish in ~3s instead of ~9s.
+
+Everything in this page still holds under concurrency. The full lineage tree, each sub-agent's own and rolled-up token usage, and the depth/cycle guards are all preserved across the fork boundary, and persistence tracking is automatically fork-safe (Atlas resets database connections before forking).
+
+One nuance to know: a concurrently-delegated sub-agent's **internal** real-time events (its own step and tool-call events) fire inside its forked process and are not delivered to in-process listeners in the parent — the delegation still surfaces as a parent tool-call event, and the full tree is still persisted for auditing. Requirements, the CLI/queue-only nature of fork-based parallelism, and this event caveat are covered in [Concurrent Tool Execution](/features/agents#concurrent-tool-execution).
+
 ## Guards
 
 Delegation is bounded to prevent runaway nesting:

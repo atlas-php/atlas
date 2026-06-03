@@ -1138,7 +1138,10 @@ it('creates a working executor via forTools factory', function () {
     expect($result->steps[0]->toolResults[0]->content)->toBe('hello');
 });
 
-it('falls back to sequential execution when a concurrent batch contains a delegation tool', function () {
+it('executes a concurrent batch containing a delegation tool through the concurrent path', function () {
+    // Sub-agent delegations are no longer forced sequential: a batch that mixes a
+    // delegation with a regular tool runs through the concurrent path, and every
+    // tool result still comes back correctly for the parent loop to continue on.
     $delegationTool = new class extends Tool
     {
         public function name(): string
@@ -1181,10 +1184,46 @@ it('falls back to sequential execution when a concurrent batch contains a delega
 
     $result = $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: true, meta: []);
 
-    // The whole batch still executes correctly via the sequential fallback.
+    // Both tools execute and their results are returned to the parent.
     expect($result->text)->toBe('done')
         ->and($result->totalToolCalls())->toBe(2);
 
     $completed = array_filter($dispatcher->dispatched, fn ($e) => $e instanceof AgentToolCallCompleted);
     expect($completed)->toHaveCount(2);
+});
+
+it('does not reset database connections in the concurrent path when persistence is disabled', function () {
+    // Safety guard: the fork DB-reset must NEVER fire when persistence is off, so
+    // an in-memory test database (which exists only for the life of its connection)
+    // is never dropped out from under a concurrent run. The fork+persistence path
+    // that does reset connections is covered end-to-end by the live sandbox harness.
+    config()->set('atlas.persistence.enabled', false);
+
+    $driver = makeMockDriver([
+        new TextResponse(
+            'working',
+            new Usage(10, 10),
+            FinishReason::ToolCalls,
+            toolCalls: [
+                new ToolCall('tc-1', 'echo', ['text' => 'a']),
+                new ToolCall('tc-2', 'echo', ['text' => 'b']),
+            ],
+        ),
+        new TextResponse('done', new Usage(5, 5), FinishReason::Stop),
+    ]);
+
+    $registry = new ToolRegistry([makeEchoTool()]);
+    $executor = new class($driver, new ToolExecutor($registry), makeFakeDispatcher()) extends AgentExecutor
+    {
+        public int $disconnectCalls = 0;
+
+        protected function disconnectDatabase(): void
+        {
+            $this->disconnectCalls++;
+        }
+    };
+
+    $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: true, meta: []);
+
+    expect($executor->disconnectCalls)->toBe(0);
 });

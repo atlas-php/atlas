@@ -27,6 +27,7 @@ use Atlasphp\Atlas\Responses\Usage;
 use Atlasphp\Atlas\Tools\Tool;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Support\Facades\Concurrency;
+use Illuminate\Support\Facades\DB;
 use Spatie\Fork\Fork;
 
 /**
@@ -319,6 +320,23 @@ class AgentExecutor
      * The default process driver is not used because it serializes closures
      * into child PHP processes, which fails with dependency-injected tools.
      *
+     * Sub-agent delegations run concurrently too. Each fork inherits a copy of
+     * the parent's (scoped) ExecutionService, so every child computes its own
+     * parent_execution_id / parent_tool_call_id and persists correct lineage
+     * independently — nothing has to propagate back, and usage roll-up is read
+     * from the DB subtree afterwards. The one hazard is the inherited database
+     * connection, which is reset before forking (see disconnectDatabase).
+     *
+     * Event delivery caveat: the per-tool AgentToolCallStarted/Completed events
+     * are fired here in the parent and behave normally. But any orchestration
+     * events a delegated sub-agent fires *inside* its fork (its own AgentStarted/
+     * AgentCompleted, step and nested tool-call events) are dispatched to the
+     * child's in-process dispatcher and do NOT reach listeners in the parent
+     * process — there is no IPC back. Persistence is unaffected (the child writes
+     * the full execution/step/tool-call tree to the DB), so post-hoc auditing is
+     * complete; only real-time in-process listeners on a sub-agent's internals
+     * are missed. Use sequential delegation when that live observability matters.
+     *
      * Falls back to sequential if only one tool call is present.
      *
      * @param  array<int, ToolCall>  $toolCalls
@@ -329,17 +347,6 @@ class AgentExecutor
     {
         if (count($toolCalls) === 1) {
             return $this->executeToolsSequentially($toolCalls, $meta, $stepNumber);
-        }
-
-        // Sub-agent delegation runs nested executions through the shared (scoped)
-        // ExecutionService. Under fork-based concurrency the child's tracking state
-        // never propagates back to the parent process, which would corrupt the
-        // parent's execution context. Run the whole batch sequentially if any tool
-        // delegates, so lineage tracking stays correct.
-        foreach ($toolCalls as $toolCall) {
-            if ($this->toolExecutor->isDelegation($toolCall->name)) {
-                return $this->executeToolsSequentially($toolCalls, $meta, $stepNumber);
-            }
         }
 
         $toolCalls = array_values($toolCalls);
@@ -367,8 +374,23 @@ class AgentExecutor
             $toolCalls,
         );
 
+        $driver = $this->concurrencyDriver();
+
+        // Fork DB-safety: a forked child inherits the parent's database connection
+        // — a single, non-fork-safe socket. Delegating tools write heavily to the
+        // DB (nested executions, steps, tool calls), so concurrent children sharing
+        // one connection would corrupt the wire protocol. Closing the parent's
+        // resolved connections before forking forces each child to open its own;
+        // the parent reconnects lazily on its next query after the batch. Guarded
+        // to the fork driver + persistence so the in-process sync driver and
+        // non-persistent runs are untouched (and an in-memory SQLite test DB,
+        // which only exists for the life of its connection, is never dropped).
+        if ($driver === 'fork' && (bool) config('atlas.persistence.enabled', false)) {
+            $this->disconnectDatabase();
+        }
+
         /** @var array<int, ToolResult> $results */
-        $results = Concurrency::driver($this->concurrencyDriver())->run($tasks);
+        $results = Concurrency::driver($driver)->run($tasks);
 
         // Post-process: fire completion or error events
         foreach ($results as $result) {
@@ -399,6 +421,20 @@ class AgentExecutor
         }
 
         return 'sync';
+    }
+
+    /**
+     * Purge every resolved database connection so forked children each open
+     * their own. Laravel rebuilds connections lazily, so the parent and every
+     * child get a clean, fork-safe connection. Called in the parent right before
+     * forking — no live socket is shared across the fork boundary. No-op when no
+     * connection has been resolved yet.
+     */
+    protected function disconnectDatabase(): void
+    {
+        foreach (array_keys(DB::getConnections()) as $name) {
+            DB::purge($name);
+        }
     }
 
     /**

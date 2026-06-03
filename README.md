@@ -23,6 +23,7 @@ Atlas is a unified AI SDK for Laravel applications. It owns its own provider lay
 
 - **Agents** — Reusable classes encapsulating provider, model, instructions, tools, and behavior
 - **Tools** — Typed tool classes with parameter schemas and dependency injection
+- **Sub-agents** — Delegate tasks to other agents as tools, with isolated context, depth/cycle guards, and an auditable parent → child execution tree. Fan out to multiple sub-agents **concurrently** (true parallel execution via forking) so independent work runs at the same time
 - **10 Modalities** — Text, images, audio (speech, music, sound effects), video, voice, embeddings, reranking
 - **Similarity Search** — Unified `Atlas::similaritySearch()` over whole-record or chunked embeddings; also available as an agent tool
 - **Chunked Embeddings** — Index long-form, frequently-edited content with diff-based reconciliation — edits re-embed only what changed
@@ -185,6 +186,7 @@ See the [Voice Integration Guide](https://atlasphp.org/guides/voice-integration.
 - [Getting Started](https://atlasphp.org/getting-started/installation.html) — Installation and configuration
 - [Agents](https://atlasphp.org/features/agents.html) — Define reusable AI configurations
 - [Tools](https://atlasphp.org/features/tools.html) — Connect agents to your application
+- [Sub-agents](https://atlasphp.org/features/sub-agents.html) — Agent-to-agent delegation, including concurrent (parallel) fan-out
 - [Middleware](https://atlasphp.org/features/middleware.html) — Extend with four middleware layers
 - [Similarity Search](https://atlasphp.org/features/similarity-search.html) — Semantic search over whole-record or chunked embeddings
 - [Modalities](https://atlasphp.org/modalities/text.html) — Text, images, audio, video, voice, embeddings, and more
