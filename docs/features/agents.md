@@ -339,7 +339,20 @@ The complete execution lineage is preserved across the fork boundary: the parent
 ::: warning Real-time events from concurrent sub-agents
 The parent still emits its own `AgentToolCallStarted` / `AgentToolCallCompleted` events for each delegation (so the call and its result broadcast normally). But a sub-agent's **internal** orchestration events — its own `AgentStarted` / `AgentCompleted`, step events, and nested tool-call events — fire inside the forked child process and are **not** delivered to in-process listeners in the parent. There is no inter-process channel back.
 
-This affects only **live, in-process** observability of a sub-agent's internals (broadcasting each step, listener-driven side effects). It does **not** affect persistence: the child writes the full execution / step / tool-call tree to the database, so post-run auditing via the [delegation tree](/features/sub-agents#auditing-the-delegation-tree) is complete. If you need real-time per-step events from sub-agents, use **sequential** delegation (the default).
+This affects only **live, in-process** observability *while a sub-agent is still running* (broadcasting each step as it happens, listener-driven side effects). It does **not** limit what you can show **after** it completes. The child writes its full execution / step / tool-call tree to the database from inside the fork, so once a concurrent sub-agent finishes you can load and display **everything** it did — its final response, each step's text, and every tool it ran (with arguments, results, and timing) — by drilling into the [delegation tree](/features/sub-agents#auditing-the-delegation-tree):
+
+```php
+use Atlasphp\Atlas\Persistence\Models\Execution;
+
+// Open a completed delegation tool call → the sub-agent that ran it.
+$child = Execution::where('parent_tool_call_id', $toolCallId)->first();
+
+$child->steps;      // each step, with ->content (response text) and ->reasoning
+$child->toolCalls;  // every tool it ran, with ->arguments, ->result, ->duration_ms
+$child->usage;      // its own token usage
+```
+
+So a UI that opens a finished sub-agent call shows its complete response, steps, and tools. Only the **live, as-it-happens** stream of a sub-agent's internals is unavailable under concurrency — for that, use **sequential** delegation (the default).
 :::
 
 ### Persistence & Fork Safety

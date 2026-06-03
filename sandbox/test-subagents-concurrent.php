@@ -45,6 +45,7 @@ use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Events\AgentStarted;
 use Atlasphp\Atlas\Events\AgentToolCallCompleted;
 use Atlasphp\Atlas\Events\AgentToolCallStarted;
+use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Enums\ToolCallType;
 use Atlasphp\Atlas\Persistence\Middleware\PersistConversation;
 use Atlasphp\Atlas\Persistence\Middleware\TrackExecution;
@@ -612,6 +613,73 @@ test("sub-agents' own internal events stream in-process sequentially but NOT acr
     assert_true($workerStarted['sequential'] >= 3, "sequential should deliver worker AgentStarted in-process, got {$workerStarted['sequential']}");
     assert_true($workerStarted['concurrent'] === 0, "concurrent worker AgentStarted fire inside the fork and must NOT reach the parent, got {$workerStarted['concurrent']}");
 });
+
+// ─── Post-completion drill-down (what the UI shows when you open a call) ──────
+//
+// Live streaming of a concurrent sub-agent's internals is not delivered to the
+// parent (above). But its FULL result IS persisted from inside the fork. This is
+// exactly what a UI does when you click a COMPLETED delegation tool call: load
+// the sub-agent's response, the steps it took (with their text), and the tools
+// it ran (with arguments, results, and timing). Reconstructed from the database
+// for the concurrent run below — proving full after-the-fact visibility.
+
+echo "\n\n── Post-completion drill-down (concurrent run — full sub-agent visibility)";
+
+test('every concurrent sub-agent exposes its response, steps, and tools after completion', function () use ($con) {
+    $parent = $con['parent'];
+    $delegations = $parent->toolCalls->where('type', ToolCallType::Agent);
+    assert_true($delegations->isNotEmpty(), 'parent should have delegation tool calls to drill into');
+
+    foreach ($delegations as $tc) {
+        // 1. The sub-agent's RESPONSE — on the delegation tool call result.
+        assert_true(is_string($tc->result) && $tc->result !== '', "delegation '{$tc->name}' must carry the sub-agent response");
+
+        // 2. The linked child execution is fully recorded.
+        $child = Execution::where('parent_tool_call_id', $tc->id)->first();
+        assert_true($child !== null, "delegation '{$tc->name}' must link to a child execution");
+        assert_true($child->status === ExecutionStatus::Completed, "child '{$child->agent}' should be completed");
+        assert_true(($child->usage['output_tokens'] ?? 0) > 0, "child '{$child->agent}' should have recorded usage");
+
+        // 3. The sub-agent's STEPS — recorded with their text content.
+        $steps = $child->steps()->orderBy('sequence')->get();
+        assert_true($steps->isNotEmpty(), "child '{$child->agent}' should have recorded steps");
+        assert_true(
+            $steps->contains(fn ($s) => is_string($s->content) && $s->content !== ''),
+            "child '{$child->agent}' steps should include the response text",
+        );
+
+        // 4. The TOOLS the sub-agent ran — with arguments, result, and timing.
+        $ranTools = $child->toolCalls()->where('type', ToolCallType::Local)->get();
+        assert_true($ranTools->isNotEmpty(), "child '{$child->agent}' should record the tools it ran (slow_fetch)");
+        foreach ($ranTools as $ct) {
+            assert_true(is_string($ct->result) && $ct->result !== '', "tool '{$ct->name}' on '{$child->agent}' should record its result");
+            assert_true($ct->duration_ms !== null, "tool '{$ct->name}' on '{$child->agent}' should record its duration");
+        }
+    }
+});
+
+// Render the tree a UI would display when drilling into the concurrent run.
+foreach ($con['parent']->toolCalls->where('type', ToolCallType::Agent) as $tc) {
+    $child = Execution::where('parent_tool_call_id', $tc->id)->first();
+    echo "\n    ▸ tool call '{$tc->name}' → response: \"".trim((string) $tc->result).'"';
+
+    if ($child === null) {
+        continue;
+    }
+
+    $tokens = ($child->usage['input_tokens'] ?? 0).'in/'.($child->usage['output_tokens'] ?? 0).'out';
+    echo "\n        └ sub-agent execution #{$child->id} ({$child->agent}, {$child->status->value}, {$tokens})";
+
+    foreach ($child->steps()->orderBy('sequence')->get() as $s) {
+        $txt = ($s->content !== null && $s->content !== '') ? '"'.trim((string) $s->content).'"' : '(tool-call step)';
+        echo "\n            step {$s->sequence} [{$s->finish_reason}]: {$txt}";
+    }
+
+    foreach ($child->toolCalls()->where('type', ToolCallType::Local)->get() as $ct) {
+        echo "\n            ran tool {$ct->name}(".json_encode($ct->arguments).') → "'.trim((string) $ct->result)."\" ({$ct->duration_ms}ms)";
+    }
+}
+echo "\n    → full sub-agent responses, per-step text, and the tools they ran are all queryable after a concurrent run ✓";
 
 // ─── Summary ─────────────────────────────────────────────────────────────────
 
