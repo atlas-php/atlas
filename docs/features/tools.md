@@ -371,7 +371,21 @@ $response->providerToolCalls;
 $response->annotations;
 ```
 
-When [persistence](/advanced/persistence) is enabled, provider tool calls are automatically logged as `ExecutionToolCall` records with `type = provider`.
+When [persistence](/advanced/persistence) is enabled, provider tool calls are automatically
+logged as `ExecutionToolCall` records with `type = provider`, and the citations are stored on
+the search/fetch action that produced them — so the "sources" trail survives the turn:
+
+```php
+use Atlasphp\Atlas\Persistence\Models\ExecutionToolCall;
+
+ExecutionToolCall::whereNotNull('annotations')->get()->each(function ($call) {
+    $call->tool_call_id;   // which provider action produced the citations
+    $call->annotations;    // the cited url_citation / web_search_result_location entries
+});
+```
+
+See [Persistence → ExecutionToolCall](/advanced/persistence#executiontoolcall) for the full field
+and relationship reference.
 
 ## Built-in Tools
 

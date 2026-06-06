@@ -388,12 +388,20 @@ A single round trip in the agent's tool call loop — one provider call and its 
 
 `Atlasphp\Atlas\Persistence\Models\ExecutionToolCall`
 
-An individual tool invocation with arguments, result, and timing.
+An individual tool invocation with arguments, result, and timing. Client tools
+have `type = local`; provider-native tools (web search, etc.) have `type = provider`.
 
 | Relationship | Type | Description |
 |-------------|------|-------------|
 | `execution()` | `BelongsTo → Execution` | Parent execution |
 | `step()` | `BelongsTo → ExecutionStep` | The step that triggered this call |
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `tool_call_id` | `string` | Provider's id for this call — identifies the action |
+| `name` / `type` | `string` / `ToolCallType` | Tool name and `local` vs `provider` |
+| `arguments` / `result` | `array` / `string` | Inputs and serialized output |
+| `annotations` | `array\|null` | Citations the provider returned (web search/fetch), e.g. `url_citation` / `web_search_result_location` — stored on the search/fetch action that produced them |
 
 | Method | Description |
 |--------|-------------|
@@ -404,6 +412,28 @@ An individual tool invocation with arguments, result, and timing.
 |-------|-------------|
 | `pending()` / `processing()` / `completed()` / `failed()` | Filter by `ExecutionStatus` (from `HasExecutionStatus` trait) |
 | `forTool(string $name)` | Filter by tool name |
+
+**Reading provider tool calls and their citations:**
+
+```php
+use Atlasphp\Atlas\Persistence\Models\ExecutionToolCall;
+
+// All provider-tool actions in an execution, with their cited sources.
+$execution->toolCalls()
+    ->where('type', 'provider')
+    ->get()
+    ->each(function (ExecutionToolCall $call) {
+        $call->name;          // e.g. 'web_search', 'web_search_call'
+        $call->tool_call_id;  // which provider action produced these
+        foreach ($call->annotations ?? [] as $citation) {
+            $citation['url'];   // the cited source
+            $citation['title'] ?? null;
+        }
+    });
+
+// Or just the calls that produced citations:
+ExecutionToolCall::whereNotNull('annotations')->get();
+```
 
 ### Asset
 

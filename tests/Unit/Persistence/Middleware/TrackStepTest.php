@@ -252,6 +252,72 @@ it('leaves annotations null when the response has none', function () {
     expect(ExecutionToolCall::firstOrFail()->annotations)->toBeNull();
 });
 
+it('swallows a provider-tool logging failure without breaking the response', function () {
+    // createToolCall throws — the per-record catch must continue, not propagate.
+    $service = new class extends ExecutionService
+    {
+        public function createToolCall(ToolCall $toolCall, ToolCallType $type = ToolCallType::Local, array $meta = []): ExecutionToolCall
+        {
+            throw new RuntimeException('tool-call logging failed');
+        }
+    };
+    $service->createExecution(provider: 'openai', model: 'gpt-5', type: ExecutionType::Text);
+    $service->beginExecution();
+
+    $response = new TextResponse(
+        text: 'ok',
+        usage: new Usage(1, 1),
+        finishReason: FinishReason::Stop,
+        providerToolCalls: [['type' => 'web_search_call', 'id' => 'ws_1', 'status' => 'completed']],
+        annotations: [['type' => 'url_citation', 'url' => 'https://php.net']],
+    );
+
+    $result = (new TrackStep($service))->handle(makeStepContext(), fn () => $response);
+
+    // Response flows through untouched; nothing persisted.
+    expect($result)->toBe($response);
+    expect(ExecutionToolCall::count())->toBe(0);
+});
+
+it('swallows an annotation-write failure without breaking the response', function () {
+    // The provider tool logs fine, but writing annotations throws — the
+    // attachAnnotations catch must swallow it (observability only).
+    $service = new class extends ExecutionService
+    {
+        public function createToolCall(ToolCall $toolCall, ToolCallType $type = ToolCallType::Local, array $meta = []): ExecutionToolCall
+        {
+            return new class extends ExecutionToolCall
+            {
+                public function update(array $attributes = [], array $options = []): bool
+                {
+                    throw new RuntimeException('annotations write failed');
+                }
+            };
+        }
+
+        public function beginToolCall(ExecutionToolCall $record): float
+        {
+            return microtime(true);
+        }
+
+        public function completeToolCall(ExecutionToolCall $record, float $startTime, string $result): void {}
+    };
+    $service->createExecution(provider: 'openai', model: 'gpt-5', type: ExecutionType::Text);
+    $service->beginExecution();
+
+    $response = new TextResponse(
+        text: 'ok',
+        usage: new Usage(1, 1),
+        finishReason: FinishReason::Stop,
+        providerToolCalls: [['type' => 'web_search_call', 'id' => 'ws_1', 'status' => 'completed']],
+        annotations: [['type' => 'url_citation', 'url' => 'https://php.net']],
+    );
+
+    $result = (new TrackStep($service))->handle(makeStepContext(), fn () => $response);
+
+    expect($result)->toBe($response);
+});
+
 it('marks failed provider tool calls as failed', function () {
     $service = makeServiceWithExecution();
     $middleware = new TrackStep($service);
