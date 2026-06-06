@@ -205,6 +205,53 @@ it('logs provider tool calls from response', function () {
     expect($toolCalls[1]->status)->toBe(ExecutionStatus::Completed);
 });
 
+it('persists response annotations onto the search action and ties them to its tool_call_id', function () {
+    $service = makeServiceWithExecution();
+    $middleware = new TrackStep($service);
+
+    $context = makeStepContext();
+    $annotations = [
+        ['type' => 'url_citation', 'url' => 'https://www.php.net/releases/8_4_22.php', 'title' => 'PHP 8.4.22'],
+    ];
+    $response = new TextResponse(
+        text: 'The latest PHP version is 8.4.22.',
+        usage: new Usage(10, 5),
+        finishReason: FinishReason::Stop,
+        providerToolCalls: [
+            ['type' => 'web_search_call', 'id' => 'ws_1', 'status' => 'completed'],
+        ],
+        annotations: $annotations,
+    );
+
+    $middleware->handle($context, fn () => $response);
+
+    $toolCall = ExecutionToolCall::firstOrFail();
+
+    // Stored as JSON on the action, retrievable, and the action is identified
+    // by its tool_call_id.
+    expect($toolCall->annotations)->toBe($annotations);
+    expect($toolCall->tool_call_id)->toBe('ws_1');
+    expect($toolCall->name)->toBe('web_search_call');
+});
+
+it('leaves annotations null when the response has none', function () {
+    $service = makeServiceWithExecution();
+    $middleware = new TrackStep($service);
+
+    $response = new TextResponse(
+        text: 'No search needed.',
+        usage: new Usage(5, 5),
+        finishReason: FinishReason::Stop,
+        providerToolCalls: [
+            ['type' => 'code_interpreter_call', 'id' => 'ci_1', 'status' => 'completed'],
+        ],
+    );
+
+    $middleware->handle(makeStepContext(), fn () => $response);
+
+    expect(ExecutionToolCall::firstOrFail()->annotations)->toBeNull();
+});
+
 it('marks failed provider tool calls as failed', function () {
     $service = makeServiceWithExecution();
     $middleware = new TrackStep($service);

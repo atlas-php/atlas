@@ -8,6 +8,7 @@ use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Middleware\Contracts\StepMiddleware;
 use Atlasphp\Atlas\Middleware\StepContext;
 use Atlasphp\Atlas\Persistence\Enums\ToolCallType;
+use Atlasphp\Atlas\Persistence\Models\ExecutionToolCall;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Closure;
@@ -76,6 +77,9 @@ class TrackStep implements StepMiddleware
             return;
         }
 
+        /** @var array<int, ExecutionToolCall> $records */
+        $records = [];
+
         foreach ($response->providerToolCalls as $providerTool) {
             try {
                 $record = $this->executionService->createToolCall(
@@ -95,10 +99,35 @@ class TrackStep implements StepMiddleware
                 } else {
                     $this->executionService->completeToolCall($record, $startTime, $reportedStatus);
                 }
+
+                $records[] = $record;
             } catch (\Throwable) {
                 // Don't let provider tool logging failures break the response flow
                 continue;
             }
+        }
+
+        $this->attachAnnotations($response, $records);
+    }
+
+    /**
+     * Attach the step's citations to the action that produced them — the first
+     * provider-tool call (the search/fetch). Providers report citations at the
+     * response level, so this ties the whole set to the originating action; the
+     * `tool_call_id` on that record is the action identifier.
+     *
+     * @param  array<int, ExecutionToolCall>  $records
+     */
+    private function attachAnnotations(TextResponse $response, array $records): void
+    {
+        if ($response->annotations === [] || $records === []) {
+            return;
+        }
+
+        try {
+            $records[0]->update(['annotations' => $response->annotations]);
+        } catch (\Throwable) {
+            // Observability only — never break the response flow.
         }
     }
 }

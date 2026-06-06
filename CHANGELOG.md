@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 - **Web search now works on Claude (Anthropic)** — with citations, alongside OpenAI, Google, and xAI.
 - **Web fetch on Claude** — have it read a specific page.
 - **Limit web search to specific sites** (or block sites).
+- **Web search sources are saved** — citations are stored on the action that produced them (with persistence enabled).
 - **Ask which tools a provider supports** — `ProviderToolRegistry::forProvider('openai')`.
 - Pass any extra provider option straight to a tool — even ones not listed yet.
 
@@ -22,10 +23,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 - Web search on OpenAI/xAI was sending unsupported fields and failing — fixed.
 - Code interpreter on OpenAI now works out of the box.
+- Agents no longer stall when a provider keeps searching server-side mid-reply.
 
 ### Migration
 
-Drop-in upgrade — nothing to change.
+Run `php artisan migrate` — adds one column to store web-search citations. Nothing else changes.
 
 ---
 

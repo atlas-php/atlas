@@ -32,6 +32,7 @@ use Illuminate\Support\Carbon;
  * @property ExecutionStatus $status
  * @property array<mixed>|null $arguments
  * @property string|null $result
+ * @property array<mixed>|null $annotations
  * @property Carbon|null $started_at
  * @property Carbon|null $completed_at
  * @property int|null $duration_ms
@@ -58,6 +59,7 @@ class ExecutionToolCall extends Model
         'status',
         'arguments',
         'result',
+        'annotations',
         'started_at',
         'completed_at',
         'duration_ms',
@@ -70,6 +72,7 @@ class ExecutionToolCall extends Model
             'type' => ToolCallType::class,
             'status' => ExecutionStatus::class,
             'arguments' => 'array',
+            'annotations' => 'array',
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
             'duration_ms' => 'integer',

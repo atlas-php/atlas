@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Providers\OpenAi\ToolMapper;
+use Atlasphp\Atlas\Providers\Tools\CodeInterpreter;
+use Atlasphp\Atlas\Providers\Tools\FileSearch;
 use Atlasphp\Atlas\Providers\Tools\WebSearch;
 use Atlasphp\Atlas\Tools\ToolDefinition;
 
@@ -44,6 +46,30 @@ it('maps provider tools via toArray', function () {
     expect($result)->toHaveCount(1);
     expect($result[0]['type'])->toBe('web_search');
     expect($result[0])->not->toHaveKey('filters');
+});
+
+it('returns non-web_search provider tools unchanged (mapProviderTool passthrough)', function () {
+    $mapper = new ToolMapper;
+
+    // file_search and code_interpreter are NOT web_search, so they hit the
+    // `return $payload` branch — emitted verbatim from toArray(), no `filters`.
+    $result = $mapper->mapProviderTools([
+        new FileSearch(stores: ['vs_1'], maxResults: 5),
+        new CodeInterpreter,
+    ]);
+
+    expect($result[0])->toBe([
+        'type' => 'file_search',
+        'vector_store_ids' => ['vs_1'],
+        'max_num_results' => 5,
+    ]);
+    expect($result[0])->not->toHaveKey('filters');
+
+    expect($result[1])->toBe([
+        'type' => 'code_interpreter',
+        'container' => ['type' => 'auto'],
+    ]);
+    expect($result[1])->not->toHaveKey('filters');
 });
 
 it('passes web_search options through while nesting domain filters', function () {
