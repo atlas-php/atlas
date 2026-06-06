@@ -27,7 +27,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 ### Migration
 
-Run `php artisan migrate` — adds one column to store web-search citations. Nothing else changes.
+This release adds one column (to store web-search citations). Atlas migrations are
+publish-based, so pull the new file in first, then migrate:
+
+```bash
+php artisan vendor:publish --tag=atlas-migrations
+php artisan migrate
+```
+
+Publish the new migration and run your migration to add the new column. No other breaking changes.
 
 ---
 
