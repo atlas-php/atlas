@@ -7,6 +7,17 @@ parameters:
         - database/factories
     level: 6
     ignoreErrors:
+        # Defensive `property_exists($this, 'meta')` guard in a trait: every
+        # current consumer declares `meta`, so newer phpstan calls it redundant
+        # — but the guard keeps the trait safe for future consumers that don't.
+        -
+            identifier: function.alreadyNarrowedType
+            path: src/Pending/Concerns/HasVariables.php
+        # `(bool) $this->option('all')` — larastan infers the option as always
+        # falsy; the --all flag is genuinely functional at runtime.
+        -
+            identifier: booleanOr.rightAlwaysFalse
+            path: src/Console/RechunkCommand.php
         -
             identifier: trait.unused
             path: src/Persistence/Concerns/HasConversations.php

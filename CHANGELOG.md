@@ -8,6 +8,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 ---
 
+## [v3.3.0](https://github.com/atlas-php/atlas/releases/tag/v3.3.0) - 2026-06-06
+
+### Added
+
+- **Web search now works on Claude (Anthropic)** — with citations, alongside OpenAI, Google, and xAI.
+- **Web fetch on Claude** — have it read a specific page.
+- **Limit web search to specific sites** (or block sites).
+- **Web search sources are saved** — citations are stored on the action that produced them (with persistence enabled).
+- **Ask which tools a provider supports** — `ProviderToolRegistry::forProvider('openai')`.
+- Pass any extra provider option straight to a tool — even ones not listed yet.
+
+### Fixed
+
+- Web search on OpenAI/xAI was sending unsupported fields and failing — fixed.
+- Code interpreter on OpenAI now works out of the box.
+- Agents no longer stall when a provider keeps searching server-side mid-reply.
+
+### Migration
+
+This release adds one column (to store web-search citations). Atlas migrations are
+publish-based, so pull the new file in first, then migrate:
+
+```bash
+php artisan vendor:publish --tag=atlas-migrations
+php artisan migrate
+```
+
+Publish the new migration and run your migration to add the new column. No other breaking changes.
+
+---
+
 ## [v3.2.0](https://github.com/atlas-php/atlas/releases/tag/v3.2.0) - 2026-06-02
 
 ### Added

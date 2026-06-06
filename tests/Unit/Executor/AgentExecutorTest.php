@@ -214,6 +214,36 @@ it('flows provider tool calls and annotations from final response', function () 
     expect($result->annotations[0]['url'])->toBe('https://php.net');
 });
 
+it('does not loop on a ToolCalls finish with no client tools (pause_turn / server-side tools)', function () {
+    // Only ONE response is provided. A server-side pause (ToolCalls finish, no
+    // client toolCalls) must break cleanly — if the executor re-POSTed, the mock
+    // would run out of responses and error. This guards the pause_turn loop.
+    $driver = makeMockDriver([
+        new TextResponse(
+            'Let me search for that.',
+            new Usage(10, 20),
+            FinishReason::ToolCalls,
+            toolCalls: [],
+            providerToolCalls: [
+                ['type' => 'server_tool_use', 'id' => 'srvtoolu_1', 'name' => 'web_search'],
+            ],
+        ),
+    ]);
+
+    $dispatcher = makeFakeDispatcher();
+    $registry = new ToolRegistry([]);
+    $toolExecutor = new ToolExecutor($registry);
+    $executor = new AgentExecutor($driver, $toolExecutor, $dispatcher);
+
+    $result = $executor->execute(makeTextRequest(), maxSteps: 10, concurrent: true, meta: []);
+
+    expect($result->text)->toBe('Let me search for that.');
+    expect($result->totalSteps())->toBe(1);
+    expect($result->totalToolCalls())->toBe(0);
+    expect($result->providerToolCalls)->toHaveCount(1);
+    expect($driver->receivedRequests)->toHaveCount(1); // no re-POST loop
+});
+
 it('accumulates provider tool calls across multi-step runs', function () {
     $driver = makeMockDriver([
         new TextResponse(

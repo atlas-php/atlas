@@ -30,19 +30,37 @@ class ResponseParser implements ResponseParserContract
         $text = '';
         $reasoning = null;
         $toolUseBlocks = [];
+        $providerToolCalls = [];
+        $annotations = [];
 
         foreach ($content as $block) {
-            if (($block['type'] ?? '') === 'text') {
+            $blockType = $block['type'] ?? '';
+
+            if ($blockType === 'text') {
                 $text .= $block['text'] ?? '';
+
+                // Web-search/fetch citations ride on text blocks.
+                foreach ($block['citations'] ?? [] as $citation) {
+                    $annotations[] = $citation;
+                }
             }
 
-            if (($block['type'] ?? '') === 'thinking') {
+            if ($blockType === 'thinking') {
                 $reasoning = ($reasoning ?? '').($block['thinking'] ?? '');
             }
 
-            $blockType = $block['type'] ?? '';
-            if ($blockType === 'tool_use' || $blockType === 'server_tool_use') {
+            // Client tools the executor must run.
+            if ($blockType === 'tool_use') {
                 $toolUseBlocks[] = $block;
+            }
+
+            // Provider-executed (server-side) tools and their result blocks are
+            // observability only — they must NOT enter the client tool loop, or
+            // the executor would try to resolve a PHP handler for `web_search`.
+            if ($blockType === 'server_tool_use'
+                || $blockType === 'web_search_tool_result'
+                || $blockType === 'web_fetch_tool_result') {
+                $providerToolCalls[] = $block;
             }
         }
 
@@ -60,6 +78,8 @@ class ResponseParser implements ResponseParserContract
                 'id' => $data['id'] ?? null,
                 'model' => $data['model'] ?? null,
             ],
+            providerToolCalls: $providerToolCalls,
+            annotations: $annotations,
         );
     }
 

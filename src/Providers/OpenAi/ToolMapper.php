@@ -74,7 +74,55 @@ class ToolMapper implements ToolMapperContract
      */
     public function mapProviderTools(array $providerTools): array
     {
-        return array_map(fn (ProviderTool $tool) => $tool->toArray(), $providerTools);
+        return array_map(fn (ProviderTool $tool): array => $this->mapProviderTool($tool), $providerTools);
+    }
+
+    /**
+     * Translate one provider tool to its Responses API shape.
+     *
+     * The base shape is the tool's provider-neutral `toArray()`; per-type tweaks
+     * adapt it to OpenAI's request format without altering tools that already work.
+     *
+     * @return array<string, mixed>
+     */
+    protected function mapProviderTool(ProviderTool $tool): array
+    {
+        $payload = $tool->toArray();
+
+        // OpenAI's web_search nests domain restrictions under `filters`. Tools
+        // without domain scoping are emitted byte-for-byte as before.
+        if ($tool->type() === 'web_search') {
+            return $this->nestWebSearchFilters($payload);
+        }
+
+        return $payload;
+    }
+
+    /**
+     * Move neutral `allowed_domains` / `blocked_domains` into OpenAI's
+     * `filters` object (Responses API web_search). All other attributes —
+     * `search_context_size`, `user_location`, and anything passed through the
+     * tool's options bag — are left untouched so future options pass through.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    protected function nestWebSearchFilters(array $payload): array
+    {
+        $filters = [];
+
+        foreach (['allowed_domains', 'blocked_domains'] as $key) {
+            if (isset($payload[$key])) {
+                $filters[$key] = $payload[$key];
+                unset($payload[$key]);
+            }
+        }
+
+        if ($filters !== []) {
+            $payload['filters'] = $filters;
+        }
+
+        return $payload;
     }
 
     /**

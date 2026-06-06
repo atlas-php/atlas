@@ -91,7 +91,8 @@ trait HasVariables
         /** @var VariableRegistry $registry */
         $registry = app(VariableRegistry::class);
 
-        /** @phpstan-ignore-next-line */
+        // Guard kept for trait safety even though every current consumer
+        // declares `meta` (phpstan ignore configured in phpstan.neon).
         $meta = property_exists($this, 'meta') ? $this->meta : [];
 
         return $registry->merge($this->variables, $meta);

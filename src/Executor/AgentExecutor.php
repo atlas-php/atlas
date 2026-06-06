@@ -151,6 +151,22 @@ class AgentExecutor
                     break;
                 }
 
+                // A ToolCalls finish with no CLIENT tool calls means the provider
+                // is doing server-side work (e.g. Anthropic web search returning
+                // `pause_turn`). There's nothing for us to execute, and re-POSTing
+                // an empty assistant turn would loop until maxSteps. Surface what
+                // we have and stop cleanly.
+                if ($response->toolCalls === []) {
+                    $steps[] = new Step(
+                        text: $response->text,
+                        toolCalls: [],
+                        toolResults: [],
+                        usage: $response->usage,
+                    );
+
+                    break;
+                }
+
                 $toolResults = $concurrent
                     ? $this->executeToolsConcurrently($response->toolCalls, $meta, $stepCount)
                     : $this->executeToolsSequentially($response->toolCalls, $meta, $stepCount);

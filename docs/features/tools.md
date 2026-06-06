@@ -255,17 +255,17 @@ for Gemini function declarations and preserves Gemini continuation metadata when
 
 ## Provider Tools
 
-Provider tools are native capabilities offered by AI providers (not your PHP code). They run server-side at the provider level. Atlas includes configuration objects for common provider tools:
+Provider tools are native capabilities offered by AI providers (not your PHP code). They run server-side at the provider level. Atlas includes configuration objects for common provider tools and translates each to the provider's native request shape:
 
 ```php
 use Atlasphp\Atlas\Providers\Tools\WebSearch;
 use Atlasphp\Atlas\Providers\Tools\FileSearch;
 use Atlasphp\Atlas\Providers\Tools\CodeInterpreter;
 
-// Add to a direct request
+// Add to a direct request — restrict ("include") search to specific sites
 $response = Atlas::text('openai', 'gpt-4o')
     ->withProviderTools([
-        new WebSearch(maxResults: 5, locale: 'en-US'),
+        new WebSearch(allowedDomains: ['laravel.com', 'php.net']),
     ])
     ->message('What are the latest Laravel releases?')
     ->asText();
@@ -276,28 +276,82 @@ class ResearchAgent extends Agent
     public function providerTools(): array
     {
         return [
-            new WebSearch,
+            new WebSearch(allowedDomains: ['laravel.com']),
             new CodeInterpreter,
-            new FileSearch(stores: ['vs_abc123'], maxResults: 10),
+            new FileSearch(stores: ['vs_abc123']),
         ];
     }
 }
 ```
 
+### Domain scoping (site inclusion)
+
+`WebSearch` accepts `allowedDomains` / `blockedDomains`. Atlas places them where each
+provider expects: nested under `filters` for OpenAI/xAI, top-level for Anthropic.
+
+```php
+new WebSearch(
+    allowedDomains: ['laravel.com', 'php.net'], // only these sites
+    blockedDomains: ['example-spam.com'],       // never these
+);
+```
+
+### Custom attributes (forward-compatible)
+
+Well-known attributes have typed constructor parameters, but every provider tool also
+accepts an `options` bag that is merged verbatim into the native request. Use it for any
+attribute a provider supports that Atlas doesn't model yet — nothing to wait on:
+
+```php
+// Anthropic web_search: max_uses + user_location pass straight through.
+new WebSearch(
+    allowedDomains: ['laravel.com'],
+    options: ['max_uses' => 5, 'user_location' => ['type' => 'approximate', 'country' => 'US']],
+);
+
+// OpenAI web_search: search_context_size passes straight through.
+new WebSearch(options: ['search_context_size' => 'high']);
+```
+
 ### Available Provider Tools
 
-| Class | Type | Providers | Description |
-|-------|------|-----------|-------------|
-| `WebSearch` | `web_search` | OpenAI, Google | Search the web. Options: `maxResults`, `locale` |
-| `WebFetch` | `web_fetch` | OpenAI | Fetch and read web page content |
-| `FileSearch` | `file_search` | OpenAI | Search vector stores. Options: `stores`, `maxResults` |
-| `CodeInterpreter` | `code_interpreter` | OpenAI | Execute code in a sandbox |
-| `GoogleSearch` | `google_search` | Google | Google Search grounding for Gemini |
-| `CodeExecution` | `code_execution` | Google | Code execution for Gemini |
-| `XSearch` | `x_search` | xAI | Search X/Twitter posts. Options: `fromDate`, `toDate`, `allowedXHandles`, `enableImageUnderstanding`, `enableVideoUnderstanding` |
+Support is verified against each provider's live API. Some tools need their own attributes to
+run (e.g. `FileSearch` needs `stores`; `CodeInterpreter` auto-provisions a `container`).
+
+| Class | Type | Providers | Notes |
+|-------|------|-----------|-------|
+| `WebSearch` | `web_search` | OpenAI, Anthropic, xAI | Web search. `allowedDomains` / `blockedDomains` for site scoping. |
+| `WebFetch` | `web_fetch` | Anthropic | Fetch and read a web page. |
+| `FileSearch` | `file_search` | OpenAI | Search vector stores. Requires `stores` (`vector_store_ids`). |
+| `CodeInterpreter` | `code_interpreter` | OpenAI | Run code in a sandbox container. |
+| `GoogleSearch` | `google_search` | Google | Google Search grounding for Gemini. |
+| `CodeExecution` | `code_execution` | Google | Code execution for Gemini. |
+| `XSearch` | `x_search` | xAI | Search X/Twitter posts. `fromDate`, `toDate`, `allowedXHandles`, `enableImageUnderstanding`, `enableVideoUnderstanding`. |
+
+Provider docs for the native attributes each tool accepts:
+[OpenAI web search](https://developers.openai.com/api/docs/guides/tools-web-search) ·
+[Anthropic web search](https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool) ·
+[Anthropic web fetch](https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-fetch-tool) ·
+[Gemini grounding](https://ai.google.dev/gemini-api/docs/grounding) ·
+[xAI live search](https://docs.x.ai/docs/guides/live-search).
+
+### Querying support per provider
+
+Build provider-aware UI and validation without hardcoding the matrix — query the registry,
+which is the single source of truth above:
+
+```php
+use Atlasphp\Atlas\Providers\Tools\ProviderToolRegistry;
+
+ProviderToolRegistry::forProvider('anthropic');   // ['web_search', 'web_fetch']
+ProviderToolRegistry::supports('openai', 'web_fetch'); // false
+ProviderToolRegistry::all();                       // full provider → tool-type map
+```
 
 ::: warning Provider Compatibility
-Provider tools are only supported on OpenAI, Google, and xAI. Passing provider tools to Anthropic or Chat Completions providers will log a warning and the tools will be ignored.
+Provider tools run on OpenAI, Anthropic, Google, and xAI. A tool a given provider can't run
+(per the table above) is dropped with a logged warning. Chat Completions providers ignore
+provider tools entirely.
 :::
 
 ### Observability
@@ -317,7 +371,21 @@ $response->providerToolCalls;
 $response->annotations;
 ```
 
-When [persistence](/advanced/persistence) is enabled, provider tool calls are automatically logged as `ExecutionToolCall` records with `type = provider`.
+When [persistence](/advanced/persistence) is enabled, provider tool calls are automatically
+logged as `ExecutionToolCall` records with `type = provider`, and the citations are stored on
+the search/fetch action that produced them — so the "sources" trail survives the turn:
+
+```php
+use Atlasphp\Atlas\Persistence\Models\ExecutionToolCall;
+
+ExecutionToolCall::whereNotNull('annotations')->get()->each(function ($call) {
+    $call->tool_call_id;   // which provider action produced the citations
+    $call->annotations;    // the cited url_citation / web_search_result_location entries
+});
+```
+
+See [Persistence → ExecutionToolCall](/advanced/persistence#executiontoolcall) for the full field
+and relationship reference.
 
 ## Built-in Tools
 

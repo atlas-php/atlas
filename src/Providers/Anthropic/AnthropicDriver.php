@@ -30,6 +30,7 @@ class AnthropicDriver extends Driver
                 structured: true,
                 vision: true,
                 toolCalling: true,
+                providerTools: true,
                 models: true,
             ),
             $this->config->capabilityOverrides,

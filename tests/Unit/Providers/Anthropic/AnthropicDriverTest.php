@@ -52,7 +52,7 @@ it('returns correct capabilities matrix', function () {
     expect($capabilities->rerank)->toBeFalse();
     expect($capabilities->vision)->toBeTrue();
     expect($capabilities->toolCalling)->toBeTrue();
-    expect($capabilities->providerTools)->toBeFalse();
+    expect($capabilities->providerTools)->toBeTrue();
     expect($capabilities->models)->toBeTrue();
     expect($capabilities->voices)->toBeFalse();
 });

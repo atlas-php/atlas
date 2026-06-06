@@ -205,6 +205,119 @@ it('logs provider tool calls from response', function () {
     expect($toolCalls[1]->status)->toBe(ExecutionStatus::Completed);
 });
 
+it('persists response annotations onto the search action and ties them to its tool_call_id', function () {
+    $service = makeServiceWithExecution();
+    $middleware = new TrackStep($service);
+
+    $context = makeStepContext();
+    $annotations = [
+        ['type' => 'url_citation', 'url' => 'https://www.php.net/releases/8_4_22.php', 'title' => 'PHP 8.4.22'],
+    ];
+    $response = new TextResponse(
+        text: 'The latest PHP version is 8.4.22.',
+        usage: new Usage(10, 5),
+        finishReason: FinishReason::Stop,
+        providerToolCalls: [
+            ['type' => 'web_search_call', 'id' => 'ws_1', 'status' => 'completed'],
+        ],
+        annotations: $annotations,
+    );
+
+    $middleware->handle($context, fn () => $response);
+
+    $toolCall = ExecutionToolCall::firstOrFail();
+
+    // Stored as JSON on the action, retrievable, and the action is identified
+    // by its tool_call_id.
+    expect($toolCall->annotations)->toBe($annotations);
+    expect($toolCall->tool_call_id)->toBe('ws_1');
+    expect($toolCall->name)->toBe('web_search_call');
+});
+
+it('leaves annotations null when the response has none', function () {
+    $service = makeServiceWithExecution();
+    $middleware = new TrackStep($service);
+
+    $response = new TextResponse(
+        text: 'No search needed.',
+        usage: new Usage(5, 5),
+        finishReason: FinishReason::Stop,
+        providerToolCalls: [
+            ['type' => 'code_interpreter_call', 'id' => 'ci_1', 'status' => 'completed'],
+        ],
+    );
+
+    $middleware->handle(makeStepContext(), fn () => $response);
+
+    expect(ExecutionToolCall::firstOrFail()->annotations)->toBeNull();
+});
+
+it('swallows a provider-tool logging failure without breaking the response', function () {
+    // createToolCall throws — the per-record catch must continue, not propagate.
+    $service = new class extends ExecutionService
+    {
+        public function createToolCall(ToolCall $toolCall, ToolCallType $type = ToolCallType::Local, array $meta = []): ExecutionToolCall
+        {
+            throw new RuntimeException('tool-call logging failed');
+        }
+    };
+    $service->createExecution(provider: 'openai', model: 'gpt-5', type: ExecutionType::Text);
+    $service->beginExecution();
+
+    $response = new TextResponse(
+        text: 'ok',
+        usage: new Usage(1, 1),
+        finishReason: FinishReason::Stop,
+        providerToolCalls: [['type' => 'web_search_call', 'id' => 'ws_1', 'status' => 'completed']],
+        annotations: [['type' => 'url_citation', 'url' => 'https://php.net']],
+    );
+
+    $result = (new TrackStep($service))->handle(makeStepContext(), fn () => $response);
+
+    // Response flows through untouched; nothing persisted.
+    expect($result)->toBe($response);
+    expect(ExecutionToolCall::count())->toBe(0);
+});
+
+it('swallows an annotation-write failure without breaking the response', function () {
+    // The provider tool logs fine, but writing annotations throws — the
+    // attachAnnotations catch must swallow it (observability only).
+    $service = new class extends ExecutionService
+    {
+        public function createToolCall(ToolCall $toolCall, ToolCallType $type = ToolCallType::Local, array $meta = []): ExecutionToolCall
+        {
+            return new class extends ExecutionToolCall
+            {
+                public function update(array $attributes = [], array $options = []): bool
+                {
+                    throw new RuntimeException('annotations write failed');
+                }
+            };
+        }
+
+        public function beginToolCall(ExecutionToolCall $record): float
+        {
+            return microtime(true);
+        }
+
+        public function completeToolCall(ExecutionToolCall $record, float $startTime, string $result): void {}
+    };
+    $service->createExecution(provider: 'openai', model: 'gpt-5', type: ExecutionType::Text);
+    $service->beginExecution();
+
+    $response = new TextResponse(
+        text: 'ok',
+        usage: new Usage(1, 1),
+        finishReason: FinishReason::Stop,
+        providerToolCalls: [['type' => 'web_search_call', 'id' => 'ws_1', 'status' => 'completed']],
+        annotations: [['type' => 'url_citation', 'url' => 'https://php.net']],
+    );
+
+    $result = (new TrackStep($service))->handle(makeStepContext(), fn () => $response);
+
+    expect($result)->toBe($response);
+});
+
 it('marks failed provider tool calls as failed', function () {
     $service = makeServiceWithExecution();
     $middleware = new TrackStep($service);

@@ -23,18 +23,50 @@ it('WebSearch has correct type', function () {
     expect((new WebSearch)->type())->toBe('web_search');
 });
 
-it('WebSearch includes config when provided', function () {
-    $tool = new WebSearch(maxResults: 5, locale: 'en-US');
+it('WebSearch omits config when empty', function () {
+    expect((new WebSearch)->toArray())->toBe(['type' => 'web_search']);
+});
+
+it('WebSearch includes domain scoping when provided', function () {
+    $tool = new WebSearch(
+        allowedDomains: ['laravel.com', 'php.net'],
+        blockedDomains: ['spam.example'],
+    );
 
     expect($tool->toArray())->toBe([
         'type' => 'web_search',
-        'max_results' => 5,
-        'locale' => 'en-US',
+        'allowed_domains' => ['laravel.com', 'php.net'],
+        'blocked_domains' => ['spam.example'],
     ]);
 });
 
-it('WebSearch omits config when empty', function () {
-    expect((new WebSearch)->toArray())->toBe(['type' => 'web_search']);
+it('WebSearch omits empty domain arrays', function () {
+    $tool = new WebSearch(allowedDomains: [], blockedDomains: []);
+
+    expect($tool->toArray())->toBe(['type' => 'web_search']);
+});
+
+it('WebSearch accepts but ignores the deprecated maxResults/locale (no provider accepts them)', function () {
+    $tool = new WebSearch(allowedDomains: ['laravel.com'], maxResults: 5, locale: 'en-US');
+
+    expect($tool->toArray())->toBe([
+        'type' => 'web_search',
+        'allowed_domains' => ['laravel.com'],
+    ]);
+});
+
+it('WebSearch merges custom options bag (forward-compatible attributes)', function () {
+    $tool = new WebSearch(
+        allowedDomains: ['laravel.com'],
+        options: ['max_uses' => 5, 'search_context_size' => 'high'],
+    );
+
+    expect($tool->toArray())->toBe([
+        'type' => 'web_search',
+        'allowed_domains' => ['laravel.com'],
+        'max_uses' => 5,
+        'search_context_size' => 'high',
+    ]);
 });
 
 it('WebFetch has correct type and minimal output', function () {
@@ -57,11 +89,40 @@ it('FileSearch omits config when empty', function () {
     expect((new FileSearch)->toArray())->toBe(['type' => 'file_search']);
 });
 
-it('CodeInterpreter has correct type and minimal output', function () {
+it('FileSearch merges custom options bag', function () {
+    $tool = new FileSearch(stores: ['vs_1'], options: ['ranking_options' => ['ranker' => 'auto']]);
+
+    expect($tool->toArray())->toBe([
+        'type' => 'file_search',
+        'vector_store_ids' => ['vs_1'],
+        'ranking_options' => ['ranker' => 'auto'],
+    ]);
+});
+
+it('no-arg provider tools accept a custom options bag via the base constructor', function () {
+    expect((new WebFetch(['max_uses' => 4]))->toArray())->toBe([
+        'type' => 'web_fetch',
+        'max_uses' => 4,
+    ]);
+});
+
+it('CodeInterpreter defaults the container OpenAI requires', function () {
     $tool = new CodeInterpreter;
 
     expect($tool->type())->toBe('code_interpreter');
-    expect($tool->toArray())->toBe(['type' => 'code_interpreter']);
+    expect($tool->toArray())->toBe([
+        'type' => 'code_interpreter',
+        'container' => ['type' => 'auto'],
+    ]);
+});
+
+it('CodeInterpreter container can be overridden via the options bag', function () {
+    $tool = new CodeInterpreter(['container' => 'cntr_123']);
+
+    expect($tool->toArray())->toBe([
+        'type' => 'code_interpreter',
+        'container' => 'cntr_123',
+    ]);
 });
 
 // ─── Google Provider Tools ──────────────────────────────────────────────────

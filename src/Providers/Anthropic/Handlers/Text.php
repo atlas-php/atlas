@@ -71,6 +71,9 @@ class Text implements TextHandler
         $body = $this->buildBody($request);
 
         if ($request->schema !== null) {
+            // Note: tool_choice is forced to the schema tool below, so any
+            // provider tools on this request are present but won't be invoked
+            // during a structured turn. Use a plain text turn for grounding.
             $body['tools'] = array_merge($body['tools'] ?? [], [
                 [
                     'name' => $request->schema->name(),
@@ -125,8 +128,20 @@ class Text implements TextHandler
             $body['temperature'] = $request->temperature;
         }
 
+        // Client tools and provider-native (server-side) tools share one
+        // `tools` array on the Anthropic Messages API.
+        $tools = [];
+
         if ($request->tools !== []) {
-            $body['tools'] = $this->tools->mapTools($request->tools);
+            $tools = $this->tools->mapTools($request->tools);
+        }
+
+        if ($request->providerTools !== []) {
+            $tools = array_merge($tools, $this->tools->mapProviderTools($request->providerTools));
+        }
+
+        if ($tools !== []) {
+            $body['tools'] = $tools;
         }
 
         return array_merge($body, $request->providerOptions);
