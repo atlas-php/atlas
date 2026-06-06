@@ -8,6 +8,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 ---
 
+## [v3.3.0](https://github.com/atlas-php/atlas/releases/tag/v3.3.0) - 2026-06-06
+
+### Added
+
+- **Web search now works on Claude (Anthropic)** — with citations, alongside OpenAI, Google, and xAI.
+- **Web fetch on Claude** — have it read a specific page.
+- **Limit web search to specific sites** (or block sites).
+- **Ask which tools a provider supports** — `ProviderToolRegistry::forProvider('openai')`.
+- Pass any extra provider option straight to a tool — even ones not listed yet.
+
+### Fixed
+
+- Web search on OpenAI/xAI was sending unsupported fields and failing — fixed.
+- Code interpreter on OpenAI now works out of the box.
+
+### Migration
+
+Drop-in upgrade — nothing to change.
+
+---
+
 ## [v3.2.0](https://github.com/atlas-php/atlas/releases/tag/v3.2.0) - 2026-06-02
 
 ### Added

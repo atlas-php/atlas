@@ -32,6 +32,35 @@ it('parses text from content blocks', function () {
     expect($result->text)->toBe('Hello!');
 });
 
+it('routes server_tool_use and result blocks to providerToolCalls, not the tool loop', function () {
+    $parser = makeAnthropicResponseParser();
+
+    $result = $parser->parseText([
+        'id' => 'msg_123',
+        'model' => 'claude-sonnet-4-5-20250514',
+        'content' => [
+            ['type' => 'text', 'text' => 'Claude Shannon was born in 1916.', 'citations' => [
+                ['type' => 'web_search_result_location', 'url' => 'https://en.wikipedia.org/wiki/Claude_Shannon', 'title' => 'Claude Shannon'],
+            ]],
+            ['type' => 'server_tool_use', 'id' => 'srvtoolu_1', 'name' => 'web_search', 'input' => ['query' => 'claude shannon']],
+            ['type' => 'web_search_tool_result', 'tool_use_id' => 'srvtoolu_1', 'content' => [['type' => 'web_search_result', 'url' => 'https://en.wikipedia.org/wiki/Claude_Shannon']]],
+        ],
+        'stop_reason' => 'end_turn',
+        'usage' => ['input_tokens' => 10, 'output_tokens' => 5],
+    ]);
+
+    // Server-side tools must NOT enter the client tool loop.
+    expect($result->toolCalls)->toBe([]);
+    expect($result->hasToolCalls())->toBeFalse();
+    // They surface as observability instead.
+    expect($result->providerToolCalls)->toHaveCount(2);
+    expect($result->providerToolCalls[0]['type'])->toBe('server_tool_use');
+    expect($result->providerToolCalls[1]['type'])->toBe('web_search_tool_result');
+    // Citations on text blocks become annotations.
+    expect($result->annotations)->toHaveCount(1);
+    expect($result->annotations[0]['url'])->toBe('https://en.wikipedia.org/wiki/Claude_Shannon');
+});
+
 it('parses tool_use blocks as tool calls', function () {
     $parser = makeAnthropicResponseParser();
 
@@ -196,7 +225,7 @@ it('includes meta with id and model', function () {
     expect($result->meta['model'])->toBe('claude-sonnet-4-5-20250514');
 });
 
-it('parses server_tool_use blocks as tool calls', function () {
+it('keeps server_tool_use out of the client tool loop (provider-executed)', function () {
     $parser = makeAnthropicResponseParser();
 
     $result = $parser->parseText([
@@ -209,13 +238,14 @@ it('parses server_tool_use blocks as tool calls', function () {
         'usage' => ['input_tokens' => 12, 'output_tokens' => 6],
     ]);
 
-    expect($result->toolCalls)->toHaveCount(1);
-    expect($result->toolCalls[0]->name)->toBe('web_search');
-    expect($result->toolCalls[0]->id)->toBe('srvtoolu_1');
-    expect($result->toolCalls[0]->arguments)->toBe(['query' => 'php 8.3 release notes']);
+    // The provider runs web_search server-side; it must not become a client ToolCall.
+    expect($result->toolCalls)->toBe([]);
+    expect($result->providerToolCalls)->toHaveCount(1);
+    expect($result->providerToolCalls[0]['name'])->toBe('web_search');
+    expect($result->providerToolCalls[0]['id'])->toBe('srvtoolu_1');
 });
 
-it('collects both tool_use and server_tool_use blocks together', function () {
+it('separates client tool_use from provider server_tool_use', function () {
     $parser = makeAnthropicResponseParser();
 
     $result = $parser->parseText([
@@ -229,9 +259,11 @@ it('collects both tool_use and server_tool_use blocks together', function () {
         'usage' => ['input_tokens' => 8, 'output_tokens' => 4],
     ]);
 
-    expect($result->toolCalls)->toHaveCount(2);
-    expect($result->toolCalls[0]->name)->toBe('web_search');
-    expect($result->toolCalls[1]->name)->toBe('user_tool');
+    // Only the client tool enters the loop; the server tool is observability.
+    expect($result->toolCalls)->toHaveCount(1);
+    expect($result->toolCalls[0]->name)->toBe('user_tool');
+    expect($result->providerToolCalls)->toHaveCount(1);
+    expect($result->providerToolCalls[0]['name'])->toBe('web_search');
 });
 
 it('maps pause_turn stop reason to ToolCalls', function () {

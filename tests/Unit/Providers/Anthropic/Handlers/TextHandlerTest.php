@@ -9,6 +9,7 @@ use Atlasphp\Atlas\Providers\Anthropic\MessageFactory;
 use Atlasphp\Atlas\Providers\Anthropic\ResponseParser;
 use Atlasphp\Atlas\Providers\Anthropic\ToolMapper;
 use Atlasphp\Atlas\Providers\ProviderConfig;
+use Atlasphp\Atlas\Providers\Tools\WebSearch;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
@@ -63,6 +64,28 @@ function fakeAnthropicTextResponse(array $overrides = []): array
         ],
     ];
 }
+
+it('sends client and provider tools together in the tools array', function () {
+    Http::fake([
+        'api.anthropic.com/*' => Http::response(fakeAnthropicTextResponse()),
+    ]);
+
+    $handler = makeAnthropicTextHandler();
+    $handler->text(makeAnthropicTextRequest([
+        'tools' => [new ToolDefinition('search', 'Search', ['type' => 'object'])],
+        'providerTools' => [new WebSearch(allowedDomains: ['laravel.com'])],
+    ]));
+
+    Http::assertSent(function ($request) {
+        $tools = $request['tools'];
+
+        return count($tools) === 2
+            && $tools[0]['name'] === 'search'
+            && $tools[1]['type'] === 'web_search_20250305'
+            && $tools[1]['name'] === 'web_search'
+            && $tools[1]['allowed_domains'] === ['laravel.com'];
+    });
+});
 
 it('sends text request to messages endpoint', function () {
     Http::fake([

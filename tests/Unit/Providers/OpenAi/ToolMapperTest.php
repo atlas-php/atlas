@@ -37,12 +37,45 @@ it('maps empty parameters to empty object', function () {
 it('maps provider tools via toArray', function () {
     $mapper = new ToolMapper;
 
-    $tools = [new WebSearch(maxResults: 5)];
+    $tools = [new WebSearch];
 
     $result = $mapper->mapProviderTools($tools);
 
     expect($result)->toHaveCount(1);
     expect($result[0]['type'])->toBe('web_search');
+    expect($result[0])->not->toHaveKey('filters');
+});
+
+it('passes web_search options through while nesting domain filters', function () {
+    $mapper = new ToolMapper;
+
+    $result = $mapper->mapProviderTools([
+        new WebSearch(allowedDomains: ['laravel.com'], options: ['search_context_size' => 'high']),
+    ]);
+
+    // Domain scoping is nested under `filters`; other attributes pass through.
+    expect($result[0])->toBe([
+        'type' => 'web_search',
+        'search_context_size' => 'high',
+        'filters' => ['allowed_domains' => ['laravel.com']],
+    ]);
+});
+
+it('nests web_search allowed domains under filters', function () {
+    $mapper = new ToolMapper;
+
+    $result = $mapper->mapProviderTools([
+        new WebSearch(allowedDomains: ['laravel.com'], blockedDomains: ['spam.example']),
+    ]);
+
+    expect($result[0]['type'])->toBe('web_search');
+    // Both domain lists nest under `filters` (Responses API supports each).
+    expect($result[0]['filters'])->toBe([
+        'allowed_domains' => ['laravel.com'],
+        'blocked_domains' => ['spam.example'],
+    ]);
+    expect($result[0])->not->toHaveKey('allowed_domains');
+    expect($result[0])->not->toHaveKey('blocked_domains');
 });
 
 it('parses function call items into ToolCall objects', function () {

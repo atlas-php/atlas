@@ -16,6 +16,7 @@ class XSearch extends ProviderTool
      * @param  string|null  $fromDate  ISO-8601 date string (e.g. "2025-01-01")
      * @param  string|null  $toDate  ISO-8601 date string (e.g. "2025-12-31")
      * @param  array<int, string>|null  $allowedXHandles
+     * @param  array<string, mixed>  $options  Extra provider-native attributes merged verbatim
      */
     public function __construct(
         protected readonly ?string $fromDate = null,
@@ -23,7 +24,10 @@ class XSearch extends ProviderTool
         protected readonly ?array $allowedXHandles = null,
         protected readonly bool $enableImageUnderstanding = false,
         protected readonly bool $enableVideoUnderstanding = false,
-    ) {}
+        array $options = [],
+    ) {
+        parent::__construct($options);
+    }
 
     public function type(): string
     {
@@ -53,6 +57,6 @@ class XSearch extends ProviderTool
             $config['enable_video_understanding'] = true;
         }
 
-        return $config;
+        return array_merge($config, $this->options);
     }
 }

@@ -16,6 +16,21 @@ use Illuminate\Support\Facades\Log;
 class ToolMapper implements ToolMapperContract
 {
     /**
+     * Neutral provider-tool type → Anthropic's versioned server-tool identity.
+     *
+     * Anthropic names server tools with a dated `type` plus a stable `name`.
+     * Tool-specific attributes (max_uses, allowed_domains, blocked_domains,
+     * user_location, …) sit top-level on the tool object and pass through
+     * untouched from the tool's options bag.
+     *
+     * @var array<string, array{type: string, name: string}>
+     */
+    private const SUPPORTED = [
+        'web_search' => ['type' => 'web_search_20250305', 'name' => 'web_search'],
+        'web_fetch' => ['type' => 'web_fetch_20250910', 'name' => 'web_fetch'],
+    ];
+
+    /**
      * Map Atlas ToolDefinitions to Anthropic tool format.
      *
      * @param  array<int, ToolDefinition>  $tools
@@ -38,14 +53,34 @@ class ToolMapper implements ToolMapperContract
      */
     public function mapProviderTools(array $providerTools): array
     {
-        if ($providerTools !== []) {
-            Log::warning('Provider tools are not supported on Anthropic and will be ignored.', [
-                'provider' => 'anthropic',
-                'tools' => array_map(fn (ProviderTool $t) => $t->type(), $providerTools),
+        $mapped = [];
+        $unsupported = [];
+
+        foreach ($providerTools as $tool) {
+            $native = self::SUPPORTED[$tool->type()] ?? null;
+
+            if ($native === null) {
+                $unsupported[] = $tool->type();
+
+                continue;
+            }
+
+            // Start from the neutral payload (top-level attributes + options
+            // bag), then swap in Anthropic's versioned type and stable name.
+            $mapped[] = array_merge($tool->toArray(), [
+                'type' => $native['type'],
+                'name' => $native['name'],
             ]);
         }
 
-        return [];
+        if ($unsupported !== []) {
+            Log::warning('Some provider tools are not supported on Anthropic and were ignored.', [
+                'provider' => 'anthropic',
+                'tools' => $unsupported,
+            ]);
+        }
+
+        return $mapped;
     }
 
     /**

@@ -187,9 +187,9 @@ it('maps CodeExecution to gemini format via mapper', function () {
 it('maps non-gemini provider tools via toArray', function () {
     $mapper = new ToolMapper;
 
-    $result = $mapper->mapProviderTools([new WebSearch(maxResults: 3)]);
+    $result = $mapper->mapProviderTools([new WebSearch(allowedDomains: ['laravel.com'])]);
 
     expect($result)->toHaveCount(1);
     expect($result[0]['type'])->toBe('web_search');
-    expect($result[0]['max_results'])->toBe(3);
+    expect($result[0]['allowed_domains'])->toBe(['laravel.com']);
 });

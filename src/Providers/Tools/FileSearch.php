@@ -11,11 +11,15 @@ class FileSearch extends ProviderTool
 {
     /**
      * @param  array<int, string>  $stores
+     * @param  array<string, mixed>  $options  Extra provider-native attributes merged verbatim
      */
     public function __construct(
         protected readonly array $stores = [],
         protected readonly ?int $maxResults = null,
-    ) {}
+        array $options = [],
+    ) {
+        parent::__construct($options);
+    }
 
     public function type(): string
     {
@@ -27,9 +31,12 @@ class FileSearch extends ProviderTool
      */
     public function config(): array
     {
-        return array_filter([
-            'vector_store_ids' => $this->stores ?: null,
-            'max_num_results' => $this->maxResults,
-        ]);
+        return array_merge(
+            array_filter([
+                'vector_store_ids' => $this->stores ?: null,
+                'max_num_results' => $this->maxResults,
+            ]),
+            $this->options,
+        );
     }
 }
