@@ -57,6 +57,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Prompt Caching
+    |--------------------------------------------------------------------------
+    |
+    | Reuse the static prefix of a request (system prompt, tools, prior turns)
+    | across calls so repeated tokens are billed at a steep discount. OpenAI,
+    | xAI, and Google cache automatically; Anthropic requires explicit cache
+    | breakpoints, which Atlas adds when this is on. Token savings are reported
+    | on every response's usage (cachedTokens / cacheWriteTokens). Disable per
+    | call with ->cache(false).
+    |
+    */
+
+    'prompt_cache' => (bool) env('ATLAS_PROMPT_CACHE', true),
+
+    /*
+    |--------------------------------------------------------------------------
     | Providers
     |--------------------------------------------------------------------------
     |
@@ -349,6 +365,14 @@ return [
         'table_prefix' => env('ATLAS_TABLE_PREFIX', 'atlas_'),
         'message_limit' => (int) env('ATLAS_MESSAGE_LIMIT', 50),
         'auto_store_assets' => env('ATLAS_AUTO_STORE_ASSETS', true),
+
+        // How many of the most recent messages replay their attached media
+        // (images/documents/audio/video) back to the model. Older turns replay
+        // text only, so a long thread doesn't re-send every past image each
+        // turn. null = replay media for all messages in the window.
+        'media_replay_limit' => env('ATLAS_MEDIA_REPLAY_LIMIT', 2) === null
+            ? null
+            : (int) env('ATLAS_MEDIA_REPLAY_LIMIT', 2),
 
         'voice_route_prefix' => 'atlas',
 

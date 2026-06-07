@@ -29,6 +29,7 @@ class AnthropicDriver extends Driver
                 stream: true,
                 structured: true,
                 vision: true,
+                caching: true,
                 toolCalling: true,
                 providerTools: true,
                 models: true,

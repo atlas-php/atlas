@@ -137,9 +137,72 @@ class MessageFactory implements MessageFactoryContract
             $messages[] = $this->user($userMessage, $media);
         }
 
+        $system = $systemParts !== [] ? implode("\n\n", $systemParts) : null;
+
+        // Anthropic needs explicit cache breakpoints (unlike OpenAI/xAI/Google,
+        // which cache automatically). Mark the system block and the end of the
+        // message history so the static prefix is reused on the next turn.
+        if ($request->cache) {
+            return [
+                'system' => $this->cacheSystem($system),
+                'messages' => $this->cacheTrailingMessage($messages),
+            ];
+        }
+
         return [
-            'system' => $systemParts !== [] ? implode("\n\n", $systemParts) : null,
+            'system' => $system,
             'messages' => $messages,
         ];
+    }
+
+    /**
+     * Wrap the system prompt in a cacheable text block so the model can reuse
+     * it (plus the tool definitions, which precede it) across turns.
+     *
+     * @return string|array<int, array<string, mixed>>|null
+     */
+    private function cacheSystem(?string $system): string|array|null
+    {
+        if ($system === null || $system === '') {
+            return $system;
+        }
+
+        return [[
+            'type' => 'text',
+            'text' => $system,
+            'cache_control' => ['type' => 'ephemeral'],
+        ]];
+    }
+
+    /**
+     * Mark the final block of the last message as a cache breakpoint, so the
+     * whole prior conversation prefix is cached and reused next turn.
+     *
+     * @param  array<int, array<string, mixed>>  $messages
+     * @return array<int, array<string, mixed>>
+     */
+    private function cacheTrailingMessage(array $messages): array
+    {
+        if ($messages === []) {
+            return $messages;
+        }
+
+        $lastIndex = array_key_last($messages);
+        $content = $messages[$lastIndex]['content'];
+
+        if (is_string($content)) {
+            $content = [[
+                'type' => 'text',
+                'text' => $content,
+                'cache_control' => ['type' => 'ephemeral'],
+            ]];
+        } elseif (is_array($content) && $content !== []) {
+            $blockKey = array_key_last($content);
+            $content[$blockKey]['cache_control'] = ['type' => 'ephemeral'];
+        }
+
+        $messages[$lastIndex]['content'] = $content;
+
+        return $messages;
     }
 }

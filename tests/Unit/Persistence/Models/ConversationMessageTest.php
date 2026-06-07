@@ -2,14 +2,21 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Input\Audio;
+use Atlasphp\Atlas\Input\Document;
+use Atlasphp\Atlas\Input\Image;
+use Atlasphp\Atlas\Input\Video;
 use Atlasphp\Atlas\Messages\AssistantMessage;
 use Atlasphp\Atlas\Messages\SystemMessage;
 use Atlasphp\Atlas\Messages\ToolResultMessage;
 use Atlasphp\Atlas\Messages\UserMessage;
+use Atlasphp\Atlas\Persistence\Enums\AssetType;
 use Atlasphp\Atlas\Persistence\Enums\MessageRole;
 use Atlasphp\Atlas\Persistence\Enums\MessageStatus;
+use Atlasphp\Atlas\Persistence\Models\Asset;
 use Atlasphp\Atlas\Persistence\Models\Conversation;
 use Atlasphp\Atlas\Persistence\Models\ConversationMessage;
+use Atlasphp\Atlas\Persistence\Models\ConversationMessageAsset;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\ExecutionStep;
 use Atlasphp\Atlas\Persistence\Models\ExecutionToolCall;
@@ -43,7 +50,63 @@ it('toAtlasMessage returns UserMessage for user role', function () {
     $atlas = $message->toAtlasMessage();
 
     expect($atlas)->toBeInstanceOf(UserMessage::class)
-        ->and($atlas->content)->toBe('Hello');
+        ->and($atlas->content)->toBe('Hello')
+        ->and($atlas->media)->toBe([]);
+});
+
+it('toAtlasMessage rehydrates linked image assets into media for replay', function () {
+    $message = ConversationMessage::factory()->fromUser()->create(['content' => 'look at this']);
+    $asset = Asset::factory()->image()->create(['path' => 'atlas/test/photo.png', 'disk' => 'local', 'mime_type' => 'image/png']);
+    ConversationMessageAsset::factory()->create(['message_id' => $message->id, 'asset_id' => $asset->id]);
+
+    $atlas = $message->fresh()->toAtlasMessage();
+
+    expect($atlas)->toBeInstanceOf(UserMessage::class)
+        ->and($atlas->media)->toHaveCount(1)
+        ->and($atlas->media[0])->toBeInstanceOf(Image::class)
+        ->and($atlas->media[0]->mimeType())->toBe('image/png');
+});
+
+it('toAtlasMessage skips non-replayable asset types', function () {
+    $message = ConversationMessage::factory()->fromUser()->create(['content' => 'data']);
+    $asset = Asset::factory()->create(['type' => AssetType::Json, 'path' => 'atlas/test/blob.json', 'disk' => 'local']);
+    ConversationMessageAsset::factory()->create(['message_id' => $message->id, 'asset_id' => $asset->id]);
+
+    expect($message->fresh()->toAtlasMessage()->media)->toBe([]);
+});
+
+it('toAtlasMessage maps each media asset type to its matching input', function () {
+    $message = ConversationMessage::factory()->fromUser()->create(['content' => 'multi']);
+
+    foreach ([AssetType::Image, AssetType::Audio, AssetType::Video, AssetType::Document] as $type) {
+        $asset = Asset::factory()->create(['type' => $type, 'path' => "atlas/test/{$type->value}.bin", 'disk' => 'local', 'mime_type' => 'application/octet-stream']);
+        ConversationMessageAsset::factory()->create(['message_id' => $message->id, 'asset_id' => $asset->id]);
+    }
+
+    $media = $message->fresh()->toAtlasMessage()->media;
+
+    expect($media)->toHaveCount(4)
+        ->and($media[0])->toBeInstanceOf(Image::class)
+        ->and($media[1])->toBeInstanceOf(Audio::class)
+        ->and($media[2])->toBeInstanceOf(Video::class)
+        ->and($media[3])->toBeInstanceOf(Document::class);
+});
+
+it('toAtlasMessage drops linked assets whose asset record is missing', function () {
+    $message = ConversationMessage::factory()->fromUser()->create(['content' => 'orphan']);
+    $asset = Asset::factory()->image()->create(['path' => 'atlas/test/gone.png', 'disk' => 'local']);
+    ConversationMessageAsset::factory()->create(['message_id' => $message->id, 'asset_id' => $asset->id]);
+    $asset->delete(); // link now points at a missing asset
+
+    expect($message->fresh()->toAtlasMessage()->media)->toBe([]);
+});
+
+it('toAtlasMessage omits media when includeMedia is false', function () {
+    $message = ConversationMessage::factory()->fromUser()->create(['content' => 'hi']);
+    $asset = Asset::factory()->image()->create(['path' => 'atlas/test/skip.png', 'disk' => 'local']);
+    ConversationMessageAsset::factory()->create(['message_id' => $message->id, 'asset_id' => $asset->id]);
+
+    expect($message->fresh()->toAtlasMessage(includeMedia: false)->media)->toBe([]);
 });
 
 it('toAtlasMessage returns AssistantMessage for assistant role', function () {

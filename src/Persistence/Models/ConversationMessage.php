@@ -6,6 +6,11 @@ namespace Atlasphp\Atlas\Persistence\Models;
 
 use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Database\Factories\ConversationMessageFactory;
+use Atlasphp\Atlas\Input\Audio;
+use Atlasphp\Atlas\Input\Document;
+use Atlasphp\Atlas\Input\Image;
+use Atlasphp\Atlas\Input\Input;
+use Atlasphp\Atlas\Input\Video;
 use Atlasphp\Atlas\Messages\AssistantMessage;
 use Atlasphp\Atlas\Messages\Message as AtlasMessage;
 use Atlasphp\Atlas\Messages\SystemMessage;
@@ -14,6 +19,7 @@ use Atlasphp\Atlas\Messages\ToolResultMessage;
 use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Persistence\Concerns\HasAtlasTable;
 use Atlasphp\Atlas\Persistence\Concerns\HasOwner;
+use Atlasphp\Atlas\Persistence\Enums\AssetType;
 use Atlasphp\Atlas\Persistence\Enums\MessageRole;
 use Atlasphp\Atlas\Persistence\Enums\MessageStatus;
 use Atlasphp\Atlas\Providers\Google\GoogleToolCall;
@@ -227,11 +233,12 @@ class ConversationMessage extends Model
      * Does NOT handle tool reconstruction — that's loadMessages()'s job.
      * This method returns the base AssistantMessage without toolCalls.
      */
-    public function toAtlasMessage(): AtlasMessage
+    public function toAtlasMessage(bool $includeMedia = true): AtlasMessage
     {
         return match ($this->role) {
             MessageRole::User => new UserMessage(
                 content: $this->content ?? '',
+                media: $includeMedia ? $this->mediaInputs() : [],
             ),
             MessageRole::Assistant => new AssistantMessage(
                 content: $this->content,
@@ -239,6 +246,40 @@ class ConversationMessage extends Model
             MessageRole::System => new SystemMessage(
                 content: $this->content ?? '',
             ),
+        };
+    }
+
+    /**
+     * Rehydrate the linked assets into Atlas media inputs so a user's shared
+     * image, document, audio, or video is replayed to the provider on later
+     * turns — not silently reduced to its text. Non-media asset types
+     * (text/json/file) are skipped. Eager-load `assets.asset` to avoid N+1.
+     *
+     * @return array<int, Input>
+     */
+    protected function mediaInputs(): array
+    {
+        return $this->assets
+            ->map(static fn (ConversationMessageAsset $link): ?Asset => $link->asset)
+            ->filter()
+            ->map(fn (Asset $asset): ?Input => $this->assetToInput($asset))
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Map a stored asset to its Atlas media input by type, or null when the
+     * asset is not a provider-replayable medium.
+     */
+    private function assetToInput(Asset $asset): ?Input
+    {
+        return match ($asset->type) {
+            AssetType::Image => Image::fromStorage($asset->path, $asset->disk, $asset->mime_type),
+            AssetType::Audio => Audio::fromStorage($asset->path, $asset->disk, $asset->mime_type),
+            AssetType::Video => Video::fromStorage($asset->path, $asset->disk, $asset->mime_type),
+            AssetType::Document => Document::fromStorage($asset->path, $asset->disk, $asset->mime_type),
+            default => null,
         };
     }
 

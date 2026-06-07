@@ -139,6 +139,8 @@ class AgentRequest implements QueueableRequest
 
     protected bool $retryMode = false;
 
+    protected ?bool $cacheOverride = null;
+
     public function __construct(
         protected readonly string $key,
         protected readonly AgentRegistry $agentRegistry,
@@ -262,6 +264,18 @@ class AgentRequest implements QueueableRequest
     public function withConcurrent(bool $concurrent = true): static
     {
         $this->concurrentOverride = $concurrent;
+
+        return $this;
+    }
+
+    /**
+     * Enable or disable prompt caching for this call, overriding the
+     * `atlas.prompt_cache` default. Caching reuses the static request prefix
+     * (system prompt, tools, prior turns) so repeated tokens bill at a discount.
+     */
+    public function cache(bool $enabled = true): static
+    {
+        $this->cacheOverride = $enabled;
 
         return $this;
     }
@@ -983,6 +997,7 @@ class AgentRequest implements QueueableRequest
                 : $agent->providerOptions(),
             middleware: $this->middleware,
             meta: $this->meta,
+            cache: $this->cacheOverride ?? $this->config->promptCache,
         );
     }
 

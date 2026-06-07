@@ -53,7 +53,9 @@ class AtlasConfig
         public readonly ?string $persistenceConnection = null,
         public readonly string $tablePrefix = 'atlas_',
         public readonly int $messageLimit = 50,
+        public readonly ?int $mediaReplayLimit = 2,
         public readonly bool $autoStoreAssets = true,
+        public readonly bool $promptCache = true,
         public readonly string $voiceRoutePrefix = 'atlas',
         public readonly int $voiceSessionTtl = 60,
         /** @var array<string, class-string> */
@@ -133,7 +135,11 @@ class AtlasConfig
             persistenceConnection: config('atlas.persistence.connection'),
             tablePrefix: config('atlas.persistence.table_prefix', 'atlas_'),
             messageLimit: (int) config('atlas.persistence.message_limit', 50),
+            mediaReplayLimit: config('atlas.persistence.media_replay_limit', 2) === null
+                ? null
+                : (int) config('atlas.persistence.media_replay_limit', 2),
             autoStoreAssets: (bool) config('atlas.persistence.auto_store_assets', true),
+            promptCache: (bool) config('atlas.prompt_cache', true),
             voiceRoutePrefix: config('atlas.persistence.voice_route_prefix', 'atlas'),
             voiceSessionTtl: (int) config('atlas.persistence.voice_session_ttl', 60),
             persistenceModels: config('atlas.persistence.models', []),

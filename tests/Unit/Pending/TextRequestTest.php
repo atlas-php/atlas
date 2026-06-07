@@ -710,3 +710,55 @@ it('interpolateMessageArray skips AssistantMessage with null content', function 
     $pending->withMessageInterpolation();
     $pending->asText();
 });
+
+it('cache(true) sets the cache flag on the request handed to the driver', function () {
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
+
+    $captured = null;
+    $driver->shouldReceive('text')->once()->andReturnUsing(function (TextRequestObject $req) use (&$captured) {
+        $captured = $req;
+
+        return new TextResponse('ok', new Usage(1, 1), FinishReason::Stop);
+    });
+
+    createTextPending($driver)->cache(true)->message('hi')->asText();
+
+    expect($captured->cache)->toBeTrue();
+});
+
+it('cache(false) overrides the config default off', function () {
+    config(['atlas.prompt_cache' => true]);
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
+
+    $captured = null;
+    $driver->shouldReceive('text')->once()->andReturnUsing(function (TextRequestObject $req) use (&$captured) {
+        $captured = $req;
+
+        return new TextResponse('ok', new Usage(1, 1), FinishReason::Stop);
+    });
+
+    createTextPending($driver)->cache(false)->message('hi')->asText();
+
+    expect($captured->cache)->toBeFalse();
+});
+
+it('defaults the cache flag from atlas.prompt_cache config', function () {
+    config(['atlas.prompt_cache' => true]);
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
+
+    $captured = null;
+    $driver->shouldReceive('text')->once()->andReturnUsing(function (TextRequestObject $req) use (&$captured) {
+        $captured = $req;
+
+        return new TextResponse('ok', new Usage(1, 1), FinishReason::Stop);
+    });
+
+    createTextPending($driver)->message('hi')->asText();
+
+    expect($captured->cache)->toBeTrue();
+});

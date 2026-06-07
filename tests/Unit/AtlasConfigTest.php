@@ -43,9 +43,29 @@ it('returns sensible defaults when config keys are missing', function () {
     expect($config->persistenceEnabled)->toBeFalse();
     expect($config->tablePrefix)->toBe('atlas_');
     expect($config->messageLimit)->toBe(50);
+    expect($config->mediaReplayLimit)->toBe(2);
+    expect($config->promptCache)->toBeTrue();
     expect($config->storageDisk)->toBeNull();
     expect($config->storagePrefix)->toBe('atlas');
     expect($config->embeddingDimensions)->toBe(1536);
+});
+
+it('reads prompt_cache and media_replay_limit overrides', function () {
+    config([
+        'atlas.prompt_cache' => false,
+        'atlas.persistence.media_replay_limit' => 5,
+    ]);
+
+    $config = AtlasConfig::fromConfig();
+
+    expect($config->promptCache)->toBeFalse()
+        ->and($config->mediaReplayLimit)->toBe(5);
+});
+
+it('treats a null media_replay_limit as unbounded', function () {
+    config(['atlas.persistence.media_replay_limit' => null]);
+
+    expect(AtlasConfig::fromConfig()->mediaReplayLimit)->toBeNull();
 });
 
 it('forProvider returns provider config', function () {

@@ -8,6 +8,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 ---
 
+## [v3.3.1](https://github.com/atlas-php/atlas/releases/tag/v3.3.1) - 2026-06-07
+
+### Added
+
+- **Prompt caching, on by default** — repeated request prefixes bill at a discount. Explicit for Anthropic, automatic for OpenAI/xAI/Google. Toggle with `->cache(false)` or `ATLAS_PROMPT_CACHE`; savings show in `usage->cachedTokens`.
+- **`ATLAS_MEDIA_REPLAY_LIMIT`** (default `2`) caps how many recent messages re-send their attached media, keeping long threads cheap.
+
+### Fixed
+
+- **The model now sees images shared earlier in a conversation** — attached media is replayed from history instead of being dropped to text (it was never sent at all in respond/group mode).
+
+### Migration
+
+None — drop-in. Set `ATLAS_PROMPT_CACHE=false` to keep prior behavior.
+
+---
+
 ## [v3.3.0](https://github.com/atlas-php/atlas/releases/tag/v3.3.0) - 2026-06-06
 
 ### Added

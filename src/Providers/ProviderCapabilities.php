@@ -23,6 +23,7 @@ class ProviderCapabilities
         public readonly bool $moderate = false,
         public readonly bool $rerank = false,
         public readonly bool $vision = false,
+        public readonly bool $caching = false,
         public readonly bool $toolCalling = false,
         public readonly bool $providerTools = false,
         public readonly bool $models = false,

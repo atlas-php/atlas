@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Input\Image;
 use Atlasphp\Atlas\Input\Input;
 use Atlasphp\Atlas\Messages\AssistantMessage;
 use Atlasphp\Atlas\Messages\SystemMessage;
@@ -213,4 +214,145 @@ it('buildAll appends current message to messages', function () {
     expect($result['messages'][1]['role'])->toBe('assistant');
     expect($result['messages'][2]['role'])->toBe('user');
     expect($result['messages'][2]['content'])->toBe('Hello');
+});
+
+it('does not emit cache_control when caching is off', function () {
+    $factory = new MessageFactory;
+    $media = new MediaResolver;
+
+    $request = new TextRequest(
+        model: 'claude-sonnet-4-5-20250514',
+        instructions: 'Be helpful',
+        message: 'Hi',
+        messageMedia: [],
+        messages: [],
+        maxTokens: null,
+        temperature: null,
+        schema: null,
+        tools: [],
+        providerTools: [],
+        providerOptions: [],
+    );
+
+    $result = $factory->buildAll($request, $media);
+
+    expect($result['system'])->toBe('Be helpful');
+    expect($result['messages'][0]['content'])->toBe('Hi');
+});
+
+it('marks system and trailing message with cache_control when caching is on', function () {
+    $factory = new MessageFactory;
+    $media = new MediaResolver;
+
+    $request = new TextRequest(
+        model: 'claude-sonnet-4-5-20250514',
+        instructions: 'Be helpful',
+        message: 'Hi',
+        messageMedia: [],
+        messages: [],
+        maxTokens: null,
+        temperature: null,
+        schema: null,
+        tools: [],
+        providerTools: [],
+        providerOptions: [],
+        cache: true,
+    );
+
+    $result = $factory->buildAll($request, $media);
+
+    // System becomes a cacheable block array.
+    expect($result['system'])->toBe([[
+        'type' => 'text',
+        'text' => 'Be helpful',
+        'cache_control' => ['type' => 'ephemeral'],
+    ]]);
+
+    // The trailing (only) message carries the breakpoint on its last block.
+    $last = $result['messages'][array_key_last($result['messages'])];
+    expect($last['content'][array_key_last($last['content'])]['cache_control'])
+        ->toBe(['type' => 'ephemeral']);
+});
+
+it('cache breakpoint lands on the last block of a multi-part trailing message', function () {
+    $factory = new MessageFactory;
+    $media = new MediaResolver;
+
+    $request = new TextRequest(
+        model: 'claude-sonnet-4-5-20250514',
+        instructions: null,
+        message: 'What is this?',
+        messageMedia: [Image::fromBase64(base64_encode('x'), 'image/png')],
+        messages: [],
+        maxTokens: null,
+        temperature: null,
+        schema: null,
+        tools: [],
+        providerTools: [],
+        providerOptions: [],
+        cache: true,
+    );
+
+    $result = $factory->buildAll($request, $media);
+
+    $content = $result['messages'][0]['content'];
+    // image block + text block; breakpoint only on the final (text) block.
+    expect($content)->toHaveCount(2)
+        ->and($content[1]['type'])->toBe('text')
+        ->and($content[1]['cache_control'])->toBe(['type' => 'ephemeral'])
+        ->and($content[0])->not->toHaveKey('cache_control');
+});
+
+it('cacheSystem leaves a null system untouched when caching is on', function () {
+    $factory = new MessageFactory;
+    $media = new MediaResolver;
+
+    $request = new TextRequest(
+        model: 'claude-sonnet-4-5-20250514',
+        instructions: null,
+        message: 'Hi',
+        messageMedia: [],
+        messages: [],
+        maxTokens: null,
+        temperature: null,
+        schema: null,
+        tools: [],
+        providerTools: [],
+        providerOptions: [],
+        cache: true,
+    );
+
+    $result = $factory->buildAll($request, $media);
+
+    expect($result['system'])->toBeNull();
+});
+
+it('cacheTrailingMessage handles an empty message list without error', function () {
+    $factory = new MessageFactory;
+    $media = new MediaResolver;
+
+    // No current message and no history → messages array is empty.
+    $request = new TextRequest(
+        model: 'claude-sonnet-4-5-20250514',
+        instructions: 'Be helpful',
+        message: null,
+        messageMedia: [],
+        messages: [],
+        maxTokens: null,
+        temperature: null,
+        schema: null,
+        tools: [],
+        providerTools: [],
+        providerOptions: [],
+        cache: true,
+    );
+
+    $result = $factory->buildAll($request, $media);
+
+    expect($result['messages'])->toBe([])
+        ->and($result['system'])->toBe([[
+            'type' => 'text',
+            'text' => 'Be helpful',
+            'cache_control' => ['type' => 'ephemeral'],
+        ]]);
 });

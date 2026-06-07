@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\Anthropic\Handlers\Text;
 use Atlasphp\Atlas\Providers\Anthropic\MediaResolver;
@@ -236,4 +237,30 @@ it('wraps tools in Anthropic format with input_schema', function () {
         return isset($tools[0]['input_schema'])
             && $tools[0]['name'] === 'search';
     });
+});
+
+it('surfaces cache read/write tokens from the streamed message_start usage', function () {
+    $sse = "event: message_start\n"
+        ."data: {\"message\":{\"usage\":{\"input_tokens\":1000,\"cache_read_input_tokens\":900,\"cache_creation_input_tokens\":50}}}\n\n"
+        ."event: message_delta\n"
+        ."data: {\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":20}}\n\n"
+        ."event: message_stop\ndata: {}\n\n";
+
+    Http::fake([
+        'api.anthropic.com/*' => Http::response($sse),
+    ]);
+
+    $handler = makeAnthropicTextHandler();
+    $chunks = iterator_to_array($handler->stream(makeAnthropicTextRequest()));
+
+    $done = array_values(array_filter(
+        $chunks,
+        fn ($c) => $c->type === ChunkType::Done && $c->usage !== null,
+    ));
+
+    expect($done)->toHaveCount(1)
+        ->and($done[0]->usage->inputTokens)->toBe(1000)
+        ->and($done[0]->usage->outputTokens)->toBe(20)
+        ->and($done[0]->usage->cachedTokens)->toBe(900)
+        ->and($done[0]->usage->cacheWriteTokens)->toBe(50);
 });

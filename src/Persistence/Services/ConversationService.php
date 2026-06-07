@@ -100,7 +100,7 @@ class ConversationService
         $messages = $conversation->messages()
             ->where('is_active', true)
             ->where('status', MessageStatus::Delivered)
-            ->with(['step.toolCalls'])
+            ->with(['step.toolCalls', 'assets.asset'])
             ->reorder()
             ->latest('sequence')
             ->limit($limit)
@@ -108,12 +108,20 @@ class ConversationService
             ->reverse()
             ->values();
 
+        // Only the most recent N messages replay their attached media, so a long
+        // thread doesn't re-send every past image on every turn. Older turns
+        // replay text only. null = no bound (all media replays).
+        $mediaLimit = app(AtlasConfig::class)->mediaReplayLimit;
+        $total = $messages->count();
+
         $result = [];
 
-        foreach ($messages as $message) {
+        foreach ($messages as $index => $message) {
+            $includeMedia = $mediaLimit === null || $index >= ($total - $mediaLimit);
+
             $expanded = $message->isFromAssistant()
                 ? $message->toAtlasMessagesWithTools()
-                : [$message->toAtlasMessage()];
+                : [$message->toAtlasMessage($includeMedia)];
 
             foreach ($expanded as $atlasMessage) {
                 $result[] = ($forAgent !== null && ! $message->isSystem())
@@ -159,11 +167,14 @@ class ConversationService
             );
         }
 
-        // Other assistant/user messages become user with name prefix
+        // Other assistant/user messages become user with name prefix. Preserve
+        // any media (a shared image/document/etc.) so it survives the remap —
+        // otherwise the model never sees what a participant actually sent.
         $name = $sourceMessage->ownerName() ?? 'Unknown';
         $content = "[{$name}]: ".($atlasMessage->content ?? '');
+        $media = $atlasMessage instanceof UserMessage ? $atlasMessage->media : [];
 
-        return new UserMessage(content: $content);
+        return new UserMessage(content: $content, media: $media);
     }
 
     /**

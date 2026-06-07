@@ -254,6 +254,7 @@ gtag('config', 'G-JEV06LWG7N');`],
                     { text: 'Instructions', link: '/features/instructions' },
                     { text: 'Schema', link: '/features/schema' },
                     { text: 'Middleware', link: '/features/middleware' },
+                    { text: 'Prompt Caching', link: '/features/prompt-caching' },
                     { text: 'Similarity Search', link: '/features/similarity-search' },
                 ]
             },

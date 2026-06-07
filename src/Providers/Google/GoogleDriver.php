@@ -35,6 +35,7 @@ class GoogleDriver extends Driver
                 imageToText: false,
                 embed: true,
                 vision: true,
+                caching: true,
                 toolCalling: true,
                 providerTools: true,
                 models: true,
