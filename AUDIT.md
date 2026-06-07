@@ -88,6 +88,8 @@ Verified end-to-end (`sandbox/test-vision-replay.php`): an image is persisted as
 | Google    | gemini-2.5-flash      | ✅ read "42" off the image |
 | xAI       | grok-4.3              | ✅ read "42" off the image |
 
+**Config gating** (`sandbox/test-media-config.php`, `ATLAS_MEDIA_REPLAY_LIMIT` set per process): same image, same prompt, image as the 2nd-from-last message. **All four providers**: `limit=1` (image outside window) → **0 image blocks sent, model cannot read it**; `limit=2` (image inside window) → **1 image block sent, model reads "42"**. Confirms `media_replay_limit` controls live visibility per provider.
+
 ## Per-provider results
 
 | Provider   | Live suite (2026-06-07)    | Notes |
