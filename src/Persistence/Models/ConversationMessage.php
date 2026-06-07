@@ -262,7 +262,7 @@ class ConversationMessage extends Model
         return $this->assets
             ->map(static fn (ConversationMessageAsset $link): ?Asset => $link->asset)
             ->filter()
-            ->map(fn (Asset $asset): ?Input => $this->assetToInput($asset))
+            ->map(static fn (Asset $asset): ?Input => self::assetToInput($asset))
             ->filter()
             ->values()
             ->all();
@@ -272,7 +272,7 @@ class ConversationMessage extends Model
      * Map a stored asset to its Atlas media input by type, or null when the
      * asset is not a provider-replayable medium.
      */
-    private function assetToInput(Asset $asset): ?Input
+    private static function assetToInput(Asset $asset): ?Input
     {
         return match ($asset->type) {
             AssetType::Image => Image::fromStorage($asset->path, $asset->disk, $asset->mime_type),

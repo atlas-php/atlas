@@ -113,11 +113,14 @@ class ConversationService
         // replay text only. null = no bound (all media replays).
         $mediaLimit = app(AtlasConfig::class)->mediaReplayLimit;
         $total = $messages->count();
+        $mediaFrom = $mediaLimit === null ? 0 : max(0, $total - $mediaLimit);
 
         $result = [];
 
-        foreach ($messages as $index => $message) {
-            $includeMedia = $mediaLimit === null || $index >= ($total - $mediaLimit);
+        $position = 0;
+
+        foreach ($messages as $message) {
+            $includeMedia = $position++ >= $mediaFrom;
 
             $expanded = $message->isFromAssistant()
                 ? $message->toAtlasMessagesWithTools()

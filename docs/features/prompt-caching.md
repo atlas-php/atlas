@@ -21,11 +21,13 @@ Atlas::provider('anthropic')->capabilities()->supports('caching'); // true
 
 ## Configuration
 
-Caching is enabled by default. Control it globally in `config/atlas.php`:
+Caching is on by default. Control it globally in `config/atlas.php`:
 
 ```php
 'prompt_cache' => (bool) env('ATLAS_PROMPT_CACHE', true),
 ```
+
+> Note: OpenAI, xAI, and Google cache automatically regardless of this setting — it gates the explicit `cache_control` breakpoints Atlas adds for Anthropic. Either way, cache usage is always reported.
 
 Override it per call:
 

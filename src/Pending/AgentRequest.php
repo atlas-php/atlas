@@ -1113,6 +1113,7 @@ class AgentRequest implements QueueableRequest
             'temperature' => $this->temperatureOverride,
             'max_steps' => $this->maxStepsOverride,
             'concurrent' => $this->concurrentOverride,
+            'cache' => $this->cacheOverride,
             'provider_options' => $this->providerOptions,
             'conversation_id' => $this->conversationId,
             'owner_type' => $this->conversationOwner?->getMorphClass(),
@@ -1193,6 +1194,12 @@ class AgentRequest implements QueueableRequest
 
         if ($payload['concurrent'] !== null) {
             $request->withConcurrent($payload['concurrent']);
+        }
+
+        // Preserve an explicit cache override across the queue boundary; absent
+        // key (older payloads) falls back to the config default at build time.
+        if (($payload['cache'] ?? null) !== null) {
+            $request->cache($payload['cache']);
         }
 
         if (! empty($payload['provider_options'])) {

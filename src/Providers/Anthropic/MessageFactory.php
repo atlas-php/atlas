@@ -178,6 +178,11 @@ class MessageFactory implements MessageFactoryContract
      * Mark the final block of the last message as a cache breakpoint, so the
      * whole prior conversation prefix is cached and reused next turn.
      *
+     * Only user messages are marked: their trailing block is always a cacheable
+     * type (text/image/document/tool_result), whereas an assistant message can
+     * end in a `tool_use` or `thinking` block that must not carry cache_control.
+     * Skipping a trailing assistant message still caches system + tools.
+     *
      * @param  array<int, array<string, mixed>>  $messages
      * @return array<int, array<string, mixed>>
      */
@@ -188,6 +193,11 @@ class MessageFactory implements MessageFactoryContract
         }
 
         $lastIndex = array_key_last($messages);
+
+        if (($messages[$lastIndex]['role'] ?? null) !== 'user') {
+            return $messages;
+        }
+
         $content = $messages[$lastIndex]['content'];
 
         if (is_string($content)) {

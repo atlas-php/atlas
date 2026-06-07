@@ -12,16 +12,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 ### Added
 
-- **Prompt caching, on by default** — repeated request prefixes bill at a discount. Explicit for Anthropic, automatic for OpenAI/xAI/Google. Toggle with `->cache(false)` or `ATLAS_PROMPT_CACHE`; savings show in `usage->cachedTokens`.
-- **`ATLAS_MEDIA_REPLAY_LIMIT`** (default `2`) caps how many recent messages re-send their attached media, keeping long threads cheap.
+- **Prompt caching (on by default)** — repeated tokens cost less. Disable with `ATLAS_PROMPT_CACHE=false` or `->cache(false)`; savings show in `usage->cachedTokens`.
+- **`ATLAS_MEDIA_REPLAY_LIMIT`** (default `2`) — how many recent messages resend their images each turn.
 
 ### Fixed
 
-- **The model now sees images shared earlier in a conversation** — attached media is replayed from history instead of being dropped to text (it was never sent at all in respond/group mode).
+- **The AI can now see images shared earlier in a chat** — attachments are replayed from history instead of dropped to text.
 
 ### Migration
 
-None — drop-in. Set `ATLAS_PROMPT_CACHE=false` to keep prior behavior.
+None — drop-in. Set `ATLAS_PROMPT_CACHE=false` to disable caching.
 
 ---
 

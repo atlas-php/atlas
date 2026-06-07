@@ -68,6 +68,13 @@ it('treats a null media_replay_limit as unbounded', function () {
     expect(AtlasConfig::fromConfig()->mediaReplayLimit)->toBeNull();
 });
 
+it('treats a non-numeric media_replay_limit (e.g. empty env) as unbounded, never 0', function () {
+    config(['atlas.persistence.media_replay_limit' => '']);
+
+    // An empty ATLAS_MEDIA_REPLAY_LIMIT must not become 0 (which would drop all media).
+    expect(AtlasConfig::fromConfig()->mediaReplayLimit)->toBeNull();
+});
+
 it('forProvider returns provider config', function () {
     config(['atlas.providers' => ['openai' => ['api_key' => 'sk-test', 'url' => 'https://api.openai.com']]]);
 

@@ -135,9 +135,11 @@ class AtlasConfig
             persistenceConnection: config('atlas.persistence.connection'),
             tablePrefix: config('atlas.persistence.table_prefix', 'atlas_'),
             messageLimit: (int) config('atlas.persistence.message_limit', 50),
-            mediaReplayLimit: config('atlas.persistence.media_replay_limit', 2) === null
-                ? null
-                : (int) config('atlas.persistence.media_replay_limit', 2),
+            // Non-numeric (null, '', or a stray string from .env) means unbounded
+            // — never 0, which would silently drop all media.
+            mediaReplayLimit: is_numeric($mediaReplayLimit = config('atlas.persistence.media_replay_limit', 2))
+                ? (int) $mediaReplayLimit
+                : null,
             autoStoreAssets: (bool) config('atlas.persistence.auto_store_assets', true),
             promptCache: (bool) config('atlas.prompt_cache', true),
             voiceRoutePrefix: config('atlas.persistence.voice_route_prefix', 'atlas'),

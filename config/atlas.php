@@ -369,10 +369,8 @@ return [
         // How many of the most recent messages replay their attached media
         // (images/documents/audio/video) back to the model. Older turns replay
         // text only, so a long thread doesn't re-send every past image each
-        // turn. null = replay media for all messages in the window.
-        'media_replay_limit' => env('ATLAS_MEDIA_REPLAY_LIMIT', 2) === null
-            ? null
-            : (int) env('ATLAS_MEDIA_REPLAY_LIMIT', 2),
+        // turn. null (ATLAS_MEDIA_REPLAY_LIMIT=null) = replay all in the window.
+        'media_replay_limit' => env('ATLAS_MEDIA_REPLAY_LIMIT', 2),
 
         'voice_route_prefix' => 'atlas',
 

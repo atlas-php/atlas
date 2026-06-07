@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\AgentRegistry;
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Input\Audio;
 use Atlasphp\Atlas\Input\Image;
 use Atlasphp\Atlas\Input\Input;
@@ -184,3 +185,20 @@ it('throws for unknown terminal method', function () {
         'retry_mode' => false,
     ], 'asInvalid');
 })->throws(InvalidArgumentException::class, 'Unknown terminal method: asInvalid');
+
+it('serializes an explicit cache override into the queue payload', function () {
+    registerQueueTestAgent(QueueTestMinimalAgent::class);
+
+    $payload = Atlas::agent('queue-minimal')->cache(false)->message('hi')->toQueuePayload();
+
+    expect($payload)->toHaveKey('cache')
+        ->and($payload['cache'])->toBeFalse();
+});
+
+it('leaves cache null in the payload when no override is set', function () {
+    registerQueueTestAgent(QueueTestMinimalAgent::class);
+
+    $payload = Atlas::agent('queue-minimal')->message('hi')->toQueuePayload();
+
+    expect($payload['cache'])->toBeNull();
+});
