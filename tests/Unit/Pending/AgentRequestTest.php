@@ -6,6 +6,7 @@ use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\AgentRegistry;
 use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Enums\ChunkType;
+use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Events\ModalityCompleted;
@@ -24,6 +25,7 @@ use Atlasphp\Atlas\Queue\PendingExecution;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
+use Atlasphp\Atlas\Responses\Usage;
 use Atlasphp\Atlas\Responses\VoiceSession;
 use Atlasphp\Atlas\Schema\Schema;
 use Atlasphp\Atlas\Support\VariableRegistry;
@@ -1339,4 +1341,52 @@ it('agent middleware can modify context meta', function () {
     $response = makeAgentRequest('minimal')->message('test')->asText();
 
     expect($response->text)->toBe('mutated');
+});
+
+it('cache() override flows through buildRequest to the driver request', function () {
+    registerTestAgent(RequestTestMinimalAgent::class);
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
+
+    $captured = null;
+    $driver->shouldReceive('text')->once()->andReturnUsing(function ($req) use (&$captured) {
+        $captured = $req;
+
+        return new TextResponse('ok', new Usage(1, 1), FinishReason::Stop);
+    });
+
+    $registry = app(ProviderRegistryContract::class);
+    $registry->register('openai', fn () => $driver);
+
+    config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o'], 'atlas.prompt_cache' => true]);
+    AtlasConfig::refresh();
+
+    makeAgentRequest('minimal')->cache(false)->message('Hi')->asText();
+
+    expect($captured->cache)->toBeFalse();
+});
+
+it('agent request defaults the cache flag from atlas.prompt_cache config', function () {
+    registerTestAgent(RequestTestMinimalAgent::class);
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
+
+    $captured = null;
+    $driver->shouldReceive('text')->once()->andReturnUsing(function ($req) use (&$captured) {
+        $captured = $req;
+
+        return new TextResponse('ok', new Usage(1, 1), FinishReason::Stop);
+    });
+
+    $registry = app(ProviderRegistryContract::class);
+    $registry->register('openai', fn () => $driver);
+
+    config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o'], 'atlas.prompt_cache' => true]);
+    AtlasConfig::refresh();
+
+    makeAgentRequest('minimal')->message('Hi')->asText();
+
+    expect($captured->cache)->toBeTrue();
 });

@@ -34,6 +34,7 @@ final class TextRequest
         public readonly array $providerOptions,
         public readonly array $middleware = [],
         public readonly array $meta = [],
+        public readonly bool $cache = false,
     ) {}
 
     /**
@@ -57,6 +58,7 @@ final class TextRequest
             providerOptions: $this->providerOptions,
             middleware: $this->middleware,
             meta: $this->meta,
+            cache: $this->cache,
         );
     }
 
@@ -81,6 +83,7 @@ final class TextRequest
             providerOptions: $this->providerOptions,
             middleware: $this->middleware,
             meta: $this->meta,
+            cache: $this->cache,
         );
     }
 
@@ -106,6 +109,7 @@ final class TextRequest
             providerOptions: $this->providerOptions,
             middleware: $this->middleware,
             meta: $this->meta,
+            cache: $this->cache,
         );
     }
 
@@ -130,6 +134,7 @@ final class TextRequest
             providerOptions: $this->providerOptions,
             middleware: $this->middleware,
             meta: $this->meta,
+            cache: $this->cache,
         );
     }
 }

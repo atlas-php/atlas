@@ -2,13 +2,17 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\AtlasConfig;
+use Atlasphp\Atlas\Input\Image;
 use Atlasphp\Atlas\Messages\AssistantMessage;
 use Atlasphp\Atlas\Messages\SystemMessage;
 use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Persistence\Enums\MessageRole;
 use Atlasphp\Atlas\Persistence\Enums\MessageStatus;
+use Atlasphp\Atlas\Persistence\Models\Asset;
 use Atlasphp\Atlas\Persistence\Models\Conversation;
 use Atlasphp\Atlas\Persistence\Models\ConversationMessage;
+use Atlasphp\Atlas\Persistence\Models\ConversationMessageAsset;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\ExecutionStep;
 use Atlasphp\Atlas\Persistence\Services\ConversationService;
@@ -407,6 +411,75 @@ it('remaps other agent messages to user role with name prefix', function () {
     $userMessages = array_filter($messages, fn ($m) => $m instanceof UserMessage);
     $contents = array_map(fn ($m) => $m->content, array_values($userMessages));
     expect($contents)->toContain('[devops]: Build passed');
+});
+
+it('preserves a shared image through the group remap so the model still sees it', function () {
+    $conversation = Conversation::factory()->create();
+
+    $message = ConversationMessage::factory()->fromUser()->create([
+        'conversation_id' => $conversation->id,
+        'content' => '',
+        'sequence' => 1,
+    ]);
+    $asset = Asset::factory()->image()->create(['path' => 'atlas/test/shared.png', 'disk' => 'local', 'mime_type' => 'image/png']);
+    ConversationMessageAsset::factory()->create(['message_id' => $message->id, 'asset_id' => $asset->id]);
+
+    // Loaded from another agent's perspective — the user message is remapped,
+    // but its image must survive (regression: media was being dropped).
+    $messages = $this->service->loadMessages($conversation, 50, 'qa');
+
+    $userMessages = array_values(array_filter($messages, fn ($m) => $m instanceof UserMessage));
+    expect($userMessages)->toHaveCount(1)
+        ->and($userMessages[0]->media)->toHaveCount(1)
+        ->and($userMessages[0]->media[0])->toBeInstanceOf(Image::class);
+});
+
+it('only replays media for the most recent messages within the configured limit', function () {
+    config(['atlas.persistence.media_replay_limit' => 1]);
+    AtlasConfig::refresh();
+
+    $conversation = Conversation::factory()->create();
+
+    $old = ConversationMessage::factory()->fromUser()->create(['conversation_id' => $conversation->id, 'content' => 'old', 'sequence' => 1]);
+    $oldAsset = Asset::factory()->image()->create(['path' => 'atlas/test/old.png', 'disk' => 'local', 'mime_type' => 'image/png']);
+    ConversationMessageAsset::factory()->create(['message_id' => $old->id, 'asset_id' => $oldAsset->id]);
+
+    $recent = ConversationMessage::factory()->fromUser()->create(['conversation_id' => $conversation->id, 'content' => 'recent', 'sequence' => 2]);
+    $recentAsset = Asset::factory()->image()->create(['path' => 'atlas/test/recent.png', 'disk' => 'local', 'mime_type' => 'image/png']);
+    ConversationMessageAsset::factory()->create(['message_id' => $recent->id, 'asset_id' => $recentAsset->id]);
+
+    $messages = $this->service->loadMessages($conversation);
+
+    // Oldest message: media dropped (outside the 1-message window). Newest: kept.
+    expect($messages[0]->media)->toBe([])
+        ->and($messages[1]->media)->toHaveCount(1)
+        ->and($messages[1]->media[0])->toBeInstanceOf(Image::class);
+
+    config(['atlas.persistence.media_replay_limit' => 2]);
+    AtlasConfig::refresh();
+});
+
+it('replays media for every message when the limit is null', function () {
+    config(['atlas.persistence.media_replay_limit' => null]);
+    AtlasConfig::refresh();
+
+    $conversation = Conversation::factory()->create();
+
+    foreach ([1, 2, 3] as $seq) {
+        $m = ConversationMessage::factory()->fromUser()->create(['conversation_id' => $conversation->id, 'content' => "m{$seq}", 'sequence' => $seq]);
+        $a = Asset::factory()->image()->create(['path' => "atlas/test/n{$seq}.png", 'disk' => 'local', 'mime_type' => 'image/png']);
+        ConversationMessageAsset::factory()->create(['message_id' => $m->id, 'asset_id' => $a->id]);
+    }
+
+    $messages = $this->service->loadMessages($conversation);
+
+    expect($messages)->toHaveCount(3);
+    foreach ($messages as $msg) {
+        expect($msg->media)->toHaveCount(1);
+    }
+
+    config(['atlas.persistence.media_replay_limit' => 2]);
+    AtlasConfig::refresh();
 });
 
 it('passes system messages through unchanged in group remapping', function () {

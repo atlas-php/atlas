@@ -116,6 +116,22 @@ $response = Atlas::agent('support')
     ->asText();
 ```
 
+### Replaying Attached Media on Later Turns
+
+A user's attached image, document, audio, or video is stored with the message and **replayed to the model on later turns** as real multimodal input — not reduced to its text. This means the model can still "see" a photo a user shared earlier in the thread, including in [respond mode](#respond-mode) where the whole turn is rebuilt from history.
+
+To keep token usage flat on long threads, only the most recent messages replay their media; older turns replay text only. This is controlled by `persistence.media_replay_limit`:
+
+```php
+// config/atlas.php
+'persistence' => [
+    // Replay media for the last N messages (default: 2). null = replay all.
+    'media_replay_limit' => env('ATLAS_MEDIA_REPLAY_LIMIT', 2),
+],
+```
+
+The default of `2` covers the common case (the model reacts to a just-shared file) without re-sending every past image on every turn. Raise it if the model needs to reference media from further back, or set it to `null` to always replay every attachment within the message window.
+
 ### Agent-Generated Attachments
 
 When a tool generates files during an agent execution — images, audio, PDFs, reports — those files are automatically attached to the assistant message in the conversation.

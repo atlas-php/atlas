@@ -8,6 +8,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 ---
 
+## [v3.3.1](https://github.com/atlas-php/atlas/releases/tag/v3.3.1) - 2026-06-07
+
+### Added
+
+- **Prompt caching (on by default)** — repeated tokens cost less. Disable with `ATLAS_PROMPT_CACHE=false` or `->cache(false)`; savings show in `usage->cachedTokens`.
+- **`ATLAS_MEDIA_REPLAY_LIMIT`** (default `2`) — how many recent messages resend their images each turn.
+
+### Fixed
+
+- **The AI can now see images shared earlier in a chat** — attachments are replayed from history instead of dropped to text.
+
+### Migration
+
+None — drop-in. Set `ATLAS_PROMPT_CACHE=false` to disable caching.
+
+---
+
 ## [v3.3.0](https://github.com/atlas-php/atlas/releases/tag/v3.3.0) - 2026-06-06
 
 ### Added

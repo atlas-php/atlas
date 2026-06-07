@@ -19,6 +19,13 @@ it('returns false for unsupported features', function () {
 
     expect($caps->supports('text'))->toBeFalse();
     expect($caps->supports('image'))->toBeFalse();
+    expect($caps->supports('caching'))->toBeFalse();
+});
+
+it('reports caching as a supported capability when declared', function () {
+    $caps = new ProviderCapabilities(text: true, caching: true);
+
+    expect($caps->supports('caching'))->toBeTrue();
 });
 
 it('returns false for nonexistent features', function () {

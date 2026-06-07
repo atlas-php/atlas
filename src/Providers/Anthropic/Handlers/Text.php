@@ -161,13 +161,23 @@ class Text implements TextHandler
         $toolBlocks = [];
 
         // Input tokens arrive in message_start, output tokens in message_delta.
-        // Stash input count here so the Done chunk has the full picture.
+        // Stash input count (and cache savings) here so the Done chunk has the
+        // full picture.
         $stashedInputTokens = 0;
+        $stashedCachedTokens = null;
+        $stashedCacheWriteTokens = null;
 
         foreach (SseParser::parse($rawResponse) as ['event' => $event, 'data' => $data]) {
             // Capture input tokens from message_start (not in message_delta)
             if ($event === 'message_start') {
-                $stashedInputTokens = (int) ($data['message']['usage']['input_tokens'] ?? 0);
+                $startUsage = $data['message']['usage'] ?? [];
+                $stashedInputTokens = (int) ($startUsage['input_tokens'] ?? 0);
+                $stashedCachedTokens = isset($startUsage['cache_read_input_tokens'])
+                    ? (int) $startUsage['cache_read_input_tokens']
+                    : null;
+                $stashedCacheWriteTokens = isset($startUsage['cache_creation_input_tokens'])
+                    ? (int) $startUsage['cache_creation_input_tokens']
+                    : null;
 
                 continue;
             }
@@ -213,6 +223,8 @@ class Text implements TextHandler
                     usage: $usage !== [] ? new Usage(
                         inputTokens: $stashedInputTokens,
                         outputTokens: (int) ($usage['output_tokens'] ?? 0),
+                        cachedTokens: $stashedCachedTokens,
+                        cacheWriteTokens: $stashedCacheWriteTokens,
                     ) : null,
                     finishReason: isset($delta['stop_reason'])
                         ? $this->parser->parseFinishReason(['stop_reason' => $delta['stop_reason']])

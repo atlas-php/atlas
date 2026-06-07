@@ -284,6 +284,7 @@ gtag('config', 'G-JEV06LWG7N');`],
                 text: 'Guides',
                 items: [
                     { text: 'Conversations', link: '/guides/conversations' },
+                    { text: 'Prompt Caching', link: '/guides/prompt-caching' },
                     { text: 'Streaming', link: '/guides/streaming' },
                     { text: 'Queue & Background Jobs', link: '/guides/queue' },
                     { text: 'Media & Assets', link: '/guides/media-storage' },

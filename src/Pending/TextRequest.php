@@ -87,6 +87,8 @@ class TextRequest implements QueueableRequest
 
     protected bool $concurrent = false;
 
+    protected ?bool $cache = null;
+
     public function __construct(
         protected readonly Provider|string $provider,
         protected readonly ?string $model,
@@ -173,6 +175,17 @@ class TextRequest implements QueueableRequest
     public function withMaxSteps(?int $maxSteps): static
     {
         $this->maxSteps = $maxSteps;
+
+        return $this;
+    }
+
+    /**
+     * Enable or disable prompt caching for this call, overriding the
+     * `atlas.prompt_cache` default.
+     */
+    public function cache(bool $enabled = true): static
+    {
+        $this->cache = $enabled;
 
         return $this;
     }
@@ -373,6 +386,7 @@ class TextRequest implements QueueableRequest
             providerOptions: $this->providerOptions,
             middleware: $this->middleware,
             meta: $this->meta,
+            cache: $this->cache ?? (bool) config('atlas.prompt_cache', true),
         );
     }
 
@@ -396,6 +410,7 @@ class TextRequest implements QueueableRequest
             'providerTools' => $this->providerTools,
             'maxSteps' => $this->maxSteps,
             'concurrent' => $this->concurrent,
+            'cache' => $this->cache,
             'schema' => $this->schema !== null ? [
                 'name' => $this->schema->name(),
                 'description' => $this->schema->description(),
@@ -459,6 +474,12 @@ class TextRequest implements QueueableRequest
 
         if (array_key_exists('concurrent', $payload)) {
             $request->withConcurrent($payload['concurrent']);
+        }
+
+        // Preserve an explicit cache override across the queue boundary; absent
+        // key (older payloads) falls back to the config default at build time.
+        if (array_key_exists('cache', $payload) && $payload['cache'] !== null) {
+            $request->cache($payload['cache']);
         }
 
         if (! empty($payload['providerOptions'])) {

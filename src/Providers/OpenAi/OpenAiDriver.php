@@ -53,6 +53,7 @@ class OpenAiDriver extends Driver
                 moderate: true,
                 voice: true,
                 vision: true,
+                caching: true,
                 toolCalling: true,
                 providerTools: true,
                 models: true,

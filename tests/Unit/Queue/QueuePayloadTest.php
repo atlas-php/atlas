@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Atlas;
+use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Pending\AudioRequest;
 use Atlasphp\Atlas\Pending\EmbedRequest;
 use Atlasphp\Atlas\Pending\ImageRequest;
@@ -11,6 +12,8 @@ use Atlasphp\Atlas\Pending\RerankRequest;
 use Atlasphp\Atlas\Pending\TextRequest;
 use Atlasphp\Atlas\Pending\VideoRequest;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
+use Atlasphp\Atlas\Providers\Driver;
+use Atlasphp\Atlas\Providers\ProviderCapabilities;
 use Atlasphp\Atlas\Responses\AudioResponse;
 use Atlasphp\Atlas\Responses\EmbeddingsResponse;
 use Atlasphp\Atlas\Responses\ImageResponse;
@@ -19,6 +22,7 @@ use Atlasphp\Atlas\Responses\RerankResponse;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
+use Atlasphp\Atlas\Responses\Usage;
 use Atlasphp\Atlas\Responses\VideoResponse;
 
 // ─── TextRequest ────────────────────────────────────────────────────────────
@@ -45,9 +49,37 @@ it('TextRequest toQueuePayload serializes all properties', function () {
         ->and($payload['providerTools'])->toBe([])
         ->and($payload['maxSteps'])->toBe(200)
         ->and($payload['concurrent'])->toBeFalse()
+        ->and($payload['cache'])->toBeNull()
         ->and($payload['schema'])->toBeNull()
         ->and($payload['providerOptions'])->toBe([])
         ->and($payload['meta'])->toBe([]);
+});
+
+it('TextRequest preserves an explicit cache override across the queue boundary', function () {
+    $registry = app(ProviderRegistryContract::class);
+    $request = new TextRequest('openai', 'gpt-5', $registry);
+    $request->cache(false);
+
+    $payload = $request->toQueuePayload();
+
+    expect($payload['cache'])->toBeFalse();
+
+    // Round-trip: rebuilt request keeps the override (does not fall back to default).
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
+    $captured = null;
+    $driver->shouldReceive('text')->once()->andReturnUsing(function ($req) use (&$captured) {
+        $captured = $req;
+
+        return new TextResponse('ok', new Usage(1, 1), FinishReason::Stop);
+    });
+    app(ProviderRegistryContract::class)->register('openai', fn () => $driver);
+    config(['atlas.prompt_cache' => true]); // default would re-enable caching if the override were lost
+
+    $payload['message'] = 'hi';
+    TextRequest::executeFromPayload($payload, 'asText');
+
+    expect($captured->cache)->toBeFalse();
 });
 
 it('TextRequest toQueuePayload serializes tools as class strings', function () {

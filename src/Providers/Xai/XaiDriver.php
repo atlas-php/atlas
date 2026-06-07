@@ -53,6 +53,7 @@ class XaiDriver extends Driver
                 moderate: false,
                 voice: true,
                 vision: true,
+                caching: true,
                 toolCalling: true,
                 providerTools: true,
                 models: true,
