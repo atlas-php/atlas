@@ -32,7 +32,7 @@ use Illuminate\Support\Facades\Storage;
 $app = require __DIR__.'/bootstrap.php';
 
 $limit = AtlasConfig::fromConfig()->mediaReplayLimit;
-echo "media_replay_limit = ".var_export($limit, true)." (image is the 2nd-from-last message)\n";
+echo 'media_replay_limit = '.var_export($limit, true)." (image is the 2nd-from-last message)\n";
 
 $makeAgent = fn (): Agent => new class extends Agent
 {
@@ -114,7 +114,7 @@ foreach ($cases as [$name, $provider, $model]) {
         $conversation->forceDelete();
         $asset->delete();
         Storage::disk('local')->delete($path);
-    } catch (\Throwable $e) {
+    } catch (Throwable $e) {
         echo "   {$name} ERROR: ".$e->getMessage()."\n";
     }
 }
