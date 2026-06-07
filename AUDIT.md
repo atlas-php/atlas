@@ -4,7 +4,7 @@ Status of each provider's modalities against **real provider APIs**, exercised v
 sandbox harness (`sandbox/test-{provider}-provider.php` and feature scripts). This file
 records the date each modality last **passed a live API test** — not unit-test coverage.
 
-**Last full run: 2026-06-02** · **Provider-tools run: 2026-06-06**
+**Last full run: 2026-06-07** (Anthropic/Google/xAI) · **Prompt caching + media replay: 2026-06-07** · **Provider-tools run: 2026-06-06**
 
 Reproduce:
 - Per-provider suites: `cd sandbox && php test-{provider}-provider.php`
@@ -25,9 +25,9 @@ Both require the provider's API key in `sandbox/.env`.
 | Provider    | Text | Stream | Structured | Tools | Prov.Tools | Vision | Image | TTS | STT | Embeddings | Moderation | Rerank | Video | Voice | Last live pass |
 |-------------|:----:|:------:|:----------:|:-----:|:----------:|:------:|:-----:|:---:|:---:|:----------:|:----------:|:------:|:-----:|:-----:|:--------------:|
 | OpenAI      | ✅   | ✅     | ✅         | ✅    | ✅         | ✅     | ✅    | ✅  | ✅  | ✅         | ✅         | —      | ✅    | ⚠️    | 2026-06-06     |
-| Anthropic   | ✅   | ✅     | ✅         | ✅    | ✅         | ✅     | —     | —   | —   | —          | —          | —      | —     | —     | 2026-06-06     |
-| Google      | ✅   | ✅     | ✅         | ✅    | ⚠️         | ✅     | ✅    | —   | —   | ✅         | —          | —      | —     | —     | 2026-06-06     |
-| xAI         | ✅   | ✅     | ✅         | ✅    | ✅         | —      | ✅    | ✅  | —   | —          | —          | —      | ✅    | ⚠️    | 2026-06-06     |
+| Anthropic   | ✅   | ✅     | ✅         | ✅    | ✅         | ✅     | —     | —   | —   | —          | —          | —      | —     | —     | 2026-06-07     |
+| Google      | ✅   | ✅     | ✅         | ✅    | ⚠️         | ✅     | ✅    | —   | —   | ✅         | —          | —      | —     | —     | 2026-06-07     |
+| xAI         | ✅   | ✅     | ✅         | ✅    | ✅         | ✅     | ✅    | ✅  | —   | —          | —          | —      | ✅    | ⚠️    | 2026-06-07     |
 | ElevenLabs  | —    | —      | —          | —     | —          | —      | —     | ❌  | ❌  | —          | —          | —      | —     | ⚠️    | —              |
 | Cohere      | —    | —      | —          | —     | —          | —      | —     | —   | —   | —          | —          | ❌     | —     | —     | —              |
 | Jina        | —    | —      | —          | —     | —          | —      | —     | —   | —   | —          | —          | ❌     | —     | —     | —              |
@@ -64,20 +64,44 @@ Notes:
   map `groundingMetadata` / `codeExecutionResult` into `providerToolCalls` / `annotations` —
   observability gap, functional path works. **Follow-up:** wire Google grounding observability.
 
+## Prompt caching (live, 2026-06-07)
+
+Verified end-to-end through Atlas (`sandbox/test-prompt-caching.php`, ~7.5k-token stable prefix, two calls). Anthropic needs explicit `cache_control` (Atlas adds it); OpenAI/xAI/Google cache automatically. Savings are reported on `usage->cachedTokens` / `cacheWriteTokens` for all four.
+
+| Provider  | Mechanism            | Result (live)                          |
+|-----------|----------------------|----------------------------------------|
+| Anthropic | explicit cache markers | ✅ write 7710 → read 7710               |
+| OpenAI    | automatic            | ✅ `cached_tokens` (≳6k-token prefix to hit) |
+| xAI       | automatic            | ✅ read 7168                            |
+| Google    | implicit (2.5+)      | ✅ read 7142                            |
+
+`->cache()` / `ATLAS_PROMPT_CACHE` toggles it (on by default); `supports('caching')` capability on all four.
+
+## Conversation media replay & vision (live, 2026-06-07)
+
+Verified end-to-end (`sandbox/test-vision-replay.php`): an image is persisted as existing history, then `respond()` rebuilds the turn entirely from stored history (rehydration → group-remap media preservation → `media_replay_limit` window). Every vision-capable provider read a number drawn in the replayed image.
+
+| Provider  | Model                 | Result (live)              |
+|-----------|-----------------------|----------------------------|
+| Anthropic | claude-sonnet-4-5     | ✅ read "42" off the image |
+| OpenAI    | gpt-4o-mini           | ✅ read "42" off the image |
+| Google    | gemini-2.5-flash      | ✅ read "42" off the image |
+| xAI       | grok-4.3              | ✅ read "42" off the image |
+
 ## Per-provider results
 
-| Provider   | Live suite (2026-06-06)    | Notes |
+| Provider   | Live suite (2026-06-07)    | Notes |
 |------------|----------------------------|-------|
-| OpenAI     | **33/35 passed**           | 2 unrelated failures this run: Sora-2 video blocked by content moderation, and a TTS `audio/speech` cURL timeout — both external/transient, not code. Provider tools: `web_search` (+ domain filters) verified end-to-end. |
-| Anthropic  | **17/17 passed**           | Text, streaming, structured, tools, vision. Provider tools: `web_search` + `web_fetch` verified end-to-end with citations (newly supported in v3.3.0). |
-| Google     | **provider tools checked** | Full modality suite last run 2026-06-02 (22/22). Provider tools `google_search` + `code_execution` exercised live 2026-06-06 — functional, observability gap (above). |
-| xAI        | **20/20 passed**           | Provider tools: `web_search` (+ domain filters) end-to-end; `x_search` shape-verified. |
+| Anthropic  | **17/17 passed**           | Text, streaming, structured, tools, vision. Prompt caching (cache_control) + media-replay vision verified live (above). |
+| Google     | **22/22 passed**           | Full modality suite green. Prompt caching (implicit) + media-replay vision verified live. Provider-tools observability gap unchanged (`google_search`/`code_execution` ground correctly but aren't mapped to `providerToolCalls`). |
+| xAI        | **20/20 passed**           | Prompt caching (automatic) + media-replay vision (`grok-4.3`) verified live. Note: `grok-2-vision-1212` retired → use `grok-4.3` for vision. |
+| OpenAI     | **text/vision/caching ✅; suite incomplete** | OpenAI text, vision (history replay), and prompt caching all verified live 2026-06-07. The full provider suite again aborted on the `speech-to-text round trip` (`/audio/speech` cURL 28 @120s) — external/transient, unrelated to this patch (same as 2026-06-06's 33/35 with Sora-video + TTS). |
 | ElevenLabs | **not verified**           | Blocked: sandbox `config/atlas.php` has no `elevenlabs` provider block, so the base URL is empty. Package URL resolution is correct — purely a sandbox config gap. |
 | Cohere     | **not verified**           | No `COHERE_API_KEY` in `sandbox/.env`. Rerank handler covered by unit tests only. |
 | Jina       | **not verified**           | No `JINA_API_KEY` in `sandbox/.env`. Rerank handler covered by unit tests only. |
 | Ollama     | **not run**                | Points at a LAN host (`OLLAMA_URL`); not exercised in this run. |
 | LM Studio  | **not run**                | Requires a local LM Studio instance; not exercised in this run. |
 
-## Package checks (2026-06-06)
+## Package checks (2026-06-07)
 
-`composer check` — **Pint ✓ · PHPStan 0 errors ✓ · 2828 Pest tests ✓**.
+`composer check` — **Pint ✓ · PHPStan 0 errors ✓ · 2866 Pest tests ✓**.

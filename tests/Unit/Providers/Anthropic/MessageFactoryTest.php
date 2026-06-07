@@ -327,6 +327,47 @@ it('cacheSystem leaves a null system untouched when caching is on', function () 
     expect($result['system'])->toBeNull();
 });
 
+it('cacheTrailingMessage skips a trailing assistant message (no cache_control on tool_use/text)', function () {
+    $factory = new MessageFactory;
+    $media = new MediaResolver;
+
+    // History ending in an assistant turn, no current user message.
+    $request = new TextRequest(
+        model: 'claude-sonnet-4-5-20250514',
+        instructions: 'Be helpful',
+        message: null,
+        messageMedia: [],
+        messages: [
+            new UserMessage('hi'),
+            new AssistantMessage('hello there'),
+        ],
+        maxTokens: null,
+        temperature: null,
+        schema: null,
+        tools: [],
+        providerTools: [],
+        providerOptions: [],
+        cache: true,
+    );
+
+    $result = $factory->buildAll($request, $media);
+
+    // System is still cached, but the trailing assistant block must NOT be marked.
+    $last = $result['messages'][array_key_last($result['messages'])];
+    expect($last['role'])->toBe('assistant');
+
+    $blocks = is_array($last['content']) ? $last['content'] : [];
+    foreach ($blocks as $block) {
+        expect($block)->not->toHaveKey('cache_control');
+    }
+
+    expect($result['system'])->toBe([[
+        'type' => 'text',
+        'text' => 'Be helpful',
+        'cache_control' => ['type' => 'ephemeral'],
+    ]]);
+});
+
 it('cacheTrailingMessage handles an empty message list without error', function () {
     $factory = new MessageFactory;
     $media = new MediaResolver;

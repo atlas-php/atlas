@@ -5,10 +5,16 @@ declare(strict_types=1);
 use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\AgentRegistry;
 use Atlasphp\Atlas\Atlas;
+use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Input\Audio;
 use Atlasphp\Atlas\Input\Image;
 use Atlasphp\Atlas\Input\Input;
 use Atlasphp\Atlas\Pending\AgentRequest;
+use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
+use Atlasphp\Atlas\Providers\Driver;
+use Atlasphp\Atlas\Providers\ProviderCapabilities;
+use Atlasphp\Atlas\Responses\TextResponse;
+use Atlasphp\Atlas\Responses\Usage;
 
 // ─── Test agent ─────────────────────────────────────────────────────────────
 
@@ -201,4 +207,49 @@ it('leaves cache null in the payload when no override is set', function () {
     $payload = Atlas::agent('queue-minimal')->message('hi')->toQueuePayload();
 
     expect($payload['cache'])->toBeNull();
+});
+
+it('restores an explicit cache override when executing from a queue payload', function () {
+    registerQueueTestAgent(QueueTestMinimalAgent::class);
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
+    $captured = null;
+    $driver->shouldReceive('text')->once()->andReturnUsing(function ($req) use (&$captured) {
+        $captured = $req;
+
+        return new TextResponse('ok', new Usage(1, 1), FinishReason::Stop);
+    });
+    app(ProviderRegistryContract::class)->register('openai', fn () => $driver);
+
+    // Default is on; if the override were lost the worker would re-enable caching.
+    config(['atlas.prompt_cache' => true]);
+
+    AgentRequest::executeFromPayload([
+        'key' => 'queue-minimal',
+        'message' => 'hi',
+        'message_media' => [],
+        'instructions' => null,
+        'variables' => [],
+        'meta' => [],
+        'provider' => 'openai',
+        'model' => 'gpt-4o',
+        'max_tokens' => null,
+        'temperature' => null,
+        'max_steps' => null,
+        'concurrent' => null,
+        'cache' => false,
+        'provider_options' => [],
+        'middleware' => [],
+        'owner_type' => null,
+        'owner_id' => null,
+        'message_owner_type' => null,
+        'message_owner_id' => null,
+        'conversation_id' => null,
+        'message_limit' => null,
+        'respond_mode' => false,
+        'retry_mode' => false,
+    ], 'asText');
+
+    expect($captured->cache)->toBeFalse();
 });
