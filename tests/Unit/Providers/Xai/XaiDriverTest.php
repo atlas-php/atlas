@@ -179,10 +179,12 @@ it('uses xAI own image handler — image-to-image goes to JSON /images/edits', f
         'api.x.ai/v1/images/edits' => Http::response(['data' => [['url' => 'https://imgen.x.ai/edited.png']]]),
     ]);
 
+    $b64 = base64_encode('refbytes');
+
     $request = new ImageRequest(
         model: 'grok-imagine-image-quality',
         instructions: 'Same subject, new background',
-        media: [ImageInput::fromBase64('refdata', 'image/png')],
+        media: [ImageInput::fromBase64($b64, 'image/png')],
         size: null,
         quality: null,
         format: null,
@@ -192,10 +194,10 @@ it('uses xAI own image handler — image-to-image goes to JSON /images/edits', f
 
     // JSON image_url part (not OpenAI multipart) — proves the driver builds xAI's
     // own image handler, not OpenAI's.
-    Http::assertSent(function ($request) {
+    Http::assertSent(function ($request) use ($b64) {
         return $request->url() === 'https://api.x.ai/v1/images/edits'
             && ! $request->isMultipart()
             && ($request['image']['type'] ?? null) === 'image_url'
-            && ($request['image']['url'] ?? null) === 'data:image/png;base64,refdata';
+            && ($request['image']['url'] ?? null) === "data:image/png;base64,{$b64}";
     });
 });
