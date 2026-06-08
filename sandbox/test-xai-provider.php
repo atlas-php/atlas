@@ -27,6 +27,7 @@ use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Input\Image;
 use Atlasphp\Atlas\Messages\AssistantMessage;
 use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Messages\ToolResultMessage;
@@ -337,6 +338,30 @@ test('image generation + save to disk', function () {
     if ($imgData !== false) {
         $timestamp = date('His');
         saveFile("image-{$timestamp}", $imgData, 'png');
+    }
+});
+
+test('image-to-image: a reference image conditions the generation', function () {
+    // xAI's own image handler sends the reference inline as a JSON image_url part
+    // to /images/edits (it does NOT accept OpenAI-style multipart edits).
+    $img = imagecreatetruecolor(64, 64);
+    imagefill($img, 0, 0, imagecolorallocate($img, 220, 30, 30));
+    ob_start();
+    imagepng($img);
+    $refPng = (string) ob_get_clean();
+    imagedestroy($img);
+
+    $r = Atlas::image(Provider::xAI, 'grok-imagine-image-quality')
+        ->instructions('Keep this red square but place it on a solid blue background.')
+        ->withMedia([Image::fromBase64(base64_encode($refPng), 'image/png')])
+        ->asImage();
+
+    $url = is_array($r->url) ? $r->url[0] : $r->url;
+    assert_true($url !== '', 'xAI should return an edited image conditioned on the reference');
+
+    $bytes = $r->base64 !== null ? base64_decode($r->base64) : @file_get_contents($url);
+    if ($bytes !== false && $bytes !== '') {
+        saveFile('image-xai-edit', $bytes, 'png');
     }
 });
 

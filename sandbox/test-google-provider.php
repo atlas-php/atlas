@@ -477,6 +477,31 @@ test('image generation via generateContent', function () {
     }
 });
 
+test('image-to-image: a reference image conditions the generation', function () {
+    // A distinctive synthetic reference — a solid red square — so the edit is
+    // verifiable by eye in the saved output.
+    $img = imagecreatetruecolor(64, 64);
+    imagefill($img, 0, 0, imagecolorallocate($img, 220, 30, 30));
+    ob_start();
+    imagepng($img);
+    $refPng = (string) ob_get_clean();
+    imagedestroy($img);
+
+    $r = Atlas::image(Provider::Google, 'gemini-2.5-flash-image')
+        ->instructions('Keep this exact red square, but place it on a solid blue background.')
+        ->withMedia([Image::fromBase64(base64_encode($refPng), 'image/png')])
+        ->asImage();
+
+    $url = is_array($r->url) ? $r->url[0] : $r->url;
+    assert_true($r->base64 !== null && $r->base64 !== '', 'Should return an edited image conditioned on the reference');
+    assert_true(str_starts_with($url, 'data:image/'), 'Should be a data URI, got: '.substr($url, 0, 30));
+
+    $out = base64_decode($r->base64);
+    if ($out !== false) {
+        saveFile('image-gemini-edit', $out, 'png');
+    }
+});
+
 // ── Provider Options ─────────────────────────────────────────────────────────
 
 echo "\n\n── Provider Options";

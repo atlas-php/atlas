@@ -6,7 +6,9 @@ namespace Atlasphp\Atlas\Providers\Google\Handlers;
 
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Http\HttpClient;
+use Atlasphp\Atlas\Input\Input;
 use Atlasphp\Atlas\Providers\Google\Concerns\BuildsGoogleHeaders;
+use Atlasphp\Atlas\Providers\Google\MediaResolver;
 use Atlasphp\Atlas\Providers\Handlers\ImageHandler;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Requests\ImageRequest;
@@ -15,6 +17,11 @@ use Atlasphp\Atlas\Responses\TextResponse;
 
 /**
  * Gemini image handler using generateContent with response modalities.
+ *
+ * Supports text-to-image and image-to-image: any reference media on the request
+ * is resolved into inline_data parts alongside the prompt, so Gemini conditions
+ * the generation on the supplied image(s) — the basis for identity-preserving
+ * edits and reference-anchored generation.
  */
 class Image implements ImageHandler
 {
@@ -23,6 +30,7 @@ class Image implements ImageHandler
     public function __construct(
         protected readonly ProviderConfig $config,
         protected readonly HttpClient $http,
+        protected readonly MediaResolver $media,
     ) {}
 
     public function image(ImageRequest $request): ImageResponse
@@ -31,7 +39,7 @@ class Image implements ImageHandler
             'contents' => [
                 [
                     'role' => 'user',
-                    'parts' => [['text' => $request->instructions ?? '']],
+                    'parts' => [['text' => $request->instructions ?? ''], ...$this->mediaParts($request)],
                 ],
             ],
             'generationConfig' => [
@@ -71,6 +79,21 @@ class Image implements ImageHandler
             base64: $imageData,
             meta: ['model' => $request->model],
         );
+    }
+
+    /**
+     * Resolve the request's reference media into Gemini inline_data/file_data
+     * parts, appended after the prompt text so the generation is conditioned on
+     * them (image-to-image). Empty when no media was supplied.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function mediaParts(ImageRequest $request): array
+    {
+        return array_values(array_map(
+            fn (Input $input): array => $this->media->resolve($input),
+            array_filter($request->media, static fn (mixed $m): bool => $m instanceof Input),
+        ));
     }
 
     public function imageToText(ImageRequest $request): TextResponse

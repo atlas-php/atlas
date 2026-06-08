@@ -60,7 +60,7 @@ class GoogleDriver extends Driver
 
     protected function imageHandler(): ImageHandler
     {
-        return new Handlers\Image($this->config, $this->http);
+        return new Handlers\Image($this->config, $this->http, new MediaResolver);
     }
 
     protected function embedHandler(): EmbedHandler

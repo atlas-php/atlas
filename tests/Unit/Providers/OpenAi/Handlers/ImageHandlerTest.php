@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Http\HttpClient;
+use Atlasphp\Atlas\Input\Image as ImageInput;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Image;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Requests\ImageRequest;
@@ -318,4 +319,96 @@ it('leaves base64 and format null for hosted URL responses', function () {
     expect($response->url)->toBe('https://images.openai.com/generated.png');
     expect($response->base64)->toBeNull();
     expect($response->format)->toBeNull();
+});
+
+it('routes to /images/edits as multipart when reference media is present', function () {
+    Http::fake([
+        'api.openai.com/v1/images/edits' => Http::response([
+            'data' => [['b64_json' => 'editedbase64']],
+        ]),
+    ]);
+
+    $request = new ImageRequest(
+        model: 'gpt-image-1',
+        instructions: 'Same person, new pose',
+        media: [ImageInput::fromBase64(base64_encode('rawpngbytes'), 'image/png')],
+        size: '1024x1024',
+        quality: null,
+        format: null,
+    );
+
+    $response = makeImageHandler()->image($request);
+
+    expect($response)->toBeInstanceOf(ImageResponse::class)
+        ->and($response->base64)->toBe('editedbase64');
+
+    Http::assertSent(function ($request) {
+        return $request->url() === 'https://api.openai.com/v1/images/edits'
+            && $request->isMultipart()
+            && collect($request->data())->firstWhere('name', 'model')['contents'] === 'gpt-image-1'
+            && collect($request->data())->contains(fn ($part) => $part['name'] === 'image[]');
+    });
+});
+
+it('derives the upload extension from each reference mime type and skips non-Input entries', function () {
+    Http::fake([
+        'api.openai.com/v1/images/edits' => Http::response([
+            'data' => [['b64_json' => 'editedbase64']],
+        ]),
+    ]);
+
+    $request = new ImageRequest(
+        model: 'gpt-image-1',
+        instructions: 'Blend these',
+        media: [
+            ImageInput::fromBase64(base64_encode('jpg'), 'image/jpeg'),
+            ImageInput::fromBase64(base64_encode('webp'), 'image/webp'),
+            'not-an-input', // skipped — never becomes an attachment
+        ],
+        size: null,
+        quality: null,
+        format: null,
+    );
+
+    makeImageHandler()->image($request);
+
+    Http::assertSent(function ($request) {
+        $files = collect($request->data())->where('name', 'image[]');
+
+        return $files->count() === 2
+            && $files->contains(fn ($p) => str_ends_with((string) ($p['filename'] ?? ''), '.jpg'))
+            && $files->contains(fn ($p) => str_ends_with((string) ($p['filename'] ?? ''), '.webp'));
+    });
+});
+
+it('adds scalar provider options as string fields on edits and skips non-scalar ones', function () {
+    Http::fake([
+        'api.openai.com/v1/images/edits' => Http::response([
+            'data' => [['b64_json' => 'editedbase64']],
+        ]),
+    ]);
+
+    $request = new ImageRequest(
+        model: 'gpt-image-1',
+        instructions: 'Edit it',
+        media: [ImageInput::fromBase64(base64_encode('png'), 'image/png')],
+        size: null,
+        quality: null,
+        format: null,
+        providerOptions: [
+            'background' => 'transparent',   // scalar string → kept
+            'output_compression' => 80,       // scalar int → cast to "80"
+            'extra' => ['nested' => true],    // non-scalar → skipped
+        ],
+    );
+
+    makeImageHandler()->image($request);
+
+    Http::assertSent(function ($request) {
+        $fields = collect($request->data());
+
+        return $fields->firstWhere('name', 'background')['contents'] === 'transparent'
+            && $fields->firstWhere('name', 'output_compression')['contents'] === '80'
+            && $fields->firstWhere('name', 'extra') === null;
+    });
 });

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Http\HttpClient;
+use Atlasphp\Atlas\Input\Image as ImageInput;
 use Atlasphp\Atlas\Providers\Google\Handlers\Image;
+use Atlasphp\Atlas\Providers\Google\MediaResolver;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Requests\ImageRequest;
 use Atlasphp\Atlas\Responses\ImageResponse;
@@ -15,6 +17,7 @@ function makeGoogleImageHandler(): Image
     return new Image(
         config: ProviderConfig::fromArray(['api_key' => 'test-key', 'url' => 'https://generativelanguage.googleapis.com']),
         http: app(HttpClient::class),
+        media: new MediaResolver,
     );
 }
 
@@ -150,4 +153,67 @@ it('handles response with no image parts', function () {
         ->and($response->base64)->toBeNull()
         ->and($response->url)->toBe('')
         ->and($response->revisedPrompt)->toBeNull();
+});
+
+it('appends reference media as an inline_data part for image-to-image', function () {
+    Http::fake([
+        'generativelanguage.googleapis.com/*' => Http::response([
+            'candidates' => [
+                ['content' => ['parts' => [
+                    ['inline_data' => ['mime_type' => 'image/png', 'data' => 'outbase64']],
+                ], 'role' => 'model'], 'finishReason' => 'STOP'],
+            ],
+        ]),
+    ]);
+
+    $request = new ImageRequest(
+        model: 'gemini-2.5-flash-image',
+        instructions: 'Same person, new pose',
+        media: [ImageInput::fromBase64('refbase64data', 'image/png')],
+        size: null,
+        quality: null,
+        format: null,
+    );
+
+    makeGoogleImageHandler()->image($request);
+
+    Http::assertSent(function ($request) {
+        $parts = $request['contents'][0]['parts'];
+
+        return $parts[0] === ['text' => 'Same person, new pose']
+            && ($parts[1]['inline_data']['data'] ?? null) === 'refbase64data'
+            && ($parts[1]['inline_data']['mime_type'] ?? null) === 'image/png';
+    });
+});
+
+it('skips non-Input entries when building media parts', function () {
+    Http::fake([
+        'generativelanguage.googleapis.com/*' => Http::response([
+            'candidates' => [
+                ['content' => ['parts' => [
+                    ['inline_data' => ['mime_type' => 'image/png', 'data' => 'outbase64']],
+                ], 'role' => 'model'], 'finishReason' => 'STOP'],
+            ],
+        ]),
+    ]);
+
+    $request = new ImageRequest(
+        model: 'gemini-2.5-flash-image',
+        instructions: 'Edit',
+        media: ['not-an-input', ImageInput::fromBase64('realref', 'image/png')],
+        size: null,
+        quality: null,
+        format: null,
+    );
+
+    makeGoogleImageHandler()->image($request);
+
+    Http::assertSent(function ($request) {
+        $parts = $request['contents'][0]['parts'];
+
+        // Text part + exactly one resolved media part (the non-Input was skipped).
+        return count($parts) === 2
+            && $parts[0] === ['text' => 'Edit']
+            && ($parts[1]['inline_data']['data'] ?? null) === 'realref';
+    });
 });

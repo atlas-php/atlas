@@ -5,10 +5,12 @@ declare(strict_types=1);
 use Atlasphp\Atlas\AtlasCache;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Http\HttpClient;
+use Atlasphp\Atlas\Input\Image as ImageInput;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Providers\Xai\XaiDriver;
 use Atlasphp\Atlas\Requests\AudioRequest;
 use Atlasphp\Atlas\Requests\EmbedRequest;
+use Atlasphp\Atlas\Requests\ImageRequest;
 use Atlasphp\Atlas\Requests\ModerateRequest;
 use Atlasphp\Atlas\Requests\RerankRequest;
 use Atlasphp\Atlas\Requests\VoiceRequest;
@@ -168,4 +170,34 @@ it('validates via provider handler', function () {
     ]);
 
     expect(makeXaiDriver()->validate())->toBeTrue();
+});
+
+// ─── Image handler wiring ─────────────────────────────────────────────────────
+
+it('uses xAI own image handler — image-to-image goes to JSON /images/edits', function () {
+    Http::fake([
+        'api.x.ai/v1/images/edits' => Http::response(['data' => [['url' => 'https://imgen.x.ai/edited.png']]]),
+    ]);
+
+    $b64 = base64_encode('refbytes');
+
+    $request = new ImageRequest(
+        model: 'grok-imagine-image-quality',
+        instructions: 'Same subject, new background',
+        media: [ImageInput::fromBase64($b64, 'image/png')],
+        size: null,
+        quality: null,
+        format: null,
+    );
+
+    makeXaiDriver()->image($request);
+
+    // JSON image_url part (not OpenAI multipart) — proves the driver builds xAI's
+    // own image handler, not OpenAI's.
+    Http::assertSent(function ($request) use ($b64) {
+        return $request->url() === 'https://api.x.ai/v1/images/edits'
+            && ! $request->isMultipart()
+            && ($request['image']['type'] ?? null) === 'image_url'
+            && ($request['image']['url'] ?? null) === "data:image/png;base64,{$b64}";
+    });
 });
