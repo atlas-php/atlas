@@ -5,9 +5,11 @@ declare(strict_types=1);
 use Atlasphp\Atlas\AtlasCache;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Http\HttpClient;
+use Atlasphp\Atlas\Input\Image as ImageInput;
 use Atlasphp\Atlas\Providers\Google\GoogleDriver;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Requests\AudioRequest;
+use Atlasphp\Atlas\Requests\ImageRequest;
 use Atlasphp\Atlas\Requests\ModerateRequest;
 use Atlasphp\Atlas\Requests\RerankRequest;
 use Atlasphp\Atlas\Requests\VideoRequest;
@@ -116,4 +118,37 @@ it('lists models via provider handler', function () {
     // Google handler strips the "models/" prefix
     expect($models->models)->toContain('gemini-2.0-flash');
     expect($models->models)->toContain('gemini-2.5-pro');
+});
+
+// ─── Image handler wiring ─────────────────────────────────────────────────────
+
+it('builds an image handler wired with the media resolver (image-to-image)', function () {
+    Http::fake([
+        'generativelanguage.googleapis.com/*' => Http::response([
+            'candidates' => [
+                ['content' => ['parts' => [
+                    ['inline_data' => ['mime_type' => 'image/png', 'data' => 'outdata']],
+                ], 'role' => 'model'], 'finishReason' => 'STOP'],
+            ],
+        ]),
+    ]);
+
+    $request = new ImageRequest(
+        model: 'gemini-2.5-flash-image',
+        instructions: 'Same subject, new background',
+        media: [ImageInput::fromBase64('refdata', 'image/png')],
+        size: null,
+        quality: null,
+        format: null,
+    );
+
+    makeGoogleDriver()->image($request);
+
+    // The reference reaches the API as an inline_data part — only possible if the
+    // driver constructed the Image handler with its MediaResolver.
+    Http::assertSent(function ($request) {
+        $parts = $request['contents'][0]['parts'] ?? [];
+
+        return ($parts[1]['inline_data']['data'] ?? null) === 'refdata';
+    });
 });

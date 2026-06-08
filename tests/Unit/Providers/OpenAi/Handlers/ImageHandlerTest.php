@@ -380,3 +380,35 @@ it('derives the upload extension from each reference mime type and skips non-Inp
             && $files->contains(fn ($p) => str_ends_with((string) ($p['filename'] ?? ''), '.webp'));
     });
 });
+
+it('adds scalar provider options as string fields on edits and skips non-scalar ones', function () {
+    Http::fake([
+        'api.openai.com/v1/images/edits' => Http::response([
+            'data' => [['b64_json' => 'editedbase64']],
+        ]),
+    ]);
+
+    $request = new ImageRequest(
+        model: 'gpt-image-1',
+        instructions: 'Edit it',
+        media: [ImageInput::fromBase64(base64_encode('png'), 'image/png')],
+        size: null,
+        quality: null,
+        format: null,
+        providerOptions: [
+            'background' => 'transparent',   // scalar string → kept
+            'output_compression' => 80,       // scalar int → cast to "80"
+            'extra' => ['nested' => true],    // non-scalar → skipped
+        ],
+    );
+
+    makeImageHandler()->image($request);
+
+    Http::assertSent(function ($request) {
+        $fields = collect($request->data());
+
+        return $fields->firstWhere('name', 'background')['contents'] === 'transparent'
+            && $fields->firstWhere('name', 'output_compression')['contents'] === '80'
+            && $fields->firstWhere('name', 'extra') === null;
+    });
+});
