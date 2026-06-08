@@ -119,4 +119,4 @@ Each provider's image handler owns its own request shape — xAI does **not** ac
 
 ## Package checks (2026-06-08)
 
-`composer check` — **Pint ✓ · PHPStan 0 errors ✓ · 2878 Pest tests ✓**.
+`composer check` — **Pint ✓ · PHPStan 0 errors ✓ · 2881 Pest tests ✓**.
