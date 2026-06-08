@@ -8,6 +8,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 ---
 
+## [v3.4.0](https://github.com/atlas-php/atlas/releases/tag/v3.4.0) - 2026-06-08
+
+### Fixed
+
+- Image generation now sends `->withMedia()` reference images to the provider, so image-to-image works (identity-preserving edits, style transfer, reference-anchored generation) on Google, OpenAI, and xAI. The reference was previously dropped from the request payload, so every generation ran text-only regardless of any reference supplied.
+
+### Migration
+
+No breaking changes — drop-in upgrade. No consumer action required.
+
+---
+
 ## [v3.3.1](https://github.com/atlas-php/atlas/releases/tag/v3.3.1) - 2026-06-07
 
 ### Added

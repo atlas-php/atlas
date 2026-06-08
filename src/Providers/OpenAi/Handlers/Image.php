@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Providers\OpenAi\Handlers;
 
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Http\HttpClient;
+use Atlasphp\Atlas\Input\Input;
 use Atlasphp\Atlas\Providers\Concerns\BuildsHeaders;
 use Atlasphp\Atlas\Providers\Handlers\ImageHandler;
 use Atlasphp\Atlas\Providers\OpenAi\Concerns\HasOrganizationHeader;
@@ -33,6 +34,22 @@ class Image implements ImageHandler
 
     public function image(ImageRequest $request): ImageResponse
     {
+        // Reference media → image-to-image edit (multipart /images/edits);
+        // otherwise plain text-to-image generation.
+        $data = $request->media !== []
+            ? $this->edit($request)
+            : $this->generate($request);
+
+        return $this->parse($data, $request);
+    }
+
+    /**
+     * Text-to-image generation via /images/generations.
+     *
+     * @return array<string, mixed>
+     */
+    private function generate(ImageRequest $request): array
+    {
         $body = array_filter([
             'model' => $request->model,
             'prompt' => $request->instructions,
@@ -43,13 +60,70 @@ class Image implements ImageHandler
 
         $body = array_merge($body, $request->providerOptions);
 
-        $data = $this->http->post(
+        return $this->http->post(
             url: "{$this->config->baseUrl}/images/generations",
             headers: $this->headers(),
             body: $body,
             timeout: $this->config->mediaTimeout,
         );
+    }
 
+    /**
+     * Image-to-image via /images/edits — the reference media is uploaded as
+     * `image[]` so the model conditions the generation on it (identity-preserving
+     * edits / reference-anchored generation). Multipart, so Content-Type is set
+     * by the transport, not the JSON header.
+     *
+     * @return array<string, mixed>
+     */
+    private function edit(ImageRequest $request): array
+    {
+        $fields = array_filter([
+            'model' => $request->model,
+            'prompt' => $request->instructions,
+            'size' => $request->size,
+            'quality' => $request->quality,
+            'n' => (string) $request->count,
+        ], fn (mixed $v): bool => $v !== null);
+
+        foreach ($request->providerOptions as $key => $value) {
+            if (is_scalar($value)) {
+                $fields[$key] = (string) $value;
+            }
+        }
+
+        $attachments = [];
+        $index = 0;
+
+        foreach ($request->media as $input) {
+            if (! $input instanceof Input) {
+                continue;
+            }
+
+            $attachments[] = [
+                'name' => 'image[]',
+                'contents' => $input->contents(),
+                'filename' => 'reference-'.$index++.'.'.$this->extensionFor($input->mimeType()),
+            ];
+        }
+
+        return $this->http->postMultipart(
+            url: "{$this->config->baseUrl}/images/edits",
+            headers: $this->headersWithoutContentType(),
+            data: $fields,
+            attachments: $attachments,
+            timeout: $this->config->mediaTimeout,
+        );
+    }
+
+    /**
+     * Parse the provider response (identical shape for generate + edit) into an
+     * ImageResponse.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function parse(array $data, ImageRequest $request): ImageResponse
+    {
         /** @var array<int, array<string, mixed>> $results */
         $results = $data['data'] ?? [];
 
@@ -88,6 +162,19 @@ class Image implements ImageHandler
             base64: $firstBase64,
             format: $firstBase64 !== null ? $format : null,
         );
+    }
+
+    /**
+     * A file extension for the multipart upload filename, derived from the mime
+     * type (the provider keys edits on the uploaded file, not the name).
+     */
+    private function extensionFor(string $mimeType): string
+    {
+        return match ($mimeType) {
+            'image/jpeg', 'image/jpg' => 'jpg',
+            'image/webp' => 'webp',
+            default => 'png',
+        };
     }
 
     /**

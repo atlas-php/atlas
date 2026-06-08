@@ -419,6 +419,28 @@ test('gpt-image-1 image generation', function () {
     saveFile('image-gpt-image-1', $imgData, 'png');
 });
 
+test('gpt-image-1 image-to-image edit from a reference', function () {
+    // A distinctive synthetic reference — a solid red square — uploaded to the
+    // edits endpoint so the result is verifiably conditioned on it.
+    $img = imagecreatetruecolor(64, 64);
+    imagefill($img, 0, 0, imagecolorallocate($img, 220, 30, 30));
+    ob_start();
+    imagepng($img);
+    $refPng = (string) ob_get_clean();
+    imagedestroy($img);
+
+    $r = Atlas::image(Provider::OpenAI, 'gpt-image-1')
+        ->instructions('Keep this red square but place it on a solid blue background.')
+        ->withSize('1024x1024')
+        ->withMedia([Image::fromBase64(base64_encode($refPng), 'image/png')])
+        ->asImage();
+
+    assert_true($r->base64 !== null, 'Should return an edited image (b64_json) from /images/edits');
+    $imgData = $r->contents();
+    assert_true(strlen($imgData) > 1000, 'Edited image should be substantial ('.strlen($imgData).' bytes)');
+    saveFile('image-gpt-image-1-edit', $imgData, 'png');
+});
+
 // ── Audio TTS ────────────────────────────────────────────────────────────────
 
 echo "\n\n── Audio TTS";

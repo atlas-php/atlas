@@ -4,7 +4,7 @@ Status of each provider's modalities against **real provider APIs**, exercised v
 sandbox harness (`sandbox/test-{provider}-provider.php` and feature scripts). This file
 records the date each modality last **passed a live API test** — not unit-test coverage.
 
-**Last full run: 2026-06-07** (Anthropic/Google/xAI) · **Prompt caching + media replay: 2026-06-07** · **Provider-tools run: 2026-06-06**
+**Last full run: 2026-06-08** (Google/OpenAI/xAI) · **Image-to-image (reference media): 2026-06-08** · **Prompt caching + media replay: 2026-06-07** · **Provider-tools run: 2026-06-06**
 
 Reproduce:
 - Per-provider suites: `cd sandbox && php test-{provider}-provider.php`
@@ -90,14 +90,27 @@ Verified end-to-end (`sandbox/test-vision-replay.php`): an image is persisted as
 
 **Config gating** (`sandbox/test-media-config.php`, `ATLAS_MEDIA_REPLAY_LIMIT` set per process): same image, same prompt, image as the 2nd-from-last message. **All four providers**: `limit=1` (image outside window) → **0 image blocks sent, model cannot read it**; `limit=2` (image inside window) → **1 image block sent, model reads "42"**. Confirms `media_replay_limit` controls live visibility per provider.
 
+## Image-to-image / reference media (live, 2026-06-08)
+
+Reference image input to **image generation** — `Atlas::image(...)->withMedia([...])` — conditions the output on the supplied image (identity-preserving edits, style transfer, reference-anchored generation). Verified live in each provider's image suite: a solid red-square reference + the prompt "keep this red square, put it on a blue background" returns a red square on blue — proof the reference reached the model, not just the prompt.
+
+| Provider  | Model                      | Endpoint / mechanism                              | Result (live)                      |
+|-----------|----------------------------|---------------------------------------------------|------------------------------------|
+| Google    | gemini-2.5-flash-image     | `generateContent` + `inline_data` part            | ✅ red square preserved on blue     |
+| OpenAI    | gpt-image-1                | `/images/edits` (multipart, `image[]`)            | ✅ red square preserved on blue     |
+| xAI       | grok-imagine-image-quality | `/images/edits` (JSON, `image_url` part, ≤3 refs) | ✅ red square preserved on blue     |
+| Anthropic | —                          | no image generation                               | — not part of its offering         |
+
+Each provider's image handler owns its own request shape — xAI does **not** accept OpenAI's multipart edits (it returns HTTP 415; it requires JSON), so it has a dedicated handler. Saved outputs: `sandbox/storage/providers/{google,openai,xai}/image-*-edit.png`. **Future image audits must re-run the reference-media test in each provider suite.**
+
 ## Per-provider results
 
-| Provider   | Live suite (2026-06-07)    | Notes |
+| Provider   | Live suite                 | Notes |
 |------------|----------------------------|-------|
-| Anthropic  | **17/17 passed**           | Text, streaming, structured, tools, vision. Prompt caching (cache_control) + media-replay vision verified live (above). |
-| Google     | **22/22 passed**           | Full modality suite green. Prompt caching (implicit) + media-replay vision verified live. Provider-tools observability gap unchanged (`google_search`/`code_execution` ground correctly but aren't mapped to `providerToolCalls`). |
-| xAI        | **20/20 passed**           | Prompt caching (automatic) + media-replay vision (`grok-4.3`) verified live. Note: `grok-2-vision-1212` retired → use `grok-4.3` for vision. |
-| OpenAI     | **text/vision/caching ✅; suite incomplete** | OpenAI text, vision (history replay), and prompt caching all verified live 2026-06-07. The full provider suite again aborted on the `speech-to-text round trip` (`/audio/speech` cURL 28 @120s) — external/transient, unrelated to this patch (same as 2026-06-06's 33/35 with Sora-video + TTS). |
+| Anthropic  | **17/17 passed** (06-07)   | Text, streaming, structured, tools, vision. Prompt caching (cache_control) + media-replay vision verified live (above). |
+| Google     | **23/23 passed** (06-08)   | Full modality suite green, incl. the new image-to-image test. Prompt caching (implicit) + media-replay vision verified live. Provider-tools observability gap unchanged (`google_search`/`code_execution` ground correctly but aren't mapped to `providerToolCalls`). |
+| OpenAI     | **36/36 passed** (06-08)   | Full suite green, incl. image-to-image edits. (The STT round-trip that aborted earlier runs completed this time.) |
+| xAI        | **21/21 passed** (06-08)   | Full suite green, incl. image-to-image (own JSON edits handler). Prompt caching (automatic) + media-replay vision (`grok-4.3`) verified live. Note: `grok-2-vision-1212` retired → use `grok-4.3` for vision. |
 | ElevenLabs | **not verified**           | Blocked: sandbox `config/atlas.php` has no `elevenlabs` provider block, so the base URL is empty. Package URL resolution is correct — purely a sandbox config gap. |
 | Cohere     | **not verified**           | No `COHERE_API_KEY` in `sandbox/.env`. Rerank handler covered by unit tests only. |
 | Jina       | **not verified**           | No `JINA_API_KEY` in `sandbox/.env`. Rerank handler covered by unit tests only. |
