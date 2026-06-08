@@ -117,6 +117,6 @@ Each provider's image handler owns its own request shape — xAI does **not** ac
 | Ollama     | **not run**                | Points at a LAN host (`OLLAMA_URL`); not exercised in this run. |
 | LM Studio  | **not run**                | Requires a local LM Studio instance; not exercised in this run. |
 
-## Package checks (2026-06-07)
+## Package checks (2026-06-08)
 
-`composer check` — **Pint ✓ · PHPStan 0 errors ✓ · 2866 Pest tests ✓**.
+`composer check` — **Pint ✓ · PHPStan 0 errors ✓ · 2878 Pest tests ✓**.
