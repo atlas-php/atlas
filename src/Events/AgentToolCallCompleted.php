@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Events;
 
 use Atlasphp\Atlas\Events\Concerns\BroadcastsOnOptionalChannel;
+use Atlasphp\Atlas\Events\Concerns\CapsBroadcastPayload;
 use Atlasphp\Atlas\Executor\ToolResult;
 use Atlasphp\Atlas\Messages\ToolCall;
 use Illuminate\Broadcasting\Channel;
@@ -16,6 +17,7 @@ use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 class AgentToolCallCompleted implements ShouldBroadcastNow
 {
     use BroadcastsOnOptionalChannel;
+    use CapsBroadcastPayload;
 
     public function __construct(
         public readonly ToolCall $toolCall,
@@ -42,7 +44,7 @@ class AgentToolCallCompleted implements ShouldBroadcastNow
             'agentKey' => $this->agentKey,
             'toolCallId' => $this->toolCall->id,
             'toolName' => $this->toolCall->name,
-            'result' => mb_substr($this->result->content, 0, 500),
+            'result' => $this->capBroadcastPayload($this->result->content),
             'isError' => $this->result->isError,
             'stepNumber' => $this->stepNumber,
         ];

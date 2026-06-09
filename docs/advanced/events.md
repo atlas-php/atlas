@@ -46,6 +46,10 @@ Fired by the executor during the agent tool loop.
 
 </div>
 
+::: tip Broadcast payload size
+The tool-call events (`AgentToolCallStarted` / `AgentToolCallCompleted` / `AgentToolCallFailed`) broadcast the call's **full** arguments, result, and error by default, so a live trace consumer sees everything. If your socket transport (Reverb / Pusher) limits message size, set `atlas.broadcast.max_tool_payload_length` (env `ATLAS_BROADCAST_MAX_TOOL_PAYLOAD`) to a per-string character cap. `null` (default) means no cap.
+:::
+
 ## Stream Events
 
 Fired during streaming responses. All stream events implement `ShouldBroadcastNow` for real-time WebSocket delivery.

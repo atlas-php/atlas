@@ -486,7 +486,7 @@ it('AgentToolCallStarted broadcastWith includes tool details', function () {
         ->and($data['stepNumber'])->toBe(2);
 });
 
-it('AgentToolCallStarted truncates large string arguments', function () {
+it('AgentToolCallStarted broadcasts full string arguments by default', function () {
     $event = new AgentToolCallStarted(
         toolCall: new ToolCall('tc-1', 'process', ['content' => str_repeat('x', 500)]),
         channel: new Channel('test'),
@@ -494,7 +494,25 @@ it('AgentToolCallStarted truncates large string arguments', function () {
 
     $data = $event->broadcastWith();
 
-    expect(mb_strlen($data['arguments']['content']))->toBe(200);
+    expect(mb_strlen($data['arguments']['content']))->toBe(500);
+});
+
+it('caps broadcast tool payloads when a max length is configured', function () {
+    config()->set('atlas.broadcast.max_tool_payload_length', 200);
+
+    $started = new AgentToolCallStarted(
+        toolCall: new ToolCall('tc-1', 'process', ['content' => str_repeat('x', 500)]),
+        channel: new Channel('test'),
+    );
+
+    $completed = new AgentToolCallCompleted(
+        toolCall: new ToolCall('tc-2', 'search', []),
+        result: new ToolResult(toolCall: new ToolCall('tc-2', 'search', []), content: str_repeat('y', 500)),
+        channel: new Channel('test'),
+    );
+
+    expect(mb_strlen($started->broadcastWith()['arguments']['content']))->toBe(200)
+        ->and(mb_strlen($completed->broadcastWith()['result']))->toBe(200);
 });
 
 it('AgentToolCallCompleted broadcastWith includes result summary', function () {
@@ -690,9 +708,9 @@ it('AgentMaxStepsExceeded broadcastWith includes summary without raw steps', fun
     ]);
 });
 
-// ─── broadcastWith truncation ─────────────────────────────────────────────
+// ─── broadcastWith payload (full by default, capped when configured) ───────
 
-it('AgentToolCallCompleted broadcastWith truncates large result content', function () {
+it('AgentToolCallCompleted broadcastWith sends the full result by default', function () {
     $toolCall = new ToolCall('tc-1', 'search', []);
     $result = new ToolResult(toolCall: $toolCall, content: str_repeat('x', 1000));
 
@@ -704,10 +722,10 @@ it('AgentToolCallCompleted broadcastWith truncates large result content', functi
 
     $data = $event->broadcastWith();
 
-    expect(mb_strlen($data['result']))->toBe(500);
+    expect(mb_strlen($data['result']))->toBe(1000);
 });
 
-it('AgentToolCallFailed broadcastWith truncates large error message', function () {
+it('AgentToolCallFailed broadcastWith sends the full error by default', function () {
     $toolCall = new ToolCall('tc-1', 'fetch', []);
     $exception = new RuntimeException(str_repeat('e', 1000));
 
@@ -719,7 +737,19 @@ it('AgentToolCallFailed broadcastWith truncates large error message', function (
 
     $data = $event->broadcastWith();
 
-    expect(mb_strlen($data['error']))->toBe(500);
+    expect(mb_strlen($data['error']))->toBe(1000);
+});
+
+it('AgentToolCallFailed broadcastWith caps the error when a max length is configured', function () {
+    config()->set('atlas.broadcast.max_tool_payload_length', 300);
+
+    $event = new AgentToolCallFailed(
+        toolCall: new ToolCall('tc-1', 'fetch', []),
+        exception: new RuntimeException(str_repeat('e', 1000)),
+        channel: new Channel('test'),
+    );
+
+    expect(mb_strlen($event->broadcastWith()['error']))->toBe(300);
 });
 
 it('AgentToolCallStarted broadcastWith does not truncate non-string arguments', function () {

@@ -225,6 +225,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Broadcasting
+    |--------------------------------------------------------------------------
+    |
+    | The tool-call orchestration events (AgentToolCallStarted / Completed /
+    | Failed) broadcast the call's arguments, result, and error to live consumers
+    | such as an admin trace panel. By default the full payload is broadcast so
+    | nothing is hidden from view. If your socket transport (Reverb / Pusher)
+    | limits message size, set a per-string character cap to truncate large
+    | payloads before they are broadcast. null (default) = no cap.
+    |
+    */
+
+    'broadcast' => [
+        'max_tool_payload_length' => env('ATLAS_BROADCAST_MAX_TOOL_PAYLOAD', 512),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Middleware
     |--------------------------------------------------------------------------
     |
