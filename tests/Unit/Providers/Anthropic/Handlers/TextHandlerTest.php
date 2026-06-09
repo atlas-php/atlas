@@ -15,6 +15,7 @@ use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Schema\Schema;
+use Atlasphp\Atlas\Tools\ToolChoice;
 use Atlasphp\Atlas\Tools\ToolDefinition;
 use Illuminate\Support\Facades\Http;
 
@@ -46,8 +47,33 @@ function makeAnthropicTextRequest(array $overrides = []): TextRequest
         tools: $overrides['tools'] ?? [],
         providerTools: $overrides['providerTools'] ?? [],
         providerOptions: $overrides['providerOptions'] ?? [],
+        toolChoice: $overrides['toolChoice'] ?? null,
     );
 }
+
+it('emits the Anthropic tool_choice object when a choice is set with tools', function () {
+    Http::fake(['api.anthropic.com/*' => Http::response(fakeAnthropicTextResponse())]);
+
+    makeAnthropicTextHandler()->text(makeAnthropicTextRequest([
+        'tools' => [new ToolDefinition('get_weather', 'Get weather', ['type' => 'object'])],
+        'toolChoice' => ToolChoice::required(),
+    ]));
+
+    Http::assertSent(fn ($request) => $request['tool_choice'] === ['type' => 'any']);
+});
+
+it('does not emit a normalized tool_choice during structured output', function () {
+    Http::fake(['api.anthropic.com/*' => Http::response(fakeAnthropicTextResponse())]);
+
+    makeAnthropicTextHandler()->structured(makeAnthropicTextRequest([
+        'tools' => [new ToolDefinition('get_weather', 'Get weather', ['type' => 'object'])],
+        'toolChoice' => ToolChoice::required(),
+        'schema' => new Schema('out', 'Out', ['type' => 'object', 'properties' => (object) []]),
+    ]));
+
+    // structured() forces the schema tool, not the normalized "any".
+    Http::assertSent(fn ($request) => $request['tool_choice'] === ['type' => 'tool', 'name' => 'out']);
+});
 
 function fakeAnthropicTextResponse(array $overrides = []): array
 {

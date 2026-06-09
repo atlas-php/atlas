@@ -57,6 +57,7 @@ use Atlasphp\Atlas\Responses\VoiceSession;
 use Atlasphp\Atlas\Schema\Schema;
 use Atlasphp\Atlas\Tools\AgentTool;
 use Atlasphp\Atlas\Tools\Tool;
+use Atlasphp\Atlas\Tools\ToolChoice;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
@@ -125,6 +126,9 @@ class AgentRequest implements QueueableRequest
     protected ?int $maxStepsOverride = null;
 
     protected ?bool $concurrentOverride = null;
+
+    /** Overrides the agent's own {@see Agent::toolChoice()} when set (see buildRequest). */
+    protected ?ToolChoice $toolChoiceOverride = null;
 
     // Conversation support — stored here, transferred to agent on resolve
     protected ?Model $conversationOwner = null;
@@ -244,6 +248,28 @@ class AgentRequest implements QueueableRequest
     public function withTemperature(float $temp): static
     {
         $this->temperatureOverride = $temp;
+
+        return $this;
+    }
+
+    /**
+     * Override the agent's tool choice (auto / required / none / a specific
+     * tool). Atlas emits the correct provider shape.
+     */
+    public function toolChoice(ToolChoice $toolChoice): static
+    {
+        $this->toolChoiceOverride = $toolChoice;
+
+        return $this;
+    }
+
+    /**
+     * Require the model to call a tool this turn — sugar for
+     * `toolChoice(ToolChoice::required())`.
+     */
+    public function forceTools(): static
+    {
+        $this->toolChoiceOverride = ToolChoice::required();
 
         return $this;
     }
@@ -995,6 +1021,7 @@ class AgentRequest implements QueueableRequest
             providerOptions: $this->providerOptions !== []
                 ? $this->providerOptions
                 : $agent->providerOptions(),
+            toolChoice: $this->toolChoiceOverride ?? $agent->toolChoice(),
             middleware: $this->middleware,
             meta: $this->meta,
             cache: $this->cacheOverride ?? $this->config->promptCache,
@@ -1114,6 +1141,7 @@ class AgentRequest implements QueueableRequest
             'max_steps' => $this->maxStepsOverride,
             'concurrent' => $this->concurrentOverride,
             'cache' => $this->cacheOverride,
+            'tool_choice' => $this->toolChoiceOverride?->toArray(),
             'provider_options' => $this->providerOptions,
             'conversation_id' => $this->conversationId,
             'owner_type' => $this->conversationOwner?->getMorphClass(),
@@ -1190,6 +1218,10 @@ class AgentRequest implements QueueableRequest
 
         if ($payload['max_steps'] !== null) {
             $request->withMaxSteps($payload['max_steps']);
+        }
+
+        if (isset($payload['tool_choice'])) {
+            $request->toolChoice(ToolChoice::fromArray($payload['tool_choice']));
         }
 
         if ($payload['concurrent'] !== null) {

@@ -9,6 +9,7 @@ use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Enums\ToolChoiceMode;
 use Atlasphp\Atlas\Events\ModalityCompleted;
 use Atlasphp\Atlas\Events\ModalityStarted;
 use Atlasphp\Atlas\Exceptions\AgentNotFoundException;
@@ -35,6 +36,7 @@ use Atlasphp\Atlas\Testing\StructuredResponseFake;
 use Atlasphp\Atlas\Testing\TextResponseFake;
 use Atlasphp\Atlas\Testing\VoiceSessionFake;
 use Atlasphp\Atlas\Tools\Tool;
+use Atlasphp\Atlas\Tools\ToolChoice;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\Eloquent\Model;
@@ -1365,6 +1367,39 @@ it('cache() override flows through buildRequest to the driver request', function
     makeAgentRequest('minimal')->cache(false)->message('Hi')->asText();
 
     expect($captured->cache)->toBeFalse();
+});
+
+it('forceTools override flows through buildRequest to the driver request', function () {
+    registerTestAgent(RequestTestMinimalAgent::class);
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
+
+    $captured = null;
+    $driver->shouldReceive('text')->once()->andReturnUsing(function ($req) use (&$captured) {
+        $captured = $req;
+
+        return new TextResponse('ok', new Usage(1, 1), FinishReason::Stop);
+    });
+
+    $registry = app(ProviderRegistryContract::class);
+    $registry->register('openai', fn () => $driver);
+
+    config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o']]);
+    AtlasConfig::refresh();
+
+    makeAgentRequest('minimal')->forceTools()->message('Hi')->asText();
+
+    expect($captured->toolChoice)->toBeInstanceOf(ToolChoice::class)
+        ->and($captured->toolChoice->mode)->toBe(ToolChoiceMode::Required);
+});
+
+it('defaults the agent tool choice to null when none is set', function () {
+    registerTestAgent(RequestTestMinimalAgent::class);
+
+    expect(makeAgentRequest('minimal')->toolChoice(ToolChoice::none()))
+        ->toBeInstanceOf(AgentRequest::class);
+    expect((new RequestTestMinimalAgent)->toolChoice())->toBeNull();
 });
 
 it('agent request defaults the cache flag from atlas.prompt_cache config', function () {

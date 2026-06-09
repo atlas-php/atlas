@@ -11,6 +11,7 @@ use Atlasphp\Atlas\Providers\Anthropic\MediaResolver;
 use Atlasphp\Atlas\Providers\Anthropic\MessageFactory;
 use Atlasphp\Atlas\Providers\Anthropic\ResponseParser;
 use Atlasphp\Atlas\Providers\Anthropic\ToolMapper;
+use Atlasphp\Atlas\Providers\Concerns\AppliesToolChoice;
 use Atlasphp\Atlas\Providers\Handlers\TextHandler;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Providers\SseParser;
@@ -30,6 +31,8 @@ use Generator;
  */
 class Text implements TextHandler
 {
+    use AppliesToolChoice;
+
     public function __construct(
         protected readonly ProviderConfig $config,
         protected readonly HttpClient $http,
@@ -142,6 +145,7 @@ class Text implements TextHandler
 
         if ($tools !== []) {
             $body['tools'] = $tools;
+            $body = $this->applyToolChoice($body, $request, $this->tools);
         }
 
         return array_merge($body, $request->providerOptions);

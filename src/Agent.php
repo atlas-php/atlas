@@ -9,6 +9,7 @@ use Atlasphp\Atlas\Messages\AssistantMessage;
 use Atlasphp\Atlas\Messages\Message;
 use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Providers\Tools\ProviderTool;
+use Atlasphp\Atlas\Tools\ToolChoice;
 
 /**
  * Abstract base class for Atlas agents.
@@ -193,5 +194,14 @@ abstract class Agent
     public function providerOptions(): array
     {
         return [];
+    }
+
+    /**
+     * Force how the model chooses tools (auto / required / none / a specific
+     * tool). Null falls back to the provider default (auto when tools exist).
+     */
+    public function toolChoice(): ?ToolChoice
+    {
+        return null;
     }
 }

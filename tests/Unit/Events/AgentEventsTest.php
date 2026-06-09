@@ -486,7 +486,7 @@ it('AgentToolCallStarted broadcastWith includes tool details', function () {
         ->and($data['stepNumber'])->toBe(2);
 });
 
-it('AgentToolCallStarted truncates large string arguments', function () {
+it('AgentToolCallStarted broadcasts full string arguments by default', function () {
     $event = new AgentToolCallStarted(
         toolCall: new ToolCall('tc-1', 'process', ['content' => str_repeat('x', 500)]),
         channel: new Channel('test'),
@@ -494,7 +494,25 @@ it('AgentToolCallStarted truncates large string arguments', function () {
 
     $data = $event->broadcastWith();
 
-    expect(mb_strlen($data['arguments']['content']))->toBe(200);
+    expect(mb_strlen($data['arguments']['content']))->toBe(500);
+});
+
+it('caps broadcast tool payloads when a max length is configured', function () {
+    config()->set('atlas.broadcast.max_tool_payload_length', 200);
+
+    $started = new AgentToolCallStarted(
+        toolCall: new ToolCall('tc-1', 'process', ['content' => str_repeat('x', 500)]),
+        channel: new Channel('test'),
+    );
+
+    $completed = new AgentToolCallCompleted(
+        toolCall: new ToolCall('tc-2', 'search', []),
+        result: new ToolResult(toolCall: new ToolCall('tc-2', 'search', []), content: str_repeat('y', 500)),
+        channel: new Channel('test'),
+    );
+
+    expect(mb_strlen($started->broadcastWith()['arguments']['content']))->toBe(200)
+        ->and(mb_strlen($completed->broadcastWith()['result']))->toBe(200);
 });
 
 it('AgentToolCallCompleted broadcastWith includes result summary', function () {
@@ -690,9 +708,9 @@ it('AgentMaxStepsExceeded broadcastWith includes summary without raw steps', fun
     ]);
 });
 
-// ─── broadcastWith truncation ─────────────────────────────────────────────
+// ─── broadcastWith payload (full by default, capped when configured) ───────
 
-it('AgentToolCallCompleted broadcastWith truncates large result content', function () {
+it('AgentToolCallCompleted broadcastWith sends a sub-cap result in full', function () {
     $toolCall = new ToolCall('tc-1', 'search', []);
     $result = new ToolResult(toolCall: $toolCall, content: str_repeat('x', 1000));
 
@@ -704,10 +722,23 @@ it('AgentToolCallCompleted broadcastWith truncates large result content', functi
 
     $data = $event->broadcastWith();
 
-    expect(mb_strlen($data['result']))->toBe(500);
+    // 1000 bytes is under the 2048-byte default — sent in full.
+    expect(mb_strlen($data['result']))->toBe(1000);
 });
 
-it('AgentToolCallFailed broadcastWith truncates large error message', function () {
+it('AgentToolCallCompleted broadcastWith caps an oversized result at the 2048-byte default', function () {
+    $toolCall = new ToolCall('tc-1', 'search', []);
+
+    $event = new AgentToolCallCompleted(
+        toolCall: $toolCall,
+        result: new ToolResult(toolCall: $toolCall, content: str_repeat('x', 5000)),
+        channel: new Channel('test'),
+    );
+
+    expect(strlen($event->broadcastWith()['result']))->toBe(2048);
+});
+
+it('AgentToolCallFailed broadcastWith sends a sub-cap error in full', function () {
     $toolCall = new ToolCall('tc-1', 'fetch', []);
     $exception = new RuntimeException(str_repeat('e', 1000));
 
@@ -719,7 +750,36 @@ it('AgentToolCallFailed broadcastWith truncates large error message', function (
 
     $data = $event->broadcastWith();
 
-    expect(mb_strlen($data['error']))->toBe(500);
+    expect(mb_strlen($data['error']))->toBe(1000);
+});
+
+it('caps broadcast payloads by bytes without splitting a multibyte character', function () {
+    config()->set('atlas.broadcast.max_tool_payload_length', 10);
+    $toolCall = new ToolCall('tc-1', 'search', []);
+
+    // 'é' is 2 bytes in UTF-8; 10 of them = 20 bytes. A 10-byte cut yields 5 chars.
+    $event = new AgentToolCallCompleted(
+        toolCall: $toolCall,
+        result: new ToolResult(toolCall: $toolCall, content: str_repeat('é', 10)),
+        channel: new Channel('test'),
+    );
+
+    $result = $event->broadcastWith()['result'];
+
+    expect(strlen($result))->toBeLessThanOrEqual(10)            // byte-bounded for the transport
+        ->and(mb_check_encoding($result, 'UTF-8'))->toBeTrue(); // never split mid-character
+});
+
+it('AgentToolCallFailed broadcastWith caps the error when a max length is configured', function () {
+    config()->set('atlas.broadcast.max_tool_payload_length', 300);
+
+    $event = new AgentToolCallFailed(
+        toolCall: new ToolCall('tc-1', 'fetch', []),
+        exception: new RuntimeException(str_repeat('e', 1000)),
+        channel: new Channel('test'),
+    );
+
+    expect(mb_strlen($event->broadcastWith()['error']))->toBe(300);
 });
 
 it('AgentToolCallStarted broadcastWith does not truncate non-string arguments', function () {
@@ -732,6 +792,58 @@ it('AgentToolCallStarted broadcastWith does not truncate non-string arguments', 
 
     expect($data['arguments']['value'])->toBe(42)
         ->and($data['arguments']['enabled'])->toBeTrue();
+});
+
+it('AgentToolCallStarted byte-caps a large string argument', function () {
+    config()->set('atlas.broadcast.max_tool_payload_length', 100);
+
+    $event = new AgentToolCallStarted(
+        toolCall: new ToolCall('tc-1', 'search', ['q' => str_repeat('x', 1000)]),
+        channel: new Channel('test'),
+    );
+
+    expect(strlen($event->broadcastWith()['arguments']['q']))->toBe(100);
+});
+
+it('AgentToolCallStarted caps a large NESTED argument by its JSON length (cannot bypass the cap)', function () {
+    config()->set('atlas.broadcast.max_tool_payload_length', 100);
+
+    $event = new AgentToolCallStarted(
+        toolCall: new ToolCall('tc-1', 'search', ['data' => ['blob' => str_repeat('y', 1000)]]),
+        channel: new Channel('test'),
+    );
+
+    $arg = $event->broadcastWith()['arguments']['data'];
+
+    // Oversized nested structure is replaced with its truncated JSON form.
+    expect($arg)->toBeString()
+        ->and(strlen($arg))->toBe(100);
+});
+
+it('AgentToolCallStarted leaves a small nested argument untouched', function () {
+    config()->set('atlas.broadcast.max_tool_payload_length', 2048);
+
+    $event = new AgentToolCallStarted(
+        toolCall: new ToolCall('tc-1', 'search', ['data' => ['k' => 'v']]),
+        channel: new Channel('test'),
+    );
+
+    expect($event->broadcastWith()['arguments']['data'])->toBe(['k' => 'v']);
+});
+
+it('AgentToolCallStarted caps nothing when the limit is 0', function () {
+    config()->set('atlas.broadcast.max_tool_payload_length', 0);
+    $nested = ['blob' => str_repeat('y', 5000)];
+
+    $event = new AgentToolCallStarted(
+        toolCall: new ToolCall('tc-1', 'search', ['s' => str_repeat('x', 5000), 'data' => $nested]),
+        channel: new Channel('test'),
+    );
+
+    $args = $event->broadcastWith()['arguments'];
+
+    expect(strlen($args['s']))->toBe(5000)
+        ->and($args['data'])->toBe($nested);
 });
 
 // ─── channel defaults ─────────────────────────────────────────────────────

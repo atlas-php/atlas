@@ -162,6 +162,10 @@ $response = Atlas::agent('support')
         'customer_name' => 'Sarah',
         'account_tier' => 'Premium',
     ])
+    ->withTools([
+        HelpDeskSearchTool::class,
+        OrderStatusTool::class,
+    ])
     ->message('Where is my order #12345?')
     ->asText();
 

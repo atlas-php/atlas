@@ -11,6 +11,8 @@ use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Requests\RerankRequest;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Schema\Schema;
+use Atlasphp\Atlas\Tools\ToolChoice;
+use Atlasphp\Atlas\Tools\ToolDefinition;
 use Illuminate\Support\Facades\Http;
 
 function makeChatCompletionsDriver(): ChatCompletionsDriver
@@ -91,6 +93,62 @@ it('sends text request to chat/completions endpoint', function () {
     expect($response->usage->outputTokens)->toBe(5);
 
     Http::assertSent(fn ($r) => str_contains($r->url(), '/chat/completions'));
+});
+
+it('emits tool_choice when a choice is set with tools', function () {
+    Http::fake([
+        'localhost:11434/v1/chat/completions' => Http::response([
+            'choices' => [['message' => ['content' => 'ok', 'role' => 'assistant'], 'finish_reason' => 'stop']],
+            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1],
+        ]),
+    ]);
+
+    $request = new TextRequest(
+        model: 'llama3.1',
+        instructions: null,
+        message: 'Hi',
+        messageMedia: [],
+        messages: [],
+        maxTokens: null,
+        temperature: null,
+        schema: null,
+        tools: [new ToolDefinition('get_weather', 'Get weather', ['type' => 'object'])],
+        providerTools: [],
+        providerOptions: [],
+        toolChoice: ToolChoice::required(),
+    );
+
+    makeChatCompletionsDriver()->text($request);
+
+    Http::assertSent(fn ($r) => ($r->data()['tool_choice'] ?? null) === 'required');
+});
+
+it('does not emit tool_choice during structured output', function () {
+    Http::fake([
+        'localhost:11434/v1/chat/completions' => Http::response([
+            'choices' => [['message' => ['content' => '{}', 'role' => 'assistant'], 'finish_reason' => 'stop']],
+            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1],
+        ]),
+    ]);
+
+    $request = new TextRequest(
+        model: 'llama3.1',
+        instructions: null,
+        message: 'Give me data',
+        messageMedia: [],
+        messages: [],
+        maxTokens: null,
+        temperature: null,
+        schema: new Schema('out', 'Out', ['type' => 'object', 'properties' => ['x' => ['type' => 'string']]]),
+        tools: [new ToolDefinition('get_weather', 'Get weather', ['type' => 'object'])],
+        providerTools: [],
+        providerOptions: [],
+        toolChoice: ToolChoice::required(),
+    );
+
+    makeChatCompletionsDriver()->structured($request);
+
+    Http::assertSent(fn ($r) => ! isset($r->data()['tool_choice']));
 });
 
 it('sends structured request with json_schema response_format', function () {

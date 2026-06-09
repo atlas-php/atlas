@@ -8,7 +8,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 ---
 
-## [v3.4.0](https://github.com/atlas-php/atlas/releases/tag/v3.4.0) - 2026-06-08
+## [v3.4.0](https://github.com/atlas-php/atlas/releases/tag/v3.4.0) - 2026-06-09
+
+### Added
+
+- Force tool calls with `->forceTools()` or `->toolChoice(...)` — require any tool, a specific tool, `auto`, or `none`. Atlas sends the right format for every provider; in agent loops it forces the first step then relaxes so the model still replies.
+
+### Changed
+
+- Broadcasted tool-call events now cap each argument/result/error to **2048 bytes** by default (configurable via `ATLAS_BROADCAST_MAX_TOOL_PAYLOAD`; set `0` for uncapped), so large tool payloads stay under socket transport limits (Pusher/Reverb) instead of silently dropping the event or closing the connection.
+
+### Migration
+
+No breaking changes. Broadcast tool payloads are capped to 2048 bytes by default — set `ATLAS_BROADCAST_MAX_TOOL_PAYLOAD=0` to broadcast uncapped, or a higher byte value to suit your transport.
+
+---
+
+## [v3.3.2](https://github.com/atlas-php/atlas/releases/tag/v3.3.2) - 2026-06-08
 
 ### Fixed
 

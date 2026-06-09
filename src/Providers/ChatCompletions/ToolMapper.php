@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Providers\ChatCompletions;
 
+use Atlasphp\Atlas\Enums\ToolChoiceMode;
 use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Providers\Contracts\ToolMapperContract;
 use Atlasphp\Atlas\Providers\Tools\ProviderTool;
+use Atlasphp\Atlas\Tools\ToolChoice;
 use Atlasphp\Atlas\Tools\ToolDefinition;
 use Illuminate\Support\Facades\Log;
 
@@ -34,6 +36,24 @@ class ToolMapper implements ToolMapperContract
                 'parameters' => $tool->hasParameters() ? $tool->parameters : (object) [],
             ],
         ], $tools);
+    }
+
+    /**
+     * Map a normalized tool choice to the Chat Completions `tool_choice` shape:
+     * the strings `auto`/`required`/`none`, or a nested
+     * `{type:function, function:{name}}` object to force a specific tool.
+     *
+     * @return array<string, mixed>
+     */
+    public function mapToolChoice(ToolChoice $choice): array
+    {
+        return ['tool_choice' => match ($choice->mode) {
+            ToolChoiceMode::Auto => 'auto',
+            ToolChoiceMode::None => 'none',
+            ToolChoiceMode::Required => $choice->tool !== null
+                ? ['type' => 'function', 'function' => ['name' => $choice->tool]]
+                : 'required',
+        }];
     }
 
     /**

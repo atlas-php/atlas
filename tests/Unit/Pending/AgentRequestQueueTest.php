@@ -6,6 +6,7 @@ use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\AgentRegistry;
 use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Enums\FinishReason;
+use Atlasphp\Atlas\Enums\ToolChoiceMode;
 use Atlasphp\Atlas\Input\Audio;
 use Atlasphp\Atlas\Input\Image;
 use Atlasphp\Atlas\Input\Input;
@@ -15,6 +16,7 @@ use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\Usage;
+use Atlasphp\Atlas\Tools\ToolChoice;
 
 // ─── Test agent ─────────────────────────────────────────────────────────────
 
@@ -252,4 +254,49 @@ it('restores an explicit cache override when executing from a queue payload', fu
     ], 'asText');
 
     expect($captured->cache)->toBeFalse();
+});
+
+it('restores a tool choice when executing from a queue payload', function () {
+    registerQueueTestAgent(QueueTestMinimalAgent::class);
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
+    $captured = null;
+    $driver->shouldReceive('text')->once()->andReturnUsing(function ($req) use (&$captured) {
+        $captured = $req;
+
+        return new TextResponse('ok', new Usage(1, 1), FinishReason::Stop);
+    });
+    app(ProviderRegistryContract::class)->register('openai', fn () => $driver);
+
+    AgentRequest::executeFromPayload([
+        'key' => 'queue-minimal',
+        'message' => 'hi',
+        'message_media' => [],
+        'instructions' => null,
+        'variables' => [],
+        'meta' => [],
+        'provider' => 'openai',
+        'model' => 'gpt-4o',
+        'max_tokens' => null,
+        'temperature' => null,
+        'max_steps' => null,
+        'concurrent' => null,
+        'cache' => null,
+        'tool_choice' => ['mode' => 'required', 'tool' => 'log_mood'],
+        'provider_options' => [],
+        'middleware' => [],
+        'owner_type' => null,
+        'owner_id' => null,
+        'message_owner_type' => null,
+        'message_owner_id' => null,
+        'conversation_id' => null,
+        'message_limit' => null,
+        'respond_mode' => false,
+        'retry_mode' => false,
+    ], 'asText');
+
+    expect($captured->toolChoice)->toBeInstanceOf(ToolChoice::class)
+        ->and($captured->toolChoice->mode)->toBe(ToolChoiceMode::Required)
+        ->and($captured->toolChoice->tool)->toBe('log_mood');
 });

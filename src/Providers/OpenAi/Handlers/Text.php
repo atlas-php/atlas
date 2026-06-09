@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Providers\OpenAi\Handlers;
 
 use Atlasphp\Atlas\Http\HttpClient;
+use Atlasphp\Atlas\Providers\Concerns\AppliesToolChoice;
 use Atlasphp\Atlas\Providers\Concerns\BuildsHeaders;
 use Atlasphp\Atlas\Providers\Contracts\MessageFactoryContract;
 use Atlasphp\Atlas\Providers\Handlers\TextHandler;
@@ -29,6 +30,7 @@ use Generator;
  */
 class Text implements TextHandler
 {
+    use AppliesToolChoice;
     use BuildsHeaders, HasOrganizationHeader {
         HasOrganizationHeader::extraHeaders insteadof BuildsHeaders;
     }
@@ -140,6 +142,7 @@ class Text implements TextHandler
 
         if ($tools !== []) {
             $body['tools'] = $tools;
+            $body = $this->applyToolChoice($body, $request, $this->toolMapper);
         }
 
         return array_merge($body, $request->providerOptions);

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Enums\FinishReason;
+use Atlasphp\Atlas\Enums\ToolChoiceMode;
 use Atlasphp\Atlas\Events\AgentCompleted;
 use Atlasphp\Atlas\Events\AgentMaxStepsExceeded;
 use Atlasphp\Atlas\Events\AgentStarted;
@@ -27,6 +28,7 @@ use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\Usage;
 use Atlasphp\Atlas\Tools\Tool;
+use Atlasphp\Atlas\Tools\ToolChoice;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Support\Facades\DB;
 
@@ -161,6 +163,51 @@ function makeMockDriver(array $responses): Driver
         }
     };
 }
+
+it('forces the tool choice on the opening step, then relaxes it to auto', function () {
+    $driver = makeMockDriver([
+        // Step 1: the model calls a tool (forced).
+        new TextResponse('', new Usage(1, 1), FinishReason::ToolCalls, toolCalls: [new ToolCall('call_1', 'echo', ['text' => 'hi'])]),
+        // Step 2: the model produces its final text reply.
+        new TextResponse('done', new Usage(1, 1), FinishReason::Stop),
+    ]);
+
+    $registry = new ToolRegistry([makeEchoTool()]);
+    $executor = new AgentExecutor($driver, new ToolExecutor($registry), makeFakeDispatcher());
+
+    $request = makeTextRequest()->withToolChoice(ToolChoice::required());
+    $executor->execute($request, maxSteps: 10, concurrent: false, meta: []);
+
+    expect($driver->receivedRequests)->toHaveCount(2)
+        ->and($driver->receivedRequests[0]->toolChoice?->mode)->toBe(ToolChoiceMode::Required)
+        ->and($driver->receivedRequests[1]->toolChoice?->mode)->toBe(ToolChoiceMode::Auto);
+});
+
+it('forces a specific named tool on the opening step, then relaxes to auto', function () {
+    $driver = makeMockDriver([
+        new TextResponse('', new Usage(1, 1), FinishReason::ToolCalls, toolCalls: [new ToolCall('call_1', 'echo', ['text' => 'hi'])]),
+        new TextResponse('done', new Usage(1, 1), FinishReason::Stop),
+    ]);
+
+    $executor = new AgentExecutor($driver, new ToolExecutor(new ToolRegistry([makeEchoTool()])), makeFakeDispatcher());
+    $executor->execute(makeTextRequest()->withToolChoice(ToolChoice::tool('echo')), maxSteps: 10, concurrent: false, meta: []);
+
+    expect($driver->receivedRequests[0]->toolChoice?->isSpecificTool())->toBeTrue()
+        ->and($driver->receivedRequests[1]->toolChoice?->mode)->toBe(ToolChoiceMode::Auto);
+});
+
+it('does not relax a non-required tool choice', function () {
+    $driver = makeMockDriver([
+        new TextResponse('', new Usage(1, 1), FinishReason::ToolCalls, toolCalls: [new ToolCall('call_1', 'echo', ['text' => 'hi'])]),
+        new TextResponse('done', new Usage(1, 1), FinishReason::Stop),
+    ]);
+
+    $executor = new AgentExecutor($driver, new ToolExecutor(new ToolRegistry([makeEchoTool()])), makeFakeDispatcher());
+    $executor->execute(makeTextRequest()->withToolChoice(ToolChoice::none()), maxSteps: 10, concurrent: false, meta: []);
+
+    // Only `Required` is relaxed — a `none` choice passes through unchanged.
+    expect($driver->receivedRequests[1]->toolChoice?->mode)->toBe(ToolChoiceMode::None);
+});
 
 it('handles single round trip with no tools', function () {
     $driver = makeMockDriver([

@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Providers\Google\Handlers;
 
 use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Http\HttpClient;
+use Atlasphp\Atlas\Providers\Concerns\AppliesToolChoice;
 use Atlasphp\Atlas\Providers\Google\Concerns\BuildsGoogleHeaders;
 use Atlasphp\Atlas\Providers\Google\MediaResolver;
 use Atlasphp\Atlas\Providers\Google\MessageFactory;
@@ -29,6 +30,7 @@ use Generator;
  */
 class Text implements TextHandler
 {
+    use AppliesToolChoice;
     use BuildsGoogleHeaders;
 
     public function __construct(
@@ -120,6 +122,7 @@ class Text implements TextHandler
             $body['tools'][] = [
                 'function_declarations' => $this->tools->mapTools($request->tools),
             ];
+            $body = $this->applyToolChoice($body, $request, $this->tools);
         }
 
         if ($request->providerTools !== []) {

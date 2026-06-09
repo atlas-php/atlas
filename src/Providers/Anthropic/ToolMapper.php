@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Providers\Anthropic;
 
+use Atlasphp\Atlas\Enums\ToolChoiceMode;
 use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Providers\Contracts\ToolMapperContract;
 use Atlasphp\Atlas\Providers\Tools\ProviderTool;
+use Atlasphp\Atlas\Tools\ToolChoice;
 use Atlasphp\Atlas\Tools\ToolDefinition;
 use Illuminate\Support\Facades\Log;
 
@@ -43,6 +45,24 @@ class ToolMapper implements ToolMapperContract
             'description' => $tool->description,
             'input_schema' => $tool->hasParameters() ? $tool->parameters : ['type' => 'object', 'properties' => (object) []],
         ], $tools);
+    }
+
+    /**
+     * Map a normalized tool choice to Anthropic's `tool_choice` object:
+     * `{type:auto}`, `{type:any}` (require any tool), `{type:tool, name}`
+     * (require a specific tool), or `{type:none}`.
+     *
+     * @return array<string, mixed>
+     */
+    public function mapToolChoice(ToolChoice $choice): array
+    {
+        return ['tool_choice' => match ($choice->mode) {
+            ToolChoiceMode::Auto => ['type' => 'auto'],
+            ToolChoiceMode::None => ['type' => 'none'],
+            ToolChoiceMode::Required => $choice->tool !== null
+                ? ['type' => 'tool', 'name' => $choice->tool]
+                : ['type' => 'any'],
+        }];
     }
 
     /**

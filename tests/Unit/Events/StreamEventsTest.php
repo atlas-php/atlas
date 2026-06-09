@@ -107,6 +107,28 @@ it('StreamToolCallReceived broadcastAs returns StreamToolCallReceived', function
     expect($event->broadcastAs())->toBe('StreamToolCallReceived');
 });
 
+it('StreamToolCallReceived broadcastWith sends full tool-call strings by default', function () {
+    $event = new StreamToolCallReceived(
+        channel: new Channel('test'),
+        toolCalls: [['id' => 'call_1', 'name' => 'search', 'arguments' => str_repeat('x', 1000)]],
+    );
+
+    expect(mb_strlen($event->broadcastWith()['toolCalls'][0]['arguments']))->toBe(1000);
+});
+
+it('StreamToolCallReceived broadcastWith caps tool-call strings when configured', function () {
+    config()->set('atlas.broadcast.max_tool_payload_length', 100);
+
+    $event = new StreamToolCallReceived(
+        channel: new Channel('test'),
+        toolCalls: [['id' => 'call_1', 'name' => 'search', 'arguments' => str_repeat('x', 1000)]],
+    );
+
+    $capped = $event->broadcastWith()['toolCalls'][0];
+    expect(mb_strlen($capped['arguments']))->toBe(100)
+        ->and($capped['id'])->toBe('call_1'); // short values untouched
+});
+
 // ─── StreamStarted ─────────────────────────────────────────────────────────
 
 it('StreamStarted implements ShouldBroadcastNow', function () {

@@ -225,6 +225,27 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Broadcasting
+    |--------------------------------------------------------------------------
+    |
+    | The tool-call orchestration events (AgentToolCallStarted / Completed /
+    | Failed) broadcast the call's arguments, result, and error to live consumers
+    | such as an admin trace panel. Each broadcast string is capped to this many
+    | **bytes** (mb_strcut) so a large tool result/argument/error can't exceed the
+    | socket transport's per-message limit (Pusher ~10KB; Reverb configurable) —
+    | which would otherwise silently drop the event or close the connection.
+    |
+    | Default 2048 bytes is safe for any UTF-8 content under a 10KB transport limit
+    | with envelope overhead. Set 0 (or null / negative) to broadcast uncapped.
+    |
+    */
+
+    'broadcast' => [
+        'max_tool_payload_length' => env('ATLAS_BROADCAST_MAX_TOOL_PAYLOAD', 2048),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Middleware
     |--------------------------------------------------------------------------
     |

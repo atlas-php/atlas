@@ -4,7 +4,7 @@ Status of each provider's modalities against **real provider APIs**, exercised v
 sandbox harness (`sandbox/test-{provider}-provider.php` and feature scripts). This file
 records the date each modality last **passed a live API test** — not unit-test coverage.
 
-**Last full run: 2026-06-08** (Google/OpenAI/xAI) · **Image-to-image (reference media): 2026-06-08** · **Prompt caching + media replay: 2026-06-07** · **Provider-tools run: 2026-06-06**
+**Last full run: 2026-06-09** (all 4 providers — 2 transient infra failures: OpenAI TTS timeout, xAI voices 500) · **Forced tool choice (all 4 providers): 2026-06-09** · **Image-to-image (reference media): 2026-06-08** · **Prompt caching + media replay: 2026-06-07** · **Provider-tools run: 2026-06-06**
 
 Reproduce:
 - Per-provider suites: `cd sandbox && php test-{provider}-provider.php`
@@ -24,10 +24,10 @@ Both require the provider's API key in `sandbox/.env`.
 
 | Provider    | Text | Stream | Structured | Tools | Prov.Tools | Vision | Image | TTS | STT | Embeddings | Moderation | Rerank | Video | Voice | Last live pass |
 |-------------|:----:|:------:|:----------:|:-----:|:----------:|:------:|:-----:|:---:|:---:|:----------:|:----------:|:------:|:-----:|:-----:|:--------------:|
-| OpenAI      | ✅   | ✅     | ✅         | ✅    | ✅         | ✅     | ✅    | ✅  | ✅  | ✅         | ✅         | —      | ✅    | ⚠️    | 2026-06-06     |
-| Anthropic   | ✅   | ✅     | ✅         | ✅    | ✅         | ✅     | —     | —   | —   | —          | —          | —      | —     | —     | 2026-06-07     |
-| Google      | ✅   | ✅     | ✅         | ✅    | ⚠️         | ✅     | ✅    | —   | —   | ✅         | —          | —      | —     | —     | 2026-06-07     |
-| xAI         | ✅   | ✅     | ✅         | ✅    | ✅         | ✅     | ✅    | ✅  | —   | —          | —          | —      | ✅    | ⚠️    | 2026-06-07     |
+| OpenAI      | ✅   | ✅     | ✅         | ✅    | ✅         | ✅     | ✅    | ⚠️  | ✅  | ✅         | ✅         | —      | ✅    | ⚠️    | 2026-06-09     |
+| Anthropic   | ✅   | ✅     | ✅         | ✅    | ✅         | ✅     | —     | —   | —   | —          | —          | —      | —     | —     | 2026-06-09     |
+| Google      | ✅   | ✅     | ✅         | ✅    | ⚠️         | ✅     | ✅    | —   | —   | ✅         | —          | —      | —     | —     | 2026-06-09     |
+| xAI         | ✅   | ✅     | ✅         | ✅    | ✅         | ✅     | ✅    | ✅  | —   | —          | —          | —      | ✅    | ⚠️    | 2026-06-09     |
 | ElevenLabs  | —    | —      | —          | —     | —          | —      | —     | ❌  | ❌  | —          | —          | —      | —     | ⚠️    | —              |
 | Cohere      | —    | —      | —          | —     | —          | —      | —     | —   | —   | —          | —          | ❌     | —     | —     | —              |
 | Jina        | —    | —      | —          | —     | —          | —      | —     | —   | —   | —          | —          | ❌     | —     | —     | —              |
@@ -103,20 +103,33 @@ Reference image input to **image generation** — `Atlas::image(...)->withMedia(
 
 Each provider's image handler owns its own request shape — xAI does **not** accept OpenAI's multipart edits (it returns HTTP 415; it requires JSON), so it has a dedicated handler. Saved outputs: `sandbox/storage/providers/{google,openai,xai}/image-*-edit.png`. **Future image audits must re-run the reference-media test in each provider suite.**
 
+## Forced tool choice (live, 2026-06-09)
+
+Provider-normalized `tool_choice` verified end-to-end through Atlas (`sandbox/test-force-tools-live.php`). `->forceTools()` (tool_choice = required) is sent to each provider in its own shape (OpenAI/xAI string `required`, Anthropic `{type:any}`, Google `tool_config.mode=ANY`); the executor then relaxes the choice to `auto` after the opening step so the model still produces a final reply. Each test forces the model to call a probe tool on a trivial "just say hello" prompt it would otherwise answer in plain text.
+
+| Provider  | Model              | Forced tool called | Final reply after relaxation |
+|-----------|--------------------|:------------------:|:----------------------------:|
+| OpenAI    | gpt-4o-mini        | ✅                  | ✅ "Hello! How are you today?" |
+| Anthropic | claude-sonnet-4-5  | ✅                  | ✅ "Hello! 👋"                 |
+| Google    | gemini-2.5-flash   | ✅                  | ✅ "Hello back to you!"        |
+| xAI       | grok-4.3           | ✅                  | ✅ "Hello!"                    |
+
+**Specific named tool** (`->toolChoice(ToolChoice::tool('log_mood'))`) verified live on **all four providers**: with two tools available (`get_time` + `log_mood`), the forced tool is the one that opens the turn (not the other) — proving the choice targets the named tool, not just "some tool". Result: **16/16 live checks passed** (4 forceTools + 4 specific-tool, ×2 assertions). (Note: forcing a tool on OpenAI requires a valid strict-mode function schema — Atlas tools with `parameters()` already emit `additionalProperties:false`.)
+
 ## Per-provider results
 
 | Provider   | Live suite                 | Notes |
 |------------|----------------------------|-------|
-| Anthropic  | **17/17 passed** (06-07)   | Text, streaming, structured, tools, vision. Prompt caching (cache_control) + media-replay vision verified live (above). |
-| Google     | **23/23 passed** (06-08)   | Full modality suite green, incl. the new image-to-image test. Prompt caching (implicit) + media-replay vision verified live. Provider-tools observability gap unchanged (`google_search`/`code_execution` ground correctly but aren't mapped to `providerToolCalls`). |
-| OpenAI     | **36/36 passed** (06-08)   | Full suite green, incl. image-to-image edits. (The STT round-trip that aborted earlier runs completed this time.) |
-| xAI        | **21/21 passed** (06-08)   | Full suite green, incl. image-to-image (own JSON edits handler). Prompt caching (automatic) + media-replay vision (`grok-4.3`) verified live. Note: `grok-2-vision-1212` retired → use `grok-4.3` for vision. |
+| Anthropic  | **17/17 passed** (06-09)   | Text, streaming, structured, tools, vision — all green. Prompt caching (cache_control) + media-replay vision verified live (above). |
+| Google     | **23/23 passed** (06-09)   | Full modality suite green, incl. image-to-image. Provider-tools observability gap unchanged (`google_search`/`code_execution` ground correctly but aren't mapped to `providerToolCalls`). |
+| OpenAI     | **35/36 passed** (06-09)   | Text/tools/streaming/structured/vision/image/STT/video all green. **1 transient failure:** text-to-speech hit a cURL-28 120s timeout on `/audio/speech` (provider/network, not a code regression) — re-run to confirm. |
+| xAI        | **20/21 passed** (06-09)   | Full suite green incl. image-to-image. **1 transient failure:** `voices` list returned HTTP 500 from xAI (server-side, unrelated to this change). Note: `grok-2-vision-1212` retired → use `grok-4.3` for vision. |
 | ElevenLabs | **not verified**           | Blocked: sandbox `config/atlas.php` has no `elevenlabs` provider block, so the base URL is empty. Package URL resolution is correct — purely a sandbox config gap. |
 | Cohere     | **not verified**           | No `COHERE_API_KEY` in `sandbox/.env`. Rerank handler covered by unit tests only. |
 | Jina       | **not verified**           | No `JINA_API_KEY` in `sandbox/.env`. Rerank handler covered by unit tests only. |
 | Ollama     | **not run**                | Points at a LAN host (`OLLAMA_URL`); not exercised in this run. |
 | LM Studio  | **not run**                | Requires a local LM Studio instance; not exercised in this run. |
 
-## Package checks (2026-06-08)
+## Package checks (2026-06-09)
 
-`composer check` — **Pint ✓ · PHPStan 0 errors ✓ · 2881 Pest tests ✓**.
+`composer check` — **Pint ✓ · PHPStan 0 errors ✓ · 2929 Pest tests ✓** (incl. the provider-normalized `tool_choice` suite + the broadcast payload-cap default fix).

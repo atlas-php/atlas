@@ -248,6 +248,44 @@ $response = Atlas::text('openai', 'gpt-4o')
     ->asText();
 ```
 
+## Forcing Tool Use (Tool Choice)
+
+By default the model decides whether to call a tool. Use a **tool choice** to control that — Atlas translates it to each provider's own `tool_choice` shape, so you never hand-write provider-specific payloads.
+
+```php
+use Atlasphp\Atlas\Tools\ToolChoice;
+
+// Require the model to call *some* tool this turn (sugar: ->forceTools()).
+Atlas::text('openai', 'gpt-4o')
+    ->withTools([LookupOrderTool::class])
+    ->forceTools()                      // === ->toolChoice(ToolChoice::required())
+    ->message('Where is my order?')
+    ->asText();
+
+// Require a *specific* tool by name.
+->toolChoice(ToolChoice::tool('lookup_order'))
+
+// Let the model decide (the default), or forbid tools entirely.
+->toolChoice(ToolChoice::auto())
+->toolChoice(ToolChoice::none())
+```
+
+The choice maps per provider — `required` becomes the OpenAI/xAI/Chat-Completions string `"required"`, Anthropic `{"type":"any"}`, and Google `tool_config.function_calling_config.mode = "ANY"`; a named tool maps to each provider's "force this function" form.
+
+**In an agent tool loop**, a forced choice is applied only to the **opening step** and then relaxed to `auto`, so the model calls a tool to start the turn but can still produce a final text reply (a permanently-forced choice would loop until `max_steps`). Agents can declare a default in code:
+
+```php
+class SupportAgent extends Agent
+{
+    public function toolChoice(): ?ToolChoice
+    {
+        return ToolChoice::required();
+    }
+}
+```
+
+> Forcing a tool on OpenAI uses strict-mode function schemas — Atlas tools that declare `parameters()` already emit a valid strict schema. Tool choice is ignored during structured output (`->asStructured()`), which forces its own schema tool. Providers without a native tool-choice knob (e.g. provider-native server tools) fall back to their default behavior.
+
 ## Provider Compatibility
 
 Atlas adapts tool definitions to each provider's tool-calling format. For example, the Google provider normalizes tool parameter schemas

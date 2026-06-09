@@ -14,6 +14,7 @@ use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Schema\Schema;
+use Atlasphp\Atlas\Tools\ToolChoice;
 use Atlasphp\Atlas\Tools\ToolDefinition;
 use Illuminate\Support\Facades\Http;
 
@@ -45,8 +46,60 @@ function makeOpenAiTextRequest(array $overrides = []): TextRequest
         tools: $overrides['tools'] ?? [],
         providerTools: $overrides['providerTools'] ?? [],
         providerOptions: $overrides['providerOptions'] ?? [],
+        toolChoice: $overrides['toolChoice'] ?? null,
     );
 }
+
+it('emits tool_choice when a choice is set alongside tools', function () {
+    Http::fake([
+        'api.openai.com/v1/responses' => Http::response([
+            'status' => 'completed',
+            'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => 'ok']]]],
+            'usage' => ['input_tokens' => 1, 'output_tokens' => 1],
+        ]),
+    ]);
+
+    makeTextHandler()->text(makeOpenAiTextRequest([
+        'tools' => [new ToolDefinition('get_weather', 'Get weather', [])],
+        'toolChoice' => ToolChoice::required(),
+    ]));
+
+    Http::assertSent(fn ($request) => isset($request['tools']) && $request['tool_choice'] === 'required');
+});
+
+it('omits the normalized tool_choice when there are no tools', function () {
+    Http::fake([
+        'api.openai.com/v1/responses' => Http::response([
+            'status' => 'completed',
+            'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => 'ok']]]],
+            'usage' => ['input_tokens' => 1, 'output_tokens' => 1],
+        ]),
+    ]);
+
+    makeTextHandler()->text(makeOpenAiTextRequest([
+        'toolChoice' => ToolChoice::required(),
+    ]));
+
+    Http::assertSent(fn ($request) => ! isset($request['tool_choice']));
+});
+
+it('does not emit a normalized tool_choice during structured output', function () {
+    Http::fake([
+        'api.openai.com/v1/responses' => Http::response([
+            'status' => 'completed',
+            'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => '{}']]]],
+            'usage' => ['input_tokens' => 1, 'output_tokens' => 1],
+        ]),
+    ]);
+
+    makeTextHandler()->structured(makeOpenAiTextRequest([
+        'tools' => [new ToolDefinition('get_weather', 'Get weather', [])],
+        'toolChoice' => ToolChoice::required(),
+        'schema' => new Schema('out', 'Out', ['type' => 'object', 'properties' => (object) []]),
+    ]));
+
+    Http::assertSent(fn ($request) => ! isset($request['tool_choice']));
+});
 
 it('sends text request to /v1/responses', function () {
     Http::fake([

@@ -11,6 +11,7 @@ use Atlasphp\Atlas\Providers\ChatCompletions\MediaResolver;
 use Atlasphp\Atlas\Providers\ChatCompletions\MessageFactory;
 use Atlasphp\Atlas\Providers\ChatCompletions\ResponseParser;
 use Atlasphp\Atlas\Providers\ChatCompletions\ToolMapper;
+use Atlasphp\Atlas\Providers\Concerns\AppliesToolChoice;
 use Atlasphp\Atlas\Providers\Handlers\TextHandler;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Providers\SseParser;
@@ -29,6 +30,8 @@ use Generator;
  */
 class Text implements TextHandler
 {
+    use AppliesToolChoice;
+
     public function __construct(
         protected readonly ProviderConfig $config,
         protected readonly HttpClient $http,
@@ -116,6 +119,7 @@ class Text implements TextHandler
 
         if ($request->tools !== []) {
             $body['tools'] = $this->toolMapper->mapTools($request->tools);
+            $body = $this->applyToolChoice($body, $request, $this->toolMapper);
         }
 
         return array_merge($body, $request->providerOptions);

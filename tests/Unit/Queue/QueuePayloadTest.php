@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Enums\FinishReason;
+use Atlasphp\Atlas\Enums\ToolChoiceMode;
 use Atlasphp\Atlas\Pending\AudioRequest;
 use Atlasphp\Atlas\Pending\EmbedRequest;
 use Atlasphp\Atlas\Pending\ImageRequest;
@@ -14,6 +15,7 @@ use Atlasphp\Atlas\Pending\VideoRequest;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
+use Atlasphp\Atlas\Providers\Tools\WebSearch;
 use Atlasphp\Atlas\Responses\AudioResponse;
 use Atlasphp\Atlas\Responses\EmbeddingsResponse;
 use Atlasphp\Atlas\Responses\ImageResponse;
@@ -24,6 +26,7 @@ use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\Usage;
 use Atlasphp\Atlas\Responses\VideoResponse;
+use Atlasphp\Atlas\Tools\ToolChoice;
 
 // ─── TextRequest ────────────────────────────────────────────────────────────
 
@@ -80,6 +83,42 @@ it('TextRequest preserves an explicit cache override across the queue boundary',
     TextRequest::executeFromPayload($payload, 'asText');
 
     expect($captured->cache)->toBeFalse();
+});
+
+it('TextRequest executeFromPayload restores providerTools and toolChoice', function () {
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
+    $captured = null;
+    $driver->shouldReceive('text')->andReturnUsing(function ($req) use (&$captured) {
+        $captured = $req;
+
+        return new TextResponse('ok', new Usage(1, 1), FinishReason::Stop);
+    });
+    app(ProviderRegistryContract::class)->register('openai', fn () => $driver);
+
+    TextRequest::executeFromPayload([
+        'provider' => 'openai',
+        'model' => 'gpt-5',
+        'instructions' => null,
+        'message' => 'Hello',
+        'messageMedia' => [],
+        'messages' => [],
+        'maxTokens' => null,
+        'temperature' => null,
+        'tools' => [],
+        'providerTools' => [new WebSearch],
+        'toolChoice' => ['mode' => 'required', 'tool' => null],
+        'maxSteps' => null,
+        'concurrent' => true,
+        'schema' => null,
+        'providerOptions' => [],
+        'meta' => [],
+    ], 'asText');
+
+    expect($captured->providerTools)->toHaveCount(1)
+        ->and($captured->providerTools[0])->toBeInstanceOf(WebSearch::class)
+        ->and($captured->toolChoice)->toBeInstanceOf(ToolChoice::class)
+        ->and($captured->toolChoice->mode)->toBe(ToolChoiceMode::Required);
 });
 
 it('TextRequest toQueuePayload serializes tools as class strings', function () {
