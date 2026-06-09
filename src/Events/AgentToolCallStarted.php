@@ -48,8 +48,9 @@ class AgentToolCallStarted implements ShouldBroadcastNow
     }
 
     /**
-     * Cap each string argument value to the configured broadcast limit (full by
-     * default), so large arguments can't overflow the socket transport.
+     * Cap each argument value to the configured broadcast limit, so large
+     * arguments — including a big nested structure — can't overflow the socket
+     * transport.
      *
      * @param  array<string, mixed>  $arguments
      * @return array<string, mixed>
@@ -59,7 +60,7 @@ class AgentToolCallStarted implements ShouldBroadcastNow
         $capped = [];
 
         foreach ($arguments as $key => $value) {
-            $capped[$key] = is_string($value) ? $this->capBroadcastPayload($value) : $value;
+            $capped[$key] = $this->capBroadcastValue($value);
         }
 
         return $capped;

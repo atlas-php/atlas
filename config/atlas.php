@@ -230,19 +230,18 @@ return [
     |
     | The tool-call orchestration events (AgentToolCallStarted / Completed /
     | Failed) broadcast the call's arguments, result, and error to live consumers
-    | such as an admin trace panel. By default the full payload is broadcast so
-    | nothing is hidden from view. If your socket transport (Reverb / Pusher)
-    | limits message size, set a per-string cap to truncate large payloads
-    | before they are broadcast.
+    | such as an admin trace panel. Each broadcast string is capped to this many
+    | **bytes** (mb_strcut) so a large tool result/argument/error can't exceed the
+    | socket transport's per-message limit (Pusher ~10KB; Reverb configurable) —
+    | which would otherwise silently drop the event or close the connection.
     |
-    | The cap counts characters (mb_substr), not bytes — for multibyte content
-    | set it below your transport's byte limit accordingly. null / 0 / negative
-    | (the default) = no cap.
+    | Default 2048 bytes is safe for any UTF-8 content under a 10KB transport limit
+    | with envelope overhead. Set 0 (or null / negative) to broadcast uncapped.
     |
     */
 
     'broadcast' => [
-        'max_tool_payload_length' => env('ATLAS_BROADCAST_MAX_TOOL_PAYLOAD'),
+        'max_tool_payload_length' => env('ATLAS_BROADCAST_MAX_TOOL_PAYLOAD', 2048),
     ],
 
     /*

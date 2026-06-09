@@ -16,11 +16,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 ### Changed
 
-- Broadcasted tool-call events now send the full arguments/result/error by default (previously truncated). Set `ATLAS_BROADCAST_MAX_TOOL_PAYLOAD` to cap the length if your socket transport limits message size.
+- Broadcasted tool-call events now cap each argument/result/error to **2048 bytes** by default (configurable via `ATLAS_BROADCAST_MAX_TOOL_PAYLOAD`; set `0` for uncapped), so large tool payloads stay under socket transport limits (Pusher/Reverb) instead of silently dropping the event or closing the connection.
 
 ### Migration
 
-No breaking changes. If you relied on the old broadcast truncation to stay under a socket size limit, set `ATLAS_BROADCAST_MAX_TOOL_PAYLOAD` (e.g. `8000`).
+No breaking changes. Broadcast tool payloads are capped to 2048 bytes by default — set `ATLAS_BROADCAST_MAX_TOOL_PAYLOAD=0` to broadcast uncapped, or a higher byte value to suit your transport.
 
 ---
 

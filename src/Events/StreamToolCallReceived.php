@@ -42,7 +42,7 @@ class StreamToolCallReceived implements ShouldBroadcastNow
         return [
             'toolCalls' => array_map(
                 fn (array $call): array => array_map(
-                    fn (mixed $value): mixed => is_string($value) ? $this->capBroadcastPayload($value) : $value,
+                    fn (mixed $value): mixed => $this->capBroadcastValue($value),
                     $call,
                 ),
                 $this->toolCalls,
