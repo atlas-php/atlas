@@ -82,7 +82,7 @@ return [
         'anthropic' => [
             'api_key' => env('ANTHROPIC_API_KEY'),
             'url' => env('ANTHROPIC_URL', 'https://api.anthropic.com/v1'),
-            'version' => env('ANTHROPIC_VERSION', '2024-10-22'),
+            'version' => env('ANTHROPIC_VERSION', '2023-06-01'),
         ],
 
         'google' => [

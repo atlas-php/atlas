@@ -169,7 +169,7 @@ Text, structured output, streaming, vision, tool calling.
 
 ```env
 ANTHROPIC_API_KEY=sk-ant-...
-ANTHROPIC_VERSION=2024-10-22    # optional, API version
+ANTHROPIC_VERSION=2023-06-01    # optional, API version
 ANTHROPIC_URL=https://api.anthropic.com/v1  # optional
 ```
 
@@ -177,7 +177,7 @@ ANTHROPIC_URL=https://api.anthropic.com/v1  # optional
 'anthropic' => [
     'api_key' => env('ANTHROPIC_API_KEY'),
     'url'     => env('ANTHROPIC_URL', 'https://api.anthropic.com/v1'),
-    'version' => env('ANTHROPIC_VERSION', '2024-10-22'),
+    'version' => env('ANTHROPIC_VERSION', '2023-06-01'),
 ],
 ```
 
