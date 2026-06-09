@@ -9,8 +9,18 @@ use Atlasphp\Atlas\Providers\Tools\ProviderTool;
 use Atlasphp\Atlas\Providers\Tools\ProviderToolRegistry;
 use Atlasphp\Atlas\Providers\Tools\WebFetch;
 use Atlasphp\Atlas\Providers\Tools\WebSearch;
+use Atlasphp\Atlas\Tools\ToolChoice;
 use Atlasphp\Atlas\Tools\ToolDefinition;
 use Illuminate\Support\Facades\Log;
+
+it('maps tool choice to the Anthropic object shape', function (ToolChoice $choice, array $expected) {
+    expect((new ToolMapper)->mapToolChoice($choice))->toBe(['tool_choice' => $expected]);
+})->with([
+    'auto' => [ToolChoice::auto(), ['type' => 'auto']],
+    'required' => [ToolChoice::required(), ['type' => 'any']],
+    'none' => [ToolChoice::none(), ['type' => 'none']],
+    'specific tool' => [ToolChoice::tool('get_weather'), ['type' => 'tool', 'name' => 'get_weather']],
+]);
 
 it('maps tools to input_schema format', function () {
     $mapper = new ToolMapper;

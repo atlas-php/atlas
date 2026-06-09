@@ -38,6 +38,7 @@ use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Schema\Schema;
 use Atlasphp\Atlas\Support\VariableInterpolator;
 use Atlasphp\Atlas\Tools\Tool;
+use Atlasphp\Atlas\Tools\ToolChoice;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
@@ -88,6 +89,8 @@ class TextRequest implements QueueableRequest
     protected bool $concurrent = false;
 
     protected ?bool $cache = null;
+
+    protected ?ToolChoice $toolChoice = null;
 
     public function __construct(
         protected readonly Provider|string $provider,
@@ -175,6 +178,28 @@ class TextRequest implements QueueableRequest
     public function withMaxSteps(?int $maxSteps): static
     {
         $this->maxSteps = $maxSteps;
+
+        return $this;
+    }
+
+    /**
+     * Set how the model chooses tools (auto / required / none / a specific tool).
+     * Atlas emits the correct provider shape — no provider-specific payload needed.
+     */
+    public function toolChoice(ToolChoice $toolChoice): static
+    {
+        $this->toolChoice = $toolChoice;
+
+        return $this;
+    }
+
+    /**
+     * Require the model to call a tool this turn — sugar for
+     * `toolChoice(ToolChoice::required())`.
+     */
+    public function forceTools(): static
+    {
+        $this->toolChoice = ToolChoice::required();
 
         return $this;
     }
@@ -384,6 +409,7 @@ class TextRequest implements QueueableRequest
             tools: array_map(fn (Tool $t) => $t->toDefinition(), $resolvedTools),
             providerTools: $this->providerTools,
             providerOptions: $this->providerOptions,
+            toolChoice: $this->toolChoice,
             middleware: $this->middleware,
             meta: $this->meta,
             cache: $this->cache ?? (bool) config('atlas.prompt_cache', true),
@@ -408,6 +434,7 @@ class TextRequest implements QueueableRequest
             'temperature' => $this->temperature,
             'tools' => array_map(fn (Tool|string $tool): string => is_string($tool) ? $tool : $tool::class, $this->tools),
             'providerTools' => $this->providerTools,
+            'toolChoice' => $this->toolChoice,
             'maxSteps' => $this->maxSteps,
             'concurrent' => $this->concurrent,
             'cache' => $this->cache,
@@ -466,6 +493,10 @@ class TextRequest implements QueueableRequest
 
         if (! empty($payload['providerTools'])) {
             $request->withProviderTools($payload['providerTools']);
+        }
+
+        if (! empty($payload['toolChoice'])) {
+            $request->toolChoice($payload['toolChoice']);
         }
 
         if (array_key_exists('maxSteps', $payload)) {

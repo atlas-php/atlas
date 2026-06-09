@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Executor;
 
 use Atlasphp\Atlas\Enums\FinishReason;
+use Atlasphp\Atlas\Enums\ToolChoiceMode;
 use Atlasphp\Atlas\Events\AgentCompleted;
 use Atlasphp\Atlas\Events\AgentMaxStepsExceeded;
 use Atlasphp\Atlas\Events\AgentStarted;
@@ -25,6 +26,7 @@ use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\Usage;
 use Atlasphp\Atlas\Tools\Tool;
+use Atlasphp\Atlas\Tools\ToolChoice;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Support\Facades\Concurrency;
 use Illuminate\Support\Facades\DB;
@@ -203,6 +205,14 @@ class AgentExecutor
                 }
 
                 $request = $request->withAppendedMessages($messagesToAppend);
+
+                // A forced tool choice applies only to the opening step. Relaxing
+                // it to `auto` after step 1 lets the model produce a final text
+                // reply on a later step — a static `required` would compel a tool
+                // call every step and loop until maxSteps.
+                if ($stepCount === 1 && $request->toolChoice?->mode === ToolChoiceMode::Required) {
+                    $request = $request->withToolChoice(ToolChoice::auto());
+                }
             }
 
             $totalUsage = $this->mergeUsage($steps);

@@ -116,6 +116,11 @@ class Text implements TextHandler
 
         if ($request->tools !== []) {
             $body['tools'] = $this->toolMapper->mapTools($request->tools);
+
+            // Skipped for structured output, which forces its own choice.
+            if ($request->toolChoice !== null && $request->schema === null) {
+                $body = array_merge($body, $this->toolMapper->mapToolChoice($request->toolChoice));
+            }
         }
 
         return array_merge($body, $request->providerOptions);

@@ -8,7 +8,18 @@ use Atlasphp\Atlas\Providers\Google\ToolMapper;
 use Atlasphp\Atlas\Providers\Tools\CodeExecution;
 use Atlasphp\Atlas\Providers\Tools\GoogleSearch;
 use Atlasphp\Atlas\Providers\Tools\WebSearch;
+use Atlasphp\Atlas\Tools\ToolChoice;
 use Atlasphp\Atlas\Tools\ToolDefinition;
+
+it('maps tool choice to Gemini tool_config', function (ToolChoice $choice, array $expectedConfig) {
+    expect((new ToolMapper)->mapToolChoice($choice))
+        ->toBe(['tool_config' => ['function_calling_config' => $expectedConfig]]);
+})->with([
+    'auto' => [ToolChoice::auto(), ['mode' => 'AUTO']],
+    'required' => [ToolChoice::required(), ['mode' => 'ANY']],
+    'none' => [ToolChoice::none(), ['mode' => 'NONE']],
+    'specific tool' => [ToolChoice::tool('get_weather'), ['mode' => 'ANY', 'allowed_function_names' => ['get_weather']]],
+]);
 
 it('maps tools to function_declarations format', function () {
     $mapper = new ToolMapper;

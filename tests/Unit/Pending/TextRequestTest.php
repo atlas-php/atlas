@@ -6,6 +6,7 @@ use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Enums\ToolChoiceMode;
 use Atlasphp\Atlas\Events\ModalityCompleted;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Messages\AssistantMessage;
@@ -27,6 +28,7 @@ use Atlasphp\Atlas\Schema\Schema;
 use Atlasphp\Atlas\Testing\StreamResponseFake;
 use Atlasphp\Atlas\Testing\TextResponseFake;
 use Atlasphp\Atlas\Tools\Tool;
+use Atlasphp\Atlas\Tools\ToolChoice;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Support\Facades\Event;
 
@@ -199,6 +201,34 @@ it('withTools includes tool definitions in built request', function () {
 
     expect($request->tools)->toHaveCount(1);
     expect($request->tools[0]->name)->toBe('test_tool');
+});
+
+it('forceTools sets a required tool choice on the built request', function () {
+    $request = createTextPending()->forceTools()->buildRequest();
+
+    expect($request->toolChoice?->mode)->toBe(ToolChoiceMode::Required)
+        ->and($request->toolChoice?->tool)->toBeNull();
+});
+
+it('toolChoice threads a specific tool through to the built request', function () {
+    $request = createTextPending()->toolChoice(ToolChoice::tool('get_weather'))->buildRequest();
+
+    expect($request->toolChoice?->mode)->toBe(ToolChoiceMode::Required)
+        ->and($request->toolChoice?->tool)->toBe('get_weather');
+});
+
+it('serializes and restores the tool choice across the queue payload', function () {
+    $payload = createTextPending()->forceTools()->toQueuePayload();
+
+    expect($payload['toolChoice'])->toBeInstanceOf(ToolChoice::class)
+        ->and($payload['toolChoice']->mode)->toBe(ToolChoiceMode::Required);
+});
+
+it('chaining toolChoice/forceTools returns $this', function () {
+    $pending = createTextPending();
+
+    expect($pending->toolChoice(ToolChoice::auto()))->toBe($pending)
+        ->and($pending->forceTools())->toBe($pending);
 });
 
 it('withTools accumulates across multiple calls', function () {

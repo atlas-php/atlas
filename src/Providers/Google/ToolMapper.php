@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Providers\Google;
 
+use Atlasphp\Atlas\Enums\ToolChoiceMode;
 use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Providers\Contracts\ToolMapperContract;
 use Atlasphp\Atlas\Providers\Tools\CodeExecution;
 use Atlasphp\Atlas\Providers\Tools\GoogleSearch;
 use Atlasphp\Atlas\Providers\Tools\ProviderTool;
+use Atlasphp\Atlas\Tools\ToolChoice;
 use Atlasphp\Atlas\Tools\ToolDefinition;
 
 /**
@@ -31,6 +33,26 @@ class ToolMapper implements ToolMapperContract
                 ? $this->sanitizeSchema($tool->parameters)
                 : ['type' => 'object', 'properties' => (object) []],
         ], $tools);
+    }
+
+    /**
+     * Map a normalized tool choice to Gemini's `tool_config`:
+     * `function_calling_config.mode` AUTO / ANY (require a call) / NONE, with
+     * `allowed_function_names` to force a specific tool.
+     *
+     * @return array<string, mixed>
+     */
+    public function mapToolChoice(ToolChoice $choice): array
+    {
+        $config = match ($choice->mode) {
+            ToolChoiceMode::Auto => ['mode' => 'AUTO'],
+            ToolChoiceMode::None => ['mode' => 'NONE'],
+            ToolChoiceMode::Required => $choice->tool !== null
+                ? ['mode' => 'ANY', 'allowed_function_names' => [$choice->tool]]
+                : ['mode' => 'ANY'],
+        };
+
+        return ['tool_config' => ['function_calling_config' => $config]];
     }
 
     /**

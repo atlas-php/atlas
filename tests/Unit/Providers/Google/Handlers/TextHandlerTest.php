@@ -13,6 +13,7 @@ use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Schema\Schema;
+use Atlasphp\Atlas\Tools\ToolChoice;
 use Atlasphp\Atlas\Tools\ToolDefinition;
 use Illuminate\Support\Facades\Http;
 
@@ -44,8 +45,20 @@ function makeGoogleTextRequest(array $overrides = []): TextRequest
         tools: $overrides['tools'] ?? [],
         providerTools: $overrides['providerTools'] ?? [],
         providerOptions: $overrides['providerOptions'] ?? [],
+        toolChoice: $overrides['toolChoice'] ?? null,
     );
 }
+
+it('emits Gemini tool_config when a choice is set with tools', function () {
+    Http::fake(['generativelanguage.googleapis.com/*' => Http::response(fakeGeminiTextResponse())]);
+
+    makeGoogleTextHandler()->text(makeGoogleTextRequest([
+        'tools' => [new ToolDefinition('get_weather', 'Get weather', ['type' => 'object'])],
+        'toolChoice' => ToolChoice::required(),
+    ]));
+
+    Http::assertSent(fn ($request) => $request['tool_config'] === ['function_calling_config' => ['mode' => 'ANY']]);
+});
 
 function fakeGeminiTextResponse(array $overrides = []): array
 {

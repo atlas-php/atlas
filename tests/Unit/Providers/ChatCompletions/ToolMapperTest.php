@@ -4,8 +4,18 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Providers\ChatCompletions\ToolMapper;
 use Atlasphp\Atlas\Providers\Tools\WebSearch;
+use Atlasphp\Atlas\Tools\ToolChoice;
 use Atlasphp\Atlas\Tools\ToolDefinition;
 use Illuminate\Support\Facades\Log;
+
+it('maps tool choice to the Chat Completions shape', function (ToolChoice $choice, mixed $expected) {
+    expect((new ToolMapper)->mapToolChoice($choice))->toBe(['tool_choice' => $expected]);
+})->with([
+    'auto' => [ToolChoice::auto(), 'auto'],
+    'required' => [ToolChoice::required(), 'required'],
+    'none' => [ToolChoice::none(), 'none'],
+    'specific tool' => [ToolChoice::tool('get_weather'), ['type' => 'function', 'function' => ['name' => 'get_weather']]],
+]);
 
 it('maps tool definitions to nested function format', function () {
     $mapper = new ToolMapper;

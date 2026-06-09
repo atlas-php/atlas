@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Requests;
 
 use Atlasphp\Atlas\Schema\Schema;
+use Atlasphp\Atlas\Tools\ToolChoice;
 
 /**
  * Request object for text generation, streaming, and structured output.
@@ -32,6 +33,7 @@ final class TextRequest
         public readonly array $tools,
         public readonly array $providerTools,
         public readonly array $providerOptions,
+        public readonly ?ToolChoice $toolChoice = null,
         public readonly array $middleware = [],
         public readonly array $meta = [],
         public readonly bool $cache = false,
@@ -56,6 +58,7 @@ final class TextRequest
             tools: $this->tools,
             providerTools: $this->providerTools,
             providerOptions: $this->providerOptions,
+            toolChoice: $this->toolChoice,
             middleware: $this->middleware,
             meta: $this->meta,
             cache: $this->cache,
@@ -81,6 +84,7 @@ final class TextRequest
             tools: $tools,
             providerTools: $this->providerTools,
             providerOptions: $this->providerOptions,
+            toolChoice: $this->toolChoice,
             middleware: $this->middleware,
             meta: $this->meta,
             cache: $this->cache,
@@ -107,6 +111,7 @@ final class TextRequest
             tools: $this->tools,
             providerTools: $this->providerTools,
             providerOptions: $this->providerOptions,
+            toolChoice: $this->toolChoice,
             middleware: $this->middleware,
             meta: $this->meta,
             cache: $this->cache,
@@ -132,6 +137,34 @@ final class TextRequest
             tools: $this->tools,
             providerTools: $this->providerTools,
             providerOptions: $this->providerOptions,
+            toolChoice: $this->toolChoice,
+            middleware: $this->middleware,
+            meta: $this->meta,
+            cache: $this->cache,
+        );
+    }
+
+    /**
+     * Return a copy with the tool choice replaced.
+     *
+     * Used by the executor to relax a forced choice after the opening step so the
+     * model can still produce a final text reply.
+     */
+    public function withToolChoice(?ToolChoice $toolChoice): self
+    {
+        return new self(
+            model: $this->model,
+            instructions: $this->instructions,
+            message: $this->message,
+            messageMedia: $this->messageMedia,
+            messages: $this->messages,
+            maxTokens: $this->maxTokens,
+            temperature: $this->temperature,
+            schema: $this->schema,
+            tools: $this->tools,
+            providerTools: $this->providerTools,
+            providerOptions: $this->providerOptions,
+            toolChoice: $toolChoice,
             middleware: $this->middleware,
             meta: $this->meta,
             cache: $this->cache,
