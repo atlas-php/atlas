@@ -50,4 +50,24 @@ final class ToolChoice
     {
         return $this->mode === ToolChoiceMode::Required && $this->tool !== null;
     }
+
+    /**
+     * Primitive representation for queue serialization (survives any queue driver).
+     *
+     * @return array{mode: string, tool: ?string}
+     */
+    public function toArray(): array
+    {
+        return ['mode' => $this->mode->value, 'tool' => $this->tool];
+    }
+
+    /**
+     * Rebuild from {@see toArray()} output.
+     *
+     * @param  array{mode: string, tool?: ?string}  $data
+     */
+    public static function fromArray(array $data): self
+    {
+        return new self(ToolChoiceMode::from($data['mode']), $data['tool'] ?? null);
+    }
 }

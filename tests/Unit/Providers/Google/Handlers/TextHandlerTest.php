@@ -60,6 +60,18 @@ it('emits Gemini tool_config when a choice is set with tools', function () {
     Http::assertSent(fn ($request) => $request['tool_config'] === ['function_calling_config' => ['mode' => 'ANY']]);
 });
 
+it('does not emit tool_config during structured output', function () {
+    Http::fake(['generativelanguage.googleapis.com/*' => Http::response(fakeGeminiTextResponse())]);
+
+    makeGoogleTextHandler()->text(makeGoogleTextRequest([
+        'tools' => [new ToolDefinition('get_weather', 'Get weather', ['type' => 'object'])],
+        'toolChoice' => ToolChoice::required(),
+        'schema' => new Schema('out', 'Out', ['type' => 'object', 'properties' => (object) []]),
+    ]));
+
+    Http::assertSent(fn ($request) => ! isset($request['tool_config']));
+});
+
 function fakeGeminiTextResponse(array $overrides = []): array
 {
     return [

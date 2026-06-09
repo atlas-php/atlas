@@ -8,19 +8,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 ---
 
-## [Unreleased]
+## [v3.4.0](https://github.com/atlas-php/atlas/releases/tag/v3.4.0) - 2026-06-09
+
+### Added
+
+- Force tool calls with `->forceTools()` or `->toolChoice(...)` — require any tool, a specific tool, `auto`, or `none`. Atlas sends the right format for every provider; in agent loops it forces the first step then relaxes so the model still replies.
 
 ### Changed
 
-- Tool-call orchestration events (`AgentToolCallStarted` / `AgentToolCallCompleted` / `AgentToolCallFailed`) now broadcast the call's **full** arguments, result, and error by default, instead of hard-truncating to 200/500 characters — so a live trace consumer (e.g. an admin tool panel) sees the complete payload. A new `atlas.broadcast.max_tool_payload_length` config (env `ATLAS_BROADCAST_MAX_TOOL_PAYLOAD`, default `null` = no cap) re-introduces a per-string character cap for deployments whose socket transport (Reverb / Pusher) limits message size.
+- Broadcasted tool-call events now send the full arguments/result/error by default (previously truncated). Set `ATLAS_BROADCAST_MAX_TOOL_PAYLOAD` to cap the length if your socket transport limits message size.
 
 ### Migration
 
-No code changes required. If you relied on the old 200/500-char broadcast caps to stay under a socket message-size limit, set `ATLAS_BROADCAST_MAX_TOOL_PAYLOAD` (e.g. `8000`).
+No breaking changes. If you relied on the old broadcast truncation to stay under a socket size limit, set `ATLAS_BROADCAST_MAX_TOOL_PAYLOAD` (e.g. `8000`).
 
 ---
 
-## [v3.4.0](https://github.com/atlas-php/atlas/releases/tag/v3.4.0) - 2026-06-08
+## [v3.3.2](https://github.com/atlas-php/atlas/releases/tag/v3.3.2) - 2026-06-08
 
 ### Fixed
 

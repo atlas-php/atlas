@@ -4,7 +4,7 @@ Status of each provider's modalities against **real provider APIs**, exercised v
 sandbox harness (`sandbox/test-{provider}-provider.php` and feature scripts). This file
 records the date each modality last **passed a live API test** — not unit-test coverage.
 
-**Last full run: 2026-06-08** (Google/OpenAI/xAI) · **Image-to-image (reference media): 2026-06-08** · **Prompt caching + media replay: 2026-06-07** · **Provider-tools run: 2026-06-06**
+**Last full run: 2026-06-08** (Google/OpenAI/xAI) · **Forced tool choice (all 4 providers): 2026-06-09** · **Image-to-image (reference media): 2026-06-08** · **Prompt caching + media replay: 2026-06-07** · **Provider-tools run: 2026-06-06**
 
 Reproduce:
 - Per-provider suites: `cd sandbox && php test-{provider}-provider.php`
@@ -103,6 +103,19 @@ Reference image input to **image generation** — `Atlas::image(...)->withMedia(
 
 Each provider's image handler owns its own request shape — xAI does **not** accept OpenAI's multipart edits (it returns HTTP 415; it requires JSON), so it has a dedicated handler. Saved outputs: `sandbox/storage/providers/{google,openai,xai}/image-*-edit.png`. **Future image audits must re-run the reference-media test in each provider suite.**
 
+## Forced tool choice (live, 2026-06-09)
+
+Provider-normalized `tool_choice` verified end-to-end through Atlas (`sandbox/test-force-tools-live.php`). `->forceTools()` (tool_choice = required) is sent to each provider in its own shape (OpenAI/xAI string `required`, Anthropic `{type:any}`, Google `tool_config.mode=ANY`); the executor then relaxes the choice to `auto` after the opening step so the model still produces a final reply. Each test forces the model to call a probe tool on a trivial "just say hello" prompt it would otherwise answer in plain text.
+
+| Provider  | Model              | Forced tool called | Final reply after relaxation |
+|-----------|--------------------|:------------------:|:----------------------------:|
+| OpenAI    | gpt-4o-mini        | ✅                  | ✅ "Hello! How are you today?" |
+| Anthropic | claude-sonnet-4-5  | ✅                  | ✅ "Hello! 👋"                 |
+| Google    | gemini-2.5-flash   | ✅                  | ✅ "Hello back to you!"        |
+| xAI       | grok-4.3           | ✅                  | ✅ "Hello!"                    |
+
+**Specific named tool** (`->toolChoice(ToolChoice::tool('log_mood'))`) verified live on **all four providers**: with two tools available (`get_time` + `log_mood`), the forced tool is the one that opens the turn (not the other) — proving the choice targets the named tool, not just "some tool". Result: **16/16 live checks passed** (4 forceTools + 4 specific-tool, ×2 assertions). (Note: forcing a tool on OpenAI requires a valid strict-mode function schema — Atlas tools with `parameters()` already emit `additionalProperties:false`.)
+
 ## Per-provider results
 
 | Provider   | Live suite                 | Notes |
@@ -117,6 +130,6 @@ Each provider's image handler owns its own request shape — xAI does **not** ac
 | Ollama     | **not run**                | Points at a LAN host (`OLLAMA_URL`); not exercised in this run. |
 | LM Studio  | **not run**                | Requires a local LM Studio instance; not exercised in this run. |
 
-## Package checks (2026-06-08)
+## Package checks (2026-06-09)
 
-`composer check` — **Pint ✓ · PHPStan 0 errors ✓ · 2881 Pest tests ✓**.
+`composer check` — **Pint ✓ · PHPStan 0 errors ✓ · 2929 Pest tests ✓** (incl. the provider-normalized `tool_choice` suite + the broadcast payload-cap default fix).

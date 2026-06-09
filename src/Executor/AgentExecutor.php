@@ -208,8 +208,10 @@ class AgentExecutor
 
                 // A forced tool choice applies only to the opening step. Relaxing
                 // it to `auto` after step 1 lets the model produce a final text
-                // reply on a later step — a static `required` would compel a tool
-                // call every step and loop until maxSteps.
+                // reply on a later step — keeping any `required` choice (including
+                // a specific named tool) would compel a tool call every step and
+                // loop until maxSteps. So a named tool is forced to OPEN the turn,
+                // then the model proceeds normally.
                 if ($stepCount === 1 && $request->toolChoice?->mode === ToolChoiceMode::Required) {
                     $request = $request->withToolChoice(ToolChoice::auto());
                 }

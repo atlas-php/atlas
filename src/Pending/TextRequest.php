@@ -434,7 +434,7 @@ class TextRequest implements QueueableRequest
             'temperature' => $this->temperature,
             'tools' => array_map(fn (Tool|string $tool): string => is_string($tool) ? $tool : $tool::class, $this->tools),
             'providerTools' => $this->providerTools,
-            'toolChoice' => $this->toolChoice,
+            'toolChoice' => $this->toolChoice?->toArray(),
             'maxSteps' => $this->maxSteps,
             'concurrent' => $this->concurrent,
             'cache' => $this->cache,
@@ -495,8 +495,8 @@ class TextRequest implements QueueableRequest
             $request->withProviderTools($payload['providerTools']);
         }
 
-        if (! empty($payload['toolChoice'])) {
-            $request->toolChoice($payload['toolChoice']);
+        if (isset($payload['toolChoice'])) {
+            $request->toolChoice(ToolChoice::fromArray($payload['toolChoice']));
         }
 
         if (array_key_exists('maxSteps', $payload)) {

@@ -217,11 +217,16 @@ it('toolChoice threads a specific tool through to the built request', function (
         ->and($request->toolChoice?->tool)->toBe('get_weather');
 });
 
-it('serializes and restores the tool choice across the queue payload', function () {
-    $payload = createTextPending()->forceTools()->toQueuePayload();
+it('serializes the tool choice to a primitive in the queue payload (survives any driver)', function () {
+    $payload = createTextPending()->toolChoice(ToolChoice::tool('get_weather'))->toQueuePayload();
 
-    expect($payload['toolChoice'])->toBeInstanceOf(ToolChoice::class)
-        ->and($payload['toolChoice']->mode)->toBe(ToolChoiceMode::Required);
+    expect($payload['toolChoice'])->toBe(['mode' => 'required', 'tool' => 'get_weather']);
+    // Restore path reconstructs the same choice.
+    expect(ToolChoice::fromArray($payload['toolChoice'])->tool)->toBe('get_weather');
+});
+
+it('omits the tool choice from the payload when none is set', function () {
+    expect(createTextPending()->toQueuePayload()['toolChoice'])->toBeNull();
 });
 
 it('chaining toolChoice/forceTools returns $this', function () {

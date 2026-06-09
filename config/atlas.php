@@ -232,13 +232,17 @@ return [
     | Failed) broadcast the call's arguments, result, and error to live consumers
     | such as an admin trace panel. By default the full payload is broadcast so
     | nothing is hidden from view. If your socket transport (Reverb / Pusher)
-    | limits message size, set a per-string character cap to truncate large
-    | payloads before they are broadcast. null (default) = no cap.
+    | limits message size, set a per-string cap to truncate large payloads
+    | before they are broadcast.
+    |
+    | The cap counts characters (mb_substr), not bytes — for multibyte content
+    | set it below your transport's byte limit accordingly. null / 0 / negative
+    | (the default) = no cap.
     |
     */
 
     'broadcast' => [
-        'max_tool_payload_length' => env('ATLAS_BROADCAST_MAX_TOOL_PAYLOAD', 512),
+        'max_tool_payload_length' => env('ATLAS_BROADCAST_MAX_TOOL_PAYLOAD'),
     ],
 
     /*

@@ -127,6 +127,7 @@ class AgentRequest implements QueueableRequest
 
     protected ?bool $concurrentOverride = null;
 
+    /** Overrides the agent's own {@see Agent::toolChoice()} when set (see buildRequest). */
     protected ?ToolChoice $toolChoiceOverride = null;
 
     // Conversation support — stored here, transferred to agent on resolve
@@ -1140,7 +1141,7 @@ class AgentRequest implements QueueableRequest
             'max_steps' => $this->maxStepsOverride,
             'concurrent' => $this->concurrentOverride,
             'cache' => $this->cacheOverride,
-            'tool_choice' => $this->toolChoiceOverride,
+            'tool_choice' => $this->toolChoiceOverride?->toArray(),
             'provider_options' => $this->providerOptions,
             'conversation_id' => $this->conversationId,
             'owner_type' => $this->conversationOwner?->getMorphClass(),
@@ -1219,8 +1220,8 @@ class AgentRequest implements QueueableRequest
             $request->withMaxSteps($payload['max_steps']);
         }
 
-        if (! empty($payload['tool_choice'])) {
-            $request->toolChoice($payload['tool_choice']);
+        if (isset($payload['tool_choice'])) {
+            $request->toolChoice(ToolChoice::fromArray($payload['tool_choice']));
         }
 
         if ($payload['concurrent'] !== null) {
