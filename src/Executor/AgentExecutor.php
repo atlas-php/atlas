@@ -212,6 +212,8 @@ class AgentExecutor
                 // a specific named tool) would compel a tool call every step and
                 // loop until maxSteps. So a named tool is forced to OPEN the turn,
                 // then the model proceeds normally.
+                // Only reached after a tool-calls step (the stop / no-client-tool
+                // paths break above), so this fires exactly on the opening tool turn.
                 if ($stepCount === 1 && $request->toolChoice?->mode === ToolChoiceMode::Required) {
                     $request = $request->withToolChoice(ToolChoice::auto());
                 }
