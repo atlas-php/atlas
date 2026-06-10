@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 ### Fixed
 
 - Retries now work. `atlas.retry` and `->withRetry()` were dropped before the HTTP layer, so 429 and 5xx retries never ran.
+- `->withTimeout()` now applies to the request — it was previously stored but ignored. Provider/reasoning/media defaults are untouched unless you override.
+- Per-call `->withRetry()` / `->withTimeout()` / `->withoutRetry()` overrides now survive `->onQueue()` instead of falling back to global config.
 - Network failures now retry and throw a typed `ConnectionException` instead of a raw HTTP-client exception.
 - Mid-stream provider errors now throw `ProviderException` instead of silently truncating the stream.
 
