@@ -8,6 +8,7 @@ use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Exceptions\RateLimitException;
 use Atlasphp\Atlas\Http\RetryDecider;
 use Atlasphp\Atlas\RequestConfig;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 
@@ -60,6 +61,24 @@ it('retries connection failures (status 0)', function () {
     $e = new ProviderException('openai', 'gpt-4o', 0, 'Connection timed out');
 
     expect(decider()->shouldRetry($e, configWithRetry(errors: 2), attempt: 1))->toBeTrue();
+});
+
+it('retries Laravel ConnectionException within the error limit', function () {
+    $e = new ConnectionException('cURL error 28: Connection timed out');
+
+    expect(decider()->shouldRetry($e, configWithRetry(errors: 2), attempt: 1))->toBeTrue();
+});
+
+it('stops retrying Laravel ConnectionException when attempts exhausted', function () {
+    $e = new ConnectionException('cURL error 28: Connection timed out');
+
+    expect(decider()->shouldRetry($e, configWithRetry(errors: 2), attempt: 3))->toBeFalse();
+});
+
+it('does not retry Laravel ConnectionException when errors is zero', function () {
+    $e = new ConnectionException('cURL error 28: Connection timed out');
+
+    expect(decider()->shouldRetry($e, configWithRetry(errors: 0), attempt: 1))->toBeFalse();
 });
 
 it('stops retrying transient errors when attempts exhausted', function () {

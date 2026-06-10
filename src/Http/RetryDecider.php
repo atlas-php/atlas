@@ -7,6 +7,7 @@ namespace Atlasphp\Atlas\Http;
 use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Exceptions\RateLimitException;
 use Atlasphp\Atlas\RequestConfig;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 
 /**
@@ -46,6 +47,12 @@ class RetryDecider
             if ($this->isTransientStatus($status)) {
                 return $config->errors > 0 && $attempt <= $config->errors;
             }
+        }
+
+        // Connection-level failures (timeout, DNS, refused) thrown by the HTTP
+        // client before any response — treated as transient.
+        if ($e instanceof ConnectionException) {
+            return $config->errors > 0 && $attempt <= $config->errors;
         }
 
         return false;

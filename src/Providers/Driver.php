@@ -7,6 +7,7 @@ namespace Atlasphp\Atlas\Providers;
 use Atlasphp\Atlas\AtlasCache;
 use Atlasphp\Atlas\Exceptions\AuthenticationException;
 use Atlasphp\Atlas\Exceptions\AuthorizationException;
+use Atlasphp\Atlas\Exceptions\ConnectionException;
 use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Exceptions\RateLimitException;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
@@ -42,6 +43,7 @@ use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\VideoResponse;
 use Atlasphp\Atlas\Responses\VoiceSession;
 use Closure;
+use Illuminate\Http\Client\ConnectionException as HttpConnectionException;
 use Illuminate\Http\Client\RequestException;
 
 /**
@@ -208,6 +210,9 @@ abstract class Driver
         } catch (RequestException $e) {
             // handleRequestException() is declared never — always re-throws as a typed Atlas exception
             $this->handleRequestException($request->model, $e);
+        } catch (HttpConnectionException $e) {
+            // Network-level failure before any response (timeout, DNS, refused).
+            throw new ConnectionException($this->name(), $request->model, $e);
         }
     }
 

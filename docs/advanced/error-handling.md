@@ -12,6 +12,7 @@ AtlasException (base — extends RuntimeException, catch all Atlas errors)
 ├── AuthorizationException         (403 — model access denied)
 ├── RateLimitException             (429 — rate limit with retry info)
 ├── ProviderException              (all other HTTP errors)
+├── ConnectionException            (network failure before any response)
 ├── UnsupportedFeatureException    (modality not supported by provider)
 ├── ProviderNotFoundException      (provider key not registered)
 ├── AgentNotFoundException         (agent key not found)
@@ -48,6 +49,51 @@ try {
     $e->statusCode;        // HTTP status code
     $e->providerMessage;   // Error message from provider
     $e->provider;          // Provider name (e.g., 'openai')
+}
+```
+
+### Connection Failures
+
+Network-level failures that occur before the provider returns any response —
+connection timeouts, DNS failures, refused connections — surface as a
+`ConnectionException`. Unlike `ProviderException`, it carries no HTTP status
+because no response was received. These failures are retried automatically as
+transient errors (controlled by `atlas.retry.errors`) before the exception is
+thrown.
+
+```php
+use Atlasphp\Atlas\Exceptions\ConnectionException;
+
+try {
+    $response = Atlas::text(Provider::OpenAI, 'gpt-4o-mini')
+        ->message('Hello')
+        ->asText();
+} catch (ConnectionException $e) {
+    // Network failure reaching the provider (timeout, DNS, refused)
+    $e->provider; // e.g. 'openai'
+    $e->model;    // e.g. 'gpt-4o-mini'
+}
+```
+
+`ConnectionException` extends `AtlasException`, so a `catch (AtlasException)`
+block catches it too.
+
+### Streaming Errors
+
+When a provider reports an error **mid-stream** (after the stream has started),
+Atlas detects the error event and throws a `ProviderException` while you iterate
+the stream — it does not silently truncate the response. Wrap stream consumption
+in a try/catch:
+
+```php
+use Atlasphp\Atlas\Exceptions\ProviderException;
+
+try {
+    foreach (Atlas::text(Provider::OpenAI, 'gpt-4o')->message('Hi')->asStream() as $chunk) {
+        echo $chunk->text;
+    }
+} catch (ProviderException $e) {
+    // Provider errored partway through the stream
 }
 ```
 

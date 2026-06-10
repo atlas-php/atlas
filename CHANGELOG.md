@@ -8,6 +8,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- `ConnectionException` — a typed exception for network-level failures (connection timeout, DNS failure, refused connection) that happen before the provider returns any response. It extends `AtlasException`, so existing catch-all handlers still catch it.
+
+### Fixed
+
+- Network failures reaching a provider (timeouts, DNS, refused connections) now retry as transient errors and surface as a typed `ConnectionException` instead of leaking a raw HTTP-client exception that escaped `catch (AtlasException)`.
+- Provider errors that occur partway through a streamed response are now detected and thrown as a `ProviderException` while you iterate the stream, instead of silently ending the stream with a truncated, successful-looking result.
+
+### Migration
+
+No breaking changes — drop-in upgrade. No consumer action required. If you consume streamed responses, wrap iteration in a try/catch for `ProviderException` to handle mid-stream provider errors (previously these were swallowed).
+
+---
+
 ## [v3.4.0](https://github.com/atlas-php/atlas/releases/tag/v3.4.0) - 2026-06-09
 
 ### Added

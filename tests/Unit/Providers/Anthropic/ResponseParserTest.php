@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Enums\FinishReason;
+use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Providers\Anthropic\ResponseParser;
 use Atlasphp\Atlas\Providers\Anthropic\ToolMapper;
 use Atlasphp\Atlas\Responses\StreamChunk;
@@ -14,6 +15,16 @@ function makeAnthropicResponseParser(): ResponseParser
 {
     return new ResponseParser(new ToolMapper);
 }
+
+it('throws ProviderException on a mid-stream error event', function () {
+    makeAnthropicResponseParser()->parseStreamChunk([
+        'event' => 'error',
+        'data' => [
+            'type' => 'error',
+            'error' => ['type' => 'overloaded_error', 'message' => 'Overloaded'],
+        ],
+    ]);
+})->throws(ProviderException::class, 'Overloaded');
 
 it('parses text from content blocks', function () {
     $parser = makeAnthropicResponseParser();

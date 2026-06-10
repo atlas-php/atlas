@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Providers\Google;
 
 use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Enums\FinishReason;
+use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Providers\Contracts\ResponseParserContract;
 use Atlasphp\Atlas\Responses\StreamChunk;
 use Atlasphp\Atlas\Responses\TextResponse;
@@ -120,6 +121,12 @@ class ResponseParser implements ResponseParserContract
      */
     public function parseStreamChunk(array $data): StreamChunk
     {
+        if (isset($data['error'])) {
+            $error = is_array($data['error']) ? $data['error'] : ['message' => (string) $data['error']];
+
+            throw ProviderException::fromStreamError('google', '', $error);
+        }
+
         $candidate = $data['candidates'][0] ?? [];
         $parts = $candidate['content']['parts'] ?? [];
         $finishReason = $candidate['finishReason'] ?? null;

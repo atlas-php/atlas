@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Enums\VoiceTransport;
+use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Exceptions\AuthenticationException;
 use Atlasphp\Atlas\Exceptions\AuthorizationException;
+use Atlasphp\Atlas\Exceptions\ConnectionException;
 use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Exceptions\RateLimitException;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
@@ -274,6 +276,38 @@ it('dispatch maps 429 RequestException from handler to RateLimitException', func
 
     $driver->text(new TextRequest('model', null, null, [], [], null, null, null, [], [], []));
 })->throws(RateLimitException::class);
+
+it('dispatch maps a connection failure from handler to Atlas ConnectionException', function () {
+    $handler = Mockery::mock(TextHandler::class);
+    $handler->shouldReceive('text')->andThrow(
+        new Illuminate\Http\Client\ConnectionException('cURL error 28: Connection timed out')
+    );
+
+    $driver = createTestDriver()->withHandler('text', $handler);
+
+    $driver->text(new TextRequest('model', null, null, [], [], null, null, null, [], [], []));
+})->throws(ConnectionException::class);
+
+it('Atlas ConnectionException is catchable as an AtlasException', function () {
+    $handler = Mockery::mock(TextHandler::class);
+    $handler->shouldReceive('text')->andThrow(
+        new Illuminate\Http\Client\ConnectionException('Connection refused')
+    );
+
+    $driver = createTestDriver()->withHandler('text', $handler);
+
+    $caught = null;
+
+    try {
+        $driver->text(new TextRequest('model', null, null, [], [], null, null, null, [], [], []));
+    } catch (AtlasException $e) {
+        $caught = $e;
+    }
+
+    expect($caught)->toBeInstanceOf(ConnectionException::class);
+    expect($caught->provider)->toBe('test');
+    expect($caught->model)->toBe('model');
+});
 
 // ─── handleRequestException ─────────────────────────────────────────────────
 

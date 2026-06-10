@@ -35,4 +35,26 @@ class ProviderException extends AtlasException
             $e,
         );
     }
+
+    /**
+     * Create from a provider error payload received mid-stream.
+     *
+     * Stream errors arrive as SSE event payloads rather than HTTP responses, so
+     * they carry no HTTP status. The message is extracted from the common
+     * provider error shapes (object with `message`, nested `error.message`, or a
+     * plain string `error`).
+     *
+     * @param  array<string, mixed>  $error
+     */
+    public static function fromStreamError(string $provider, string $model, array $error, ?int $status = null): self
+    {
+        $message = data_get($error, 'message')
+            ?? data_get($error, 'error.message')
+            ?? (is_string(data_get($error, 'error')) ? data_get($error, 'error') : null)
+            ?? 'Provider returned an error during streaming.';
+
+        $code = $status ?? (is_int(data_get($error, 'code')) ? (int) data_get($error, 'code') : 0);
+
+        return new self($provider, $model, $code, (string) $message);
+    }
 }
