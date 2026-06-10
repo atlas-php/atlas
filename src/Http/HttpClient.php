@@ -239,7 +239,7 @@ class HttpClient
      * @param  callable(): T  $callback
      * @return T
      */
-    protected function withRetry(?RequestConfig $config, string $url, ProviderRequestContext $context, callable $callback): mixed
+    private function withRetry(?RequestConfig $config, string $url, ProviderRequestContext $context, callable $callback): mixed
     {
         if ($config === null || ! $config->retryEnabled()) {
             return $callback();

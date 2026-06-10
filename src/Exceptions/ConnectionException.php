@@ -22,7 +22,6 @@ class ConnectionException extends ProviderException
 
     protected function buildMessage(): string
     {
-        return "Connection to provider [{$this->provider}] failed"
-            .($this->providerMessage !== '' ? ": {$this->providerMessage}" : '.');
+        return "Connection to provider [{$this->provider}] failed".$this->providerSuffix();
     }
 }

@@ -12,7 +12,7 @@ use Throwable;
  */
 class AuthenticationException extends ProviderException
 {
-    public function __construct(string $provider, string $model = '', string $providerMessage = '', ?Throwable $previous = null)
+    public function __construct(string $provider, string $model = '', ?Throwable $previous = null, string $providerMessage = '')
     {
         parent::__construct($provider, $model, 401, $providerMessage, $previous);
     }
@@ -23,12 +23,11 @@ class AuthenticationException extends ProviderException
      */
     public static function from(string $provider, string $model, RequestException $e, ?string $message = null): self
     {
-        return new self($provider, $model, self::resolveMessage($e, $message), $e);
+        return new self($provider, $model, $e, self::resolveMessage($e, $message));
     }
 
     protected function buildMessage(): string
     {
-        return "Authentication failed for provider [{$this->provider}]"
-            .($this->providerMessage !== '' ? ": {$this->providerMessage}" : '.');
+        return "Authentication failed for provider [{$this->provider}]".$this->providerSuffix();
     }
 }

@@ -75,6 +75,15 @@ class ProviderException extends AtlasException
     }
 
     /**
+     * The ": {message}" suffix subclasses append to their own phrasing when the
+     * provider supplied an error message, or a closing period when it didn't.
+     */
+    protected function providerSuffix(): string
+    {
+        return $this->providerMessage !== '' ? ": {$this->providerMessage}" : '.';
+    }
+
+    /**
      * Create from a request exception, extracting status code and error message.
      *
      * Optionally accepts a message already resolved by the driver (e.g. via a

@@ -6,6 +6,9 @@ namespace Atlasphp\Atlas\Events;
 
 /**
  * Dispatched before an HTTP request is sent to a provider.
+ *
+ * `$body` is the request payload and may contain user-supplied content
+ * (prompts, messages). Auth headers and API keys are never included.
  */
 class ProviderRequestStarted
 {

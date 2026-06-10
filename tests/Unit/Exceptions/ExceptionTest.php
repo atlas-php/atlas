@@ -231,6 +231,13 @@ it('ConnectionException is a ProviderException with a null status and no status 
     expect($e->getMessage())->toBe('Connection to provider [openai] failed: cURL error 28: timed out');
 });
 
+it('ConnectionException closes with a period when no underlying message is present', function () {
+    $e = new ConnectionException('openai', 'gpt-4o');
+
+    expect($e->providerMessage)->toBe('');
+    expect($e->getMessage())->toBe('Connection to provider [openai] failed.');
+});
+
 it('ProviderException omits the status bracket when statusCode is null', function () {
     $e = new ProviderException('openai', 'gpt-4o', null, 'something went wrong');
 

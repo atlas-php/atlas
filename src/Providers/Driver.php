@@ -321,8 +321,8 @@ abstract class Driver
         // factories extract it from the response); match evaluates one arm.
         match ($status) {
             400 => throw new InvalidRequestException($this->name(), $model, $status, $this->errorMessage($e), $e),
-            401 => throw AuthenticationException::from($this->name(), $model, $e),
-            403 => throw AuthorizationException::from($this->name(), $model, $e),
+            401 => throw AuthenticationException::from($this->name(), $model, $e, $this->extractErrorMessage($e)),
+            403 => throw AuthorizationException::from($this->name(), $model, $e, $this->extractErrorMessage($e)),
             404 => throw new ModelNotFoundException($this->name(), $model, $status, $this->errorMessage($e), $e),
             429, 529 => throw RateLimitException::from($this->name(), $model, $e),
             500, 502, 503, 504 => throw new ServerException($this->name(), $model, $status, $this->errorMessage($e), $e),
