@@ -14,7 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 - Catch specific provider failures with the new `ConnectionException` (network failure), `ModelNotFoundException` (unknown model), `InvalidRequestException` (bad request), and `ServerException` (provider server error).
 - xAI now accepts the `CodeInterpreter` provider tool (live-verified against xAI's Agent Tools API).
-- Protect the voice tool/transcript/close routes with the new `persistence.voice_route_middleware` config — add HTTP middleware like `['auth:sanctum', 'throttle:60,1']`. These routes are public by default, so secure them in production.
+- Protect the voice tool/transcript/close routes with the new `voice.route_middleware` config — add HTTP middleware like `['auth:sanctum', 'throttle:60,1']`. These routes are public by default, so secure them in production.
+- Voice route and session config now lives under a dedicated `voice` config block (`route_prefix`, `route_middleware`, `session_ttl`); the legacy `persistence.voice_route_prefix` / `persistence.voice_session_ttl` keys still work.
 
 ### Changed
 

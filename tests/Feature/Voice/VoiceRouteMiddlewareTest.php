@@ -48,8 +48,8 @@ it('registers voice routes with no middleware by default', function () {
     expect($route->middleware())->toBe([]);
 });
 
-it('applies configured voice_route_middleware to the voice routes', function () {
-    config()->set('atlas.persistence.voice_route_middleware', ['auth:sanctum', 'throttle:60,1']);
+it('applies configured voice.route_middleware to the voice routes', function () {
+    config()->set('atlas.voice.route_middleware', ['auth:sanctum', 'throttle:60,1']);
 
     reregisterVoiceRoutes($this->app);
 
@@ -60,14 +60,39 @@ it('applies configured voice_route_middleware to the voice routes', function () 
     expect($route->middleware())->toContain('throttle:60,1');
 });
 
-it('reads voice_route_middleware onto AtlasConfig', function () {
-    config()->set('atlas.persistence.voice_route_middleware', ['auth:sanctum']);
+it('reads voice.route_middleware onto AtlasConfig', function () {
+    config()->set('atlas.voice.route_middleware', ['auth:sanctum']);
 
     $config = AtlasConfig::refresh();
 
     expect($config->voiceRouteMiddleware)->toBe(['auth:sanctum']);
 });
 
-it('defaults voice_route_middleware to an empty array', function () {
+it('defaults voice.route_middleware to an empty array', function () {
     expect(app(AtlasConfig::class)->voiceRouteMiddleware)->toBe([]);
+});
+
+// ─── Backward compatibility with the legacy persistence.voice_* keys ────────
+
+it('falls back to legacy persistence.voice_route_prefix and voice_session_ttl', function () {
+    config()->set('atlas.voice', null);
+    config()->set('atlas.persistence.voice_route_prefix', 'legacy-prefix');
+    config()->set('atlas.persistence.voice_session_ttl', 99);
+
+    $config = AtlasConfig::refresh();
+
+    expect($config->voiceRoutePrefix)->toBe('legacy-prefix')
+        ->and($config->voiceSessionTtl)->toBe(99);
+});
+
+it('prefers the new voice block over the legacy persistence keys', function () {
+    config()->set('atlas.voice.route_prefix', 'new-prefix');
+    config()->set('atlas.voice.session_ttl', 42);
+    config()->set('atlas.persistence.voice_route_prefix', 'legacy-prefix');
+    config()->set('atlas.persistence.voice_session_ttl', 99);
+
+    $config = AtlasConfig::refresh();
+
+    expect($config->voiceRoutePrefix)->toBe('new-prefix')
+        ->and($config->voiceSessionTtl)->toBe(42);
 });

@@ -102,8 +102,12 @@ return [
         'message_limit' => (int) env('ATLAS_MESSAGE_LIMIT', 50),
         'media_replay_limit' => env('ATLAS_MEDIA_REPLAY_LIMIT', 2),
         'auto_store_assets' => env('ATLAS_AUTO_STORE_ASSETS', true),
-        'voice_route_prefix' => 'atlas',
-        'voice_session_ttl' => (int) env('ATLAS_VOICE_SESSION_TTL', 60),
+    ],
+
+    'voice' => [
+        'route_prefix' => 'atlas',
+        'route_middleware' => [],
+        'session_ttl' => (int) env('ATLAS_VOICE_SESSION_TTL', 60),
     ],
 
     'agents' => [

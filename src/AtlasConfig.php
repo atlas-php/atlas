@@ -144,9 +144,13 @@ class AtlasConfig
                 : null,
             autoStoreAssets: (bool) config('atlas.persistence.auto_store_assets', true),
             promptCache: (bool) config('atlas.prompt_cache', true),
-            voiceRoutePrefix: config('atlas.persistence.voice_route_prefix', 'atlas'),
-            voiceRouteMiddleware: (array) config('atlas.persistence.voice_route_middleware', []),
-            voiceSessionTtl: (int) config('atlas.persistence.voice_session_ttl', 60),
+            // Voice route/session config lives under the dedicated `voice` block.
+            // Read it first, falling back to the legacy `persistence.voice_*` keys
+            // so a fork on an older published config keeps working. route_middleware
+            // is new in this block, so it has no legacy fallback.
+            voiceRoutePrefix: config('atlas.voice.route_prefix', config('atlas.persistence.voice_route_prefix', 'atlas')),
+            voiceRouteMiddleware: (array) config('atlas.voice.route_middleware', []),
+            voiceSessionTtl: (int) config('atlas.voice.session_ttl', config('atlas.persistence.voice_session_ttl', 60)),
             persistenceModels: config('atlas.persistence.models', []),
             agents: config('atlas.agents', ['path' => null, 'namespace' => null]),
         );

@@ -65,24 +65,26 @@ return response()->json($session->toClientPayload());
     ],
 ],
 
+'voice' => [
+    // URL prefix for the voice tool/transcript/close routes (default: 'atlas').
+    'route_prefix' => 'atlas',
+
+    // HTTP middleware applied to the voice routes — see the security note below.
+    'route_middleware' => ['auth:sanctum', 'throttle:60,1'],
+],
+
 'persistence' => [
     // Voice itself does NOT require persistence — session creation, live audio,
     // and server-side tool calls all work with it off. Enable it only for durable
     // transcripts, VoiceCall records, and the VoiceCall* lifecycle events.
     'enabled' => env('ATLAS_PERSISTENCE_ENABLED', true),
-
-    // URL prefix for the voice tool/transcript/close routes (default: 'atlas').
-    'voice_route_prefix' => 'atlas',
-
-    // HTTP middleware applied to the voice routes — see the security note below.
-    'voice_route_middleware' => ['auth:sanctum', 'throttle:60,1'],
 ],
 ```
 
 ::: danger Secure the voice routes
 The tool, transcript, and close routes are **public by default** — they act on knowledge of the session id alone. With no middleware, anyone who learns a session id can execute that session's registered tools, overwrite its transcript, or close the call.
 
-Always set `persistence.voice_route_middleware` to authenticate the caller (e.g. `'auth:sanctum'`) and rate-limit it (e.g. `'throttle:60,1'`), **and** verify the authenticated user owns the session. The session owner is stored on the `voice:{sessionId}:tools` cache entry (`user_id`) and on the `VoiceCall` record — check it inside your own middleware or a route filter. Standard Laravel middleware strings work here, as do classes implementing the `Atlasphp\Atlas\Middleware\Contracts\VoiceHttpMiddleware` marker interface (registered in `atlas.middleware`) when you need container-resolved middleware.
+Always set `voice.route_middleware` to authenticate the caller (e.g. `'auth:sanctum'`) and rate-limit it (e.g. `'throttle:60,1'`), **and** verify the authenticated user owns the session. The session owner is stored on the `voice:{sessionId}:tools` cache entry (`user_id`) and on the `VoiceCall` record — check it inside your own middleware or a route filter. Standard Laravel middleware strings work here, as do classes implementing the `Atlasphp\Atlas\Middleware\Contracts\VoiceHttpMiddleware` marker interface (registered in `atlas.middleware`) when you need container-resolved middleware.
 :::
 
 ## Step 3: Frontend — Connect to Provider
