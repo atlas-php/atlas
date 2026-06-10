@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 ## [Unreleased]
 
+---
+
+## [v3.5.0](https://github.com/atlas-php/atlas/releases/tag/v3.5.0) - 2026-06-10
+
 ### Added
 
 - New typed exceptions for specific provider failures: `ConnectionException` (network), `ModelNotFoundException` (unknown model), `InvalidRequestException` (bad request), and `ServerException` (provider error).
