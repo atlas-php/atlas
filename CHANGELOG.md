@@ -14,8 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 - Catch specific provider failures with the new `ConnectionException` (network failure), `ModelNotFoundException` (unknown model), `InvalidRequestException` (bad request), and `ServerException` (provider server error).
 - xAI now accepts the `CodeInterpreter` provider tool (live-verified against xAI's Agent Tools API).
-- Protect the voice tool/transcript/close routes with the new `voice.route_middleware` config — add HTTP middleware like `['auth:sanctum', 'throttle:60,1']`. These routes are public by default, so secure them in production.
-- Voice route and session config now lives under a dedicated `voice` config block (`route_prefix`, `route_middleware`, `session_ttl`); the legacy `persistence.voice_route_prefix` / `persistence.voice_session_ttl` keys still work.
+- Secure the (public-by-default) voice routes with the new `voice.route_middleware` config, e.g. `['auth:sanctum', 'throttle:60,1']`.
 
 ### Changed
 
@@ -32,17 +31,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 - Error messages now carry the provider's real reason on every provider.
 - Listing available models and voices now reports failures the same way as every other call.
 - Queued requests now fail fast on errors that can't succeed (invalid key, bad request, unknown model) instead of using up every retry; transient errors still retry.
-- A stream interrupted mid-flight now broadcasts the token usage and finish reason accumulated so far instead of zeroing them, so cost tracking survives an aborted stream.
-- A queued execution failure now caps its broadcast error message to the configured byte limit, so a long provider error can't exceed the socket transport's size limit and drop the event.
+- An interrupted stream now broadcasts the usage and finish reason captured before the break instead of zeroing them, so cost tracking survives.
+- A queued execution failure now caps its broadcast error, so a long message can't exceed the socket transport limit and drop the event.
 
 ### Migration
 
-No breaking changes for most cases. Four things to check only if they apply to you:
+No breaking changes for most cases. Five things to check only if they apply to you:
 
 - **You catch specific exceptions** (auth, rate-limit) separately from `ProviderException` — list those `catch` blocks first, since `ProviderException` now catches them too.
 - **You set `reasoning_timeout`** — it's gone; set a longer per-call timeout instead.
 - **You read streamed responses** — a mid-stream provider error now throws instead of silently truncating; wrap the read loop in a try/catch.
 - **You attach provider-native tools** (e.g. `WebSearch`) to a first-party provider that doesn't support that tool — it now throws `UnsupportedFeatureException` up front instead of erroring at the provider.
+- **You set voice config in a published config file** — `voice_route_prefix` and `voice_session_ttl` moved to a `voice` block (`voice.route_prefix`, `voice.session_ttl`). The old keys still work, so nothing breaks; move them when convenient.
 
 Otherwise no action required.
 
