@@ -175,6 +175,33 @@ it('uses id field when present', function () {
     expect($result[0]->id)->toBe('custom_id_123');
 });
 
+it('defaults the name to an empty string when functionCall has no name', function () {
+    $mapper = new ToolMapper;
+
+    $result = $mapper->parseToolCalls([
+        ['functionCall' => ['args' => ['query' => 'test']]],
+    ]);
+
+    expect($result)->toHaveCount(1);
+    expect($result[0])->toBeInstanceOf(GoogleToolCall::class);
+    expect($result[0]->name)->toBe('');
+    expect($result[0]->arguments)->toBe(['query' => 'test']);
+});
+
+it('degrades gracefully when a part has no functionCall key', function () {
+    $mapper = new ToolMapper;
+
+    $result = $mapper->parseToolCalls([
+        ['thoughtSignature' => 'sig-only'],
+    ]);
+
+    expect($result)->toHaveCount(1);
+    expect($result[0]->name)->toBe('');
+    expect($result[0]->id)->toBe('gemini_call_0');
+    expect($result[0]->arguments)->toBe([]);
+    expect($result[0]->thoughtSignature)->toBe('sig-only');
+});
+
 it('maps GoogleSearch to gemini format via mapper', function () {
     $mapper = new ToolMapper;
 

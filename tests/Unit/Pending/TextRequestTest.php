@@ -19,6 +19,7 @@ use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
 use Atlasphp\Atlas\Providers\Tools\WebSearch;
+use Atlasphp\Atlas\Providers\Tools\XSearch;
 use Atlasphp\Atlas\Requests\TextRequest as TextRequestObject;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
@@ -346,6 +347,7 @@ it('routes atlas tools through executor', function () {
 
 it('routes provider-only tools directly to driver without executor', function () {
     $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('name')->andReturn('openai');
     $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
     $driver->shouldReceive('text')->once()->andReturn(
         new TextResponse('provider tool response', new Usage(10, 5), FinishReason::Stop)
@@ -360,6 +362,64 @@ it('routes provider-only tools directly to driver without executor', function ()
     expect($result->text)->toBe('provider tool response');
     // No steps array — did not go through executor
     expect($result->steps)->toBeEmpty();
+});
+
+it('throws when a provider tool is unsupported by the resolved provider', function () {
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('name')->andReturn('openai');
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
+    // text() must never be reached — the guard fails fast first.
+    $driver->shouldReceive('text')->never();
+
+    createTextPending($driver)
+        ->withProviderTools([new XSearch]) // x_search is xAI-only
+        ->message('hi')
+        ->asText();
+})->throws(UnsupportedFeatureException::class, 'Provider tool [x_search] is not supported by provider [openai].');
+
+it('rejects unsupported provider tools on the stream path too', function () {
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('name')->andReturn('openai');
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(stream: true));
+    $driver->shouldReceive('stream')->never();
+
+    createTextPending($driver)
+        ->withProviderTools([new XSearch])
+        ->asStream();
+})->throws(UnsupportedFeatureException::class);
+
+it('allows a supported provider tool on a registry-tracked provider', function () {
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('name')->andReturn('openai');
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
+    $driver->shouldReceive('text')->once()->andReturn(
+        new TextResponse('ok', new Usage(1, 1), FinishReason::Stop)
+    );
+
+    $result = createTextPending($driver)
+        ->withProviderTools([new WebSearch]) // web_search is supported by openai
+        ->message('hi')
+        ->asText();
+
+    expect($result->text)->toBe('ok');
+});
+
+it('skips provider-tool validation for providers the registry does not track', function () {
+    // A custom / OpenAI-compatible provider the registry has no entry for —
+    // Atlas has no authority to reject its passthrough tools.
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('name')->andReturn('my-custom-provider');
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
+    $driver->shouldReceive('text')->once()->andReturn(
+        new TextResponse('ok', new Usage(1, 1), FinishReason::Stop)
+    );
+
+    $result = createTextPending($driver, 'my-custom-provider')
+        ->withProviderTools([new XSearch])
+        ->message('hi')
+        ->asText();
+
+    expect($result->text)->toBe('ok');
 });
 
 it('asStream with tools returns StreamResponse via executor', function () {

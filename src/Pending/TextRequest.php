@@ -242,6 +242,7 @@ class TextRequest implements QueueableRequest
             } else {
                 $driver = $this->resolveDriver();
                 $this->ensureCapability($driver, 'text');
+                $this->ensureProviderToolsSupported($driver, $this->providerTools);
                 $response = $driver->text($this->buildRequest());
             }
         } catch (\Throwable $e) {
@@ -278,6 +279,7 @@ class TextRequest implements QueueableRequest
                 // (provider tools are handled server-side in the stream)
                 $driver = $this->resolveDriver();
                 $this->ensureCapability($driver, 'stream');
+                $this->ensureProviderToolsSupported($driver, $this->providerTools);
                 $response = $driver->stream($this->buildRequest());
             }
         } catch (\Throwable $e) {
@@ -311,6 +313,7 @@ class TextRequest implements QueueableRequest
         try {
             $driver = $this->resolveDriver();
             $this->ensureCapability($driver, 'structured');
+            $this->ensureProviderToolsSupported($driver, $this->providerTools);
             $response = $driver->structured($this->buildRequest());
         } catch (\Throwable $e) {
             event(new ModalityCompleted(modality: Modality::Structured, provider: $provider, model: $model, traceId: $traceId));
@@ -340,6 +343,7 @@ class TextRequest implements QueueableRequest
 
         $driver = $this->resolveDriver();
         $this->ensureCapability($driver, 'text');
+        $this->ensureProviderToolsSupported($driver, $this->providerTools);
 
         $executor = AgentExecutor::forTools(
             driver: $driver,

@@ -387,9 +387,11 @@ ProviderToolRegistry::all();                       // full provider → tool-typ
 ```
 
 ::: warning Provider Compatibility
-Provider tools run on OpenAI, Anthropic, Google, and xAI. A tool a given provider can't run
-(per the table above) is dropped with a logged warning. Chat Completions providers ignore
-provider tools entirely.
+Provider tools run on OpenAI, Anthropic, Google, and xAI. Attaching a tool a first-party provider
+can't run (per the table above) throws `UnsupportedFeatureException` up front, before the request is
+sent — so you catch the mistake immediately instead of seeing a cryptic provider API error. Chat
+Completions and other custom providers aren't validated against the table; their tools pass through
+as configured.
 :::
 
 ### Observability

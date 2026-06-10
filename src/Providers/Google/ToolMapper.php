@@ -83,11 +83,11 @@ class ToolMapper implements ToolMapperContract
     public function parseToolCalls(array $functionCallParts): array
     {
         return array_map(function (array $part, int $index): ToolCall {
-            $functionCall = $part['functionCall'];
+            $functionCall = $part['functionCall'] ?? [];
 
             return new GoogleToolCall(
                 id: $functionCall['id'] ?? 'gemini_call_'.$index,
-                name: $functionCall['name'],
+                name: $functionCall['name'] ?? '',
                 arguments: $functionCall['args'] ?? [],
                 thoughtSignature: $part['thoughtSignature'] ?? null,
             );
