@@ -177,3 +177,76 @@ it('whereVectorSimilarTo converts minSimilarity to maxDistance', function () {
         ->and(1.0 - 0.0)->toBeGreaterThanOrEqual(1.0)  // filter skipped
         ->and(1.0 - 1.0)->toBe(0.0);  // max strictness
 });
+
+// ─── Macro closure execution (SQL generation) ───────────────────────────────
+// Laravel 12 ships native Query\Builder methods for four of the five names, so
+// `$builder->whereVectorSimilarTo(...)` hits Laravel's native method, not the
+// Atlas macro. To execute the Atlas closures we pull them from the Macroable
+// registry and bind them to a real (sqlite) builder — no pgvector needed since
+// we only compile the SQL, never run it.
+
+function invokeVectorMacro(string $name, array $args): Builder
+{
+    $orig = config('database.default');
+    config(['database.default' => 'pgsql']);
+    VectorQueryMacros::register();
+    config(['database.default' => $orig]);
+
+    $macros = (new ReflectionProperty(Builder::class, 'macros'))->getValue();
+    $builder = app('db')->connection()->query()->from('documents');
+    $closure = Closure::bind($macros[$name], $builder, Builder::class);
+    $closure(...$args);
+
+    return $builder;
+}
+
+it('whereVectorSimilarTo builds a distance filter and ASC ordering', function () {
+    $b = invokeVectorMacro('whereVectorSimilarTo', ['embedding', [0.1, 0.2, 0.3], 0.7]);
+
+    expect($b->toSql())->toContain('embedding <=> ?::vector <= ?')
+        ->and($b->toSql())->toContain('order by embedding <=> ?::vector ASC')
+        ->and($b->getBindings())->toBe(['[0.1,0.2,0.3]', 1.0 - 0.7, '[0.1,0.2,0.3]']);
+});
+
+it('whereVectorSimilarTo skips the filter when minSimilarity is 0 (maxDistance >= 1.0)', function () {
+    $b = invokeVectorMacro('whereVectorSimilarTo', ['embedding', [0.1, 0.2], 0.0]);
+
+    expect($b->toSql())->not->toContain('<= ?')          // filter skipped
+        ->and($b->toSql())->toContain('order by embedding <=> ?::vector ASC')
+        ->and($b->getBindings())->toBe(['[0.1,0.2]']);   // only the ordering literal
+});
+
+it('whereVectorDistanceLessThan builds a raw distance filter', function () {
+    $b = invokeVectorMacro('whereVectorDistanceLessThan', ['embedding', [0.5, 0.6], 0.25]);
+
+    expect($b->toSql())->toContain('embedding <=> ?::vector <= ?')
+        ->and($b->getBindings())->toBe(['[0.5,0.6]', 0.25]);
+});
+
+it('orWhereVectorSimilarTo builds an OR distance filter without ordering', function () {
+    $b = invokeVectorMacro('orWhereVectorSimilarTo', ['embedding', [0.1, 0.2], 0.6]);
+
+    expect($b->toSql())->toContain('embedding <=> ?::vector <= ?')
+        ->and($b->toSql())->not->toContain('order by')
+        ->and($b->getBindings())->toBe(['[0.1,0.2]', 1.0 - 0.6]);
+});
+
+it('selectVectorDistance adds a computed distance column with an alias', function () {
+    $b = invokeVectorMacro('selectVectorDistance', ['embedding', [0.1, 0.2], 'dist']);
+
+    expect($b->toSql())->toContain('(embedding <=> ?::vector) AS dist')
+        ->and($b->getBindings())->toBe(['[0.1,0.2]']);
+});
+
+it('orderByVectorDistance orders DESC when requested', function () {
+    $b = invokeVectorMacro('orderByVectorDistance', ['embedding', [0.1, 0.2], 'desc']);
+
+    expect($b->toSql())->toContain('order by embedding <=> ?::vector DESC')
+        ->and($b->getBindings())->toBe(['[0.1,0.2]']);
+});
+
+it('orderByVectorDistance defaults to ASC for any non-desc direction', function () {
+    $b = invokeVectorMacro('orderByVectorDistance', ['embedding', [0.1, 0.2], 'whatever']);
+
+    expect($b->toSql())->toContain('order by embedding <=> ?::vector ASC');
+});

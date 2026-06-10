@@ -102,6 +102,19 @@ it('resolves contents from file path', function () {
     unlink($tmp);
 });
 
+it('throws a RuntimeException when the file cannot be read', function () {
+    $stub = makeMediaStub('path', '/nonexistent/atlas-missing-file.bin');
+
+    set_error_handler(fn () => true); // swallow the file_get_contents warning
+
+    try {
+        expect(fn () => $stub->contents())
+            ->toThrow(RuntimeException::class, 'Cannot read file: /nonexistent/atlas-missing-file.bin');
+    } finally {
+        restore_error_handler();
+    }
+});
+
 it('resolves contents from storage', function () {
     Storage::fake('local');
     Storage::disk('local')->put('test/file.txt', 'storage-content');

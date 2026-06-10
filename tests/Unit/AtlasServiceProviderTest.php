@@ -6,9 +6,15 @@ use Atlasphp\Atlas\AgentRegistry;
 use Atlasphp\Atlas\AtlasCache;
 use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\AtlasManager;
+use Atlasphp\Atlas\AtlasServiceProvider;
 use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
+use Atlasphp\Atlas\Persistence\Middleware\PersistConversation;
+use Atlasphp\Atlas\Persistence\Middleware\TrackExecution;
+use Atlasphp\Atlas\Persistence\Middleware\TrackProviderCall;
+use Atlasphp\Atlas\Persistence\Middleware\TrackStep;
+use Atlasphp\Atlas\Persistence\Middleware\TrackToolCall;
 use Atlasphp\Atlas\Persistence\Services\ExecutionService;
 use Atlasphp\Atlas\Providers\Anthropic\AnthropicDriver;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
@@ -180,6 +186,44 @@ it('does not discover agents when namespace is null', function () {
     $registry = app(AgentRegistry::class);
 
     expect($registry->keys())->toBeArray();
+});
+
+it('discovers agents when both path and namespace are configured', function () {
+    config(['atlas.agents.path' => '/agents/here', 'atlas.agents.namespace' => 'App\\Agents']);
+
+    $registry = Mockery::mock(AgentRegistry::class);
+    $registry->shouldReceive('discover')->once()->with('/agents/here', 'App\\Agents');
+    app()->instance(AgentRegistry::class, $registry);
+
+    $provider = new AtlasServiceProvider(app());
+    (new ReflectionMethod($provider, 'discoverAgents'))->invoke($provider);
+});
+
+// ─── Persistence Middleware Registration ────────────────────────────────────
+
+it('merges persistence middleware into config when persistence is enabled', function () {
+    config(['atlas.persistence.enabled' => true, 'atlas.middleware' => ['Existing\\Middleware']]);
+
+    $provider = new AtlasServiceProvider(app());
+    (new ReflectionMethod($provider, 'registerPersistenceMiddleware'))->invoke($provider);
+
+    expect(config('atlas.middleware'))->toBe([
+        'Existing\\Middleware',
+        PersistConversation::class,
+        TrackExecution::class,
+        TrackStep::class,
+        TrackToolCall::class,
+        TrackProviderCall::class,
+    ]);
+});
+
+it('does not register persistence middleware when persistence is disabled', function () {
+    config(['atlas.persistence.enabled' => false, 'atlas.middleware' => ['Existing\\Middleware']]);
+
+    $provider = new AtlasServiceProvider(app());
+    (new ReflectionMethod($provider, 'registerPersistenceMiddleware'))->invoke($provider);
+
+    expect(config('atlas.middleware'))->toBe(['Existing\\Middleware']);
 });
 
 // ─── Provider Factory Resolution ────────────────────────────────────────
