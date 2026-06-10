@@ -32,7 +32,7 @@ class RetryDecider
             return $config->rateLimit > 0 && $attempt <= $config->rateLimit;
         }
 
-        if ($e instanceof ProviderException && $this->isTransientStatus($e->statusCode)) {
+        if ($e instanceof ProviderException && $e->statusCode !== null && $this->isTransientStatus($e->statusCode)) {
             return $config->errors > 0 && $attempt <= $config->errors;
         }
 
@@ -40,7 +40,8 @@ class RetryDecider
         if ($e instanceof RequestException) {
             $status = $e->response->status();
 
-            if ($status === 429) {
+            // 429 Too Many Requests and Anthropic's 529 Overloaded.
+            if ($status === 429 || $status === 529) {
                 return $config->rateLimit > 0 && $attempt <= $config->rateLimit;
             }
 
@@ -72,7 +73,7 @@ class RetryDecider
             return $wait * 1_000_000;
         }
 
-        if ($e instanceof RequestException && $e->response->status() === 429) {
+        if ($e instanceof RequestException && ($e->response->status() === 429 || $e->response->status() === 529)) {
             $retryAfter = (int) ($e->response->header('Retry-After') ?: 1);
 
             return min($retryAfter, 60) * 1_000_000;

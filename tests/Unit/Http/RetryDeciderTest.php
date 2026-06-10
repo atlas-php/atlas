@@ -63,6 +63,12 @@ it('retries connection failures (status 0)', function () {
     expect(decider()->shouldRetry($e, configWithRetry(errors: 2), attempt: 1))->toBeTrue();
 });
 
+it('does not crash or retry a ProviderException with a null status', function () {
+    $e = new ProviderException('openai', 'gpt-4o', null, 'no status');
+
+    expect(decider()->shouldRetry($e, configWithRetry(errors: 2), attempt: 1))->toBeFalse();
+});
+
 it('retries Laravel ConnectionException within the error limit', function () {
     $e = new ConnectionException('cURL error 28: Connection timed out');
 
@@ -166,6 +172,12 @@ function fakeRequestException(int $status, array $headers = []): RequestExceptio
 
     return new RequestException($response);
 }
+
+it('retries RequestException with 529 overloaded status', function () {
+    $e = fakeRequestException(529);
+
+    expect(decider()->shouldRetry($e, configWithRetry(rateLimit: 3), attempt: 1))->toBeTrue();
+});
 
 it('retries RequestException with 429 status', function () {
     $e = fakeRequestException(429);

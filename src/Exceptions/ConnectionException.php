@@ -10,22 +10,19 @@ use Throwable;
  * Thrown when a provider request fails at the network level before any HTTP
  * response is received (connection timeout, DNS failure, refused connection).
  *
- * Distinct from ProviderException, which represents an HTTP error response the
- * provider actually returned. Connection failures carry no HTTP status.
+ * A ProviderException with a null statusCode: it's a provider-communication
+ * failure, but no HTTP response was returned.
  */
-class ConnectionException extends AtlasException
+class ConnectionException extends ProviderException
 {
-    public function __construct(
-        public readonly string $provider,
-        public readonly string $model,
-        ?Throwable $previous = null,
-    ) {
-        $reason = $previous?->getMessage();
+    public function __construct(string $provider, string $model, ?Throwable $previous = null)
+    {
+        parent::__construct($provider, $model, null, $previous?->getMessage() ?? '', $previous);
+    }
 
-        parent::__construct(
-            "Connection to provider [{$provider}] failed".($reason !== null && $reason !== '' ? ": {$reason}" : '.'),
-            0,
-            $previous,
-        );
+    protected function buildMessage(): string
+    {
+        return "Connection to provider [{$this->provider}] failed"
+            .($this->providerMessage !== '' ? ": {$this->providerMessage}" : '.');
     }
 }

@@ -171,6 +171,22 @@ it('throws ProviderException when id is missing', function () {
     $handler->video(makeOpenAiVideoRequest());
 })->throws(ProviderException::class, 'missing id');
 
+it('an unresolvable reference image throws a ProviderException carrying the model', function () {
+    $caught = null;
+
+    try {
+        makeOpenAiVideoHandler()->video(makeOpenAiVideoRequest([
+            'model' => 'sora-2',
+            'media' => [Image::fromFileId('file-abc123')],
+        ]));
+    } catch (ProviderException $e) {
+        $caught = $e;
+    }
+
+    expect($caught)->not->toBeNull();
+    expect($caught->model)->toBe('sora-2');
+});
+
 it('throws ProviderException when video generation fails', function () {
     Http::fake([
         'api.openai.com/v1/videos' => Http::response(['id' => 'video_fail', 'status' => 'queued']),

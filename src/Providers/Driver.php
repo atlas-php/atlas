@@ -8,8 +8,11 @@ use Atlasphp\Atlas\AtlasCache;
 use Atlasphp\Atlas\Exceptions\AuthenticationException;
 use Atlasphp\Atlas\Exceptions\AuthorizationException;
 use Atlasphp\Atlas\Exceptions\ConnectionException;
+use Atlasphp\Atlas\Exceptions\InvalidRequestException;
+use Atlasphp\Atlas\Exceptions\ModelNotFoundException;
 use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Exceptions\RateLimitException;
+use Atlasphp\Atlas\Exceptions\ServerException;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Middleware\MiddlewareResolver;
@@ -312,12 +315,27 @@ abstract class Driver
      */
     public function handleRequestException(string $model, RequestException $e): never
     {
-        match ($e->response->status()) {
-            401 => throw new AuthenticationException($this->name(), $e),
+        $status = $e->response->status();
+
+        // Auth errors carry a fixed message; only resolve the provider's text
+        // for the message-bearing categories (match evaluates one arm).
+        match ($status) {
+            400 => throw new InvalidRequestException($this->name(), $model, $status, $this->errorMessage($e), $e),
+            401 => throw new AuthenticationException($this->name(), $model, $e),
             403 => throw new AuthorizationException($this->name(), $model, $e),
-            429 => throw RateLimitException::from($this->name(), $model, $e),
-            default => throw ProviderException::from($this->name(), $model, $e, $this->extractErrorMessage($e)),
+            404 => throw new ModelNotFoundException($this->name(), $model, $status, $this->errorMessage($e), $e),
+            429, 529 => throw RateLimitException::from($this->name(), $model, $e),
+            500, 502, 503, 504 => throw new ServerException($this->name(), $model, $status, $this->errorMessage($e), $e),
+            default => throw new ProviderException($this->name(), $model, $status, $this->errorMessage($e), $e),
         };
+    }
+
+    /**
+     * Resolve the provider error message, honoring a provider-specific override.
+     */
+    private function errorMessage(RequestException $e): string
+    {
+        return ProviderException::resolveMessage($e, $this->extractErrorMessage($e));
     }
 
     /**

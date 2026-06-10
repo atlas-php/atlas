@@ -26,6 +26,21 @@ it('throws ProviderException on a mid-stream error event', function () {
     ]);
 })->throws(ProviderException::class, 'Overloaded');
 
+it('a mid-stream error carries the model passed to the parser', function () {
+    $caught = null;
+
+    try {
+        makeAnthropicResponseParser()->parseStreamChunk([
+            'event' => 'error',
+            'data' => ['error' => ['message' => 'Overloaded']],
+        ], 'claude-sonnet-4-5');
+    } catch (ProviderException $e) {
+        $caught = $e;
+    }
+
+    expect($caught?->model)->toBe('claude-sonnet-4-5');
+});
+
 it('parses text from content blocks', function () {
     $parser = makeAnthropicResponseParser();
 

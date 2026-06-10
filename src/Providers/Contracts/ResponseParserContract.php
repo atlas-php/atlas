@@ -32,5 +32,5 @@ interface ResponseParserContract
     /**
      * @param  array<string, mixed>  $data
      */
-    public function parseStreamChunk(array $data): StreamChunk;
+    public function parseStreamChunk(array $data, string $model = ''): StreamChunk;
 }

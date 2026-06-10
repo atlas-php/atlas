@@ -10,7 +10,6 @@ it('creates from a full config array', function () {
         'url' => 'https://api.openai.com/v1',
         'organization' => 'org-123',
         'timeout' => 30,
-        'reasoning_timeout' => 120,
         'media_timeout' => 60,
     ]);
 
@@ -18,7 +17,6 @@ it('creates from a full config array', function () {
     expect($config->baseUrl)->toBe('https://api.openai.com/v1');
     expect($config->organization)->toBe('org-123');
     expect($config->timeout)->toBe(30);
-    expect($config->reasoningTimeout)->toBe(120);
     expect($config->mediaTimeout)->toBe(60);
 });
 
@@ -29,7 +27,6 @@ it('uses default timeout values when not provided', function () {
     ]);
 
     expect($config->timeout)->toBe(60);
-    expect($config->reasoningTimeout)->toBe(300);
     expect($config->mediaTimeout)->toBe(120);
 });
 

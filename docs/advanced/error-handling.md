@@ -8,17 +8,24 @@ Atlas maps provider HTTP errors and configuration problems to typed exceptions:
 
 ```
 AtlasException (base — extends RuntimeException, catch all Atlas errors)
-├── AuthenticationException        (401 — invalid API key)
-├── AuthorizationException         (403 — model access denied)
-├── RateLimitException             (429 — rate limit with retry info)
-├── ProviderException              (all other HTTP errors)
-├── ConnectionException            (network failure before any response)
+├── ProviderException              (base for any failed provider call; catch to handle them all)
+│   ├── AuthenticationException    (401 — invalid API key)
+│   ├── AuthorizationException     (403 — model access denied)
+│   ├── RateLimitException         (429 / 529 — rate limited or overloaded, with retry info)
+│   ├── InvalidRequestException    (400 — malformed/invalid request)
+│   ├── ModelNotFoundException     (404 — unknown model)
+│   ├── ServerException            (5xx — provider-side server error)
+│   └── ConnectionException        (network failure before any response; statusCode is null)
 ├── UnsupportedFeatureException    (modality not supported by provider)
 ├── ProviderNotFoundException      (provider key not registered)
 ├── AgentNotFoundException         (agent key not found)
 ├── ToolNotFoundException          (tool name not in registry)
 └── MaxStepsExceededException      (executor exceeded step limit)
 ```
+
+Catch `ProviderException` to handle any failed provider call, or a specific
+subclass for a category. Every `ProviderException` exposes `->provider`,
+`->model`, `->statusCode` (null for `ConnectionException`), and `->providerMessage`.
 
 All exceptions live in `Atlasphp\Atlas\Exceptions`.
 

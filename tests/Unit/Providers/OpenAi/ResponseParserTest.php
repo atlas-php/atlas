@@ -211,6 +211,22 @@ it('throws ProviderException on a top-level error payload', function () {
     ]);
 })->throws(ProviderException::class, 'invalid request');
 
+it('a mid-stream error carries the model passed to the parser', function () {
+    $caught = null;
+
+    try {
+        makeParser()->parseStreamChunk([
+            'event' => 'error',
+            'data' => ['error' => ['message' => 'boom']],
+        ], 'gpt-4o');
+    } catch (ProviderException $e) {
+        $caught = $e;
+    }
+
+    expect($caught)->not->toBeNull();
+    expect($caught->model)->toBe('gpt-4o');
+});
+
 it('returns empty text chunk for unknown events', function () {
     $parser = makeParser();
 

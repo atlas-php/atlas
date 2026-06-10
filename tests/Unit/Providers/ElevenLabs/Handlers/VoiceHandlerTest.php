@@ -55,6 +55,30 @@ function makeElevenLabsVoiceHandlerForDynamicAgent(
     return [$handler, $http];
 }
 
+it('throws ProviderException carrying the model when the signed URL is missing', function () {
+    $http = Mockery::mock(HttpClient::class);
+    $http->shouldReceive('get')
+        ->withArgs(fn (string $url) => str_contains($url, 'get-signed-url'))
+        ->andReturn(['no_signed_url' => true]);
+
+    $caught = null;
+
+    try {
+        makeElevenLabsVoiceHandler($http)->createSession(new VoiceRequest(
+            model: 'eleven-convai-v1',
+            instructions: null,
+            voice: null,
+            providerOptions: ['agent_id' => 'agent_abc123'],
+        ));
+    } catch (ProviderException $e) {
+        $caught = $e;
+    }
+
+    expect($caught)->not->toBeNull();
+    expect($caught->model)->toBe('eleven-convai-v1');
+    expect($caught->getMessage())->toContain('signed_url');
+});
+
 // ─── createSession with pre-configured agent ────────────────────
 
 it('creates session with pre-configured agent_id', function () {

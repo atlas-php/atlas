@@ -23,6 +23,20 @@ it('throws ProviderException on a mid-stream error payload', function () {
     ]);
 })->throws(ProviderException::class, 'Resource exhausted');
 
+it('a mid-stream error carries the model passed to the parser', function () {
+    $caught = null;
+
+    try {
+        makeGoogleResponseParser()->parseStreamChunk([
+            'error' => ['code' => 429, 'message' => 'Resource exhausted'],
+        ], 'gemini-2.5-flash');
+    } catch (ProviderException $e) {
+        $caught = $e;
+    }
+
+    expect($caught?->model)->toBe('gemini-2.5-flash');
+});
+
 it('parses text from candidates parts', function () {
     $parser = makeGoogleResponseParser();
 

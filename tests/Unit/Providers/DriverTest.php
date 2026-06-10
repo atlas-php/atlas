@@ -8,8 +8,11 @@ use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Exceptions\AuthenticationException;
 use Atlasphp\Atlas\Exceptions\AuthorizationException;
 use Atlasphp\Atlas\Exceptions\ConnectionException;
+use Atlasphp\Atlas\Exceptions\InvalidRequestException;
+use Atlasphp\Atlas\Exceptions\ModelNotFoundException;
 use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Exceptions\RateLimitException;
+use Atlasphp\Atlas\Exceptions\ServerException;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\Driver;
@@ -363,3 +366,40 @@ it('maps 429 to RateLimitException', function () {
 it('maps 500 to ProviderException', function () {
     createTestDriver()->handleRequestException('gpt-4o', makeRequestExceptionForStatus(500));
 })->throws(ProviderException::class);
+
+it('maps 400 to InvalidRequestException', function () {
+    createTestDriver()->handleRequestException('gpt-4o', makeRequestExceptionForStatus(400));
+})->throws(InvalidRequestException::class);
+
+it('maps 404 to ModelNotFoundException', function () {
+    createTestDriver()->handleRequestException('gpt-4o', makeRequestExceptionForStatus(404));
+})->throws(ModelNotFoundException::class);
+
+it('maps 503 to ServerException', function () {
+    createTestDriver()->handleRequestException('gpt-4o', makeRequestExceptionForStatus(503));
+})->throws(ServerException::class);
+
+it('maps 529 (overloaded) to RateLimitException', function () {
+    createTestDriver()->handleRequestException('gpt-4o', makeRequestExceptionForStatus(529));
+})->throws(RateLimitException::class);
+
+it('the whole provider-error family is catchable as ProviderException', function (string $exceptionClass, int $status) {
+    $caught = null;
+
+    try {
+        createTestDriver()->handleRequestException('gpt-4o', makeRequestExceptionForStatus($status));
+    } catch (ProviderException $e) {
+        $caught = $e;
+    }
+
+    expect($caught)->toBeInstanceOf($exceptionClass);
+    expect($caught)->toBeInstanceOf(ProviderException::class);
+    expect($caught->statusCode)->toBe($status);
+})->with([
+    'auth' => [AuthenticationException::class, 401],
+    'authz' => [AuthorizationException::class, 403],
+    'rate limit' => [RateLimitException::class, 429],
+    'invalid request' => [InvalidRequestException::class, 400],
+    'model not found' => [ModelNotFoundException::class, 404],
+    'server' => [ServerException::class, 503],
+]);

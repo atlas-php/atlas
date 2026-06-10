@@ -68,7 +68,7 @@ class Text implements TextHandler
             config: $request->requestConfig,
         );
 
-        return new StreamResponse($this->parseSSE($raw));
+        return new StreamResponse($this->parseSSE($raw, $request->model));
     }
 
     public function structured(TextRequest $request): StructuredResponse
@@ -136,7 +136,7 @@ class Text implements TextHandler
      *
      * @return Generator<int, StreamChunk>
      */
-    protected function parseSSE(mixed $rawResponse): Generator
+    protected function parseSSE(mixed $rawResponse, string $model = ''): Generator
     {
         /** @var array<int, array{id: string, name: string, arguments: string}> $toolBlocks */
         $toolBlocks = [];
@@ -185,7 +185,7 @@ class Text implements TextHandler
                 $toolBlocks = [];
             }
 
-            yield $this->parser->parseStreamChunk($data);
+            yield $this->parser->parseStreamChunk($data, $model);
         }
     }
 

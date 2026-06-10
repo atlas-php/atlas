@@ -91,12 +91,12 @@ class ResponseParser implements ResponseParserContract
      *
      * @param  array<string, mixed>  $data
      */
-    public function parseStreamChunk(array $data): StreamChunk
+    public function parseStreamChunk(array $data, string $model = ''): StreamChunk
     {
         if (isset($data['error'])) {
             $error = is_array($data['error']) ? $data['error'] : ['message' => (string) $data['error']];
 
-            throw ProviderException::fromStreamError('chat_completions', '', $error);
+            throw ProviderException::fromStreamError('chat_completions', $model, $error);
         }
 
         /** @var array<string, mixed> $delta */

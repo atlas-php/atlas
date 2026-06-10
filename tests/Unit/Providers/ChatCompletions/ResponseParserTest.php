@@ -25,6 +25,20 @@ it('throws ProviderException on a mid-stream string error payload', function () 
     ]);
 })->throws(ProviderException::class, 'unexpected server error');
 
+it('a mid-stream error carries the model passed to the parser', function () {
+    $caught = null;
+
+    try {
+        makeCcParser()->parseStreamChunk([
+            'error' => ['message' => 'model not found'],
+        ], 'llama3.2');
+    } catch (ProviderException $e) {
+        $caught = $e;
+    }
+
+    expect($caught?->model)->toBe('llama3.2');
+});
+
 it('parses text from choices message', function () {
     $parser = makeCcParser();
 

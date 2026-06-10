@@ -34,6 +34,22 @@ function makeXaiVideoRequest(array $overrides = []): VideoRequest
     );
 }
 
+it('an unresolvable reference image throws a ProviderException carrying the model', function () {
+    $caught = null;
+
+    try {
+        makeXaiVideoHandler()->video(makeXaiVideoRequest([
+            'model' => 'grok-video',
+            'media' => [Image::fromFileId('file-abc123')],
+        ]));
+    } catch (ProviderException $e) {
+        $caught = $e;
+    }
+
+    expect($caught)->not->toBeNull();
+    expect($caught->model)->toBe('grok-video');
+});
+
 it('posts to /v1/videos/generations and polls until done', function () {
     Http::fake([
         'api.x.ai/v1/videos/generations' => Http::response(['request_id' => 'vid_123']),

@@ -8,18 +8,34 @@ use Illuminate\Http\Client\RequestException;
 use Throwable;
 
 /**
- * Thrown when a provider returns an unexpected error.
+ * Base for all provider-side errors: the request reached (or tried to reach) a
+ * provider and something went wrong. Catch this to handle any provider failure;
+ * catch a subclass (AuthenticationException, RateLimitException, etc.) for a
+ * specific category.
+ *
+ * `statusCode` is null when no HTTP response was received (see ConnectionException).
  */
 class ProviderException extends AtlasException
 {
     public function __construct(
         public readonly string $provider,
         public readonly string $model,
-        public readonly int $statusCode,
+        public readonly ?int $statusCode,
         public readonly string $providerMessage,
         ?Throwable $previous = null,
     ) {
-        parent::__construct("Provider [{$provider}] error [{$statusCode}]: {$providerMessage}", 0, $previous);
+        parent::__construct($this->buildMessage(), 0, $previous);
+    }
+
+    /**
+     * Build the human-readable exception message. Subclasses override this to
+     * keep their own phrasing while still sharing the base properties.
+     */
+    protected function buildMessage(): string
+    {
+        $status = $this->statusCode !== null ? " [{$this->statusCode}]" : '';
+
+        return "Provider [{$this->provider}] error{$status}: {$this->providerMessage}";
     }
 
     /**
@@ -30,30 +46,41 @@ class ProviderException extends AtlasException
      */
     public static function from(string $provider, string $model, RequestException $e, ?string $message = null): self
     {
+        return new self($provider, $model, $e->response->status(), self::resolveMessage($e, $message), $e);
+    }
+
+    /**
+     * Resolve the provider error message from a failed response, honoring a
+     * caller-supplied override, then the shared extraction chain, then the
+     * request exception's own message. Used by the typed subclasses too.
+     */
+    public static function resolveMessage(RequestException $e, ?string $override = null): string
+    {
         $body = $e->response->json();
 
-        return new self(
-            $provider,
-            $model,
-            $e->response->status(),
-            $message ?? self::extractMessage(is_array($body) ? $body : []) ?? $e->getMessage(),
-            $e,
-        );
+        return $override ?? self::extractMessage(is_array($body) ? $body : []) ?? $e->getMessage();
     }
 
     /**
      * Create from a provider error payload received mid-stream.
      *
+     * Returns the base ProviderException, not a typed subclass: a mid-stream
+     * error arrives after a successful, authenticated connection, so the
+     * status-based categories (auth, not-found, invalid-request) don't apply —
+     * those are already classified at connection time by handleRequestException.
+     * Mid-stream errors are overload/server conditions; catch ProviderException.
+     *
      * Stream errors arrive as SSE event payloads rather than HTTP responses, so
-     * they carry no HTTP status. The message is extracted from the common
-     * provider error shapes.
+     * they usually carry no HTTP status. The message is extracted from the
+     * common provider error shapes.
      *
      * @param  array<string, mixed>  $error
      */
     public static function fromStreamError(string $provider, string $model, array $error, ?int $status = null): self
     {
         $rawCode = data_get($error, 'code');
-        $code = $status ?? (is_int($rawCode) ? $rawCode : 0);
+        // Null (not 0) when there's no real status, so buildMessage omits the bracket.
+        $code = $status ?? (is_int($rawCode) && $rawCode > 0 ? $rawCode : null);
 
         return new self(
             $provider,
