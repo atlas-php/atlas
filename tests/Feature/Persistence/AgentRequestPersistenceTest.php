@@ -6,15 +6,21 @@ use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\AgentRegistry;
 use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Input\Image;
 use Atlasphp\Atlas\Pending\AgentRequest;
 use Atlasphp\Atlas\Persistence\Concerns\HasConversations;
+use Atlasphp\Atlas\Persistence\Enums\AssetType;
+use Atlasphp\Atlas\Persistence\Models\Asset;
 use Atlasphp\Atlas\Persistence\Models\Conversation;
 use Atlasphp\Atlas\Persistence\Models\ConversationMessage;
+use Atlasphp\Atlas\Persistence\Models\ConversationMessageAsset;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
+use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Testing\AtlasFake;
 use Atlasphp\Atlas\Testing\TextResponseFake;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 // ─── Test agents ────────────────────────────────────────────────────────────
 
@@ -127,6 +133,27 @@ it('skips transfer for agents without HasConversations', function () {
     expect(true)->toBeTrue();
 });
 
+it('transfers message limit, respond mode, and retry mode to the agent', function () {
+    registerPersistAgent(PersistTestConversationAgent::class);
+    setupPersistFake();
+
+    $request = makePersistRequest('persist-conv');
+    $agent = app(AgentRegistry::class)->resolve('persist-conv');
+
+    (new ReflectionProperty($request, 'runtimeMessageLimit'))->setValue($request, 25);
+    (new ReflectionProperty($request, 'respondMode'))->setValue($request, true);
+    (new ReflectionProperty($request, 'retryMode'))->setValue($request, true);
+
+    (new ReflectionMethod($request, 'transferConversationState'))->invoke($request, $agent);
+
+    // withMessageLimit() stores the runtime override on the agent.
+    $agentLimit = (new ReflectionProperty($agent, 'runtimeMessageLimit'))->getValue($agent);
+
+    expect($agentLimit)->toBe(25)
+        ->and($agent->isRespondMode())->toBeTrue()
+        ->and($agent->isRetrying())->toBeTrue();
+});
+
 // ─── storeUserMessageEagerly ───────────────────────────────────────────────
 
 it('stores user message to conversation eagerly', function () {
@@ -146,6 +173,34 @@ it('stores user message to conversation eagerly', function () {
     $messages = ConversationMessage::where('conversation_id', $conversation->id)->get();
     expect($messages)->toHaveCount(1);
     expect($messages->first()->role->value)->toBe('user');
+});
+
+it('stores eager media attachments as assets linked to the message', function () {
+    config(['filesystems.default' => 'local']);
+    Storage::fake('local');
+
+    registerPersistAgent(PersistTestConversationAgent::class);
+    setupPersistFake();
+
+    $conversation = Conversation::factory()->create();
+
+    $request = makePersistRequest('persist-conv')
+        ->message('Look at this image', [Image::fromBase64(base64_encode('fake-png-bytes'), 'image/png')])
+        ->forConversation($conversation->id);
+
+    (new ReflectionMethod($request, 'storeUserMessageEagerly'))->invoke($request);
+
+    $message = ConversationMessage::where('conversation_id', $conversation->id)->first();
+    expect($message)->not->toBeNull();
+
+    $asset = Asset::first();
+    expect(Asset::count())->toBe(1)
+        ->and($asset->type)->toBe(AssetType::Image)
+        ->and($asset->mime_type)->toBe('image/png')
+        ->and($asset->size_bytes)->toBe(strlen('fake-png-bytes'))
+        ->and(ConversationMessageAsset::where('message_id', $message->id)->where('asset_id', $asset->id)->count())->toBe(1);
+
+    Storage::disk($asset->disk)->assertExists($asset->path);
 });
 
 it('sets conversation title from first user message', function () {
@@ -248,6 +303,43 @@ it('switches to respond mode after eager store', function () {
 
     $respondProp = new ReflectionProperty($request, 'respondMode');
     expect($respondProp->getValue($request))->toBeTrue();
+});
+
+it('restores owner and message owner from a queue payload', function () {
+    registerPersistAgent(PersistTestConversationAgent::class);
+    setupPersistFake();
+
+    $owner = Conversation::factory()->create();          // morph stand-ins
+    $messageOwner = Conversation::factory()->create();
+
+    $result = AgentRequest::executeFromPayload([
+        'key' => 'persist-conv',
+        'message' => 'hi',
+        'message_media' => [],
+        'instructions' => null,
+        'variables' => [],
+        'meta' => [],
+        'provider' => 'openai',
+        'model' => 'gpt-4o',
+        'max_tokens' => null,
+        'temperature' => null,
+        'max_steps' => null,
+        'concurrent' => null,
+        'cache' => null,
+        'provider_options' => [],
+        'middleware' => [],
+        'owner_type' => $owner->getMorphClass(),
+        'owner_id' => $owner->getKey(),
+        'message_owner_type' => $messageOwner->getMorphClass(),
+        'message_owner_id' => $messageOwner->getKey(),
+        'conversation_id' => null,
+        'message_limit' => null,
+        'respond_mode' => false,
+        'retry_mode' => false,
+    ], 'asText');
+
+    // The branch resolves both models via findOrFail and applies for($owner, as: $messageOwner).
+    expect($result)->toBeInstanceOf(TextResponse::class);
 });
 
 // ─── Owner on user messages ───────────────────────────────────────────────

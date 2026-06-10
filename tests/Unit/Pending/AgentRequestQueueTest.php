@@ -5,8 +5,11 @@ declare(strict_types=1);
 use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\AgentRegistry;
 use Atlasphp\Atlas\Atlas;
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Enums\FinishReason;
+use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Enums\ToolChoiceMode;
+use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Input\Audio;
 use Atlasphp\Atlas\Input\Image;
 use Atlasphp\Atlas\Input\Input;
@@ -14,9 +17,45 @@ use Atlasphp\Atlas\Pending\AgentRequest;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
+use Atlasphp\Atlas\Responses\StreamResponse;
+use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\Usage;
+use Atlasphp\Atlas\Testing\AtlasFake;
+use Atlasphp\Atlas\Testing\StreamResponseFake;
+use Atlasphp\Atlas\Testing\StructuredResponseFake;
+use Atlasphp\Atlas\Testing\TextResponseFake;
 use Atlasphp\Atlas\Tools\ToolChoice;
+use Illuminate\Broadcasting\PrivateChannel;
+
+function queuePayload(array $overrides = []): array
+{
+    return array_merge([
+        'key' => 'queue-minimal',
+        'message' => 'hi',
+        'message_media' => [],
+        'instructions' => null,
+        'variables' => [],
+        'meta' => [],
+        'provider' => 'openai',
+        'model' => 'gpt-4o',
+        'max_tokens' => null,
+        'temperature' => null,
+        'max_steps' => null,
+        'concurrent' => null,
+        'cache' => null,
+        'provider_options' => [],
+        'middleware' => [],
+        'owner_type' => null,
+        'owner_id' => null,
+        'message_owner_type' => null,
+        'message_owner_id' => null,
+        'conversation_id' => null,
+        'message_limit' => null,
+        'respond_mode' => false,
+        'retry_mode' => false,
+    ], $overrides);
+}
 
 // ─── Test agent ─────────────────────────────────────────────────────────────
 
@@ -25,6 +64,19 @@ class QueueTestMinimalAgent extends Agent
     public function key(): string
     {
         return 'queue-minimal';
+    }
+}
+
+class QueueTestNoModelAgent extends Agent
+{
+    public function key(): string
+    {
+        return 'queue-no-model';
+    }
+
+    public function provider(): Provider|string|null
+    {
+        return Provider::OpenAI;
     }
 }
 
@@ -300,3 +352,121 @@ it('restores a tool choice when executing from a queue payload', function () {
         ->and($captured->toolChoice->mode)->toBe(ToolChoiceMode::Required)
         ->and($captured->toolChoice->tool)->toBe('log_mood');
 });
+
+// ─── restoreMediaItem: remaining source branches ─────────────────────────────
+
+it('restores media from a file id', function () {
+    $item = mediaItemDefaults([
+        'class' => Image::class,
+        'file_id' => 'file-abc123',
+    ]);
+
+    $result = invokeRestoreMediaItem($item);
+
+    expect($result)->toBeInstanceOf(Image::class)
+        ->and($result->isFileId())->toBeTrue()
+        ->and($result->fileId())->toBe('file-abc123');
+});
+
+it('restores media from storage', function () {
+    $item = mediaItemDefaults([
+        'class' => Image::class,
+        'storage_path' => 'uploads/cat.png',
+        'storage_disk' => 'local',
+    ]);
+
+    $result = invokeRestoreMediaItem($item);
+
+    expect($result)->toBeInstanceOf(Image::class)
+        ->and($result->isStorage())->toBeTrue()
+        ->and($result->storagePath())->toBe('uploads/cat.png')
+        ->and($result->storageDisk())->toBe('local');
+});
+
+// ─── executeFromPayload: restore branches ────────────────────────────────────
+
+it('merges the execution id into request meta', function () {
+    registerQueueTestAgent(QueueTestMinimalAgent::class);
+    $fake = new AtlasFake(app(ProviderRegistryContract::class), [TextResponseFake::make()->withText('ok')]);
+
+    AgentRequest::executeFromPayload(queuePayload(['meta' => ['source' => 'queue']]), 'asText', executionId: 4242);
+
+    $captured = $fake->recorded()[0]->request;
+    expect($captured->meta)->toHaveKey('execution_id')
+        ->and($captured->meta['execution_id'])->toBe(4242)
+        ->and($captured->meta['source'])->toBe('queue');
+});
+
+it('restores middleware from the payload', function () {
+    registerQueueTestAgent(QueueTestMinimalAgent::class);
+    $fake = new AtlasFake(app(ProviderRegistryContract::class), [TextResponseFake::make()->withText('ok')]);
+
+    AgentRequest::executeFromPayload(queuePayload(['middleware' => ['App\\Middleware\\Trace']]), 'asText');
+
+    expect($fake->recorded()[0]->request->middleware)->toBe(['App\\Middleware\\Trace']);
+});
+
+it('restores the conversation id from the payload', function () {
+    registerQueueTestAgent(QueueTestMinimalAgent::class);
+    new AtlasFake(app(ProviderRegistryContract::class), [TextResponseFake::make()->withText('ok')]);
+
+    $result = AgentRequest::executeFromPayload(queuePayload(['conversation_id' => 7]), 'asText');
+
+    expect($result)->toBeInstanceOf(TextResponse::class);
+});
+
+it('restores respond and retry mode from the payload', function () {
+    registerQueueTestAgent(QueueTestMinimalAgent::class);
+    new AtlasFake(app(ProviderRegistryContract::class), [TextResponseFake::make()->withText('ok')]);
+
+    $result = AgentRequest::executeFromPayload(
+        queuePayload(['respond_mode' => true, 'retry_mode' => true]),
+        'asText',
+    );
+
+    expect($result)->toBeInstanceOf(TextResponse::class);
+});
+
+it('applies a broadcast channel when one is provided', function () {
+    registerQueueTestAgent(QueueTestMinimalAgent::class);
+    new AtlasFake(app(ProviderRegistryContract::class), [StreamResponseFake::make()->withText('s')]);
+
+    $result = AgentRequest::executeFromPayload(
+        queuePayload(),
+        'asStream',
+        broadcastChannel: new PrivateChannel('atlas.test'),
+    );
+
+    expect($result)->toBeInstanceOf(StreamResponse::class);
+});
+
+// ─── executeFromPayload: terminal dispatch ───────────────────────────────────
+
+it('dispatches the asStream terminal', function () {
+    registerQueueTestAgent(QueueTestMinimalAgent::class);
+    new AtlasFake(app(ProviderRegistryContract::class), [StreamResponseFake::make()->withText('streamed')]);
+
+    $result = AgentRequest::executeFromPayload(queuePayload(), 'asStream');
+
+    expect($result)->toBeInstanceOf(StreamResponse::class);
+});
+
+it('dispatches the asStructured terminal', function () {
+    registerQueueTestAgent(QueueTestMinimalAgent::class);
+    new AtlasFake(app(ProviderRegistryContract::class), [StructuredResponseFake::make()->withStructured(['ok' => true])]);
+
+    $result = AgentRequest::executeFromPayload(queuePayload(), 'asStructured');
+
+    expect($result)->toBeInstanceOf(StructuredResponse::class);
+});
+
+// ─── buildRequest: model guard ───────────────────────────────────────────────
+
+it('throws when no model can be resolved for the agent', function () {
+    registerQueueTestAgent(QueueTestNoModelAgent::class);
+    config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => null]]);
+    AtlasConfig::refresh();
+    new AtlasFake(app(ProviderRegistryContract::class), [TextResponseFake::make()->withText('x')]);
+
+    Atlas::agent('queue-no-model')->message('hi')->asText();
+})->throws(AtlasException::class, 'agent model');

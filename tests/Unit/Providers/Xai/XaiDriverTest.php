@@ -6,7 +6,13 @@ use Atlasphp\Atlas\AtlasCache;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Input\Image as ImageInput;
+use Atlasphp\Atlas\Providers\Handlers\ImageHandler;
+use Atlasphp\Atlas\Providers\Handlers\TextHandler;
+use Atlasphp\Atlas\Providers\Handlers\VideoHandler;
 use Atlasphp\Atlas\Providers\ProviderConfig;
+use Atlasphp\Atlas\Providers\Xai\Handlers\Image as XaiImageHandler;
+use Atlasphp\Atlas\Providers\Xai\Handlers\Text as XaiTextHandler;
+use Atlasphp\Atlas\Providers\Xai\Handlers\Video as XaiVideoHandler;
 use Atlasphp\Atlas\Providers\Xai\XaiDriver;
 use Atlasphp\Atlas\Requests\AudioRequest;
 use Atlasphp\Atlas\Requests\EmbedRequest;
@@ -29,6 +35,32 @@ function makeXaiDriver(): XaiDriver
 
 it('returns xai as name', function () {
     expect(makeXaiDriver()->name())->toBe('xai');
+});
+
+// ─── Handler factories ───────────────────────────────────────────────────────
+
+it('returns a TextHandler (Xai\Handlers\Text) from textHandler', function () {
+    $driver = makeXaiDriver();
+    $handler = (new ReflectionMethod($driver, 'textHandler'))->invoke($driver);
+
+    expect($handler)->toBeInstanceOf(TextHandler::class)
+        ->and($handler)->toBeInstanceOf(XaiTextHandler::class);
+});
+
+it('returns an ImageHandler (Xai\Handlers\Image) from imageHandler', function () {
+    $driver = makeXaiDriver();
+    $handler = (new ReflectionMethod($driver, 'imageHandler'))->invoke($driver);
+
+    expect($handler)->toBeInstanceOf(ImageHandler::class)
+        ->and($handler)->toBeInstanceOf(XaiImageHandler::class);
+});
+
+it('returns a VideoHandler (Xai\Handlers\Video) from videoHandler', function () {
+    $driver = makeXaiDriver();
+    $handler = (new ReflectionMethod($driver, 'videoHandler'))->invoke($driver);
+
+    expect($handler)->toBeInstanceOf(VideoHandler::class)
+        ->and($handler)->toBeInstanceOf(XaiVideoHandler::class);
 });
 
 // ─── Capabilities ───────────────────────────────────────────────────────────
