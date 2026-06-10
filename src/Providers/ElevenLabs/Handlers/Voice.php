@@ -94,6 +94,7 @@ class Voice implements VoiceHandler
             headers: $this->headers(),
             body: $this->buildAgentConfig($request),
             timeout: $this->config->timeout,
+            config: $request->requestConfig,
         );
 
         $agentId = $data['agent_id'] ?? null;

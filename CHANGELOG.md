@@ -12,16 +12,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 ### Added
 
-- `ConnectionException` — a typed exception for network-level failures (connection timeout, DNS failure, refused connection) that happen before the provider returns any response. It extends `AtlasException`, so existing catch-all handlers still catch it.
+- `ConnectionException` for network failures (timeout, DNS, refused) before any response. Extends `AtlasException`.
 
 ### Fixed
 
-- Network failures reaching a provider (timeouts, DNS, refused connections) now retry as transient errors and surface as a typed `ConnectionException` instead of leaking a raw HTTP-client exception that escaped `catch (AtlasException)`.
-- Provider errors that occur partway through a streamed response are now detected and thrown as a `ProviderException` while you iterate the stream, instead of silently ending the stream with a truncated, successful-looking result.
+- Retries now work. `atlas.retry` and `->withRetry()` were dropped before the HTTP layer, so 429 and 5xx retries never ran.
+- Network failures now retry and throw a typed `ConnectionException` instead of a raw HTTP-client exception.
+- Mid-stream provider errors now throw `ProviderException` instead of silently truncating the stream.
 
 ### Migration
 
-No breaking changes — drop-in upgrade. No consumer action required. If you consume streamed responses, wrap iteration in a try/catch for `ProviderException` to handle mid-stream provider errors (previously these were swallowed).
+No breaking changes — drop-in upgrade. To handle mid-stream errors, wrap stream iteration in a try/catch for `ProviderException`.
 
 ---
 

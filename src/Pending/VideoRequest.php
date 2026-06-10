@@ -161,6 +161,7 @@ class VideoRequest implements QueueableRequest
             providerOptions: $this->providerOptions,
             middleware: $this->middleware,
             meta: $this->meta,
+            requestConfig: $this->resolveRequestConfig(),
         );
     }
 

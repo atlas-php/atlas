@@ -72,6 +72,7 @@ class Music
             headers: $this->headers(),
             body: $body,
             timeout: max($this->config->mediaTimeout, 300),
+            config: $request->requestConfig,
         );
 
         return new AudioResponse(

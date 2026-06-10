@@ -68,6 +68,7 @@ class Video implements VideoHandler
             headers: $this->headers(),
             body: $body,
             timeout: $this->config->mediaTimeout,
+            config: $request->requestConfig,
         );
 
         $videoId = (string) ($data['id'] ?? '');

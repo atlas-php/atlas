@@ -48,12 +48,15 @@ class ProviderException extends AtlasException
      */
     public static function fromStreamError(string $provider, string $model, array $error, ?int $status = null): self
     {
+        $nested = data_get($error, 'error');
+        $rawCode = data_get($error, 'code');
+
         $message = data_get($error, 'message')
             ?? data_get($error, 'error.message')
-            ?? (is_string(data_get($error, 'error')) ? data_get($error, 'error') : null)
+            ?? (is_string($nested) ? $nested : null)
             ?? 'Provider returned an error during streaming.';
 
-        $code = $status ?? (is_int(data_get($error, 'code')) ? (int) data_get($error, 'code') : 0);
+        $code = $status ?? (is_int($rawCode) ? $rawCode : 0);
 
         return new self($provider, $model, $code, (string) $message);
     }

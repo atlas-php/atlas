@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Requests;
 
+use Atlasphp\Atlas\RequestConfig;
 use Atlasphp\Atlas\Schema\Schema;
 use Atlasphp\Atlas\Tools\ToolChoice;
 
@@ -37,6 +38,7 @@ final class TextRequest
         public readonly array $middleware = [],
         public readonly array $meta = [],
         public readonly bool $cache = false,
+        public readonly ?RequestConfig $requestConfig = null,
     ) {}
 
     /**
@@ -62,6 +64,7 @@ final class TextRequest
             middleware: $this->middleware,
             meta: $this->meta,
             cache: $this->cache,
+            requestConfig: $this->requestConfig,
         );
     }
 
@@ -88,6 +91,7 @@ final class TextRequest
             middleware: $this->middleware,
             meta: $this->meta,
             cache: $this->cache,
+            requestConfig: $this->requestConfig,
         );
     }
 
@@ -115,6 +119,7 @@ final class TextRequest
             middleware: $this->middleware,
             meta: $this->meta,
             cache: $this->cache,
+            requestConfig: $this->requestConfig,
         );
     }
 
@@ -141,6 +146,7 @@ final class TextRequest
             middleware: $this->middleware,
             meta: $this->meta,
             cache: $this->cache,
+            requestConfig: $this->requestConfig,
         );
     }
 
@@ -168,6 +174,7 @@ final class TextRequest
             middleware: $this->middleware,
             meta: $this->meta,
             cache: $this->cache,
+            requestConfig: $this->requestConfig,
         );
     }
 }

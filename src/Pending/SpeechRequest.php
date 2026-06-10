@@ -189,6 +189,7 @@ class SpeechRequest implements QueueableRequest
             meta: array_merge($this->meta, [
                 '_audio_mode' => 'speech',
             ]),
+            requestConfig: $this->resolveRequestConfig(),
         );
     }
 

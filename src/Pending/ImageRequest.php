@@ -171,6 +171,7 @@ class ImageRequest implements QueueableRequest
             count: $this->count,
             middleware: $this->middleware,
             meta: $this->meta,
+            requestConfig: $this->resolveRequestConfig(),
         );
     }
 

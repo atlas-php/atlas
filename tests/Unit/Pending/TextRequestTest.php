@@ -55,6 +55,24 @@ it('returns $this from all fluent methods', function () {
     expect($pending->withProviderOptions([]))->toBe($pending);
 });
 
+it('threads withRetry config through to the built request', function () {
+    $request = createTextPending()->withRetry(rateLimit: 7, errors: 4)->buildRequest();
+
+    expect($request->requestConfig)->not->toBeNull();
+    expect($request->requestConfig->rateLimit)->toBe(7);
+    expect($request->requestConfig->errors)->toBe(4);
+});
+
+it('preserves requestConfig across with* copy methods', function () {
+    $request = createTextPending()->withRetry(errors: 9)->buildRequest();
+
+    expect($request->withClearedMessage()->requestConfig?->errors)->toBe(9);
+    expect($request->withReplacedMessages([])->requestConfig?->errors)->toBe(9);
+    expect($request->withToolChoice(null)->requestConfig?->errors)->toBe(9);
+    expect($request->withAppendedMessages([])->requestConfig?->errors)->toBe(9);
+    expect($request->withReplacedTools([])->requestConfig?->errors)->toBe(9);
+});
+
 it('builds request with correct defaults', function () {
     $request = createTextPending()->buildRequest();
 

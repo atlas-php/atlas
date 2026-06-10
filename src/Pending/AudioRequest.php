@@ -197,6 +197,7 @@ class AudioRequest implements QueueableRequest
             meta: array_merge($this->meta, [
                 '_audio_mode' => $this->meta['_audio_mode'] ?? 'tts',
             ]),
+            requestConfig: $this->resolveRequestConfig(),
         );
     }
 

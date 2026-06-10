@@ -413,6 +413,7 @@ class TextRequest implements QueueableRequest
             middleware: $this->middleware,
             meta: $this->meta,
             cache: $this->cache ?? (bool) config('atlas.prompt_cache', true),
+            requestConfig: $this->resolveRequestConfig(),
         );
     }
 

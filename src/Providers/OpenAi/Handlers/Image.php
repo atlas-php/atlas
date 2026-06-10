@@ -65,6 +65,7 @@ class Image implements ImageHandler
             headers: $this->headers(),
             body: $body,
             timeout: $this->config->mediaTimeout,
+            config: $request->requestConfig,
         );
     }
 
@@ -113,6 +114,7 @@ class Image implements ImageHandler
             data: $fields,
             attachments: $attachments,
             timeout: $this->config->mediaTimeout,
+            config: $request->requestConfig,
         );
     }
 

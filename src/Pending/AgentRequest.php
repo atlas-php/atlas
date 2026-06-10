@@ -1025,6 +1025,7 @@ class AgentRequest implements QueueableRequest
             middleware: $this->middleware,
             meta: $this->meta,
             cache: $this->cacheOverride ?? $this->config->promptCache,
+            requestConfig: $this->resolveRequestConfig(),
         );
     }
 

@@ -51,6 +51,7 @@ class Text implements TextHandler
             headers: $this->headers(),
             body: $this->buildPayload($request),
             timeout: $this->config->timeout,
+            config: $request->requestConfig,
         );
 
         return $this->parser->parseText($data);
@@ -66,6 +67,7 @@ class Text implements TextHandler
             headers: $this->headers(),
             body: $body,
             timeout: $this->config->timeout,
+            config: $request->requestConfig,
         );
 
         return new StreamResponse($this->parseSSE($raw));
@@ -91,6 +93,7 @@ class Text implements TextHandler
             headers: $this->headers(),
             body: $body,
             timeout: $this->config->timeout,
+            config: $request->requestConfig,
         );
 
         $textResponse = $this->parser->parseText($data);

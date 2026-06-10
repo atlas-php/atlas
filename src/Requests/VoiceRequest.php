@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Requests;
 
 use Atlasphp\Atlas\Enums\TurnDetectionMode;
 use Atlasphp\Atlas\Enums\VoiceTransport;
+use Atlasphp\Atlas\RequestConfig;
 
 /**
  * Immutable request object for voice-to-voice sessions.
@@ -35,5 +36,6 @@ final class VoiceRequest
         public readonly array $providerOptions = [],
         public readonly array $middleware = [],
         public readonly array $meta = [],
+        public readonly ?RequestConfig $requestConfig = null,
     ) {}
 }
