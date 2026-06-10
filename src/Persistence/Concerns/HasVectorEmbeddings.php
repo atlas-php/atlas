@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Concerns;
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
 use Atlasphp\Atlas\Embeddings\VectorEmbeddable;
 use Atlasphp\Atlas\Embeddings\VectorQueryMacros;
@@ -131,7 +132,7 @@ trait HasVectorEmbeddings
      */
     protected function storeEmbedding(array $vector): static
     {
-        $expected = (int) config('atlas.embeddings.dimensions');
+        $expected = app(AtlasConfig::class)->embeddingDimensions;
         if (count($vector) !== $expected) {
             throw AtlasException::dimensionMismatch($expected, count($vector));
         }
