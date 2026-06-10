@@ -12,12 +12,17 @@ use Atlasphp\Atlas\RequestConfig;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 
 /**
  * Shared HTTP transport for all provider drivers.
  *
  * Sends requests, fires transport events, and runs the retry loop
  * for transient failures and rate limits.
+ *
+ * Every logical call is stamped with a correlation id (stable across retries)
+ * and the caller's provider/model context, which ride on all four transport
+ * events so consumers can attribute and correlate a request's lifecycle.
  */
 class HttpClient
 {
@@ -32,12 +37,13 @@ class HttpClient
      * @param  array<string, string>  $headers
      * @return array<string, mixed>
      */
-    public function get(string $url, array $headers, int $timeout): array
+    public function get(string $url, array $headers, int $timeout, ?ProviderRequestContext $context = null): array
     {
-        $response = $this->sendGet($url, $headers, $timeout);
+        $context = $this->stamp($context);
+        $response = $this->sendGet($url, $headers, $timeout, $context);
 
         $data = $response->json() ?? [];
-        $this->events->dispatch(new ProviderRequestCompleted($url, $data, $response->status()));
+        $this->dispatchCompleted($url, $data, $response->status(), $context);
 
         return $data;
     }
@@ -51,11 +57,12 @@ class HttpClient
      *
      * @param  array<string, string>  $headers
      */
-    public function getRaw(string $url, array $headers, int $timeout): string
+    public function getRaw(string $url, array $headers, int $timeout, ?ProviderRequestContext $context = null): string
     {
-        $response = $this->sendGet($url, $headers, $timeout);
+        $context = $this->stamp($context);
+        $response = $this->sendGet($url, $headers, $timeout, $context);
 
-        $this->events->dispatch(new ProviderRequestCompleted($url, [], $response->status()));
+        $this->dispatchCompleted($url, [], $response->status(), $context);
 
         return $response->body();
     }
@@ -70,15 +77,16 @@ class HttpClient
      * @param  array<string, mixed>  $body
      * @return array<string, mixed>
      */
-    public function post(string $url, array $headers, array $body, int $timeout, ?RequestConfig $config = null): array
+    public function post(string $url, array $headers, array $body, int $timeout, ?RequestConfig $config = null, ?ProviderRequestContext $context = null): array
     {
         $timeout = $this->effectiveTimeout($timeout, $config);
+        $context = $this->stamp($context);
 
-        return $this->withRetry($config, $url, function () use ($url, $headers, $body, $timeout) {
-            $response = $this->sendPost($url, $headers, $body, $timeout);
+        return $this->withRetry($config, $url, $context, function () use ($url, $headers, $body, $timeout, $context) {
+            $response = $this->sendPost($url, $headers, $body, $timeout, $context);
 
             $data = $response->json() ?? [];
-            $this->events->dispatch(new ProviderRequestCompleted($url, $data, $response->status()));
+            $this->dispatchCompleted($url, $data, $response->status(), $context);
 
             return $data;
         });
@@ -92,14 +100,15 @@ class HttpClient
      * @param  array<string, string>  $headers
      * @param  array<string, mixed>  $body
      */
-    public function postRaw(string $url, array $headers, array $body, int $timeout, ?RequestConfig $config = null): string
+    public function postRaw(string $url, array $headers, array $body, int $timeout, ?RequestConfig $config = null, ?ProviderRequestContext $context = null): string
     {
         $timeout = $this->effectiveTimeout($timeout, $config);
+        $context = $this->stamp($context);
 
-        return $this->withRetry($config, $url, function () use ($url, $headers, $body, $timeout) {
-            $response = $this->sendPost($url, $headers, $body, $timeout);
+        return $this->withRetry($config, $url, $context, function () use ($url, $headers, $body, $timeout, $context) {
+            $response = $this->sendPost($url, $headers, $body, $timeout, $context);
 
-            $this->events->dispatch(new ProviderRequestCompleted($url, [], $response->status()));
+            $this->dispatchCompleted($url, [], $response->status(), $context);
 
             return $response->body();
         });
@@ -113,12 +122,13 @@ class HttpClient
      * @param  array<int, array{name: string, contents: string, filename?: string}>  $attachments
      * @return array<string, mixed>
      */
-    public function postMultipart(string $url, array $headers, array $data, array $attachments, int $timeout, ?RequestConfig $config = null): array
+    public function postMultipart(string $url, array $headers, array $data, array $attachments, int $timeout, ?RequestConfig $config = null, ?ProviderRequestContext $context = null): array
     {
         $timeout = $this->effectiveTimeout($timeout, $config);
+        $context = $this->stamp($context);
 
-        return $this->withRetry($config, $url, function () use ($url, $headers, $data, $attachments, $timeout) {
-            $this->events->dispatch(new ProviderRequestStarted($url, $data, 'MULTIPART'));
+        return $this->withRetry($config, $url, $context, function () use ($url, $headers, $data, $attachments, $timeout, $context) {
+            $this->dispatchStarted($url, $data, 'MULTIPART', $context);
 
             $pending = Http::withHeaders($headers)->timeout($timeout);
 
@@ -131,10 +141,10 @@ class HttpClient
             }
 
             $response = $pending->post($url, $data);
-            $this->handleFailure($url, $response);
+            $this->handleFailure($url, $response, $context);
 
             $result = $response->json() ?? [];
-            $this->events->dispatch(new ProviderRequestCompleted($url, $result, $response->status()));
+            $this->dispatchCompleted($url, $result, $response->status(), $context);
 
             return $result;
         });
@@ -146,27 +156,37 @@ class HttpClient
      * @param  array<string, string>  $headers
      * @param  array<string, mixed>  $body
      */
-    public function stream(string $url, array $headers, array $body, int $timeout, ?RequestConfig $config = null): Response
+    public function stream(string $url, array $headers, array $body, int $timeout, ?RequestConfig $config = null, ?ProviderRequestContext $context = null): Response
     {
         $timeout = $this->effectiveTimeout($timeout, $config);
+        $context = $this->stamp($context);
 
-        return $this->withRetry($config, $url, function () use ($url, $headers, $body, $timeout) {
-            $this->events->dispatch(new ProviderRequestStarted($url, $body, 'STREAM'));
+        return $this->withRetry($config, $url, $context, function () use ($url, $headers, $body, $timeout, $context) {
+            $this->dispatchStarted($url, $body, 'STREAM', $context);
 
             $response = Http::withHeaders($headers)
                 ->timeout($timeout)
                 ->withOptions(['stream' => true])
                 ->post($url, $body);
 
-            $this->handleFailure($url, $response);
+            $this->handleFailure($url, $response, $context);
 
-            $this->events->dispatch(new ProviderRequestCompleted($url, [], $response->status()));
+            $this->dispatchCompleted($url, [], $response->status(), $context);
 
             return $response;
         });
     }
 
     // ─── Internal ─────────────────────────────────────────────────
+
+    /**
+     * Stamp the (possibly absent) caller context with a fresh correlation id.
+     * Generated once per logical call so it stays stable across retries.
+     */
+    private function stamp(?ProviderRequestContext $context): ProviderRequestContext
+    {
+        return ($context ?? new ProviderRequestContext)->withCorrelationId((string) Str::uuid());
+    }
 
     /**
      * Resolve the timeout for a call.
@@ -185,12 +205,12 @@ class HttpClient
      *
      * @param  array<string, string>  $headers
      */
-    private function sendGet(string $url, array $headers, int $timeout): Response
+    private function sendGet(string $url, array $headers, int $timeout, ProviderRequestContext $context): Response
     {
-        $this->events->dispatch(new ProviderRequestStarted($url, [], 'GET'));
+        $this->dispatchStarted($url, [], 'GET', $context);
 
         $response = Http::withHeaders($headers)->timeout($timeout)->get($url);
-        $this->handleFailure($url, $response);
+        $this->handleFailure($url, $response, $context);
 
         return $response;
     }
@@ -201,12 +221,12 @@ class HttpClient
      * @param  array<string, string>  $headers
      * @param  array<string, mixed>  $body
      */
-    private function sendPost(string $url, array $headers, array $body, int $timeout): Response
+    private function sendPost(string $url, array $headers, array $body, int $timeout, ProviderRequestContext $context): Response
     {
-        $this->events->dispatch(new ProviderRequestStarted($url, $body));
+        $this->dispatchStarted($url, $body, 'POST', $context);
 
         $response = Http::withHeaders($headers)->timeout($timeout)->post($url, $body);
-        $this->handleFailure($url, $response);
+        $this->handleFailure($url, $response, $context);
 
         return $response;
     }
@@ -219,7 +239,7 @@ class HttpClient
      * @param  callable(): T  $callback
      * @return T
      */
-    protected function withRetry(?RequestConfig $config, string $url, callable $callback): mixed
+    private function withRetry(?RequestConfig $config, string $url, ProviderRequestContext $context, callable $callback): mixed
     {
         if ($config === null || ! $config->retryEnabled()) {
             return $callback();
@@ -239,7 +259,9 @@ class HttpClient
 
                 $wait = $this->decider->waitMicroseconds($e, $attempt);
 
-                $this->events->dispatch(new ProviderRequestRetrying($url, $e, $attempt, $wait));
+                $this->events->dispatch(new ProviderRequestRetrying(
+                    $url, $e, $attempt, $wait, $context->correlationId, $context->provider, $context->model,
+                ));
 
                 if ($wait > 0) {
                     usleep($wait);
@@ -251,11 +273,37 @@ class HttpClient
     /**
      * Dispatch failure event and throw if the response indicates an error.
      */
-    private function handleFailure(string $url, Response $response): void
+    private function handleFailure(string $url, Response $response, ProviderRequestContext $context): void
     {
         if ($response->failed()) {
-            $this->events->dispatch(new ProviderRequestFailed($url, $response));
+            $this->events->dispatch(new ProviderRequestFailed(
+                $url, $response, $context->correlationId, $context->provider, $context->model,
+            ));
             $response->throw();
         }
+    }
+
+    /**
+     * Dispatch the request-started event with correlation/provider/model context.
+     *
+     * @param  array<string, mixed>  $body
+     */
+    private function dispatchStarted(string $url, array $body, string $method, ProviderRequestContext $context): void
+    {
+        $this->events->dispatch(new ProviderRequestStarted(
+            $url, $body, $method, $context->correlationId, $context->provider, $context->model,
+        ));
+    }
+
+    /**
+     * Dispatch the request-completed event with correlation/provider/model context.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function dispatchCompleted(string $url, array $data, int $statusCode, ProviderRequestContext $context): void
+    {
+        $this->events->dispatch(new ProviderRequestCompleted(
+            $url, $data, $statusCode, $context->correlationId, $context->provider, $context->model,
+        ));
     }
 }

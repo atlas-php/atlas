@@ -109,3 +109,25 @@ it('excludes driver and capabilities from extra', function () {
     expect($config->extra)->not->toHaveKey('driver');
     expect($config->extra)->not->toHaveKey('capabilities');
 });
+
+it('reads the provider key and keeps it out of extra', function () {
+    $config = ProviderConfig::fromArray([
+        'api_key' => 'sk-test',
+        'url' => 'https://api.test.com',
+        'provider' => 'openai',
+        'version' => '1.0',
+    ]);
+
+    expect($config->provider)->toBe('openai');
+    expect($config->extra)->toBe(['version' => '1.0']);
+    expect($config->extra)->not->toHaveKey('provider');
+});
+
+it('defaults the provider to an empty string when absent', function () {
+    $config = ProviderConfig::fromArray([
+        'api_key' => 'sk-test',
+        'url' => 'https://api.test.com',
+    ]);
+
+    expect($config->provider)->toBe('');
+});

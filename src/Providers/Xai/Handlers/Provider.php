@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Providers\Xai\Handlers;
 
+use Atlasphp\Atlas\Http\ProviderRequestContext;
 use Atlasphp\Atlas\Providers\Handlers\AbstractProviderHandler;
 use Atlasphp\Atlas\Providers\VoiceList;
 
@@ -20,6 +21,7 @@ class Provider extends AbstractProviderHandler
             url: "{$this->config->baseUrl}/tts/voices",
             headers: $this->headersWithoutContentType(),
             timeout: $this->config->timeout,
+            context: new ProviderRequestContext($this->config->provider),
         );
 
         /** @var array<int, array<string, mixed>> $voices */

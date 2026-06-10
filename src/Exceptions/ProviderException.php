@@ -28,6 +28,42 @@ class ProviderException extends AtlasException
     }
 
     /**
+     * The provider's raw response body, decoded as an array.
+     *
+     * Returns null when the failure carried no HTTP response (e.g.
+     * ConnectionException) or the body was not valid JSON. Reads through the
+     * preserved request exception so debugging doesn't require digging into
+     * `getPrevious()` by hand.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function responseBody(): ?array
+    {
+        $previous = $this->getPrevious();
+
+        if (! $previous instanceof RequestException) {
+            return null;
+        }
+
+        $body = $previous->response->json();
+
+        return is_array($body) ? $body : null;
+    }
+
+    /**
+     * The provider's raw response body as an unparsed string.
+     *
+     * Returns null when the failure carried no HTTP response. Useful when the
+     * body is not JSON (HTML error pages, plain text) or you need the exact bytes.
+     */
+    public function rawResponse(): ?string
+    {
+        $previous = $this->getPrevious();
+
+        return $previous instanceof RequestException ? $previous->response->body() : null;
+    }
+
+    /**
      * Build the human-readable exception message. Subclasses override this to
      * keep their own phrasing while still sharing the base properties.
      */
@@ -36,6 +72,15 @@ class ProviderException extends AtlasException
         $status = $this->statusCode !== null ? " [{$this->statusCode}]" : '';
 
         return "Provider [{$this->provider}] error{$status}: {$this->providerMessage}";
+    }
+
+    /**
+     * The ": {message}" suffix subclasses append to their own phrasing when the
+     * provider supplied an error message, or a closing period when it didn't.
+     */
+    protected function providerSuffix(): string
+    {
+        return $this->providerMessage !== '' ? ": {$this->providerMessage}" : '.';
     }
 
     /**

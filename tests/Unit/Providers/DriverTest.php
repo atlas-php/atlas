@@ -359,6 +359,51 @@ it('maps 403 to AuthorizationException', function () {
     createTestDriver()->handleRequestException('gpt-4o', makeRequestExceptionForStatus(403));
 })->throws(AuthorizationException::class);
 
+function makeRequestExceptionWithBody(int $status, array $body): RequestException
+{
+    Http::fake(['*' => Http::response($body, $status)]);
+
+    try {
+        Http::get('https://api.test.com/fail')->throw();
+    } catch (RequestException $e) {
+        return $e;
+    }
+
+    throw new RuntimeException('Expected RequestException');
+}
+
+it('surfaces the provider message on a 401', function () {
+    $caught = null;
+
+    try {
+        createTestDriver()->handleRequestException(
+            'gpt-4o',
+            makeRequestExceptionWithBody(401, ['error' => ['message' => 'Incorrect API key provided']]),
+        );
+    } catch (AuthenticationException $e) {
+        $caught = $e;
+    }
+
+    expect($caught->providerMessage)->toBe('Incorrect API key provided');
+    expect($caught->getMessage())->toContain('Incorrect API key provided');
+});
+
+it('surfaces the provider message on a 403', function () {
+    $caught = null;
+
+    try {
+        createTestDriver()->handleRequestException(
+            'gpt-4o',
+            makeRequestExceptionWithBody(403, ['error' => ['message' => 'You are not authorized for this model']]),
+        );
+    } catch (AuthorizationException $e) {
+        $caught = $e;
+    }
+
+    expect($caught->providerMessage)->toBe('You are not authorized for this model');
+    expect($caught->getMessage())->toContain('You are not authorized for this model');
+});
+
 it('maps 429 to RateLimitException', function () {
     createTestDriver()->handleRequestException('gpt-4o', makeRequestExceptionForStatus(429));
 })->throws(RateLimitException::class);

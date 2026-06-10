@@ -14,5 +14,8 @@ class ProviderRequestFailed
     public function __construct(
         public readonly string $url,
         public readonly Response $response,
+        public readonly ?string $correlationId = null,
+        public readonly ?string $provider = null,
+        public readonly ?string $model = null,
     ) {}
 }

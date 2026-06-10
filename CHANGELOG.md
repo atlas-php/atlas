@@ -15,6 +15,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 - New typed exceptions for specific provider failures: `ConnectionException` (network), `ModelNotFoundException` (unknown model), `InvalidRequestException` (bad request), and `ServerException` (provider error).
 - xAI now supports the `CodeInterpreter` provider tool.
 - `voice.route_middleware` config to protect the voice routes, e.g. `['auth:sanctum', 'throttle:60,1']`.
+- `ProviderException::responseBody()` and `rawResponse()` expose the provider's raw error response for debugging, without digging through the previous exception.
+- Provider request events (`ProviderRequestStarted` / `Completed` / `Failed` / `Retrying`) now carry a `correlationId` (stable across retries) plus the `provider` and `model`, so you can correlate and attribute every HTTP call to a provider.
 
 ### Changed
 
@@ -34,6 +36,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 - Google tool calls missing a function name now degrade gracefully instead of erroring mid-parse.
 - Listing models and voices now reports failures like any other call.
 - Error messages now carry the provider's real reason across all providers.
+- Authentication (401) and authorization (403) failures now include the provider's real error message (e.g. "Incorrect API key provided") instead of a generic message.
 - Queued failures cap their broadcast error so it can't exceed the socket limit and drop the event.
 
 ### Migration

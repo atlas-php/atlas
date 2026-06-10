@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Providers\OpenAi\Handlers;
 
 use Atlasphp\Atlas\Http\HttpClient;
+use Atlasphp\Atlas\Http\ProviderRequestContext;
 use Atlasphp\Atlas\Providers\Concerns\BuildsHeaders;
 use Atlasphp\Atlas\Providers\Handlers\EmbedHandler;
 use Atlasphp\Atlas\Providers\OpenAi\Concerns\HasOrganizationHeader;
@@ -42,6 +43,7 @@ class Embed implements EmbedHandler
             body: $body,
             timeout: $this->config->timeout,
             config: $request->requestConfig,
+            context: new ProviderRequestContext($this->config->provider, $request->model),
         );
 
         /** @var array<int, array<string, mixed>> $items */

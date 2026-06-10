@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Providers\Handlers;
 
 use Atlasphp\Atlas\AtlasCache;
 use Atlasphp\Atlas\Http\HttpClient;
+use Atlasphp\Atlas\Http\ProviderRequestContext;
 use Atlasphp\Atlas\Providers\Concerns\BuildsHeaders;
 use Atlasphp\Atlas\Providers\ModelList;
 use Atlasphp\Atlas\Providers\ProviderConfig;
@@ -69,6 +70,7 @@ abstract class AbstractProviderHandler implements ProviderHandler
             url: "{$this->config->baseUrl}/models",
             headers: $this->headersWithoutContentType(),
             timeout: $this->config->timeout,
+            context: new ProviderRequestContext($this->config->provider),
         );
 
         /** @var array<int, array<string, mixed>> $models */

@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Providers\Anthropic\Handlers;
 
 use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Http\HttpClient;
+use Atlasphp\Atlas\Http\ProviderRequestContext;
 use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Providers\Anthropic\MediaResolver;
 use Atlasphp\Atlas\Providers\Anthropic\MessageFactory;
@@ -50,6 +51,7 @@ class Text implements TextHandler
             body: $this->buildBody($request),
             timeout: $this->config->timeout,
             config: $request->requestConfig,
+            context: new ProviderRequestContext($this->config->provider, $request->model),
         );
 
         return $this->parser->parseText($data);
@@ -66,6 +68,7 @@ class Text implements TextHandler
             body: $body,
             timeout: $this->config->timeout,
             config: $request->requestConfig,
+            context: new ProviderRequestContext($this->config->provider, $request->model),
         );
 
         return new StreamResponse($this->parseSSE($raw, $request->model));
@@ -95,6 +98,7 @@ class Text implements TextHandler
             body: $body,
             timeout: $this->config->timeout,
             config: $request->requestConfig,
+            context: new ProviderRequestContext($this->config->provider, $request->model),
         );
 
         $textResponse = $this->parser->parseText($data);

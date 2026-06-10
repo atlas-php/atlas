@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Providers\Google\Handlers;
 
 use Atlasphp\Atlas\Http\HttpClient;
+use Atlasphp\Atlas\Http\ProviderRequestContext;
 use Atlasphp\Atlas\Providers\Google\Concerns\BuildsGoogleHeaders;
 use Atlasphp\Atlas\Providers\Handlers\EmbedHandler;
 use Atlasphp\Atlas\Providers\ProviderConfig;
@@ -47,6 +48,7 @@ class Embed implements EmbedHandler
             body: $body,
             timeout: $this->config->timeout,
             config: $request->requestConfig,
+            context: new ProviderRequestContext($this->config->provider, $request->model),
         );
 
         // Gemini returns totalTokenCount with no input/output split — embeddings have no output tokens
@@ -83,6 +85,7 @@ class Embed implements EmbedHandler
             body: ['requests' => $requests],
             timeout: $this->config->timeout,
             config: $request->requestConfig,
+            context: new ProviderRequestContext($this->config->provider, $request->model),
         );
 
         $embeddings = array_map(

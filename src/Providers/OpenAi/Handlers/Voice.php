@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Providers\OpenAi\Handlers;
 
 use Atlasphp\Atlas\Enums\VoiceTransport;
 use Atlasphp\Atlas\Http\HttpClient;
+use Atlasphp\Atlas\Http\ProviderRequestContext;
 use Atlasphp\Atlas\Providers\Concerns\BuildsHeaders;
 use Atlasphp\Atlas\Providers\Concerns\BuildsVoiceBody;
 use Atlasphp\Atlas\Providers\Handlers\VoiceHandler;
@@ -64,6 +65,7 @@ class Voice implements VoiceHandler
             body: $body,
             timeout: $this->config->timeout,
             config: $request->requestConfig,
+            context: new ProviderRequestContext($this->config->provider, $request->model),
         );
 
         $sessionId = (string) ($data['id'] ?? 'rt_'.bin2hex(random_bytes(16)));

@@ -136,6 +136,20 @@ it('passes app and config to factory closures', function () {
     expect($receivedConfig)->toHaveKey('api_key');
 });
 
+it('stamps the resolved provider key into the config', function () {
+    $receivedConfig = null;
+
+    $this->registry->register('openai', function ($app, $config) use (&$receivedConfig) {
+        $receivedConfig = $config;
+
+        return createTestDriverInstance();
+    });
+
+    $this->registry->resolve('openai');
+
+    expect($receivedConfig['provider'])->toBe('openai');
+});
+
 it('resolves chat_completions driver from config', function () {
     config()->set('atlas.providers.ollama', [
         'driver' => 'chat_completions',

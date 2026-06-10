@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Providers\ElevenLabs\Handlers;
 
+use Atlasphp\Atlas\Http\ProviderRequestContext;
 use Atlasphp\Atlas\Providers\Handlers\AbstractProviderHandler;
 use Atlasphp\Atlas\Providers\ModelList;
 use Atlasphp\Atlas\Providers\VoiceList;
@@ -41,6 +42,7 @@ class Provider extends AbstractProviderHandler
             url: "{$this->config->baseUrl}/models",
             headers: $this->headersWithoutContentType(),
             timeout: $this->config->timeout,
+            context: new ProviderRequestContext($this->config->provider),
         );
 
         // ElevenLabs returns a flat array of model objects (not wrapped in data[])
@@ -66,6 +68,7 @@ class Provider extends AbstractProviderHandler
             url: "{$this->config->baseUrl}/voices",
             headers: $this->headersWithoutContentType(),
             timeout: $this->config->timeout,
+            context: new ProviderRequestContext($this->config->provider),
         );
 
         $voices = array_map(

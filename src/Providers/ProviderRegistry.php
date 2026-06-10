@@ -59,6 +59,10 @@ class ProviderRegistry implements ProviderRegistryContract
         /** @var array<string, mixed> $providerConfig */
         $providerConfig = $this->config->providers[$key] ?? [];
 
+        // Stamp the resolved key so ProviderConfig (and the handlers' transport
+        // events) know which provider this config belongs to.
+        $providerConfig['provider'] = $key;
+
         if (isset($this->factories[$key])) {
             return $this->resolved[$key] = ($this->factories[$key])($this->app, $providerConfig);
         }

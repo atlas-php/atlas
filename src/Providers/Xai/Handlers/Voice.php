@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Providers\Xai\Handlers;
 
 use Atlasphp\Atlas\Enums\VoiceTransport;
 use Atlasphp\Atlas\Http\HttpClient;
+use Atlasphp\Atlas\Http\ProviderRequestContext;
 use Atlasphp\Atlas\Providers\Concerns\BuildsHeaders;
 use Atlasphp\Atlas\Providers\Concerns\BuildsVoiceBody;
 use Atlasphp\Atlas\Providers\Handlers\VoiceHandler;
@@ -44,6 +45,7 @@ class Voice implements VoiceHandler
             body: $sessionConfig,
             timeout: $this->config->timeout,
             config: $request->requestConfig,
+            context: new ProviderRequestContext($this->config->provider, $request->model),
         );
 
         $ephemeralToken = $data['value'] ?? $data['client_secret'] ?? null;
