@@ -324,3 +324,52 @@ it('ExecutionFailed passes context through to parent', function () {
         ->and($event->agentKey)->toBe('parent-agent')
         ->and($event->traceId)->toBe('trace-005');
 });
+
+// ─── broadcastWith payload ───────────────────────────────────────────────
+
+it('ExecutionCompleted broadcastWith returns the common fields and omits the channel', function () {
+    $event = new ExecutionCompleted(
+        executionId: 9,
+        channel: new PrivateChannel('test'),
+        provider: 'openai',
+        model: 'gpt-4o',
+        agentKey: 'agent',
+        traceId: 'trace-009',
+    );
+
+    expect($event->broadcastWith())->toBe([
+        'executionId' => 9,
+        'provider' => 'openai',
+        'model' => 'gpt-4o',
+        'agentKey' => 'agent',
+        'traceId' => 'trace-009',
+    ]);
+});
+
+it('ExecutionFailed broadcastWith includes the error alongside the common fields', function () {
+    $event = new ExecutionFailed(
+        executionId: 2,
+        error: 'short error',
+        provider: 'anthropic',
+        model: 'claude-4',
+        agentKey: 'k',
+        traceId: 't',
+    );
+
+    expect($event->broadcastWith())->toBe([
+        'executionId' => 2,
+        'provider' => 'anthropic',
+        'model' => 'claude-4',
+        'agentKey' => 'k',
+        'traceId' => 't',
+        'error' => 'short error',
+    ]);
+});
+
+it('ExecutionFailed broadcastWith caps the error to the configured byte limit', function () {
+    config()->set('atlas.broadcast.max_tool_payload_length', 16);
+
+    $event = new ExecutionFailed(executionId: 1, error: str_repeat('x', 100));
+
+    expect(strlen($event->broadcastWith()['error']))->toBe(16);
+});

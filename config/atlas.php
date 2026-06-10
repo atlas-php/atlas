@@ -400,10 +400,6 @@ return [
         // turn. null (ATLAS_MEDIA_REPLAY_LIMIT=null) = replay all in the window.
         'media_replay_limit' => env('ATLAS_MEDIA_REPLAY_LIMIT', 2),
 
-        'voice_route_prefix' => 'atlas',
-
-        'voice_session_ttl' => (int) env('ATLAS_VOICE_SESSION_TTL', 60),
-
         'models' => [
             // 'conversation'               => \App\Models\AiConversation::class,
             // 'conversation_message'        => \App\Models\AiMessage::class,
@@ -414,6 +410,38 @@ return [
             // 'execution_tool_call'         => \App\Models\AiExecutionToolCall::class,
             // 'chunk'                       => \App\Models\AiChunk::class,
         ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Voice
+    |--------------------------------------------------------------------------
+    |
+    | Realtime voice routes (tool/transcript/close) and session caching. These
+    | are independent of persistence — session creation, live audio, and
+    | server-side tool calls work with persistence off; only durable transcript
+    | storage (the transcript route) requires it.
+    |
+    | NOTE: these keys previously lived under `persistence.voice_*`. AtlasConfig
+    | still falls back to the legacy `persistence.voice_route_prefix` /
+    | `persistence.voice_session_ttl` keys, so an older published config keeps
+    | working — but this `voice` block is the canonical location.
+    |
+    */
+
+    'voice' => [
+        // URL prefix for the voice routes (default: 'atlas').
+        'route_prefix' => 'atlas',
+
+        // HTTP middleware applied to the voice routes. They are public by default
+        // and act on knowledge of the session id alone, so secure them in
+        // production, e.g. ['auth:sanctum', 'throttle:60,1']. Your middleware
+        // should also verify the authenticated user owns the session (the owner
+        // is stored on the voice:{sessionId}:tools cache entry and the VoiceCall).
+        'route_middleware' => [],
+
+        // Minutes the session's tool map stays cached (the voice:{id}:tools entry).
+        'session_ttl' => (int) env('ATLAS_VOICE_SESSION_TTL', 60),
     ],
 
 ];

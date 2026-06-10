@@ -250,6 +250,6 @@ it('resolves elevenlabs factory to ElevenLabsDriver', function () {
 
 // ─── Voice Routes ───────────────────────────────────────────────────────
 
-it('uses voice_route_prefix for voice route registration', function () {
-    expect(config('atlas.persistence.voice_route_prefix', 'atlas'))->toBe('atlas');
+it('uses voice.route_prefix for voice route registration', function () {
+    expect(config('atlas.voice.route_prefix', 'atlas'))->toBe('atlas');
 });

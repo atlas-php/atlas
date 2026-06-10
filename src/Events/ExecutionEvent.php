@@ -36,4 +36,21 @@ abstract class ExecutionEvent implements ShouldBroadcastNow
     {
         return $this->channel !== null;
     }
+
+    /**
+     * The broadcast payload. Explicit so the wire shape is intentional and the
+     * non-public channel is never serialized.
+     *
+     * @return array<string, mixed>
+     */
+    public function broadcastWith(): array
+    {
+        return [
+            'executionId' => $this->executionId,
+            'provider' => $this->provider,
+            'model' => $this->model,
+            'agentKey' => $this->agentKey,
+            'traceId' => $this->traceId,
+        ];
+    }
 }

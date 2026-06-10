@@ -185,3 +185,32 @@ it('broadcasts StreamCompleted with error on exception', function () {
             && $e->usage === null;
     });
 });
+
+it('broadcasts StreamCompleted with accumulated usage and finish reason on mid-stream error', function () {
+    Event::fake();
+
+    $chunks = (function () {
+        yield new StreamChunk(type: ChunkType::Text, text: 'partial');
+        yield new StreamChunk(type: ChunkType::Done, usage: new Usage(7, 3), finishReason: FinishReason::Stop);
+        throw new RuntimeException('stream broke after usage');
+    })();
+
+    $stream = new StreamResponse($chunks);
+    $stream->broadcastOn(new Channel('test-error-usage'));
+
+    try {
+        foreach ($stream as $chunk) {
+            // consume
+        }
+    } catch (RuntimeException) {
+        // expected
+    }
+
+    Event::assertDispatched(StreamCompleted::class, function ($e) {
+        return $e->error === 'stream broke after usage'
+            && $e->text === 'partial'
+            && $e->usage['input_tokens'] === 7
+            && $e->usage['output_tokens'] === 3
+            && $e->finishReason === FinishReason::Stop;
+    });
+});

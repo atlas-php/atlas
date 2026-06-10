@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Events;
 
+use Atlasphp\Atlas\Events\Concerns\CapsBroadcastPayload;
 use Illuminate\Broadcasting\Channel;
 
 /**
@@ -11,6 +12,8 @@ use Illuminate\Broadcasting\Channel;
  */
 class ExecutionFailed extends ExecutionEvent
 {
+    use CapsBroadcastPayload;
+
     public function __construct(
         ?int $executionId,
         public readonly string $error,
@@ -26,5 +29,16 @@ class ExecutionFailed extends ExecutionEvent
     public function broadcastAs(): string
     {
         return 'ExecutionFailed';
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function broadcastWith(): array
+    {
+        return [
+            ...parent::broadcastWith(),
+            'error' => $this->capBroadcastPayload($this->error),
+        ];
     }
 }
