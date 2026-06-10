@@ -164,8 +164,8 @@ class StreamResponse implements IteratorAggregate, Responsable
                 event(new StreamCompleted(
                     channel: $this->broadcastChannel,
                     text: $this->accumulatedText,
-                    usage: null,
-                    finishReason: null,
+                    usage: $this->serializeUsage(),
+                    finishReason: $this->finishReason,
                     error: $e->getMessage(),
                 ));
             }

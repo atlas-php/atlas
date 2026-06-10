@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 - Catch specific provider failures with the new `ConnectionException` (network failure), `ModelNotFoundException` (unknown model), `InvalidRequestException` (bad request), and `ServerException` (provider server error).
 - xAI now accepts the `CodeInterpreter` provider tool (live-verified against xAI's Agent Tools API).
+- Protect the voice tool/transcript/close routes with the new `persistence.voice_route_middleware` config — add HTTP middleware like `['auth:sanctum', 'throttle:60,1']`. These routes are public by default, so secure them in production.
 
 ### Changed
 
@@ -30,6 +31,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 - Error messages now carry the provider's real reason on every provider.
 - Listing available models and voices now reports failures the same way as every other call.
 - Queued requests now fail fast on errors that can't succeed (invalid key, bad request, unknown model) instead of using up every retry; transient errors still retry.
+- A stream interrupted mid-flight now broadcasts the token usage and finish reason accumulated so far instead of zeroing them, so cost tracking survives an aborted stream.
+- A queued execution failure now caps its broadcast error message to the configured byte limit, so a long provider error can't exceed the socket transport's size limit and drop the event.
 
 ### Migration
 

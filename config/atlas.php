@@ -402,6 +402,13 @@ return [
 
         'voice_route_prefix' => 'atlas',
 
+        // The voice tool/transcript/close routes are public by default — they act
+        // on knowledge of the session id alone. List HTTP middleware here to protect
+        // them, e.g. ['auth:sanctum', 'throttle:60,1']. Your middleware should also
+        // verify the authenticated user owns the session (the owner is stored on the
+        // voice:{sessionId}:tools cache entry and on the VoiceCall record).
+        'voice_route_middleware' => [],
+
         'voice_session_ttl' => (int) env('ATLAS_VOICE_SESSION_TTL', 60),
 
         'models' => [

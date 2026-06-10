@@ -57,6 +57,8 @@ class AtlasConfig
         public readonly bool $autoStoreAssets = true,
         public readonly bool $promptCache = true,
         public readonly string $voiceRoutePrefix = 'atlas',
+        /** @var array<int, string> */
+        public readonly array $voiceRouteMiddleware = [],
         public readonly int $voiceSessionTtl = 60,
         /** @var array<string, class-string> */
         public readonly array $persistenceModels = [],
@@ -143,6 +145,7 @@ class AtlasConfig
             autoStoreAssets: (bool) config('atlas.persistence.auto_store_assets', true),
             promptCache: (bool) config('atlas.prompt_cache', true),
             voiceRoutePrefix: config('atlas.persistence.voice_route_prefix', 'atlas'),
+            voiceRouteMiddleware: (array) config('atlas.persistence.voice_route_middleware', []),
             voiceSessionTtl: (int) config('atlas.persistence.voice_session_ttl', 60),
             persistenceModels: config('atlas.persistence.models', []),
             agents: config('atlas.agents', ['path' => null, 'namespace' => null]),

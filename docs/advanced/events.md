@@ -8,7 +8,7 @@ Observe the full lifecycle of providers, agents, tools, streams, and queued exec
 
 ## Overview
 
-Atlas fires events across seven groups. Events fire automatically — no configuration needed to enable them. Every event is a standard Laravel event, so you can listen with `Event::listen`, an `EventServiceProvider`, or Laravel's event discovery.
+Atlas fires events across eight groups. Events fire automatically — no configuration needed to enable them. Every event is a standard Laravel event, so you can listen with `Event::listen`, an `EventServiceProvider`, or Laravel's event discovery.
 
 All events live in the `Atlasphp\Atlas\Events` namespace.
 
@@ -47,7 +47,7 @@ Fired by the executor during the agent tool loop.
 </div>
 
 ::: tip Broadcast payload size
-The tool-call events (`AgentToolCallStarted` / `AgentToolCallCompleted` / `AgentToolCallFailed`) broadcast the call's **full** arguments, result, and error by default, so a live trace consumer sees everything. If your socket transport (Reverb / Pusher) limits message size, set `atlas.broadcast.max_tool_payload_length` (env `ATLAS_BROADCAST_MAX_TOOL_PAYLOAD`) to a per-string character cap. `null` (default) means no cap.
+The tool-call events (`AgentToolCallStarted` / `AgentToolCallCompleted` / `AgentToolCallFailed`) and `ExecutionFailed` broadcast the call's arguments, result, and error to live trace consumers. Each broadcast string is capped to `atlas.broadcast.max_tool_payload_length` (env `ATLAS_BROADCAST_MAX_TOOL_PAYLOAD`) **bytes** (`mb_strcut`, never splitting a multibyte char) so a large value can't exceed your socket transport's per-message limit (Pusher ~10KB; Reverb configurable) and silently drop the event or close the connection. The default is **2048 bytes**; set `0`, `null`, or a negative value to broadcast uncapped.
 :::
 
 ## Stream Events
