@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Agents;
 
+use App\Tools\CurrentDateTimeTool;
 use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Persistence\Concerns\HasConversations;
@@ -53,6 +54,16 @@ class SageAgent extends Agent
         Think step by step through hard problems and show your reasoning concisely.
         Format answers with Markdown. Use web search for current events or facts you are unsure of.
         PROMPT;
+    }
+
+    /**
+     * @return array<int, class-string>
+     */
+    public function tools(): array
+    {
+        return [
+            CurrentDateTimeTool::class,
+        ];
     }
 
     /**

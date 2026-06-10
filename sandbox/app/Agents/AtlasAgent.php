@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Agents;
 
+use App\Tools\CurrentDateTimeTool;
 use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Persistence\Concerns\HasConversations;
@@ -53,6 +54,16 @@ class AtlasAgent extends Agent
         Keep answers clear and well-formatted with Markdown.
         When the user asks about current events or anything time-sensitive, use web search.
         PROMPT;
+    }
+
+    /**
+     * @return array<int, class-string>
+     */
+    public function tools(): array
+    {
+        return [
+            CurrentDateTimeTool::class,
+        ];
     }
 
     /**
