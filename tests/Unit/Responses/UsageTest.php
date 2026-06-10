@@ -47,3 +47,67 @@ it('merges cached tokens when one is present', function () {
 
     expect($merged->cachedTokens)->toBe(25);
 });
+
+it('builds a zero usage from null', function () {
+    $usage = Usage::fromArray(null);
+
+    expect($usage->inputTokens)->toBe(0)
+        ->and($usage->outputTokens)->toBe(0)
+        ->and($usage->reasoningTokens)->toBeNull()
+        ->and($usage->cachedTokens)->toBeNull()
+        ->and($usage->cacheWriteTokens)->toBeNull()
+        ->and($usage->totalTokens())->toBe(0);
+});
+
+it('builds a full usage from an array', function () {
+    $usage = Usage::fromArray([
+        'input_tokens' => 100,
+        'output_tokens' => 50,
+        'reasoning_tokens' => 10,
+        'cached_tokens' => 25,
+        'cache_write_tokens' => 5,
+    ]);
+
+    expect($usage->inputTokens)->toBe(100)
+        ->and($usage->outputTokens)->toBe(50)
+        ->and($usage->reasoningTokens)->toBe(10)
+        ->and($usage->cachedTokens)->toBe(25)
+        ->and($usage->cacheWriteTokens)->toBe(5);
+});
+
+it('defaults missing keys when building from a partial array', function () {
+    $usage = Usage::fromArray(['input_tokens' => 100]);
+
+    expect($usage->inputTokens)->toBe(100)
+        ->and($usage->outputTokens)->toBe(0)
+        ->and($usage->reasoningTokens)->toBeNull()
+        ->and($usage->cachedTokens)->toBeNull()
+        ->and($usage->cacheWriteTokens)->toBeNull();
+});
+
+it('builds a zero usage from an empty array', function () {
+    $usage = Usage::fromArray([]);
+
+    expect($usage->inputTokens)->toBe(0)
+        ->and($usage->outputTokens)->toBe(0)
+        ->and($usage->reasoningTokens)->toBeNull();
+});
+
+it('round-trips through toArray and fromArray', function () {
+    $original = new Usage(100, 50, reasoningTokens: 10, cachedTokens: 25, cacheWriteTokens: 5);
+
+    $restored = Usage::fromArray($original->toArray());
+
+    expect($restored)->toEqual($original);
+});
+
+it('round-trips a usage with only the required fields', function () {
+    $original = new Usage(100, 50);
+
+    $restored = Usage::fromArray($original->toArray());
+
+    expect($restored)->toEqual($original)
+        ->and($restored->reasoningTokens)->toBeNull()
+        ->and($restored->cachedTokens)->toBeNull()
+        ->and($restored->cacheWriteTokens)->toBeNull();
+});

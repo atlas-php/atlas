@@ -20,6 +20,7 @@ use Atlasphp\Atlas\Testing\AudioResponseFake;
 use Atlasphp\Atlas\Testing\EmbeddingsResponseFake;
 use Atlasphp\Atlas\Testing\ImageResponseFake;
 use Atlasphp\Atlas\Testing\ModerationResponseFake;
+use Atlasphp\Atlas\Testing\RerankResponseFake;
 use Atlasphp\Atlas\Testing\VideoResponseFake;
 
 /**
@@ -132,10 +133,14 @@ dataset('queue_round_trips', [
         'asModeration',
         fn () => ModerationResponseFake::make(),
     ],
-    // rerank omitted here: Atlas::fake() does not route the cohere/jina rerank
-    // providers, so the execution round-trip can't be faked. Its serialization is
-    // covered by the 'non_text_queueable_builders' dataset above, and its restore
-    // line is the identical shared pattern exercised by the modalities below.
+    // rerank routes through a faked Provider enum value (openai): cohere/jina are
+    // not Provider enum cases, so Atlas::fake() does not register fake drivers for
+    // them. FakeDriver reports rerank capability and records the call.
+    'rerank' => [
+        fn () => (new RerankRequest('openai', 'rerank-v3.5', app(ProviderRegistryContract::class)))->query('q')->documents(['a', 'b']),
+        'asReranked',
+        fn () => RerankResponseFake::make(),
+    ],
     'music' => [
         fn () => (new MusicRequest('elevenlabs', 'music-v1', app(ProviderRegistryContract::class)))->instructions('jazz'),
         'asAudio',

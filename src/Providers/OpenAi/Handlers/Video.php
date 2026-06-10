@@ -93,7 +93,7 @@ class Video implements VideoHandler
             timeout: $this->config->mediaTimeout,
         );
 
-        $tmpPath = sys_get_temp_dir().DIRECTORY_SEPARATOR.'atlas_video_'.bin2hex(random_bytes(8)).'.mp4';
+        $tmpPath = $this->tempVideoPath();
         $written = file_put_contents($tmpPath, $binary);
 
         if ($written === false) {
@@ -131,7 +131,7 @@ class Video implements VideoHandler
     {
         for ($attempt = 0; $attempt < $this->maxAttempts; $attempt++) {
             if ($this->pollInterval > 0) {
-                sleep($this->pollInterval);
+                $this->sleep($this->pollInterval);
             }
 
             $data = $this->http->get(
@@ -233,5 +233,25 @@ class Video implements VideoHandler
             statusCode: 400,
             providerMessage: 'Cannot resolve image input — no supported source set.',
         );
+    }
+
+    /**
+     * Build the temporary file path for the downloaded video binary.
+     *
+     * Isolated as a seam so the write-failure branch can be exercised in tests
+     * (sys_get_temp_dir() is process-cached and not overridable at runtime).
+     */
+    protected function tempVideoPath(): string
+    {
+        return sys_get_temp_dir().DIRECTORY_SEPARATOR.'atlas_video_'.bin2hex(random_bytes(8)).'.mp4';
+    }
+
+    /**
+     * Sleep between polling attempts. Isolated as a seam so the polling loop
+     * can be tested without incurring real delays.
+     */
+    protected function sleep(int $seconds): void
+    {
+        sleep($seconds);
     }
 }

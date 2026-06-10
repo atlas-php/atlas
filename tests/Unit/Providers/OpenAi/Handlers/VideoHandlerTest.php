@@ -426,3 +426,50 @@ it('downloads video binary from content endpoint', function () {
     // Clean up
     unlink($response->url);
 });
+
+it('throws ProviderException when the video cannot be written to a temporary file', function () {
+    Http::fake([
+        'api.openai.com/v1/videos' => Http::response(['id' => 'video_nowrite', 'status' => 'queued']),
+        'api.openai.com/v1/videos/video_nowrite' => Http::response(['status' => 'completed', 'seconds' => '4']),
+        'api.openai.com/v1/videos/video_nowrite/content' => Http::response('binary'),
+    ]);
+
+    // Override the temp-path seam to point inside a directory that does not exist,
+    // so file_put_contents() fails and the write guard fires.
+    $handler = new class(config: ProviderConfig::fromArray(['api_key' => 'test-key', 'url' => 'https://api.openai.com/v1']), http: app(HttpClient::class), pollInterval: 0) extends Video
+    {
+        protected function tempVideoPath(): string
+        {
+            return '/atlas-nonexistent-'.bin2hex(random_bytes(6)).'/video.mp4';
+        }
+    };
+
+    @$handler->video(makeOpenAiVideoRequest());
+})->throws(ProviderException::class, 'Failed to write video to temporary file');
+
+it('sleeps for the configured interval between polls when pollInterval is positive', function () {
+    Http::fake([
+        'api.openai.com/v1/videos' => Http::response(['id' => 'video_sleep', 'status' => 'queued']),
+        'api.openai.com/v1/videos/video_sleep' => Http::response(['status' => 'completed', 'seconds' => '4']),
+        'api.openai.com/v1/videos/video_sleep/content' => Http::response('binary'),
+    ]);
+
+    // Override the sleep seam so the positive-interval branch runs without a real delay.
+    $handler = new class(config: ProviderConfig::fromArray(['api_key' => 'test-key', 'url' => 'https://api.openai.com/v1']), http: app(HttpClient::class), pollInterval: 5) extends Video
+    {
+        /** @var array<int, int> */
+        public array $sleeps = [];
+
+        protected function sleep(int $seconds): void
+        {
+            $this->sleeps[] = $seconds;
+        }
+    };
+
+    $response = $handler->video(makeOpenAiVideoRequest());
+
+    expect($handler->sleeps)->toBe([5])
+        ->and($response)->toBeInstanceOf(VideoResponse::class);
+
+    unlink($response->url);
+});

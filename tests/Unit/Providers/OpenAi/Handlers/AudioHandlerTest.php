@@ -106,3 +106,19 @@ it('sends STT request to /v1/audio/transcriptions', function () {
 
     unlink($tempFile);
 });
+
+it('throws when no audio media is provided for transcription', function () {
+    $request = new AudioRequest(
+        model: 'whisper-1',
+        instructions: null,
+        media: [],
+        voice: null,
+        speed: null,
+        language: null,
+        duration: null,
+        format: null,
+        voiceClone: null,
+    );
+
+    makeAudioHandler()->audioToText($request);
+})->throws(InvalidArgumentException::class, 'Audio input is required for transcription.');
