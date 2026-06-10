@@ -12,20 +12,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 ### Added
 
-- `ConnectionException` for network failures (timeout, DNS, refused) before any response. Extends `AtlasException`.
+- `ConnectionException` — a catchable Atlas error for network failures (timeout, DNS, or refused connection) that happen before a response arrives.
 
 ### Fixed
 
-- Retries now work. `atlas.retry` and `->withRetry()` were dropped before the HTTP layer, so 429 and 5xx retries never ran.
-- `->withTimeout()` now applies to the request — it was previously stored but ignored. Provider/reasoning/media defaults are untouched unless you override.
-- `ATLAS_TIMEOUT` (`atlas.retry.timeout`) now sets the default request timeout for every provider. It was ignored before; only the per-provider `timeout` had effect.
-- Per-call `->withRetry()` / `->withTimeout()` / `->withoutRetry()` overrides now survive `->onQueue()` instead of falling back to global config.
-- Network failures now retry and throw a typed `ConnectionException` instead of a raw HTTP-client exception.
-- Mid-stream provider errors now throw `ProviderException` instead of silently truncating the stream.
+- Automatic retries for rate limits (429) and transient server errors (5xx) now run as configured; they previously never fired.
+- `->withTimeout()` now applies to the request, and `ATLAS_TIMEOUT` now sets the default request timeout for every provider.
+- Per-call retry and timeout overrides are now kept when a request is queued.
+- Network failures before a response are now reported as a catchable Atlas error instead of the HTTP client's raw exception.
+- A provider error partway through a stream now ends the stream with an error instead of silently returning a truncated response.
+- Provider error messages now surface the provider's real error text on every provider.
+- Listing models and voices now reports authentication and other failures the same way as every other call.
 
 ### Migration
 
-No breaking changes — drop-in upgrade. To handle mid-stream errors, wrap stream iteration in a try/catch for `ProviderException`.
+No breaking changes — drop-in upgrade. Two optional adjustments: wrap streamed-response iteration in a try/catch to handle a mid-stream provider error (it previously ended silently); and if you caught the HTTP client's exception around `models()` or `voices()`, catch `AtlasException` instead.
 
 ---
 

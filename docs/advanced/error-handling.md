@@ -47,10 +47,17 @@ try {
 } catch (ProviderException $e) {
     // All other HTTP errors (400, 500, etc.)
     $e->statusCode;        // HTTP status code
-    $e->providerMessage;   // Error message from provider
+    $e->providerMessage;   // Real provider error message (every provider)
     $e->provider;          // Provider name (e.g., 'openai')
 }
 ```
+
+`$e->providerMessage` carries the provider's actual error text across all
+providers, regardless of how each one shapes its error response.
+
+Provider interrogation calls (`Atlas::provider(...)->models()` and `->voices()`)
+throw the same typed exceptions — e.g. an invalid key surfaces as
+`AuthenticationException`, not a raw HTTP-client error.
 
 ### Connection Failures
 

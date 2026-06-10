@@ -53,7 +53,7 @@ abstract class AbstractProviderHandler implements ProviderHandler
             $this->models();
 
             return true;
-        } catch (\Exception) {
+        } catch (\Throwable) {
             return false;
         }
     }

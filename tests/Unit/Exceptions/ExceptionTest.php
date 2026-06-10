@@ -11,6 +11,7 @@ use Atlasphp\Atlas\Exceptions\RateLimitException;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Http;
 
 it('AtlasException extends RuntimeException', function () {
     $e = new AtlasException('test');
@@ -83,7 +84,7 @@ it('ProviderException stores all properties', function () {
 it('ProviderException::from extracts status and error message', function () {
     $response = Mockery::mock(Response::class);
     $response->shouldReceive('status')->andReturn(500);
-    $response->shouldReceive('json')->with('error.message', Mockery::any())->andReturn('Model overloaded');
+    $response->shouldReceive('json')->andReturn(['error' => ['message' => 'Model overloaded']]);
 
     $requestException = Mockery::mock(RequestException::class);
     $requestException->response = $response;
@@ -94,6 +95,36 @@ it('ProviderException::from extracts status and error message', function () {
     expect($e->statusCode)->toBe(500);
     expect($e->providerMessage)->toBe('Model overloaded');
     expect($e->getPrevious())->toBe($requestException);
+});
+
+it('ProviderException::from extracts the real message across provider error shapes', function (array $body, string $expected) {
+    $response = Mockery::mock(Response::class);
+    $response->shouldReceive('status')->andReturn(400);
+    $response->shouldReceive('json')->andReturn($body);
+
+    $requestException = Mockery::mock(RequestException::class);
+    $requestException->response = $response;
+
+    expect(ProviderException::from('p', 'm', $requestException)->providerMessage)->toBe($expected);
+})->with([
+    'openai/anthropic/google error.message' => [['error' => ['message' => 'bad request']], 'bad request'],
+    'elevenlabs detail.message' => [['detail' => ['message' => 'quota exceeded']], 'quota exceeded'],
+    'elevenlabs/jina string detail' => [['detail' => 'invalid voice'], 'invalid voice'],
+    'cohere top-level message' => [['message' => 'invalid api key'], 'invalid api key'],
+    'ollama string error' => [['error' => 'model not found'], 'model not found'],
+]);
+
+it('ProviderException::from falls back to the request-exception message when the body has no recognizable error', function () {
+    Http::fake(['*' => Http::response(['weird' => 'shape'], 500)]);
+
+    try {
+        Http::get('https://x.test/fail')->throw();
+    } catch (RequestException $e) {
+        $ex = ProviderException::from('p', 'm', $e);
+
+        expect($ex->statusCode)->toBe(500);
+        expect($ex->providerMessage)->toBe($e->getMessage());
+    }
 });
 
 it('ProviderException::fromStreamError extracts the message from common shapes', function () {

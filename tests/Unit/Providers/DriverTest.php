@@ -14,6 +14,7 @@ use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\Handlers\EmbedHandler;
+use Atlasphp\Atlas\Providers\Handlers\ProviderHandler;
 use Atlasphp\Atlas\Providers\Handlers\TextHandler;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
 use Atlasphp\Atlas\Providers\ProviderConfig;
@@ -308,6 +309,29 @@ it('Atlas ConnectionException is catchable as an AtlasException', function () {
     expect($caught->provider)->toBe('test');
     expect($caught->model)->toBe('model');
 });
+
+// ─── interrogation endpoints translate transport errors ─────────────────────
+
+it('models() translates a 401 RequestException to AuthenticationException', function () {
+    $provider = Mockery::mock(ProviderHandler::class);
+    $provider->shouldReceive('models')->andThrow(makeRequestExceptionForStatus(401));
+
+    createTestDriver()->withHandler('provider', $provider)->models();
+})->throws(AuthenticationException::class);
+
+it('voices() translates a 500 RequestException to ProviderException', function () {
+    $provider = Mockery::mock(ProviderHandler::class);
+    $provider->shouldReceive('voices')->andThrow(makeRequestExceptionForStatus(500));
+
+    createTestDriver()->withHandler('provider', $provider)->voices();
+})->throws(ProviderException::class);
+
+it('models() translates a connection failure to Atlas ConnectionException', function () {
+    $provider = Mockery::mock(ProviderHandler::class);
+    $provider->shouldReceive('models')->andThrow(new Illuminate\Http\Client\ConnectionException('timed out'));
+
+    createTestDriver()->withHandler('provider', $provider)->models();
+})->throws(ConnectionException::class);
 
 // ─── handleRequestException ─────────────────────────────────────────────────
 
