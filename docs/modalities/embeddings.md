@@ -396,7 +396,7 @@ All knobs live under `config('atlas.embeddings')`:
 
 ```php
 'embeddings' => [
-    'dimensions' => 1536,           // vector size — must match your embedding model
+    'dimensions' => 1536,           // vector size — sizes the storage column AND is sent to OpenAI text-embedding-3-* models
     'chunker' => MarkdownChunker::class,    // changing this does NOT re-chunk existing rows
     'chunk_size' => 512,            // soft cap per chunk, in tokens (chars/4 heuristic) — does NOT re-chunk on change
     'chunk_overlap' => 50,          // tokens of overlap between adjacent chunks — does NOT re-chunk on change
@@ -409,6 +409,10 @@ All knobs live under `config('atlas.embeddings')`:
 
 ::: warning Re-chunk after changing chunker, chunk_size, or chunk_overlap
 None of these settings dirty existing rows on their own. Old chunks remain in place until each record is edited. To rebuild every row of a class against the new settings, run `php artisan atlas:rechunk "App\Models\Project"` after deploying the change.
+:::
+
+::: tip How `dimensions` is applied
+`dimensions` is the single source of truth for vector size. It sizes the `vector(N)` storage column in your migrations, and for OpenAI `text-embedding-3-small`/`text-embedding-3-large` it is also sent to the API as the `dimensions` request parameter — so reduced-dimension (Matryoshka) embeddings work by setting this one key. Models that don't accept the parameter (e.g. `text-embedding-ada-002`, Google `text-embedding-004`) ignore it and return their native size, so for those you must set `dimensions` to the model's native dimension (1536 / 768). If a returned vector ever doesn't match the configured size, atlas throws a clear error at embed time rather than letting the database reject the write. An explicit `dimensions` in a request's provider options always takes precedence.
 :::
 
 Internal hard limits (`HARD_MAX_TOKENS`, `MAX_CHUNKS_PER_RECORD`) are class constants on `MarkdownChunker`. If you need different values, ship a custom chunker.

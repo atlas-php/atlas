@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Exceptions\ProviderNotFoundException;
 
@@ -48,6 +49,23 @@ it('returns sensible defaults when config keys are missing', function () {
     expect($config->storageDisk)->toBeNull();
     expect($config->storagePrefix)->toBe('atlas');
     expect($config->embeddingDimensions)->toBe(1536);
+});
+
+it('clears the Atlas facade on refresh so runtime config changes apply to facade calls', function () {
+    // The Atlas facade caches the AtlasManager it resolves on first use.
+    // refresh() forgets the container instance but must ALSO clear the facade,
+    // or facade-driven paths (EmbeddingResolver, ChunkContentService) keep using
+    // a stale manager and silently ignore runtime config changes.
+    config(['atlas.defaults.embed' => ['provider' => 'openai', 'model' => 'model-old']]);
+    AtlasConfig::refresh();
+
+    // Force the facade to cache a manager built from the old config.
+    expect(Atlas::embed()->buildRequest()->model)->toBe('model-old');
+
+    config(['atlas.defaults.embed' => ['provider' => 'openai', 'model' => 'model-new']]);
+    AtlasConfig::refresh();
+
+    expect(Atlas::embed()->buildRequest()->model)->toBe('model-new');
 });
 
 it('reads prompt_cache and media_replay_limit overrides', function () {

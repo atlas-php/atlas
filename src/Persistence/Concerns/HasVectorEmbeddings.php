@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Persistence\Concerns;
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
 use Atlasphp\Atlas\Embeddings\VectorEmbeddable;
 use Atlasphp\Atlas\Embeddings\VectorQueryMacros;
+use Atlasphp\Atlas\Exceptions\AtlasException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
@@ -99,17 +101,10 @@ trait HasVectorEmbeddings
      */
     public function generateEmbedding(): static
     {
-        $config = $this->embeddable();
-        $content = $this->getEmbeddableContent();
-
         /** @var EmbeddingResolver $resolver */
         $resolver = app(EmbeddingResolver::class);
-        $vector = $resolver->resolve($content);
 
-        $this->setAttribute($config['column'], VectorQueryMacros::toVectorLiteral($vector));
-        $this->setAttribute('embedding_at', now());
-
-        return $this;
+        return $this->storeEmbedding($resolver->resolve($this->getEmbeddableContent()));
     }
 
     /**
@@ -117,14 +112,32 @@ trait HasVectorEmbeddings
      */
     public function generateEmbeddingUsing(?string $provider = null, ?string $model = null): static
     {
-        $config = $this->embeddable();
-        $content = $this->getEmbeddableContent();
-
         /** @var EmbeddingResolver $resolver */
         $resolver = app(EmbeddingResolver::class);
-        $vector = $resolver->resolveUsing($content, $provider, $model);
 
-        $this->setAttribute($config['column'], VectorQueryMacros::toVectorLiteral($vector));
+        return $this->storeEmbedding(
+            $resolver->resolveUsing($this->getEmbeddableContent(), $provider, $model)
+        );
+    }
+
+    /**
+     * Validate the vector against the configured dimension, then write it to
+     * the embeddable column.
+     *
+     * The column is sized to atlas.embeddings.dimensions; a mismatched vector
+     * would be rejected by pgvector with a cryptic error, so fail early with
+     * actionable guidance instead.
+     *
+     * @param  array<int, float>  $vector
+     */
+    protected function storeEmbedding(array $vector): static
+    {
+        $expected = app(AtlasConfig::class)->embeddingDimensions;
+        if (count($vector) !== $expected) {
+            throw AtlasException::dimensionMismatch($expected, count($vector));
+        }
+
+        $this->setAttribute($this->embeddable()['column'], VectorQueryMacros::toVectorLiteral($vector));
         $this->setAttribute('embedding_at', now());
 
         return $this;

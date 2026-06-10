@@ -242,6 +242,25 @@ it('throws when the embedding provider returns a mismatched vector count', funct
         ->toThrow(AtlasException::class, 'returned 1 vectors for 2 chunks');
 });
 
+it('throws an actionable error when a vector dimension does not match the configured size', function () {
+    // Right count, wrong dimension: the fake returns 3-dim vectors but the
+    // column is sized to atlas.embeddings.dimensions. The guard must surface a
+    // clear message instead of letting the cryptic pgvector error fire.
+    Atlas::fake([
+        EmbeddingsResponseFake::make()->withEmbeddings([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]),
+    ]);
+    FakeServiceChunker::$next = [
+        makeChunk(0, 'Alpha', 'A'),
+        makeChunk(1, 'Beta', 'B'),
+    ];
+
+    $doc = FakeServiceDoc::create(['body' => 'body']);
+    $expected = (int) config('atlas.embeddings.dimensions');
+
+    expect(fn () => app(ChunkContentService::class)->reconcile($doc))
+        ->toThrow(AtlasException::class, "returned a 3-dimension vector but atlas.embeddings.dimensions is {$expected}");
+});
+
 it('increments failure counter and dispatches ContentChunkingFailed on exception', function () {
     Event::fake([ContentChunkingFailed::class]);
 

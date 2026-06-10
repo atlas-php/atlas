@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Providers\OpenAi\Handlers;
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Http\ProviderRequestContext;
 use Atlasphp\Atlas\Providers\Concerns\BuildsHeaders;
@@ -35,6 +36,17 @@ class Embed implements EmbedHandler
             'input' => $request->input,
         ];
 
+        // text-embedding-3-* models accept a `dimensions` param (Matryoshka
+        // truncation). Forward the configured embedding dimensions so the value
+        // that sizes the storage column also shapes the returned vector — they
+        // can no longer silently disagree. Only fill it when the model supports
+        // the param and the caller has not already set it; ada-002 and other
+        // models reject `dimensions`, so they are left untouched.
+        if (str_starts_with($request->model, 'text-embedding-3')
+            && ! array_key_exists('dimensions', $request->providerOptions)) {
+            $body['dimensions'] = app(AtlasConfig::class)->embeddingDimensions;
+        }
+
         $body = array_merge($body, $request->providerOptions);
 
         $data = $this->http->post(
@@ -48,6 +60,16 @@ class Embed implements EmbedHandler
 
         /** @var array<int, array<string, mixed>> $items */
         $items = $data['data'] ?? [];
+
+        // Order by the response `index` rather than trusting array position.
+        // OpenAI documents an `index` per embedding precisely so batches can be
+        // realigned; the chunked pipeline assigns vectors to chunks positionally
+        // ($vectors[$i] → $insert[$i]), so an out-of-order batch would silently
+        // attach the wrong vector to every chunk. No-op when already ordered.
+        usort(
+            $items,
+            fn (array $a, array $b): int => ($a['index'] ?? 0) <=> ($b['index'] ?? 0),
+        );
 
         $embeddings = array_map(
             fn (array $item): array => $item['embedding'] ?? [],

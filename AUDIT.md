@@ -4,7 +4,7 @@ Status of each provider's modalities against **real provider APIs**, exercised v
 sandbox harness (`sandbox/test-{provider}-provider.php` and feature scripts). This file
 records the date each modality last **passed a live API test** — not unit-test coverage.
 
-**Last full run: 2026-06-10** (all 4 providers — **97/97 green**; the two 2026-06-09 transient failures (OpenAI TTS, xAI voices) now pass) · **Error handling & resilience (all 4 providers): 2026-06-10** · **Error & request context tracing (all 4 providers, 56/56): 2026-06-10** · **Forced tool choice (all 4 providers): 2026-06-09** · **Image-to-image (reference media): 2026-06-08** · **Prompt caching + media replay: 2026-06-07** · **Provider-tools run: 2026-06-06**
+**Last full run: 2026-06-10** (all 4 providers — **97/97 green**; the two 2026-06-09 transient failures (OpenAI TTS, xAI voices) now pass) · **Structured output strict-mode (builder, live OpenAI/Google/Anthropic): 2026-06-10** · **Error handling & resilience (all 4 providers): 2026-06-10** · **Error & request context tracing (all 4 providers, 56/56): 2026-06-10** · **Forced tool choice (all 4 providers): 2026-06-09** · **Image-to-image (reference media): 2026-06-08** · **Prompt caching + media replay: 2026-06-07** · **Provider-tools run: 2026-06-06**
 
 Reproduce:
 - Per-provider suites: `cd sandbox && php test-{provider}-provider.php`
@@ -125,6 +125,46 @@ Provider-normalized `tool_choice` verified end-to-end through Atlas (`sandbox/te
 
 **Specific named tool** (`->toolChoice(ToolChoice::tool('log_mood'))`) verified live on **all four providers**: with two tools available (`get_time` + `log_mood`), the forced tool is the one that opens the turn (not the other) — proving the choice targets the named tool, not just "some tool". Result: **16/16 live checks passed** (4 forceTools + 4 specific-tool, ×2 assertions). (Note: forcing a tool on OpenAI requires a valid strict-mode function schema — Atlas tools with `parameters()` already emit `additionalProperties:false`.)
 
+## Structured output — strict-mode schema (live, 2026-06-10)
+
+Audited `Atlas::...->withSchema($schema)->asStructured()` across every structured-capable
+provider using the **fluent `Schema` builder** (the documented public API), not hand-written
+arrays. Verified end-to-end through Atlas with builder schemas covering flat fields, arrays,
+nested objects, and an `->optional()` field.
+
+**Bug found & fixed (this run):** builder schemas **400'd on OpenAI / xAI / OpenAI-compatible
+providers**. Those use OpenAI's strict `json_schema` (`strict: true`), which requires
+`additionalProperties: false` on every object and **all** keys in `required` — the builder
+emits neither, and `->optional()` produced keys absent from `required`. The prior sandbox
+tests passed only because they hand-wrote raw arrays with `additionalProperties:false` baked
+in, never exercising the builder. Fix: `Schema\StrictSchema::normalize()` applied in the
+OpenAI + ChatCompletions structured handlers (xAI inherits OpenAI) — recursively adds
+`additionalProperties:false`, lists all keys in `required`, and expresses optionals as a
+nullable type union. Google/Anthropic are intentionally **not** normalized (different
+mechanisms; Gemini's `responseSchema` 400s on `additionalProperties`).
+
+| Provider  | Model                     | Mechanism                         | Normalizer | Builder result (live)                              |
+|-----------|---------------------------|-----------------------------------|:----------:|----------------------------------------------------|
+| OpenAI    | gpt-4o-mini               | strict `json_schema`              | ✅ applied | ✅ flat, nested, optional (`phone: null`)           |
+| xAI       | (inherits OpenAI handler) | strict `json_schema`              | ✅ inherited | ⚠️ not re-run live this session; same code path + unit |
+| ChatCompletions (Ollama/LM Studio) | — | strict `json_schema`        | ✅ applied | ⚠️ unit only (no local server in run)              |
+| Google    | gemini-2.5-flash          | `responseSchema` (OpenAPI subset) | ❌ must not | ✅ flat, optional (key omitted: `{"name":"Dana"}`)  |
+| Anthropic | claude-sonnet-4-5         | forced tool `input_schema`        | ❌ not needed | ✅ flat, optional (key omitted: `{"name":"Dana"}`)  |
+
+Before the fix (live, same builder schema): `OpenAI 400 — Invalid schema for response_format
+'…': 'additionalProperties' is required to be supplied and to be false.` After: parsed object
+returned.
+
+**Provider semantics note (not a bug):** under OpenAI strict mode an optional field returns as
+explicit `null`; Google/Anthropic **omit** the key. Consumers should read optionals as
+`$data['key'] ?? null` regardless of provider.
+
+Unit coverage: `tests/Unit/Schema/StrictSchemaTest.php` (16 cases — happy + every negative
+branch) plus builder-based assertions in the OpenAI and ChatCompletions handler tests.
+Regression guard: sandbox structured cases (`test-openai-provider.php`,
+`test-xai-provider.php`, `test-lmstudio-provider.php`) now drive the builder incl.
+`->optional()`, so the next live sweep exercises the real path.
+
 ## Error handling & resilience (live, 2026-06-10)
 
 End-to-end verification of the error-handling/HTTP/retry/queue work against **real provider APIs**. Classification is driven purely by HTTP status code + exception type + structural JSON shape — never by parsing message words. **19/19 live checks passed** across OpenAI / Anthropic / Google / xAI.
@@ -192,4 +232,4 @@ Per provider, two phases:
 
 ## Package checks (2026-06-10)
 
-`composer check` — **Pint ✓ · PHPStan 0 errors ✓ · 3148 Pest tests ✓** (incl. the full error-handling suite plus the new observability coverage: auth/authz provider messages, `responseBody()`/`rawResponse()`, transport-event correlation id + provider/model, and the `ProviderRequestContext` value object).
+`composer check` — **Pint ✓ · PHPStan 0 errors ✓ · 3166 Pest tests ✓** (incl. the full error-handling suite, the observability coverage — auth/authz provider messages, `responseBody()`/`rawResponse()`, transport-event correlation id + provider/model, the `ProviderRequestContext` value object — and the structured-output strict-mode normalizer: `StrictSchema` unit coverage plus builder-based handler assertions).

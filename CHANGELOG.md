@@ -15,11 +15,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 - New typed exceptions for specific provider failures: `ConnectionException` (network), `ModelNotFoundException` (unknown model), `InvalidRequestException` (bad request), and `ServerException` (provider error).
 - xAI now supports the `CodeInterpreter` provider tool.
 - `voice.route_middleware` config to protect the voice routes, e.g. `['auth:sanctum', 'throttle:60,1']`.
-- `ProviderException::responseBody()` and `rawResponse()` expose the provider's raw error response for debugging, without digging through the previous exception.
-- Provider request events (`ProviderRequestStarted` / `Completed` / `Failed` / `Retrying`) now carry a `correlationId` (stable across retries) plus the `provider` and `model`, so you can correlate and attribute every HTTP call to a provider.
+- `ProviderException::responseBody()` and `rawResponse()` expose the provider's raw error response for debugging, without unwrapping the previous exception.
+- Provider request events (`ProviderRequestStarted` / `Completed` / `Failed` / `Retrying`) now carry a `correlationId` (stable across retries) plus `provider` and `model`, so you can trace and attribute every HTTP call.
 
 ### Changed
 
+- `atlas.embeddings.dimensions` is now sent to OpenAI's `text-embedding-3-small`/`-large` as the `dimensions` parameter, so reduced-dimension (Matryoshka) embeddings work straight from the config key. An explicit `dimensions` provider option still wins; models that don't support it (e.g. `text-embedding-ada-002`) are unaffected.
 - A single `catch (ProviderException)` now handles every provider failure. Catch a subclass for specific cases.
 - "Overloaded" provider responses are now retried, like rate limits.
 - Attaching an unsupported provider-native tool (e.g. xAI's X Search on OpenAI) now throws `UnsupportedFeatureException` up front instead of failing at the provider.
@@ -34,21 +35,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 - Queued requests fail fast on unrecoverable errors (bad key, bad request, unknown model) instead of burning every retry.
 - Per-request middleware (`->withMiddleware()`) now runs on queued image, audio, video, speech, embedding, moderation, rerank, music, and sound-effect requests — previously it was silently dropped on queue (text and agent requests were unaffected).
 - Queuing a request with a closure middleware now fails fast with a clear error instead of crashing the worker; use class-based middleware for queued requests.
+- Batch embeddings are realigned by the provider's `index` field rather than response order, so an out-of-order batch can't attach the wrong vector to a chunk.
+- A mismatched embedding dimension now fails at embed time with a clear message (actual vs configured size, plus the fix) instead of a cryptic database error at write time.
+- Changing config at runtime and calling `AtlasConfig::refresh()` now applies to facade calls (`Atlas::embed()`, etc.) — previously the facade held a stale manager built from the old config, so runtime provider/model/dimension changes were silently ignored on facade-driven paths (embeddings, chunking).
 - Google tool calls missing a function name now degrade gracefully instead of erroring mid-parse.
 - Listing models and voices now reports failures like any other call.
-- Error messages now carry the provider's real reason across all providers.
-- Authentication (401) and authorization (403) failures now include the provider's real error message (e.g. "Incorrect API key provided") instead of a generic message.
+- Error messages now carry the provider's real reason across all providers — including auth failures (401/403), which previously showed a generic message instead of the provider's text (e.g. "Incorrect API key provided").
 - Queued failures cap their broadcast error so it can't exceed the socket limit and drop the event.
 
 ### Migration
 
-No breaking changes for most users. Check these only if they apply:
+**No breaking changes for most users**. Check these only if they apply:
 
+- **You hard-coded a `vector(3072)` column for `text-embedding-3-large` but left `ATLAS_EMBEDDING_DIMENSIONS` at the 1536 default** — that key is now forwarded to the API, so set it to `3072` to match your column. (Sizing the column from `config('atlas.embeddings.dimensions')` already handles this.)
 - **You catch specific exceptions** (auth, rate-limit) before `ProviderException` — keep those `catch` blocks first; `ProviderException` now catches them too.
 - **You use `reasoning_timeout`** — removed. Set a longer per-call timeout instead.
 - **You read streamed responses** — mid-stream errors now throw. Wrap your read loop in try/catch.
 - **You attach provider-native tools to providers that don't support them** — now throws `UnsupportedFeatureException` up front.
-- **You set voice config in a published config file** — `voice_route_prefix` and `voice_session_ttl` moved to `voice.route_prefix` / `voice.session_ttl`. Old keys still work; migrate when convenient.
 
 ---
 
