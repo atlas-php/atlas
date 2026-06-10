@@ -9,7 +9,7 @@ it('exposes the full provider support map', function () {
         'openai' => ['web_search', 'file_search', 'code_interpreter'],
         'anthropic' => ['web_search', 'web_fetch'],
         'google' => ['google_search', 'code_execution'],
-        'xai' => ['web_search', 'x_search'],
+        'xai' => ['web_search', 'x_search', 'code_interpreter'],
     ]);
 });
 

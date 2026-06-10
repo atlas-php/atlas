@@ -361,7 +361,7 @@ run (e.g. `FileSearch` needs `stores`; `CodeInterpreter` auto-provisions a `cont
 | `WebSearch` | `web_search` | OpenAI, Anthropic, xAI | Web search. `allowedDomains` / `blockedDomains` for site scoping. |
 | `WebFetch` | `web_fetch` | Anthropic | Fetch and read a web page. |
 | `FileSearch` | `file_search` | OpenAI | Search vector stores. Requires `stores` (`vector_store_ids`). |
-| `CodeInterpreter` | `code_interpreter` | OpenAI | Run code in a sandbox container. |
+| `CodeInterpreter` | `code_interpreter` | OpenAI, xAI | Run code in a sandbox container. |
 | `GoogleSearch` | `google_search` | Google | Google Search grounding for Gemini. |
 | `CodeExecution` | `code_execution` | Google | Code execution for Gemini. |
 | `XSearch` | `x_search` | xAI | Search X/Twitter posts. `fromDate`, `toDate`, `allowedXHandles`, `enableImageUnderstanding`, `enableVideoUnderstanding`. |

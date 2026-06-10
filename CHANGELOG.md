@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 ### Added
 
 - Catch specific provider failures with the new `ConnectionException` (network failure), `ModelNotFoundException` (unknown model), `InvalidRequestException` (bad request), and `ServerException` (provider server error).
+- xAI now accepts the `CodeInterpreter` provider tool (live-verified against xAI's Agent Tools API).
 
 ### Changed
 

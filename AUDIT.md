@@ -36,11 +36,12 @@ Both require the provider's API key in `sandbox/.env`.
 
 ¹ OpenAI-compatible endpoints via the shared `chat_completions` driver.
 
-## Provider tools (live, 2026-06-06)
+## Provider tools (live, 2026-06-06; full coverage re-run 2026-06-10)
 
 Provider-native tools each provider executes server-side. Verified end-to-end **through Atlas**
-(`Atlas::text(...)->withProviderTools([...])`) via `sandbox/test-provider-tools-live.php`, plus
-raw-API shape probes for tools that need external resources (a vector store, a container).
+(`Atlas::text(...)->withProviderTools([...])`). Every registry entry except `file_search` is
+covered by `sandbox/test-provider-tools-coverage-live.php` (9/9 passed 2026-06-10);
+`file_search` uses a raw-API shape probe (needs an external vector store).
 
 - ✅ — full end-to-end pass: the model **used the tool and based its answer on the live results**, and Atlas captured the calls/citations (`providerToolCalls` / `annotations`).
 - ◐ — native request shape verified live (HTTP 200), not run end-to-end (needs an external resource like a vector store or container).
@@ -48,17 +49,25 @@ raw-API shape probes for tools that need external resources (a vector store, a c
 
 | Provider  | web_search | web_fetch | file_search | code_interpreter | google_search | code_execution | x_search |
 |-----------|:----------:|:---------:|:-----------:|:----------------:|:-------------:|:--------------:|:--------:|
-| OpenAI    | ✅          | —         | ◐           | ◐                | —             | —              | —        |
+| OpenAI    | ✅          | —         | ◐           | ✅                | —             | —              | —        |
 | Anthropic | ✅          | ✅         | —           | —                | —             | —              | —        |
 | Google    | —          | —         | —           | —                | ⚠️            | ⚠️             | —        |
-| xAI       | ✅          | —         | —           | —                | —             | —              | ◐        |
+| xAI       | ✅          | —         | —           | ✅                | —             | —              | ✅        |
+
+(`—` = provider has no such tool / not in the registry, not a failure.)
 
 Notes:
+- **Registry is the enforced support matrix.** `ProviderToolRegistry::assertSupported()` rejects an
+  unsupported tool for a tracked provider before the request is sent, so every ✅/◐ above must stay
+  truthful — an entry here is a promise the guard will allow it.
+- **xAI `code_interpreter`** verified end-to-end 2026-06-10 (grok-4 + grok-3 ran Python, returned the
+  exact result). xAI accepts Atlas's OpenAI-shaped payload (including the `container` field).
+- **xAI `file_search`** (collections search) is **not** in the registry — Atlas's `file_search` payload
+  was not live-verified against an xAI collection. Add only after an end-to-end pass with a real store.
 - **Domain scoping** (`allowedDomains` / `blockedDomains`) verified live on OpenAI/xAI (`filters`)
   and Anthropic (top-level). Anthropic returns citations as `annotations`.
-- **OpenAI** `file_search` requires `vector_store_ids` and `code_interpreter` requires a
-  `container` — both confirmed via live 400/200 shape probes; not run end-to-end (no live
-  vector store / sandboxed container in the harness).
+- **OpenAI** `file_search` requires `vector_store_ids` (confirmed via live shape probe; not run
+  end-to-end — no live vector store in the harness). `code_interpreter` now runs end-to-end.
 - **Google** `google_search` (grounding) and `code_execution` fire and ground answers correctly
   live (returned current, beyond-cutoff data), but Atlas's Google `ResponseParser` does not yet
   map `groundingMetadata` / `codeExecutionResult` into `providerToolCalls` / `annotations` —
