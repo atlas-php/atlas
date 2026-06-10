@@ -221,11 +221,40 @@ See the [Voice Integration Guide](https://atlasphp.org/guides/voice-integration/
 
 ## 🧪 Sandbox
 
-A fully functional chat interface demonstrating Atlas agents in action. Built with Vue 3, Tailwind CSS, and a Laravel JSON API.
+A fully functional chat interface demonstrating Atlas agents in action — multi-agent chat, tool calling, conversation memory, and live image/video generation. Built with Vue 3, Tailwind CSS, and a Laravel JSON API.
 
-<p align="left">
-  <img src="./images/atlas-sandbox-chat.png" alt="Atlas Sandbox Chat" width="800">
-</p>
+<table>
+  <tr>
+    <td width="50%" align="center">
+      <img src="./images/sandbox-agents.png" alt="Switch between multiple agents" width="100%"><br>
+      <sub><b>Pick from multiple agents</b> — each with its own model and tools</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="./images/sandbox-multi-image.png" alt="Multi-image input" width="100%"><br>
+      <sub><b>Multi-modal input</b> — attach multiple images in one message</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <img src="./images/sandbox-text-chat.png" alt="Rich Markdown chat" width="100%"><br>
+      <sub><b>Streaming Markdown chat</b> with full execution traces</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="./images/sandbox-image-generation.png" alt="Generate images" width="100%"><br>
+      <sub><b>Image generation</b> rendered inline from a tool call</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <img src="./images/sandbox-video-generation.png" alt="Generate video" width="100%"><br>
+      <sub><b>Video generation</b> that plays right in the thread</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="./images/sandbox-image-editing.png" alt="Edit an uploaded image" width="100%"><br>
+      <sub><b>Image editing</b> — upload a photo and have an agent restyle it</sub>
+    </td>
+  </tr>
+</table>
 
 See the [Sandbox README](./sandbox/README.md) for setup instructions and details.
 
