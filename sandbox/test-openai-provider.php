@@ -243,17 +243,14 @@ test('stream accumulates full text', function () {
 
 echo "\n\n── Structured Output";
 
-test('json_schema structured response', function () {
-    $schema = new Schema('person', 'A person', [
-        'type' => 'object',
-        'properties' => [
-            'name' => ['type' => 'string'],
-            'age' => ['type' => 'integer'],
-            'hobbies' => ['type' => 'array', 'items' => ['type' => 'string']],
-        ],
-        'required' => ['name', 'age', 'hobbies'],
-        'additionalProperties' => false,
-    ]);
+// Built via the fluent Schema builder (the documented public API) — exercises the
+// builder -> OpenAI strict-mode normalization path that real consumers use.
+test('json_schema structured response (builder)', function () {
+    $schema = Schema::object('person', 'A person')
+        ->string('name', 'Full name')
+        ->integer('age', 'Age in years')
+        ->stringArray('hobbies', 'List of hobbies')
+        ->build();
 
     $r = Atlas::text(Provider::OpenAI, 'gpt-4o-mini')
         ->message('Create a person named Bob who is 42 and likes chess and hiking.')
@@ -269,24 +266,14 @@ test('json_schema structured response', function () {
     assert_true($r->finishReason === FinishReason::Stop, 'Should finish with Stop');
 });
 
-test('nested structured schema', function () {
-    $schema = new Schema('company', 'A company', [
-        'type' => 'object',
-        'properties' => [
-            'name' => ['type' => 'string'],
-            'address' => [
-                'type' => 'object',
-                'properties' => [
-                    'city' => ['type' => 'string'],
-                    'country' => ['type' => 'string'],
-                ],
-                'required' => ['city', 'country'],
-                'additionalProperties' => false,
-            ],
-        ],
-        'required' => ['name', 'address'],
-        'additionalProperties' => false,
-    ]);
+test('nested structured schema (builder)', function () {
+    $schema = Schema::object('company', 'A company')
+        ->string('name', 'Company name')
+        ->object('address', 'Company address', function ($obj) {
+            $obj->string('city', 'City')
+                ->string('country', 'Country');
+        })
+        ->build();
 
     $r = Atlas::text(Provider::OpenAI, 'gpt-4o-mini')
         ->message('Apple Inc is in Cupertino, USA.')
@@ -296,6 +283,25 @@ test('nested structured schema', function () {
     assert_true($r->structured['name'] === 'Apple Inc', 'Company should be Apple Inc');
     assert_true($r->structured['address']['city'] === 'Cupertino', 'City should be Cupertino');
     assert_true($r->structured['address']['country'] === 'USA', 'Country should be USA');
+});
+
+// Optional field via ->optional(): under OpenAI strict mode this must round-trip as a
+// nullable key that is still present in `required`. Before the strict-schema fix this
+// 400'd ("'additionalProperties' is required to be supplied and to be false").
+test('structured schema with optional field (builder)', function () {
+    $schema = Schema::object('contact', 'A contact')
+        ->string('name', 'Full name')
+        ->string('phone', 'Phone number')->optional()
+        ->build();
+
+    $r = Atlas::text(Provider::OpenAI, 'gpt-4o-mini')
+        ->message('The contact is named Dana. No phone number was provided.')
+        ->withSchema($schema)
+        ->asStructured();
+
+    assert_true($r->structured['name'] === 'Dana', "Name should be Dana, got: {$r->structured['name']}");
+    assert_true(array_key_exists('phone', $r->structured), 'Optional phone key should be present');
+    assert_true($r->structured['phone'] === null, 'Phone should be null when omitted');
 });
 
 // ── Tool Calling ─────────────────────────────────────────────────────────────

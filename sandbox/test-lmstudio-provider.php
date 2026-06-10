@@ -197,16 +197,13 @@ test('stream yields text chunks and Done', function () use ($model) {
 
 echo "\n\n── Structured Output";
 
-test('json_schema structured response', function () use ($model) {
-    $schema = new Schema('person', 'A person', [
-        'type' => 'object',
-        'properties' => [
-            'name' => ['type' => 'string'],
-            'age' => ['type' => 'integer'],
-        ],
-        'required' => ['name', 'age'],
-        'additionalProperties' => false,
-    ]);
+// Built via the fluent Schema builder (the documented public API) — exercises the
+// builder -> strict-mode normalization path (Chat Completions uses strict json_schema).
+test('json_schema structured response (builder)', function () use ($model) {
+    $schema = Schema::object('person', 'A person')
+        ->string('name', 'Full name')
+        ->integer('age', 'Age in years')
+        ->build();
 
     $r = Atlas::text('lmstudio', $model)
         ->message('Create a person named Bob who is 42.')

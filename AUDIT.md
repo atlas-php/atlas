@@ -4,7 +4,7 @@ Status of each provider's modalities against **real provider APIs**, exercised v
 sandbox harness (`sandbox/test-{provider}-provider.php` and feature scripts). This file
 records the date each modality last **passed a live API test** — not unit-test coverage.
 
-**Last full run: 2026-06-10** (all 4 providers — **97/97 green**; the two 2026-06-09 transient failures (OpenAI TTS, xAI voices) now pass) · **Error handling & resilience (all 4 providers): 2026-06-10** · **Forced tool choice (all 4 providers): 2026-06-09** · **Image-to-image (reference media): 2026-06-08** · **Prompt caching + media replay: 2026-06-07** · **Provider-tools run: 2026-06-06**
+**Last full run: 2026-06-10** (all 4 providers — **97/97 green**; the two 2026-06-09 transient failures (OpenAI TTS, xAI voices) now pass) · **Error handling & resilience (all 4 providers): 2026-06-10** · **Error & request context tracing (all 4 providers, 56/56): 2026-06-10** · **Forced tool choice (all 4 providers): 2026-06-09** · **Image-to-image (reference media): 2026-06-08** · **Prompt caching + media replay: 2026-06-07** · **Provider-tools run: 2026-06-06**
 
 Reproduce:
 - Per-provider suites: `cd sandbox && php test-{provider}-provider.php`
@@ -157,6 +157,25 @@ Reproduce: `cd sandbox` and run an inline script booting `bootstrap.php` (see th
 
 **Mid-stream provider errors** (a `data: {"error":…}` / `event: error` arriving on a 200 stream) are detected and thrown as a model-carrying `ProviderException` — verified by unit tests with fixture SSE streams (can't be triggered on demand from a healthy provider).
 
+## Error & request context tracing (live, 2026-06-10)
+
+Validates the observability additions end-to-end against **real provider APIs** via
+`sandbox/test-error-context-live.php`. **56/56 live checks passed** across OpenAI / Anthropic / Google / xAI.
+
+Per provider, two phases:
+
+1. **Successful call** — `ProviderRequestStarted` + `ProviderRequestCompleted` fire carrying the **same** `correlationId` and the correct `provider` + `model`.
+2. **Bad-key call** — the provider's **real** error message surfaces on `ProviderException::providerMessage`, `responseBody()` returns the decoded error, and `ProviderRequestFailed` carries `provider` + `correlationId`.
+
+| Provider  | Bad-key status | Atlas exception | Provider message (live) |
+|-----------|:--------------:|-----------------|-------------------------|
+| OpenAI    | 401 | `AuthenticationException` | "Incorrect API key provided: sk-…. You can find your API key at …" |
+| Anthropic | 401 | `AuthenticationException` | "invalid x-api-key" |
+| Google    | 400 | `InvalidRequestException` | "API key not valid. Please pass a valid API key." |
+| xAI       | 400 | `InvalidRequestException` | "Incorrect API key provided: sk***ef. …" |
+
+> Google/xAI classify a bad key as **400** (not 401) — those already carried `providerMessage`; this release specifically restored the **401** auth message for OpenAI/Anthropic, which previously showed a generic "Authentication failed" with an empty `providerMessage`.
+
 ## Per-provider results
 
 | Provider   | Live suite                 | Notes |
@@ -173,4 +192,4 @@ Reproduce: `cd sandbox` and run an inline script booting `bootstrap.php` (see th
 
 ## Package checks (2026-06-10)
 
-`composer check` — **Pint ✓ · PHPStan 0 errors ✓ · 3033 Pest tests ✓** (incl. the full error-handling suite: connection/streaming/retry, provider error-message extraction, exception hierarchy + typed errors, and the queue fail-fast lifecycle).
+`composer check` — **Pint ✓ · PHPStan 0 errors ✓ · 3148 Pest tests ✓** (incl. the full error-handling suite plus the new observability coverage: auth/authz provider messages, `responseBody()`/`rawResponse()`, transport-event correlation id + provider/model, and the `ProviderRequestContext` value object).

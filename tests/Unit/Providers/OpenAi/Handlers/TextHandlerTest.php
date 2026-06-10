@@ -215,6 +215,32 @@ it('sends structured request with text.format', function () {
     });
 });
 
+it('normalizes a builder schema to OpenAI strict mode (additionalProperties + all required + nullable optionals)', function () {
+    Http::fake([
+        'api.openai.com/v1/responses' => Http::response([
+            'status' => 'completed',
+            'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => '{"name":"John","phone":null}']]]],
+            'usage' => ['input_tokens' => 10, 'output_tokens' => 5],
+        ]),
+    ]);
+
+    $schema = Schema::object('person', 'A person')
+        ->string('name', 'Name')
+        ->string('phone', 'Phone')->optional()
+        ->build();
+
+    makeTextHandler()->structured(makeOpenAiTextRequest(['schema' => $schema]));
+
+    Http::assertSent(function ($request) {
+        $sent = $request['text']['format']['schema'];
+
+        return $sent['additionalProperties'] === false
+            && $sent['required'] === ['name', 'phone']
+            && $sent['properties']['name']['type'] === 'string'
+            && $sent['properties']['phone']['type'] === ['string', 'null'];
+    });
+});
+
 it('a mid-stream error while streaming throws a ProviderException carrying the model', function () {
     Http::fake([
         'api.openai.com/v1/responses' => Http::response(

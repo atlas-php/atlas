@@ -21,6 +21,7 @@ use Atlasphp\Atlas\Responses\StreamChunk;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
+use Atlasphp\Atlas\Schema\StrictSchema;
 use Generator;
 
 /**
@@ -85,7 +86,7 @@ class Text implements TextHandler
                 'format' => [
                     'type' => 'json_schema',
                     'name' => $request->schema->name(),
-                    'schema' => $request->schema->toArray(),
+                    'schema' => StrictSchema::normalize($request->schema->toArray()),
                     'strict' => true,
                 ],
             ];
