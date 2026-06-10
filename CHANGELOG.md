@@ -18,10 +18,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 - One `catch (ProviderException)` now handles every provider failure — authentication, rate limits, bad requests, server, and network errors. Catch a subclass when you need a specific case.
 - Provider "overloaded" responses are now retried automatically, like rate limits.
+- Attaching a provider-native tool to a provider that doesn't support it (e.g. xAI's X Search on OpenAI) now fails fast with a clear `UnsupportedFeatureException` instead of a confusing provider API error.
 
 ### Fixed
 
 - Failed requests are now retried automatically on rate limits and temporary server errors; previously they were not.
+- Google tool calls missing a function name no longer error mid-parse; they now degrade gracefully like every other provider.
 - A timeout set per call, or globally, is now honored — including on queued requests.
 - Network failures and mid-stream provider errors now surface as errors instead of being swallowed or returning a truncated, successful-looking response.
 - Error messages now carry the provider's real reason on every provider.
@@ -30,7 +32,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 ### Migration
 
-Mostly drop-in. `catch (ProviderException)` now also catches authentication, authorization, and rate-limit errors — if you handle those separately, list their `catch` blocks first. The unused `reasoning_timeout` provider option was removed; set a longer timeout per call instead. If you read streamed responses, wrap the loop in a try/catch to handle a mid-stream error.
+No breaking changes for most cases. Four things to check only if they apply to you:
+
+- **You catch specific exceptions** (auth, rate-limit) separately from `ProviderException` — list those `catch` blocks first, since `ProviderException` now catches them too.
+- **You set `reasoning_timeout`** — it's gone; set a longer per-call timeout instead.
+- **You read streamed responses** — a mid-stream provider error now throws instead of silently truncating; wrap the read loop in a try/catch.
+- **You attach provider-native tools** (e.g. `WebSearch`) to a first-party provider that doesn't support that tool — it now throws `UnsupportedFeatureException` up front instead of erroring at the provider.
+
+Otherwise no action required.
 
 ---
 

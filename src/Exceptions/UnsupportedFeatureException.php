@@ -16,4 +16,12 @@ class UnsupportedFeatureException extends AtlasException
     {
         return new self("Feature [{$feature}] is not supported by provider [{$provider}].");
     }
+
+    /**
+     * Create an exception for a provider-native tool the provider does not support.
+     */
+    public static function providerTool(string $type, string $provider): self
+    {
+        return new self("Provider tool [{$type}] is not supported by provider [{$provider}].");
+    }
 }

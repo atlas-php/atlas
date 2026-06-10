@@ -7,6 +7,8 @@ namespace Atlasphp\Atlas\Pending\Concerns;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Providers\Driver;
+use Atlasphp\Atlas\Providers\Tools\ProviderTool;
+use Atlasphp\Atlas\Providers\Tools\ProviderToolRegistry;
 
 /**
  * Shared driver resolution and capability checking for Pending request classes.
@@ -28,6 +30,25 @@ trait ResolvesProvider
         if (! $driver->capabilities()->supports($feature)) {
             throw UnsupportedFeatureException::make($feature, $driver->name());
         }
+    }
+
+    /**
+     * Fail fast if any attached provider tool is unsupported by the resolved provider.
+     *
+     * Short-circuits on no tools so the provider name is only resolved when there
+     * is actually something to validate. Matching is delegated to the registry.
+     *
+     * @param  array<int, ProviderTool>  $providerTools
+     *
+     * @throws UnsupportedFeatureException
+     */
+    protected function ensureProviderToolsSupported(Driver $driver, array $providerTools): void
+    {
+        if ($providerTools === []) {
+            return;
+        }
+
+        ProviderToolRegistry::assertSupported($driver->name(), $providerTools);
     }
 
     /**

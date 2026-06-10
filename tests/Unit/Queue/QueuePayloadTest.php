@@ -87,6 +87,7 @@ it('TextRequest preserves an explicit cache override across the queue boundary',
 
 it('TextRequest executeFromPayload restores providerTools and toolChoice', function () {
     $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('name')->andReturn('openai');
     $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
     $captured = null;
     $driver->shouldReceive('text')->andReturnUsing(function ($req) use (&$captured) {
