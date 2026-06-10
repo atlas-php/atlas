@@ -100,6 +100,61 @@ it('retries a connection failure then rethrows when attempts are exhausted', fun
     expect($retries)->toBe(1);
 });
 
+it('retries postRaw on a transient 5xx and returns the body', function () {
+    Http::fakeSequence()
+        ->push('err', 503)
+        ->push('binary-bytes', 200);
+
+    $retries = 0;
+    Event::listen(ProviderRequestRetrying::class, function () use (&$retries): void {
+        $retries++;
+    });
+
+    $body = httpClient()->postRaw('https://api.test/x', [], [], 30, new RequestConfig(30, 0, 2));
+
+    expect($retries)->toBe(1);
+    expect($body)->toBe('binary-bytes');
+});
+
+it('retries postMultipart on a transient 5xx', function () {
+    Http::fakeSequence()
+        ->push('err', 503)
+        ->push(['ok' => true], 200);
+
+    $retries = 0;
+    Event::listen(ProviderRequestRetrying::class, function () use (&$retries): void {
+        $retries++;
+    });
+
+    $data = httpClient()->postMultipart(
+        'https://api.test/x',
+        [],
+        ['field' => 'v'],
+        [['name' => 'file', 'contents' => 'data', 'filename' => 'f.bin']],
+        30,
+        new RequestConfig(30, 0, 2),
+    );
+
+    expect($retries)->toBe(1);
+    expect($data)->toBe(['ok' => true]);
+});
+
+it('retries the initial stream connection on a transient 5xx', function () {
+    Http::fakeSequence()
+        ->push('err', 503)
+        ->push('data: [DONE]', 200);
+
+    $retries = 0;
+    Event::listen(ProviderRequestRetrying::class, function () use (&$retries): void {
+        $retries++;
+    });
+
+    $response = httpClient()->stream('https://api.test/x', [], [], 30, new RequestConfig(30, 0, 2));
+
+    expect($retries)->toBe(1);
+    expect($response->status())->toBe(200);
+});
+
 it('applies an explicit timeout override but keeps the handler default otherwise', function () {
     $client = httpClient();
     $method = new ReflectionMethod($client, 'effectiveTimeout');

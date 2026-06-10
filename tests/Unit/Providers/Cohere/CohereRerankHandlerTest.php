@@ -5,9 +5,31 @@ declare(strict_types=1);
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\Cohere\CohereRerankHandler;
 use Atlasphp\Atlas\Providers\ProviderConfig;
+use Atlasphp\Atlas\RequestConfig;
 use Atlasphp\Atlas\Requests\RerankRequest;
 use Atlasphp\Atlas\Responses\RerankResponse;
 use Illuminate\Support\Facades\Http;
+
+it('forwards the request config to the HTTP layer for rerank', function () {
+    $config = (new RequestConfig(30, 5, 2))->withoutRetry();
+
+    $http = Mockery::mock(HttpClient::class);
+    $http->shouldReceive('post')->once()
+        ->withArgs(fn (string $url, array $headers, array $body, int $timeout, ?RequestConfig $cfg) => $cfg === $config)
+        ->andReturn(['results' => [['index' => 0, 'relevance_score' => 0.9]], 'meta' => ['billed_units' => ['search_units' => 1]]]);
+
+    $handler = new CohereRerankHandler(
+        config: ProviderConfig::fromArray(['api_key' => 'test-key', 'url' => 'https://api.cohere.com']),
+        http: $http,
+    );
+
+    $handler->rerank(new RerankRequest(
+        model: 'rerank-v3.5',
+        query: 'q',
+        documents: ['a', 'b'],
+        requestConfig: $config,
+    ));
+});
 
 it('sends rerank request to /v2/rerank', function () {
     Http::fake([

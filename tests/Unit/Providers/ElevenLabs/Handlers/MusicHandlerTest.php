@@ -5,10 +5,11 @@ declare(strict_types=1);
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\ElevenLabs\Handlers\Music;
 use Atlasphp\Atlas\Providers\ProviderConfig;
+use Atlasphp\Atlas\RequestConfig;
 use Atlasphp\Atlas\Requests\AudioRequest;
 use Illuminate\Support\Facades\Http;
 
-function makeMusicHandler(): Music
+function makeMusicHandler(?HttpClient $http = null): Music
 {
     return new Music(
         config: ProviderConfig::fromArray([
@@ -16,7 +17,7 @@ function makeMusicHandler(): Music
             'url' => 'https://api.elevenlabs.io/v1',
             'media_timeout' => 120,
         ]),
-        http: app(HttpClient::class),
+        http: $http ?? app(HttpClient::class),
     );
 }
 
@@ -33,8 +34,20 @@ function makeMusicRequest(array $overrides = []): AudioRequest
         format: $overrides['format'] ?? null,
         voiceClone: null,
         providerOptions: $overrides['providerOptions'] ?? [],
+        requestConfig: $overrides['requestConfig'] ?? null,
     );
 }
+
+it('forwards the request config to postRaw', function () {
+    $config = (new RequestConfig(30, 5, 2))->withoutRetry();
+
+    $http = Mockery::mock(HttpClient::class);
+    $http->shouldReceive('postRaw')->once()
+        ->withArgs(fn (string $url, array $headers, array $body, int $timeout, ?RequestConfig $cfg) => $cfg === $config)
+        ->andReturn('music-bytes');
+
+    makeMusicHandler($http)->audio(makeMusicRequest(['requestConfig' => $config]));
+});
 
 it('posts to /music with prompt', function () {
     Http::fake([
