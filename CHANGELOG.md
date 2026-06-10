@@ -8,6 +8,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- Catch specific provider failures with the new `ConnectionException` (network failure), `ModelNotFoundException` (unknown model), `InvalidRequestException` (bad request), and `ServerException` (provider server error).
+
+### Changed
+
+- One `catch (ProviderException)` now handles every provider failure — authentication, rate limits, bad requests, server, and network errors. Catch a subclass when you need a specific case.
+- Provider "overloaded" responses are now retried automatically, like rate limits.
+
+### Fixed
+
+- Failed requests are now retried automatically on rate limits and temporary server errors; previously they were not.
+- A timeout set per call, or globally, is now honored — including on queued requests.
+- Network failures and mid-stream provider errors now surface as errors instead of being swallowed or returning a truncated, successful-looking response.
+- Error messages now carry the provider's real reason on every provider.
+- Listing available models and voices now reports failures the same way as every other call.
+- Queued requests now fail fast on errors that can't succeed (invalid key, bad request, unknown model) instead of using up every retry; transient errors still retry.
+
+### Migration
+
+Mostly drop-in. `catch (ProviderException)` now also catches authentication, authorization, and rate-limit errors — if you handle those separately, list their `catch` blocks first. The unused `reasoning_timeout` provider option was removed; set a longer timeout per call instead. If you read streamed responses, wrap the loop in a try/catch to handle a mid-stream error.
+
+---
+
 ## [v3.4.0](https://github.com/atlas-php/atlas/releases/tag/v3.4.0) - 2026-06-09
 
 ### Added

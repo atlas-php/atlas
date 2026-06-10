@@ -56,6 +56,7 @@ class Sfx
             headers: $this->headers(),
             body: $body,
             timeout: $this->config->mediaTimeout,
+            config: $request->requestConfig,
         );
 
         return new AudioResponse(

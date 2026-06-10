@@ -145,7 +145,7 @@ class ResponseParser implements ResponseParserContract
      *
      * @param  array<string, mixed>  $data
      */
-    public function parseStreamChunk(array $data): StreamChunk
+    public function parseStreamChunk(array $data, string $model = ''): StreamChunk
     {
         $event = (string) ($data['event'] ?? '');
         /** @var array<string, mixed> $payload */
@@ -186,10 +186,11 @@ class ResponseParser implements ResponseParserContract
             );
         }
 
-        if ($event === 'response.failed') {
-            $error = (string) ($payload['response']['error']['message'] ?? 'Response generation failed');
+        if ($event === 'response.failed' || $event === 'error' || isset($payload['error'])) {
+            $error = $payload['response']['error'] ?? $payload['error'] ?? $payload;
+            $error = is_array($error) ? $error : ['message' => (string) $error];
 
-            throw new ProviderException('openai', '', 0, $error);
+            throw ProviderException::fromStreamError('openai', $model, $error);
         }
 
         return new StreamChunk(type: ChunkType::Text, text: null);

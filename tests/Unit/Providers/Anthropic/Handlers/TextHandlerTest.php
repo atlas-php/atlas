@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Enums\ChunkType;
+use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\Anthropic\Handlers\Text;
 use Atlasphp\Atlas\Providers\Anthropic\MediaResolver;
@@ -11,21 +12,23 @@ use Atlasphp\Atlas\Providers\Anthropic\ResponseParser;
 use Atlasphp\Atlas\Providers\Anthropic\ToolMapper;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Providers\Tools\WebSearch;
+use Atlasphp\Atlas\RequestConfig;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Schema\Schema;
 use Atlasphp\Atlas\Tools\ToolChoice;
 use Atlasphp\Atlas\Tools\ToolDefinition;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
-function makeAnthropicTextHandler(): Text
+function makeAnthropicTextHandler(?HttpClient $http = null): Text
 {
     $toolMapper = new ToolMapper;
 
     return new Text(
         config: ProviderConfig::fromArray(['api_key' => 'test-key', 'url' => 'https://api.anthropic.com/v1']),
-        http: app(HttpClient::class),
+        http: $http ?? app(HttpClient::class),
         messages: new MessageFactory,
         media: new MediaResolver,
         tools: $toolMapper,
@@ -48,8 +51,48 @@ function makeAnthropicTextRequest(array $overrides = []): TextRequest
         providerTools: $overrides['providerTools'] ?? [],
         providerOptions: $overrides['providerOptions'] ?? [],
         toolChoice: $overrides['toolChoice'] ?? null,
+        requestConfig: $overrides['requestConfig'] ?? null,
     );
 }
+
+it('a mid-stream error while streaming throws a ProviderException carrying the model', function () {
+    Http::fake([
+        'api.anthropic.com/*' => Http::response(
+            "event: error\ndata: {\"type\":\"error\",\"error\":{\"message\":\"Overloaded\"}}\n\n",
+            200,
+        ),
+    ]);
+
+    $caught = null;
+
+    try {
+        foreach (makeAnthropicTextHandler()->stream(makeAnthropicTextRequest(['model' => 'claude-sonnet-4-5'])) as $chunk) {
+            // consume the stream
+        }
+    } catch (ProviderException $e) {
+        $caught = $e;
+    }
+
+    expect($caught)->not->toBeNull();
+    expect($caught->model)->toBe('claude-sonnet-4-5');
+    expect($caught->providerMessage)->toBe('Overloaded');
+});
+
+it('forwards the request config to the HTTP layer (post and stream)', function () {
+    $config = (new RequestConfig(30, 5, 2))->withoutRetry();
+
+    $http = Mockery::mock(HttpClient::class);
+    $http->shouldReceive('post')->once()
+        ->withArgs(fn (string $url, array $headers, array $body, int $timeout, ?RequestConfig $cfg) => $cfg === $config)
+        ->andReturn(['content' => [['type' => 'text', 'text' => 'ok']], 'usage' => ['input_tokens' => 1, 'output_tokens' => 1], 'stop_reason' => 'end_turn']);
+    $http->shouldReceive('stream')->once()
+        ->withArgs(fn (string $url, array $headers, array $body, int $timeout, ?RequestConfig $cfg) => $cfg === $config)
+        ->andReturn(Mockery::mock(Response::class));
+
+    $handler = makeAnthropicTextHandler($http);
+    $handler->text(makeAnthropicTextRequest(['requestConfig' => $config]));
+    $handler->stream(makeAnthropicTextRequest(['requestConfig' => $config]));
+});
 
 it('emits the Anthropic tool_choice object when a choice is set with tools', function () {
     Http::fake(['api.anthropic.com/*' => Http::response(fakeAnthropicTextResponse())]);

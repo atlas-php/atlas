@@ -9,12 +9,15 @@ use Throwable;
 /**
  * Thrown when provider authentication fails (HTTP 401).
  */
-class AuthenticationException extends AtlasException
+class AuthenticationException extends ProviderException
 {
-    public function __construct(
-        public readonly string $provider,
-        ?Throwable $previous = null,
-    ) {
-        parent::__construct("Authentication failed for provider [{$provider}].", 0, $previous);
+    public function __construct(string $provider, string $model = '', ?Throwable $previous = null)
+    {
+        parent::__construct($provider, $model, 401, '', $previous);
+    }
+
+    protected function buildMessage(): string
+    {
+        return "Authentication failed for provider [{$this->provider}].";
     }
 }

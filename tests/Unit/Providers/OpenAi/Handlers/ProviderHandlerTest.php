@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Atlasphp\Atlas\AtlasCache;
 use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Http\HttpClient;
+use Atlasphp\Atlas\Providers\ModelList;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Provider;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Illuminate\Support\Facades\Http;
@@ -94,6 +95,18 @@ it('validate returns false when models endpoint throws', function () {
     ]);
 
     $handler = makeProviderHandler();
+
+    expect($handler->validate())->toBeFalse();
+});
+
+it('validate returns false even when models throws a non-Exception Error', function () {
+    $handler = new class(ProviderConfig::fromArray(['api_key' => 'test-key', 'url' => 'https://api.openai.com/v1']), app(HttpClient::class), app(AtlasCache::class)) extends Provider
+    {
+        public function models(): ModelList
+        {
+            throw new TypeError('malformed provider response');
+        }
+    };
 
     expect($handler->validate())->toBeFalse();
 });

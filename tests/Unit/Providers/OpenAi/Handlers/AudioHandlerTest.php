@@ -6,18 +6,44 @@ use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Input\Audio as AudioInput;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Audio;
 use Atlasphp\Atlas\Providers\ProviderConfig;
+use Atlasphp\Atlas\RequestConfig;
 use Atlasphp\Atlas\Requests\AudioRequest;
 use Atlasphp\Atlas\Responses\AudioResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Illuminate\Support\Facades\Http;
 
-function makeAudioHandler(): Audio
+function makeAudioHandler(?HttpClient $http = null): Audio
 {
     return new Audio(
         config: ProviderConfig::fromArray(['api_key' => 'test-key', 'url' => 'https://api.openai.com/v1']),
-        http: app(HttpClient::class),
+        http: $http ?? app(HttpClient::class),
     );
 }
+
+it('forwards the request config to postRaw (TTS) and postMultipart (transcription)', function () {
+    $config = (new RequestConfig(30, 5, 2))->withoutRetry();
+
+    $http = Mockery::mock(HttpClient::class);
+    $http->shouldReceive('postRaw')->once()
+        ->withArgs(fn (string $url, array $headers, array $body, int $timeout, ?RequestConfig $cfg) => $cfg === $config)
+        ->andReturn('audio-bytes');
+    $http->shouldReceive('postMultipart')->once()
+        ->withArgs(fn (string $url, array $headers, array $data, array $attachments, int $timeout, ?RequestConfig $cfg) => $cfg === $config)
+        ->andReturn(['text' => 'transcribed']);
+
+    $handler = makeAudioHandler($http);
+
+    $handler->audio(new AudioRequest(
+        model: 'tts-1', instructions: 'Hi', media: [], voice: 'nova', speed: null,
+        language: null, duration: null, format: 'mp3', voiceClone: null, requestConfig: $config,
+    ));
+
+    $handler->audioToText(new AudioRequest(
+        model: 'whisper-1', instructions: null, media: [AudioInput::fromBase64('YXVkaW8=', 'audio/mpeg')],
+        voice: null, speed: null, language: null, duration: null, format: 'mp3', voiceClone: null,
+        requestConfig: $config,
+    ));
+});
 
 it('sends TTS request to /v1/audio/speech', function () {
     Http::fake([

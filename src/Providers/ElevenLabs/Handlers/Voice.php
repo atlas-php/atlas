@@ -51,7 +51,7 @@ class Voice implements VoiceHandler
             $dynamicAgent = true;
         }
 
-        $signedUrl = $this->getSignedUrl($agentId);
+        $signedUrl = $this->getSignedUrl($agentId, $request->model);
 
         return new VoiceSession(
             sessionId: 'rt_el_'.bin2hex(random_bytes(16)),
@@ -94,6 +94,7 @@ class Voice implements VoiceHandler
             headers: $this->headers(),
             body: $this->buildAgentConfig($request),
             timeout: $this->config->timeout,
+            config: $request->requestConfig,
         );
 
         $agentId = $data['agent_id'] ?? null;
@@ -115,7 +116,7 @@ class Voice implements VoiceHandler
      *
      * GET /v1/convai/conversation/get-signed-url?agent_id={agent_id}
      */
-    protected function getSignedUrl(string $agentId): string
+    protected function getSignedUrl(string $agentId, string $model): string
     {
         $data = $this->http->get(
             url: "{$this->config->baseUrl}/convai/conversation/get-signed-url?".http_build_query(['agent_id' => $agentId]),
@@ -128,7 +129,7 @@ class Voice implements VoiceHandler
         if ($signedUrl === null) {
             throw new ProviderException(
                 provider: 'elevenlabs',
-                model: 'convai',
+                model: $model,
                 statusCode: 500,
                 providerMessage: 'ElevenLabs signed URL response missing signed_url.',
             );

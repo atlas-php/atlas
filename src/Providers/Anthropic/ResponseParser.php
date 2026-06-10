@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Providers\Anthropic;
 
 use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Enums\FinishReason;
+use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Providers\Contracts\ResponseParserContract;
 use Atlasphp\Atlas\Responses\StreamChunk;
 use Atlasphp\Atlas\Responses\TextResponse;
@@ -111,10 +112,16 @@ class ResponseParser implements ResponseParserContract
      *
      * @param  array<string, mixed>  $data
      */
-    public function parseStreamChunk(array $data): StreamChunk
+    public function parseStreamChunk(array $data, string $model = ''): StreamChunk
     {
         $event = $data['event'] ?? '';
         $payload = $data['data'] ?? [];
+
+        if ($event === 'error') {
+            $error = $payload['error'] ?? $payload;
+
+            throw ProviderException::fromStreamError('anthropic', $model, is_array($error) ? $error : ['message' => (string) $error]);
+        }
 
         if ($event === 'content_block_delta') {
             $delta = $payload['delta'] ?? [];

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Text;
 use Atlasphp\Atlas\Providers\OpenAi\MediaResolver;
@@ -10,12 +11,14 @@ use Atlasphp\Atlas\Providers\OpenAi\ResponseParser;
 use Atlasphp\Atlas\Providers\OpenAi\ToolMapper;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Providers\Tools\WebSearch;
+use Atlasphp\Atlas\RequestConfig;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Schema\Schema;
 use Atlasphp\Atlas\Tools\ToolChoice;
 use Atlasphp\Atlas\Tools\ToolDefinition;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
 function makeTextHandler(?HttpClient $http = null): Text
@@ -47,6 +50,7 @@ function makeOpenAiTextRequest(array $overrides = []): TextRequest
         providerTools: $overrides['providerTools'] ?? [],
         providerOptions: $overrides['providerOptions'] ?? [],
         toolChoice: $overrides['toolChoice'] ?? null,
+        requestConfig: $overrides['requestConfig'] ?? null,
     );
 }
 
@@ -209,6 +213,55 @@ it('sends structured request with text.format', function () {
             && $request['text']['format']['type'] === 'json_schema'
             && $request['text']['format']['strict'] === true;
     });
+});
+
+it('a mid-stream error while streaming throws a ProviderException carrying the model', function () {
+    Http::fake([
+        'api.openai.com/v1/responses' => Http::response(
+            "event: response.failed\ndata: {\"response\":{\"error\":{\"message\":\"boom\"}}}\n\n",
+            200,
+        ),
+    ]);
+
+    $caught = null;
+
+    try {
+        foreach (makeTextHandler()->stream(makeOpenAiTextRequest(['model' => 'gpt-4o'])) as $chunk) {
+            // consume the stream
+        }
+    } catch (ProviderException $e) {
+        $caught = $e;
+    }
+
+    expect($caught)->not->toBeNull();
+    expect($caught->model)->toBe('gpt-4o');
+    expect($caught->providerMessage)->toBe('boom');
+});
+
+it('forwards the request config to the HTTP layer when streaming', function () {
+    $config = (new RequestConfig(30, 5, 2))->withTimeout(15);
+
+    $http = Mockery::mock(HttpClient::class);
+    $http->shouldReceive('stream')->once()
+        ->withArgs(fn (string $url, array $headers, array $body, int $timeout, ?RequestConfig $cfg) => $cfg === $config)
+        ->andReturn(Mockery::mock(Response::class));
+
+    makeTextHandler($http)->stream(makeOpenAiTextRequest(['requestConfig' => $config]));
+});
+
+it('forwards the request config to the HTTP layer for a text call', function () {
+    $config = (new RequestConfig(30, 5, 2))->withoutRetry();
+
+    $http = Mockery::mock(HttpClient::class);
+    $http->shouldReceive('post')->once()
+        ->withArgs(fn (string $url, array $headers, array $body, int $timeout, ?RequestConfig $cfg) => $cfg === $config)
+        ->andReturn([
+            'status' => 'completed',
+            'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => 'ok']]]],
+            'usage' => ['input_tokens' => 1, 'output_tokens' => 1],
+        ]);
+
+    makeTextHandler($http)->text(makeOpenAiTextRequest(['requestConfig' => $config]));
 });
 
 it('passes provider options through', function () {

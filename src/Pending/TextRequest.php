@@ -413,6 +413,7 @@ class TextRequest implements QueueableRequest
             middleware: $this->middleware,
             meta: $this->meta,
             cache: $this->cache ?? (bool) config('atlas.prompt_cache', true),
+            requestConfig: $this->resolveRequestConfig(),
         );
     }
 
@@ -466,6 +467,7 @@ class TextRequest implements QueueableRequest
         ?Channel $broadcastChannel = null,
     ): mixed {
         $request = Atlas::text($payload['provider'], $payload['model']);
+        $request->applyRequestConfigPayload($payload['_request_config'] ?? null);
 
         if ($payload['instructions'] !== null) {
             $request->instructions($payload['instructions']);

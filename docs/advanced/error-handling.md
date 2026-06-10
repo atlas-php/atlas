@@ -8,16 +8,24 @@ Atlas maps provider HTTP errors and configuration problems to typed exceptions:
 
 ```
 AtlasException (base — extends RuntimeException, catch all Atlas errors)
-├── AuthenticationException        (401 — invalid API key)
-├── AuthorizationException         (403 — model access denied)
-├── RateLimitException             (429 — rate limit with retry info)
-├── ProviderException              (all other HTTP errors)
+├── ProviderException              (base for any failed provider call; catch to handle them all)
+│   ├── AuthenticationException    (401 — invalid API key)
+│   ├── AuthorizationException     (403 — model access denied)
+│   ├── RateLimitException         (429 / 529 — rate limited or overloaded, with retry info)
+│   ├── InvalidRequestException    (400 — malformed/invalid request)
+│   ├── ModelNotFoundException     (404 — unknown model)
+│   ├── ServerException            (5xx — provider-side server error)
+│   └── ConnectionException        (network failure before any response; statusCode is null)
 ├── UnsupportedFeatureException    (modality not supported by provider)
 ├── ProviderNotFoundException      (provider key not registered)
 ├── AgentNotFoundException         (agent key not found)
 ├── ToolNotFoundException          (tool name not in registry)
 └── MaxStepsExceededException      (executor exceeded step limit)
 ```
+
+Catch `ProviderException` to handle any failed provider call, or a specific
+subclass for a category. Every `ProviderException` exposes `->provider`,
+`->model`, `->statusCode` (null for `ConnectionException`), and `->providerMessage`.
 
 All exceptions live in `Atlasphp\Atlas\Exceptions`.
 
@@ -46,8 +54,60 @@ try {
 } catch (ProviderException $e) {
     // All other HTTP errors (400, 500, etc.)
     $e->statusCode;        // HTTP status code
-    $e->providerMessage;   // Error message from provider
+    $e->providerMessage;   // Real provider error message (every provider)
     $e->provider;          // Provider name (e.g., 'openai')
+}
+```
+
+`$e->providerMessage` carries the provider's actual error text across all
+providers, regardless of how each one shapes its error response.
+
+Provider interrogation calls (`Atlas::provider(...)->models()` and `->voices()`)
+throw the same typed exceptions — e.g. an invalid key surfaces as
+`AuthenticationException`, not a raw HTTP-client error.
+
+### Connection Failures
+
+Network-level failures that occur before the provider returns any response —
+connection timeouts, DNS failures, refused connections — surface as a
+`ConnectionException`. Unlike `ProviderException`, it carries no HTTP status
+because no response was received. These failures are retried automatically as
+transient errors (controlled by `atlas.retry.errors`) before the exception is
+thrown.
+
+```php
+use Atlasphp\Atlas\Exceptions\ConnectionException;
+
+try {
+    $response = Atlas::text(Provider::OpenAI, 'gpt-4o-mini')
+        ->message('Hello')
+        ->asText();
+} catch (ConnectionException $e) {
+    // Network failure reaching the provider (timeout, DNS, refused)
+    $e->provider; // e.g. 'openai'
+    $e->model;    // e.g. 'gpt-4o-mini'
+}
+```
+
+`ConnectionException` extends `AtlasException`, so a `catch (AtlasException)`
+block catches it too.
+
+### Streaming Errors
+
+When a provider reports an error **mid-stream** (after the stream has started),
+Atlas detects the error event and throws a `ProviderException` while you iterate
+the stream — it does not silently truncate the response. Wrap stream consumption
+in a try/catch:
+
+```php
+use Atlasphp\Atlas\Exceptions\ProviderException;
+
+try {
+    foreach (Atlas::text(Provider::OpenAI, 'gpt-4o')->message('Hi')->asStream() as $chunk) {
+        echo $chunk->text;
+    }
+} catch (ProviderException $e) {
+    // Provider errored partway through the stream
 }
 ```
 

@@ -10,7 +10,6 @@ it('creates from a full config array', function () {
         'url' => 'https://api.openai.com/v1',
         'organization' => 'org-123',
         'timeout' => 30,
-        'reasoning_timeout' => 120,
         'media_timeout' => 60,
     ]);
 
@@ -18,7 +17,6 @@ it('creates from a full config array', function () {
     expect($config->baseUrl)->toBe('https://api.openai.com/v1');
     expect($config->organization)->toBe('org-123');
     expect($config->timeout)->toBe(30);
-    expect($config->reasoningTimeout)->toBe(120);
     expect($config->mediaTimeout)->toBe(60);
 });
 
@@ -29,8 +27,30 @@ it('uses default timeout values when not provided', function () {
     ]);
 
     expect($config->timeout)->toBe(60);
-    expect($config->reasoningTimeout)->toBe(300);
     expect($config->mediaTimeout)->toBe(120);
+});
+
+it('falls back to the global atlas.retry.timeout when no provider timeout is set', function () {
+    config(['atlas.retry.timeout' => 90]);
+
+    $config = ProviderConfig::fromArray([
+        'api_key' => 'sk-test',
+        'url' => 'https://api.test.com',
+    ]);
+
+    expect($config->timeout)->toBe(90);
+});
+
+it('a provider-level timeout overrides the global default', function () {
+    config(['atlas.retry.timeout' => 90]);
+
+    $config = ProviderConfig::fromArray([
+        'api_key' => 'sk-test',
+        'url' => 'https://api.test.com',
+        'timeout' => 15,
+    ]);
+
+    expect($config->timeout)->toBe(15);
 });
 
 it('captures extra keys', function () {

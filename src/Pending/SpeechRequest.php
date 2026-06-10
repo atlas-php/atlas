@@ -189,6 +189,7 @@ class SpeechRequest implements QueueableRequest
             meta: array_merge($this->meta, [
                 '_audio_mode' => 'speech',
             ]),
+            requestConfig: $this->resolveRequestConfig(),
         );
     }
 
@@ -231,6 +232,7 @@ class SpeechRequest implements QueueableRequest
         ?Channel $broadcastChannel = null,
     ): mixed {
         $request = Atlas::speech($payload['provider'], $payload['model']);
+        $request->applyRequestConfigPayload($payload['_request_config'] ?? null);
 
         if ($payload['instructions'] !== null) {
             $request->instructions($payload['instructions']);

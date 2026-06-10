@@ -10,11 +10,13 @@ use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Providers\Tools\WebSearch;
 use Atlasphp\Atlas\Providers\Xai\Handlers\Text;
 use Atlasphp\Atlas\Providers\Xai\MessageFactory;
+use Atlasphp\Atlas\RequestConfig;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Schema\Schema;
 use Atlasphp\Atlas\Tools\ToolDefinition;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
 function makeXaiTextHandler(?HttpClient $http = null): Text
@@ -45,8 +47,25 @@ function makeXaiHandlerTextRequest(array $overrides = []): TextRequest
         tools: $overrides['tools'] ?? [],
         providerTools: $overrides['providerTools'] ?? [],
         providerOptions: $overrides['providerOptions'] ?? [],
+        requestConfig: $overrides['requestConfig'] ?? null,
     );
 }
+
+it('forwards the request config to the HTTP layer (post and stream)', function () {
+    $config = (new RequestConfig(30, 5, 2))->withoutRetry();
+
+    $http = Mockery::mock(HttpClient::class);
+    $http->shouldReceive('post')->once()
+        ->withArgs(fn (string $url, array $headers, array $body, int $timeout, ?RequestConfig $cfg) => $cfg === $config)
+        ->andReturn(['status' => 'completed', 'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => 'ok']]]], 'usage' => ['input_tokens' => 1, 'output_tokens' => 1]]);
+    $http->shouldReceive('stream')->once()
+        ->withArgs(fn (string $url, array $headers, array $body, int $timeout, ?RequestConfig $cfg) => $cfg === $config)
+        ->andReturn(Mockery::mock(Response::class));
+
+    $handler = makeXaiTextHandler($http);
+    $handler->text(makeXaiHandlerTextRequest(['requestConfig' => $config]));
+    $handler->stream(makeXaiHandlerTextRequest(['requestConfig' => $config]));
+});
 
 it('does not include instructions in body', function () {
     Http::fake([

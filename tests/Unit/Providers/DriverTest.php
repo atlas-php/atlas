@@ -4,14 +4,20 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Enums\VoiceTransport;
+use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Exceptions\AuthenticationException;
 use Atlasphp\Atlas\Exceptions\AuthorizationException;
+use Atlasphp\Atlas\Exceptions\ConnectionException;
+use Atlasphp\Atlas\Exceptions\InvalidRequestException;
+use Atlasphp\Atlas\Exceptions\ModelNotFoundException;
 use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Exceptions\RateLimitException;
+use Atlasphp\Atlas\Exceptions\ServerException;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\Handlers\EmbedHandler;
+use Atlasphp\Atlas\Providers\Handlers\ProviderHandler;
 use Atlasphp\Atlas\Providers\Handlers\TextHandler;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
 use Atlasphp\Atlas\Providers\ProviderConfig;
@@ -275,6 +281,61 @@ it('dispatch maps 429 RequestException from handler to RateLimitException', func
     $driver->text(new TextRequest('model', null, null, [], [], null, null, null, [], [], []));
 })->throws(RateLimitException::class);
 
+it('dispatch maps a connection failure from handler to Atlas ConnectionException', function () {
+    $handler = Mockery::mock(TextHandler::class);
+    $handler->shouldReceive('text')->andThrow(
+        new Illuminate\Http\Client\ConnectionException('cURL error 28: Connection timed out')
+    );
+
+    $driver = createTestDriver()->withHandler('text', $handler);
+
+    $driver->text(new TextRequest('model', null, null, [], [], null, null, null, [], [], []));
+})->throws(ConnectionException::class);
+
+it('Atlas ConnectionException is catchable as an AtlasException', function () {
+    $handler = Mockery::mock(TextHandler::class);
+    $handler->shouldReceive('text')->andThrow(
+        new Illuminate\Http\Client\ConnectionException('Connection refused')
+    );
+
+    $driver = createTestDriver()->withHandler('text', $handler);
+
+    $caught = null;
+
+    try {
+        $driver->text(new TextRequest('model', null, null, [], [], null, null, null, [], [], []));
+    } catch (AtlasException $e) {
+        $caught = $e;
+    }
+
+    expect($caught)->toBeInstanceOf(ConnectionException::class);
+    expect($caught->provider)->toBe('test');
+    expect($caught->model)->toBe('model');
+});
+
+// ─── interrogation endpoints translate transport errors ─────────────────────
+
+it('models() translates a 401 RequestException to AuthenticationException', function () {
+    $provider = Mockery::mock(ProviderHandler::class);
+    $provider->shouldReceive('models')->andThrow(makeRequestExceptionForStatus(401));
+
+    createTestDriver()->withHandler('provider', $provider)->models();
+})->throws(AuthenticationException::class);
+
+it('voices() translates a 500 RequestException to ProviderException', function () {
+    $provider = Mockery::mock(ProviderHandler::class);
+    $provider->shouldReceive('voices')->andThrow(makeRequestExceptionForStatus(500));
+
+    createTestDriver()->withHandler('provider', $provider)->voices();
+})->throws(ProviderException::class);
+
+it('models() translates a connection failure to Atlas ConnectionException', function () {
+    $provider = Mockery::mock(ProviderHandler::class);
+    $provider->shouldReceive('models')->andThrow(new Illuminate\Http\Client\ConnectionException('timed out'));
+
+    createTestDriver()->withHandler('provider', $provider)->models();
+})->throws(ConnectionException::class);
+
 // ─── handleRequestException ─────────────────────────────────────────────────
 
 function makeRequestExceptionForStatus(int $status): RequestException
@@ -305,3 +366,53 @@ it('maps 429 to RateLimitException', function () {
 it('maps 500 to ProviderException', function () {
     createTestDriver()->handleRequestException('gpt-4o', makeRequestExceptionForStatus(500));
 })->throws(ProviderException::class);
+
+it('maps 400 to InvalidRequestException', function () {
+    createTestDriver()->handleRequestException('gpt-4o', makeRequestExceptionForStatus(400));
+})->throws(InvalidRequestException::class);
+
+it('maps 404 to ModelNotFoundException', function () {
+    createTestDriver()->handleRequestException('gpt-4o', makeRequestExceptionForStatus(404));
+})->throws(ModelNotFoundException::class);
+
+it('maps 503 to ServerException', function () {
+    createTestDriver()->handleRequestException('gpt-4o', makeRequestExceptionForStatus(503));
+})->throws(ServerException::class);
+
+it('maps an unmapped status to the base ProviderException', function () {
+    $caught = null;
+
+    try {
+        createTestDriver()->handleRequestException('gpt-4o', makeRequestExceptionForStatus(418));
+    } catch (ProviderException $e) {
+        $caught = $e;
+    }
+
+    expect($caught::class)->toBe(ProviderException::class); // the base, not a subclass
+    expect($caught->statusCode)->toBe(418);
+});
+
+it('maps 529 (overloaded) to RateLimitException', function () {
+    createTestDriver()->handleRequestException('gpt-4o', makeRequestExceptionForStatus(529));
+})->throws(RateLimitException::class);
+
+it('the whole provider-error family is catchable as ProviderException', function (string $exceptionClass, int $status) {
+    $caught = null;
+
+    try {
+        createTestDriver()->handleRequestException('gpt-4o', makeRequestExceptionForStatus($status));
+    } catch (ProviderException $e) {
+        $caught = $e;
+    }
+
+    expect($caught)->toBeInstanceOf($exceptionClass);
+    expect($caught)->toBeInstanceOf(ProviderException::class);
+    expect($caught->statusCode)->toBe($status);
+})->with([
+    'auth' => [AuthenticationException::class, 401],
+    'authz' => [AuthorizationException::class, 403],
+    'rate limit' => [RateLimitException::class, 429],
+    'invalid request' => [InvalidRequestException::class, 400],
+    'model not found' => [ModelNotFoundException::class, 404],
+    'server' => [ServerException::class, 503],
+]);

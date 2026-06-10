@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Events\ExecutionCompleted;
 use Atlasphp\Atlas\Events\ExecutionFailed;
+use Atlasphp\Atlas\Exceptions\AuthenticationException;
 use Atlasphp\Atlas\Exceptions\MaxStepsExceededException;
+use Atlasphp\Atlas\Exceptions\ServerException;
 use Atlasphp\Atlas\Queue\Contracts\QueueableRequest;
 use Atlasphp\Atlas\Queue\Jobs\ExecuteAtlasJob;
 use Illuminate\Broadcasting\Channel;
@@ -225,6 +227,110 @@ it('fails immediately on MaxStepsExceededException without retrying', function (
 
     // ExecutionCompleted should NOT be dispatched because we failed early
     Event::assertNotDispatched(ExecutionCompleted::class);
+});
+
+it('fails immediately on a permanent provider error without retrying', function () {
+    Event::fake();
+
+    $requestClass = new class implements QueueableRequest
+    {
+        public function toQueuePayload(): array
+        {
+            return [];
+        }
+
+        public static function executeFromPayload(
+            array $payload,
+            string $terminal,
+            ?int $executionId = null,
+            ?Channel $broadcastChannel = null,
+        ): mixed {
+            throw new AuthenticationException('openai');
+        }
+    };
+
+    $job = new ExecuteAtlasJob(
+        requestClass: get_class($requestClass),
+        terminal: 'asText',
+        payload: [],
+        executionId: 101,
+    );
+
+    $job->job = Mockery::mock(Job::class);
+    $job->job->shouldReceive('fail')->once();
+    $job->job->shouldReceive('isDeletedOrReleased')->andReturn(false);
+
+    $job->handle();
+
+    Event::assertNotDispatched(ExecutionCompleted::class);
+});
+
+it('finalizes failure even when no queue job is bound', function () {
+    Event::fake();
+
+    $requestClass = new class implements QueueableRequest
+    {
+        public function toQueuePayload(): array
+        {
+            return [];
+        }
+
+        public static function executeFromPayload(
+            array $payload,
+            string $terminal,
+            ?int $executionId = null,
+            ?Channel $broadcastChannel = null,
+        ): mixed {
+            throw new AuthenticationException('openai');
+        }
+    };
+
+    $job = new ExecuteAtlasJob(
+        requestClass: get_class($requestClass),
+        terminal: 'asText',
+        payload: [],
+        executionId: 103,
+    );
+
+    // No $job->job bound — fail() is a no-op, so the catch must finalize directly.
+    $job->handle();
+
+    Event::assertDispatched(ExecutionFailed::class);
+    Event::assertNotDispatched(ExecutionCompleted::class);
+});
+
+it('lets a transient provider error propagate so the queue can retry it', function () {
+    Event::fake();
+
+    $requestClass = new class implements QueueableRequest
+    {
+        public function toQueuePayload(): array
+        {
+            return [];
+        }
+
+        public static function executeFromPayload(
+            array $payload,
+            string $terminal,
+            ?int $executionId = null,
+            ?Channel $broadcastChannel = null,
+        ): mixed {
+            throw new ServerException('openai', 'gpt-4o', 503, 'overloaded');
+        }
+    };
+
+    $job = new ExecuteAtlasJob(
+        requestClass: get_class($requestClass),
+        terminal: 'asText',
+        payload: [],
+        executionId: 102,
+    );
+
+    $job->job = Mockery::mock(Job::class);
+    // fail() must NOT be called for a transient error — it should bubble up for retry.
+    $job->job->shouldNotReceive('fail');
+
+    expect(fn () => $job->handle())->toThrow(ServerException::class);
 });
 
 it('consumes StreamResponse iterator during handle', function () {

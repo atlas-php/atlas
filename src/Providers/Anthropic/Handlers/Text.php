@@ -49,6 +49,7 @@ class Text implements TextHandler
             headers: $this->headers(),
             body: $this->buildBody($request),
             timeout: $this->config->timeout,
+            config: $request->requestConfig,
         );
 
         return $this->parser->parseText($data);
@@ -64,9 +65,10 @@ class Text implements TextHandler
             headers: $this->headers(),
             body: $body,
             timeout: $this->config->timeout,
+            config: $request->requestConfig,
         );
 
-        return new StreamResponse($this->parseSSE($raw));
+        return new StreamResponse($this->parseSSE($raw, $request->model));
     }
 
     public function structured(TextRequest $request): StructuredResponse
@@ -92,6 +94,7 @@ class Text implements TextHandler
             headers: $this->headers(),
             body: $body,
             timeout: $this->config->timeout,
+            config: $request->requestConfig,
         );
 
         $textResponse = $this->parser->parseText($data);
@@ -159,7 +162,7 @@ class Text implements TextHandler
      *
      * @return Generator<int, StreamChunk>
      */
-    protected function parseSSE(mixed $rawResponse): Generator
+    protected function parseSSE(mixed $rawResponse, string $model = ''): Generator
     {
         /** @var array<int, array{id: string, name: string, json: string}> $toolBlocks */
         $toolBlocks = [];
@@ -260,7 +263,7 @@ class Text implements TextHandler
             yield $this->parser->parseStreamChunk([
                 'event' => $event,
                 'data' => $data,
-            ]);
+            ], $model);
         }
     }
 

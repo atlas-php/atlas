@@ -43,6 +43,7 @@ class Voice implements VoiceHandler
             headers: $this->headers(),
             body: $sessionConfig,
             timeout: $this->config->timeout,
+            config: $request->requestConfig,
         );
 
         $ephemeralToken = $data['value'] ?? $data['client_secret'] ?? null;

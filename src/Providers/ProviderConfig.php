@@ -18,7 +18,6 @@ class ProviderConfig
         public readonly string $baseUrl,
         public readonly ?string $organization = null,
         public readonly int $timeout = 60,
-        public readonly int $reasoningTimeout = 300,
         public readonly int $mediaTimeout = 120,
         public readonly array $capabilityOverrides = [],
         public readonly array $extra = [],
@@ -31,14 +30,15 @@ class ProviderConfig
      */
     public static function fromArray(array $config): self
     {
-        $known = ['api_key', 'url', 'base_url', 'organization', 'timeout', 'reasoning_timeout', 'media_timeout', 'driver', 'capabilities'];
+        $known = ['api_key', 'url', 'base_url', 'organization', 'timeout', 'media_timeout', 'driver', 'capabilities'];
 
         return new self(
             apiKey: (string) ($config['api_key'] ?? ''),
             baseUrl: (string) ($config['base_url'] ?? $config['url'] ?? ''),
             organization: isset($config['organization']) ? (string) $config['organization'] : null,
-            timeout: (int) ($config['timeout'] ?? 60),
-            reasoningTimeout: (int) ($config['reasoning_timeout'] ?? 300),
+            // Falls back to the global default request timeout (atlas.retry.timeout)
+            // when a provider doesn't set its own, so ATLAS_TIMEOUT applies everywhere.
+            timeout: (int) ($config['timeout'] ?? config('atlas.retry.timeout', 60)),
             mediaTimeout: (int) ($config['media_timeout'] ?? 120),
             capabilityOverrides: (array) ($config['capabilities'] ?? []),
             extra: array_diff_key($config, array_flip($known)),

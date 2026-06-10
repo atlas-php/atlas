@@ -49,7 +49,7 @@ class Video implements VideoHandler
         $sourceImage = $request->media[0] ?? null;
 
         if ($sourceImage !== null) {
-            $body['image'] = $this->resolveImageSource($sourceImage);
+            $body['image'] = $this->resolveImageSource($sourceImage, $request->model);
         }
 
         $body = array_merge($body, $request->providerOptions);
@@ -59,6 +59,7 @@ class Video implements VideoHandler
             headers: $this->headers(),
             body: $body,
             timeout: $this->config->mediaTimeout,
+            config: $request->requestConfig,
         );
 
         $requestId = (string) ($data['request_id'] ?? $data['id'] ?? '');
@@ -136,7 +137,7 @@ class Video implements VideoHandler
      *
      * @return array{url: string}
      */
-    private function resolveImageSource(Input $input): array
+    private function resolveImageSource(Input $input, string $model): array
     {
         if ($input->isUrl()) {
             return ['url' => $input->url()];
@@ -152,7 +153,7 @@ class Video implements VideoHandler
             if ($raw === false) {
                 throw new ProviderException(
                     provider: 'xai',
-                    model: 'video',
+                    model: $model,
                     statusCode: 400,
                     providerMessage: "Cannot read image file: {$input->path()}",
                 );
@@ -167,7 +168,7 @@ class Video implements VideoHandler
             } catch (\RuntimeException $e) {
                 throw new ProviderException(
                     provider: 'xai',
-                    model: 'video',
+                    model: $model,
                     statusCode: 400,
                     providerMessage: 'Cannot read image from storage: '.$e->getMessage(),
                 );
@@ -176,7 +177,7 @@ class Video implements VideoHandler
 
         throw new ProviderException(
             provider: 'xai',
-            model: 'video',
+            model: $model,
             statusCode: 400,
             providerMessage: 'Cannot resolve image input — no supported source set.',
         );

@@ -126,6 +126,7 @@ abstract class GenerativeAudioRequest implements QueueableRequest
             meta: array_merge($this->meta, [
                 '_audio_mode' => $this->audioMode(),
             ]),
+            requestConfig: $this->resolveRequestConfig(),
         );
     }
 

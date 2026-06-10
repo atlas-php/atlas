@@ -62,6 +62,7 @@ class Image implements ImageHandler
                 headers: $this->headers(),
                 body: array_merge($body, $request->providerOptions),
                 timeout: $this->config->mediaTimeout,
+                config: $request->requestConfig,
             ),
             $request,
         );
@@ -89,6 +90,7 @@ class Image implements ImageHandler
                 headers: $this->headers(),
                 body: array_merge($body, $request->providerOptions),
                 timeout: $this->config->mediaTimeout,
+                config: $request->requestConfig,
             ),
             $request,
         );

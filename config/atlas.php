@@ -170,14 +170,20 @@ return [
     |
     | Controls how Atlas behaves when a provider call fails or is slow.
     |
-    | timeout    — Seconds before a single attempt is abandoned.
+    | timeout    — Default seconds before a single attempt is abandoned. A
+    |              provider's own `timeout` (under `providers`) overrides this.
+    |              60s suits streaming and everyday completions. Slow paths —
+    |              non-streaming on large models, and especially reasoning
+    |              models (o1/o3, extended thinking) which can run for minutes —
+    |              need more: raise ATLAS_TIMEOUT, set a per-provider `timeout`,
+    |              or override per call with ->withTimeout().
     | rate_limit — Retries on 429 (Too Many Requests). Waits for Retry-After.
     | errors     — Retries on 5xx / connection timeouts. Exponential backoff.
     |
     | Permanent failures (401, 403) are never retried.
     |
     | Override per call:
-    |   ->withTimeout(120)
+    |   ->withTimeout(300)   // e.g. a reasoning model
     |   ->withRetry(rateLimit: 5, errors: 3)
     |   ->withoutRetry()
     |

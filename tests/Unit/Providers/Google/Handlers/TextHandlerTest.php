@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\Google\Handlers\Text;
 use Atlasphp\Atlas\Providers\Google\MediaResolver;
@@ -9,21 +10,23 @@ use Atlasphp\Atlas\Providers\Google\MessageFactory;
 use Atlasphp\Atlas\Providers\Google\ResponseParser;
 use Atlasphp\Atlas\Providers\Google\ToolMapper;
 use Atlasphp\Atlas\Providers\ProviderConfig;
+use Atlasphp\Atlas\RequestConfig;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Schema\Schema;
 use Atlasphp\Atlas\Tools\ToolChoice;
 use Atlasphp\Atlas\Tools\ToolDefinition;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
-function makeGoogleTextHandler(): Text
+function makeGoogleTextHandler(?HttpClient $http = null): Text
 {
     $toolMapper = new ToolMapper;
 
     return new Text(
         config: ProviderConfig::fromArray(['api_key' => 'test-key', 'url' => 'https://generativelanguage.googleapis.com']),
-        http: app(HttpClient::class),
+        http: $http ?? app(HttpClient::class),
         messages: new MessageFactory,
         media: new MediaResolver,
         tools: $toolMapper,
@@ -46,8 +49,48 @@ function makeGoogleTextRequest(array $overrides = []): TextRequest
         providerTools: $overrides['providerTools'] ?? [],
         providerOptions: $overrides['providerOptions'] ?? [],
         toolChoice: $overrides['toolChoice'] ?? null,
+        requestConfig: $overrides['requestConfig'] ?? null,
     );
 }
+
+it('a mid-stream error while streaming throws a ProviderException carrying the model', function () {
+    Http::fake([
+        '*streamGenerateContent*' => Http::response(
+            "data: {\"error\":{\"code\":429,\"message\":\"Resource exhausted\"}}\n\n",
+            200,
+        ),
+    ]);
+
+    $caught = null;
+
+    try {
+        foreach (makeGoogleTextHandler()->stream(makeGoogleTextRequest(['model' => 'gemini-2.5-flash'])) as $chunk) {
+            // consume the stream
+        }
+    } catch (ProviderException $e) {
+        $caught = $e;
+    }
+
+    expect($caught)->not->toBeNull();
+    expect($caught->model)->toBe('gemini-2.5-flash');
+    expect($caught->providerMessage)->toBe('Resource exhausted');
+});
+
+it('forwards the request config to the HTTP layer (post and stream)', function () {
+    $config = (new RequestConfig(30, 5, 2))->withoutRetry();
+
+    $http = Mockery::mock(HttpClient::class);
+    $http->shouldReceive('post')->once()
+        ->withArgs(fn (string $url, array $headers, array $body, int $timeout, ?RequestConfig $cfg) => $cfg === $config)
+        ->andReturn(['candidates' => [['content' => ['parts' => [['text' => 'ok']]], 'finishReason' => 'STOP']], 'usageMetadata' => ['promptTokenCount' => 1, 'candidatesTokenCount' => 1]]);
+    $http->shouldReceive('stream')->once()
+        ->withArgs(fn (string $url, array $headers, array $body, int $timeout, ?RequestConfig $cfg) => $cfg === $config)
+        ->andReturn(Mockery::mock(Response::class));
+
+    $handler = makeGoogleTextHandler($http);
+    $handler->text(makeGoogleTextRequest(['requestConfig' => $config]));
+    $handler->stream(makeGoogleTextRequest(['requestConfig' => $config]));
+});
 
 it('emits Gemini tool_config when a choice is set with tools', function () {
     Http::fake(['generativelanguage.googleapis.com/*' => Http::response(fakeGeminiTextResponse())]);

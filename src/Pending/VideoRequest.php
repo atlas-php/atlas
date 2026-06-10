@@ -161,6 +161,7 @@ class VideoRequest implements QueueableRequest
             providerOptions: $this->providerOptions,
             middleware: $this->middleware,
             meta: $this->meta,
+            requestConfig: $this->resolveRequestConfig(),
         );
     }
 
@@ -201,6 +202,7 @@ class VideoRequest implements QueueableRequest
         ?Channel $broadcastChannel = null,
     ): mixed {
         $request = Atlas::video($payload['provider'], $payload['model']);
+        $request->applyRequestConfigPayload($payload['_request_config'] ?? null);
 
         if ($payload['instructions'] !== null) {
             $request->instructions($payload['instructions']);

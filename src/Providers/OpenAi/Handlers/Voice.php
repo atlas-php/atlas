@@ -63,6 +63,7 @@ class Voice implements VoiceHandler
             headers: $this->headers(),
             body: $body,
             timeout: $this->config->timeout,
+            config: $request->requestConfig,
         );
 
         $sessionId = (string) ($data['id'] ?? 'rt_'.bin2hex(random_bytes(16)));

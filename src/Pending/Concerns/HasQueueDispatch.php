@@ -163,6 +163,7 @@ trait HasQueueDispatch
         // Merge terminal args into payload
         $payload = $this->toQueuePayload();
         $payload['_terminal_args'] = $terminalArgs;
+        $payload['_request_config'] = $this->requestConfigPayload();
 
         // Build the job
         $job = new ExecuteAtlasJob(
@@ -256,4 +257,14 @@ trait HasQueueDispatch
      * Get model key as string for execution record.
      */
     abstract protected function resolveModelKey(): string;
+
+    /**
+     * Serialize the per-call request config override for the queue payload.
+     *
+     * Fulfilled by the HasRequestConfig trait, which every queueable builder
+     * also uses. Declared here so the contract is enforced at class load.
+     *
+     * @return array{timeout: int, rateLimit: int, errors: int, timeoutExplicit: bool}|null
+     */
+    abstract public function requestConfigPayload(): ?array;
 }

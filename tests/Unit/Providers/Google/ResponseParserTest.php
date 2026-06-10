@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Enums\FinishReason;
+use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Providers\Google\GoogleToolCall;
 use Atlasphp\Atlas\Providers\Google\ResponseParser;
 use Atlasphp\Atlas\Providers\Google\ToolMapper;
@@ -15,6 +16,26 @@ function makeGoogleResponseParser(): ResponseParser
 {
     return new ResponseParser(new ToolMapper);
 }
+
+it('throws ProviderException on a mid-stream error payload', function () {
+    makeGoogleResponseParser()->parseStreamChunk([
+        'error' => ['code' => 429, 'message' => 'Resource exhausted', 'status' => 'RESOURCE_EXHAUSTED'],
+    ]);
+})->throws(ProviderException::class, 'Resource exhausted');
+
+it('a mid-stream error carries the model passed to the parser', function () {
+    $caught = null;
+
+    try {
+        makeGoogleResponseParser()->parseStreamChunk([
+            'error' => ['code' => 429, 'message' => 'Resource exhausted'],
+        ], 'gemini-2.5-flash');
+    } catch (ProviderException $e) {
+        $caught = $e;
+    }
+
+    expect($caught?->model)->toBe('gemini-2.5-flash');
+});
 
 it('parses text from candidates parts', function () {
     $parser = makeGoogleResponseParser();

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Requests;
 
+use Atlasphp\Atlas\RequestConfig;
+
 /**
  * Request object for content moderation.
  */
@@ -21,5 +23,6 @@ final class ModerateRequest
         public readonly array $providerOptions = [],
         public readonly array $middleware = [],
         public readonly array $meta = [],
+        public readonly ?RequestConfig $requestConfig = null,
     ) {}
 }

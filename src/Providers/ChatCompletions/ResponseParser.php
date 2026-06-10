@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Providers\ChatCompletions;
 
 use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Enums\FinishReason;
+use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Providers\Contracts\ResponseParserContract;
 use Atlasphp\Atlas\Responses\StreamChunk;
 use Atlasphp\Atlas\Responses\TextResponse;
@@ -90,8 +91,14 @@ class ResponseParser implements ResponseParserContract
      *
      * @param  array<string, mixed>  $data
      */
-    public function parseStreamChunk(array $data): StreamChunk
+    public function parseStreamChunk(array $data, string $model = ''): StreamChunk
     {
+        if (isset($data['error'])) {
+            $error = is_array($data['error']) ? $data['error'] : ['message' => (string) $data['error']];
+
+            throw ProviderException::fromStreamError('chat_completions', $model, $error);
+        }
+
         /** @var array<string, mixed> $delta */
         $delta = $data['choices'][0]['delta'] ?? [];
         $finishReason = $data['choices'][0]['finish_reason'] ?? null;

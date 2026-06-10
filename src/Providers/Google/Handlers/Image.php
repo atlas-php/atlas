@@ -54,6 +54,7 @@ class Image implements ImageHandler
             headers: $this->headers(),
             body: $body,
             timeout: $this->config->mediaTimeout,
+            config: $request->requestConfig,
         );
 
         $parts = $data['candidates'][0]['content']['parts'] ?? [];

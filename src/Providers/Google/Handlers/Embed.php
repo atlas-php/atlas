@@ -46,6 +46,7 @@ class Embed implements EmbedHandler
             headers: $this->headers(),
             body: $body,
             timeout: $this->config->timeout,
+            config: $request->requestConfig,
         );
 
         // Gemini returns totalTokenCount with no input/output split — embeddings have no output tokens
@@ -81,6 +82,7 @@ class Embed implements EmbedHandler
             headers: $this->headers(),
             body: ['requests' => $requests],
             timeout: $this->config->timeout,
+            config: $request->requestConfig,
         );
 
         $embeddings = array_map(

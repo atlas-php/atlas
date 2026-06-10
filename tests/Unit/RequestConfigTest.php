@@ -30,6 +30,29 @@ it('withTimeout returns new instance with updated timeout', function () {
     expect($updated->errors)->toBe(2);
 });
 
+it('marks the timeout explicit only when withTimeout is called', function () {
+    expect((new RequestConfig(60, 3, 2))->timeoutExplicit)->toBeFalse();
+    expect(RequestConfig::fromAtlasConfig(AtlasConfig::fromConfig())->timeoutExplicit)->toBeFalse();
+    expect((new RequestConfig(60, 3, 2))->withTimeout(10)->timeoutExplicit)->toBeTrue();
+});
+
+it('preserves the explicit-timeout flag across withRetry and withoutRetry', function () {
+    $config = (new RequestConfig(60, 3, 2))->withTimeout(10);
+
+    expect($config->withRetry(rateLimit: 9)->timeoutExplicit)->toBeTrue();
+    expect($config->withoutRetry()->timeoutExplicit)->toBeTrue();
+});
+
+it('round-trips through toArray and fromArray', function () {
+    $config = (new RequestConfig(45, 5, 3))->withTimeout(99);
+    $restored = RequestConfig::fromArray($config->toArray());
+
+    expect($restored->timeout)->toBe(99);
+    expect($restored->rateLimit)->toBe(5);
+    expect($restored->errors)->toBe(3);
+    expect($restored->timeoutExplicit)->toBeTrue();
+});
+
 it('withRetry overrides specified values only', function () {
     $config = new RequestConfig(60, 3, 2);
 

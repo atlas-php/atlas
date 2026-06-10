@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Requests;
 
+use Atlasphp\Atlas\RequestConfig;
+
 /**
  * Request object for image generation.
  */
@@ -26,5 +28,6 @@ final class ImageRequest
         public readonly int $count = 1,
         public readonly array $middleware = [],
         public readonly array $meta = [],
+        public readonly ?RequestConfig $requestConfig = null,
     ) {}
 }

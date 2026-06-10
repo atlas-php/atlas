@@ -171,6 +171,7 @@ class ImageRequest implements QueueableRequest
             count: $this->count,
             middleware: $this->middleware,
             meta: $this->meta,
+            requestConfig: $this->resolveRequestConfig(),
         );
     }
 
@@ -212,6 +213,7 @@ class ImageRequest implements QueueableRequest
         ?Channel $broadcastChannel = null,
     ): mixed {
         $request = Atlas::image($payload['provider'], $payload['model']);
+        $request->applyRequestConfigPayload($payload['_request_config'] ?? null);
 
         if ($payload['instructions'] !== null) {
             $request->instructions($payload['instructions']);

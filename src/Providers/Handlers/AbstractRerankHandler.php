@@ -47,6 +47,7 @@ abstract class AbstractRerankHandler implements RerankHandler
             headers: $this->headers(),
             body: $body,
             timeout: $this->config->timeout,
+            config: $request->requestConfig,
         );
 
         return $this->parseResponse($data, $request->documents);

@@ -40,6 +40,7 @@ class Moderate implements ModerateHandler
             headers: $this->headers(),
             body: $body,
             timeout: $this->config->timeout,
+            config: $request->requestConfig,
         );
 
         /** @var array<string, mixed> $result */

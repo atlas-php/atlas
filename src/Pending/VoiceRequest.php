@@ -206,6 +206,7 @@ class VoiceRequest
             providerOptions: $this->providerOptions,
             middleware: $this->middleware,
             meta: $this->meta,
+            requestConfig: $this->resolveRequestConfig(),
         );
     }
 }

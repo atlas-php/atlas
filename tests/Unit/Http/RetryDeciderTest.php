@@ -8,6 +8,7 @@ use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Exceptions\RateLimitException;
 use Atlasphp\Atlas\Http\RetryDecider;
 use Atlasphp\Atlas\RequestConfig;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 
@@ -60,6 +61,30 @@ it('retries connection failures (status 0)', function () {
     $e = new ProviderException('openai', 'gpt-4o', 0, 'Connection timed out');
 
     expect(decider()->shouldRetry($e, configWithRetry(errors: 2), attempt: 1))->toBeTrue();
+});
+
+it('does not crash or retry a ProviderException with a null status', function () {
+    $e = new ProviderException('openai', 'gpt-4o', null, 'no status');
+
+    expect(decider()->shouldRetry($e, configWithRetry(errors: 2), attempt: 1))->toBeFalse();
+});
+
+it('retries Laravel ConnectionException within the error limit', function () {
+    $e = new ConnectionException('cURL error 28: Connection timed out');
+
+    expect(decider()->shouldRetry($e, configWithRetry(errors: 2), attempt: 1))->toBeTrue();
+});
+
+it('stops retrying Laravel ConnectionException when attempts exhausted', function () {
+    $e = new ConnectionException('cURL error 28: Connection timed out');
+
+    expect(decider()->shouldRetry($e, configWithRetry(errors: 2), attempt: 3))->toBeFalse();
+});
+
+it('does not retry Laravel ConnectionException when errors is zero', function () {
+    $e = new ConnectionException('cURL error 28: Connection timed out');
+
+    expect(decider()->shouldRetry($e, configWithRetry(errors: 0), attempt: 1))->toBeFalse();
 });
 
 it('stops retrying transient errors when attempts exhausted', function () {
@@ -147,6 +172,12 @@ function fakeRequestException(int $status, array $headers = []): RequestExceptio
 
     return new RequestException($response);
 }
+
+it('retries RequestException with 529 overloaded status', function () {
+    $e = fakeRequestException(529);
+
+    expect(decider()->shouldRetry($e, configWithRetry(rateLimit: 3), attempt: 1))->toBeTrue();
+});
 
 it('retries RequestException with 429 status', function () {
     $e = fakeRequestException(429);

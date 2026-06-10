@@ -47,6 +47,7 @@ class SfxRequest extends GenerativeAudioRequest
         ?Channel $broadcastChannel = null,
     ): mixed {
         $request = Atlas::sfx($payload['provider'], $payload['model']);
+        $request->applyRequestConfigPayload($payload['_request_config'] ?? null);
 
         static::applyPayload($request, $payload, $executionId);
 

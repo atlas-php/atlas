@@ -82,6 +82,7 @@ class Audio implements AudioHandler
             headers: $this->headers(),
             body: $body,
             timeout: $this->config->mediaTimeout,
+            config: $request->requestConfig,
         );
 
         return new AudioResponse(
@@ -119,6 +120,7 @@ class Audio implements AudioHandler
                 ['name' => 'file', 'contents' => $fileContents, 'filename' => 'audio.mp3'],
             ],
             timeout: $this->config->mediaTimeout,
+            config: $request->requestConfig,
         );
 
         return new TextResponse(

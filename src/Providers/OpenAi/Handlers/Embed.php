@@ -41,6 +41,7 @@ class Embed implements EmbedHandler
             headers: $this->headers(),
             body: $body,
             timeout: $this->config->timeout,
+            config: $request->requestConfig,
         );
 
         /** @var array<int, array<string, mixed>> $items */

@@ -45,7 +45,9 @@ class HttpClient
     /**
      * Send a GET request and return the raw response body.
      *
-     * Used for binary responses such as video content downloads.
+     * Used for binary responses such as video content downloads. Like get(),
+     * this takes no RequestConfig — GET fetches are not retried and don't honor
+     * a per-call ->withTimeout() override; they use the handler's media timeout.
      *
      * @param  array<string, string>  $headers
      */
@@ -70,6 +72,8 @@ class HttpClient
      */
     public function post(string $url, array $headers, array $body, int $timeout, ?RequestConfig $config = null): array
     {
+        $timeout = $this->effectiveTimeout($timeout, $config);
+
         return $this->withRetry($config, $url, function () use ($url, $headers, $body, $timeout) {
             $response = $this->sendPost($url, $headers, $body, $timeout);
 
@@ -90,6 +94,8 @@ class HttpClient
      */
     public function postRaw(string $url, array $headers, array $body, int $timeout, ?RequestConfig $config = null): string
     {
+        $timeout = $this->effectiveTimeout($timeout, $config);
+
         return $this->withRetry($config, $url, function () use ($url, $headers, $body, $timeout) {
             $response = $this->sendPost($url, $headers, $body, $timeout);
 
@@ -109,6 +115,8 @@ class HttpClient
      */
     public function postMultipart(string $url, array $headers, array $data, array $attachments, int $timeout, ?RequestConfig $config = null): array
     {
+        $timeout = $this->effectiveTimeout($timeout, $config);
+
         return $this->withRetry($config, $url, function () use ($url, $headers, $data, $attachments, $timeout) {
             $this->events->dispatch(new ProviderRequestStarted($url, $data, 'MULTIPART'));
 
@@ -140,6 +148,8 @@ class HttpClient
      */
     public function stream(string $url, array $headers, array $body, int $timeout, ?RequestConfig $config = null): Response
     {
+        $timeout = $this->effectiveTimeout($timeout, $config);
+
         return $this->withRetry($config, $url, function () use ($url, $headers, $body, $timeout) {
             $this->events->dispatch(new ProviderRequestStarted($url, $body, 'STREAM'));
 
@@ -157,6 +167,18 @@ class HttpClient
     }
 
     // ─── Internal ─────────────────────────────────────────────────
+
+    /**
+     * Resolve the timeout for a call.
+     *
+     * The handler's $timeout is the default (provider/reasoning/media). A
+     * per-call ->withTimeout() override wins only when explicitly set, so it
+     * never clobbers a longer provider-specific default.
+     */
+    private function effectiveTimeout(int $timeout, ?RequestConfig $config): int
+    {
+        return $config?->timeoutExplicit ? $config->timeout : $timeout;
+    }
 
     /**
      * Send a GET request, dispatch start event, and validate the response.

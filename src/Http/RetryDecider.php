@@ -7,6 +7,7 @@ namespace Atlasphp\Atlas\Http;
 use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Exceptions\RateLimitException;
 use Atlasphp\Atlas\RequestConfig;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 
 /**
@@ -31,7 +32,7 @@ class RetryDecider
             return $config->rateLimit > 0 && $attempt <= $config->rateLimit;
         }
 
-        if ($e instanceof ProviderException && $this->isTransientStatus($e->statusCode)) {
+        if ($e instanceof ProviderException && $e->statusCode !== null && $this->isTransientStatus($e->statusCode)) {
             return $config->errors > 0 && $attempt <= $config->errors;
         }
 
@@ -39,13 +40,20 @@ class RetryDecider
         if ($e instanceof RequestException) {
             $status = $e->response->status();
 
-            if ($status === 429) {
+            // 429 Too Many Requests and Anthropic's 529 Overloaded.
+            if ($status === 429 || $status === 529) {
                 return $config->rateLimit > 0 && $attempt <= $config->rateLimit;
             }
 
             if ($this->isTransientStatus($status)) {
                 return $config->errors > 0 && $attempt <= $config->errors;
             }
+        }
+
+        // Connection-level failures (timeout, DNS, refused) thrown by the HTTP
+        // client before any response — treated as transient.
+        if ($e instanceof ConnectionException) {
+            return $config->errors > 0 && $attempt <= $config->errors;
         }
 
         return false;
@@ -65,7 +73,7 @@ class RetryDecider
             return $wait * 1_000_000;
         }
 
-        if ($e instanceof RequestException && $e->response->status() === 429) {
+        if ($e instanceof RequestException && ($e->response->status() === 429 || $e->response->status() === 529)) {
             $retryAfter = (int) ($e->response->header('Retry-After') ?: 1);
 
             return min($retryAfter, 60) * 1_000_000;

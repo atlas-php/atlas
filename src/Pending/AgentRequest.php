@@ -1025,6 +1025,7 @@ class AgentRequest implements QueueableRequest
             middleware: $this->middleware,
             meta: $this->meta,
             cache: $this->cacheOverride ?? $this->config->promptCache,
+            requestConfig: $this->resolveRequestConfig(),
         );
     }
 
@@ -1180,6 +1181,7 @@ class AgentRequest implements QueueableRequest
         ?Channel $broadcastChannel = null,
     ): mixed {
         $request = Atlas::agent($payload['key']);
+        $request->applyRequestConfigPayload($payload['_request_config'] ?? null);
 
         if ($payload['message'] !== null) {
             $media = self::restoreMedia($payload['message_media'] ?? []);

@@ -63,4 +63,29 @@ trait HasRequestConfig
         return $this->requestConfig
             ?? RequestConfig::fromAtlasConfig(app(AtlasConfig::class));
     }
+
+    /**
+     * Serialize the per-call config override for a queue payload.
+     *
+     * Returns null when no override was set, so queued jobs without an explicit
+     * ->withRetry()/->withTimeout()/->withoutRetry() fall back to global config.
+     *
+     * @return array{timeout: int, rateLimit: int, errors: int, timeoutExplicit: bool}|null
+     */
+    public function requestConfigPayload(): ?array
+    {
+        return $this->requestConfig?->toArray();
+    }
+
+    /**
+     * Restore a per-call config override from a queue payload.
+     *
+     * @param  array{timeout: int, rateLimit: int, errors: int, timeoutExplicit?: bool}|null  $data
+     */
+    public function applyRequestConfigPayload(?array $data): void
+    {
+        if ($data !== null) {
+            $this->requestConfig = RequestConfig::fromArray($data);
+        }
+    }
 }
