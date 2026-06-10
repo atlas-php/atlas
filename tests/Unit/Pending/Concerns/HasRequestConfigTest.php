@@ -68,6 +68,34 @@ it('withoutRetry disables all retry', function () {
     expect($config->retryEnabled())->toBeFalse();
 });
 
+it('requestConfigPayload is null when no override was set', function () {
+    expect(createRequestConfigHelper()->requestConfigPayload())->toBeNull();
+});
+
+it('serializes and restores an override across a queue payload round-trip', function () {
+    $source = createRequestConfigHelper();
+    $source->withRetry(rateLimit: 8, errors: 5)->withTimeout(99);
+
+    $payload = $source->requestConfigPayload();
+    expect($payload)->not->toBeNull();
+
+    $restored = createRequestConfigHelper();
+    $restored->applyRequestConfigPayload($payload);
+
+    $config = $restored->getRequestConfig();
+    expect($config->rateLimit)->toBe(8);
+    expect($config->errors)->toBe(5);
+    expect($config->timeout)->toBe(99);
+    expect($config->timeoutExplicit)->toBeTrue();
+});
+
+it('applyRequestConfigPayload with null leaves config untouched (falls back to defaults)', function () {
+    $helper = createRequestConfigHelper();
+    $helper->applyRequestConfigPayload(null);
+
+    expect($helper->getRequestConfig())->toBeNull();
+});
+
 it('resolveRequestConfig defaults from AtlasConfig', function () {
     config([
         'atlas.retry.timeout' => 45,
