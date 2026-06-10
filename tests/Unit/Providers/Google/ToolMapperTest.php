@@ -188,7 +188,7 @@ it('defaults the name to an empty string when functionCall has no name', functio
     expect($result[0]->arguments)->toBe(['query' => 'test']);
 });
 
-it('degrades gracefully when a part has no functionCall key', function () {
+it('does not crash during parse when a part has no functionCall key', function () {
     $mapper = new ToolMapper;
 
     $result = $mapper->parseToolCalls([

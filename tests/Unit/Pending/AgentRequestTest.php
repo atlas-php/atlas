@@ -14,6 +14,7 @@ use Atlasphp\Atlas\Events\ModalityCompleted;
 use Atlasphp\Atlas\Events\ModalityStarted;
 use Atlasphp\Atlas\Exceptions\AgentNotFoundException;
 use Atlasphp\Atlas\Exceptions\AtlasException;
+use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Input\Image;
 use Atlasphp\Atlas\Middleware\AgentContext;
 use Atlasphp\Atlas\Middleware\Contracts\AgentMiddleware;
@@ -22,6 +23,7 @@ use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
 use Atlasphp\Atlas\Providers\Tools\WebSearch;
+use Atlasphp\Atlas\Providers\Tools\XSearch;
 use Atlasphp\Atlas\Queue\PendingExecution;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
@@ -126,6 +128,30 @@ class RequestTestToolAgent extends Agent
     public function providerTools(): array
     {
         return [new WebSearch];
+    }
+}
+
+class RequestTestUnsupportedToolAgent extends Agent
+{
+    public function key(): string
+    {
+        return 'unsupported-tool-agent';
+    }
+
+    public function provider(): Provider|string|null
+    {
+        return Provider::OpenAI;
+    }
+
+    public function model(): ?string
+    {
+        return 'gpt-4o';
+    }
+
+    public function providerTools(): array
+    {
+        // x_search is an xAI-only tool — invalid on OpenAI.
+        return [new XSearch];
     }
 }
 
@@ -430,6 +456,20 @@ it('merges agent and runtime provider tools', function () {
     // Agent has 1 WebSearch, runtime adds another
     expect($recorded[0]->request->providerTools)->toHaveCount(2);
 });
+
+it('throws when an agent declares a provider tool the provider cannot run', function () {
+    registerTestAgent(RequestTestUnsupportedToolAgent::class);
+
+    // Fake driver is named 'openai'; x_search is xAI-only, so the guard must fire
+    // before the request reaches the driver.
+    new AtlasFake(app(ProviderRegistryContract::class), [
+        TextResponseFake::make()->withText('unreachable'),
+    ]);
+
+    makeAgentRequest('unsupported-tool-agent')
+        ->message('Hello')
+        ->asText();
+})->throws(UnsupportedFeatureException::class, 'Provider tool [x_search] is not supported by provider [openai].');
 
 // ─── Meta passthrough ───────────────────────────────────────────────────────
 

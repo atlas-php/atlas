@@ -47,6 +47,7 @@ use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\OpenAi\ToolMapper;
 use Atlasphp\Atlas\Providers\Tools\ProviderTool;
+use Atlasphp\Atlas\Providers\Tools\ProviderToolRegistry;
 use Atlasphp\Atlas\Queue\Contracts\QueueableRequest;
 use Atlasphp\Atlas\Queue\PendingExecution;
 use Atlasphp\Atlas\Requests\TextRequest;
@@ -403,6 +404,9 @@ class AgentRequest implements QueueableRequest
         $agent = $this->resolveAgent();
         $tools = $this->resolveTools($agent);
         $driver = $this->resolveDriver($agent);
+        if (($providerTools = $this->resolveProviderTools($agent)) !== []) {
+            ProviderToolRegistry::assertSupported($driver->name(), $providerTools);
+        }
         $request = $this->buildRequest($agent, $tools);
         $provider = $this->resolveProviderKey();
         $model = $this->resolveModelKey();
@@ -454,6 +458,9 @@ class AgentRequest implements QueueableRequest
         $agent = $this->resolveAgent();
         $tools = $this->resolveTools($agent);
         $driver = $this->resolveDriver($agent);
+        if (($providerTools = $this->resolveProviderTools($agent)) !== []) {
+            ProviderToolRegistry::assertSupported($driver->name(), $providerTools);
+        }
         $request = $this->buildRequest($agent, $tools);
         $provider = $this->resolveProviderKey();
         $model = $this->resolveModelKey();
@@ -507,6 +514,9 @@ class AgentRequest implements QueueableRequest
 
         $agent = $this->resolveAgent();
         $driver = $this->resolveDriver($agent);
+        if (($providerTools = $this->resolveProviderTools($agent)) !== []) {
+            ProviderToolRegistry::assertSupported($driver->name(), $providerTools);
+        }
         $request = $this->buildRequest($agent, []);
         $provider = $this->resolveProviderKey();
         $model = $this->resolveModelKey();

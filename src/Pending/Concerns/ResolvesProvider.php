@@ -33,14 +33,10 @@ trait ResolvesProvider
     }
 
     /**
-     * Ensure every attached provider-native tool is supported by the resolved provider.
+     * Fail fast if any attached provider tool is unsupported by the resolved provider.
      *
-     * Fails fast with a clear Atlas exception instead of letting an incompatible
-     * tool reach the provider API and surface as a cryptic HTTP 400.
-     *
-     * Only first-party providers tracked in ProviderToolRegistry are validated.
-     * Custom / OpenAI-compatible providers the registry has no entry for are left
-     * untouched — Atlas has no authority to reject their passthrough tools.
+     * Short-circuits on no tools so the provider name is only resolved when there
+     * is actually something to validate. Matching is delegated to the registry.
      *
      * @param  array<int, ProviderTool>  $providerTools
      *
@@ -48,15 +44,11 @@ trait ResolvesProvider
      */
     protected function ensureProviderToolsSupported(Driver $driver, array $providerTools): void
     {
-        if ($providerTools === [] || ProviderToolRegistry::forProvider($driver->name()) === []) {
+        if ($providerTools === []) {
             return;
         }
 
-        foreach ($providerTools as $tool) {
-            if (! ProviderToolRegistry::supports($driver->name(), $tool->type())) {
-                throw UnsupportedFeatureException::providerTool($tool->type(), $driver->name());
-            }
-        }
+        ProviderToolRegistry::assertSupported($driver->name(), $providerTools);
     }
 
     /**
