@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Text;
 use Atlasphp\Atlas\Providers\OpenAi\MediaResolver;
@@ -212,6 +213,29 @@ it('sends structured request with text.format', function () {
             && $request['text']['format']['type'] === 'json_schema'
             && $request['text']['format']['strict'] === true;
     });
+});
+
+it('a mid-stream error while streaming throws a ProviderException carrying the model', function () {
+    Http::fake([
+        'api.openai.com/v1/responses' => Http::response(
+            "event: response.failed\ndata: {\"response\":{\"error\":{\"message\":\"boom\"}}}\n\n",
+            200,
+        ),
+    ]);
+
+    $caught = null;
+
+    try {
+        foreach (makeTextHandler()->stream(makeOpenAiTextRequest(['model' => 'gpt-4o'])) as $chunk) {
+            // consume the stream
+        }
+    } catch (ProviderException $e) {
+        $caught = $e;
+    }
+
+    expect($caught)->not->toBeNull();
+    expect($caught->model)->toBe('gpt-4o');
+    expect($caught->providerMessage)->toBe('boom');
 });
 
 it('forwards the request config to the HTTP layer when streaming', function () {

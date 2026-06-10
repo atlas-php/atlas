@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Enums\ChunkType;
+use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\Anthropic\Handlers\Text;
 use Atlasphp\Atlas\Providers\Anthropic\MediaResolver;
@@ -53,6 +54,29 @@ function makeAnthropicTextRequest(array $overrides = []): TextRequest
         requestConfig: $overrides['requestConfig'] ?? null,
     );
 }
+
+it('a mid-stream error while streaming throws a ProviderException carrying the model', function () {
+    Http::fake([
+        'api.anthropic.com/*' => Http::response(
+            "event: error\ndata: {\"type\":\"error\",\"error\":{\"message\":\"Overloaded\"}}\n\n",
+            200,
+        ),
+    ]);
+
+    $caught = null;
+
+    try {
+        foreach (makeAnthropicTextHandler()->stream(makeAnthropicTextRequest(['model' => 'claude-sonnet-4-5'])) as $chunk) {
+            // consume the stream
+        }
+    } catch (ProviderException $e) {
+        $caught = $e;
+    }
+
+    expect($caught)->not->toBeNull();
+    expect($caught->model)->toBe('claude-sonnet-4-5');
+    expect($caught->providerMessage)->toBe('Overloaded');
+});
 
 it('forwards the request config to the HTTP layer (post and stream)', function () {
     $config = (new RequestConfig(30, 5, 2))->withoutRetry();

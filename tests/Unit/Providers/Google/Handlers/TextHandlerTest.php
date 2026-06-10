@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\Google\Handlers\Text;
 use Atlasphp\Atlas\Providers\Google\MediaResolver;
@@ -51,6 +52,29 @@ function makeGoogleTextRequest(array $overrides = []): TextRequest
         requestConfig: $overrides['requestConfig'] ?? null,
     );
 }
+
+it('a mid-stream error while streaming throws a ProviderException carrying the model', function () {
+    Http::fake([
+        '*streamGenerateContent*' => Http::response(
+            "data: {\"error\":{\"code\":429,\"message\":\"Resource exhausted\"}}\n\n",
+            200,
+        ),
+    ]);
+
+    $caught = null;
+
+    try {
+        foreach (makeGoogleTextHandler()->stream(makeGoogleTextRequest(['model' => 'gemini-2.5-flash'])) as $chunk) {
+            // consume the stream
+        }
+    } catch (ProviderException $e) {
+        $caught = $e;
+    }
+
+    expect($caught)->not->toBeNull();
+    expect($caught->model)->toBe('gemini-2.5-flash');
+    expect($caught->providerMessage)->toBe('Resource exhausted');
+});
 
 it('forwards the request config to the HTTP layer (post and stream)', function () {
     $config = (new RequestConfig(30, 5, 2))->withoutRetry();

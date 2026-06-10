@@ -11,6 +11,7 @@ use Atlasphp\Atlas\Providers\Xai\Handlers\Video;
 use Atlasphp\Atlas\Requests\VideoRequest;
 use Atlasphp\Atlas\Responses\VideoResponse;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 
 function makeXaiVideoHandler(): Video
 {
@@ -48,6 +49,46 @@ it('an unresolvable reference image throws a ProviderException carrying the mode
 
     expect($caught)->not->toBeNull();
     expect($caught->model)->toBe('grok-video');
+});
+
+it('an unreadable file reference image throws a ProviderException carrying the model', function () {
+    $caught = null;
+
+    set_error_handler(fn () => true); // swallow the file_get_contents warning
+
+    try {
+        makeXaiVideoHandler()->video(makeXaiVideoRequest([
+            'model' => 'grok-video',
+            'media' => [Image::fromPath('/nonexistent/atlas-ref.png')],
+        ]));
+    } catch (ProviderException $e) {
+        $caught = $e;
+    } finally {
+        restore_error_handler();
+    }
+
+    expect($caught)->not->toBeNull();
+    expect($caught->model)->toBe('grok-video');
+    expect($caught->getMessage())->toContain('Cannot read image file');
+});
+
+it('an unreadable storage reference image throws a ProviderException carrying the model', function () {
+    Storage::fake('local');
+
+    $caught = null;
+
+    try {
+        makeXaiVideoHandler()->video(makeXaiVideoRequest([
+            'model' => 'grok-video',
+            'media' => [Image::fromStorage('missing.png', 'local')],
+        ]));
+    } catch (ProviderException $e) {
+        $caught = $e;
+    }
+
+    expect($caught)->not->toBeNull();
+    expect($caught->model)->toBe('grok-video');
+    expect($caught->getMessage())->toContain('Cannot read image from storage');
 });
 
 it('posts to /v1/videos/generations and polls until done', function () {

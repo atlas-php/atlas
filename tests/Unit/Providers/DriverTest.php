@@ -379,6 +379,19 @@ it('maps 503 to ServerException', function () {
     createTestDriver()->handleRequestException('gpt-4o', makeRequestExceptionForStatus(503));
 })->throws(ServerException::class);
 
+it('maps an unmapped status to the base ProviderException', function () {
+    $caught = null;
+
+    try {
+        createTestDriver()->handleRequestException('gpt-4o', makeRequestExceptionForStatus(418));
+    } catch (ProviderException $e) {
+        $caught = $e;
+    }
+
+    expect($caught::class)->toBe(ProviderException::class); // the base, not a subclass
+    expect($caught->statusCode)->toBe(418);
+});
+
 it('maps 529 (overloaded) to RateLimitException', function () {
     createTestDriver()->handleRequestException('gpt-4o', makeRequestExceptionForStatus(529));
 })->throws(RateLimitException::class);

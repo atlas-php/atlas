@@ -11,6 +11,7 @@ use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Requests\VideoRequest;
 use Atlasphp\Atlas\Responses\VideoResponse;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 
 function makeOpenAiVideoHandler(): Video
 {
@@ -185,6 +186,46 @@ it('an unresolvable reference image throws a ProviderException carrying the mode
 
     expect($caught)->not->toBeNull();
     expect($caught->model)->toBe('sora-2');
+});
+
+it('an unreadable file reference image throws a ProviderException carrying the model', function () {
+    $caught = null;
+
+    set_error_handler(fn () => true); // swallow the file_get_contents warning
+
+    try {
+        makeOpenAiVideoHandler()->video(makeOpenAiVideoRequest([
+            'model' => 'sora-2',
+            'media' => [Image::fromPath('/nonexistent/atlas-ref.png')],
+        ]));
+    } catch (ProviderException $e) {
+        $caught = $e;
+    } finally {
+        restore_error_handler();
+    }
+
+    expect($caught)->not->toBeNull();
+    expect($caught->model)->toBe('sora-2');
+    expect($caught->getMessage())->toContain('Cannot read image file');
+});
+
+it('an unreadable storage reference image throws a ProviderException carrying the model', function () {
+    Storage::fake('local');
+
+    $caught = null;
+
+    try {
+        makeOpenAiVideoHandler()->video(makeOpenAiVideoRequest([
+            'model' => 'sora-2',
+            'media' => [Image::fromStorage('missing.png', 'local')],
+        ]));
+    } catch (ProviderException $e) {
+        $caught = $e;
+    }
+
+    expect($caught)->not->toBeNull();
+    expect($caught->model)->toBe('sora-2');
+    expect($caught->getMessage())->toContain('Cannot read image from storage');
 });
 
 it('throws ProviderException when video generation fails', function () {

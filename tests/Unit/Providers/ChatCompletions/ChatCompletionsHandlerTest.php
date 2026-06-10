@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\AtlasCache;
 use Atlasphp\Atlas\Enums\FinishReason;
+use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\ChatCompletions\ChatCompletionsDriver;
@@ -28,6 +29,34 @@ function makeChatCompletionsDriver(?HttpClient $http = null): ChatCompletionsDri
         cache: app(AtlasCache::class),
     );
 }
+
+it('a mid-stream error while streaming throws a ProviderException carrying the model', function () {
+    Http::fake([
+        'localhost:11434/v1/chat/completions' => Http::response(
+            "data: {\"error\":{\"message\":\"model not found\"}}\n\n",
+            200,
+        ),
+    ]);
+
+    $request = new TextRequest(
+        model: 'llama3.2', instructions: null, message: 'Hi', messageMedia: [], messages: [],
+        maxTokens: null, temperature: null, schema: null, tools: [], providerTools: [], providerOptions: [],
+    );
+
+    $caught = null;
+
+    try {
+        foreach (makeChatCompletionsDriver()->stream($request) as $chunk) {
+            // consume the stream
+        }
+    } catch (ProviderException $e) {
+        $caught = $e;
+    }
+
+    expect($caught)->not->toBeNull();
+    expect($caught->model)->toBe('llama3.2');
+    expect($caught->providerMessage)->toBe('model not found');
+});
 
 it('forwards the request config to the HTTP layer (post and stream)', function () {
     $config = (new RequestConfig(30, 5, 2))->withoutRetry();
