@@ -467,6 +467,7 @@ class TextRequest implements QueueableRequest
         ?Channel $broadcastChannel = null,
     ): mixed {
         $request = Atlas::text($payload['provider'], $payload['model']);
+        $request->applyRequestConfigPayload($payload['_request_config'] ?? null);
 
         if ($payload['instructions'] !== null) {
             $request->instructions($payload['instructions']);

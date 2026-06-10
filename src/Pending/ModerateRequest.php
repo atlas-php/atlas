@@ -130,6 +130,7 @@ class ModerateRequest implements QueueableRequest
     ): mixed {
         $request = Atlas::moderate($payload['provider'], $payload['model'])
             ->fromInput($payload['input']);
+        $request->applyRequestConfigPayload($payload['_request_config'] ?? null);
 
         if (! empty($payload['providerOptions'])) {
             $request->withProviderOptions($payload['providerOptions']);

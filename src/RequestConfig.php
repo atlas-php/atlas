@@ -17,6 +17,7 @@ class RequestConfig
         public readonly int $timeout,
         public readonly int $rateLimit,
         public readonly int $errors,
+        public readonly bool $timeoutExplicit = false,
     ) {}
 
     /**
@@ -32,11 +33,43 @@ class RequestConfig
     }
 
     /**
-     * Override the timeout for this call.
+     * Rehydrate from a queue payload.
+     *
+     * @param  array{timeout: int, rateLimit: int, errors: int, timeoutExplicit?: bool}  $data
+     */
+    public static function fromArray(array $data): self
+    {
+        return new self(
+            timeout: (int) $data['timeout'],
+            rateLimit: (int) $data['rateLimit'],
+            errors: (int) $data['errors'],
+            timeoutExplicit: (bool) ($data['timeoutExplicit'] ?? false),
+        );
+    }
+
+    /**
+     * Serialize for a queue payload.
+     *
+     * @return array{timeout: int, rateLimit: int, errors: int, timeoutExplicit: bool}
+     */
+    public function toArray(): array
+    {
+        return [
+            'timeout' => $this->timeout,
+            'rateLimit' => $this->rateLimit,
+            'errors' => $this->errors,
+            'timeoutExplicit' => $this->timeoutExplicit,
+        ];
+    }
+
+    /**
+     * Override the timeout for this call. Marks the timeout as explicit so the
+     * HTTP layer applies it in place of the handler's default (which may be a
+     * longer provider/reasoning/media timeout).
      */
     public function withTimeout(int $seconds): self
     {
-        return new self($seconds, $this->rateLimit, $this->errors);
+        return new self($seconds, $this->rateLimit, $this->errors, timeoutExplicit: true);
     }
 
     /**
@@ -48,6 +81,7 @@ class RequestConfig
             $this->timeout,
             $rateLimit ?? $this->rateLimit,
             $errors ?? $this->errors,
+            $this->timeoutExplicit,
         );
     }
 
@@ -56,7 +90,7 @@ class RequestConfig
      */
     public function withoutRetry(): self
     {
-        return new self($this->timeout, 0, 0);
+        return new self($this->timeout, 0, 0, $this->timeoutExplicit);
     }
 
     /**

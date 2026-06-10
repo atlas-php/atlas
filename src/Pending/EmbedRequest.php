@@ -130,6 +130,7 @@ class EmbedRequest implements QueueableRequest
     ): mixed {
         $request = Atlas::embed($payload['provider'], $payload['model'])
             ->fromInput($payload['input']);
+        $request->applyRequestConfigPayload($payload['_request_config'] ?? null);
 
         if (! empty($payload['providerOptions'])) {
             $request->withProviderOptions($payload['providerOptions']);

@@ -180,6 +180,7 @@ class RerankRequest implements QueueableRequest
         ?Channel $broadcastChannel = null,
     ): mixed {
         $request = Atlas::rerank($payload['provider'], $payload['model']);
+        $request->applyRequestConfigPayload($payload['_request_config'] ?? null);
 
         if ($payload['query'] !== null) {
             $request->query($payload['query']);

@@ -47,6 +47,7 @@ class MusicRequest extends GenerativeAudioRequest
         ?Channel $broadcastChannel = null,
     ): mixed {
         $request = Atlas::music($payload['provider'], $payload['model']);
+        $request->applyRequestConfigPayload($payload['_request_config'] ?? null);
 
         static::applyPayload($request, $payload, $executionId);
 

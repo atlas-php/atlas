@@ -1181,6 +1181,7 @@ class AgentRequest implements QueueableRequest
         ?Channel $broadcastChannel = null,
     ): mixed {
         $request = Atlas::agent($payload['key']);
+        $request->applyRequestConfigPayload($payload['_request_config'] ?? null);
 
         if ($payload['message'] !== null) {
             $media = self::restoreMedia($payload['message_media'] ?? []);
