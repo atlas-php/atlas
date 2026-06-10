@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Providers\OpenAi\Handlers;
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Http\ProviderRequestContext;
 use Atlasphp\Atlas\Providers\Concerns\BuildsHeaders;
@@ -43,10 +44,7 @@ class Embed implements EmbedHandler
         // models reject `dimensions`, so they are left untouched.
         if (str_starts_with($request->model, 'text-embedding-3')
             && ! array_key_exists('dimensions', $request->providerOptions)) {
-            $dimensions = config('atlas.embeddings.dimensions');
-            if ($dimensions !== null) {
-                $body['dimensions'] = (int) $dimensions;
-            }
+            $body['dimensions'] = app(AtlasConfig::class)->embeddingDimensions;
         }
 
         $body = array_merge($body, $request->providerOptions);

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Embed;
 use Atlasphp\Atlas\Providers\ProviderConfig;
@@ -92,6 +93,7 @@ it('realigns a batch response by the index field, not array position', function 
 
 it('forwards the configured dimensions for text-embedding-3 models', function () {
     config()->set('atlas.embeddings.dimensions', 512);
+    AtlasConfig::refresh();
 
     Http::fake([
         'api.openai.com/v1/embeddings' => Http::response([
