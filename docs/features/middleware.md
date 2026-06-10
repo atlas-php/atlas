@@ -73,7 +73,7 @@ Atlas::text('openai', 'gpt-4o')
     ->asText();
 ```
 
-Per-request middleware runs after global middleware.
+Per-request middleware runs after global middleware. It is preserved across queued dispatch (`->queue()`) on every modality, so the same middleware runs whether the request executes inline or on a worker. Use a class-based middleware for queued requests — a closure can't cross the queue boundary and will throw at dispatch.
 
 ### Inspecting Active Middleware
 
