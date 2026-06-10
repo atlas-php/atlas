@@ -4,7 +4,7 @@ Status of each provider's modalities against **real provider APIs**, exercised v
 sandbox harness (`sandbox/test-{provider}-provider.php` and feature scripts). This file
 records the date each modality last **passed a live API test** — not unit-test coverage.
 
-**Last full run: 2026-06-09** (all 4 providers — 2 transient infra failures: OpenAI TTS timeout, xAI voices 500) · **Forced tool choice (all 4 providers): 2026-06-09** · **Image-to-image (reference media): 2026-06-08** · **Prompt caching + media replay: 2026-06-07** · **Provider-tools run: 2026-06-06**
+**Last full run: 2026-06-09** (all 4 providers — 2 transient infra failures: OpenAI TTS timeout, xAI voices 500) · **Error handling & resilience (all 4 providers): 2026-06-10** · **Forced tool choice (all 4 providers): 2026-06-09** · **Image-to-image (reference media): 2026-06-08** · **Prompt caching + media replay: 2026-06-07** · **Provider-tools run: 2026-06-06**
 
 Reproduce:
 - Per-provider suites: `cd sandbox && php test-{provider}-provider.php`
@@ -116,6 +116,38 @@ Provider-normalized `tool_choice` verified end-to-end through Atlas (`sandbox/te
 
 **Specific named tool** (`->toolChoice(ToolChoice::tool('log_mood'))`) verified live on **all four providers**: with two tools available (`get_time` + `log_mood`), the forced tool is the one that opens the turn (not the other) — proving the choice targets the named tool, not just "some tool". Result: **16/16 live checks passed** (4 forceTools + 4 specific-tool, ×2 assertions). (Note: forcing a tool on OpenAI requires a valid strict-mode function schema — Atlas tools with `parameters()` already emit `additionalProperties:false`.)
 
+## Error handling & resilience (live, 2026-06-10)
+
+End-to-end verification of the error-handling/HTTP/retry/queue work against **real provider APIs**. Classification is driven purely by HTTP status code + exception type + structural JSON shape — never by parsing message words. **19/19 live checks passed** across OpenAI / Anthropic / Google / xAI.
+
+**Error classification (bad model id) — real provider message + typed exception by status:**
+
+| Provider  | Model | HTTP | Atlas exception | Provider message (live) |
+|-----------|-------|:----:|-----------------|-------------------------|
+| OpenAI    | bad   | 400  | `InvalidRequestException` | "The requested model '…' does not exist." |
+| Anthropic | bad   | 404  | `ModelNotFoundException`  | "model: …" |
+| Google    | bad   | 404  | `ModelNotFoundException`  | "models/… is not found …" |
+| xAI       | bad   | 400  | `InvalidRequestException` | "Model not found: …" |
+
+**Other live checks (all ✅):**
+
+| Area | Check | Result |
+|------|-------|--------|
+| Happy path | `asText` (non-streaming) | ✅ all 4 providers |
+| Happy path | `asStream` (streaming) | ✅ all 4 providers (no regression from parser error-detection) |
+| Auth | bad key → caught via `catch (ProviderException)` | ✅ `AuthenticationException` (401) |
+| Auth | `Atlas::provider(...)->models()` with bad key | ✅ `AuthenticationException` (interrogation no longer leaks raw) |
+| Connection | unroutable host → typed error | ✅ `ConnectionException` (catchable as `AtlasException`/`ProviderException`) |
+| Retry | `->withRetry(errors: 2)` on a connection failure | ✅ retried exactly 2× then threw |
+| Timeout | `->withTimeout(1)` overrides the provider timeout | ✅ failed in ~1.0s |
+| Timeout | `ATLAS_TIMEOUT` global default applies to a provider with no own timeout | ✅ failed in ~1.0s |
+
+Reproduce: `cd sandbox` and run an inline script booting `bootstrap.php` (see the Phase audit scripts). Requires OpenAI/Anthropic/Google/xAI keys in `sandbox/.env`.
+
+**Not live-verified (no API key in sandbox):** ElevenLabs, Cohere, Jina, Ollama. Their error-message extraction (`detail` / top-level `message` / string `error`) and the mid-stream error detection are covered by unit tests, not a live call.
+
+**Mid-stream provider errors** (a `data: {"error":…}` / `event: error` arriving on a 200 stream) are detected and thrown as a model-carrying `ProviderException` — verified by unit tests with fixture SSE streams (can't be triggered on demand from a healthy provider).
+
 ## Per-provider results
 
 | Provider   | Live suite                 | Notes |
@@ -130,6 +162,6 @@ Provider-normalized `tool_choice` verified end-to-end through Atlas (`sandbox/te
 | Ollama     | **not run**                | Points at a LAN host (`OLLAMA_URL`); not exercised in this run. |
 | LM Studio  | **not run**                | Requires a local LM Studio instance; not exercised in this run. |
 
-## Package checks (2026-06-09)
+## Package checks (2026-06-10)
 
-`composer check` — **Pint ✓ · PHPStan 0 errors ✓ · 2929 Pest tests ✓** (incl. the provider-normalized `tool_choice` suite + the broadcast payload-cap default fix).
+`composer check` — **Pint ✓ · PHPStan 0 errors ✓ · 3033 Pest tests ✓** (incl. the full error-handling suite: connection/streaming/retry, provider error-message extraction, exception hierarchy + typed errors, and the queue fail-fast lifecycle).
