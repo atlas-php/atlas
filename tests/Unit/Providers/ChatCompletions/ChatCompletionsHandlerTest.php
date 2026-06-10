@@ -245,6 +245,46 @@ it('sends structured request with json_schema response_format', function () {
     });
 });
 
+it('normalizes a builder schema to strict mode in response_format', function () {
+    Http::fake([
+        'localhost:11434/v1/chat/completions' => Http::response([
+            'choices' => [
+                ['message' => ['content' => '{"name":"test","phone":null}', 'role' => 'assistant'], 'finish_reason' => 'stop'],
+            ],
+            'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 5],
+        ]),
+    ]);
+
+    $schema = Schema::object('output', 'Output data')
+        ->string('name', 'Name')
+        ->string('phone', 'Phone')->optional()
+        ->build();
+
+    $request = new TextRequest(
+        model: 'llama3.1',
+        instructions: null,
+        message: 'Give me data',
+        messageMedia: [],
+        messages: [],
+        maxTokens: null,
+        temperature: null,
+        schema: $schema,
+        tools: [],
+        providerTools: [],
+        providerOptions: [],
+    );
+
+    makeChatCompletionsDriver()->structured($request);
+
+    Http::assertSent(function ($r) {
+        $sent = $r->data()['response_format']['json_schema']['schema'];
+
+        return $sent['additionalProperties'] === false
+            && $sent['required'] === ['name', 'phone']
+            && $sent['properties']['phone']['type'] === ['string', 'null'];
+    });
+});
+
 it('omits Authorization header when api key is empty', function () {
     $driver = new ChatCompletionsDriver(
         config: new ProviderConfig(

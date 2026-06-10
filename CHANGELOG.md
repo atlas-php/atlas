@@ -26,6 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 ### Fixed
 
+- Structured output via the `Schema` builder now works on OpenAI, xAI, and OpenAI-compatible providers (Ollama, LM Studio) — previously these 400'd because strict JSON-schema requirements (`additionalProperties: false`, all keys required, optionals as nullable) weren't applied. Optional fields now round-trip as nullable.
 - Rate limits and transient server errors now retry automatically.
 - Per-call and global timeouts are honored, including on queued requests.
 - Network failures and mid-stream errors now surface as exceptions instead of returning truncated, successful-looking responses.

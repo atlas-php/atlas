@@ -214,20 +214,19 @@ test('stream accumulates full text', function () {
 
 echo "\n\n── Structured Output";
 
-test('json_schema structured response', function () {
-    $schema = new Schema('person', 'A person', [
-        'type' => 'object',
-        'properties' => [
-            'name' => ['type' => 'string'],
-            'age' => ['type' => 'integer'],
-            'hobbies' => ['type' => 'array', 'items' => ['type' => 'string']],
-        ],
-        'required' => ['name', 'age', 'hobbies'],
-        'additionalProperties' => false,
-    ]);
+// Built via the fluent Schema builder (the documented public API), including an
+// optional field — exercises the builder -> strict-mode normalization path (xAI
+// inherits OpenAI's strict json_schema handling).
+test('json_schema structured response (builder)', function () {
+    $schema = Schema::object('person', 'A person')
+        ->string('name', 'Full name')
+        ->integer('age', 'Age in years')
+        ->stringArray('hobbies', 'List of hobbies')
+        ->string('nickname', 'Optional nickname')->optional()
+        ->build();
 
     $r = Atlas::text(Provider::xAI, 'grok-3-mini')
-        ->message('Create a person named Bob who is 42 and likes chess and hiking.')
+        ->message('Create a person named Bob who is 42 and likes chess and hiking. No nickname.')
         ->withSchema($schema)
         ->asStructured();
 
@@ -236,6 +235,7 @@ test('json_schema structured response', function () {
     assert_true($r->structured['age'] === 42, "Age should be 42, got: {$r->structured['age']}");
     assert_true(is_array($r->structured['hobbies']), 'Hobbies should be array');
     assert_true(count($r->structured['hobbies']) >= 2, 'Should have at least 2 hobbies');
+    assert_true(array_key_exists('nickname', $r->structured), 'Optional nickname key should be present');
 });
 
 // ── Tool Calling ─────────────────────────────────────────────────────────────
