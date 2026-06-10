@@ -6,7 +6,17 @@ namespace Atlasphp\Atlas\Queue\Jobs;
 
 use Atlasphp\Atlas\Events\ExecutionCompleted;
 use Atlasphp\Atlas\Events\ExecutionFailed;
+use Atlasphp\Atlas\Exceptions\AgentNotFoundException;
+use Atlasphp\Atlas\Exceptions\AuthenticationException;
+use Atlasphp\Atlas\Exceptions\AuthorizationException;
+use Atlasphp\Atlas\Exceptions\DelegationCycleException;
+use Atlasphp\Atlas\Exceptions\InvalidRequestException;
+use Atlasphp\Atlas\Exceptions\MaxDelegationDepthException;
 use Atlasphp\Atlas\Exceptions\MaxStepsExceededException;
+use Atlasphp\Atlas\Exceptions\ModelNotFoundException;
+use Atlasphp\Atlas\Exceptions\ProviderNotFoundException;
+use Atlasphp\Atlas\Exceptions\ToolNotFoundException;
+use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Queue\Contracts\QueueableRequest;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Illuminate\Broadcasting\Channel;
@@ -71,10 +81,32 @@ class ExecuteAtlasJob implements ShouldQueue
                 executionId: $this->executionId,
                 broadcastChannel: $this->broadcastChannel,
             );
-        } catch (MaxStepsExceededException $e) {
-            // Deterministic failure — retrying will produce the same loop.
-            // Fail immediately instead of burning retries and API credits.
+        } catch (
+            // Permanent failures — retrying produces the same result and wastes
+            // attempts (and API credits). Fail immediately. Transient errors
+            // (RateLimitException, ServerException, ConnectionException, and the
+            // base ProviderException) are deliberately NOT listed, so they keep
+            // their retries.
+            MaxStepsExceededException|
+            AuthenticationException|
+            AuthorizationException|
+            InvalidRequestException|
+            ModelNotFoundException|
+            UnsupportedFeatureException|
+            ProviderNotFoundException|
+            AgentNotFoundException|
+            ToolNotFoundException|
+            MaxDelegationDepthException|
+            DelegationCycleException $e
+        ) {
             $this->fail($e);
+
+            // InteractsWithQueue::fail() is a no-op when no queue job is bound
+            // (e.g. invoked outside a worker). Finalize directly so the execution
+            // is still recorded failed and the event fires.
+            if ($this->job === null) {
+                $this->failed($e);
+            }
 
             return;
         }

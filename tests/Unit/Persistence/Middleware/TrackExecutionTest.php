@@ -64,6 +64,29 @@ it('creates execution and completes on success', function () {
     expect($execution->completed_at)->not->toBeNull();
 });
 
+it('a retry after a failed attempt ends Completed, not stuck Failed', function () {
+    $middleware = app(TrackExecution::class);
+
+    // Attempt 1: fails → execution is marked Failed.
+    $first = new AgentContext(request: makeExecutionTextRequest(), meta: []);
+
+    try {
+        $middleware->handle($first, fn () => throw new RuntimeException('transient blip'));
+    } catch (RuntimeException) {
+        // expected
+    }
+
+    $executionId = $first->meta['execution_id'];
+    expect(Execution::find($executionId)->status)->toBe(ExecutionStatus::Failed);
+
+    // Attempt 2 (retry): the queue re-runs with the same execution_id; it succeeds.
+    $second = new AgentContext(request: makeExecutionTextRequest(), meta: ['execution_id' => $executionId]);
+    $middleware->handle($second, fn () => makeExecutionFakeResult());
+
+    // The row must end Completed — a successful retry heals the earlier Failed.
+    expect(Execution::find($executionId)->status)->toBe(ExecutionStatus::Completed);
+});
+
 it('sets execution_id in context meta', function () {
     $middleware = app(TrackExecution::class);
 

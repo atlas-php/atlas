@@ -26,6 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 - Network failures and mid-stream provider errors now surface as errors instead of being swallowed or returning a truncated, successful-looking response.
 - Error messages now carry the provider's real reason on every provider.
 - Listing available models and voices now reports failures the same way as every other call.
+- Queued requests now fail fast on errors that can't succeed (invalid key, bad request, unknown model) instead of using up every retry; transient errors still retry.
 
 ### Migration
 
