@@ -4,7 +4,7 @@ Status of each provider's modalities against **real provider APIs**, exercised v
 sandbox harness (`sandbox/test-{provider}-provider.php` and feature scripts). This file
 records the date each modality last **passed a live API test** — not unit-test coverage.
 
-**Last full run: 2026-06-09** (all 4 providers — 2 transient infra failures: OpenAI TTS timeout, xAI voices 500) · **Forced tool choice (all 4 providers): 2026-06-09** · **Image-to-image (reference media): 2026-06-08** · **Prompt caching + media replay: 2026-06-07** · **Provider-tools run: 2026-06-06**
+**Last full run: 2026-06-10** (all 4 providers — **97/97 green**; the two 2026-06-09 transient failures (OpenAI TTS, xAI voices) now pass) · **Error handling & resilience (all 4 providers): 2026-06-10** · **Forced tool choice (all 4 providers): 2026-06-09** · **Image-to-image (reference media): 2026-06-08** · **Prompt caching + media replay: 2026-06-07** · **Provider-tools run: 2026-06-06**
 
 Reproduce:
 - Per-provider suites: `cd sandbox && php test-{provider}-provider.php`
@@ -24,10 +24,10 @@ Both require the provider's API key in `sandbox/.env`.
 
 | Provider    | Text | Stream | Structured | Tools | Prov.Tools | Vision | Image | TTS | STT | Embeddings | Moderation | Rerank | Video | Voice | Last live pass |
 |-------------|:----:|:------:|:----------:|:-----:|:----------:|:------:|:-----:|:---:|:---:|:----------:|:----------:|:------:|:-----:|:-----:|:--------------:|
-| OpenAI      | ✅   | ✅     | ✅         | ✅    | ✅         | ✅     | ✅    | ⚠️  | ✅  | ✅         | ✅         | —      | ✅    | ⚠️    | 2026-06-09     |
-| Anthropic   | ✅   | ✅     | ✅         | ✅    | ✅         | ✅     | —     | —   | —   | —          | —          | —      | —     | —     | 2026-06-09     |
-| Google      | ✅   | ✅     | ✅         | ✅    | ⚠️         | ✅     | ✅    | —   | —   | ✅         | —          | —      | —     | —     | 2026-06-09     |
-| xAI         | ✅   | ✅     | ✅         | ✅    | ✅         | ✅     | ✅    | ✅  | —   | —          | —          | —      | ✅    | ⚠️    | 2026-06-09     |
+| OpenAI      | ✅   | ✅     | ✅         | ✅    | ✅         | ✅     | ✅    | ✅  | ✅  | ✅         | ✅         | —      | ✅    | ⚠️    | 2026-06-10     |
+| Anthropic   | ✅   | ✅     | ✅         | ✅    | ✅         | ✅     | —     | —   | —   | —          | —          | —      | —     | —     | 2026-06-10     |
+| Google      | ✅   | ✅     | ✅         | ✅    | ⚠️         | ✅     | ✅    | —   | —   | ✅         | —          | —      | —     | —     | 2026-06-10     |
+| xAI         | ✅   | ✅     | ✅         | ✅    | ✅         | ✅     | ✅    | ✅  | —   | —          | —          | —      | ✅    | ⚠️    | 2026-06-10     |
 | ElevenLabs  | —    | —      | —          | —     | —          | —      | —     | ❌  | ❌  | —          | —          | —      | —     | ⚠️    | —              |
 | Cohere      | —    | —      | —          | —     | —          | —      | —     | —   | —   | —          | —          | ❌     | —     | —     | —              |
 | Jina        | —    | —      | —          | —     | —          | —      | —     | —   | —   | —          | —          | ❌     | —     | —     | —              |
@@ -116,20 +116,52 @@ Provider-normalized `tool_choice` verified end-to-end through Atlas (`sandbox/te
 
 **Specific named tool** (`->toolChoice(ToolChoice::tool('log_mood'))`) verified live on **all four providers**: with two tools available (`get_time` + `log_mood`), the forced tool is the one that opens the turn (not the other) — proving the choice targets the named tool, not just "some tool". Result: **16/16 live checks passed** (4 forceTools + 4 specific-tool, ×2 assertions). (Note: forcing a tool on OpenAI requires a valid strict-mode function schema — Atlas tools with `parameters()` already emit `additionalProperties:false`.)
 
+## Error handling & resilience (live, 2026-06-10)
+
+End-to-end verification of the error-handling/HTTP/retry/queue work against **real provider APIs**. Classification is driven purely by HTTP status code + exception type + structural JSON shape — never by parsing message words. **19/19 live checks passed** across OpenAI / Anthropic / Google / xAI.
+
+**Error classification (bad model id) — real provider message + typed exception by status:**
+
+| Provider  | Model | HTTP | Atlas exception | Provider message (live) |
+|-----------|-------|:----:|-----------------|-------------------------|
+| OpenAI    | bad   | 400  | `InvalidRequestException` | "The requested model '…' does not exist." |
+| Anthropic | bad   | 404  | `ModelNotFoundException`  | "model: …" |
+| Google    | bad   | 404  | `ModelNotFoundException`  | "models/… is not found …" |
+| xAI       | bad   | 400  | `InvalidRequestException` | "Model not found: …" |
+
+**Other live checks (all ✅):**
+
+| Area | Check | Result |
+|------|-------|--------|
+| Happy path | `asText` (non-streaming) | ✅ all 4 providers |
+| Happy path | `asStream` (streaming) | ✅ all 4 providers (no regression from parser error-detection) |
+| Auth | bad key → caught via `catch (ProviderException)` | ✅ `AuthenticationException` (401) |
+| Auth | `Atlas::provider(...)->models()` with bad key | ✅ `AuthenticationException` (interrogation no longer leaks raw) |
+| Connection | unroutable host → typed error | ✅ `ConnectionException` (catchable as `AtlasException`/`ProviderException`) |
+| Retry | `->withRetry(errors: 2)` on a connection failure | ✅ retried exactly 2× then threw |
+| Timeout | `->withTimeout(1)` overrides the provider timeout | ✅ failed in ~1.0s |
+| Timeout | `ATLAS_TIMEOUT` global default applies to a provider with no own timeout | ✅ failed in ~1.0s |
+
+Reproduce: `cd sandbox` and run an inline script booting `bootstrap.php` (see the Phase audit scripts). Requires OpenAI/Anthropic/Google/xAI keys in `sandbox/.env`.
+
+**Not live-verified (no API key in sandbox):** ElevenLabs, Cohere, Jina, Ollama. Their error-message extraction (`detail` / top-level `message` / string `error`) and the mid-stream error detection are covered by unit tests, not a live call.
+
+**Mid-stream provider errors** (a `data: {"error":…}` / `event: error` arriving on a 200 stream) are detected and thrown as a model-carrying `ProviderException` — verified by unit tests with fixture SSE streams (can't be triggered on demand from a healthy provider).
+
 ## Per-provider results
 
 | Provider   | Live suite                 | Notes |
 |------------|----------------------------|-------|
-| Anthropic  | **17/17 passed** (06-09)   | Text, streaming, structured, tools, vision — all green. Prompt caching (cache_control) + media-replay vision verified live (above). |
-| Google     | **23/23 passed** (06-09)   | Full modality suite green, incl. image-to-image. Provider-tools observability gap unchanged (`google_search`/`code_execution` ground correctly but aren't mapped to `providerToolCalls`). |
-| OpenAI     | **35/36 passed** (06-09)   | Text/tools/streaming/structured/vision/image/STT/video all green. **1 transient failure:** text-to-speech hit a cURL-28 120s timeout on `/audio/speech` (provider/network, not a code regression) — re-run to confirm. |
-| xAI        | **20/21 passed** (06-09)   | Full suite green incl. image-to-image. **1 transient failure:** `voices` list returned HTTP 500 from xAI (server-side, unrelated to this change). Note: `grok-2-vision-1212` retired → use `grok-4.3` for vision. |
+| Anthropic  | **17/17 passed** (06-10)   | Text, streaming, structured, tools, vision — all green. Prompt caching (cache_control) + media-replay vision verified live (above). |
+| Google     | **23/23 passed** (06-10)   | Full modality suite green, incl. image-to-image. Provider-tools observability gap unchanged (`google_search`/`code_execution` ground correctly but aren't mapped to `providerToolCalls`). |
+| OpenAI     | **36/36 passed** (06-10)   | Text/tools/streaming/structured/vision/image/STT/video all green. TTS (the 06-09 transient cURL-28 timeout) passed this run. |
+| xAI        | **21/21 passed** (06-10)   | Full suite green incl. image-to-image. `voices` list (the 06-09 transient HTTP 500) passed this run. Note: `grok-2-vision-1212` retired → use `grok-4.3` for vision. |
 | ElevenLabs | **not verified**           | Blocked: sandbox `config/atlas.php` has no `elevenlabs` provider block, so the base URL is empty. Package URL resolution is correct — purely a sandbox config gap. |
 | Cohere     | **not verified**           | No `COHERE_API_KEY` in `sandbox/.env`. Rerank handler covered by unit tests only. |
 | Jina       | **not verified**           | No `JINA_API_KEY` in `sandbox/.env`. Rerank handler covered by unit tests only. |
 | Ollama     | **not run**                | Points at a LAN host (`OLLAMA_URL`); not exercised in this run. |
 | LM Studio  | **not run**                | Requires a local LM Studio instance; not exercised in this run. |
 
-## Package checks (2026-06-09)
+## Package checks (2026-06-10)
 
-`composer check` — **Pint ✓ · PHPStan 0 errors ✓ · 2929 Pest tests ✓** (incl. the provider-normalized `tool_choice` suite + the broadcast payload-cap default fix).
+`composer check` — **Pint ✓ · PHPStan 0 errors ✓ · 3033 Pest tests ✓** (incl. the full error-handling suite: connection/streaming/retry, provider error-message extraction, exception hierarchy + typed errors, and the queue fail-fast lifecycle).
