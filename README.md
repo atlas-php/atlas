@@ -5,7 +5,7 @@
 </p>
 <p align="center">
     <a href="https://github.com/atlas-php/atlas/actions"><img src="https://github.com/atlas-php/atlas/workflows/Automated%20Tests/badge.svg" alt="Automated Tests"></a>
-    <a href="https://codecov.io/gh/atlas-php/atlas"><img src="https://codecov.io/gh/atlas-php/atlas/branch/main/graph/badge.svg" alt="Code Coverage"></a>
+    <a href="https://codecov.io/gh/atlas-php/atlas/branch/3.x"><img src="https://codecov.io/gh/atlas-php/atlas/branch/3.x/graph/badge.svg" alt="Code Coverage"></a>
     <a href="https://packagist.org/packages/atlas-php/atlas"><img src="https://img.shields.io/packagist/dt/atlas-php/atlas.svg?style=flat-square" alt="Total Downloads"></a>
     <img src="https://img.shields.io/badge/php-8.2%2B-blue?style=flat-square" alt="PHP Version">
     <img src="https://img.shields.io/badge/laravel-11%2B-orange?style=flat-square" alt="Laravel">
@@ -242,7 +242,7 @@ composer check
 | [Pest](https://pestphp.com)                      | Testing framework                                                                                                      |
 | [Larastan](https://github.com/larastan/larastan) | Static analysis                                                                                                        |
 | [Laravel Pint](https://laravel.com/docs/pint)    | Code style                                                                                                             |
-| [Codecov](https://codecov.io/gh/atlas-php/atlas) | [![codecov](https://codecov.io/gh/atlas-php/atlas/branch/main/graph/badge.svg)](https://codecov.io/gh/atlas-php/atlas) |
+| [Codecov](https://codecov.io/gh/atlas-php/atlas/branch/3.x) | [![codecov](https://codecov.io/gh/atlas-php/atlas/branch/3.x/graph/badge.svg)](https://codecov.io/gh/atlas-php/atlas/branch/3.x) |
 
 ## 🤝 Contributing
 
