@@ -1172,7 +1172,7 @@ class AgentRequest implements QueueableRequest
                 'path' => $input->isPath() ? $input->path() : null,
                 'file_id' => $input->isFileId() ? $input->fileId() : null,
             ], $this->messageMedia),
-            'middleware' => array_map(fn (mixed $m): string => is_string($m) ? $m : $m::class, $this->middleware),
+            'middleware' => $this->serializeMiddleware(),
         ];
     }
 

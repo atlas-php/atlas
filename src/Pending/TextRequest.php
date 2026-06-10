@@ -449,7 +449,7 @@ class TextRequest implements QueueableRequest
                 'data' => $this->schema->toArray(),
             ] : null,
             'providerOptions' => $this->providerOptions,
-            'middleware' => array_map(fn (mixed $m): string => is_string($m) ? $m : $m::class, $this->middleware),
+            'middleware' => $this->serializeMiddleware(),
             'meta' => $this->meta,
             'variables' => $this->variables,
             'interpolate_messages' => $this->interpolateMessages,

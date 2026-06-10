@@ -29,6 +29,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 - Network failures and mid-stream errors now surface as exceptions instead of returning truncated, successful-looking responses.
 - Interrupted streams broadcast the usage and finish reason captured before the break, so cost tracking survives.
 - Queued requests fail fast on unrecoverable errors (bad key, bad request, unknown model) instead of burning every retry.
+- Per-request middleware (`->withMiddleware()`) now runs on queued image, audio, video, speech, embedding, moderation, rerank, music, and sound-effect requests — previously it was silently dropped on queue (text and agent requests were unaffected).
+- Queuing a request with a closure middleware now fails fast with a clear error instead of crashing the worker; use class-based middleware for queued requests.
 - Google tool calls missing a function name now degrade gracefully instead of erroring mid-parse.
 - Listing models and voices now reports failures like any other call.
 - Error messages now carry the provider's real reason across all providers.
