@@ -317,12 +317,12 @@ abstract class Driver
     {
         $status = $e->response->status();
 
-        // Auth errors carry a fixed message; only resolve the provider's text
-        // for the message-bearing categories (match evaluates one arm).
+        // Each category resolves the provider's real error text (the typed
+        // factories extract it from the response); match evaluates one arm.
         match ($status) {
             400 => throw new InvalidRequestException($this->name(), $model, $status, $this->errorMessage($e), $e),
-            401 => throw new AuthenticationException($this->name(), $model, $e),
-            403 => throw new AuthorizationException($this->name(), $model, $e),
+            401 => throw AuthenticationException::from($this->name(), $model, $e),
+            403 => throw AuthorizationException::from($this->name(), $model, $e),
             404 => throw new ModelNotFoundException($this->name(), $model, $status, $this->errorMessage($e), $e),
             429, 529 => throw RateLimitException::from($this->name(), $model, $e),
             500, 502, 503, 504 => throw new ServerException($this->name(), $model, $status, $this->errorMessage($e), $e),

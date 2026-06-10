@@ -16,5 +16,8 @@ class ProviderRequestCompleted
         public readonly string $url,
         public readonly array $data,
         public readonly int $statusCode = 200,
+        public readonly ?string $correlationId = null,
+        public readonly ?string $provider = null,
+        public readonly ?string $model = null,
     ) {}
 }

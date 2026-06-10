@@ -45,9 +45,9 @@ try {
         ->asText();
 } catch (AuthenticationException $e) {
     // 401 — Invalid or missing API key
-    // $e->getMessage() includes provider name
+    // $e->providerMessage carries the provider's real reason (e.g. "Incorrect API key provided")
 } catch (AuthorizationException $e) {
-    // 403 — No access to this model
+    // 403 — No access to this model; $e->providerMessage explains why
 } catch (RateLimitException $e) {
     // 429 — Too many requests
     $retryAfter = $e->retryAfter; // Seconds to wait (from Retry-After header)
@@ -60,7 +60,22 @@ try {
 ```
 
 `$e->providerMessage` carries the provider's actual error text across all
-providers, regardless of how each one shapes its error response.
+providers — including authentication (401) and authorization (403) failures —
+regardless of how each one shapes its error response.
+
+### Inspecting the Raw Response
+
+When `providerMessage` isn't enough, read the provider's raw error body straight
+off the exception — no need to dig through the previous exception:
+
+```php
+} catch (ProviderException $e) {
+    $e->responseBody(); // decoded array, or null if no HTTP response (e.g. a connection failure)
+    $e->rawResponse();  // raw body string, or null
+}
+```
+
+Both return `null` for a `ConnectionException`, which has no HTTP response.
 
 Provider interrogation calls (`Atlas::provider(...)->models()` and `->voices()`)
 throw the same typed exceptions — e.g. an invalid key surfaces as

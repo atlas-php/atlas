@@ -7,6 +7,7 @@ namespace Atlasphp\Atlas\Providers\ElevenLabs\Handlers;
 use Atlasphp\Atlas\Enums\VoiceTransport;
 use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Http\HttpClient;
+use Atlasphp\Atlas\Http\ProviderRequestContext;
 use Atlasphp\Atlas\Providers\ElevenLabs\Concerns\BuildsElevenLabsHeaders;
 use Atlasphp\Atlas\Providers\Handlers\VoiceHandler;
 use Atlasphp\Atlas\Providers\ProviderConfig;
@@ -95,6 +96,7 @@ class Voice implements VoiceHandler
             body: $this->buildAgentConfig($request),
             timeout: $this->config->timeout,
             config: $request->requestConfig,
+            context: new ProviderRequestContext($this->config->provider, $request->model),
         );
 
         $agentId = $data['agent_id'] ?? null;
@@ -122,6 +124,7 @@ class Voice implements VoiceHandler
             url: "{$this->config->baseUrl}/convai/conversation/get-signed-url?".http_build_query(['agent_id' => $agentId]),
             headers: $this->headersWithoutContentType(),
             timeout: $this->config->timeout,
+            context: new ProviderRequestContext($this->config->provider, $model),
         );
 
         $signedUrl = $data['signed_url'] ?? null;

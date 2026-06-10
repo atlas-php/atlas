@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Providers\Google\Handlers;
 
 use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Http\HttpClient;
+use Atlasphp\Atlas\Http\ProviderRequestContext;
 use Atlasphp\Atlas\Providers\Concerns\AppliesToolChoice;
 use Atlasphp\Atlas\Providers\Google\Concerns\BuildsGoogleHeaders;
 use Atlasphp\Atlas\Providers\Google\MediaResolver;
@@ -50,6 +51,7 @@ class Text implements TextHandler
             body: $this->buildBody($request),
             timeout: $this->config->timeout,
             config: $request->requestConfig,
+            context: new ProviderRequestContext($this->config->provider, $request->model),
         );
 
         return $this->parser->parseText($data);
@@ -63,6 +65,7 @@ class Text implements TextHandler
             body: $this->buildBody($request),
             timeout: $this->config->timeout,
             config: $request->requestConfig,
+            context: new ProviderRequestContext($this->config->provider, $request->model),
         );
 
         return new StreamResponse($this->parseSSE($raw, $request->model));
@@ -83,6 +86,7 @@ class Text implements TextHandler
             body: $body,
             timeout: $this->config->timeout,
             config: $request->requestConfig,
+            context: new ProviderRequestContext($this->config->provider, $request->model),
         );
 
         $text = $this->parser->parseText($data);

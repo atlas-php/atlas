@@ -21,16 +21,20 @@ class ProviderConfig
         public readonly int $mediaTimeout = 120,
         public readonly array $capabilityOverrides = [],
         public readonly array $extra = [],
+        public readonly string $provider = '',
     ) {}
 
     /**
      * Create a ProviderConfig from a configuration array.
      *
+     * The provider key is injected by the registry under `provider` so handlers
+     * can attribute transport events to the provider that sent them.
+     *
      * @param  array<string, mixed>  $config
      */
     public static function fromArray(array $config): self
     {
-        $known = ['api_key', 'url', 'base_url', 'organization', 'timeout', 'media_timeout', 'driver', 'capabilities'];
+        $known = ['api_key', 'url', 'base_url', 'organization', 'timeout', 'media_timeout', 'driver', 'capabilities', 'provider'];
 
         return new self(
             apiKey: (string) ($config['api_key'] ?? ''),
@@ -42,6 +46,7 @@ class ProviderConfig
             mediaTimeout: (int) ($config['media_timeout'] ?? 120),
             capabilityOverrides: (array) ($config['capabilities'] ?? []),
             extra: array_diff_key($config, array_flip($known)),
+            provider: (string) ($config['provider'] ?? ''),
         );
     }
 }

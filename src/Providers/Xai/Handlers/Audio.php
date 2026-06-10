@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Providers\Xai\Handlers;
 
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Http\HttpClient;
+use Atlasphp\Atlas\Http\ProviderRequestContext;
 use Atlasphp\Atlas\Providers\Concerns\BuildsHeaders;
 use Atlasphp\Atlas\Providers\Handlers\AudioHandler;
 use Atlasphp\Atlas\Providers\ProviderConfig;
@@ -46,6 +47,7 @@ class Audio implements AudioHandler
             body: $body,
             timeout: $this->config->mediaTimeout,
             config: $request->requestConfig,
+            context: new ProviderRequestContext($this->config->provider, $request->model),
         );
 
         return new AudioResponse(

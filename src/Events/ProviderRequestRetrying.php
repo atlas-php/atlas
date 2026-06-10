@@ -16,5 +16,8 @@ class ProviderRequestRetrying
         public readonly \Throwable $exception,
         public readonly int $attempt,
         public readonly int $waitMicroseconds,
+        public readonly ?string $correlationId = null,
+        public readonly ?string $provider = null,
+        public readonly ?string $model = null,
     ) {}
 }

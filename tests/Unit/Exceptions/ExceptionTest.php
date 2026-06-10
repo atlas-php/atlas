@@ -236,3 +236,89 @@ it('ProviderException omits the status bracket when statusCode is null', functio
 
     expect($e->getMessage())->toBe('Provider [openai] error: something went wrong');
 });
+
+// ─── Auth/authz carry the provider's real error message ─────────────────────
+
+it('AuthenticationException::from carries the provider 401 message', function () {
+    Http::fake(['*' => Http::response(['error' => ['message' => 'Incorrect API key provided']], 401)]);
+
+    try {
+        Http::get('https://x.test/v1')->throw();
+    } catch (RequestException $e) {
+        $ex = AuthenticationException::from('openai', 'gpt-4o', $e);
+
+        expect($ex)->toBeInstanceOf(AuthenticationException::class);
+        expect($ex->statusCode)->toBe(401);
+        expect($ex->provider)->toBe('openai');
+        expect($ex->model)->toBe('gpt-4o');
+        expect($ex->providerMessage)->toBe('Incorrect API key provided');
+        expect($ex->getMessage())->toBe('Authentication failed for provider [openai]: Incorrect API key provided');
+        expect($ex->getPrevious())->toBe($e);
+    }
+});
+
+it('AuthorizationException::from carries the provider 403 message', function () {
+    Http::fake(['*' => Http::response(['error' => ['message' => 'Your account is not authorized to use model gpt-5']], 403)]);
+
+    try {
+        Http::get('https://x.test/v1')->throw();
+    } catch (RequestException $e) {
+        $ex = AuthorizationException::from('openai', 'gpt-5', $e);
+
+        expect($ex)->toBeInstanceOf(AuthorizationException::class);
+        expect($ex->statusCode)->toBe(403);
+        expect($ex->providerMessage)->toBe('Your account is not authorized to use model gpt-5');
+        expect($ex->getMessage())->toBe('Authorization failed for [openai] model [gpt-5]: Your account is not authorized to use model gpt-5');
+    }
+});
+
+it('auth exceptions keep their generic message when no provider detail is present', function () {
+    $auth = new AuthenticationException('openai');
+    $authz = new AuthorizationException('openai', 'gpt-4o');
+
+    expect($auth->providerMessage)->toBe('');
+    expect($auth->getMessage())->toBe('Authentication failed for provider [openai].');
+    expect($authz->providerMessage)->toBe('');
+    expect($authz->getMessage())->toBe('Authorization failed for [openai] model [gpt-4o].');
+});
+
+// ─── Raw response accessors ─────────────────────────────────────────────────
+
+it('ProviderException exposes the raw response body', function () {
+    $body = ['error' => ['message' => 'boom'], 'type' => 'server_error'];
+    Http::fake(['*' => Http::response($body, 500)]);
+
+    try {
+        Http::get('https://x.test/fail')->throw();
+    } catch (RequestException $e) {
+        $ex = ProviderException::from('openai', 'gpt-4o', $e);
+
+        expect($ex->responseBody())->toBe($body);
+        expect(json_decode((string) $ex->rawResponse(), true))->toBe($body);
+    }
+});
+
+it('raw response accessors are inherited by the typed subclasses', function () {
+    Http::fake(['*' => Http::response(['error' => ['message' => 'bad key']], 401)]);
+
+    try {
+        Http::get('https://x.test/fail')->throw();
+    } catch (RequestException $e) {
+        $ex = AuthenticationException::from('openai', 'gpt-4o', $e);
+
+        expect($ex->responseBody())->toBe(['error' => ['message' => 'bad key']]);
+        expect($ex->rawResponse())->toContain('bad key');
+    }
+});
+
+it('raw response accessors return null when there is no HTTP response', function () {
+    $ex = new ProviderException('openai', 'gpt-4o', null, 'oops');
+
+    expect($ex->responseBody())->toBeNull();
+    expect($ex->rawResponse())->toBeNull();
+
+    $conn = new ConnectionException('openai', 'gpt-4o', new RuntimeException('timed out'));
+
+    expect($conn->responseBody())->toBeNull();
+    expect($conn->rawResponse())->toBeNull();
+});

@@ -3,8 +3,11 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Events\ProviderRequestCompleted;
+use Atlasphp\Atlas\Events\ProviderRequestFailed;
 use Atlasphp\Atlas\Events\ProviderRequestRetrying;
+use Atlasphp\Atlas\Events\ProviderRequestStarted;
 use Atlasphp\Atlas\Http\HttpClient;
+use Atlasphp\Atlas\Http\ProviderRequestContext;
 use Atlasphp\Atlas\Http\RetryDecider;
 use Atlasphp\Atlas\RequestConfig;
 use Illuminate\Http\Client\ConnectionException;
@@ -153,6 +156,83 @@ it('retries the initial stream connection on a transient 5xx', function () {
 
     expect($retries)->toBe(1);
     expect($response->status())->toBe(200);
+});
+
+// ─── Transport event context (correlation id + provider/model) ──────────────
+
+it('stamps one correlation id across the whole retried call lifecycle', function () {
+    Http::fakeSequence()
+        ->push('err', 503)
+        ->push(['ok' => true], 200);
+
+    $ids = [];
+    $collect = function ($event) use (&$ids): void {
+        $ids[] = $event->correlationId;
+    };
+    Event::listen(ProviderRequestStarted::class, $collect);
+    Event::listen(ProviderRequestFailed::class, $collect);
+    Event::listen(ProviderRequestRetrying::class, $collect);
+    Event::listen(ProviderRequestCompleted::class, $collect);
+
+    httpClient()->post('https://api.test/x', [], [], 30, new RequestConfig(30, 0, 2));
+
+    // Started (×2), Failed, Retrying, Completed all share one non-null id.
+    expect($ids)->not->toBeEmpty();
+    expect(array_filter($ids, fn ($id) => $id === null))->toBeEmpty();
+    expect(array_unique($ids))->toHaveCount(1);
+});
+
+it('attributes started and completed events to the call context', function () {
+    Http::fake(['*' => Http::response(['ok' => true], 200)]);
+
+    $events = [];
+    $collect = function ($event) use (&$events): void {
+        $events[$event::class] = $event;
+    };
+    Event::listen(ProviderRequestStarted::class, $collect);
+    Event::listen(ProviderRequestCompleted::class, $collect);
+
+    httpClient()->post('https://api.test/x', [], [], 30, null, new ProviderRequestContext('openai', 'gpt-4o'));
+
+    foreach ([ProviderRequestStarted::class, ProviderRequestCompleted::class] as $class) {
+        expect($events[$class]->provider)->toBe('openai');
+        expect($events[$class]->model)->toBe('gpt-4o');
+        expect($events[$class]->correlationId)->not->toBeNull();
+    }
+});
+
+it('attributes a failed request to the call context', function () {
+    Http::fake(['*' => Http::response(['error' => ['message' => 'boom']], 500)]);
+
+    $failed = null;
+    Event::listen(ProviderRequestFailed::class, function ($event) use (&$failed): void {
+        $failed = $event;
+    });
+
+    try {
+        httpClient()->post('https://api.test/x', [], [], 30, null, new ProviderRequestContext('anthropic', 'claude'));
+    } catch (RequestException) {
+        // expected
+    }
+
+    expect($failed->provider)->toBe('anthropic');
+    expect($failed->model)->toBe('claude');
+    expect($failed->correlationId)->not->toBeNull();
+});
+
+it('still stamps a correlation id when no context is supplied', function () {
+    Http::fake(['*' => Http::response(['ok' => true], 200)]);
+
+    $completed = null;
+    Event::listen(ProviderRequestCompleted::class, function ($event) use (&$completed): void {
+        $completed = $event;
+    });
+
+    httpClient()->get('https://api.test/x', [], 30);
+
+    expect($completed->provider)->toBeNull();
+    expect($completed->model)->toBeNull();
+    expect($completed->correlationId)->not->toBeNull();
 });
 
 it('applies an explicit timeout override but keeps the handler default otherwise', function () {

@@ -7,6 +7,7 @@ namespace Atlasphp\Atlas\Providers\OpenAi\Handlers;
 use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Http\HttpClient;
+use Atlasphp\Atlas\Http\ProviderRequestContext;
 use Atlasphp\Atlas\Input\Input;
 use Atlasphp\Atlas\Providers\Concerns\BuildsHeaders;
 use Atlasphp\Atlas\Providers\Handlers\VideoHandler;
@@ -69,6 +70,7 @@ class Video implements VideoHandler
             body: $body,
             timeout: $this->config->mediaTimeout,
             config: $request->requestConfig,
+            context: new ProviderRequestContext($this->config->provider, $request->model),
         );
 
         $videoId = (string) ($data['id'] ?? '');
@@ -91,6 +93,7 @@ class Video implements VideoHandler
             url: "{$this->config->baseUrl}/videos/{$videoId}/content",
             headers: $this->headersWithoutContentType(),
             timeout: $this->config->mediaTimeout,
+            context: new ProviderRequestContext($this->config->provider, $request->model),
         );
 
         $tmpPath = $this->tempVideoPath();
@@ -138,6 +141,7 @@ class Video implements VideoHandler
                 url: "{$this->config->baseUrl}/videos/{$videoId}",
                 headers: $this->headersWithoutContentType(),
                 timeout: $this->config->timeout,
+                context: new ProviderRequestContext($this->config->provider, $model),
             );
 
             $status = (string) ($data['status'] ?? '');

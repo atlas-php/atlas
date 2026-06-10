@@ -16,5 +16,8 @@ class ProviderRequestStarted
         public readonly string $url,
         public readonly array $body,
         public readonly string $method = 'POST',
+        public readonly ?string $correlationId = null,
+        public readonly ?string $provider = null,
+        public readonly ?string $model = null,
     ) {}
 }

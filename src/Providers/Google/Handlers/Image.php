@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Providers\Google\Handlers;
 
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Http\HttpClient;
+use Atlasphp\Atlas\Http\ProviderRequestContext;
 use Atlasphp\Atlas\Input\Input;
 use Atlasphp\Atlas\Providers\Google\Concerns\BuildsGoogleHeaders;
 use Atlasphp\Atlas\Providers\Google\MediaResolver;
@@ -55,6 +56,7 @@ class Image implements ImageHandler
             body: $body,
             timeout: $this->config->mediaTimeout,
             config: $request->requestConfig,
+            context: new ProviderRequestContext($this->config->provider, $request->model),
         );
 
         $parts = $data['candidates'][0]['content']['parts'] ?? [];

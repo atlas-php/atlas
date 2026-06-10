@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Exceptions;
 
+use Illuminate\Http\Client\RequestException;
 use Throwable;
 
 /**
@@ -11,13 +12,24 @@ use Throwable;
  */
 class AuthorizationException extends ProviderException
 {
-    public function __construct(string $provider, string $model, ?Throwable $previous = null)
+    public function __construct(string $provider, string $model = '', string $providerMessage = '', ?Throwable $previous = null)
     {
-        parent::__construct($provider, $model, 403, '', $previous);
+        parent::__construct($provider, $model, 403, $providerMessage, $previous);
+    }
+
+    /**
+     * Create from a request exception, preserving the provider's real 403 message
+     * (e.g. "Your account is not authorized to use model X") so the developer sees
+     * why access was denied.
+     */
+    public static function from(string $provider, string $model, RequestException $e, ?string $message = null): self
+    {
+        return new self($provider, $model, self::resolveMessage($e, $message), $e);
     }
 
     protected function buildMessage(): string
     {
-        return "Authorization failed for [{$this->provider}] model [{$this->model}].";
+        return "Authorization failed for [{$this->provider}] model [{$this->model}]"
+            .($this->providerMessage !== '' ? ": {$this->providerMessage}" : '.');
     }
 }

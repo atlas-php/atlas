@@ -20,12 +20,16 @@ Fired by the shared `HttpClient` on every API call to a provider.
 
 | Event | Properties |
 |-------|-----------|
-| `ProviderRequestStarted`<br><small>Before the HTTP request is sent</small> | `string $url`, `array $body`, `string $method` |
-| `ProviderRequestCompleted`<br><small>After a successful response is parsed</small> | `string $url`, `array $data`, `int $statusCode` |
-| `ProviderRequestFailed`<br><small>When the HTTP request fails</small> | `string $url`, `Response $response` |
-| `ProviderRequestRetrying`<br><small>Before retrying a failed request</small> | `string $url`, `Throwable $exception`, `int $attempt`, `int $waitMicroseconds` |
+| `ProviderRequestStarted`<br><small>Before the HTTP request is sent</small> | `string $url`, `array $body`, `string $method`, `?string $correlationId`, `?string $provider`, `?string $model` |
+| `ProviderRequestCompleted`<br><small>After a successful response is parsed</small> | `string $url`, `array $data`, `int $statusCode`, `?string $correlationId`, `?string $provider`, `?string $model` |
+| `ProviderRequestFailed`<br><small>When the HTTP request fails</small> | `string $url`, `Response $response`, `?string $correlationId`, `?string $provider`, `?string $model` |
+| `ProviderRequestRetrying`<br><small>Before retrying a failed request</small> | `string $url`, `Throwable $exception`, `int $attempt`, `int $waitMicroseconds`, `?string $correlationId`, `?string $provider`, `?string $model` |
 
 </div>
+
+::: tip Correlating a request's lifecycle
+Every logical call is stamped with a `correlationId` that stays the same across its start, any retries, and the final completed/failed event — so you can tie a whole request together even under concurrency. `provider` and `model` identify which provider call it was without parsing the URL.
+:::
 
 ## Agent Executor Events
 
