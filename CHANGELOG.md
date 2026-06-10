@@ -12,39 +12,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 ### Added
 
-- Catch specific provider failures with the new `ConnectionException` (network failure), `ModelNotFoundException` (unknown model), `InvalidRequestException` (bad request), and `ServerException` (provider server error).
-- xAI now accepts the `CodeInterpreter` provider tool (live-verified against xAI's Agent Tools API).
-- Protect the voice tool/transcript/close routes with the new `voice.route_middleware` config — add HTTP middleware like `['auth:sanctum', 'throttle:60,1']`. These routes are public by default, so secure them in production.
-- Voice route and session config now lives under a dedicated `voice` config block (`route_prefix`, `route_middleware`, `session_ttl`); the legacy `persistence.voice_route_prefix` / `persistence.voice_session_ttl` keys still work.
+- New typed exceptions for specific provider failures: `ConnectionException` (network), `ModelNotFoundException` (unknown model), `InvalidRequestException` (bad request), and `ServerException` (provider error).
+- xAI now supports the `CodeInterpreter` provider tool.
+- `voice.route_middleware` config to protect the voice routes, e.g. `['auth:sanctum', 'throttle:60,1']`.
 
 ### Changed
 
-- One `catch (ProviderException)` now handles every provider failure — authentication, rate limits, bad requests, server, and network errors. Catch a subclass when you need a specific case.
-- Provider "overloaded" responses are now retried automatically, like rate limits.
-- Attaching a provider-native tool to a provider that doesn't support it (e.g. xAI's X Search on OpenAI) now fails fast with a clear `UnsupportedFeatureException` instead of a confusing provider API error.
+- A single `catch (ProviderException)` now handles every provider failure. Catch a subclass for specific cases.
+- "Overloaded" provider responses are now retried, like rate limits.
+- Attaching an unsupported provider-native tool (e.g. xAI's X Search on OpenAI) now throws `UnsupportedFeatureException` up front instead of failing at the provider.
 
 ### Fixed
 
-- Failed requests are now retried automatically on rate limits and temporary server errors; previously they were not.
-- Google tool calls missing a function name no longer error mid-parse; they now degrade gracefully like every other provider.
-- A timeout set per call, or globally, is now honored — including on queued requests.
-- Network failures and mid-stream provider errors now surface as errors instead of being swallowed or returning a truncated, successful-looking response.
-- Error messages now carry the provider's real reason on every provider.
-- Listing available models and voices now reports failures the same way as every other call.
-- Queued requests now fail fast on errors that can't succeed (invalid key, bad request, unknown model) instead of using up every retry; transient errors still retry.
-- A stream interrupted mid-flight now broadcasts the token usage and finish reason accumulated so far instead of zeroing them, so cost tracking survives an aborted stream.
-- A queued execution failure now caps its broadcast error message to the configured byte limit, so a long provider error can't exceed the socket transport's size limit and drop the event.
+- Rate limits and transient server errors now retry automatically.
+- Per-call and global timeouts are honored, including on queued requests.
+- Network failures and mid-stream errors now surface as exceptions instead of returning truncated, successful-looking responses.
+- Interrupted streams broadcast the usage and finish reason captured before the break, so cost tracking survives.
+- Queued requests fail fast on unrecoverable errors (bad key, bad request, unknown model) instead of burning every retry.
+- Per-request middleware (`->withMiddleware()`) now runs on queued image, audio, video, speech, embedding, moderation, rerank, music, and sound-effect requests — previously it was silently dropped on queue (text and agent requests were unaffected).
+- Queuing a request with a closure middleware now fails fast with a clear error instead of crashing the worker; use class-based middleware for queued requests.
+- Google tool calls missing a function name now degrade gracefully instead of erroring mid-parse.
+- Listing models and voices now reports failures like any other call.
+- Error messages now carry the provider's real reason across all providers.
+- Queued failures cap their broadcast error so it can't exceed the socket limit and drop the event.
 
 ### Migration
 
-No breaking changes for most cases. Four things to check only if they apply to you:
+No breaking changes for most users. Check these only if they apply:
 
-- **You catch specific exceptions** (auth, rate-limit) separately from `ProviderException` — list those `catch` blocks first, since `ProviderException` now catches them too.
-- **You set `reasoning_timeout`** — it's gone; set a longer per-call timeout instead.
-- **You read streamed responses** — a mid-stream provider error now throws instead of silently truncating; wrap the read loop in a try/catch.
-- **You attach provider-native tools** (e.g. `WebSearch`) to a first-party provider that doesn't support that tool — it now throws `UnsupportedFeatureException` up front instead of erroring at the provider.
-
-Otherwise no action required.
+- **You catch specific exceptions** (auth, rate-limit) before `ProviderException` — keep those `catch` blocks first; `ProviderException` now catches them too.
+- **You use `reasoning_timeout`** — removed. Set a longer per-call timeout instead.
+- **You read streamed responses** — mid-stream errors now throw. Wrap your read loop in try/catch.
+- **You attach provider-native tools to providers that don't support them** — now throws `UnsupportedFeatureException` up front.
+- **You set voice config in a published config file** — `voice_route_prefix` and `voice_session_ttl` moved to `voice.route_prefix` / `voice.session_ttl`. Old keys still work; migrate when convenient.
 
 ---
 

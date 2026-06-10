@@ -239,7 +239,7 @@ Schedule the cleanup command for abandoned sessions:
 $schedule->command('atlas:clean-voice-sessions')->hourly();
 ```
 
-Default TTL: 60 minutes. Configure via `ATLAS_VOICE_SESSION_TTL` env var or `atlas.persistence.voice_session_ttl`.
+Default TTL: 60 minutes. Configure via `ATLAS_VOICE_SESSION_TTL` env var or `atlas.voice.session_ttl`.
 
 ## Post-Processing Patterns
 

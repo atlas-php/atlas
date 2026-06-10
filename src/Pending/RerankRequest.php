@@ -161,6 +161,7 @@ class RerankRequest implements QueueableRequest
             'maxTokensPerDoc' => $this->maxTokensPerDoc,
             'minScore' => $this->minScore,
             'providerOptions' => $this->providerOptions,
+            'middleware' => $this->serializeMiddleware(),
             'meta' => $this->meta,
         ];
     }
@@ -204,6 +205,10 @@ class RerankRequest implements QueueableRequest
 
         if (! empty($payload['providerOptions'])) {
             $request->withProviderOptions($payload['providerOptions']);
+        }
+
+        if (! empty($payload['middleware'])) {
+            $request->withMiddleware($payload['middleware']);
         }
 
         static::applyMeta($request, $payload, $executionId);

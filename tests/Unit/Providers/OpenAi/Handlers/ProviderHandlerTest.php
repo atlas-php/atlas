@@ -143,3 +143,32 @@ it('flushCache clears models and voices cache', function () {
     expect($models->models)->toBe(['model-call-2']);
     expect($callCount)->toBe(2);
 });
+
+// ─── Organization header (HasOrganizationHeader) ────────────────────────────
+
+function providerHandlerExtraHeaders(Provider $handler): array
+{
+    $reflection = new ReflectionMethod($handler, 'extraHeaders');
+    $reflection->setAccessible(true);
+
+    /** @var array<string, string> */
+    return $reflection->invoke($handler);
+}
+
+it('adds the OpenAI-Organization header when an organization is configured', function () {
+    $handler = new Provider(
+        config: ProviderConfig::fromArray([
+            'api_key' => 'test-key',
+            'url' => 'https://api.openai.com/v1',
+            'organization' => 'org-123',
+        ]),
+        http: app(HttpClient::class),
+        cache: app(AtlasCache::class),
+    );
+
+    expect(providerHandlerExtraHeaders($handler))->toBe(['OpenAI-Organization' => 'org-123']);
+});
+
+it('omits the organization header when none is configured', function () {
+    expect(providerHandlerExtraHeaders(makeProviderHandler()))->toBe([]);
+});

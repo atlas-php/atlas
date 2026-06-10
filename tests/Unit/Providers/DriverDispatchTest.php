@@ -575,3 +575,57 @@ it('dispatch method is correct for rerank modality', function () {
     config()->set('atlas.middleware', []);
     AtlasConfig::refresh();
 });
+
+// ─── Global-before-request ordering holds on every modality ────────────────────
+// Guards two things per modality: both global (config) and per-request middleware
+// actually run, and global always runs outermost (before per-request). Speech,
+// music, and sfx dispatch through the audio path, so the 'audio' case covers them.
+
+dataset('dispatch_modalities', [
+    'text' => [fn (array $mw) => makeDispatchTextRequest($mw), fn (Driver $d, $r) => $d->text($r)],
+    'image' => [fn (array $mw) => makeDispatchImageRequest($mw), fn (Driver $d, $r) => $d->image($r)],
+    'audio' => [fn (array $mw) => makeDispatchAudioRequest($mw), fn (Driver $d, $r) => $d->audio($r)],
+    'video' => [fn (array $mw) => makeDispatchVideoRequest($mw), fn (Driver $d, $r) => $d->video($r)],
+    'embed' => [fn (array $mw) => makeDispatchEmbedRequest($mw), fn (Driver $d, $r) => $d->embed($r)],
+    'moderate' => [fn (array $mw) => makeDispatchModerateRequest($mw), fn (Driver $d, $r) => $d->moderate($r)],
+    'rerank' => [fn (array $mw) => makeDispatchRerankRequest($mw), fn (Driver $d, $r) => $d->rerank($r)],
+]);
+
+it('runs global middleware before per-request middleware', function (Closure $makeRequest, Closure $dispatch) {
+    $order = [];
+
+    $globalMw = new class($order) implements ProviderMiddleware
+    {
+        public function __construct(private array &$order) {}
+
+        public function handle(ProviderContext $context, Closure $next)
+        {
+            $this->order[] = 'global';
+
+            return $next($context);
+        }
+    };
+
+    $requestMw = new class($order) implements ProviderMiddleware
+    {
+        public function __construct(private array &$order) {}
+
+        public function handle(ProviderContext $context, Closure $next)
+        {
+            $this->order[] = 'request';
+
+            return $next($context);
+        }
+    };
+
+    config()->set('atlas.middleware', [$globalMw]);
+    AtlasConfig::refresh();
+
+    $driver = makeDispatchDriver(app(MiddlewareStack::class), app(MiddlewareResolver::class));
+    $dispatch($driver, $makeRequest([$requestMw]));
+
+    expect($order)->toBe(['global', 'request']);
+
+    config()->set('atlas.middleware', []);
+    AtlasConfig::refresh();
+})->with('dispatch_modalities');

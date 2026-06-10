@@ -6,6 +6,10 @@ use Atlasphp\Atlas\AtlasCache;
 use Atlasphp\Atlas\Enums\VoiceTransport;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Http\HttpClient;
+use Atlasphp\Atlas\Providers\OpenAi\Handlers\Audio;
+use Atlasphp\Atlas\Providers\OpenAi\Handlers\Embed;
+use Atlasphp\Atlas\Providers\OpenAi\Handlers\Moderate;
+use Atlasphp\Atlas\Providers\OpenAi\Handlers\Text;
 use Atlasphp\Atlas\Providers\OpenAi\OpenAiDriver;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Requests\ImageRequest;
@@ -21,6 +25,14 @@ function makeOpenAiDriver(): OpenAiDriver
         http: app(HttpClient::class),
         cache: app(AtlasCache::class),
     );
+}
+
+function resolveOpenAiHandler(OpenAiDriver $driver, string $method): object
+{
+    $reflection = new ReflectionMethod($driver, $method);
+    $reflection->setAccessible(true);
+
+    return $reflection->invoke($driver);
 }
 
 it('returns openai as name', function () {
@@ -141,3 +153,21 @@ it('throws UnsupportedFeatureException for videoToText', function () {
 it('throws UnsupportedFeatureException for rerank', function () {
     makeOpenAiDriver()->rerank(new RerankRequest('model', 'query', ['doc']));
 })->throws(UnsupportedFeatureException::class, 'rerank');
+
+// ─── Handler resolution ─────────────────────────────────────────────────────
+
+it('resolves the text handler', function () {
+    expect(resolveOpenAiHandler(makeOpenAiDriver(), 'textHandler'))->toBeInstanceOf(Text::class);
+});
+
+it('resolves the audio handler', function () {
+    expect(resolveOpenAiHandler(makeOpenAiDriver(), 'audioHandler'))->toBeInstanceOf(Audio::class);
+});
+
+it('resolves the embed handler', function () {
+    expect(resolveOpenAiHandler(makeOpenAiDriver(), 'embedHandler'))->toBeInstanceOf(Embed::class);
+});
+
+it('resolves the moderate handler', function () {
+    expect(resolveOpenAiHandler(makeOpenAiDriver(), 'moderateHandler'))->toBeInstanceOf(Moderate::class);
+});

@@ -280,3 +280,31 @@ it('passes provider options through', function () {
         return $request['reasoning_effort'] === 'high';
     });
 });
+
+it('includes temperature in the payload when set', function () {
+    Http::fake([
+        'api.openai.com/v1/responses' => Http::response([
+            'status' => 'completed',
+            'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => 'ok']]]],
+            'usage' => ['input_tokens' => 1, 'output_tokens' => 1],
+        ]),
+    ]);
+
+    makeTextHandler()->text(makeOpenAiTextRequest(['temperature' => 0.7]));
+
+    Http::assertSent(fn ($request) => $request['temperature'] === 0.7);
+});
+
+it('omits temperature from the payload when null', function () {
+    Http::fake([
+        'api.openai.com/v1/responses' => Http::response([
+            'status' => 'completed',
+            'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => 'ok']]]],
+            'usage' => ['input_tokens' => 1, 'output_tokens' => 1],
+        ]),
+    ]);
+
+    makeTextHandler()->text(makeOpenAiTextRequest(['temperature' => null]));
+
+    Http::assertSent(fn ($request) => ! isset($request['temperature']));
+});

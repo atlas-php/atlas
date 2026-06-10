@@ -220,6 +220,7 @@ class AudioRequest implements QueueableRequest
             'duration' => $this->duration,
             'format' => $this->format,
             'providerOptions' => $this->providerOptions,
+            'middleware' => $this->serializeMiddleware(),
             'meta' => $this->meta,
             'variables' => $this->variables,
             'interpolate_messages' => $this->interpolateMessages,
@@ -277,6 +278,10 @@ class AudioRequest implements QueueableRequest
 
         if (! empty($payload['providerOptions'])) {
             $request->withProviderOptions($payload['providerOptions']);
+        }
+
+        if (! empty($payload['middleware'])) {
+            $request->withMiddleware($payload['middleware']);
         }
 
         static::applyMeta($request, $payload, $executionId);

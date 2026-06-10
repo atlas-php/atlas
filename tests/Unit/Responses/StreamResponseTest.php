@@ -85,3 +85,94 @@ it('accumulates tool calls across chunks', function () {
     expect($toolCalls[0]->name)->toBe('search');
     expect($toolCalls[1]->name)->toBe('calc');
 });
+
+// ─── Finally callbacks ──────────────────────────────────────────────────────
+
+it('fires finally callbacks in order after a successful stream', function () {
+    $order = [];
+
+    $stream = new StreamResponse([new StreamChunk(ChunkType::Done)]);
+    $stream->onFinally(function () use (&$order) {
+        $order[] = 'a';
+    })->onFinally(function () use (&$order) {
+        $order[] = 'b';
+    });
+
+    foreach ($stream as $chunk) {
+        // consume
+    }
+
+    expect($order)->toBe(['a', 'b']);
+});
+
+it('runs every finally callback even when one throws', function () {
+    $order = [];
+
+    $stream = new StreamResponse([new StreamChunk(ChunkType::Done)]);
+    $stream->onFinally(function () use (&$order) {
+        $order[] = 'a';
+    })->onFinally(function () use (&$order) {
+        $order[] = 'b';
+
+        throw new RuntimeException('finally blew up');
+    })->onFinally(function () use (&$order) {
+        $order[] = 'c';
+    });
+
+    // The throwing callback must neither abort the others nor surface from iteration.
+    foreach ($stream as $chunk) {
+        // consume
+    }
+
+    expect($order)->toBe(['a', 'b', 'c']);
+});
+
+it('fires finally callbacks when the stream errors and still rethrows', function () {
+    $fired = false;
+
+    $source = (function () {
+        yield new StreamChunk(ChunkType::Text, text: 'Hi');
+
+        throw new RuntimeException('stream blew up');
+    })();
+
+    $stream = new StreamResponse($source);
+    $stream->onFinally(function () use (&$fired) {
+        $fired = true;
+    });
+
+    expect(function () use ($stream) {
+        foreach ($stream as $chunk) {
+            // consume until the source throws
+        }
+    })->toThrow(RuntimeException::class, 'stream blew up');
+
+    expect($fired)->toBeTrue();
+});
+
+it('still runs later finally callbacks when an earlier one throws on the error path', function () {
+    $order = [];
+
+    $source = (function () {
+        yield new StreamChunk(ChunkType::Text, text: 'Hi');
+
+        throw new RuntimeException('stream blew up');
+    })();
+
+    $stream = new StreamResponse($source);
+    $stream->onFinally(function () use (&$order) {
+        $order[] = 'a';
+
+        throw new RuntimeException('finally blew up');
+    })->onFinally(function () use (&$order) {
+        $order[] = 'b';
+    });
+
+    expect(function () use ($stream) {
+        foreach ($stream as $chunk) {
+            // consume
+        }
+    })->toThrow(RuntimeException::class, 'stream blew up');
+
+    expect($order)->toBe(['a', 'b']);
+});
