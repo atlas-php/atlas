@@ -87,6 +87,13 @@ class AtlasConfig
         app()->forgetInstance(AtlasManager::class);
         app()->forgetInstance(MiddlewareResolver::class);
 
+        // Forgetting the container instance is not enough: the Atlas facade
+        // caches the AtlasManager it resolved on first use. Without clearing it,
+        // every Atlas:: call after a runtime config change keeps using the stale
+        // manager (built from the old config) — so facade-driven paths like
+        // EmbeddingResolver and ChunkContentService silently ignore the refresh.
+        Atlas::clearResolvedInstance(AtlasManager::class);
+
         // Rebuild ProviderRegistry with new config while preserving factories
         $container = app();
         if ($container->resolved(ProviderRegistryContract::class)) {

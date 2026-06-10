@@ -194,6 +194,17 @@ class ChunkContentService
             );
         }
 
+        // Fail with an actionable message before the cryptic pgvector
+        // "expected N dimensions, not M" error at insert time. The chunks
+        // column is sized to atlas.embeddings.dimensions, so any other length
+        // is guaranteed to be rejected by the database.
+        $expected = (int) $this->config->embeddingDimensions;
+        foreach ($vectors as $vector) {
+            if (count($vector) !== $expected) {
+                throw AtlasException::dimensionMismatch($expected, count($vector));
+            }
+        }
+
         return $vectors;
     }
 

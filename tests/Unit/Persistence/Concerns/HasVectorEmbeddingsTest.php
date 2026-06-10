@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Embeddings\EmbeddingResolver;
+use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Persistence\Concerns\HasVectorEmbeddings;
 use Illuminate\Database\Eloquent\Model;
 
@@ -143,7 +144,7 @@ it('returns false when content is empty', function () {
 });
 
 it('generates embedding and sets column and timestamp', function () {
-    config(['atlas.persistence.enabled' => true]);
+    config(['atlas.persistence.enabled' => true, 'atlas.embeddings.dimensions' => 3]);
     AtlasConfig::refresh();
 
     $vector = [0.1, 0.2, 0.3];
@@ -165,7 +166,7 @@ it('generates embedding and sets column and timestamp', function () {
 });
 
 it('generates embedding using explicit provider and model', function () {
-    config(['atlas.persistence.enabled' => true]);
+    config(['atlas.persistence.enabled' => true, 'atlas.embeddings.dimensions' => 3]);
     AtlasConfig::refresh();
 
     $vector = [0.4, 0.5, 0.6];
@@ -184,6 +185,26 @@ it('generates embedding using explicit provider and model', function () {
 
     expect($model->getAttribute('embedding'))->toBe('[0.4,0.5,0.6]');
     expect($model->getAttribute('embedding_at'))->not->toBeNull();
+});
+
+it('throws an actionable error when the vector dimension does not match the configured size', function () {
+    config(['atlas.persistence.enabled' => true, 'atlas.embeddings.dimensions' => 1536]);
+    AtlasConfig::refresh();
+
+    // Resolver returns a 3-dim vector but the column is sized to 1536 — the
+    // guard must fail with guidance instead of the cryptic pgvector error.
+    $resolver = Mockery::mock(EmbeddingResolver::class);
+    $resolver->shouldReceive('resolve')->once()->andReturn([0.1, 0.2, 0.3]);
+    app()->instance(EmbeddingResolver::class, $resolver);
+
+    $model = new FakeEmbeddableModel;
+    $model->content = 'Test content';
+
+    expect(fn () => $model->generateEmbedding())
+        ->toThrow(
+            AtlasException::class,
+            'returned a 3-dimension vector but atlas.embeddings.dimensions is 1536'
+        );
 });
 
 it('delegates scopeSimilarTo to whereVectorSimilarTo with correct column', function () {

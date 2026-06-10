@@ -31,4 +31,19 @@ class AtlasException extends RuntimeException
     {
         return new self("Unknown driver '{$driver}' for provider '{$key}'.");
     }
+
+    /**
+     * Create an exception for an embedding whose dimension does not match the
+     * configured (and column-sized) `atlas.embeddings.dimensions`.
+     */
+    public static function dimensionMismatch(int $expected, int $actual): self
+    {
+        return new self(
+            "Embedding provider returned a {$actual}-dimension vector but "
+            ."atlas.embeddings.dimensions is {$expected}. The vector column is "
+            ."sized to {$expected}, so this write would be rejected. Set "
+            ."ATLAS_EMBEDDING_DIMENSIONS to your embedding model's dimension, "
+            ."or pass a 'dimensions' provider option that matches the column."
+        );
+    }
 }
