@@ -45,7 +45,9 @@ class HttpClient
     /**
      * Send a GET request and return the raw response body.
      *
-     * Used for binary responses such as video content downloads.
+     * Used for binary responses such as video content downloads. Like get(),
+     * this takes no RequestConfig — GET fetches are not retried and don't honor
+     * a per-call ->withTimeout() override; they use the handler's media timeout.
      *
      * @param  array<string, string>  $headers
      */

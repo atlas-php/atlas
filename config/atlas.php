@@ -170,7 +170,8 @@ return [
     |
     | Controls how Atlas behaves when a provider call fails or is slow.
     |
-    | timeout    — Seconds before a single attempt is abandoned.
+    | timeout    — Default seconds before a single attempt is abandoned. A
+    |              provider's own `timeout` (under `providers`) overrides this.
     | rate_limit — Retries on 429 (Too Many Requests). Waits for Retry-After.
     | errors     — Retries on 5xx / connection timeouts. Exponential backoff.
     |

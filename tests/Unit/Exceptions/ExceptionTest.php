@@ -96,6 +96,31 @@ it('ProviderException::from extracts status and error message', function () {
     expect($e->getPrevious())->toBe($requestException);
 });
 
+it('ProviderException::fromStreamError extracts the message from common shapes', function () {
+    expect(ProviderException::fromStreamError('anthropic', '', ['message' => 'Overloaded'])->providerMessage)
+        ->toBe('Overloaded');
+
+    expect(ProviderException::fromStreamError('openai', '', ['error' => ['message' => 'bad request']])->providerMessage)
+        ->toBe('bad request');
+
+    expect(ProviderException::fromStreamError('ollama', '', ['error' => 'boom'])->providerMessage)
+        ->toBe('boom');
+});
+
+it('ProviderException::fromStreamError pulls a numeric code into statusCode', function () {
+    $e = ProviderException::fromStreamError('google', 'gemini', ['code' => 429, 'message' => 'Resource exhausted']);
+
+    expect($e->statusCode)->toBe(429);
+    expect($e->model)->toBe('gemini');
+});
+
+it('ProviderException::fromStreamError falls back to a default message when none is present', function () {
+    $e = ProviderException::fromStreamError('openai', '', ['unexpected' => true]);
+
+    expect($e->providerMessage)->toBe('Provider returned an error during streaming.');
+    expect($e->statusCode)->toBe(0);
+});
+
 it('UnsupportedFeatureException::make includes feature and provider', function () {
     $e = UnsupportedFeatureException::make('streaming', 'google');
 

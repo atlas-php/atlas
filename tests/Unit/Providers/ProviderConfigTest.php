@@ -33,6 +33,29 @@ it('uses default timeout values when not provided', function () {
     expect($config->mediaTimeout)->toBe(120);
 });
 
+it('falls back to the global atlas.retry.timeout when no provider timeout is set', function () {
+    config(['atlas.retry.timeout' => 90]);
+
+    $config = ProviderConfig::fromArray([
+        'api_key' => 'sk-test',
+        'url' => 'https://api.test.com',
+    ]);
+
+    expect($config->timeout)->toBe(90);
+});
+
+it('a provider-level timeout overrides the global default', function () {
+    config(['atlas.retry.timeout' => 90]);
+
+    $config = ProviderConfig::fromArray([
+        'api_key' => 'sk-test',
+        'url' => 'https://api.test.com',
+        'timeout' => 15,
+    ]);
+
+    expect($config->timeout)->toBe(15);
+});
+
 it('captures extra keys', function () {
     $config = ProviderConfig::fromArray([
         'api_key' => 'sk-test',

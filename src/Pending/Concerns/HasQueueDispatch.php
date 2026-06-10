@@ -261,6 +261,9 @@ trait HasQueueDispatch
     /**
      * Serialize the per-call request config override for the queue payload.
      *
+     * Fulfilled by the HasRequestConfig trait, which every queueable builder
+     * also uses. Declared here so the contract is enforced at class load.
+     *
      * @return array{timeout: int, rateLimit: int, errors: int, timeoutExplicit: bool}|null
      */
     abstract public function requestConfigPayload(): ?array;

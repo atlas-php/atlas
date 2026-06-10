@@ -37,7 +37,9 @@ class ProviderConfig
             apiKey: (string) ($config['api_key'] ?? ''),
             baseUrl: (string) ($config['base_url'] ?? $config['url'] ?? ''),
             organization: isset($config['organization']) ? (string) $config['organization'] : null,
-            timeout: (int) ($config['timeout'] ?? 60),
+            // Falls back to the global default request timeout (atlas.retry.timeout)
+            // when a provider doesn't set its own, so ATLAS_TIMEOUT applies everywhere.
+            timeout: (int) ($config['timeout'] ?? config('atlas.retry.timeout', 60)),
             reasoningTimeout: (int) ($config['reasoning_timeout'] ?? 300),
             mediaTimeout: (int) ($config['media_timeout'] ?? 120),
             capabilityOverrides: (array) ($config['capabilities'] ?? []),
