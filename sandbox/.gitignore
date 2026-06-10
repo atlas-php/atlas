@@ -4,6 +4,13 @@
 /public/hot
 .env
 
+# Local SQLite database (created by `composer setup`)
+/database/*.sqlite
+/database/*.sqlite-journal
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
 # Storage - ignore generated assets and runtime files
 /storage/app/*
 /storage/assets/*

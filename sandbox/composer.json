@@ -42,6 +42,13 @@
         "check": [
             "@lint:test",
             "@analyse"
+        ],
+        "setup": [
+            "@php artisan sandbox:fresh"
+        ],
+        "dev": [
+            "Composer\\Config::disableProcessTimeout",
+            "npx concurrently -k -c \"#a78bfa,#22d3ee,#fb7185,#84cc16\" --names \"server,queue,reverb,vite\" \"php artisan serve\" \"php artisan queue:work --tries=1\" \"php artisan reverb:start\" \"npm run dev\""
         ]
     },
     "minimum-stability": "dev",

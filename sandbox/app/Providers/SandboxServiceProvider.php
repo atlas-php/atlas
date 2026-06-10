@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
-use App\Agents\AssistantAgent;
+use App\Agents\AtlasAgent;
+use App\Agents\IrisAgent;
+use App\Agents\ReelAgent;
+use App\Agents\SageAgent;
 use App\Agents\VoiceAssistantAgent;
 use App\Console\FreshCommand;
 use App\Listeners\SummarizeVoiceCall;
@@ -87,7 +90,10 @@ class SandboxServiceProvider extends ServiceProvider
     {
         /** @var AgentRegistry $registry */
         $registry = $this->app->make(AgentRegistry::class);
-        $registry->register(AssistantAgent::class);
+        $registry->register(AtlasAgent::class);
+        $registry->register(SageAgent::class);
+        $registry->register(IrisAgent::class);
+        $registry->register(ReelAgent::class);
         $registry->register(VoiceAssistantAgent::class);
     }
 

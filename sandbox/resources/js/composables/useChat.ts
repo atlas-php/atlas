@@ -10,6 +10,17 @@ export interface ConversationSummary {
     updated_at: string;
 }
 
+export interface ChatAgent {
+    key: string;
+    name: string;
+    description: string | null;
+    provider: string | null;
+    model: string | null;
+    icon: string;
+    kind: string;
+    default: boolean;
+}
+
 export interface MessageAttachment {
     id: number;
     type: string;
@@ -96,6 +107,8 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 
 export function useChat() {
     const conversations = ref<ConversationSummary[]>([]);
+    const agents = ref<ChatAgent[]>([]);
+    const selectedAgentKey = ref<string | null>(null);
     const activeConversationId = ref<number | null>(null);
     const messages = ref<ChatMessage[]>([]);
     const isTyping = ref(false);
@@ -127,6 +140,17 @@ export function useChat() {
         scrollToBottomCallback?.();
     }
 
+    // ─── Agents ──────────────────────────────────────
+
+    async function loadAgents() {
+        const data = await api<{ agents: ChatAgent[]; default: string }>('/agents');
+        agents.value = data.agents;
+        // Default the picker selection if nothing is chosen yet
+        if (!selectedAgentKey.value) {
+            selectedAgentKey.value = data.default || data.agents[0]?.key || null;
+        }
+    }
+
     // ─── Conversations ───────────────────────────────
 
     async function loadConversations() {
@@ -150,6 +174,8 @@ export function useChat() {
 
             activeConversationId.value = id;
             conversationTitle.value = data.title;
+            // Lock the picker to this conversation's agent
+            if (data.agent) selectedAgentKey.value = data.agent;
             messages.value = data.messages;
             hasMore.value = data.has_more;
             isTyping.value = data.typing;
@@ -213,6 +239,9 @@ export function useChat() {
 
             if (activeConversationId.value) {
                 payload.conversation_id = activeConversationId.value;
+            } else if (selectedAgentKey.value) {
+                // New conversation — bind it to the selected agent
+                payload.agent = selectedAgentKey.value;
             }
 
             if (attachments?.length) {
@@ -436,8 +465,14 @@ export function useChat() {
 
     const isEmpty = computed(() => messages.value.length === 0 && !isTyping.value);
 
+    // A conversation is locked to its agent once it exists (has an id)
+    const agentLocked = computed(() => activeConversationId.value !== null);
+
     return {
         conversations,
+        agents,
+        selectedAgentKey,
+        agentLocked,
         activeConversationId,
         messages,
         conversationTitle,
@@ -449,6 +484,7 @@ export function useChat() {
         hasMore,
         isEmpty,
         error,
+        loadAgents,
         loadConversations,
         loadConversation,
         deleteConversation,

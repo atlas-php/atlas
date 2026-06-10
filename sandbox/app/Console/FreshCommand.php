@@ -21,12 +21,14 @@ class FreshCommand extends Command
 
     public function handle(Filesystem $files): void
     {
+        $this->ensureSqliteDatabase($files);
+
         $this->call('migrate:fresh');
 
-        User::create([
-            'name' => 'Sandbox User',
-            'email' => 'sandbox@atlas.test',
-        ]);
+        User::firstOrCreate(
+            ['email' => 'sandbox@atlas.test'],
+            ['name' => 'Sandbox User'],
+        );
 
         $this->line('Seeded default user (id: 1)');
 
@@ -49,5 +51,24 @@ class FreshCommand extends Command
         }
 
         $this->info('Sandbox reset complete.');
+    }
+
+    /**
+     * Create the SQLite database file if the sqlite driver is in use and the
+     * file is missing — so the sandbox works with zero database setup.
+     */
+    protected function ensureSqliteDatabase(Filesystem $files): void
+    {
+        if (config('database.default') !== 'sqlite') {
+            return;
+        }
+
+        $path = config('database.connections.sqlite.database');
+
+        if (is_string($path) && $path !== ':memory:' && ! $files->exists($path)) {
+            $files->ensureDirectoryExists(dirname($path));
+            $files->put($path, '');
+            $this->line('Created SQLite database: '.$path);
+        }
     }
 }

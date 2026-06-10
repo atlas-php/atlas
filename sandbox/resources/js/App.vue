@@ -65,6 +65,7 @@ function onPopState() {
 
 onMounted(() => {
     window.addEventListener('popstate', onPopState);
+    chat.loadAgents();
     chat.loadConversations();
 
     // Load thread from URL on initial page load
@@ -179,6 +180,9 @@ function handleCycleSibling(messageId: number, index: number) {
                 :disabled="chat.isTyping.value || chat.isStreaming.value"
                 :attachments="attachments"
                 :can-add-more="canAddMore"
+                :agents="chat.agents.value"
+                :selected-agent-key="chat.selectedAgentKey.value"
+                :agent-locked="chat.agentLocked.value"
                 :voice-status="voice.sessionStatus.value"
                 :voice-audio-level="voice.audioLevel.value"
                 :voice-is-listening="voice.isListening.value"
@@ -186,6 +190,7 @@ function handleCycleSibling(messageId: number, index: number) {
                 @send="handleSend"
                 @add-files="addFiles"
                 @remove-attachment="removeAttachment"
+                @select-agent="(key: string) => (chat.selectedAgentKey.value = key)"
                 @voice-toggle="handleVoiceToggle"
             />
         </div>

@@ -51,7 +51,6 @@ export function useVoice() {
 
     // Session context
     let currentSession: SessionPayload | null = null;
-    let currentConversationId: number | null = null;
     let unloadHandler: (() => void) | null = null;
 
     // Transcript accumulation — stored on session end only.
@@ -63,7 +62,6 @@ export function useVoice() {
     let currentUserTranscript = '';
     let currentAssistantTranscript = '';
     let completedTurns: Array<{ role: string; transcript: string }> = [];
-    let lastResponseDone = false; // tracks whether we're between response.done and next speech_started
     let onTranscriptFlushedCallback: (() => void) | null = null;
 
     // Audio playback
@@ -87,11 +85,9 @@ export function useVoice() {
 
         sessionStatus.value = 'connecting';
         error.value = null;
-        currentConversationId = options.conversation_id ?? null;
         currentUserTranscript = '';
         currentAssistantTranscript = '';
         completedTurns = [];
-        lastResponseDone = false;
         liveUserTranscript.value = '';
         liveAssistantTranscript.value = '';
 
@@ -213,7 +209,6 @@ export function useVoice() {
             // Don't seal yet — more VAD segments may follow for the same exchange.
             case 'response.done':
                 schedulePlaybackComplete();
-                lastResponseDone = true;
                 // Checkpoint: seal and save whatever we have so far
                 sealCurrentTurn();
                 checkpointTranscript();
@@ -225,7 +220,6 @@ export function useVoice() {
                 if (isSpeaking.value) {
                     cancelCurrentResponse();
                 }
-                lastResponseDone = false;
                 break;
             case 'input_audio_buffer.speech_stopped':
                 isListening.value = false;
@@ -594,7 +588,6 @@ export function useVoice() {
         localStream = null;
 
         currentSession = null;
-        currentConversationId = null;
 
         sessionStatus.value = 'closed';
         isListening.value = false;

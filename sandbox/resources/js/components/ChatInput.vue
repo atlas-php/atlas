@@ -4,12 +4,17 @@ import { ArrowUp, Paperclip, X, FileText } from 'lucide-vue-next';
 import type { Attachment } from '../composables/useAttachments';
 import { ACCEPTED_TYPES } from '../composables/useAttachments';
 import type { SessionStatus } from '../composables/useVoice';
+import type { ChatAgent } from '../composables/useChat';
 import VoiceButton from './VoiceButton.vue';
+import AgentPicker from './AgentPicker.vue';
 
 const props = defineProps<{
     disabled: boolean;
     attachments: Attachment[];
     canAddMore: boolean;
+    agents?: ChatAgent[];
+    selectedAgentKey?: string | null;
+    agentLocked?: boolean;
     voiceStatus?: SessionStatus;
     voiceAudioLevel?: number;
     voiceIsListening?: boolean;
@@ -20,6 +25,7 @@ const emit = defineEmits<{
     send: [text: string];
     'add-files': [files: FileList];
     'remove-attachment': [index: number];
+    'select-agent': [key: string];
     'voice-toggle': [];
 }>();
 
@@ -179,8 +185,15 @@ function handleDrop(e: DragEvent) {
 
                 <!-- Bottom toolbar -->
                 <div class="flex items-center justify-between px-3 pb-2.5">
-                    <!-- Left: attachment -->
-                    <div class="flex items-center">
+                    <!-- Left: agent picker + attachment -->
+                    <div class="flex items-center gap-1">
+                        <AgentPicker
+                            v-if="agents && agents.length"
+                            :agents="agents"
+                            :model-value="selectedAgentKey ?? null"
+                            :disabled="agentLocked"
+                            @update:model-value="(key) => emit('select-agent', key)"
+                        />
                         <button
                             class="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
                             title="Attach file"

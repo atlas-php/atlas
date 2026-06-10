@@ -6,7 +6,10 @@ namespace App\Http\Controllers;
 
 use App\Http\Resources\MessageResource;
 use App\Models\User;
+use App\Support\ChatAgents;
+use Atlasphp\Atlas\AgentRegistry;
 use Atlasphp\Atlas\Atlas;
+use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Input\Image;
 use Atlasphp\Atlas\Persistence\Enums\ExecutionStatus;
 use Atlasphp\Atlas\Persistence\Models\Conversation;
@@ -28,6 +31,7 @@ class ChatController
 {
     public function __construct(
         protected readonly ConversationService $conversations,
+        protected readonly AgentRegistry $agents,
     ) {}
 
     // ─── Chat ────────────────────────────────────────────────────
@@ -44,13 +48,14 @@ class ChatController
         $request->validate([
             'message' => 'required|string',
             'conversation_id' => 'nullable|integer',
+            'agent' => 'nullable|string|max:64',
             'attachments' => 'nullable|array',
             'attachments.*.base64' => 'required_with:attachments|string',
             'attachments.*.mime' => 'required_with:attachments|string',
             'attachments.*.name' => 'required_with:attachments|string',
         ]);
 
-        $user = User::findOrFail(1);
+        $user = $this->demoUser();
         $conversationId = $request->integer('conversation_id');
 
         // Build media inputs from attachments
@@ -61,29 +66,39 @@ class ChatController
             }
         }
 
-        // Atlas handles everything — conversation, messages, media storage,
-        // history, and response persistence via PersistConversation middleware.
-        $agentRequest = Atlas::agent('sarah-text')
-            ->for($user)
-            ->message($request->string('message')->toString(), $media)
-            ->queue()
-            ->withQueueDelay(3);
-
+        // Resolve the agent: existing conversations are locked to their
+        // original agent; new conversations honour the picked agent (validated)
+        // and fall back to the default.
         if ($conversationId > 0) {
-            // Continue existing conversation
-            $agentRequest->forConversation($conversationId);
+            // Scope to the owner so a conversation can't be hijacked by id.
+            $conversation = Conversation::where('id', $conversationId)
+                ->where('owner_type', $user->getMorphClass())
+                ->where('owner_id', $user->getKey())
+                ->firstOrFail();
+            $agentKey = $conversation->agent ?? ChatAgents::default();
         } else {
+            $requested = $request->string('agent')->toString();
+            $agentKey = ChatAgents::isPickable($requested) ? $requested : ChatAgents::default();
+
             // New thread — create a fresh conversation for broadcasting.
             // PersistConversation middleware will use this conversation
             // since forConversation() is set.
             $conversation = Conversation::create([
                 'owner_type' => $user->getMorphClass(),
                 'owner_id' => $user->getKey(),
-                'agent' => 'sarah-text',
+                'agent' => $agentKey,
             ]);
             $conversationId = $conversation->id;
-            $agentRequest->forConversation($conversationId);
         }
+
+        // Atlas handles everything — conversation, messages, media storage,
+        // history, and response persistence via PersistConversation middleware.
+        $agentRequest = Atlas::agent($agentKey)
+            ->for($user)
+            ->message($request->string('message')->toString(), $media)
+            ->queue()
+            ->withQueueDelay(3)
+            ->forConversation($conversationId);
 
         $agentRequest->broadcastOn(new Channel('conversation.'.$conversationId));
 
@@ -95,6 +110,41 @@ class ChatController
         ], 202);
     }
 
+    /**
+     * List the chat-selectable agents for the picker.
+     */
+    public function agents(): JsonResponse
+    {
+        $default = ChatAgents::default();
+        $roster = ChatAgents::roster();
+
+        $agents = [];
+        foreach ($roster as $key => $meta) {
+            if (! $this->agents->has($key)) {
+                continue;
+            }
+
+            $agent = $this->agents->resolve($key);
+            $provider = $agent->provider();
+
+            $agents[] = [
+                'key' => $key,
+                'name' => $agent->name(),
+                'description' => $agent->description(),
+                'provider' => $provider instanceof Provider ? $provider->value : $provider,
+                'model' => $agent->model(),
+                'icon' => $meta['icon'],
+                'kind' => $meta['kind'],
+                'default' => $key === $default,
+            ];
+        }
+
+        return new JsonResponse([
+            'agents' => $agents,
+            'default' => $default,
+        ]);
+    }
+
     // ─── Conversations ───────────────────────────────────────────
 
     /**
@@ -102,7 +152,7 @@ class ChatController
      */
     public function index(): JsonResponse
     {
-        $user = User::findOrFail(1);
+        $user = $this->demoUser();
 
         $conversations = Conversation::where('owner_type', $user->getMorphClass())
             ->where('owner_id', $user->getKey())
@@ -194,9 +244,14 @@ class ChatController
      */
     public function retry(int $conversationId): JsonResponse
     {
-        $user = User::findOrFail(1);
+        $user = $this->demoUser();
+        $conversation = Conversation::where('id', $conversationId)
+            ->where('owner_type', $user->getMorphClass())
+            ->where('owner_id', $user->getKey())
+            ->firstOrFail();
+        $agentKey = $conversation->agent ?? ChatAgents::default();
 
-        $pending = Atlas::agent('sarah-text')
+        $pending = Atlas::agent($agentKey)
             ->for($user)
             ->forConversation($conversationId)
             ->retry()
@@ -291,6 +346,21 @@ class ChatController
     }
 
     // ─── Helpers ─────────────────────────────────────────────────
+
+    /**
+     * Resolve the sandbox's single demo user, creating it on first use.
+     *
+     * The sandbox has no auth — every conversation is owned by one demo
+     * user. Self-healing so a freshly migrated database never 404s before
+     * `sandbox:fresh` has been run.
+     */
+    protected function demoUser(): User
+    {
+        return User::firstOrCreate(
+            ['email' => 'sandbox@atlas.test'],
+            ['name' => 'Sandbox User'],
+        );
+    }
 
     /**
      * Load messages with cursor-based pagination.

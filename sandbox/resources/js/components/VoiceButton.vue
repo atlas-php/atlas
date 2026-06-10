@@ -16,7 +16,6 @@ const emit = defineEmits<{
 
 const isActive = computed(() => props.status === 'active');
 const isConnecting = computed(() => props.status === 'connecting');
-const isIdle = computed(() => props.status === 'idle' || props.status === 'closed');
 
 const glowIntensity = computed(() => {
     if (!isActive.value) return 0;

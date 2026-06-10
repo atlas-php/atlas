@@ -10,6 +10,9 @@ use Illuminate\Support\Facades\Route;
 // ─── Chat ────────────────────────────────────────────────────
 Route::post('/chat', [ChatController::class, 'chat']);
 
+// ─── Agents (picker) ─────────────────────────────────────────
+Route::get('/agents', [ChatController::class, 'agents']);
+
 // ─── Conversations ───────────────────────────────────────────
 Route::get('/conversations', [ChatController::class, 'index']);
 Route::get('/conversations/{id}', [ChatController::class, 'show']);

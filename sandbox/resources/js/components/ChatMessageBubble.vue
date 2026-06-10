@@ -16,12 +16,15 @@ const emit = defineEmits<{
 }>();
 
 const isUser = computed(() => props.message.role === 'user');
-const imageAttachments = computed(() =>
-    (props.message.attachments ?? []).filter((a) => a.type === 'image' && a.url),
-);
-const docAttachments = computed(() =>
-    (props.message.attachments ?? []).filter((a) => a.type !== 'image'),
-);
+// Assistant-generated media (image/video/audio) is already rendered inline via
+// the tool's markdown, so only show non-media attachments (e.g. documents) as
+// chips on assistant messages. User messages show all their attachments.
+const MEDIA_TYPES = ['image', 'video', 'audio'];
+const visibleAttachments = computed(() => {
+    const all = props.message.attachments ?? [];
+    if (isUser.value) return all;
+    return all.filter((a) => !MEDIA_TYPES.includes(a.type));
+});
 const hasExecution = computed(() => !!props.message.execution);
 const isRealtime = computed(() => props.message.metadata?.source === 'voice');
 const hasSiblings = computed(
@@ -75,8 +78,8 @@ function formatTime(dateStr: string): string {
     <div class="group flex gap-3 py-2" :class="isUser ? 'justify-end' : 'justify-start'">
         <div :class="isUser ? 'max-w-[80%]' : 'max-w-[85%] w-full'">
             <!-- Attachments (above the bubble) -->
-            <div v-if="message.attachments?.length" class="mb-2 flex flex-wrap gap-1.5" :class="isUser ? 'justify-end' : ''">
-                <template v-for="att in message.attachments" :key="att.id">
+            <div v-if="visibleAttachments.length" class="mb-2 flex flex-wrap gap-1.5" :class="isUser ? 'justify-end' : ''">
+                <template v-for="att in visibleAttachments" :key="att.id">
                     <!-- User image attachments: show preview thumbnail -->
                     <a
                         v-if="isUser && att.type === 'image' && att.url"
