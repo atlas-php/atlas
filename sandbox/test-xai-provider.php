@@ -27,12 +27,14 @@ use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Enums\ReasoningEffort;
 use Atlasphp\Atlas\Input\Image;
 use Atlasphp\Atlas\Messages\AssistantMessage;
 use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Messages\ToolResultMessage;
 use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Schema\Schema;
+use Atlasphp\Atlas\Tools\Tool;
 use Atlasphp\Atlas\Tools\ToolDefinition;
 
 // ─── Storage Setup ───────────────────────────────────────────────────────────
@@ -422,6 +424,53 @@ test('async video generation (5s) + save to disk', function () {
 });
 
 // ── Models & Voices ──────────────────────────────────────────────────────────
+
+echo "\n\n── Reasoning";
+
+test('reasoning effort engages and tracks reasoning tokens', function () {
+    $r = Atlas::text(Provider::xAI, 'grok-3-mini')
+        ->reasoning(ReasoningEffort::High)
+        ->message('What is 47 * 89? Think step by step, then give just the number.')
+        ->asText();
+
+    assert_true(str_contains($r->text, '4183'), "Should answer 4183, got: {$r->text}");
+    assert_true($r->usage->reasoningTokens > 0, 'Should report reasoning tokens');
+});
+
+test('reasoning works across a multi-step tool loop', function () {
+    $tool = new class extends Tool
+    {
+        public function name(): string
+        {
+            return 'multiply';
+        }
+
+        public function description(): string
+        {
+            return 'Multiply two integers.';
+        }
+
+        public function parameters(): array
+        {
+            return [Schema::integer('a', 'first'), Schema::integer('b', 'second')];
+        }
+
+        public function handle(array $args, array $context): mixed
+        {
+            return (string) ((int) $args['a'] * (int) $args['b']);
+        }
+    };
+
+    $r = Atlas::text(Provider::xAI, 'grok-3-mini')
+        ->reasoning(ReasoningEffort::High)
+        ->withTools([$tool])
+        ->withMaxSteps(6)
+        ->message('Use the multiply tool to compute 47 x 89 and 123 x 456 (one call each), then add the products. Give the final sum.')
+        ->asText();
+
+    assert_true(count($r->steps) >= 2, 'Should run a multi-step tool loop');
+    assert_true(str_contains(str_replace(',', '', $r->text), '60271'), "Should reach 60271, got: {$r->text}");
+});
 
 echo "\n\n── Provider Interrogation";
 

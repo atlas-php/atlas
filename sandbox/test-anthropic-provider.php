@@ -28,12 +28,14 @@ use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Enums\ReasoningEffort;
 use Atlasphp\Atlas\Input\Image;
 use Atlasphp\Atlas\Messages\AssistantMessage;
 use Atlasphp\Atlas\Messages\ToolCall;
 use Atlasphp\Atlas\Messages\ToolResultMessage;
 use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Schema\Schema;
+use Atlasphp\Atlas\Tools\Tool;
 
 // ─── Storage Setup ───────────────────────────────────────────────────────────
 
@@ -338,6 +340,57 @@ test('image understanding from base64', function () {
 
     assert_true($r->text !== '', 'Should describe the image');
     assert_true(str_contains(strtolower($r->text), 'red'), "Should identify red color, got: {$r->text}");
+});
+
+// ── Reasoning (Extended Thinking) ─────────────────────────────────────────────
+
+echo "\n\n── Reasoning";
+
+test('reasoning returns thinking text and answers correctly', function () {
+    $r = Atlas::text(Provider::Anthropic, 'claude-sonnet-4-5-20250929')
+        ->reasoning(ReasoningEffort::Low)
+        ->message('What is 47 * 89? Think step by step, then give just the number.')
+        ->asText();
+
+    assert_true(str_contains($r->text, '4183'), "Should answer 4183, got: {$r->text}");
+    assert_true(($r->reasoning ?? '') !== '', 'Should return extended-thinking text');
+});
+
+test('extended thinking is preserved across a multi-step tool loop', function () {
+    $tool = new class extends Tool
+    {
+        public function name(): string
+        {
+            return 'multiply';
+        }
+
+        public function description(): string
+        {
+            return 'Multiply two integers.';
+        }
+
+        public function parameters(): array
+        {
+            return [Schema::integer('a', 'first'), Schema::integer('b', 'second')];
+        }
+
+        public function handle(array $args, array $context): mixed
+        {
+            return (string) ((int) $args['a'] * (int) $args['b']);
+        }
+    };
+
+    // Before the signature-replay fix this 400'd: Anthropic rejects a tool
+    // continuation whose assistant turn dropped the signed thinking block.
+    $r = Atlas::text(Provider::Anthropic, 'claude-sonnet-4-5-20250929')
+        ->reasoning(ReasoningEffort::Low)
+        ->withTools([$tool])
+        ->withMaxSteps(6)
+        ->message('Use the multiply tool to compute 47 x 89 and 123 x 456 (one call each), then add the products. Give the final sum.')
+        ->asText();
+
+    assert_true(count($r->steps) >= 2, 'Should run a multi-step tool loop');
+    assert_true(str_contains(str_replace(',', '', $r->text), '60271'), "Should reach 60271, got: {$r->text}");
 });
 
 // ── Provider Interrogation ──────────────────────────────────────────────────
