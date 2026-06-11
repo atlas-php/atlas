@@ -171,6 +171,15 @@ class ResponseParser implements ResponseParserContract
             );
         }
 
+        // Reasoning summary deltas — surfaced as Thinking chunks so a frontend can
+        // render the model's thinking live (mirrors Anthropic/Google streaming).
+        if (str_contains($event, 'reasoning_summary_text.delta')) {
+            return new StreamChunk(
+                type: ChunkType::Thinking,
+                reasoning: (string) ($payload['delta'] ?? ''),
+            );
+        }
+
         // Use output_item.done for function calls — it carries the complete
         // item with call_id, name, and arguments. The function_call_arguments.done
         // event only has arguments (no call_id or name in some providers like xAI).

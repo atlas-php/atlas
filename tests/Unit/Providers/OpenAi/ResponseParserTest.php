@@ -195,6 +195,18 @@ it('parses text delta stream chunk', function () {
     expect($chunk->text)->toBe('Hello');
 });
 
+it('parses a reasoning summary delta as a Thinking stream chunk', function () {
+    $parser = makeParser();
+
+    $chunk = $parser->parseStreamChunk([
+        'event' => 'response.reasoning_summary_text.delta',
+        'data' => ['delta' => 'Let me think...'],
+    ]);
+
+    expect($chunk->type)->toBe(ChunkType::Thinking)
+        ->and($chunk->reasoning)->toBe('Let me think...');
+});
+
 it('parses function call from output_item.done stream chunk', function () {
     $parser = makeParser();
 
