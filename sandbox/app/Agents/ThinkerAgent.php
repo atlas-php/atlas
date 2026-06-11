@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Agents;
 
+use App\Tools\CurrentDateTimeTool;
 use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Enums\ReasoningEffort;
@@ -49,6 +50,17 @@ class ThinkerAgent extends Agent
     public function reasoning(): ?Reasoning
     {
         return new Reasoning(ReasoningEffort::Medium);
+    }
+
+    /**
+     * A tool so the run goes through the executor — its steps persist the
+     * reasoning for the UI's collapsible "Thinking" trace.
+     *
+     * @return array<int, class-string>
+     */
+    public function tools(): array
+    {
+        return [CurrentDateTimeTool::class];
     }
 
     public function instructions(): string
