@@ -91,7 +91,16 @@ class MessageFactory implements MessageFactoryContract
      */
     public function toolResult(ToolResultMessage $message): array
     {
-        $response = json_decode($message->content, true);
+        $decoded = json_decode($message->content, true);
+
+        // Google's functionResponse.response must be a JSON object (a protobuf
+        // Struct). Pass JSON objects straight through; wrap everything else —
+        // scalars (numbers/booleans/strings), JSON arrays, and non-JSON strings
+        // (which decode to null) — under a `result` key so the provider doesn't
+        // reject a bare scalar or list.
+        $response = is_array($decoded) && ! array_is_list($decoded)
+            ? $decoded
+            : ['result' => $decoded ?? $message->content];
 
         return [
             'role' => 'user',
@@ -99,7 +108,7 @@ class MessageFactory implements MessageFactoryContract
                 [
                     'functionResponse' => [
                         'name' => $message->toolName ?? '',
-                        'response' => $response ?? ['result' => $message->content],
+                        'response' => $response,
                     ],
                 ],
             ],

@@ -40,8 +40,9 @@ class MultiplyTool extends Tool
      */
     public function handle(array $args, array $context): mixed
     {
-        // Object-shaped so the result is portable across providers (Google's
-        // functionResponse.response must be a struct, not a bare scalar).
-        return json_encode(['product' => (int) $args['a'] * (int) $args['b']]);
+        // Returns a bare numeric string on purpose — this is the shape that used
+        // to 400 on Google (functionResponse.response must be a struct). Keeping
+        // it scalar exercises the MessageFactory wrapping fix across providers.
+        return (string) ((int) $args['a'] * (int) $args['b']);
     }
 }

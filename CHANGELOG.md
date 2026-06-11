@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 ### Fixed
 
 - Extended thinking now works through multi-step tool calls and persisted-conversation reloads.
+- Google (Gemini) tool calls no longer 400 when a tool returns a non-object value (number, boolean, JSON array, or quoted string) — these are now wrapped into a valid object. Plain strings and JSON objects are unchanged.
 
 ### Migration
 
