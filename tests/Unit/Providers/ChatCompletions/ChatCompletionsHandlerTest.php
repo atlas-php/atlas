@@ -348,3 +348,18 @@ it('sends reasoning_effort when reasoning is set', function () {
 it('throws UnsupportedFeatureException for rerank', function () {
     makeChatCompletionsDriver()->rerank(new RerankRequest('model', 'query', ['doc']));
 })->throws(UnsupportedFeatureException::class, 'rerank');
+
+// ─── countTokens (heuristic) ────────────────────────────────────────────────
+
+it('countTokens returns a heuristic estimate for OpenAI-compatible endpoints', function () {
+    $request = new TextRequest(
+        model: 'llama3.2', instructions: 'You are helpful.', message: 'Estimate this please', messageMedia: [], messages: [],
+        maxTokens: null, temperature: null, schema: null, tools: [], providerTools: [], providerOptions: [],
+    );
+
+    $count = makeChatCompletionsDriver()->countTokens($request);
+
+    expect($count->estimated)->toBeTrue()
+        ->and($count->inputTokens)->toBeGreaterThan(0)
+        ->and($count->model)->toBe('llama3.2');
+});

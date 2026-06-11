@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Enums\VoiceTransport;
+use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\Handlers\AudioHandler;
@@ -239,4 +240,28 @@ it('custom handler returns correct response types for each modality', function (
 
     $audioResponse = $customDriver->audio(makeHandlerTestAudioReq());
     expect($audioResponse)->toBeInstanceOf(AudioResponse::class);
+});
+
+// ─── countTokens ────────────────────────────────────────────────────────────
+
+it('routes countTokens to the text handler', function () {
+    $count = createConcreteDriverWithText()->countTokens(makeTextReq('concrete-model'));
+
+    expect($count->inputTokens)->toBe(10)
+        ->and($count->model)->toBe('concrete-model');
+});
+
+it('countTokens throws UnsupportedFeatureException on a driver with no text handler', function () {
+    makeBareDriver()->countTokens(makeTextReq());
+})->throws(UnsupportedFeatureException::class);
+
+it('countTokens uses an overridden text handler', function () {
+    $handler = Mockery::mock(TextHandler::class);
+    $handler->shouldReceive('countTokens')->once()->andReturn(
+        new TokenCount(inputTokens: 99, estimated: false, provider: 'test', model: 'model'),
+    );
+
+    $count = createConcreteDriverWithText()->withHandler('text', $handler)->countTokens(makeTextReq());
+
+    expect($count->inputTokens)->toBe(99);
 });

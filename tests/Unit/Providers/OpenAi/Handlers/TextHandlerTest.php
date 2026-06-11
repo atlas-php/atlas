@@ -20,6 +20,7 @@ use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Schema\Schema;
 use Atlasphp\Atlas\Tools\ToolChoice;
 use Atlasphp\Atlas\Tools\ToolDefinition;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
@@ -431,4 +432,13 @@ it('falls back to a heuristic estimate when input_tokens is unsupported', functi
 
     expect($count->estimated)->toBeTrue()
         ->and($count->inputTokens)->toBeGreaterThan(0);
+});
+
+it('rethrows a non-fallback error from input_tokens instead of estimating', function () {
+    Http::fake([
+        'api.openai.com/v1/responses/input_tokens' => Http::response(['error' => 'unauthorized'], 401),
+    ]);
+
+    expect(fn () => makeTextHandler()->countTokens(makeOpenAiTextRequest()))
+        ->toThrow(RequestException::class);
 });
