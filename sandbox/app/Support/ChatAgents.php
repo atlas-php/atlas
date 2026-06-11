@@ -24,6 +24,7 @@ class ChatAgents
     {
         return [
             'atlas' => ['icon' => 'sparkles', 'kind' => 'text'],
+            'thinker' => ['icon' => 'brain', 'kind' => 'text'],
             'sage' => ['icon' => 'brain', 'kind' => 'text'],
             'iris' => ['icon' => 'image', 'kind' => 'image'],
             'reel' => ['icon' => 'clapperboard', 'kind' => 'video'],

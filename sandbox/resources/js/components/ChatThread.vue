@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted } from 'vue';
-import { Loader2 } from 'lucide-vue-next';
+import { Loader2, Brain } from 'lucide-vue-next';
 import ChatMessageBubble from './ChatMessageBubble.vue';
 import ChatToolCallIndicator from './ChatToolCallIndicator.vue';
 import { renderMarkdown } from '../utils/markdown';
@@ -13,6 +13,7 @@ const props = defineProps<{
     isEmpty: boolean;
     isStreaming: boolean;
     streamingText: string;
+    streamingThinking: string;
     activeToolCalls: ActiveToolCall[];
 }>();
 
@@ -143,9 +144,18 @@ defineExpose({ scrollToBottom });
             />
 
             <!-- Streaming assistant message -->
-            <div v-if="isStreaming && streamingText" class="group flex gap-3 py-2 justify-start">
+            <div v-if="isStreaming && (streamingText || streamingThinking)" class="group flex gap-3 py-2 justify-start">
                 <div class="max-w-[85%] w-full">
-                    <div class="rounded-2xl rounded-bl-md bg-muted text-foreground px-4 py-2.5">
+                    <!-- Live thinking (extended reasoning), expandable; open while it streams -->
+                    <details v-if="streamingThinking" open class="mb-1.5 rounded-lg border border-amber-500/20 bg-amber-500/5">
+                        <summary class="flex cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs text-amber-400/90 hover:text-amber-300">
+                            <Brain class="size-3.5" :class="{ 'animate-pulse': !streamingText }" />
+                            <span>Thinking{{ streamingText ? '' : '…' }}</span>
+                        </summary>
+                        <div class="max-h-56 overflow-y-auto px-3 pb-2.5 text-[11px] leading-relaxed whitespace-pre-wrap text-amber-200/70">{{ streamingThinking }}</div>
+                    </details>
+
+                    <div v-if="streamingText" class="rounded-2xl rounded-bl-md bg-muted text-foreground px-4 py-2.5">
                         <div class="prose prose-sm prose-invert max-w-none streaming-cursor" v-html="renderedStreamingText" />
                     </div>
                 </div>
