@@ -541,22 +541,15 @@ export function useVoice() {
         sessionStatus.value = 'closing';
         removeUnloadHandler();
 
-        // Seal any in-progress turn
+        // Seal any in-progress turn, then snapshot what the server needs before
+        // teardown clears currentSession.
         sealCurrentTurn();
+        const closeEndpoint = currentSession?.close_endpoint;
+        const turns = completedTurns.map(t => ({ role: t.role, content: t.transcript }));
 
-        // Close the session on the server with the final transcript
-        if (currentSession?.close_endpoint) {
-            try {
-                const turns = completedTurns.map(t => ({ role: t.role, content: t.transcript }));
-                await fetch(currentSession.close_endpoint, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ turns }),
-                });
-                onTranscriptFlushedCallback?.();
-            } catch { /* best effort */ }
-        }
-
+        // Tear down audio + connections immediately so the call ends instantly.
+        // The server close request is fired afterwards and never blocks the UI —
+        // summarization and other post-call work happen server-side (queued).
         if (playbackCompleteTimer !== null) {
             clearTimeout(playbackCompleteTimer);
             playbackCompleteTimer = null;
@@ -593,6 +586,17 @@ export function useVoice() {
         isListening.value = false;
         isSpeaking.value = false;
         audioLevel.value = 0;
+
+        // Notify the server in the background — best effort, never blocks teardown.
+        if (closeEndpoint) {
+            fetch(closeEndpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ turns }),
+            })
+                .then(() => onTranscriptFlushedCallback?.())
+                .catch(() => { /* best effort */ });
+        }
     }
 
     function registerUnloadHandler() {

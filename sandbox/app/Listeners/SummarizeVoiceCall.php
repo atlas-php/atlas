@@ -8,12 +8,17 @@ use Atlasphp\Atlas\AgentRegistry;
 use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Events\VoiceCallCompleted;
 use Atlasphp\Atlas\Persistence\Models\VoiceCall;
+use Illuminate\Contracts\Queue\ShouldQueue;
 
 /**
  * Summarizes a completed voice call using a cheap xAI model
  * and stores the summary on the VoiceCall record.
+ *
+ * Queued: the LLM summary must never block the voice/close HTTP request,
+ * which would freeze the "end call" UI until the summarization round-trip
+ * finishes. Requires Horizon to be running to process the summary.
  */
-class SummarizeVoiceCall
+class SummarizeVoiceCall implements ShouldQueue
 {
     public function handle(VoiceCallCompleted $event): void
     {
