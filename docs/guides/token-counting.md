@@ -58,6 +58,18 @@ Output tokens are **not** counted — they are unknowable until the model respon
 
 The native endpoints are exact (verified against the billed `usage->inputTokens`) and free, subject to each provider's own rate limit. Providers without a full-request count endpoint fall back to the `chars / 4` heuristic — always check the `estimated` flag if you need to know which you got. The heuristic walks the built payload, so base64-encoded media inflates the figure; treat estimated counts as approximate.
 
+## Quick local estimate
+
+Need a rough number for a raw string — with no provider, no model, and no network call? Use the `TokenCounter` utility directly. It's the same `chars / 4` heuristic Atlas uses for chunk sizing and for providers without a native endpoint:
+
+```php
+use Atlasphp\Atlas\Support\TokenCounter;
+
+TokenCounter::count($text); // e.g. 74 — instant, offline, model-agnostic
+```
+
+This is approximate and counts a plain string only (no message wrapper, tools, or media). Reach for it when you just want a fast sanity check; use `countTokens()` when you need a model-accurate number for an actual request.
+
 ## Estimating cost
 
 Atlas does **not** ship a price table — model prices change and a stale one is worse than none. Once you have a token count, apply your own current per-model rates:
