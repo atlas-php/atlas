@@ -13,6 +13,8 @@
 </p>
 <p align="center">
     📚 <a href="https://atlasphp.org"><strong>Documentation</strong></a>
+    &nbsp;·&nbsp;
+    🧪 <a href="#-sandbox"><strong>Sandbox &amp; Examples</strong></a>
 </p>
 
 # 🪐 Atlas
@@ -282,7 +284,7 @@ composer check
 | [Pest](https://pestphp.com)                      | Testing framework                                                                                                      |
 | [Larastan](https://github.com/larastan/larastan) | Static analysis                                                                                                        |
 | [Laravel Pint](https://laravel.com/docs/pint)    | Code style                                                                                                             |
-| [Live API Audit](./AUDIT.md)                     | Every provider modality verified against **real provider APIs** via the sandbox harness — see the dated pass matrix    |
+| [API Audit](./AUDIT.md)                     | Every provider modality verified against **real provider APIs** |
 | [Codecov](https://codecov.io/gh/atlas-php/atlas/branch/3.x) | [![codecov](https://codecov.io/gh/atlas-php/atlas/branch/3.x/graph/badge.svg)](https://codecov.io/gh/atlas-php/atlas/branch/3.x) |
 
 ## 🤝 Contributing
