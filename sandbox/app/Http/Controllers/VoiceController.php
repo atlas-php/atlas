@@ -21,7 +21,7 @@ class VoiceController
     public function createSession(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'conversation_id' => 'sometimes|integer',
+            'conversation_id' => 'nullable|integer',
         ]);
 
         $user = User::findOrFail(1);
