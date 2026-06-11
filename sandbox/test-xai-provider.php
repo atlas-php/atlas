@@ -472,6 +472,27 @@ test('reasoning works across a multi-step tool loop', function () {
     assert_true(str_contains(str_replace(',', '', $r->text), '60271'), "Should reach 60271, got: {$r->text}");
 });
 
+test('streaming surfaces thinking deltas for live display', function () {
+    $stream = Atlas::text(Provider::xAI, 'grok-3-mini')
+        ->reasoning(ReasoningEffort::High, includeSummary: true)
+        ->message('A farmer has 17 sheep; all but 9 run away. He then buys 3 times as many as he has left, but 5 of those escape. How many sheep does he have? Reason carefully.')
+        ->asStream();
+
+    $sawThinking = false;
+    $text = '';
+    foreach ($stream as $chunk) {
+        if ($chunk->type === ChunkType::Thinking && ($chunk->reasoning ?? '') !== '') {
+            $sawThinking = true;
+        }
+        if ($chunk->type === ChunkType::Text) {
+            $text .= $chunk->text ?? '';
+        }
+    }
+
+    assert_true($sawThinking, 'Should emit Thinking chunks while streaming');
+    assert_true($text !== '', 'Should also stream the answer text');
+});
+
 echo "\n\n── Provider Interrogation";
 
 test('models list returns known models', function () {

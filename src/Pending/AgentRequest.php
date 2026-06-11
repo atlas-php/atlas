@@ -264,7 +264,15 @@ class AgentRequest implements QueueableRequest
      */
     public function reasoning(ReasoningEffort $effort, ?int $budgetTokens = null, bool $includeSummary = false): static
     {
-        $this->reasoningOverride = new Reasoning($effort, $budgetTokens, $includeSummary);
+        return $this->withReasoning(new Reasoning($effort, $budgetTokens, $includeSummary));
+    }
+
+    /**
+     * Set a pre-built reasoning override (used internally for queue restore).
+     */
+    public function withReasoning(Reasoning $reasoning): static
+    {
+        $this->reasoningOverride = $reasoning;
 
         return $this;
     }
@@ -1247,8 +1255,7 @@ class AgentRequest implements QueueableRequest
         }
 
         if (! empty($payload['reasoning'])) {
-            $reasoning = Reasoning::fromArray($payload['reasoning']);
-            $request->reasoning($reasoning->effort, $reasoning->budgetTokens, $reasoning->includeSummary);
+            $request->withReasoning(Reasoning::fromArray($payload['reasoning']));
         }
 
         if ($payload['max_steps'] !== null) {
