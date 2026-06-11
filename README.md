@@ -15,6 +15,8 @@
     📚 <a href="https://atlasphp.org"><strong>Documentation</strong></a>
     &nbsp;·&nbsp;
     🧪 <a href="#-sandbox"><strong>Sandbox &amp; Examples</strong></a>
+    &nbsp;·&nbsp;
+    ⚖️ <a href="./COMPARISON.md"><strong>Comparison</strong></a>
 </p>
 
 # 🪐 Atlas
