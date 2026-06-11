@@ -97,6 +97,23 @@ it('converts tool result message with JSON content', function () {
     expect($result['parts'][0]['functionResponse']['response'])->toBe(['found' => true]);
 });
 
+it('wraps non-object JSON tool results so Google receives a struct', function () {
+    $factory = new MessageFactory;
+
+    // Google's functionResponse.response must be an object — a bare scalar,
+    // boolean, or JSON array would be rejected with a 400.
+    expect($factory->toolResult(new ToolResultMessage('c', '4183', 'multiply'))['parts'][0]['functionResponse']['response'])
+        ->toBe(['result' => 4183])
+        ->and($factory->toolResult(new ToolResultMessage('c', '12.5', 't'))['parts'][0]['functionResponse']['response'])
+        ->toBe(['result' => 12.5])
+        ->and($factory->toolResult(new ToolResultMessage('c', 'true', 't'))['parts'][0]['functionResponse']['response'])
+        ->toBe(['result' => true])
+        ->and($factory->toolResult(new ToolResultMessage('c', '[1, 2, 3]', 't'))['parts'][0]['functionResponse']['response'])
+        ->toBe(['result' => [1, 2, 3]])
+        ->and($factory->toolResult(new ToolResultMessage('c', '"quoted"', 't'))['parts'][0]['functionResponse']['response'])
+        ->toBe(['result' => 'quoted']);
+});
+
 it('buildAll extracts system_instruction from instructions', function () {
     $factory = new MessageFactory;
     $media = new MediaResolver;

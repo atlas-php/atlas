@@ -24,6 +24,7 @@ class TextResponse
      * @param  array<string, mixed>  $meta
      * @param  array<int, array<string, mixed>>  $providerToolCalls  Provider-executed tool invocations (web_search, code_interpreter, etc.)
      * @param  array<int, array<string, mixed>>  $annotations  Content annotations (url_citation, file_citation) from provider
+     * @param  array<int, array<string, mixed>>  $reasoningBlocks  Provider-shaped reasoning blocks (signed thinking / reasoning items) for replay across tool-loop turns
      */
     public function __construct(
         public readonly string $text,
@@ -35,6 +36,7 @@ class TextResponse
         public readonly array $meta = [],
         public readonly array $providerToolCalls = [],
         public readonly array $annotations = [],
+        public readonly array $reasoningBlocks = [],
     ) {}
 
     /**
@@ -54,6 +56,7 @@ class TextResponse
             content: $this->text,
             toolCalls: $this->toolCalls,
             reasoning: $this->reasoning,
+            reasoningBlocks: $this->reasoningBlocks,
         );
     }
 }

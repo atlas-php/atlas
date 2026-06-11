@@ -103,6 +103,26 @@ trait BuildsResponsesMessages
      */
     protected function expandAssistant(AssistantMessage $message, array &$input): void
     {
+        // Replay reasoning items ahead of the function_call they produced. Only
+        // items carrying encrypted_content are replayable (store=false leaves no
+        // server-side state, and an id alone would be rejected). Blocks shaped for
+        // other providers (e.g. Anthropic thinking) are ignored.
+        foreach ($message->reasoningBlocks as $block) {
+            // Replayable only with both a string id and encrypted_content — an
+            // id-only item is useless with store=false and the API rejects a null
+            // id. Blocks shaped for other providers (Anthropic thinking) lack these.
+            if (($block['type'] ?? null) !== 'reasoning' || empty($block['encrypted_content']) || ! is_string($block['id'] ?? null)) {
+                continue;
+            }
+
+            $input[] = [
+                'type' => 'reasoning',
+                'id' => $block['id'],
+                'encrypted_content' => $block['encrypted_content'],
+                'summary' => $block['summary'] ?? [],
+            ];
+        }
+
         if ($message->content !== null && $message->content !== '') {
             $input[] = [
                 'role' => 'assistant',

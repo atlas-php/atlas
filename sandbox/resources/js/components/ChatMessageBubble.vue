@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { RotateCcw, ChevronLeft, ChevronRight, ChevronDown, Clock, Zap, Copy, Check, FileText, ImageIcon, AudioLines } from 'lucide-vue-next';
+import { RotateCcw, ChevronLeft, ChevronRight, ChevronDown, Clock, Zap, Copy, Check, FileText, ImageIcon, AudioLines, Brain } from 'lucide-vue-next';
 import { renderMarkdown } from '../utils/markdown';
 import type { ChatMessage } from '../composables/useChat';
 
@@ -234,6 +234,15 @@ function formatTime(dateStr: string): string {
                         <span v-if="step.duration_ms" class="ml-2">{{ formatDuration(step.duration_ms) }}</span>
                         <span v-if="step.finish_reason" class="ml-2 text-zinc-500">{{ step.finish_reason }}</span>
                     </div>
+
+                    <!-- Thinking (extended reasoning) for this step -->
+                    <details v-if="step.reasoning" class="ml-3 mb-1.5">
+                        <summary class="flex cursor-pointer items-center gap-1 text-amber-400/80 hover:text-amber-300">
+                            <Brain class="size-3" />
+                            Thinking
+                        </summary>
+                        <div class="mt-1 max-h-64 overflow-y-auto rounded bg-zinc-950 p-2 text-[11px] leading-relaxed whitespace-pre-wrap text-zinc-400">{{ step.reasoning }}</div>
+                    </details>
 
                     <!-- Tool calls within step -->
                     <div v-for="tc in step.tool_calls" :key="tc.id" class="ml-3 mb-1 border-l-2 border-zinc-700 pl-3">

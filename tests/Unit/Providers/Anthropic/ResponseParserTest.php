@@ -124,6 +124,58 @@ it('parses thinking blocks as reasoning', function () {
     expect($result->reasoning)->toBe('Let me think...');
 });
 
+it('captures the thinking signature into reasoning blocks for replay', function () {
+    $parser = makeAnthropicResponseParser();
+
+    $result = $parser->parseText([
+        'id' => 'msg_123',
+        'model' => 'claude-sonnet-4-5-20250514',
+        'content' => [
+            ['type' => 'thinking', 'thinking' => 'Let me think...', 'signature' => 'sig-abc-123'],
+            ['type' => 'tool_use', 'id' => 'toolu_1', 'name' => 'search', 'input' => ['q' => 'x']],
+        ],
+        'stop_reason' => 'tool_use',
+        'usage' => ['input_tokens' => 10, 'output_tokens' => 20],
+    ]);
+
+    expect($result->reasoningBlocks)->toBe([
+        ['type' => 'thinking', 'thinking' => 'Let me think...', 'signature' => 'sig-abc-123'],
+    ]);
+});
+
+it('carries redacted_thinking blocks verbatim', function () {
+    $parser = makeAnthropicResponseParser();
+
+    $result = $parser->parseText([
+        'id' => 'msg_123',
+        'model' => 'claude-sonnet-4-5-20250514',
+        'content' => [
+            ['type' => 'redacted_thinking', 'data' => 'encrypted-payload'],
+            ['type' => 'text', 'text' => 'ok'],
+        ],
+        'stop_reason' => 'end_turn',
+        'usage' => ['input_tokens' => 1, 'output_tokens' => 1],
+    ]);
+
+    expect($result->reasoningBlocks)->toBe([
+        ['type' => 'redacted_thinking', 'data' => 'encrypted-payload'],
+    ]);
+});
+
+it('leaves reasoning blocks empty when there is no thinking', function () {
+    $parser = makeAnthropicResponseParser();
+
+    $result = $parser->parseText([
+        'id' => 'msg_123',
+        'model' => 'claude-sonnet-4-5-20250514',
+        'content' => [['type' => 'text', 'text' => 'hi']],
+        'stop_reason' => 'end_turn',
+        'usage' => ['input_tokens' => 1, 'output_tokens' => 1],
+    ]);
+
+    expect($result->reasoningBlocks)->toBe([]);
+});
+
 it('parses usage with cached tokens', function () {
     $parser = makeAnthropicResponseParser();
 

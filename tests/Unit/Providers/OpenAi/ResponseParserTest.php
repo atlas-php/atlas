@@ -70,6 +70,45 @@ it('parses reasoning from output', function () {
     expect($response->reasoning)->toBe('Thinking about it...');
 });
 
+it('captures the reasoning item id and encrypted_content for replay', function () {
+    $parser = makeParser();
+
+    $data = [
+        'status' => 'completed',
+        'output' => [
+            [
+                'type' => 'reasoning',
+                'id' => 'rs_123',
+                'encrypted_content' => 'enc-payload',
+                'summary' => [['type' => 'summary_text', 'text' => 'plan']],
+            ],
+            ['type' => 'function_call', 'call_id' => 'call_1', 'name' => 'search', 'arguments' => '{}'],
+        ],
+        'usage' => ['input_tokens' => 10, 'output_tokens' => 5],
+    ];
+
+    $response = $parser->parseText($data);
+
+    expect($response->reasoningBlocks)->toBe([[
+        'type' => 'reasoning',
+        'id' => 'rs_123',
+        'summary' => [['type' => 'summary_text', 'text' => 'plan']],
+        'encrypted_content' => 'enc-payload',
+    ]]);
+});
+
+it('leaves reasoning blocks empty when output has no reasoning item', function () {
+    $parser = makeParser();
+
+    $response = $parser->parseText([
+        'status' => 'completed',
+        'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => 'hi']]]],
+        'usage' => ['input_tokens' => 1, 'output_tokens' => 1],
+    ]);
+
+    expect($response->reasoningBlocks)->toBe([]);
+});
+
 it('parses usage with reasoning and cached tokens', function () {
     $parser = makeParser();
 
@@ -154,6 +193,18 @@ it('parses text delta stream chunk', function () {
 
     expect($chunk->type)->toBe(ChunkType::Text);
     expect($chunk->text)->toBe('Hello');
+});
+
+it('parses a reasoning summary delta as a Thinking stream chunk', function () {
+    $parser = makeParser();
+
+    $chunk = $parser->parseStreamChunk([
+        'event' => 'response.reasoning_summary_text.delta',
+        'data' => ['delta' => 'Let me think...'],
+    ]);
+
+    expect($chunk->type)->toBe(ChunkType::Thinking)
+        ->and($chunk->reasoning)->toBe('Let me think...');
 });
 
 it('parses function call from output_item.done stream chunk', function () {

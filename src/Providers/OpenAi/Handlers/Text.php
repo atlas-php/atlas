@@ -153,6 +153,23 @@ class Text implements TextHandler
             $body = $this->applyToolChoice($body, $request, $this->toolMapper);
         }
 
+        if ($request->reasoning !== null) {
+            $reasoning = ['effort' => $request->reasoning->effort->value];
+
+            if ($request->reasoning->includeSummary) {
+                $reasoning['summary'] = 'auto';
+            }
+
+            $body['reasoning'] = $reasoning;
+
+            // store=false means there is no server-side state to carry reasoning
+            // across tool turns; ask for the encrypted reasoning so Atlas can
+            // replay the reasoning items itself on the next request.
+            $body['include'] = array_values(array_unique(
+                array_merge($body['include'] ?? [], ['reasoning.encrypted_content']),
+            ));
+        }
+
         return array_merge($body, $request->providerOptions);
     }
 

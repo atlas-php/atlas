@@ -7,6 +7,7 @@ namespace Atlasphp\Atlas\Pending;
 use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Enums\ReasoningEffort;
 use Atlasphp\Atlas\Events\ModalityCompleted;
 use Atlasphp\Atlas\Events\ModalityStarted;
 use Atlasphp\Atlas\Executor\AgentExecutor;
@@ -31,6 +32,7 @@ use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Tools\ProviderTool;
 use Atlasphp\Atlas\Queue\Contracts\QueueableRequest;
 use Atlasphp\Atlas\Queue\PendingExecution;
+use Atlasphp\Atlas\Requests\Reasoning;
 use Atlasphp\Atlas\Requests\TextRequest as TextRequestObject;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
@@ -89,6 +91,8 @@ class TextRequest implements QueueableRequest
     protected bool $concurrent = false;
 
     protected ?bool $cache = null;
+
+    protected ?Reasoning $reasoning = null;
 
     protected ?ToolChoice $toolChoice = null;
 
@@ -218,6 +222,30 @@ class TextRequest implements QueueableRequest
     public function withConcurrent(bool $concurrent = true): static
     {
         $this->concurrent = $concurrent;
+
+        return $this;
+    }
+
+    /**
+     * Enable reasoning/thinking for this call at the given effort.
+     *
+     * Atlas maps the effort to each provider's native shape: a `reasoning_effort`
+     * for OpenAI/xAI, a `thinking` budget for Anthropic, and a `thinkingConfig`
+     * for Gemini. Pass an explicit `$budgetTokens` to override the effort-derived
+     * budget on budget-based providers, and `$includeSummary` to request thought
+     * summaries where supported. Only affects reasoning-capable models.
+     */
+    public function reasoning(ReasoningEffort $effort, ?int $budgetTokens = null, bool $includeSummary = false): static
+    {
+        return $this->withReasoning(new Reasoning($effort, $budgetTokens, $includeSummary));
+    }
+
+    /**
+     * Set a pre-built reasoning configuration (used internally for queue restore).
+     */
+    public function withReasoning(Reasoning $reasoning): static
+    {
+        $this->reasoning = $reasoning;
 
         return $this;
     }
@@ -418,6 +446,7 @@ class TextRequest implements QueueableRequest
             meta: $this->meta,
             cache: $this->cache ?? (bool) config('atlas.prompt_cache', true),
             requestConfig: $this->resolveRequestConfig(),
+            reasoning: $this->reasoning,
         );
     }
 
@@ -443,6 +472,7 @@ class TextRequest implements QueueableRequest
             'maxSteps' => $this->maxSteps,
             'concurrent' => $this->concurrent,
             'cache' => $this->cache,
+            'reasoning' => $this->reasoning?->toArray(),
             'schema' => $this->schema !== null ? [
                 'name' => $this->schema->name(),
                 'description' => $this->schema->description(),
@@ -519,6 +549,10 @@ class TextRequest implements QueueableRequest
             $request->cache($payload['cache']);
         }
 
+        if (! empty($payload['reasoning'])) {
+            $request->withReasoning(Reasoning::fromArray($payload['reasoning']));
+        }
+
         if (! empty($payload['providerOptions'])) {
             $request->withProviderOptions($payload['providerOptions']);
         }
@@ -575,6 +609,7 @@ class TextRequest implements QueueableRequest
                     VariableInterpolator::interpolate($message->content, $resolved),
                     $message->toolCalls,
                     $message->reasoning,
+                    $message->reasoningBlocks,
                 );
             }
 

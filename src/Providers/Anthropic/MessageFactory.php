@@ -59,6 +59,23 @@ class MessageFactory implements MessageFactoryContract
     {
         $content = [];
 
+        // Extended thinking requires the signed thinking block(s) to be replayed
+        // first — ahead of text and tool_use — or the API rejects the turn.
+        foreach ($message->reasoningBlocks as $block) {
+            if (($block['type'] ?? null) === 'thinking' && ($block['signature'] ?? null) !== null) {
+                $content[] = [
+                    'type' => 'thinking',
+                    'thinking' => $block['thinking'] ?? '',
+                    'signature' => $block['signature'],
+                ];
+            } elseif (($block['type'] ?? null) === 'redacted_thinking') {
+                $content[] = [
+                    'type' => 'redacted_thinking',
+                    'data' => $block['data'] ?? '',
+                ];
+            }
+        }
+
         if ($message->content !== null && $message->content !== '') {
             $content[] = ['type' => 'text', 'text' => $message->content];
         }

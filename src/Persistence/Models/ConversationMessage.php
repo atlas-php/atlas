@@ -313,10 +313,18 @@ class ConversationMessage extends Model
             fn (ExecutionToolCall $tc) => $this->toToolCall($tc),
         )->all();
 
+        // Reasoning blocks are replayed only on turns that carry tool calls —
+        // that's the one case providers require them (Anthropic mandates the
+        // signed thinking block before tool_use). Replaying them onto a plain
+        // assistant turn would be rejected when reasoning is off on a later turn,
+        // so the no-tool-calls branch above intentionally omits them.
+        $reasoningBlocks = $this->step?->metadata['reasoning_blocks'] ?? [];
+
         $messages = [
             new AssistantMessage(
                 content: $this->content,
                 toolCalls: $toolCalls,
+                reasoningBlocks: is_array($reasoningBlocks) ? $reasoningBlocks : [],
             ),
         ];
 

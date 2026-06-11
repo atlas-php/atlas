@@ -9,6 +9,7 @@ use Atlasphp\Atlas\Messages\AssistantMessage;
 use Atlasphp\Atlas\Messages\Message;
 use Atlasphp\Atlas\Messages\UserMessage;
 use Atlasphp\Atlas\Providers\Tools\ProviderTool;
+use Atlasphp\Atlas\Requests\Reasoning;
 use Atlasphp\Atlas\Tools\ToolChoice;
 
 /**
@@ -173,6 +174,14 @@ abstract class Agent
      * Max round trips in the tool call loop. Null = unlimited.
      */
     public function maxSteps(): ?int
+    {
+        return null;
+    }
+
+    /**
+     * Reasoning/thinking configuration. Null disables reasoning (provider default).
+     */
+    public function reasoning(): ?Reasoning
     {
         return null;
     }

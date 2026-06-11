@@ -9,6 +9,7 @@ use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Enums\ReasoningEffort;
 use Atlasphp\Atlas\Enums\ToolChoiceMode;
 use Atlasphp\Atlas\Events\ModalityCompleted;
 use Atlasphp\Atlas\Events\ModalityStarted;
@@ -25,6 +26,7 @@ use Atlasphp\Atlas\Providers\ProviderCapabilities;
 use Atlasphp\Atlas\Providers\Tools\WebSearch;
 use Atlasphp\Atlas\Providers\Tools\XSearch;
 use Atlasphp\Atlas\Queue\PendingExecution;
+use Atlasphp\Atlas\Requests\Reasoning;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
@@ -100,6 +102,19 @@ class RequestTestConfiguredAgent extends Agent
     public function providerOptions(): array
     {
         return ['top_k' => 40];
+    }
+}
+
+class RequestTestReasoningAgent extends Agent
+{
+    public function key(): string
+    {
+        return 'reasoning-agent';
+    }
+
+    public function reasoning(): ?Reasoning
+    {
+        return new Reasoning(ReasoningEffort::Low, budgetTokens: 3000);
     }
 }
 
@@ -1407,6 +1422,56 @@ it('cache() override flows through buildRequest to the driver request', function
     makeAgentRequest('minimal')->cache(false)->message('Hi')->asText();
 
     expect($captured->cache)->toBeFalse();
+});
+
+it('uses the agent reasoning() when no override is set', function () {
+    registerTestAgent(RequestTestReasoningAgent::class);
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
+
+    $captured = null;
+    $driver->shouldReceive('text')->once()->andReturnUsing(function ($req) use (&$captured) {
+        $captured = $req;
+
+        return new TextResponse('ok', new Usage(1, 1), FinishReason::Stop);
+    });
+
+    $registry = app(ProviderRegistryContract::class);
+    $registry->register('openai', fn () => $driver);
+
+    config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o']]);
+    AtlasConfig::refresh();
+
+    makeAgentRequest('reasoning-agent')->message('Hi')->asText();
+
+    expect($captured->reasoning)->not->toBeNull()
+        ->and($captured->reasoning->effort)->toBe(ReasoningEffort::Low)
+        ->and($captured->reasoning->budgetTokens)->toBe(3000);
+});
+
+it('reasoning() override wins over the agent default', function () {
+    registerTestAgent(RequestTestReasoningAgent::class);
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
+
+    $captured = null;
+    $driver->shouldReceive('text')->once()->andReturnUsing(function ($req) use (&$captured) {
+        $captured = $req;
+
+        return new TextResponse('ok', new Usage(1, 1), FinishReason::Stop);
+    });
+
+    $registry = app(ProviderRegistryContract::class);
+    $registry->register('openai', fn () => $driver);
+
+    config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o']]);
+    AtlasConfig::refresh();
+
+    makeAgentRequest('reasoning-agent')->reasoning(ReasoningEffort::High)->message('Hi')->asText();
+
+    expect($captured->reasoning->effort)->toBe(ReasoningEffort::High);
 });
 
 it('forceTools override flows through buildRequest to the driver request', function () {

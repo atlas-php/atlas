@@ -43,6 +43,7 @@ export interface ExecutionStep {
     status: string;
     finish_reason: string | null;
     duration_ms: number | null;
+    reasoning: string | null;
     tool_calls: ToolCall[];
 }
 
@@ -114,6 +115,7 @@ export function useChat() {
     const isTyping = ref(false);
     const isStreaming = ref(false);
     const streamingText = ref('');
+    const streamingThinking = ref('');
     const isLoading = ref(false);
     const hasMore = ref(false);
     const conversationTitle = ref('');
@@ -379,10 +381,26 @@ export function useChat() {
                 streamingText.value += data.text;
                 requestScroll();
             })
+            .listen('.StreamThinkingReceived', (data: { text: string }) => {
+                // Thinking usually arrives before the first text chunk — flip the
+                // typing indicator to streaming so the live "Thinking" block shows.
+                if (!isStreaming.value) {
+                    console.log('[Echo] Thinking started');
+                    isTyping.value = false;
+                    isStreaming.value = true;
+                    streamingText.value = '';
+                    streamingThinking.value = '';
+                    clearToolCalls();
+                    markLastUserMessageRead();
+                }
+                streamingThinking.value += data.text;
+                requestScroll();
+            })
             .listen('.StreamCompleted', () => {
                 console.log('[Echo] Stream completed');
                 isStreaming.value = false;
                 streamingText.value = '';
+                streamingThinking.value = '';
                 clearToolCalls();
                 reloadMessages();
                 loadConversations();
@@ -393,6 +411,7 @@ export function useChat() {
                 isTyping.value = false;
                 isStreaming.value = false;
                 streamingText.value = '';
+                streamingThinking.value = '';
                 clearToolCalls();
                 markLastUserMessageRead();
                 reloadMessages();
@@ -404,6 +423,7 @@ export function useChat() {
                 isTyping.value = false;
                 isStreaming.value = false;
                 streamingText.value = '';
+                streamingThinking.value = '';
                 clearToolCalls();
                 error.value = data.error ?? 'Execution failed';
                 reloadMessages();
@@ -459,6 +479,7 @@ export function useChat() {
         isTyping.value = false;
         isStreaming.value = false;
         streamingText.value = '';
+        streamingThinking.value = '';
         clearToolCalls();
         error.value = null;
     }
@@ -479,6 +500,7 @@ export function useChat() {
         isTyping,
         isStreaming,
         streamingText,
+        streamingThinking,
         activeToolCalls,
         isLoading,
         hasMore,

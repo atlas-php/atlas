@@ -44,6 +44,19 @@ it('converts to an AssistantMessage', function () {
     expect($message->reasoning)->toBe('I calculated it.');
 });
 
+it('propagates reasoning blocks onto the assistant message', function () {
+    $blocks = [['type' => 'thinking', 'thinking' => 'plan', 'signature' => 'sig-1']];
+
+    $response = new TextResponse(
+        text: 'answer',
+        usage: new Usage(1, 1),
+        finishReason: FinishReason::ToolCalls,
+        reasoningBlocks: $blocks,
+    );
+
+    expect($response->toMessage()->reasoningBlocks)->toBe($blocks);
+});
+
 it('defaults providerToolCalls and annotations to empty arrays', function () {
     $response = new TextResponse(
         text: 'Hello',

@@ -198,6 +198,82 @@ it('buildAll expands assistant with tool calls to function_call items', function
     expect($result['input'][3]['content'])->toBe('Thanks');
 });
 
+it('replays a reasoning item before the function_call', function () {
+    $factory = new MessageFactory;
+    $media = makeOpenAiMediaResolver();
+
+    $assistant = new AssistantMessage(
+        content: null,
+        toolCalls: [new ToolCall('call_1', 'search', ['q' => 'x'])],
+        reasoningBlocks: [[
+            'type' => 'reasoning',
+            'id' => 'rs_1',
+            'encrypted_content' => 'enc-abc',
+            'summary' => [],
+        ]],
+    );
+
+    $request = new TextRequest(
+        model: 'gpt-4o', instructions: null, message: null, messageMedia: [],
+        messages: [$assistant], maxTokens: null, temperature: null, schema: null,
+        tools: [], providerTools: [], providerOptions: [],
+    );
+
+    $result = $factory->buildAll($request, $media);
+
+    expect($result['input'][0])->toBe([
+        'type' => 'reasoning',
+        'id' => 'rs_1',
+        'encrypted_content' => 'enc-abc',
+        'summary' => [],
+    ])
+        ->and($result['input'][1]['type'])->toBe('function_call');
+});
+
+it('does not replay a reasoning item without encrypted_content', function () {
+    $factory = new MessageFactory;
+    $media = makeOpenAiMediaResolver();
+
+    $assistant = new AssistantMessage(
+        content: null,
+        toolCalls: [new ToolCall('call_1', 'search', [])],
+        // id-only reasoning item is useless with store=false and must be skipped.
+        reasoningBlocks: [['type' => 'reasoning', 'id' => 'rs_1', 'summary' => []]],
+    );
+
+    $request = new TextRequest(
+        model: 'gpt-4o', instructions: null, message: null, messageMedia: [],
+        messages: [$assistant], maxTokens: null, temperature: null, schema: null,
+        tools: [], providerTools: [], providerOptions: [],
+    );
+
+    $result = $factory->buildAll($request, $media);
+
+    expect($result['input'][0]['type'])->toBe('function_call');
+});
+
+it('ignores foreign (Anthropic) reasoning blocks', function () {
+    $factory = new MessageFactory;
+    $media = makeOpenAiMediaResolver();
+
+    $assistant = new AssistantMessage(
+        content: 'done',
+        toolCalls: [],
+        reasoningBlocks: [['type' => 'thinking', 'thinking' => 'x', 'signature' => 'sig']],
+    );
+
+    $request = new TextRequest(
+        model: 'gpt-4o', instructions: null, message: null, messageMedia: [],
+        messages: [$assistant], maxTokens: null, temperature: null, schema: null,
+        tools: [], providerTools: [], providerOptions: [],
+    );
+
+    $result = $factory->buildAll($request, $media);
+
+    expect($result['input'])->toHaveCount(1)
+        ->and($result['input'][0])->toBe(['role' => 'assistant', 'content' => 'done']);
+});
+
 it('buildAll uses system message as instructions fallback', function () {
     $factory = new MessageFactory;
     $media = makeOpenAiMediaResolver();

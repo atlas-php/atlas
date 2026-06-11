@@ -39,6 +39,7 @@ final class TextRequest
         public readonly array $meta = [],
         public readonly bool $cache = false,
         public readonly ?RequestConfig $requestConfig = null,
+        public readonly ?Reasoning $reasoning = null,
     ) {}
 
     /**
@@ -65,6 +66,7 @@ final class TextRequest
             meta: $this->meta,
             cache: $this->cache,
             requestConfig: $this->requestConfig,
+            reasoning: $this->reasoning,
         );
     }
 
@@ -92,6 +94,7 @@ final class TextRequest
             meta: $this->meta,
             cache: $this->cache,
             requestConfig: $this->requestConfig,
+            reasoning: $this->reasoning,
         );
     }
 
@@ -120,6 +123,7 @@ final class TextRequest
             meta: $this->meta,
             cache: $this->cache,
             requestConfig: $this->requestConfig,
+            reasoning: $this->reasoning,
         );
     }
 
@@ -147,6 +151,7 @@ final class TextRequest
             meta: $this->meta,
             cache: $this->cache,
             requestConfig: $this->requestConfig,
+            reasoning: $this->reasoning,
         );
     }
 
@@ -175,6 +180,7 @@ final class TextRequest
             meta: $this->meta,
             cache: $this->cache,
             requestConfig: $this->requestConfig,
+            reasoning: $this->reasoning,
         );
     }
 }

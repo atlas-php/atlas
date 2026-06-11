@@ -48,6 +48,7 @@ class TrackStep implements StepMiddleware
                 content: $response->text,
                 reasoning: $response->reasoning,
                 finishReason: $finishReason,
+                reasoningBlocks: $response->reasoningBlocks,
             );
 
             // ── Complete the step ────────────────────────────────────

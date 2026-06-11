@@ -340,6 +340,38 @@ it('toAtlasMessagesWithTools reconstructs tool calls from execution step', funct
         ->and($messages[1]->content)->toBe('Found 3 results');
 });
 
+it('toAtlasMessagesWithTools replays reasoning blocks stored on the step', function () {
+    $execution = Execution::factory()->create();
+    $step = ExecutionStep::factory()->create([
+        'execution_id' => $execution->id,
+        'metadata' => ['reasoning_blocks' => [
+            ['type' => 'thinking', 'thinking' => 'plan', 'signature' => 'sig-xyz'],
+        ]],
+    ]);
+
+    ExecutionToolCall::factory()->create([
+        'execution_id' => $execution->id,
+        'step_id' => $step->id,
+        'tool_call_id' => 'call_abc',
+        'name' => 'search',
+        'arguments' => ['query' => 'test'],
+        'result' => 'done',
+    ]);
+
+    $conversation = Conversation::factory()->create();
+    $message = ConversationMessage::factory()->fromAssistant()->create([
+        'conversation_id' => $conversation->id,
+        'step_id' => $step->id,
+        'content' => 'searching',
+    ]);
+
+    $messages = $message->toAtlasMessagesWithTools();
+
+    expect($messages[0]->reasoningBlocks)->toBe([
+        ['type' => 'thinking', 'thinking' => 'plan', 'signature' => 'sig-xyz'],
+    ]);
+});
+
 it('toAtlasMessagesWithTools returns simple AssistantMessage when no step', function () {
     $message = ConversationMessage::factory()->fromAssistant()->create([
         'content' => 'Hello there',

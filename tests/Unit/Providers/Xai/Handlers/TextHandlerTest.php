@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Enums\ReasoningEffort;
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\OpenAi\MediaResolver;
 use Atlasphp\Atlas\Providers\OpenAi\ResponseParser;
@@ -11,6 +12,7 @@ use Atlasphp\Atlas\Providers\Tools\WebSearch;
 use Atlasphp\Atlas\Providers\Xai\Handlers\Text;
 use Atlasphp\Atlas\Providers\Xai\MessageFactory;
 use Atlasphp\Atlas\RequestConfig;
+use Atlasphp\Atlas\Requests\Reasoning;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
@@ -48,6 +50,7 @@ function makeXaiHandlerTextRequest(array $overrides = []): TextRequest
         providerTools: $overrides['providerTools'] ?? [],
         providerOptions: $overrides['providerOptions'] ?? [],
         requestConfig: $overrides['requestConfig'] ?? null,
+        reasoning: $overrides['reasoning'] ?? null,
     );
 }
 
@@ -190,4 +193,47 @@ it('passes provider options through', function () {
     Http::assertSent(function ($request) {
         return $request['reasoning_effort'] === 'high';
     });
+});
+
+it('collapses reasoning effort to xAI low|high', function () {
+    Http::fake([
+        'api.x.ai/v1/responses' => Http::response([
+            'status' => 'completed',
+            'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => 'ok']]]],
+            'usage' => ['input_tokens' => 10, 'output_tokens' => 5],
+        ]),
+    ]);
+
+    // Medium has no xAI equivalent — must collapse to high.
+    makeXaiTextHandler()->text(makeXaiHandlerTextRequest(['reasoning' => new Reasoning(ReasoningEffort::Medium)]));
+
+    Http::assertSent(fn ($request) => $request['reasoning']['effort'] === 'high');
+});
+
+it('collapses minimal reasoning effort to low for xAI', function () {
+    Http::fake([
+        'api.x.ai/v1/responses' => Http::response([
+            'status' => 'completed',
+            'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => 'ok']]]],
+            'usage' => ['input_tokens' => 10, 'output_tokens' => 5],
+        ]),
+    ]);
+
+    makeXaiTextHandler()->text(makeXaiHandlerTextRequest(['reasoning' => new Reasoning(ReasoningEffort::Minimal)]));
+
+    Http::assertSent(fn ($request) => $request['reasoning']['effort'] === 'low');
+});
+
+it('does not send the OpenAI reasoning include to xAI', function () {
+    Http::fake([
+        'api.x.ai/v1/responses' => Http::response([
+            'status' => 'completed',
+            'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => 'ok']]]],
+            'usage' => ['input_tokens' => 10, 'output_tokens' => 5],
+        ]),
+    ]);
+
+    makeXaiTextHandler()->text(makeXaiHandlerTextRequest(['reasoning' => new Reasoning(ReasoningEffort::High)]));
+
+    Http::assertSent(fn ($request) => ! isset($request['include']));
 });

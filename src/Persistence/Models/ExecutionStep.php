@@ -99,17 +99,28 @@ class ExecutionStep extends Model
     /**
      * Record the provider response data on this step.
      * Status stays processing — tools may still need to run.
+     *
+     * @param  array<int, array<string, mixed>>  $reasoningBlocks  Signed thinking /
+     *                                                             reasoning items, stashed in metadata so they replay verbatim when the
+     *                                                             conversation is reloaded and the assistant turn is sent back.
      */
     public function recordResponse(
         ?string $content,
         ?string $reasoning,
         string $finishReason,
+        array $reasoningBlocks = [],
     ): void {
-        $this->update([
+        $attributes = [
             'content' => $content,
             'reasoning' => $reasoning,
             'finish_reason' => $finishReason,
-        ]);
+        ];
+
+        if ($reasoningBlocks !== []) {
+            $attributes['metadata'] = array_merge($this->metadata ?? [], ['reasoning_blocks' => $reasoningBlocks]);
+        }
+
+        $this->update($attributes);
     }
 
     /**

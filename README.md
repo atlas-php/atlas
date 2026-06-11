@@ -238,6 +238,16 @@ A fully functional chat interface demonstrating Atlas agents in action — multi
   </tr>
   <tr>
     <td width="50%" align="center">
+      <img src="./images/sandbox-thinking.png" alt="Extended thinking in the execution trace" width="100%"><br>
+      <sub><b>Extended thinking</b> — stream the model's reasoning and inspect it per step</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="./images/sandbox-tool-calls.png" alt="Tool call execution trace" width="100%"><br>
+      <sub><b>Tool calling</b> — full execution trace with arguments and results</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
       <img src="./images/sandbox-text-chat.png" alt="Rich Markdown chat" width="100%"><br>
       <sub><b>Streaming Markdown chat</b> with full execution traces</sub>
     </td>

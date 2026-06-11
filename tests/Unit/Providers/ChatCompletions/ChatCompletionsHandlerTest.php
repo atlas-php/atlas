@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\AtlasCache;
 use Atlasphp\Atlas\Enums\FinishReason;
+use Atlasphp\Atlas\Enums\ReasoningEffort;
 use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\ChatCompletions\ChatCompletionsDriver;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\RequestConfig;
+use Atlasphp\Atlas\Requests\Reasoning;
 use Atlasphp\Atlas\Requests\RerankRequest;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Schema\Schema;
@@ -320,6 +322,25 @@ it('omits Authorization header when api key is empty', function () {
     $driver->text($request);
 
     Http::assertSent(fn ($r) => ! $r->hasHeader('Authorization'));
+});
+
+it('sends reasoning_effort when reasoning is set', function () {
+    Http::fake([
+        'localhost:11434/v1/chat/completions' => Http::response([
+            'choices' => [['message' => ['content' => 'ok'], 'finish_reason' => 'stop']],
+            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1],
+        ]),
+    ]);
+
+    $request = new TextRequest(
+        model: 'llama3.2', instructions: null, message: 'Hi', messageMedia: [], messages: [],
+        maxTokens: null, temperature: null, schema: null, tools: [], providerTools: [], providerOptions: [],
+        reasoning: new Reasoning(ReasoningEffort::High),
+    );
+
+    makeChatCompletionsDriver()->text($request);
+
+    Http::assertSent(fn ($r) => $r['reasoning_effort'] === 'high');
 });
 
 // ─── Unsupported modalities ─────────────────────────────────────────────────

@@ -8,6 +8,7 @@ use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Enums\ReasoningEffort;
 use Atlasphp\Atlas\Enums\ToolChoiceMode;
 use Atlasphp\Atlas\Exceptions\AtlasException;
 use Atlasphp\Atlas\Input\Audio;
@@ -261,6 +262,52 @@ it('leaves cache null in the payload when no override is set', function () {
     $payload = Atlas::agent('queue-minimal')->message('hi')->toQueuePayload();
 
     expect($payload['cache'])->toBeNull();
+});
+
+it('serializes a reasoning override into the queue payload', function () {
+    registerQueueTestAgent(QueueTestMinimalAgent::class);
+
+    $payload = Atlas::agent('queue-minimal')
+        ->reasoning(ReasoningEffort::High, budgetTokens: 9000, includeSummary: true)
+        ->message('hi')
+        ->toQueuePayload();
+
+    expect($payload['reasoning'])->toBe([
+        'effort' => 'high',
+        'budget_tokens' => 9000,
+        'include_summary' => true,
+    ]);
+});
+
+it('leaves reasoning null in the payload when no override is set', function () {
+    registerQueueTestAgent(QueueTestMinimalAgent::class);
+
+    $payload = Atlas::agent('queue-minimal')->message('hi')->toQueuePayload();
+
+    expect($payload['reasoning'])->toBeNull();
+});
+
+it('restores a reasoning override when executing from a queue payload', function () {
+    registerQueueTestAgent(QueueTestMinimalAgent::class);
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('capabilities')->andReturn(new ProviderCapabilities(text: true));
+    $captured = null;
+    $driver->shouldReceive('text')->once()->andReturnUsing(function ($req) use (&$captured) {
+        $captured = $req;
+
+        return new TextResponse('ok', new Usage(1, 1), FinishReason::Stop);
+    });
+    app(ProviderRegistryContract::class)->register('openai', fn () => $driver);
+
+    AgentRequest::executeFromPayload(queuePayload([
+        'reasoning' => ['effort' => 'high', 'budget_tokens' => 9000, 'include_summary' => true],
+    ]), 'asText');
+
+    expect($captured->reasoning)->not->toBeNull()
+        ->and($captured->reasoning->effort)->toBe(ReasoningEffort::High)
+        ->and($captured->reasoning->budgetTokens)->toBe(9000)
+        ->and($captured->reasoning->includeSummary)->toBeTrue();
 });
 
 it('restores an explicit cache override when executing from a queue payload', function () {

@@ -33,6 +33,7 @@ class ResponseParser implements ResponseParserContract
         $toolUseBlocks = [];
         $providerToolCalls = [];
         $annotations = [];
+        $reasoningBlocks = [];
 
         foreach ($content as $block) {
             $blockType = $block['type'] ?? '';
@@ -48,6 +49,22 @@ class ResponseParser implements ResponseParserContract
 
             if ($blockType === 'thinking') {
                 $reasoning = ($reasoning ?? '').($block['thinking'] ?? '');
+
+                // Preserve the signed thinking block verbatim. Anthropic requires
+                // it (with its signature) to be replayed before the tool_use blocks
+                // when the assistant turn is sent back during a tool loop.
+                $reasoningBlocks[] = [
+                    'type' => 'thinking',
+                    'thinking' => $block['thinking'] ?? '',
+                    'signature' => $block['signature'] ?? null,
+                ];
+            } elseif ($blockType === 'redacted_thinking') {
+                // Encrypted reasoning the model emits when its thinking can't be
+                // shown; it must still round-trip verbatim across tool turns.
+                $reasoningBlocks[] = [
+                    'type' => 'redacted_thinking',
+                    'data' => $block['data'] ?? '',
+                ];
             }
 
             // Client tools the executor must run.
@@ -81,6 +98,7 @@ class ResponseParser implements ResponseParserContract
             ],
             providerToolCalls: $providerToolCalls,
             annotations: $annotations,
+            reasoningBlocks: $reasoningBlocks,
         );
     }
 

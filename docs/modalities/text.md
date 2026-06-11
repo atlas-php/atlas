@@ -283,6 +283,48 @@ $response->text;   // Final response after tool execution
 $response->steps;  // Each round trip in the tool loop
 ```
 
+## Reasoning (Thinking)
+
+Reasoning lets a model work through a problem before answering. Atlas exposes one provider-normalized knob — pick an effort and Atlas maps it to each provider's native format:
+
+```php
+use Atlasphp\Atlas\Enums\ReasoningEffort;
+
+$response = Atlas::text('openai', 'gpt-5')
+    ->reasoning(ReasoningEffort::High)
+    ->message('Prove the square root of 2 is irrational.')
+    ->asText();
+
+$response->reasoning;               // reasoning summary, when the model returns one
+$response->usage->reasoningTokens;  // reasoning token count, when reported
+```
+
+Effort levels are `Minimal`, `Low`, `Medium`, and `High`. How each maps:
+
+| Provider | Native parameter | Notes |
+|----------|------------------|-------|
+| OpenAI | `reasoning.effort` | `minimal` is gpt-5 only; o-series takes `low`/`medium`/`high`. |
+| Anthropic | `thinking.budget_tokens` | `max_tokens` is auto-raised above the budget; `temperature` is dropped (required with thinking). |
+| Google Gemini | `generationConfig.thinkingConfig` | Effort becomes `thinkingBudget`. |
+| xAI (Grok) | `reasoning.effort` | Collapsed to `low`/`high`. |
+| OpenAI-compatible (Ollama, LM Studio) | `reasoning_effort` | Ignored by models that don't reason. |
+
+Budget-based providers (Anthropic, Gemini) derive a token budget from the effort — `Minimal` 1024, `Low` 4096, `Medium` 8192, `High` 16000 — which you can override, and you can request thought summaries:
+
+```php
+Atlas::text('anthropic', 'claude-sonnet-4-5')
+    ->reasoning(ReasoningEffort::High, budgetTokens: 24000, includeSummary: true)
+    ->message('…')
+    ->asText();
+```
+
+Reasoning works inside the tool-call loop: Atlas replays each provider's signed reasoning context across steps (Anthropic signed `thinking` blocks, OpenAI encrypted reasoning items) automatically, so multi-step tool conversations keep working with thinking enabled.
+
+Notes:
+- Reasoning only takes effect on reasoning-capable models.
+- A raw `withProviderOptions()` value overrides `->reasoning()` if both set the same key.
+- On Anthropic, reasoning and structured output (`->withSchema()`) aren't combined — a structured turn forces a tool, which Anthropic disallows alongside thinking.
+
 ## Queue Support
 
 Dispatch any request to a queue by calling `->queue()` before the terminal method. The terminal method (`asText`, `asStream`, etc.) returns a `PendingExecution` instead of a response:

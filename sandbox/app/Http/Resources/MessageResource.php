@@ -87,6 +87,7 @@ class MessageResource
                 'status' => $step->status->label(),
                 'finish_reason' => $step->finish_reason,
                 'duration_ms' => $step->duration_ms,
+                'reasoning' => $step->reasoning,
                 'tool_calls' => $step->toolCalls->map(fn ($tc) => [
                     'id' => $tc->id,
                     'name' => $tc->name,
