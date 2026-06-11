@@ -43,6 +43,7 @@ use Atlasphp\Atlas\Responses\RerankResponse;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
+use Atlasphp\Atlas\Responses\TokenCount;
 use Atlasphp\Atlas\Responses\VideoResponse;
 use Atlasphp\Atlas\Responses\VoiceSession;
 use Closure;
@@ -113,6 +114,21 @@ abstract class Driver
     public function structured(TextRequest $request): StructuredResponse
     {
         return $this->dispatch('structured', $request, fn (TextRequest $r) => $this->resolveHandler('text', fn () => $this->textHandler())->structured($r));
+    }
+
+    /**
+     * Count the input tokens of a text request without running generation.
+     *
+     * Not routed through middleware — like the interrogation endpoints
+     * (models/voices), this is a cheap, read-only pre-flight call. Transport
+     * failures are translated to typed Atlas exceptions.
+     */
+    public function countTokens(TextRequest $request): TokenCount
+    {
+        return $this->translating(
+            $request->model,
+            fn () => $this->resolveHandler('text', fn () => $this->textHandler())->countTokens($request),
+        );
     }
 
     public function image(ImageRequest $request): ImageResponse

@@ -21,6 +21,7 @@ use Atlasphp\Atlas\Responses\StreamChunk;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
+use Atlasphp\Atlas\Responses\TokenCount;
 use Generator;
 
 /**
@@ -96,6 +97,42 @@ class Text implements TextHandler
             usage: $text->usage,
             finishReason: $text->finishReason,
             meta: $text->meta,
+        );
+    }
+
+    public function countTokens(TextRequest $request): TokenCount
+    {
+        // The countTokens endpoint only counts system_instruction and tools when
+        // the full request is wrapped in generateContentRequest; the bare
+        // `contents` form silently ignores them.
+        $body = [
+            'generateContentRequest' => array_merge(
+                ['model' => "models/{$request->model}"],
+                $this->buildBody($request),
+            ),
+        ];
+
+        $data = $this->http->post(
+            url: $this->endpoint($request->model, 'countTokens'),
+            headers: $this->headers(),
+            body: $body,
+            timeout: $this->config->timeout,
+            config: $request->requestConfig,
+            context: new ProviderRequestContext($this->config->provider, $request->model),
+        );
+
+        $breakdown = [];
+
+        if (isset($data['cachedContentTokenCount'])) {
+            $breakdown['cached_tokens'] = (int) $data['cachedContentTokenCount'];
+        }
+
+        return new TokenCount(
+            inputTokens: (int) ($data['totalTokens'] ?? 0),
+            estimated: false,
+            provider: $this->config->provider,
+            model: $request->model,
+            breakdown: $breakdown,
         );
     }
 

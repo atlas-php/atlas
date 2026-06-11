@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Providers\Xai\Handlers;
 
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Text as OpenAiText;
 use Atlasphp\Atlas\Requests\TextRequest;
+use Atlasphp\Atlas\Responses\TokenCount;
 
 /**
  * xAI text handler extending OpenAI's Responses API handler.
@@ -16,6 +17,18 @@ use Atlasphp\Atlas\Requests\TextRequest;
  */
 class Text extends OpenAiText
 {
+    /**
+     * Estimate input tokens with the heuristic.
+     *
+     * xAI exposes only a plain-text `tokenize-text` endpoint — it cannot count a
+     * full chat request (system, tools, images), so Atlas estimates instead of
+     * inheriting OpenAI's native /responses/input_tokens call.
+     */
+    public function countTokens(TextRequest $request): TokenCount
+    {
+        return $this->estimateTokens($this->config->provider, $request->model, $this->buildPayload($request));
+    }
+
     /**
      * @return array<string, mixed>
      */

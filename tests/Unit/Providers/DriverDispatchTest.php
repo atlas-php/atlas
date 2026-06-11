@@ -35,6 +35,7 @@ use Atlasphp\Atlas\Responses\RerankResult;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
+use Atlasphp\Atlas\Responses\TokenCount;
 use Atlasphp\Atlas\Responses\Usage;
 use Atlasphp\Atlas\Responses\VideoResponse;
 
@@ -92,6 +93,11 @@ function makeDispatchDriver(?MiddlewareStack $stack = null, ?MiddlewareResolver 
                 public function structured(TextRequest $request): StructuredResponse
                 {
                     return new StructuredResponse(structured: [], usage: new Usage(10, 5), finishReason: FinishReason::Stop);
+                }
+
+                public function countTokens(TextRequest $request): TokenCount
+                {
+                    return new TokenCount(inputTokens: 10, estimated: false, provider: 'test', model: $request->model);
                 }
             };
         }

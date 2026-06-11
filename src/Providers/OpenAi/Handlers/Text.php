@@ -8,6 +8,7 @@ use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Http\ProviderRequestContext;
 use Atlasphp\Atlas\Providers\Concerns\AppliesToolChoice;
 use Atlasphp\Atlas\Providers\Concerns\BuildsHeaders;
+use Atlasphp\Atlas\Providers\Concerns\CountsTokens;
 use Atlasphp\Atlas\Providers\Contracts\MessageFactoryContract;
 use Atlasphp\Atlas\Providers\Handlers\TextHandler;
 use Atlasphp\Atlas\Providers\OpenAi\Concerns\HasOrganizationHeader;
@@ -21,8 +22,10 @@ use Atlasphp\Atlas\Responses\StreamChunk;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
+use Atlasphp\Atlas\Responses\TokenCount;
 use Atlasphp\Atlas\Schema\StrictSchema;
 use Generator;
+use Illuminate\Http\Client\RequestException;
 
 /**
  * OpenAI text handler using the Responses API.
@@ -36,6 +39,7 @@ class Text implements TextHandler
     use BuildsHeaders, HasOrganizationHeader {
         HasOrganizationHeader::extraHeaders insteadof BuildsHeaders;
     }
+    use CountsTokens;
 
     public function __construct(
         protected readonly ProviderConfig $config,
@@ -108,6 +112,50 @@ class Text implements TextHandler
             usage: $textResponse->usage,
             finishReason: $textResponse->finishReason,
             meta: $textResponse->meta,
+        );
+    }
+
+    public function countTokens(TextRequest $request): TokenCount
+    {
+        $payload = $this->buildPayload($request);
+
+        // The input_tokens endpoint shares the Responses shape but rejects the
+        // generation controls; keep only what contributes to the input (model,
+        // input, instructions, tools).
+        unset(
+            $payload['max_output_tokens'],
+            $payload['temperature'],
+            $payload['stream'],
+            $payload['store'],
+            $payload['text'],
+            $payload['reasoning'],
+            $payload['include'],
+        );
+
+        try {
+            $data = $this->http->post(
+                url: "{$this->config->baseUrl}/responses/input_tokens",
+                headers: $this->headers(),
+                body: $payload,
+                timeout: $this->config->timeout,
+                config: $request->requestConfig,
+                context: new ProviderRequestContext($this->config->provider, $request->model),
+            );
+        } catch (RequestException $e) {
+            // OpenAI-compatible endpoints (Ollama, LM Studio) reuse this handler
+            // but may not implement input_tokens — fall back to a heuristic.
+            if (in_array($e->response->status(), [400, 404, 405], true)) {
+                return $this->estimateTokens($this->config->provider, $request->model, $payload);
+            }
+
+            throw $e;
+        }
+
+        return new TokenCount(
+            inputTokens: (int) ($data['input_tokens'] ?? 0),
+            estimated: false,
+            provider: $this->config->provider,
+            model: $request->model,
         );
     }
 

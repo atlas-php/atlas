@@ -456,3 +456,39 @@ it('omits the thinking block when reasoning is not set', function () {
 
     Http::assertSent(fn ($request) => ! isset($request['thinking']));
 });
+
+it('counts tokens via the count_tokens endpoint, stripping generation params', function () {
+    Http::fake([
+        'api.anthropic.com/v1/messages/count_tokens' => Http::response(['input_tokens' => 2095]),
+    ]);
+
+    $count = makeAnthropicTextHandler()->countTokens(makeAnthropicTextRequest([
+        'model' => 'claude-sonnet-4-5',
+        'maxTokens' => 1024,
+        'temperature' => 0.7,
+    ]));
+
+    expect($count->inputTokens)->toBe(2095)
+        ->and($count->estimated)->toBeFalse()
+        ->and($count->model)->toBe('claude-sonnet-4-5');
+
+    Http::assertSent(function ($request) {
+        return $request->url() === 'https://api.anthropic.com/v1/messages/count_tokens'
+            && $request['model'] === 'claude-sonnet-4-5'
+            && ! isset($request['max_tokens'])
+            && ! isset($request['temperature'])
+            && ! isset($request['stream']);
+    });
+});
+
+it('strips the thinking block when counting tokens for a reasoning request', function () {
+    Http::fake([
+        'api.anthropic.com/v1/messages/count_tokens' => Http::response(['input_tokens' => 50]),
+    ]);
+
+    makeAnthropicTextHandler()->countTokens(makeAnthropicTextRequest([
+        'reasoning' => new Reasoning(ReasoningEffort::Medium),
+    ]));
+
+    Http::assertSent(fn ($request) => ! isset($request['thinking']) && ! isset($request['max_tokens']));
+});

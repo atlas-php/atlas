@@ -30,6 +30,7 @@ use Atlasphp\Atlas\Requests\Reasoning;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
+use Atlasphp\Atlas\Responses\TokenCount;
 use Atlasphp\Atlas\Responses\Usage;
 use Atlasphp\Atlas\Responses\VoiceSession;
 use Atlasphp\Atlas\Schema\Schema;
@@ -265,6 +266,29 @@ it('executes asText without tools via direct driver call', function () {
 
     expect($response)->toBeInstanceOf(TextResponse::class);
     expect($response->text)->toBe('Hello!');
+});
+
+// ─── countTokens() ──────────────────────────────────────────────────────────
+
+it('counts tokens for an agent turn without running generation', function () {
+    registerTestAgent(RequestTestMinimalAgent::class);
+
+    $fake = new AtlasFake(app(ProviderRegistryContract::class), []);
+    app()->instance(AtlasFake::class, $fake);
+
+    config(['atlas.defaults.text' => ['provider' => 'openai', 'model' => 'gpt-4o-mini']]);
+    AtlasConfig::refresh();
+
+    $count = makeAgentRequest('minimal')
+        ->message('How many tokens is this agent turn?')
+        ->countTokens();
+
+    expect($count)->toBeInstanceOf(TokenCount::class)
+        ->and($count->inputTokens)->toBeGreaterThan(0)
+        ->and($count->model)->toBe('gpt-4o-mini');
+
+    $fake->assertMethodCalled('countTokens');
+    $fake->assertSentCount(1);
 });
 
 // ─── asText() — with configured agent ──────────────────────────────────────

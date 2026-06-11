@@ -4,7 +4,7 @@ Status of each provider's modalities against **real provider APIs**, exercised v
 sandbox harness (`sandbox/test-{provider}-provider.php` and feature scripts). This file
 records the date each modality last **passed a live API test** — not unit-test coverage.
 
-**Last full run: 2026-06-10** (all 4 providers — **97/97 green**; the two 2026-06-09 transient failures (OpenAI TTS, xAI voices) now pass) · **Structured output strict-mode (builder, live OpenAI/Google/Anthropic): 2026-06-10** · **Error handling & resilience (all 4 providers): 2026-06-10** · **Error & request context tracing (all 4 providers, 56/56): 2026-06-10** · **Forced tool choice (all 4 providers): 2026-06-09** · **Image-to-image (reference media): 2026-06-08** · **Prompt caching + media replay: 2026-06-07** · **Provider-tools run: 2026-06-06**
+**Token counting (live, all 4 providers, 22/22): 2026-06-11** · **Last full run: 2026-06-10** (all 4 providers — **97/97 green**; the two 2026-06-09 transient failures (OpenAI TTS, xAI voices) now pass) · **Structured output strict-mode (builder, live OpenAI/Google/Anthropic): 2026-06-10** · **Error handling & resilience (all 4 providers): 2026-06-10** · **Error & request context tracing (all 4 providers, 56/56): 2026-06-10** · **Forced tool choice (all 4 providers): 2026-06-09** · **Image-to-image (reference media): 2026-06-08** · **Prompt caching + media replay: 2026-06-07** · **Provider-tools run: 2026-06-06**
 
 Reproduce:
 - Per-provider suites: `cd sandbox && php test-{provider}-provider.php`
@@ -215,6 +215,26 @@ Per provider, two phases:
 | xAI       | 400 | `InvalidRequestException` | "Incorrect API key provided: sk***ef. …" |
 
 > Google/xAI classify a bad key as **400** (not 401) — those already carried `providerMessage`; this release specifically restored the **401** auth message for OpenAI/Anthropic, which previously showed a generic "Authentication failed" with an empty `providerMessage`.
+
+## Token counting (live, 2026-06-11)
+
+Validates `Atlas::text(...)->countTokens()` against the **real provider count endpoints** via
+`sandbox/test-token-counting.php`. **22/22 live checks passed.** For each native provider the
+pre-flight count is compared to the billed `usage->inputTokens` from a real generation, and a
+multimodal (image) request confirms the endpoint counts media a local tokenizer cannot.
+
+| Provider  | Endpoint                              | estimated | Count vs billed (live)        | Multimodal (image) |
+|-----------|---------------------------------------|:---------:|-------------------------------|--------------------|
+| Anthropic | `POST /v1/messages/count_tokens`      | `false`   | 19 vs 19 (**Δ 0**)            | 19 → 324 tokens ✅ |
+| OpenAI    | `POST /v1/responses/input_tokens`     | `false`   | 19 vs 19 (**Δ 0**)            | 19 → 436 tokens ✅ |
+| Google    | `…/{model}:countTokens`               | `false`   | 13 vs 13 (**Δ 0**)            | 13 → 263 tokens ✅ |
+| xAI       | heuristic (no full-request endpoint)  | `true`    | n/a (estimate)                | — |
+
+Notes:
+- **Native counts are exact** — all three matched the billed input tokens with zero delta on a plain text turn.
+- **System prompt + tool schemas are counted**: adding a long system prompt and a client tool raised every provider's count (e.g. Anthropic 19 → 940, OpenAI 19 → 420, Google 13 → 385, xAI 16 → 422).
+- **xAI** has only a plain-text `tokenize-text` endpoint (no system/tools/images), so Atlas estimates and flags `estimated: true`. Ollama / LM Studio / custom Responses endpoints fall back the same way (OpenAI handler degrades to the heuristic on an unsupported `input_tokens` call).
+- Reproduce: `cd sandbox && php test-token-counting.php` (needs ANTHROPIC/OPENAI/GEMINI/XAI keys).
 
 ## Per-provider results
 

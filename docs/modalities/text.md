@@ -94,6 +94,21 @@ $usage->cacheWriteTokens;  // Tokens written to provider cache
 | `cachedTokens` | `?int` | Input tokens served from the provider's prompt cache |
 | `cacheWriteTokens` | `?int` | Input tokens written to the provider's prompt cache |
 
+### Counting Tokens Before Sending
+
+`Usage` tells you what a call cost *after* it ran. To count the input tokens **before** sending — for cost estimates, context-window checks, or budget enforcement — call `countTokens()` on the builder. It uses each provider's native count endpoint where available (and a heuristic otherwise), counting the full payload including system prompt, tools, and media:
+
+```php
+$count = Atlas::text('openai', 'gpt-4o')
+    ->message('Explain quantum computing')
+    ->countTokens();
+
+$count->inputTokens; // 5
+$count->estimated;   // false (exact, from the provider)
+```
+
+See the [Token Counting guide](/guides/token-counting) for provider support, cost estimation, and enforcing your own budget via middleware.
+
 ### Cost Estimation
 
 ```php

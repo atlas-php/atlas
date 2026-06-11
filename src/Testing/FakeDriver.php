@@ -23,8 +23,10 @@ use Atlasphp\Atlas\Responses\RerankResponse;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
+use Atlasphp\Atlas\Responses\TokenCount;
 use Atlasphp\Atlas\Responses\VideoResponse;
 use Atlasphp\Atlas\Responses\VoiceSession;
+use Atlasphp\Atlas\Support\TokenCounter;
 
 /**
  * A fake driver that records requests and returns responses from a sequence.
@@ -105,6 +107,28 @@ class FakeDriver extends Driver
         $this->record('structured', $request);
 
         return $this->nextResponseFor('structured')->toResponse();
+    }
+
+    /**
+     * Return a deterministic estimated count for the request.
+     *
+     * Estimates from the instructions + message only — it does NOT count tool
+     * schemas, attached media, or prior conversation turns. Use it to assert the
+     * call happened (`assertMethodCalled('countTokens')`), not to assert an exact
+     * token figure; real providers count the full payload.
+     */
+    public function countTokens(TextRequest $request): TokenCount
+    {
+        $this->record('countTokens', $request);
+
+        $text = trim(($request->instructions ?? '').' '.($request->message ?? ''));
+
+        return new TokenCount(
+            inputTokens: TokenCounter::count($text),
+            estimated: true,
+            provider: $this->name(),
+            model: $request->model,
+        );
     }
 
     public function image(ImageRequest $request): ImageResponse
