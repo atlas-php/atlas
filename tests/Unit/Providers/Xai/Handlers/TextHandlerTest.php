@@ -237,3 +237,13 @@ it('does not send the OpenAI reasoning include to xAI', function () {
 
     Http::assertSent(fn ($request) => ! isset($request['include']));
 });
+
+it('estimates tokens heuristically since xAI has no full-request count endpoint', function () {
+    $count = makeXaiTextHandler()->countTokens(makeXaiHandlerTextRequest([
+        'message' => 'Hello world, estimate me.',
+    ]));
+
+    expect($count->estimated)->toBeTrue()
+        ->and($count->inputTokens)->toBeGreaterThan(0)
+        ->and($count->model)->toBe('grok-3');
+});

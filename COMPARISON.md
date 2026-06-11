@@ -24,6 +24,7 @@ This page compares Atlas to the two other leading PHP AI libraries: **[Prism](ht
 | Multimodal tool results (tools return images/files the model sees) | ⚠️ | ✅ | ⚠️ |
 | Reasoning / thinking — configure, stream & persist | ✅ | ✅ | ⚠️ |
 | Prompt caching | ✅ | ✅ | ✅ |
+| Pre-flight token counting (count input — incl. tools & images — before sending) | ✅ | ❌ | ❌ |
 | **— Agent framework —** | | | |
 | Agents as first-class classes | ✅ | ❌ | ✅ |
 | Sub-agents (delegation, depth & cycle guards, lineage) | ✅ | ❌ | ✅ |

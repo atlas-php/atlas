@@ -395,3 +395,40 @@ it('requests encrypted reasoning content for stateless replay when reasoning is 
 
     Http::assertSent(fn ($request) => $request['include'] === ['reasoning.encrypted_content']);
 });
+
+it('counts tokens via the responses/input_tokens endpoint, stripping generation params', function () {
+    Http::fake([
+        'api.openai.com/v1/responses/input_tokens' => Http::response([
+            'object' => 'response.input_tokens',
+            'input_tokens' => 42,
+        ]),
+    ]);
+
+    $count = makeTextHandler()->countTokens(makeOpenAiTextRequest([
+        'maxTokens' => 256,
+        'temperature' => 0.5,
+    ]));
+
+    expect($count->inputTokens)->toBe(42)
+        ->and($count->estimated)->toBeFalse();
+
+    Http::assertSent(function ($request) {
+        return $request->url() === 'https://api.openai.com/v1/responses/input_tokens'
+            && ! isset($request['max_output_tokens'])
+            && ! isset($request['temperature'])
+            && ! isset($request['stream']);
+    });
+});
+
+it('falls back to a heuristic estimate when input_tokens is unsupported', function () {
+    Http::fake([
+        'api.openai.com/v1/responses/input_tokens' => Http::response(['error' => 'not found'], 404),
+    ]);
+
+    $count = makeTextHandler()->countTokens(makeOpenAiTextRequest([
+        'message' => 'Hello world, this is a heuristic fallback test.',
+    ]));
+
+    expect($count->estimated)->toBeTrue()
+        ->and($count->inputTokens)->toBeGreaterThan(0);
+});

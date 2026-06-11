@@ -307,3 +307,24 @@ it('omits thinkingConfig when reasoning is not set', function () {
 
     Http::assertSent(fn ($request) => ! isset($request['generationConfig']['thinkingConfig']));
 });
+
+it('counts tokens via the countTokens endpoint using a generateContentRequest wrapper', function () {
+    Http::fake([
+        '*:countTokens*' => Http::response([
+            'totalTokens' => 123,
+            'cachedContentTokenCount' => 10,
+        ]),
+    ]);
+
+    $count = makeGoogleTextHandler()->countTokens(makeGoogleTextRequest(['model' => 'gemini-2.5-flash']));
+
+    expect($count->inputTokens)->toBe(123)
+        ->and($count->estimated)->toBeFalse()
+        ->and($count->breakdown)->toBe(['cached_tokens' => 10]);
+
+    Http::assertSent(function ($request) {
+        return str_contains($request->url(), ':countTokens')
+            && isset($request['generateContentRequest'])
+            && isset($request['generateContentRequest']['contents']);
+    });
+});

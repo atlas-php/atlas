@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 ### Added
 
 - `->reasoning(ReasoningEffort)` on text and agent requests (and as an `Agent::reasoning()` default) enables extended thinking with one effort level (`Minimal`/`Low`/`Medium`/`High`), mapped to each provider's native format. Override with `budgetTokens:` or get thought summaries with `includeSummary:` where supported.
+- `->countTokens()` on text and agent requests counts a request's input tokens before sending — for cost estimates, context-window checks, or budgets. Uses each provider's native endpoint (Anthropic, OpenAI, Google — exact, free, and includes system prompt, tools, and images) and a heuristic estimate elsewhere (xAI, Ollama, LM Studio). Returns a `TokenCount` with an `estimated` flag. Runs only when called.
 
 ### Fixed
 

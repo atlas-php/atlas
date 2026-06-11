@@ -13,6 +13,7 @@ use Atlasphp\Atlas\Providers\ChatCompletions\MessageFactory;
 use Atlasphp\Atlas\Providers\ChatCompletions\ResponseParser;
 use Atlasphp\Atlas\Providers\ChatCompletions\ToolMapper;
 use Atlasphp\Atlas\Providers\Concerns\AppliesToolChoice;
+use Atlasphp\Atlas\Providers\Concerns\CountsTokens;
 use Atlasphp\Atlas\Providers\Handlers\TextHandler;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Providers\SseParser;
@@ -21,6 +22,7 @@ use Atlasphp\Atlas\Responses\StreamChunk;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
+use Atlasphp\Atlas\Responses\TokenCount;
 use Atlasphp\Atlas\Schema\StrictSchema;
 use Generator;
 
@@ -33,6 +35,7 @@ use Generator;
 class Text implements TextHandler
 {
     use AppliesToolChoice;
+    use CountsTokens;
 
     public function __construct(
         protected readonly ProviderConfig $config,
@@ -107,6 +110,17 @@ class Text implements TextHandler
             finishReason: $textResponse->finishReason,
             meta: $textResponse->meta,
         );
+    }
+
+    /**
+     * Estimate input tokens with the heuristic.
+     *
+     * OpenAI-compatible and local endpoints (Ollama, LM Studio) expose no
+     * server-side token-counting endpoint, so Atlas approximates the count.
+     */
+    public function countTokens(TextRequest $request): TokenCount
+    {
+        return $this->estimateTokens($this->config->provider, $request->model, $this->buildBody($request));
     }
 
     /**

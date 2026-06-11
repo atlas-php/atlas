@@ -33,6 +33,7 @@ pest()->extend(TestCase::class)->in(
     'Feature/AtlasManagerMissingDefaultTest.php',
     'Feature/AtlasServiceProviderTest.php',
     'Feature/ConfigTest.php',
+    'Feature/CountTokensTest.php',
     'Feature/FacadeTest.php',
     'Feature/ProviderRegistryTest.php',
 );

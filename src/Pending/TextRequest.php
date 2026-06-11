@@ -37,6 +37,7 @@ use Atlasphp\Atlas\Requests\TextRequest as TextRequestObject;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
+use Atlasphp\Atlas\Responses\TokenCount;
 use Atlasphp\Atlas\Schema\Schema;
 use Atlasphp\Atlas\Support\VariableInterpolator;
 use Atlasphp\Atlas\Tools\Tool;
@@ -411,6 +412,24 @@ class TextRequest implements QueueableRequest
 
             return $tool;
         }, $this->tools);
+    }
+
+    /**
+     * Count the input tokens this request would send, without running it.
+     *
+     * Uses the provider's native count endpoint where available (Anthropic,
+     * OpenAI, Google) and a heuristic estimate otherwise (xAI, Ollama, LM
+     * Studio) — see the returned TokenCount's `estimated` flag. Counts the full
+     * payload including system prompt, tools, and media. Runs only when called;
+     * it never fires as a side effect of generation, and skips the middleware
+     * stack and executor.
+     */
+    public function countTokens(): TokenCount
+    {
+        $driver = $this->resolveDriver();
+        $this->ensureCapability($driver, 'text');
+
+        return $driver->countTokens($this->buildRequest());
     }
 
     public function buildRequest(): TextRequestObject

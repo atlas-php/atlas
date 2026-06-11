@@ -21,6 +21,7 @@ use Atlasphp\Atlas\Responses\StreamChunk;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
+use Atlasphp\Atlas\Responses\TokenCount;
 use Atlasphp\Atlas\Responses\Usage;
 use Generator;
 
@@ -118,6 +119,32 @@ class Text implements TextHandler
             usage: $textResponse->usage,
             finishReason: $textResponse->finishReason,
             meta: $textResponse->meta,
+        );
+    }
+
+    public function countTokens(TextRequest $request): TokenCount
+    {
+        $body = $this->buildBody($request);
+
+        // The count_tokens endpoint accepts the Messages shape but not the
+        // generation controls; strip them so it counts only the input. `thinking`
+        // is a generation hint (and bumps max_tokens) — drop it too.
+        unset($body['max_tokens'], $body['temperature'], $body['stream'], $body['thinking']);
+
+        $data = $this->http->post(
+            url: "{$this->config->baseUrl}/messages/count_tokens",
+            headers: $this->headers(),
+            body: $body,
+            timeout: $this->config->timeout,
+            config: $request->requestConfig,
+            context: new ProviderRequestContext($this->config->provider, $request->model),
+        );
+
+        return new TokenCount(
+            inputTokens: (int) ($data['input_tokens'] ?? 0),
+            estimated: false,
+            provider: $this->config->provider,
+            model: $request->model,
         );
     }
 

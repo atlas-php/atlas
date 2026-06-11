@@ -21,6 +21,7 @@ use Atlasphp\Atlas\Responses\StreamChunk;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
+use Atlasphp\Atlas\Responses\TokenCount;
 use Atlasphp\Atlas\Responses\Usage;
 use Atlasphp\Atlas\Responses\VoiceSession;
 
@@ -95,6 +96,11 @@ function createConcreteDriverWithText(): Driver
                 public function structured(TextRequest $request): StructuredResponse
                 {
                     throw new RuntimeException('Not implemented');
+                }
+
+                public function countTokens(TextRequest $request): TokenCount
+                {
+                    return new TokenCount(inputTokens: 10, estimated: false, provider: 'test', model: $request->model);
                 }
             };
         }

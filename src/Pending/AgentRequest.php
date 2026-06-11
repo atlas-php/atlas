@@ -56,6 +56,7 @@ use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
+use Atlasphp\Atlas\Responses\TokenCount;
 use Atlasphp\Atlas\Responses\VoiceSession;
 use Atlasphp\Atlas\Schema\Schema;
 use Atlasphp\Atlas\Tools\AgentTool;
@@ -411,6 +412,24 @@ class AgentRequest implements QueueableRequest
     }
 
     // ─── Terminal ───────────────────────────────────────────────────
+
+    /**
+     * Count the input tokens this agent turn would send, without running it.
+     *
+     * Resolves the agent's instructions, model, tools, and message exactly as a
+     * real call would, then counts the input — using the provider's native
+     * count endpoint where available and a heuristic otherwise (see the returned
+     * TokenCount's `estimated` flag). Runs only when called; never fires as a
+     * side effect, and does not dispatch the agent middleware or tool loop.
+     */
+    public function countTokens(): TokenCount
+    {
+        $agent = $this->resolveAgent();
+        $tools = $this->resolveTools($agent);
+        $driver = $this->resolveDriver($agent);
+
+        return $driver->countTokens($this->buildRequest($agent, $tools));
+    }
 
     /**
      * Execute the agent and return a text response.
