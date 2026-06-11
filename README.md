@@ -254,6 +254,17 @@ A fully functional chat interface demonstrating Atlas agents in action — multi
       <sub><b>Image editing</b> — upload a photo and have an agent restyle it</sub>
     </td>
   </tr>
+  <tr>
+    <td width="50%" align="center">
+      <img src="./images/sandbox-retry.png" alt="Retry and branch responses" width="100%"><br>
+      <sub><b>Retry &amp; branch</b> — regenerate any reply and step through versions</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="./images/sandbox-voice-listening.png" alt="Realtime voice — listening" width="100%"><br>
+      <img src="./images/sandbox-voice-speaking.png" alt="Realtime voice — AI speaking" width="100%"><br>
+      <sub><b>Realtime voice</b> — live waveform as you speak and as the AI replies</sub>
+    </td>
+  </tr>
 </table>
 
 See the [Sandbox README](./sandbox/README.md) for setup instructions and details.
@@ -271,6 +282,7 @@ composer check
 | [Pest](https://pestphp.com)                      | Testing framework                                                                                                      |
 | [Larastan](https://github.com/larastan/larastan) | Static analysis                                                                                                        |
 | [Laravel Pint](https://laravel.com/docs/pint)    | Code style                                                                                                             |
+| [Live API Audit](./AUDIT.md)                     | Every provider modality verified against **real provider APIs** via the sandbox harness — see the dated pass matrix    |
 | [Codecov](https://codecov.io/gh/atlas-php/atlas/branch/3.x) | [![codecov](https://codecov.io/gh/atlas-php/atlas/branch/3.x/graph/badge.svg)](https://codecov.io/gh/atlas-php/atlas/branch/3.x) |
 
 ## 🤝 Contributing
