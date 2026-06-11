@@ -29,7 +29,9 @@ This page compares Atlas to the two other leading PHP AI libraries: **[Prism](ht
 | Sub-agents (delegation, depth & cycle guards, lineage) | ✅ | ❌ | ✅ |
 | Concurrent sub-agents (true parallel via forking) | ✅ | ❌ | ⚠️ |
 | Conversation persistence & memory | ✅ | ❌ | ✅ |
+| Retry & branch responses (regenerate + step through sibling versions) | ✅ | ❌ | ❌ |
 | Execution tracking (steps, tools, usage, assets) | ✅ | ❌ | ⚠️ |
+| Dedicated media-asset model — auto-stored to disk (S3/local), linked to messages | ✅ | ❌ | ❌ |
 | Layered middleware (agent · step · tool · provider) | ✅ | ❌ | ⚠️ |
 | Variable interpolation in instructions (`{var}` runtime injection) | ✅ | ❌ | ❌ |
 | Queue / async with broadcasting & callbacks | ✅ | ⚠️ | ✅ |
@@ -49,6 +51,7 @@ This page compares Atlas to the two other leading PHP AI libraries: **[Prism](ht
 | MCP tools | ✅ <sup>†</sup> | ✅ | ✅ |
 | Provider discovery — list models & voices at runtime | ✅ | ❌ | ❌ |
 | Validate API keys / inspect provider capabilities | ✅ | ❌ | ❌ |
+| Provider-call observability events (trace every HTTP request, correlation IDs across retries) | ✅ | ❌ | ❌ |
 | Automatic provider failover (ordered fallback chain) | ⚠️ | ❌ | ✅ |
 | Testing fakes (per modality) | ✅ | ✅ | ✅ |
 | Custom / OpenAI-compatible providers | ✅ | ✅ | ✅ |
