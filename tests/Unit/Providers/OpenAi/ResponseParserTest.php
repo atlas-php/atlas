@@ -70,6 +70,45 @@ it('parses reasoning from output', function () {
     expect($response->reasoning)->toBe('Thinking about it...');
 });
 
+it('captures the reasoning item id and encrypted_content for replay', function () {
+    $parser = makeParser();
+
+    $data = [
+        'status' => 'completed',
+        'output' => [
+            [
+                'type' => 'reasoning',
+                'id' => 'rs_123',
+                'encrypted_content' => 'enc-payload',
+                'summary' => [['type' => 'summary_text', 'text' => 'plan']],
+            ],
+            ['type' => 'function_call', 'call_id' => 'call_1', 'name' => 'search', 'arguments' => '{}'],
+        ],
+        'usage' => ['input_tokens' => 10, 'output_tokens' => 5],
+    ];
+
+    $response = $parser->parseText($data);
+
+    expect($response->reasoningBlocks)->toBe([[
+        'type' => 'reasoning',
+        'id' => 'rs_123',
+        'summary' => [['type' => 'summary_text', 'text' => 'plan']],
+        'encrypted_content' => 'enc-payload',
+    ]]);
+});
+
+it('leaves reasoning blocks empty when output has no reasoning item', function () {
+    $parser = makeParser();
+
+    $response = $parser->parseText([
+        'status' => 'completed',
+        'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => 'hi']]]],
+        'usage' => ['input_tokens' => 1, 'output_tokens' => 1],
+    ]);
+
+    expect($response->reasoningBlocks)->toBe([]);
+});
+
 it('parses usage with reasoning and cached tokens', function () {
     $parser = makeParser();
 

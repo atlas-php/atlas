@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Enums\ReasoningEffort;
 use Atlasphp\Atlas\Messages\UserMessage;
+use Atlasphp\Atlas\Requests\Reasoning;
 use Atlasphp\Atlas\Requests\TextRequest;
 
 it('constructs with all parameters', function () {
@@ -87,4 +89,32 @@ it('preserves the cache flag across every with* transformation', function () {
         ->and($request->withReplacedTools([])->cache)->toBeTrue()
         ->and($request->withClearedMessage()->cache)->toBeTrue()
         ->and($request->withReplacedMessages([])->cache)->toBeTrue();
+});
+
+it('preserves reasoning across every with* transformation', function () {
+    // The executor rebuilds the request between tool-loop steps via these
+    // methods; a dropped reasoning config would silently disable thinking
+    // (and lose the thinking budget) mid-conversation.
+    $reasoning = new Reasoning(ReasoningEffort::High, budgetTokens: 9000, includeSummary: true);
+
+    $request = new TextRequest(
+        model: 'gpt-4o',
+        instructions: 'Be helpful',
+        message: 'Hi',
+        messageMedia: [],
+        messages: [new UserMessage('first')],
+        maxTokens: null,
+        temperature: null,
+        schema: null,
+        tools: [],
+        providerTools: [],
+        providerOptions: [],
+        reasoning: $reasoning,
+    );
+
+    expect($request->withAppendedMessages([new UserMessage('x')])->reasoning)->toBe($reasoning)
+        ->and($request->withReplacedTools([])->reasoning)->toBe($reasoning)
+        ->and($request->withClearedMessage()->reasoning)->toBe($reasoning)
+        ->and($request->withReplacedMessages([])->reasoning)->toBe($reasoning)
+        ->and($request->withToolChoice(null)->reasoning)->toBe($reasoning);
 });

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Enums\ChunkType;
+use Atlasphp\Atlas\Enums\ReasoningEffort;
 use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\Anthropic\Handlers\Text;
@@ -13,6 +14,7 @@ use Atlasphp\Atlas\Providers\Anthropic\ToolMapper;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Providers\Tools\WebSearch;
 use Atlasphp\Atlas\RequestConfig;
+use Atlasphp\Atlas\Requests\Reasoning;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
@@ -52,6 +54,7 @@ function makeAnthropicTextRequest(array $overrides = []): TextRequest
         providerOptions: $overrides['providerOptions'] ?? [],
         toolChoice: $overrides['toolChoice'] ?? null,
         requestConfig: $overrides['requestConfig'] ?? null,
+        reasoning: $overrides['reasoning'] ?? null,
     );
 }
 
@@ -387,4 +390,69 @@ it('emits a ToolCall chunk from a streamed tool_use content block', function () 
         ->and($toolChunks[0]->toolCalls[0]->id)->toBe('toolu_abc')
         ->and($toolChunks[0]->toolCalls[0]->name)->toBe('search')
         ->and($toolChunks[0]->toolCalls[0]->arguments)->toBe(['q' => 'cats']);
+});
+
+it('emits a thinking block with the effort-derived budget when reasoning is set', function () {
+    Http::fake([
+        'api.anthropic.com/*' => Http::response([
+            'content' => [['type' => 'text', 'text' => 'ok']],
+            'stop_reason' => 'end_turn',
+            'usage' => ['input_tokens' => 1, 'output_tokens' => 1],
+        ]),
+    ]);
+
+    makeAnthropicTextHandler()->text(makeAnthropicTextRequest([
+        'reasoning' => new Reasoning(ReasoningEffort::Medium),
+    ]));
+
+    Http::assertSent(fn ($request) => $request['thinking'] === ['type' => 'enabled', 'budget_tokens' => 8192]);
+});
+
+it('honors an explicit thinking budget over the effort default', function () {
+    Http::fake([
+        'api.anthropic.com/*' => Http::response([
+            'content' => [['type' => 'text', 'text' => 'ok']],
+            'stop_reason' => 'end_turn',
+            'usage' => ['input_tokens' => 1, 'output_tokens' => 1],
+        ]),
+    ]);
+
+    makeAnthropicTextHandler()->text(makeAnthropicTextRequest([
+        'reasoning' => new Reasoning(ReasoningEffort::Low, budgetTokens: 12000),
+    ]));
+
+    Http::assertSent(fn ($request) => $request['thinking']['budget_tokens'] === 12000);
+});
+
+it('bumps max_tokens above the thinking budget and drops temperature', function () {
+    Http::fake([
+        'api.anthropic.com/*' => Http::response([
+            'content' => [['type' => 'text', 'text' => 'ok']],
+            'stop_reason' => 'end_turn',
+            'usage' => ['input_tokens' => 1, 'output_tokens' => 1],
+        ]),
+    ]);
+
+    // Default max_tokens (4096) is below an 8192 budget — must be bumped, and the
+    // explicit temperature must be removed (Anthropic rejects it with thinking on).
+    makeAnthropicTextHandler()->text(makeAnthropicTextRequest([
+        'temperature' => 0.7,
+        'reasoning' => new Reasoning(ReasoningEffort::Medium),
+    ]));
+
+    Http::assertSent(fn ($request) => $request['max_tokens'] === 8192 + 4096 && ! isset($request['temperature']));
+});
+
+it('omits the thinking block when reasoning is not set', function () {
+    Http::fake([
+        'api.anthropic.com/*' => Http::response([
+            'content' => [['type' => 'text', 'text' => 'ok']],
+            'stop_reason' => 'end_turn',
+            'usage' => ['input_tokens' => 1, 'output_tokens' => 1],
+        ]),
+    ]);
+
+    makeAnthropicTextHandler()->text(makeAnthropicTextRequest());
+
+    Http::assertSent(fn ($request) => ! isset($request['thinking']));
 });

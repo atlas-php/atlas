@@ -6,6 +6,7 @@ use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Enums\ReasoningEffort;
 use Atlasphp\Atlas\Enums\ToolChoiceMode;
 use Atlasphp\Atlas\Events\ModalityCompleted;
 use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
@@ -72,6 +73,21 @@ it('preserves requestConfig across with* copy methods', function () {
     expect($request->withToolChoice(null)->requestConfig?->errors)->toBe(9);
     expect($request->withAppendedMessages([])->requestConfig?->errors)->toBe(9);
     expect($request->withReplacedTools([])->requestConfig?->errors)->toBe(9);
+});
+
+it('threads the reasoning config through to the built request', function () {
+    $request = createTextPending()
+        ->reasoning(ReasoningEffort::High, budgetTokens: 10000, includeSummary: true)
+        ->buildRequest();
+
+    expect($request->reasoning)->not->toBeNull()
+        ->and($request->reasoning->effort)->toBe(ReasoningEffort::High)
+        ->and($request->reasoning->budgetTokens)->toBe(10000)
+        ->and($request->reasoning->includeSummary)->toBeTrue();
+});
+
+it('leaves reasoning null when not configured', function () {
+    expect(createTextPending()->buildRequest()->reasoning)->toBeNull();
 });
 
 it('builds request with correct defaults', function () {

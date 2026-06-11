@@ -90,6 +90,12 @@ class Text implements TextHandler
                 ],
             ]);
             $body['tool_choice'] = ['type' => 'tool', 'name' => $request->schema->name()];
+
+            // Extended thinking is incompatible with a forced tool_choice, which
+            // structured output requires. Drop thinking on a structured turn and
+            // undo the budget-driven max_tokens bump buildBody() applied for it.
+            unset($body['thinking']);
+            $body['max_tokens'] = $request->maxTokens ?? 4096;
         }
 
         $data = $this->http->post(
@@ -153,6 +159,20 @@ class Text implements TextHandler
         if ($tools !== []) {
             $body['tools'] = $tools;
             $body = $this->applyToolChoice($body, $request, $this->tools);
+        }
+
+        if ($request->reasoning !== null) {
+            $budget = $request->reasoning->budgetTokens();
+            $body['thinking'] = ['type' => 'enabled', 'budget_tokens' => $budget];
+
+            // max_tokens must exceed the thinking budget; bump it if the caller's
+            // value (or the 4096 default) doesn't leave room for a response.
+            if ($body['max_tokens'] <= $budget) {
+                $body['max_tokens'] = $budget + 4096;
+            }
+
+            // Anthropic rejects a non-default temperature while thinking is on.
+            unset($body['temperature']);
         }
 
         return array_merge($body, $request->providerOptions);

@@ -30,6 +30,33 @@ it('recordResponse fills content, reasoning, and finish_reason', function () {
         ->and($step->finish_reason)->toBe('stop');
 });
 
+it('recordResponse stashes reasoning blocks in metadata', function () {
+    $step = ExecutionStep::factory()->create();
+
+    $step->recordResponse(
+        content: 'ok',
+        reasoning: 'thinking...',
+        finishReason: 'tool_calls',
+        reasoningBlocks: [['type' => 'thinking', 'thinking' => 'plan', 'signature' => 'sig-1']],
+    );
+
+    $step->refresh();
+
+    expect($step->metadata['reasoning_blocks'])->toBe([
+        ['type' => 'thinking', 'thinking' => 'plan', 'signature' => 'sig-1'],
+    ]);
+});
+
+it('recordResponse leaves metadata untouched when there are no reasoning blocks', function () {
+    $step = ExecutionStep::factory()->create(['metadata' => ['existing' => 'value']]);
+
+    $step->recordResponse(content: 'ok', reasoning: null, finishReason: 'stop');
+
+    $step->refresh();
+
+    expect($step->metadata)->toBe(['existing' => 'value']);
+});
+
 it('markCompleted sets status and duration', function () {
     $step = ExecutionStep::factory()->create();
 

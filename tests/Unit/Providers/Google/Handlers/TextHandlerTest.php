@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Enums\ReasoningEffort;
 use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\Google\Handlers\Text;
@@ -11,6 +12,7 @@ use Atlasphp\Atlas\Providers\Google\ResponseParser;
 use Atlasphp\Atlas\Providers\Google\ToolMapper;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\RequestConfig;
+use Atlasphp\Atlas\Requests\Reasoning;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
@@ -50,6 +52,7 @@ function makeGoogleTextRequest(array $overrides = []): TextRequest
         providerOptions: $overrides['providerOptions'] ?? [],
         toolChoice: $overrides['toolChoice'] ?? null,
         requestConfig: $overrides['requestConfig'] ?? null,
+        reasoning: $overrides['reasoning'] ?? null,
     );
 }
 
@@ -282,4 +285,25 @@ it('sends Gemini-compatible function declaration schemas', function () {
             ],
         ];
     });
+});
+
+it('adds thinkingConfig to generationConfig when reasoning is set', function () {
+    Http::fake(['generativelanguage.googleapis.com/*' => Http::response(fakeGeminiTextResponse())]);
+
+    makeGoogleTextHandler()->text(makeGoogleTextRequest([
+        'reasoning' => new Reasoning(ReasoningEffort::Medium, includeSummary: true),
+    ]));
+
+    Http::assertSent(fn ($request) => $request['generationConfig']['thinkingConfig'] === [
+        'thinkingBudget' => 8192,
+        'includeThoughts' => true,
+    ]);
+});
+
+it('omits thinkingConfig when reasoning is not set', function () {
+    Http::fake(['generativelanguage.googleapis.com/*' => Http::response(fakeGeminiTextResponse())]);
+
+    makeGoogleTextHandler()->text(makeGoogleTextRequest());
+
+    Http::assertSent(fn ($request) => ! isset($request['generationConfig']['thinkingConfig']));
 });

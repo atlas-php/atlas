@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Enums\ReasoningEffort;
 use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Text;
@@ -12,6 +13,7 @@ use Atlasphp\Atlas\Providers\OpenAi\ToolMapper;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Providers\Tools\WebSearch;
 use Atlasphp\Atlas\RequestConfig;
+use Atlasphp\Atlas\Requests\Reasoning;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
@@ -51,6 +53,7 @@ function makeOpenAiTextRequest(array $overrides = []): TextRequest
         providerOptions: $overrides['providerOptions'] ?? [],
         toolChoice: $overrides['toolChoice'] ?? null,
         requestConfig: $overrides['requestConfig'] ?? null,
+        reasoning: $overrides['reasoning'] ?? null,
     );
 }
 
@@ -333,4 +336,62 @@ it('omits temperature from the payload when null', function () {
     makeTextHandler()->text(makeOpenAiTextRequest(['temperature' => null]));
 
     Http::assertSent(fn ($request) => ! isset($request['temperature']));
+});
+
+it('maps reasoning effort to the Responses API reasoning object', function () {
+    Http::fake([
+        'api.openai.com/v1/responses' => Http::response([
+            'status' => 'completed',
+            'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => 'ok']]]],
+            'usage' => ['input_tokens' => 1, 'output_tokens' => 1],
+        ]),
+    ]);
+
+    makeTextHandler()->text(makeOpenAiTextRequest(['reasoning' => new Reasoning(ReasoningEffort::High)]));
+
+    Http::assertSent(fn ($request) => $request['reasoning']['effort'] === 'high' && ! isset($request['reasoning']['summary']));
+});
+
+it('requests a reasoning summary when includeSummary is set', function () {
+    Http::fake([
+        'api.openai.com/v1/responses' => Http::response([
+            'status' => 'completed',
+            'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => 'ok']]]],
+            'usage' => ['input_tokens' => 1, 'output_tokens' => 1],
+        ]),
+    ]);
+
+    makeTextHandler()->text(makeOpenAiTextRequest([
+        'reasoning' => new Reasoning(ReasoningEffort::Medium, includeSummary: true),
+    ]));
+
+    Http::assertSent(fn ($request) => $request['reasoning']['effort'] === 'medium' && $request['reasoning']['summary'] === 'auto');
+});
+
+it('omits reasoning from the payload when not set', function () {
+    Http::fake([
+        'api.openai.com/v1/responses' => Http::response([
+            'status' => 'completed',
+            'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => 'ok']]]],
+            'usage' => ['input_tokens' => 1, 'output_tokens' => 1],
+        ]),
+    ]);
+
+    makeTextHandler()->text(makeOpenAiTextRequest());
+
+    Http::assertSent(fn ($request) => ! isset($request['reasoning']) && ! isset($request['include']));
+});
+
+it('requests encrypted reasoning content for stateless replay when reasoning is set', function () {
+    Http::fake([
+        'api.openai.com/v1/responses' => Http::response([
+            'status' => 'completed',
+            'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => 'ok']]]],
+            'usage' => ['input_tokens' => 1, 'output_tokens' => 1],
+        ]),
+    ]);
+
+    makeTextHandler()->text(makeOpenAiTextRequest(['reasoning' => new Reasoning(ReasoningEffort::High)]));
+
+    Http::assertSent(fn ($request) => $request['include'] === ['reasoning.encrypted_content']);
 });

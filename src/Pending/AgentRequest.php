@@ -10,6 +10,7 @@ use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Enums\ReasoningEffort;
 use Atlasphp\Atlas\Enums\Role;
 use Atlasphp\Atlas\Events\ConversationMessageStored;
 use Atlasphp\Atlas\Events\ModalityCompleted;
@@ -50,6 +51,7 @@ use Atlasphp\Atlas\Providers\Tools\ProviderTool;
 use Atlasphp\Atlas\Providers\Tools\ProviderToolRegistry;
 use Atlasphp\Atlas\Queue\Contracts\QueueableRequest;
 use Atlasphp\Atlas\Queue\PendingExecution;
+use Atlasphp\Atlas\Requests\Reasoning;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
@@ -127,6 +129,8 @@ class AgentRequest implements QueueableRequest
     protected ?int $maxStepsOverride = null;
 
     protected ?bool $concurrentOverride = null;
+
+    protected ?Reasoning $reasoningOverride = null;
 
     /** Overrides the agent's own {@see Agent::toolChoice()} when set (see buildRequest). */
     protected ?ToolChoice $toolChoiceOverride = null;
@@ -249,6 +253,18 @@ class AgentRequest implements QueueableRequest
     public function withTemperature(float $temp): static
     {
         $this->temperatureOverride = $temp;
+
+        return $this;
+    }
+
+    /**
+     * Enable reasoning/thinking for this run, overriding the agent's own
+     * {@see Agent::reasoning()}. Atlas maps the effort to each provider's
+     * native shape; pass an explicit budget to override the effort default.
+     */
+    public function reasoning(ReasoningEffort $effort, ?int $budgetTokens = null, bool $includeSummary = false): static
+    {
+        $this->reasoningOverride = new Reasoning($effort, $budgetTokens, $includeSummary);
 
         return $this;
     }
@@ -1036,6 +1052,7 @@ class AgentRequest implements QueueableRequest
             meta: $this->meta,
             cache: $this->cacheOverride ?? $this->config->promptCache,
             requestConfig: $this->resolveRequestConfig(),
+            reasoning: $this->reasoningOverride ?? $agent->reasoning(),
         );
     }
 
@@ -1152,6 +1169,7 @@ class AgentRequest implements QueueableRequest
             'max_steps' => $this->maxStepsOverride,
             'concurrent' => $this->concurrentOverride,
             'cache' => $this->cacheOverride,
+            'reasoning' => $this->reasoningOverride?->toArray(),
             'tool_choice' => $this->toolChoiceOverride?->toArray(),
             'provider_options' => $this->providerOptions,
             'conversation_id' => $this->conversationId,
@@ -1226,6 +1244,11 @@ class AgentRequest implements QueueableRequest
 
         if ($payload['temperature'] !== null) {
             $request->withTemperature($payload['temperature']);
+        }
+
+        if (! empty($payload['reasoning'])) {
+            $reasoning = Reasoning::fromArray($payload['reasoning']);
+            $request->reasoning($reasoning->effort, $reasoning->budgetTokens, $reasoning->includeSummary);
         }
 
         if ($payload['max_steps'] !== null) {

@@ -496,6 +496,7 @@ All methods have sensible defaults. Override only what you need.
 | `temperature()` | `?float` | `null` | Sampling temperature |
 | `maxTokens()` | `?int` | `null` | Maximum response tokens |
 | `maxSteps()` | `?int` | `null` | Maximum tool loop iterations |
+| `reasoning()` | `?Reasoning` | `null` | Reasoning/thinking config — see [Reasoning](/modalities/text#reasoning-thinking) |
 | `concurrent()` | `bool` | `false` | Execute tool calls concurrently |
 | `providerOptions()` | `array` | `[]` | Provider-specific options passed through directly |
 
@@ -516,6 +517,7 @@ Returned by `Atlas::agent('key')`. Chain these before a terminal method.
 | `->withProvider(Provider\|string $provider, string $model)` | Override provider and model |
 | `->withMaxTokens(int $tokens)` | Override max response tokens |
 | `->withTemperature(float $temp)` | Override sampling temperature |
+| `->reasoning(ReasoningEffort $effort, ?int $budgetTokens = null, bool $includeSummary = false)` | Enable reasoning/thinking — see [Reasoning](/modalities/text#reasoning-thinking) |
 | `->withMaxSteps(?int $maxSteps)` | Override max tool loop iterations |
 | `->withConcurrent(bool $concurrent = true)` | Override concurrent tool execution |
 | `->withTools(array $tools)` | Add tools in addition to the agent's tools |

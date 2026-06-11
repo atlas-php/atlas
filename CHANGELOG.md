@@ -10,6 +10,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 ## [Unreleased]
 
+### Added
+
+- `->reasoning(ReasoningEffort)` on text and agent requests (and as an `Agent::reasoning()` default) enables extended thinking with one effort level (`Minimal`/`Low`/`Medium`/`High`), mapped to each provider's native format. Override with `budgetTokens:` or get thought summaries with `includeSummary:` where supported.
+
+### Fixed
+
+- Extended thinking now works through multi-step tool calls and persisted-conversation reloads.
+
+### Migration
+
+**No breaking changes** — drop-in upgrade. No consumer action required.
+
 ---
 
 ## [v3.5.0](https://github.com/atlas-php/atlas/releases/tag/v3.5.0) - 2026-06-10

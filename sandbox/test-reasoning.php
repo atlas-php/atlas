@@ -2,39 +2,55 @@
 
 declare(strict_types=1);
 
-use App\Models\User;
 use Atlasphp\Atlas\Atlas;
-use Atlasphp\Atlas\Persistence\Models\ExecutionStep;
+use Atlasphp\Atlas\Enums\ReasoningEffort;
 
+/**
+ * Live audit: request-side reasoning/thinking API.
+ *
+ * Verifies `->reasoning(effort)` engages each provider's native reasoning and
+ * that reasoning text + reasoning-token usage come back.
+ *
+ * Usage:
+ *   php sandbox/test-reasoning.php                 # sweep all providers
+ *   php sandbox/test-reasoning.php anthropic        # one provider (default model)
+ *   php sandbox/test-reasoning.php openai gpt-5      # explicit model
+ */
 $app = require __DIR__.'/bootstrap.php';
 
-$user = User::findOrFail(1);
+/** @var array<string, array{model: string, effort: ReasoningEffort, summary: bool}> $matrix */
+$matrix = [
+    'anthropic' => ['model' => 'claude-sonnet-4-5-20250929', 'effort' => ReasoningEffort::Low, 'summary' => false],
+    'openai' => ['model' => 'gpt-5', 'effort' => ReasoningEffort::Low, 'summary' => true],
+    'google' => ['model' => 'gemini-2.5-flash', 'effort' => ReasoningEffort::Low, 'summary' => true],
+    'xai' => ['model' => 'grok-3-mini', 'effort' => ReasoningEffort::High, 'summary' => false],
+];
 
-$provider = $argv[1] ?? 'xai';
-$model = $argv[2] ?? 'grok-3-mini';
+$only = $argv[1] ?? null;
+$modelOverride = $argv[2] ?? null;
 
-echo "=== Testing reasoning with {$provider}/{$model} ===\n\n";
+$providers = $only !== null ? [$only] : array_keys($matrix);
 
-$response = Atlas::agent('assistant')
-    ->for($user)
-    ->withProvider($provider, $model)
-    ->message('What is 47 * 89? Think step by step.')
-    ->asText();
+foreach ($providers as $provider) {
+    $cfg = $matrix[$provider] ?? ['model' => $modelOverride, 'effort' => ReasoningEffort::Low, 'summary' => true];
+    $model = $modelOverride ?? $cfg['model'];
 
-echo "Text: {$response->text}\n";
-echo 'Reasoning: '.($response->reasoning ?? '(null)')."\n\n";
+    echo "\n=== {$provider} / {$model} (effort={$cfg['effort']->value}) ===\n";
 
-echo "--- Steps ---\n";
-$executionId = $response->meta['execution_id'] ?? null;
+    try {
+        $response = Atlas::text($provider, $model)
+            ->reasoning($cfg['effort'], includeSummary: $cfg['summary'])
+            ->message('What is 47 * 89? Think step by step, then give just the number.')
+            ->asText();
 
-if ($executionId) {
-    ExecutionStep::where('execution_id', $executionId)
-        ->orderBy('sequence')
-        ->get()
-        ->each(function ($s) {
-            echo "  [{$s->id}] seq={$s->sequence} | {$s->finish_reason}\n";
-            echo '    content: '.mb_substr($s->content ?? '(null)', 0, 100)."\n";
-            echo '    reasoning: '.mb_substr($s->reasoning ?? '(null)', 0, 100)."\n";
-            echo "    status: {$s->status->label()}\n\n";
-        });
+        echo "Text:           {$response->text}\n";
+        echo 'Reasoning:      '.mb_substr($response->reasoning ?? '(null)', 0, 160)."\n";
+        echo 'Reasoning toks: '.($response->usage->reasoningTokens ?? '(null)')."\n";
+        echo 'Output toks:    '.$response->usage->outputTokens."\n";
+        echo 'PASS: '.($response->usage->reasoningTokens > 0 ? 'reasoning tokens reported ✓' : 'no reasoning tokens ✗')."\n";
+    } catch (Throwable $e) {
+        echo 'ERROR: '.$e->getMessage()."\n";
+    }
 }
+
+echo "\nDone.\n";

@@ -130,6 +130,12 @@ class Text implements TextHandler
             $body = $this->applyToolChoice($body, $request, $this->toolMapper);
         }
 
+        if ($request->reasoning !== null) {
+            // OpenAI-compatible endpoints take a top-level reasoning_effort; many
+            // local models (Ollama, LM Studio) ignore it harmlessly.
+            $body['reasoning_effort'] = $request->reasoning->effort->value;
+        }
+
         return array_merge($body, $request->providerOptions);
     }
 

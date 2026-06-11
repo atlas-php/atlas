@@ -125,6 +125,14 @@ class Text implements TextHandler
             $body['generationConfig'] = $genConfig;
         }
 
+        if ($request->reasoning !== null) {
+            $body['generationConfig'] ??= [];
+            $body['generationConfig']['thinkingConfig'] = [
+                'thinkingBudget' => $request->reasoning->budgetTokens(),
+                'includeThoughts' => $request->reasoning->includeSummary,
+            ];
+        }
+
         if ($request->tools !== []) {
             $body['tools'][] = [
                 'function_declarations' => $this->tools->mapTools($request->tools),

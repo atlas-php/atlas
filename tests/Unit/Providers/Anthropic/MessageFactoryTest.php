@@ -94,6 +94,63 @@ it('converts assistant message with tool calls', function () {
     expect($result['content'][0]['input'])->toBe(['query' => 'test']);
 });
 
+it('prepends a signed thinking block before tool_use blocks', function () {
+    $factory = new MessageFactory;
+
+    $result = $factory->assistant(new AssistantMessage(
+        content: null,
+        toolCalls: [new ToolCall('toolu_123', 'search', ['query' => 'test'])],
+        reasoningBlocks: [
+            ['type' => 'thinking', 'thinking' => 'reasoning...', 'signature' => 'sig-1'],
+        ],
+    ));
+
+    expect($result['content'])->toHaveCount(2)
+        ->and($result['content'][0])->toBe(['type' => 'thinking', 'thinking' => 'reasoning...', 'signature' => 'sig-1'])
+        ->and($result['content'][1]['type'])->toBe('tool_use');
+});
+
+it('replays a redacted_thinking block before tool_use', function () {
+    $factory = new MessageFactory;
+
+    $result = $factory->assistant(new AssistantMessage(
+        content: null,
+        toolCalls: [new ToolCall('toolu_1', 'search', [])],
+        reasoningBlocks: [['type' => 'redacted_thinking', 'data' => 'enc']],
+    ));
+
+    expect($result['content'][0])->toBe(['type' => 'redacted_thinking', 'data' => 'enc'])
+        ->and($result['content'][1]['type'])->toBe('tool_use');
+});
+
+it('skips an unsigned thinking block (no signature to replay)', function () {
+    $factory = new MessageFactory;
+
+    $result = $factory->assistant(new AssistantMessage(
+        content: 'answer',
+        toolCalls: [],
+        reasoningBlocks: [['type' => 'thinking', 'thinking' => 'x', 'signature' => null]],
+    ));
+
+    // Only the text block — an unsigned thinking block can't be replayed.
+    expect($result['content'])->toHaveCount(1)
+        ->and($result['content'][0]['type'])->toBe('text');
+});
+
+it('ignores foreign reasoning blocks from another provider', function () {
+    $factory = new MessageFactory;
+
+    $result = $factory->assistant(new AssistantMessage(
+        content: 'answer',
+        toolCalls: [],
+        // An OpenAI-shaped reasoning item must not leak into the Anthropic turn.
+        reasoningBlocks: [['type' => 'reasoning', 'id' => 'rs_1', 'encrypted_content' => 'z']],
+    ));
+
+    expect($result['content'])->toHaveCount(1)
+        ->and($result['content'][0]['type'])->toBe('text');
+});
+
 it('converts tool result message', function () {
     $factory = new MessageFactory;
 

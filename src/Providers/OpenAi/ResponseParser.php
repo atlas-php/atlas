@@ -37,6 +37,7 @@ class ResponseParser implements ResponseParserContract
         $functionCalls = [];
         $providerToolCalls = [];
         $annotations = [];
+        $reasoningBlocks = [];
 
         foreach ($output as $item) {
             $type = $item['type'] ?? null;
@@ -49,6 +50,17 @@ class ResponseParser implements ResponseParserContract
 
             if ($type === 'reasoning') {
                 $reasoning = $this->extractReasoningText($item);
+
+                // Preserve the reasoning item (id + encrypted_content) so it can be
+                // replayed before the function_call on the next turn. Atlas runs the
+                // Responses API statelessly (store=false), so without this the model
+                // loses its reasoning context mid tool-loop.
+                $reasoningBlocks[] = [
+                    'type' => 'reasoning',
+                    'id' => $item['id'] ?? null,
+                    'summary' => $item['summary'] ?? [],
+                    'encrypted_content' => $item['encrypted_content'] ?? null,
+                ];
             }
 
             if ($type === 'function_call') {
@@ -78,6 +90,7 @@ class ResponseParser implements ResponseParserContract
             ],
             providerToolCalls: $providerToolCalls,
             annotations: $annotations,
+            reasoningBlocks: $reasoningBlocks,
         );
     }
 
