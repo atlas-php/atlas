@@ -641,6 +641,33 @@ it('executeFromPayload rebuilds and executes asText', function () {
     expect($result)->toBeInstanceOf(TextResponse::class);
 });
 
+it('round-trips the reasoning config through the queue payload', function () {
+    $payload = createTextPending()
+        ->message('hi')
+        ->reasoning(ReasoningEffort::High, budgetTokens: 9000, includeSummary: true)
+        ->toQueuePayload();
+
+    expect($payload['reasoning'])->toBe([
+        'effort' => 'high',
+        'budget_tokens' => 9000,
+        'include_summary' => true,
+    ]);
+
+    $fake = Atlas::fake([TextResponseFake::make()->withText('ok')]);
+
+    TextRequest::executeFromPayload($payload, 'asText');
+
+    $request = $fake->recorded()[0]->request;
+    expect($request->reasoning)->not->toBeNull()
+        ->and($request->reasoning->effort)->toBe(ReasoningEffort::High)
+        ->and($request->reasoning->budgetTokens)->toBe(9000)
+        ->and($request->reasoning->includeSummary)->toBeTrue();
+});
+
+it('omits reasoning from the queue payload when not set', function () {
+    expect(createTextPending()->toQueuePayload()['reasoning'])->toBeNull();
+});
+
 it('executeFromPayload throws on unknown terminal', function () {
     TextRequest::executeFromPayload(
         payload: [
