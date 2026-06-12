@@ -28,6 +28,15 @@ it('returns true when default connection driver is pgsql', function () {
     expect(VectorQueryMacros::isPgvectorAvailable())->toBeTrue();
 });
 
+it('returns true when persistence is routed to a pgsql connection while the default is sqlite', function () {
+    config(['database.default' => 'sqlite']);
+    config(['database.connections.sqlite.driver' => 'sqlite']);
+    config(['atlas.persistence.connection' => 'atlas_pg']);
+    config(['database.connections.atlas_pg.driver' => 'pgsql']);
+
+    expect(VectorQueryMacros::isPgvectorAvailable())->toBeTrue();
+});
+
 // ─── toVectorLiteral ────────────────────────────────────────────────────────
 
 it('converts float array to pgvector literal', function () {

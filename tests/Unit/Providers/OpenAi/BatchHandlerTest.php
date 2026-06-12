@@ -180,6 +180,30 @@ it('parses completed embedding results via the embed parser', function () {
     expect($results[1]->error->getMessage())->toBe('bad input');
 });
 
+it('reads validation-rejected lines from the error file too, not just the output file', function () {
+    $http = Mockery::mock(HttpClient::class);
+    $http->shouldReceive('get')->once()->andReturn([
+        'id' => 'b', 'status' => 'completed', 'endpoint' => '/v1/responses',
+        'output_file_id' => 'file_out', 'error_file_id' => 'file_err',
+    ]);
+
+    $outputJsonl = json_encode(['custom_id' => 't1', 'response' => ['status_code' => 200, 'body' => ['output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => 'HELLO']]]], 'usage' => ['input_tokens' => 5, 'output_tokens' => 1]]]]);
+    $errorJsonl = json_encode(['custom_id' => 't2', 'error' => ['message' => 'invalid model']]);
+
+    // Output file fetched first, then the error file — both parsed.
+    $http->shouldReceive('getRaw')->once()->with(Mockery::pattern('/file_out/'), Mockery::any(), Mockery::any())->andReturn($outputJsonl);
+    $http->shouldReceive('getRaw')->once()->with(Mockery::pattern('/file_err/'), Mockery::any(), Mockery::any())->andReturn($errorJsonl);
+
+    $results = iterator_to_array(openAiBatchHandler($http)->results('b'));
+
+    expect($results)->toHaveCount(2);
+    expect($results[0]->customId)->toBe('t1');
+    expect($results[0]->status)->toBe(BatchResultStatus::Succeeded);
+    expect($results[1]->customId)->toBe('t2');
+    expect($results[1]->status)->toBe(BatchResultStatus::Errored);
+    expect($results[1]->error->getMessage())->toBe('invalid model');
+});
+
 it('throws when the input-file upload returns no id', function () {
     $http = Mockery::mock(HttpClient::class);
     $http->shouldReceive('postMultipart')->once()->andReturn(['object' => 'file']); // no 'id'

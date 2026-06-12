@@ -219,7 +219,13 @@ class ChunkContentService
         $morphClass = $model->getMorphClass();
         $chunkableId = $model->getKey();
         $now = now();
-        $isPostgres = DB::connection()->getDriverName() === 'pgsql';
+        // Detect Postgres from the chunk model's OWN connection, not the default
+        // one. When persistence is routed to a separate connection
+        // (atlas.persistence.connection) whose driver differs from the app
+        // default, reading the default connection here drops the vector on a
+        // pgvector table (NOT NULL violation) or writes one to a table without
+        // the column. The chunks migration detects the driver the same way.
+        $isPostgres = (new $chunkModel)->getConnection()->getDriverName() === 'pgsql';
 
         $rows = [];
         foreach ($insert as $i => $chunk) {

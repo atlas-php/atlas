@@ -103,7 +103,7 @@ class BatchService
 
             $this->hydrate($job, $response->counts, $results);
         } elseif ($response->status->isTerminal()) {
-            $job->markFailed($response->status, $response->error);
+            $job->markFailed($response->status, $response->counts, $response->error);
             $this->events->dispatch(new BatchFailed($job));
             $this->checkGroup($job);
         } else {

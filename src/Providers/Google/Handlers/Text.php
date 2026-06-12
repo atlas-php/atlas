@@ -198,7 +198,12 @@ class Text implements TextHandler
             }
         }
 
-        return array_merge_recursive($body, $request->providerOptions);
+        // array_replace_recursive (not array_merge_recursive): deep-merges nested
+        // generationConfig so escape-hatch keys (topP, topK, …) sit alongside the
+        // fields Atlas sets, while a colliding scalar (e.g. temperature) is
+        // overridden rather than turned into a list — array_merge_recursive would
+        // produce ["temperature" => [0.7, 0.2]] and Gemini 400s on the array.
+        return array_replace_recursive($body, $request->providerOptions);
     }
 
     /**

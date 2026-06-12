@@ -75,20 +75,34 @@ class Batch implements BatchHandler
     public function results(string $batchId): iterable
     {
         $batch = $this->fetch($batchId);
-        $outputFileId = $batch['output_file_id'] ?? null;
+        $modality = $this->modalityFromEndpoint((string) ($batch['endpoint'] ?? ''));
 
-        if (! is_string($outputFileId) || $outputFileId === '') {
-            return [];
+        // Successful and per-request HTTP-errored lines land in the output file.
+        // Lines OpenAI rejects before execution (validation failures) land in a
+        // SEPARATE error file — fetch both so every custom_id gets a result and
+        // nothing is silently dropped (the job's `failed` count would otherwise
+        // have no matching per-line record).
+        $results = [];
+
+        foreach (['output_file_id', 'error_file_id'] as $key) {
+            $fileId = $batch[$key] ?? null;
+
+            if (! is_string($fileId) || $fileId === '') {
+                continue;
+            }
+
+            $body = $this->http->getRaw(
+                "{$this->config->baseUrl}/files/{$fileId}/content",
+                $this->headers(),
+                $this->config->timeout,
+            );
+
+            foreach ($this->parseResults($body, $modality) as $result) {
+                $results[] = $result;
+            }
         }
 
-        $modality = $this->modalityFromEndpoint((string) ($batch['endpoint'] ?? ''));
-        $body = $this->http->getRaw(
-            "{$this->config->baseUrl}/files/{$outputFileId}/content",
-            $this->headers(),
-            $this->config->timeout,
-        );
-
-        return $this->parseResults($body, $modality);
+        return $results;
     }
 
     public function cancel(string $batchId): BatchResponse

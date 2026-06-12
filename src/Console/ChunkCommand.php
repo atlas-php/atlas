@@ -10,7 +10,6 @@ use Atlasphp\Atlas\Persistence\Models\Chunk;
 use Atlasphp\Atlas\Queue\Jobs\ChunkContentJob;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Sweeps registered chunkable models for dirty rows and dispatches
@@ -79,18 +78,21 @@ class ChunkCommand extends Command
 
         $totalDispatched = 0;
         $totalOrphansDeleted = 0;
+
+        /** @var class-string<Chunk> $chunkModel */
+        $chunkModel = $config->model('chunk', Chunk::class);
+
         // Postgres treats NULL-vs-value as distinct under `IS DISTINCT
         // FROM`, which is the semantics we need (a fresh row has
         // indexed_hash = NULL and content_hash = some-hash, and must be
         // picked up). Other drivers don't have that operator; COALESCE
-        // approximates it.
-        $isPostgres = DB::connection()->getDriverName() === 'pgsql';
+        // approximates it. Detect the driver from the chunk model's own
+        // connection — the sweep queries run against it, and it may be a
+        // separate atlas.persistence.connection that differs from the default.
+        $isPostgres = (new $chunkModel)->getConnection()->getDriverName() === 'pgsql';
         $dirtyPredicate = $isPostgres
             ? 'content_hash IS DISTINCT FROM indexed_hash'
             : "COALESCE(content_hash, '') <> COALESCE(indexed_hash, '')";
-
-        /** @var class-string<Chunk> $chunkModel */
-        $chunkModel = $config->model('chunk', Chunk::class);
 
         foreach ($classes as $class) {
             /** @var class-string<Model> $class */

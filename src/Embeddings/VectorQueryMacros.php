@@ -37,12 +37,19 @@ class VectorQueryMacros
     }
 
     /**
-     * Check if the current database connection supports pgvector.
+     * Check if the database connection backing Atlas persistence supports pgvector.
+     *
+     * Uses atlas.persistence.connection when set (vector tables can be routed
+     * to a separate connection), falling back to the framework default. Reading
+     * only the default connection would miss a pgvector connection configured
+     * for persistence while the app default is sqlite/mysql.
      */
     public static function isPgvectorAvailable(): bool
     {
-        return config('database.default') === 'pgsql'
-            || config('database.connections.'.config('database.default').'.driver') === 'pgsql';
+        $connection = config('atlas.persistence.connection') ?: config('database.default');
+
+        return $connection === 'pgsql'
+            || config('database.connections.'.$connection.'.driver') === 'pgsql';
     }
 
     /**
