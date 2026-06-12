@@ -12,6 +12,8 @@
     <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License">
 </p>
 <p align="center">
+    ✨ <a href="#-features"><strong>Features</strong></a>
+    &nbsp;·&nbsp;
     📚 <a href="https://atlasphp.org"><strong>Documentation</strong></a>
     &nbsp;·&nbsp;
     🧪 <a href="#-sandbox"><strong>Sandbox &amp; Examples</strong></a>
@@ -25,7 +27,7 @@
 
 One API for OpenAI, Anthropic, Google, xAI, ElevenLabs, and any OpenAI-compatible endpoint — with no external AI dependency. Atlas runs the tool-call loop and adds optional persistence for conversations, tracking, and memory.
 
-> Every provider modality is **live-tested against real provider APIs** — not mocks. See the [API Audit](./AUDIT.md).
+> Every provider modality is **live-tested against real provider APIs**. See the [API Audit](./AUDIT.md).
 
 ## ⚡ It's this simple
 
@@ -37,8 +39,6 @@ $response = Atlas::text('openai', 'gpt-4o-mini')
     ->asText();
 
 echo $response->text;
-// "Subject: Quick update on your timeline
-//
 //  Hi Jordan — a quick heads-up that we're running about two days behind
 //  on the project. We're aiming to have everything to you by Thursday..."
 ```
@@ -49,8 +49,8 @@ No agent classes, no config. Add `->instructions()` and `->withTools()` when you
 
 - **Every modality** — text, images, audio, music, SFX, video, realtime voice, embeddings, reranking, moderation. Voice, music, SFX, and video are Atlas-only.
 - **A real agent framework** — first-class agents, sub-agents with guards and true parallel fan-out, auditable execution trees.
-- **Production persistence** — conversation memory, execution tracking, retry & branch, media assets on disk (S3/local).
-- **Operational maturity** — pre-flight token counting, provider-call observability, runtime model/voice discovery.
+- **Production-grade persistence** — conversation memory, execution tracking, retry & branch, media assets on disk (S3/local).
+- **Operational services** — pre-flight token counting, provider-call observability, runtime model/voice discovery.
 - **Control at every layer** — middleware across agent, step, tool, and provider boundaries.
 - **Multi-provider, one API** — every major provider plus any OpenAI-compatible endpoint; swap by changing a string.
 
