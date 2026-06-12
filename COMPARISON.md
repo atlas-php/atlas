@@ -25,6 +25,7 @@ This page compares Atlas to the two other leading PHP AI libraries: **[Prism](ht
 | Reasoning / thinking — configure, stream & persist | ✅ | ✅ | ⚠️ |
 | Prompt caching | ✅ | ✅ | ✅ |
 | Pre-flight token counting (count input — incl. tools & images — before sending) | ✅ | ❌ | ❌ |
+| Batch processing — deferred jobs at ~50% cost (OpenAI, Anthropic, Google) | ✅ | ❌ | ❌ |
 | **— Agent framework —** | | | |
 | Agents as first-class classes | ✅ | ❌ | ✅ |
 | Sub-agents (delegation, depth & cycle guards, lineage) | ✅ | ❌ | ✅ |
