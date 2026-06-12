@@ -16,19 +16,19 @@ use Atlasphp\Atlas\Providers\OpenAi\Handlers\Audio;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Embed;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Image;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Moderate;
-use Atlasphp\Atlas\Providers\OpenAi\Handlers\Text;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Video;
-use Atlasphp\Atlas\Providers\OpenAi\MediaResolver;
 use Atlasphp\Atlas\Providers\OpenAi\MessageFactory;
-use Atlasphp\Atlas\Providers\OpenAi\ResponseParser;
-use Atlasphp\Atlas\Providers\OpenAi\ToolMapper;
+use Atlasphp\Atlas\Providers\Responses\Handlers\Text;
+use Atlasphp\Atlas\Providers\Responses\MediaResolver;
+use Atlasphp\Atlas\Providers\Responses\ResponseParser;
+use Atlasphp\Atlas\Providers\Responses\ToolMapper;
 
 /**
  * Clean Responses API driver for compatible endpoints.
  *
- * Reuses all OpenAI handlers. Only differs in that organization header
- * is not sent (config won't have it). Consumers disable unsupported
- * modalities via config capability overrides.
+ * Uses the neutral Responses text handler (no organization header) plus the
+ * shared image/audio/video/embed/moderate handlers. Consumers disable
+ * unsupported modalities via config capability overrides.
  *
  * Suitable for Ollama v0.13.3+ and other Responses API proxies.
  */

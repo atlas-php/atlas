@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Messages\ToolCall;
-use Atlasphp\Atlas\Providers\OpenAi\ToolMapper;
+use Atlasphp\Atlas\Providers\Responses\ToolMapper;
 use Atlasphp\Atlas\Providers\Tools\CodeInterpreter;
 use Atlasphp\Atlas\Providers\Tools\FileSearch;
 use Atlasphp\Atlas\Providers\Tools\WebSearch;
@@ -130,22 +130,15 @@ it('parses function call items into ToolCall objects', function () {
     expect($result[0]->arguments)->toBe(['q' => 'test']);
 });
 
-it('falls back to id field when call_id is a numeric index', function () {
+it('uses call_id verbatim even when it is a bare numeric index', function () {
+    // The neutral base does no numeric special-casing — that is xAI-specific.
     $mapper = new ToolMapper;
 
-    $raw = [
-        [
-            'call_id' => '0',
-            'name' => 'generate_image',
-            'arguments' => '{"prompt":"test"}',
-            'id' => 'fc_abc123-def456_0',
-        ],
-    ];
+    $result = $mapper->parseToolCalls([
+        ['call_id' => '0', 'name' => 'generate_image', 'arguments' => '{"prompt":"test"}', 'id' => 'fc_abc123_0'],
+    ]);
 
-    $result = $mapper->parseToolCalls($raw);
-
-    expect($result[0]->id)->toBe('fc_abc123-def456_0');
-    expect($result[0]->name)->toBe('generate_image');
+    expect($result[0]->id)->toBe('0');
 });
 
 it('uses call_id when it is a proper identifier', function () {

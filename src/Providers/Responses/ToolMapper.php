@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Atlasphp\Atlas\Providers\OpenAi;
+namespace Atlasphp\Atlas\Providers\Responses;
 
 use Atlasphp\Atlas\Enums\ToolChoiceMode;
 use Atlasphp\Atlas\Messages\ToolCall;
@@ -12,10 +12,12 @@ use Atlasphp\Atlas\Tools\ToolChoice;
 use Atlasphp\Atlas\Tools\ToolDefinition;
 
 /**
- * Maps Atlas tool definitions to OpenAI Responses API format.
+ * Maps Atlas tool definitions to the OpenAI Responses API format.
  *
- * Uses the flat function format (no nested "function" key) and extracts
- * tool calls from output items using `call_id`.
+ * Shared by every provider that speaks the Responses API wire format. Uses the
+ * flat function format (no nested "function" key) and extracts tool calls from
+ * output items using `call_id`. Providers override the protected hooks
+ * (`resolveCallId`, `mapProviderTool`) only where their behavior diverges.
  */
 class ToolMapper implements ToolMapperContract
 {
@@ -101,7 +103,8 @@ class ToolMapper implements ToolMapperContract
      * Translate one provider tool to its Responses API shape.
      *
      * The base shape is the tool's provider-neutral `toArray()`; per-type tweaks
-     * adapt it to OpenAI's request format without altering tools that already work.
+     * adapt it to the Responses API request format without altering tools that
+     * already work.
      *
      * @return array<string, mixed>
      */
@@ -109,8 +112,8 @@ class ToolMapper implements ToolMapperContract
     {
         $payload = $tool->toArray();
 
-        // OpenAI's web_search nests domain restrictions under `filters`. Tools
-        // without domain scoping are emitted byte-for-byte as before.
+        // web_search nests domain restrictions under `filters`. Tools without
+        // domain scoping are emitted byte-for-byte as before.
         if ($tool->type() === 'web_search') {
             return $this->nestWebSearchFilters($payload);
         }
@@ -119,10 +122,10 @@ class ToolMapper implements ToolMapperContract
     }
 
     /**
-     * Move neutral `allowed_domains` / `blocked_domains` into OpenAI's
-     * `filters` object (Responses API web_search). All other attributes —
-     * `search_context_size`, `user_location`, and anything passed through the
-     * tool's options bag — are left untouched so future options pass through.
+     * Move neutral `allowed_domains` / `blocked_domains` into the Responses API
+     * `filters` object (web_search). All other attributes — `search_context_size`,
+     * `user_location`, and anything passed through the tool's options bag — are
+     * left untouched so future options pass through.
      *
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
@@ -163,21 +166,16 @@ class ToolMapper implements ToolMapperContract
     /**
      * Resolve the tool call ID from an output item.
      *
-     * Prefers `call_id` (Responses API standard), but falls back to `id`
-     * when `call_id` is missing or a bare numeric index (some providers
-     * like xAI use sequential indices as call_id for certain models).
+     * The Responses API standard is `call_id`, falling back to `id` when it is
+     * absent. Providers whose models return non-standard ids (e.g. xAI's
+     * sequential indices) override this.
+     *
+     * @param  array<string, mixed>  $item
      */
-    /** @param  array<string, mixed>  $item */
     protected function resolveCallId(array $item): string
     {
         $callId = $item['call_id'] ?? '';
 
-        // A proper call_id looks like "call_XXXX" — if it's a bare numeric
-        // index (e.g. "0", "1"), prefer the full `id` field instead.
-        if ($callId !== '' && ! is_numeric($callId)) {
-            return $callId;
-        }
-
-        return $item['id'] ?? $callId;
+        return $callId !== '' ? $callId : ($item['id'] ?? '');
     }
 }

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use Atlasphp\Atlas\Input\Document;
 use Atlasphp\Atlas\Input\Image;
-use Atlasphp\Atlas\Providers\OpenAi\MediaResolver;
+use Atlasphp\Atlas\Providers\Responses\MediaResolver;
 
 it('resolves URL input to input_image', function () {
     $resolver = new MediaResolver;

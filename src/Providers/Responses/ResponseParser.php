@@ -2,12 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Atlasphp\Atlas\Providers\OpenAi;
+namespace Atlasphp\Atlas\Providers\Responses;
 
 use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Providers\Contracts\ResponseParserContract;
+use Atlasphp\Atlas\Providers\Contracts\ToolMapperContract;
 use Atlasphp\Atlas\Responses\StreamChunk;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\Usage;
@@ -15,13 +16,15 @@ use Atlasphp\Atlas\Responses\Usage;
 /**
  * Parses OpenAI Responses API output into Atlas response objects.
  *
- * Handles typed output items (message, function_call, reasoning),
- * status-based finish reasons, and named SSE streaming events.
+ * Shared by every provider that speaks the Responses API wire format. Handles
+ * typed output items (message, function_call, reasoning), status-based finish
+ * reasons, and named SSE streaming events. Providers override the protected
+ * hooks (e.g. `extractReasoningText`) only where their output shape diverges.
  */
 class ResponseParser implements ResponseParserContract
 {
     public function __construct(
-        protected readonly ToolMapper $toolMapper,
+        protected readonly ToolMapperContract $toolMapper,
     ) {}
 
     /**
@@ -250,13 +253,15 @@ class ResponseParser implements ResponseParserContract
     /**
      * Extract reasoning text from a reasoning output item.
      *
+     * Reads the OpenAI Responses `summary` shape. Providers whose reasoning
+     * lands in a different field (e.g. xAI uses `content`) override this.
+     *
      * @param  array<string, mixed>  $item
      */
-    private function extractReasoningText(array $item): ?string
+    protected function extractReasoningText(array $item): ?string
     {
         $text = '';
 
-        // OpenAI uses summary for reasoning output
         /** @var array<int, array<string, mixed>> $summaries */
         $summaries = $item['summary'] ?? [];
 
@@ -266,20 +271,6 @@ class ResponseParser implements ResponseParserContract
 
                 if ($text !== '') {
                     $text .= "\n";
-                }
-            }
-        }
-
-        // xAI and other providers use content for reasoning output
-        if ($text === '') {
-            /** @var array<int, array<string, mixed>> $content */
-            $content = $item['content'] ?? [];
-
-            foreach ($content as $part) {
-                $partText = (string) ($part['text'] ?? '');
-
-                if ($partText !== '') {
-                    $text .= $partText."\n";
                 }
             }
         }

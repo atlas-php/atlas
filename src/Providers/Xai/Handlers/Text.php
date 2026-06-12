@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Providers\Xai\Handlers;
 
-use Atlasphp\Atlas\Providers\OpenAi\Handlers\Text as OpenAiText;
+use Atlasphp\Atlas\Providers\Responses\Handlers\Text as ResponsesText;
 use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\TokenCount;
 
 /**
- * xAI text handler extending OpenAI's Responses API handler.
+ * xAI text handler built on the neutral Responses base.
  *
  * Strips the `instructions` key from the payload since xAI does not support it
  * as a top-level parameter (instructions are handled via MessageFactory as a
  * system message in input). Ensures `store` is always false.
  */
-class Text extends OpenAiText
+class Text extends ResponsesText
 {
     /**
      * Estimate input tokens with the heuristic.
@@ -38,6 +38,8 @@ class Text extends OpenAiText
 
         unset($body['instructions']);
 
+        // Re-force store=false AFTER the base merges providerOptions, so a caller
+        // can't enable server-side storage on xAI (which doesn't support it).
         $body['store'] = false;
 
         // xAI's grok reasoning models accept only low|high effort (no

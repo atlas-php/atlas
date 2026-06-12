@@ -46,7 +46,7 @@ use Atlasphp\Atlas\Persistence\Services\ConversationService;
 use Atlasphp\Atlas\Persistence\Support\MimeTypeMap;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Driver;
-use Atlasphp\Atlas\Providers\OpenAi\ToolMapper;
+use Atlasphp\Atlas\Providers\Responses\ToolMapper;
 use Atlasphp\Atlas\Providers\Tools\ProviderTool;
 use Atlasphp\Atlas\Providers\Tools\ProviderToolRegistry;
 use Atlasphp\Atlas\Queue\Contracts\QueueableRequest;

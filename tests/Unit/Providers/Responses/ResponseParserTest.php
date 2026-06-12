@@ -5,8 +5,8 @@ declare(strict_types=1);
 use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Exceptions\ProviderException;
-use Atlasphp\Atlas\Providers\OpenAi\ResponseParser;
-use Atlasphp\Atlas\Providers\OpenAi\ToolMapper;
+use Atlasphp\Atlas\Providers\Responses\ResponseParser;
+use Atlasphp\Atlas\Providers\Responses\ToolMapper;
 
 function makeParser(): ResponseParser
 {
