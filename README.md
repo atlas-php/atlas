@@ -21,48 +21,46 @@
 
 # 🪐 Atlas
 
-Atlas is a unified AI SDK for Laravel applications. It owns its own provider layer — no external AI package dependency. Atlas talks directly to AI provider APIs, manages the tool call loop, and provides optional persistence for conversations, execution tracking, and agent memory.
+**A unified AI SDK for Laravel — agents, tools, and 10 modalities across every major provider.**
 
-## ✨ Features
+One API for OpenAI, Anthropic, Google, xAI, ElevenLabs, and any OpenAI-compatible endpoint. Atlas owns its own provider layer — no external AI package dependency — talks directly to provider APIs, manages the tool call loop, and adds optional persistence for conversations, execution tracking, and agent memory.
 
-- **Agents**
-  - Reusable classes encapsulating provider, model, instructions, tools, and behavior
-- **Tools**
-  - Typed tool classes with parameter schemas and dependency injection
-- **Sub-agents**
-  - Delegate tasks to other agents as tools, with isolated context, depth/cycle guards, and an auditable parent → child execution tree. Fan out to multiple sub-agents **concurrently** (true parallel execution via forking) so independent work runs at the same time
-- **10 Modalities**
-  - Text, images, audio (speech, music, sound effects), video, voice, embeddings, reranking
-- **Similarity Search**
-  - Unified `Atlas::similaritySearch()` over whole-record or chunked embeddings; also available as an agent tool
-- **Chunked Embeddings**
-  - Index long-form, frequently-edited content with diff-based reconciliation — edits re-embed only what changed
-- **Variable Interpolation**
-  - `{variable}` placeholders in instructions resolved at runtime
-- **Middleware**
-  - Four layers (agent, step, tool, provider) for logging, auth, metrics, and control
-- **Structured Output**
-  - Schema-validated JSON responses from any provider
-- **Streaming**
-  - SSE and Laravel Broadcasting with real-time chunk delivery
-- **Voice**
-  - Real-time bidirectional voice conversations with tool support
-- **Conversations**
-  - Multi-turn chat with message history, retry, and sibling tracking
-- **Persistence**
-  - Optional execution tracking and asset storage
-- **Queue Support**
-  - Async execution with broadcasting and callbacks
-- **Testing**
-  - Full fake system with assertions — no API keys required
-- **Provider Tools**
-  - Web search, code interpreter, file search via provider-native tools
-- **Provider Discovery**
-  - List available models, voices, and run content moderation
-- **Custom Providers**
-  - OpenAI-compatible endpoints or fully custom drivers
-- **All Providers**
-  - OpenAI, Anthropic, Google (Gemini), xAI (Grok), ElevenLabs, Cohere, Jina, plus any OpenAI-compatible API (Ollama, Groq, DeepSeek, Together, OpenRouter, LM Studio)
+> Every provider modality is **live-tested against real provider APIs**. See the [API Audit](./AUDIT.md).
+
+## ⚡ It's this simple
+
+```php
+use Atlasphp\Atlas\Atlas;
+
+$response = Atlas::text('openai', 'gpt-4o-mini')
+    ->message('Draft a brief, friendly email letting a client know their project is running two days behind, and propose Thursday for delivery.')
+    ->asText();
+
+echo $response->text;
+//  Hi Jordan — a quick heads-up that we're running about two days behind
+//  on the project. We're aiming to have everything to you by Thursday..."
+```
+
+No agent classes, no config, no boilerplate. Add an `->instructions()` and `->withTools()` when you need them — or promote the whole thing into a reusable [Agent](#define-an-agent) when your app grows.
+
+## 🎯 Highlights
+
+- **The most complete modality coverage** — text, structured output, images, audio, music, sound effects, video, embeddings, reranking, moderation, and **realtime bidirectional voice**. Music, SFX, video, and voice are Atlas-only among Laravel AI libraries.
+- **A real agent framework** — first-class agent classes, sub-agents with delegation and depth/cycle guards, true parallel fan-out via forking, and an auditable parent → child execution tree.
+- **Production persistence** — conversation memory, execution tracking, retry & branch, and a dedicated media-asset model auto-stored to disk (S3/local) and linked to messages.
+- **Operational maturity** — pre-flight token counting (including tools & images), provider-call observability with correlation IDs across retries, and runtime model/voice discovery and capability checks.
+- **Control at every layer** — middleware across agent, step, tool, and provider boundaries for logging, auth, and metrics.
+- **Multi-provider, one API** — OpenAI, Anthropic, Google, xAI, ElevenLabs, Cohere, Jina, plus any OpenAI-compatible endpoint. Swap providers by changing a string.
+
+## 💡 Why Atlas?
+
+Plenty of AI libraries get you a response and stop there. Atlas is built for everything that happens after the happy path — the retries, errors, timeouts, and tracking that real applications run into.
+
+- **Tested for real, not mocked.** Every modality on every provider is exercised against the live API and published in the [API Audit](./AUDIT.md) — and every feature ships with automated tests (see the coverage badge above). What the docs say is what ships.
+- **Production-hardened.** Automatic retries with backoff, typed exceptions you can catch by case, observability with correlation IDs across retries, and cost tracking that survives an interrupted stream — the failure modes real apps hit are already handled.
+- **Keeps pace with the providers.** When they ship a new model, tool, or capability, Atlas moves nearly as fast — the [CHANGELOG](./CHANGELOG.md) shows the cadence.
+
+And where it counts, Atlas simply does more: realtime voice, video, retry & branch, and pre-flight token counting are all Atlas-only among Laravel AI libraries. **[See the full comparison →](./COMPARISON.md)**
 
 ## 🚀 Quick Start
 
@@ -81,7 +79,7 @@ php artisan vendor:publish --tag=atlas-config
 ```php
 use Atlasphp\Atlas\Agent;
 
-class SupportAgent extends Agent
+class PlantShopAgent extends Agent
 {
     public function provider(): ?string
     {
@@ -96,16 +94,17 @@ class SupportAgent extends Agent
     public function instructions(): ?string
     {
         return <<<'PROMPT'
-        You are a customer support specialist for {company_name}.
+        You are Fern, the friendly plant-care and order specialist for {shop_name}.
 
-        ## Customer Context
+        ## Customer
         - **Name:** {customer_name}
-        - **Account Tier:** {account_tier}
+        - **Member since:** {member_since}
 
-        ## Guidelines
-        - Always greet the customer by name
-        - For order inquiries, use `lookup_order` before providing details
-        - Before processing refunds, verify eligibility using order data
+        ## How you help
+        - Greet {customer_name} by name and keep it warm.
+        - For anything about an order, call `lookup_order` first — never guess a status.
+        - If a plant arrived damaged, use `start_return` to open a replacement, then reassure them.
+        - Drop in a genuinely useful care tip when it fits.
         PROMPT;
     }
 
@@ -113,7 +112,7 @@ class SupportAgent extends Agent
     {
         return [
             LookupOrderTool::class,
-            ProcessRefundTool::class,
+            StartReturnTool::class,
         ];
     }
 }
@@ -138,13 +137,13 @@ class LookupOrderTool extends Tool
 
     public function description(): string
     {
-        return 'Look up order details by order ID';
+        return 'Look up the status and contents of an order by its ID';
     }
 
     public function parameters(): array
     {
         return [
-            new StringField('order_id', 'The order ID to look up'),
+            new StringField('order_id', 'The order ID, e.g. "5512"'),
         ];
     }
 
@@ -152,7 +151,7 @@ class LookupOrderTool extends Tool
     {
         $order = $this->orders->find($args['order_id']);
 
-        return $order ? $order->toArray() : 'Order not found';
+        return $order ? $order->toArray() : 'No order found with that ID.';
     }
 }
 ```
@@ -160,32 +159,28 @@ class LookupOrderTool extends Tool
 ### Chat with the Agent
 
 ```php
-$response = Atlas::agent('support')
+$response = Atlas::agent('plant-shop')
     ->withVariables([
-        'company_name' => 'Acme',
+        'shop_name' => 'Leaf & Co.',
         'customer_name' => 'Sarah',
-        'account_tier' => 'Premium',
+        'member_since' => '2023',
     ])
-    ->withTools([
-        HelpDeskSearchTool::class,
-        OrderStatusTool::class,
-    ])
-    ->message('Where is my order #12345?')
+    ->message('My monstera arrived with a snapped leaf — order #5512. Can I get a replacement?')
     ->asText();
 
-$response->text;    // "Hello Sarah! Let me look that up..."
+$response->text;    // "Oh no, Sarah! Let me pull up #5512 for you..."
 $response->usage;   // Token usage
-$response->steps;   // Tool call loop history
+$response->steps;   // Tool call loop — lookup_order, then start_return
 ```
 
 ### Speak with the Agent (Voice to Voice)
 
 ```php
-$session = Atlas::agent('support')
+$session = Atlas::agent('plant-shop')
     ->withVariables([
-        'company_name' => 'Acme',
+        'shop_name' => 'Leaf & Co.',
         'customer_name' => 'Sarah',
-        'account_tier' => 'Premium',
+        'member_since' => '2023',
     ])
     ->asVoice();
 
@@ -195,16 +190,71 @@ return response()->json($session->toClientPayload());
 
 See the [Voice Integration Guide](https://atlasphp.org/guides/voice-integration/) for full setup instructions.
 
-## 💡 Why Atlas?
+### Optional: Enable Persistence
 
-**The problem:** Prompts scattered across controllers, duplicated configurations, business logic tightly coupled with AI calls, and no consistent way to add logging, validation, or error handling.
+Atlas runs fully stateless by default — no database required. To unlock conversation history, execution tracking, media-asset storage, and retry & branch, publish and run the migrations:
 
-**Atlas structures your AI layer:**
+```bash
+php artisan vendor:publish --tag=atlas-migrations
+php artisan migrate
+```
 
-- **Agents** — AI configurations live in dedicated classes, not inline across your codebase.
-- **Tools** — Business logic stays in tool classes with typed parameters. Agents call tools; tools call your services.
-- **Middleware** — Add logging, auth, or metrics at four execution layers without coupling the codebase.
-- **Testable** — Full fake system with per-modality assertions using standard Laravel testing patterns.
+Then turn it on in `.env`:
+
+```env
+ATLAS_PERSISTENCE_ENABLED=true
+```
+
+That's it — `->for($user)` and `->forConversation($id)` now load and persist history automatically.
+
+## ✨ Features
+
+### Core generation
+
+- **Text & structured output** — schema-validated JSON from any provider
+- **Streaming** — SSE + Laravel Broadcasting, real-time chunks
+- **Tool calling** — typed tools, multi-step loop, concurrent execution
+- **Reasoning** — configure, stream, and persist extended thinking
+- **Prompt caching** — cache long system prompts to cut cost
+- **Token counting** — count input (with tools & images) before sending
+
+### Agent framework
+
+- **Agents** — provider, model, instructions, and tools in one reusable class
+- **Sub-agents** — delegation with depth/cycle guards, lineage, and parallel fan-out
+- **Conversations & memory** — multi-turn history, retry & branch, agent memory
+- **Execution tracking** — steps, tools, usage, and assets persisted
+- **Media assets** — auto-stored to disk (S3/local), linked to messages
+- **Middleware** — agent, step, tool, and provider layers
+- **Variable interpolation** — `{var}` placeholders resolved at runtime
+- **Queues** — async execution with broadcasting and callbacks
+
+### Modalities
+
+- **10 modalities** — text, images, audio, music, sound effects, video, voice, embeddings, reranking, moderation
+- **Realtime voice** — bidirectional voice conversations with tools
+- **Similarity search** — whole-record or chunked embeddings, diff-based re-embedding
+
+### Ecosystem & tooling
+
+- **Provider tools** — web search, code interpreter, file search
+- **MCP** — composes with [Laravel MCP](https://github.com/laravel/mcp)
+- **Provider discovery** — list models/voices, validate keys, inspect capabilities
+- **Observability** — trace every provider call, correlation IDs across retries
+- **Testing** — full per-modality fakes, no API keys required
+- **Custom providers** — OpenAI-compatible endpoints or fully custom drivers
+
+## 🔌 Providers
+
+Atlas talks to every major provider through one interface. Switch by changing a string — your agents, tools, and middleware stay the same.
+
+**First-party drivers**
+
+OpenAI · Anthropic · Google (Gemini) · xAI (Grok) · ElevenLabs · Cohere · Jina
+
+**Any OpenAI-compatible API**
+
+Ollama · Groq · DeepSeek · Together · OpenRouter · LM Studio · Mistral · Perplexity
 
 ## 📖 Documentation
 

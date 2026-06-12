@@ -217,6 +217,31 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Batch
+    |--------------------------------------------------------------------------
+    |
+    | Deferred batch jobs run at ~50% of synchronous cost and resolve within
+    | the provider's completion window. Tracked batches (persistence enabled)
+    | are advanced by the `atlas:batch-poll` command — schedule it to bring in
+    | results. There is no enable flag: batch only runs when you call
+    | Atlas::batch(), and polling is gated by persistence being enabled.
+    |
+    */
+
+    'batch' => [
+        // Max open jobs the `atlas:batch-poll` command advances per run.
+        'poll_limit' => (int) env('ATLAS_BATCH_POLL_LIMIT', 25),
+
+        // Provider completion window for submitted batches.
+        'completion_window' => env('ATLAS_BATCH_WINDOW', '24h'),
+
+        // Days of batch history (jobs + their results) to keep. The
+        // `atlas:batch-prune` command deletes anything older; schedule it daily.
+        'retention_days' => (int) env('ATLAS_BATCH_RETENTION_DAYS', 90),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Streaming
     |--------------------------------------------------------------------------
     |

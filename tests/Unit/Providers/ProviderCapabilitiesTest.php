@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
 
 it('returns true for supported features', function () {
@@ -68,4 +69,39 @@ it('withOverrides returns same instance when overrides are empty', function () {
     $result = ProviderCapabilities::withOverrides($base, []);
 
     expect($result)->toBe($base);
+});
+
+it('canBatch requires both the batch flag and the modality allow-list', function () {
+    $caps = new ProviderCapabilities(
+        batch: true,
+        batchModalities: ['text', 'embed'],
+    );
+
+    expect($caps->canBatch('text'))->toBeTrue();
+    expect($caps->canBatch(Modality::Embed))->toBeTrue();
+    expect($caps->canBatch('image'))->toBeFalse();
+    expect($caps->canBatch(Modality::Voice))->toBeFalse();
+});
+
+it('canBatch is false when the provider lacks the batch flag entirely', function () {
+    $caps = new ProviderCapabilities(text: true, batchModalities: ['text']);
+
+    expect($caps->canBatch('text'))->toBeFalse();
+});
+
+it('supports() ignores the non-bool batchModalities property', function () {
+    $caps = new ProviderCapabilities(batch: true, batchModalities: ['text']);
+
+    expect($caps->supports('batch'))->toBeTrue();
+    expect($caps->supports('batchModalities'))->toBeFalse();
+});
+
+it('withOverrides preserves batch capability fields', function () {
+    $base = new ProviderCapabilities(batch: true, batchModalities: ['text']);
+
+    $overridden = ProviderCapabilities::withOverrides($base, ['stream' => true]);
+
+    expect($overridden->supports('batch'))->toBeTrue();
+    expect($overridden->canBatch('text'))->toBeTrue();
+    expect($overridden->supports('stream'))->toBeTrue();
 });

@@ -116,6 +116,8 @@ class AtlasServiceProvider extends ServiceProvider
                 Console\ChunkCommand::class,
                 Console\PruneChunksCommand::class,
                 Console\RechunkCommand::class,
+                Console\PollBatchJobsCommand::class,
+                Console\PruneBatchJobsCommand::class,
             ]);
 
             $this->publishes([

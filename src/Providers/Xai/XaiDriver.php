@@ -58,6 +58,7 @@ class XaiDriver extends Driver
                 providerTools: true,
                 models: true,
                 voices: true,
+                batch: false,
             ),
             $this->config->capabilityOverrides,
         );

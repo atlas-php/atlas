@@ -39,6 +39,7 @@ class GoogleDriver extends Driver
                 toolCalling: true,
                 providerTools: true,
                 models: true,
+                batch: false,
             ),
             $this->config->capabilityOverrides,
         );

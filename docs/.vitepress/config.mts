@@ -276,6 +276,7 @@ gtag('config', 'G-JEV06LWG7N');`],
                     { text: 'Embeddings', link: '/modalities/embeddings' },
                     { text: 'Reranking', link: '/modalities/reranking' },
                     { text: 'Moderation', link: '/modalities/moderation' },
+                    { text: 'Batch', link: '/modalities/batch' },
                     { text: 'Models', link: '/modalities/models' },
                     { text: 'Voices', link: '/modalities/voices' },
                 ]

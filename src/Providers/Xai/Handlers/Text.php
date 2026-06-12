@@ -32,7 +32,7 @@ class Text extends OpenAiText
     /**
      * @return array<string, mixed>
      */
-    protected function buildPayload(TextRequest $request): array
+    public function buildPayload(TextRequest $request): array
     {
         $body = parent::buildPayload($request);
 

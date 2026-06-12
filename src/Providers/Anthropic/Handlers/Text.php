@@ -58,6 +58,18 @@ class Text implements TextHandler
         return $this->parser->parseText($data);
     }
 
+    /**
+     * Parse a Messages API payload into a TextResponse.
+     *
+     * Public so the batch handler parses a batch line's result identically.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function parse(array $data): TextResponse
+    {
+        return $this->parser->parseText($data);
+    }
+
     public function stream(TextRequest $request): StreamResponse
     {
         $body = $this->buildBody($request);
@@ -151,9 +163,12 @@ class Text implements TextHandler
     /**
      * Build the Anthropic Messages API request body.
      *
+     * Public so the batch handler serializes a batch line's params identically
+     * to a synchronous call.
+     *
      * @return array<string, mixed>
      */
-    protected function buildBody(TextRequest $request): array
+    public function buildBody(TextRequest $request): array
     {
         $messageData = $this->messages->buildAll($request, $this->media);
 

@@ -4,11 +4,17 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas\Providers;
 
+use Atlasphp\Atlas\Enums\Modality;
+
 /**
  * Declares what features a provider supports.
  */
 class ProviderCapabilities
 {
+    /**
+     * @param  array<int, string>  $batchModalities  Modality values (see {@see Modality})
+     *                                               this provider can submit as deferred batch jobs.
+     */
     public function __construct(
         public readonly bool $text = false,
         public readonly bool $stream = false,
@@ -29,6 +35,8 @@ class ProviderCapabilities
         public readonly bool $models = false,
         public readonly bool $voice = false,
         public readonly bool $voices = false,
+        public readonly bool $batch = false,
+        public readonly array $batchModalities = [],
     ) {}
 
     /**
@@ -36,7 +44,20 @@ class ProviderCapabilities
      */
     public function supports(string $feature): bool
     {
-        return property_exists($this, $feature) && $this->{$feature};
+        return property_exists($this, $feature) && $this->{$feature} === true;
+    }
+
+    /**
+     * Whether this provider can batch the given modality.
+     *
+     * Requires both the batch capability and the modality being in the
+     * provider's batchable allow-list.
+     */
+    public function canBatch(Modality|string $modality): bool
+    {
+        $value = $modality instanceof Modality ? $modality->value : $modality;
+
+        return $this->batch && in_array($value, $this->batchModalities, true);
     }
 
     /**

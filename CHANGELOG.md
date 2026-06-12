@@ -12,17 +12,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 ### Added
 
+- `Atlas::batch()` (OpenAI; text, vision, and embeddings) submits large request sets as deferred jobs for ~50% lower cost. With persistence, `atlas:batch-poll` pulls results in keyed to your records by `custom_id`, and `atlas:batch-prune` bounds history (`atlas.batch.retention_days`, default 90). Tools and per-request middleware aren't supported and are rejected up front.
 - `->reasoning(ReasoningEffort)` on text and agent requests (and an `Agent::reasoning()` default) enables extended thinking at one effort level (`Minimal`/`Low`/`Medium`/`High`), mapped to each provider's format. Optional `budgetTokens:` and `includeSummary:`.
 - `->countTokens()` on text and agent requests returns input-token count before sending — exact on Anthropic/OpenAI/Google, estimated on xAI/Ollama/LM Studio. Returns a `TokenCount` with an `estimated` flag.
 
 ### Fixed
 
 - Extended thinking now works through multi-step tool calls and persisted-conversation reloads.
-- Google (Gemini) tool calls no longer 400 on non-object results (number, boolean, array, quoted string) — these are now wrapped automatically. Plain strings and JSON objects are unchanged.
+- Google (Gemini) tool calls no longer 400 on non-object results (number, boolean, array, quoted string) — wrapped automatically. Plain strings and JSON objects are unchanged.
 
 ### Migration
 
-**No breaking changes** — drop-in upgrade.
+**No breaking changes** — drop-in upgrade. Stateless batching (submit, then poll the provider yourself) needs no setup. Tracked batching (auto-polled, persisted results) adds new tables — publish and migrate:
+
+```bash
+php artisan vendor:publish --tag=atlas-migrations
+php artisan migrate
+```
 
 ---
 

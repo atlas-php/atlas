@@ -36,6 +36,7 @@ class ElevenLabsDriver extends Driver
                 voice: true,
                 models: true,
                 voices: true,
+                batch: false,
             ),
             $this->config->capabilityOverrides,
         );

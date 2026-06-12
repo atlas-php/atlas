@@ -47,6 +47,8 @@ use Illuminate\Support\Facades\Facade;
  * @method static VoiceRequest voice(Provider|string|null $provider = null, ?string $model = null)
  * @method static RerankRequest rerank(Provider|string|null $provider = null, ?string $model = null)
  * @method static ProviderRequest provider(Provider|string $provider)
+ * @method static \Atlasphp\Atlas\Pending\BatchRequest batch(Provider|string|null $provider = null)
+ * @method static \Atlasphp\Atlas\Persistence\Models\BatchGroup batchGroup(?string $label = null)
  * @method static AgentRequest agent(string $key)
  * @method static ProviderRegistryContract providers()
  * @method static void registerChunkable(class-string<\Illuminate\Database\Eloquent\Model> $modelClass)

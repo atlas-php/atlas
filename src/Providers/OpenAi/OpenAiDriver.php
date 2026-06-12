@@ -6,6 +6,7 @@ namespace Atlasphp\Atlas\Providers\OpenAi;
 
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\Handlers\AudioHandler;
+use Atlasphp\Atlas\Providers\Handlers\BatchHandler;
 use Atlasphp\Atlas\Providers\Handlers\EmbedHandler;
 use Atlasphp\Atlas\Providers\Handlers\ImageHandler;
 use Atlasphp\Atlas\Providers\Handlers\ModerateHandler;
@@ -14,6 +15,7 @@ use Atlasphp\Atlas\Providers\Handlers\TextHandler;
 use Atlasphp\Atlas\Providers\Handlers\VideoHandler;
 use Atlasphp\Atlas\Providers\Handlers\VoiceHandler;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Audio;
+use Atlasphp\Atlas\Providers\OpenAi\Handlers\Batch;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Embed;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Image;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Moderate;
@@ -58,6 +60,8 @@ class OpenAiDriver extends Driver
                 providerTools: true,
                 models: true,
                 voices: true,
+                batch: true,
+                batchModalities: ['text', 'embed'],
             ),
             $this->config->capabilityOverrides,
         );
@@ -69,6 +73,14 @@ class OpenAiDriver extends Driver
     }
 
     protected function textHandler(): TextHandler
+    {
+        return $this->buildTextHandler();
+    }
+
+    /**
+     * Construct the OpenAI text handler, shared by the text and batch handlers.
+     */
+    private function buildTextHandler(): Text
     {
         $toolMapper = new ToolMapper;
 
@@ -100,6 +112,27 @@ class OpenAiDriver extends Driver
     protected function embedHandler(): EmbedHandler
     {
         return new Embed($this->config, $this->http);
+    }
+
+    protected function batchHandler(): BatchHandler
+    {
+        $toolMapper = new ToolMapper;
+
+        $text = new Text(
+            config: $this->config,
+            http: $this->http,
+            messages: new MessageFactory,
+            media: new MediaResolver,
+            toolMapper: $toolMapper,
+            parser: new ResponseParser($toolMapper),
+        );
+
+        return new Batch(
+            config: $this->config,
+            http: $this->http,
+            text: $text,
+            embed: new Embed($this->config, $this->http),
+        );
     }
 
     protected function moderateHandler(): ModerateHandler
