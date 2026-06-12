@@ -23,9 +23,9 @@
 
 **A unified AI SDK for Laravel — agents, tools, and 10 modalities across every major provider.**
 
-One API for OpenAI, Anthropic, Google, xAI, ElevenLabs, and any OpenAI-compatible endpoint. Atlas owns its own provider layer — no external AI package dependency — talks directly to provider APIs, manages the tool call loop, and adds optional persistence for conversations, execution tracking, and agent memory.
+One API for OpenAI, Anthropic, Google, xAI, ElevenLabs, and any OpenAI-compatible endpoint — with no external AI dependency. Atlas runs the tool-call loop and adds optional persistence for conversations, tracking, and memory.
 
-> Every provider modality is **live-tested against real provider APIs**. See the [API Audit](./AUDIT.md).
+> Every provider modality is **live-tested against real provider APIs** — not mocks. See the [API Audit](./AUDIT.md).
 
 ## ⚡ It's this simple
 
@@ -37,28 +37,30 @@ $response = Atlas::text('openai', 'gpt-4o-mini')
     ->asText();
 
 echo $response->text;
+// "Subject: Quick update on your timeline
+//
 //  Hi Jordan — a quick heads-up that we're running about two days behind
 //  on the project. We're aiming to have everything to you by Thursday..."
 ```
 
-No agent classes, no config, no boilerplate. Add an `->instructions()` and `->withTools()` when you need them — or promote the whole thing into a reusable [Agent](#define-an-agent) when your app grows.
+No agent classes, no config. Add `->instructions()` and `->withTools()` when you need them, or graduate to a reusable [Agent](#define-an-agent) as your app grows.
 
 ## 🎯 Highlights
 
-- **The most complete modality coverage** — text, structured output, images, audio, music, sound effects, video, embeddings, reranking, moderation, and **realtime bidirectional voice**. Music, SFX, video, and voice are Atlas-only among Laravel AI libraries.
-- **A real agent framework** — first-class agent classes, sub-agents with delegation and depth/cycle guards, true parallel fan-out via forking, and an auditable parent → child execution tree.
-- **Production persistence** — conversation memory, execution tracking, retry & branch, and a dedicated media-asset model auto-stored to disk (S3/local) and linked to messages.
-- **Operational maturity** — pre-flight token counting (including tools & images), provider-call observability with correlation IDs across retries, and runtime model/voice discovery and capability checks.
-- **Control at every layer** — middleware across agent, step, tool, and provider boundaries for logging, auth, and metrics.
-- **Multi-provider, one API** — OpenAI, Anthropic, Google, xAI, ElevenLabs, Cohere, Jina, plus any OpenAI-compatible endpoint. Swap providers by changing a string.
+- **Every modality** — text, images, audio, music, SFX, video, realtime voice, embeddings, reranking, moderation. Voice, music, SFX, and video are Atlas-only.
+- **A real agent framework** — first-class agents, sub-agents with guards and true parallel fan-out, auditable execution trees.
+- **Production persistence** — conversation memory, execution tracking, retry & branch, media assets on disk (S3/local).
+- **Operational maturity** — pre-flight token counting, provider-call observability, runtime model/voice discovery.
+- **Control at every layer** — middleware across agent, step, tool, and provider boundaries.
+- **Multi-provider, one API** — every major provider plus any OpenAI-compatible endpoint; swap by changing a string.
 
 ## 💡 Why Atlas?
 
-Plenty of AI libraries get you a response and stop there. Atlas is built for everything that happens after the happy path — the retries, errors, timeouts, and tracking that real applications run into.
+Plenty of AI libraries get you a response and stop there. Atlas handles everything after the happy path — the retries, errors, and tracking real apps run into.
 
-- **Tested for real, not mocked.** Every modality on every provider is exercised against the live API and published in the [API Audit](./AUDIT.md) — and every feature ships with automated tests (see the coverage badge above). What the docs say is what ships.
-- **Production-hardened.** Automatic retries with backoff, typed exceptions you can catch by case, observability with correlation IDs across retries, and cost tracking that survives an interrupted stream — the failure modes real apps hit are already handled.
-- **Keeps pace with the providers.** When they ship a new model, tool, or capability, Atlas moves nearly as fast — the [CHANGELOG](./CHANGELOG.md) shows the cadence.
+- **Tested for real, not mocked.** Every modality runs against the live provider API ([API Audit](./AUDIT.md)), and every feature ships with automated tests. What the docs say is what ships.
+- **Production-hardened.** Automatic retries, typed exceptions, observability, and cost tracking that survives interrupted streams — the failure modes real apps hit are already handled.
+- **Keeps pace with the providers.** New models, tools, and capabilities land fast — the [CHANGELOG](./CHANGELOG.md) shows the cadence.
 
 And where it counts, Atlas simply does more: realtime voice, video, retry & branch, and pre-flight token counting are all Atlas-only among Laravel AI libraries. **[See the full comparison →](./COMPARISON.md)**
 
