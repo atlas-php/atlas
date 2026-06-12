@@ -28,7 +28,9 @@ trait ResolvesProvider
     protected function ensureCapability(Driver $driver, string $feature): void
     {
         if (! $driver->capabilities()->supports($feature)) {
-            throw UnsupportedFeatureException::make($feature, $driver->name());
+            // Report the configured provider key (e.g. 'groq'), not the shared
+            // driver type returned by name() (e.g. 'chat_completions').
+            throw UnsupportedFeatureException::make($feature, $this->resolveProviderKey());
         }
     }
 

@@ -37,6 +37,28 @@ it('a mid-stream error carries the model passed to the parser', function () {
     expect($caught?->model)->toBe('gemini-2.5-flash');
 });
 
+it('a mid-stream error defaults to the google provider and honors an override', function () {
+    $default = null;
+
+    try {
+        makeGoogleResponseParser()->parseStreamChunk(['error' => ['message' => 'boom']], 'gemini-2.5-flash');
+    } catch (ProviderException $e) {
+        $default = $e;
+    }
+
+    expect($default?->provider)->toBe('google');
+
+    $aliased = null;
+
+    try {
+        makeGoogleResponseParser()->parseStreamChunk(['error' => ['message' => 'boom']], 'gemini-2.5-flash', 'gemini-prod');
+    } catch (ProviderException $e) {
+        $aliased = $e;
+    }
+
+    expect($aliased?->provider)->toBe('gemini-prod');
+});
+
 it('parses text from candidates parts', function () {
     $parser = makeGoogleResponseParser();
 

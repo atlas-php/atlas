@@ -75,7 +75,7 @@ class Text implements TextHandler
             context: new ProviderRequestContext($this->config->provider, $request->model),
         );
 
-        return new StreamResponse($this->parseSSE($raw, $request->model, $this->config->provider ?: 'chat_completions'));
+        return new StreamResponse($this->parseSSE($raw, $request->model, $this->config->providerName('chat_completions')));
     }
 
     public function structured(TextRequest $request): StructuredResponse

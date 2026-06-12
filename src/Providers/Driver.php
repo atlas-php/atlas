@@ -399,7 +399,7 @@ abstract class Driver
      */
     protected function providerName(): string
     {
-        return $this->config->provider !== '' ? $this->config->provider : $this->name();
+        return $this->config->providerName($this->name());
     }
 
     // ─── Error Handling ──────────────────────────────────────────────────
