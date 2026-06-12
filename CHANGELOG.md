@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 - Google (Gemini) tool calls no longer 400 on non-object results (number, boolean, array, quoted string) — wrapped automatically. Plain strings and JSON objects are unchanged.
 - Google (Gemini) `withProviderOptions()` no longer corrupts nested `generationConfig` fields — extra keys (e.g. `topP`) merge alongside Atlas's values, and an overridden key (e.g. `temperature`) now replaces the value instead of becoming a list Gemini rejects with a 400.
 - Chunked embeddings now work when persistence runs on a separate Postgres connection (`atlas.persistence.connection`) and the app default isn't Postgres — pgvector is detected on the persistence connection, so chunk writes and similarity search no longer fail.
+- OpenAI (and xAI) document inputs now send the correct `input_file` content part instead of `input_image`, so attaching a `Document` (PDF, Word, Excel, CSV, text, Markdown, …) works — previously non-file-ID documents were sent as images and rejected with a 400. URLs pass through as `file_url`; base64/path/storage/upload inline as `file_data`.
 
 ### Migration
 
