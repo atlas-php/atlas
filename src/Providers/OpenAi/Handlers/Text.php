@@ -91,7 +91,7 @@ class Text implements TextHandler
             context: new ProviderRequestContext($this->config->provider, $request->model),
         );
 
-        return new StreamResponse($this->parseSSE($raw, $request->model));
+        return new StreamResponse($this->parseSSE($raw, $request->model, $this->config->provider ?: 'openai'));
     }
 
     public function structured(TextRequest $request): StructuredResponse
@@ -242,10 +242,10 @@ class Text implements TextHandler
      *
      * @return Generator<int, StreamChunk>
      */
-    protected function parseSSE(mixed $rawResponse, string $model = ''): Generator
+    protected function parseSSE(mixed $rawResponse, string $model = '', string $provider = 'openai'): Generator
     {
         foreach (SseParser::parse($rawResponse) as $event) {
-            yield $this->parser->parseStreamChunk($event, $model);
+            yield $this->parser->parseStreamChunk($event, $model, $provider);
         }
     }
 }

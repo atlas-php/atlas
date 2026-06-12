@@ -266,6 +266,7 @@ it('a mid-stream error while streaming throws a ProviderException carrying the m
     expect($caught)->not->toBeNull();
     expect($caught->model)->toBe('gpt-4o');
     expect($caught->providerMessage)->toBe('boom');
+    expect($caught->provider)->toBe('openai');
 });
 
 it('forwards the request config to the HTTP layer when streaming', function () {

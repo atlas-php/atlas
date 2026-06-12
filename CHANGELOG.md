@@ -12,7 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 ### Added
 
-- `Atlas::batch()` submits large request sets as deferred jobs for ~50% lower cost — OpenAI (text, vision, embeddings), Anthropic and Google/Gemini (text, vision). With persistence on, `submit()` auto-tracks the job, `atlas:batch-poll` pulls results in keyed to your records by `custom_id`, and `atlas:batch-prune` bounds history (`atlas.batch.retention_days`, default 90); with it off, batching is stateless and you poll the provider yourself. Tools and per-request middleware aren't supported and are rejected up front.
+- `Atlas::batch()` submits large request sets as deferred jobs for ~50% lower cost — OpenAI (text, vision, embeddings), Anthropic and Google/Gemini (text, vision). With persistence on, `submit()` auto-tracks the job, `atlas:batch-poll` pulls results in keyed by `custom_id`, and `atlas:batch-prune` bounds history (`atlas.batch.retention_days`, default 90); with it off, batching is stateless and you poll the provider yourself. Tools and per-request middleware aren't supported and are rejected up front.
 - `->reasoning(ReasoningEffort)` on text and agent requests (and an `Agent::reasoning()` default) enables extended thinking at one effort level (`Minimal`/`Low`/`Medium`/`High`), mapped to each provider's format. Optional `budgetTokens:` and `includeSummary:`.
 - `->countTokens()` on text and agent requests returns input-token count before sending — exact on Anthropic/OpenAI/Google, estimated on xAI/Ollama/LM Studio. Returns a `TokenCount` with an `estimated` flag.
 
@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 - Google (Gemini) `withProviderOptions()` no longer corrupts nested `generationConfig` fields — extra keys (e.g. `topP`) merge alongside Atlas's values, and an overridden key (e.g. `temperature`) now replaces the value instead of becoming a list Gemini rejects with a 400.
 - Chunked embeddings now work when persistence runs on a separate Postgres connection (`atlas.persistence.connection`) and the app default isn't Postgres — pgvector is detected on the persistence connection, so chunk writes and similarity search no longer fail.
 - OpenAI (and xAI) document inputs now send the correct `input_file` content part instead of `input_image`, so attaching a `Document` (PDF, Word, Excel, CSV, text, Markdown, …) works — previously non-file-ID documents were sent as images and rejected with a 400. URLs pass through as `file_url`; base64/path/storage/upload inline as `file_data`.
+- xAI streaming errors are now attributed to `xai`, not `openai` — a mid-stream error through the shared Responses parser previously carried `$provider === 'openai'`, misattributing xAI failures for anything branching on the provider (retry/fallback, metrics, logging).
 
 ### Migration
 

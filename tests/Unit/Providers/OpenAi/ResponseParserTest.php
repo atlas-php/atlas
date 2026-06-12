@@ -278,6 +278,38 @@ it('a mid-stream error carries the model passed to the parser', function () {
     expect($caught->model)->toBe('gpt-4o');
 });
 
+it('a mid-stream error defaults to the openai provider', function () {
+    $caught = null;
+
+    try {
+        makeParser()->parseStreamChunk([
+            'event' => 'error',
+            'data' => ['error' => ['message' => 'boom']],
+        ], 'gpt-4o');
+    } catch (ProviderException $e) {
+        $caught = $e;
+    }
+
+    expect($caught?->provider)->toBe('openai');
+});
+
+it('a mid-stream error is attributed to the provider passed to the parser', function () {
+    $caught = null;
+
+    try {
+        makeParser()->parseStreamChunk([
+            'event' => 'error',
+            'data' => ['error' => ['message' => 'boom']],
+        ], 'grok-4', 'xai');
+    } catch (ProviderException $e) {
+        $caught = $e;
+    }
+
+    // The shared OpenAI parser is reused by xAI; the error must say xai, not openai.
+    expect($caught?->provider)->toBe('xai');
+    expect($caught?->getMessage())->toContain('Provider [xai]');
+});
+
 it('returns empty text chunk for unknown events', function () {
     $parser = makeParser();
 

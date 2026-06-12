@@ -155,10 +155,12 @@ class ResponseParser implements ResponseParserContract
      * Parse a streaming event into a StreamChunk.
      *
      * Receives an array with 'event' (the SSE event name) and 'data' (parsed JSON).
+     * The provider name is threaded through (like $model) so mid-stream errors are
+     * attributed to the real provider — this parser is shared by OpenAI and xAI.
      *
      * @param  array<string, mixed>  $data
      */
-    public function parseStreamChunk(array $data, string $model = ''): StreamChunk
+    public function parseStreamChunk(array $data, string $model = '', string $provider = 'openai'): StreamChunk
     {
         $event = (string) ($data['event'] ?? '');
         /** @var array<string, mixed> $payload */
@@ -212,7 +214,7 @@ class ResponseParser implements ResponseParserContract
             $error = $payload['response']['error'] ?? $payload['error'] ?? $payload;
             $error = is_array($error) ? $error : ['message' => (string) $error];
 
-            throw ProviderException::fromStreamError('openai', $model, $error);
+            throw ProviderException::fromStreamError($provider, $model, $error);
         }
 
         return new StreamChunk(type: ChunkType::Text, text: null);
