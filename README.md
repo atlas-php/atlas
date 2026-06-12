@@ -62,7 +62,7 @@ Plenty of AI libraries get you a response and stop there. Atlas handles everythi
 - **Production-hardened.** Automatic retries, typed exceptions, observability, and cost tracking that survives interrupted streams — the failure modes real apps hit are already handled.
 - **Keeps pace with the providers.** New models, tools, and capabilities land fast — the [CHANGELOG](./CHANGELOG.md) shows the cadence.
 
-And where it counts, Atlas simply does more: realtime voice, video, retry & branch, and pre-flight token counting are all Atlas-only among Laravel AI libraries. **[See the full comparison →](./COMPARISON.md)**
+And where it counts, Atlas simply does more: realtime voice, video, retry & branch, pre-flight token counting, and ~50%-cheaper batch processing are all Atlas-only among Laravel AI libraries. **[See the full comparison →](./COMPARISON.md)**
 
 ## 🚀 Quick Start
 
