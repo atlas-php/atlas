@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Models\User;
 use Atlasphp\Atlas\Atlas;
+use Atlasphp\Atlas\Persistence\Models\ConversationMessage;
 
 $app = require __DIR__.'/bootstrap.php';
 
@@ -20,7 +21,7 @@ $messages = [
 foreach ($messages as $i => $msg) {
     echo '>>> '.($i + 1).": {$msg}\n";
 
-    $request = Atlas::agent('assistant')
+    $request = Atlas::agent('atlas')
         ->for($user)
         ->message($msg);
 

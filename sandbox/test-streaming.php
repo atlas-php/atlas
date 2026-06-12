@@ -27,7 +27,7 @@ $providers = match ($target) {
     'xai' => [['xai', 'grok-3-mini-fast']],
     'all' => [
         ['openai', 'gpt-4o-mini'],
-        ['anthropic', 'claude-sonnet-4-5-20250514'],
+        ['anthropic', 'claude-sonnet-4-5-20250929'],
         ['google', 'gemini-2.5-flash'],
         ['xai', 'grok-3-mini-fast'],
     ],

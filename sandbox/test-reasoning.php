@@ -47,7 +47,11 @@ foreach ($providers as $provider) {
         echo 'Reasoning:      '.mb_substr($response->reasoning ?? '(null)', 0, 160)."\n";
         echo 'Reasoning toks: '.($response->usage->reasoningTokens ?? '(null)')."\n";
         echo 'Output toks:    '.$response->usage->outputTokens."\n";
-        echo 'PASS: '.($response->usage->reasoningTokens > 0 ? 'reasoning tokens reported ✓' : 'no reasoning tokens ✗')."\n";
+        // Reasoning engaged if the provider reports reasoning tokens OR returns
+        // reasoning text. Anthropic folds thinking into output tokens and exposes
+        // no separate count, so it is validated via the reasoning text instead.
+        $engaged = ($response->usage->reasoningTokens ?? 0) > 0 || ($response->reasoning ?? '') !== '';
+        echo 'PASS: '.($engaged ? 'reasoning engaged ✓' : 'reasoning not engaged ✗')."\n";
     } catch (Throwable $e) {
         echo 'ERROR: '.$e->getMessage()."\n";
     }

@@ -4,7 +4,7 @@ Status of each provider's modalities against **real provider APIs**, exercised v
 sandbox harness (`sandbox/test-{provider}-provider.php` and feature scripts). This file
 records the date each modality last **passed a live API test** — not unit-test coverage.
 
-**Batch API (live, OpenAI/Anthropic/Google, both persistence modes): 2026-06-12** · **Token counting (live, all 4 providers, 22/22): 2026-06-11** · **Last full run: 2026-06-10** (all 4 providers — **97/97 green**; the two 2026-06-09 transient failures (OpenAI TTS, xAI voices) now pass) · **Structured output strict-mode (builder, live OpenAI/Google/Anthropic): 2026-06-10** · **Error handling & resilience (all 4 providers): 2026-06-10** · **Error & request context tracing (all 4 providers, 56/56): 2026-06-10** · **Forced tool choice (all 4 providers): 2026-06-09** · **Image-to-image (reference media): 2026-06-08** · **Prompt caching + media replay: 2026-06-07** · **Provider-tools run: 2026-06-06**
+**Provider-layer decoupling refactor + full feature audit: 2026-06-12** (xAI decoupled from OpenAI onto a neutral `Responses\` base; live audit xAI 24/24, OpenAI 39/40 — the 1 fail an unrelated sora-2 moderation block) · **Batch API (live, OpenAI/Anthropic/Google, both persistence modes): 2026-06-12** · **Token counting (live, all 4 providers, 22/22): 2026-06-11** · **Last full run: 2026-06-10** (all 4 providers — **97/97 green**; the two 2026-06-09 transient failures (OpenAI TTS, xAI voices) now pass) · **Structured output strict-mode (builder, live OpenAI/Google/Anthropic): 2026-06-10** · **Error handling & resilience (all 4 providers): 2026-06-10** · **Error & request context tracing (all 4 providers, 56/56): 2026-06-10** · **Forced tool choice (all 4 providers): 2026-06-09** · **Image-to-image (reference media): 2026-06-08** · **Prompt caching + media replay: 2026-06-07** · **Provider-tools run: 2026-06-06**
 
 Reproduce:
 - Per-provider suites: `cd sandbox && php test-{provider}-provider.php`
@@ -35,6 +35,36 @@ Both require the provider's API key in `sandbox/.env`.
 | LM Studio¹  | ⚠️   | ⚠️     | ⚠️         | ⚠️    | —          | —      | —     | —   | —   | —          | —          | —      | —     | —     | —              |
 
 ¹ OpenAI-compatible endpoints via the shared `chat_completions` driver.
+
+## Provider-layer decoupling refactor + full feature audit (2026-06-12)
+
+xAI was decoupled from OpenAI's concrete Responses-API classes. The common wire-format logic now lives in a neutral `src/Providers/Responses/` package (`MediaResolver`, `ToolMapper`, `ResponseParser`, `Handlers/Text`); OpenAI and xAI are thin subclasses overriding only their seams (xAI: numeric tool-call ids, `content`-based reasoning, payload/`countTokens`; OpenAI: org header). `XaiDriver` imports **zero** `OpenAi\` classes and `OpenAi\`/`Responses\` contain **zero** xAI conditionals. Behavior-preserving; both senior-code-reviewer and dry-simplicity-reviewer **APPROVED**.
+
+**Package checks:** `composer check` — Pint ✓ · PHPStan 0 ✓ · **3446 Pest tests ✓**.
+
+**Live provider smoke suites:** xAI **24/24** (text, stream, structured, tools — correct `call_id` format, web/X search, image, image-to-image, TTS, video, reasoning incl. multi-step tool loop, models/voices, capabilities). OpenAI **39/40** — the single fail is `sora-2` video blocked by **OpenAI content moderation** (422), in the untouched Video handler, not a refactor regression.
+
+**Full feature suite (live, refactored Responses paths):**
+
+| Script | Result | Notes |
+|--------|:------:|-------|
+| test-tools | ✅ | OpenAI + xAI tool calling |
+| test-reasoning-tools | ✅ | reasoning across a multi-step tool loop |
+| test-force-tools-live | ✅ 16/0 | forced + specific tool choice |
+| test-provider-tools-live | ✅ 12/0 | web/X search, code interpreter |
+| test-token-counting | ✅ 22/0 | `countTokens` (refactored path) |
+| test-vision-replay | ✅ | image rehydration + media-replay window |
+| test-subagents | ✅ 11/0 | sub-agent delegation |
+| test-subagents-concurrent | ✅ 9/0 | with a `queue:work` worker (Horizon not registered in sandbox) |
+| test-streaming | ✅ 12/0 | **fixed** stale Anthropic model id (`…20250514` → `…20250929`) |
+| test-reasoning | ✅ 4/4 | **fixed** assertion: Anthropic folds thinking into output tokens (no separate count) — now validates reasoning via tokens **or** text |
+| test-agent | ✅ | **fixed** missing `ConversationMessage` import + stale agent key (`assistant` → `atlas`) |
+| test-conversation | ✅ | **fixed** same; multi-turn memory recall works |
+
+**Pre-existing issues (NOT refactor regressions — flagged for separate follow-up):**
+- **test-middleware** — fails on: a removed model (`dall-e-3`), an anonymous middleware lacking the `ProviderMiddleware` marker interface, and a subtle runtime-config-propagation quirk (`AtlasConfig::refresh()` updates `AtlasConfig.middleware` but the freshly-built `MiddlewareResolver`/driver doesn't apply provider middleware registered at runtime). The middleware **mechanism is sound** — 242 middleware unit tests pass and boot-time middleware (persistence: `PersistConversation`/`TrackProviderCall`) fires live (assets stored, executions tracked). Real-app usage (config-file middleware at boot) is unaffected.
+- **test-prompt-caching** — OpenAI's automatic server-side caching is non-deterministic per run (1 of 3 cases observed `cached=7168`); Atlas's `cached_tokens` parsing is proven correct. Anthropic ✅.
+- **test-queued-message-dispatch**, **test-multitenant-job-locks** — self-abort: require `DB_CONNECTION=pgsql` (sandbox runs sqlite).
 
 ## Batch API (live, 2026-06-12)
 
@@ -264,6 +294,6 @@ Notes:
 | Ollama     | **not run**                | Points at a LAN host (`OLLAMA_URL`); not exercised in this run. |
 | LM Studio  | **not run**                | Requires a local LM Studio instance; not exercised in this run. |
 
-## Package checks (2026-06-10)
+## Package checks (2026-06-12)
 
-`composer check` — **Pint ✓ · PHPStan 0 errors ✓ · 3166 Pest tests ✓** (incl. the full error-handling suite, the observability coverage — auth/authz provider messages, `responseBody()`/`rawResponse()`, transport-event correlation id + provider/model, the `ProviderRequestContext` value object — and the structured-output strict-mode normalizer: `StrictSchema` unit coverage plus builder-based handler assertions).
+`composer check` — **Pint ✓ · PHPStan 0 errors ✓ · 3446 Pest tests ✓** (incl. the full error-handling suite, the observability coverage — auth/authz provider messages, `responseBody()`/`rawResponse()`, transport-event correlation id + provider/model, the `ProviderRequestContext` value object — and the structured-output strict-mode normalizer: `StrictSchema` unit coverage plus builder-based handler assertions).
