@@ -11,10 +11,8 @@ use Atlasphp\Atlas\Providers\Handlers\ProviderHandler;
 use Atlasphp\Atlas\Providers\Handlers\TextHandler;
 use Atlasphp\Atlas\Providers\Handlers\VideoHandler;
 use Atlasphp\Atlas\Providers\Handlers\VoiceHandler;
-use Atlasphp\Atlas\Providers\OpenAi\MediaResolver;
-use Atlasphp\Atlas\Providers\OpenAi\ResponseParser;
-use Atlasphp\Atlas\Providers\OpenAi\ToolMapper;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
+use Atlasphp\Atlas\Providers\Responses\MediaResolver;
 use Atlasphp\Atlas\Providers\Xai\Handlers\Audio;
 use Atlasphp\Atlas\Providers\Xai\Handlers\Image;
 use Atlasphp\Atlas\Providers\Xai\Handlers\Provider;
@@ -25,9 +23,11 @@ use Atlasphp\Atlas\Providers\Xai\Handlers\Voice;
 /**
  * xAI (Grok) provider driver using the Responses API.
  *
- * Reuses OpenAI's MediaResolver, ToolMapper, and ResponseParser since xAI
- * uses the same wire format. Custom components handle xAI-specific differences:
- * instructions as system messages, TTS via /v1/tts, and async video generation.
+ * Builds on the neutral Responses base classes since xAI speaks the same wire
+ * format, with xAI-specific ToolMapper and ResponseParser subclasses for its
+ * divergences (numeric tool-call ids, reasoning under `content`). Custom
+ * components handle the rest: instructions as system messages, TTS via /v1/tts,
+ * and async video generation.
  */
 class XaiDriver extends Driver
 {

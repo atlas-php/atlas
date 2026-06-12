@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Atlasphp\Atlas\Providers\OpenAi;
+namespace Atlasphp\Atlas\Providers\Responses;
 
 use Atlasphp\Atlas\Input\Document;
 use Atlasphp\Atlas\Input\Input;
@@ -12,7 +12,9 @@ use Atlasphp\Atlas\Providers\Contracts\MediaResolverContract;
 /**
  * Converts Atlas Input types into OpenAI Responses API content parts.
  *
- * Maps document inputs to `input_file` parts and other media to `input_image`.
+ * Shared by every provider that speaks the Responses API wire format
+ * (OpenAI, xAI, and generic Responses-compatible proxies). Maps document
+ * inputs to `input_file` parts and other media to `input_image`.
  */
 class MediaResolver implements MediaResolverContract
 {

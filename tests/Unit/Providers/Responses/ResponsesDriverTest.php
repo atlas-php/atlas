@@ -16,9 +16,9 @@ use Atlasphp\Atlas\Providers\OpenAi\Handlers\Audio;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Embed;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Image;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Moderate;
-use Atlasphp\Atlas\Providers\OpenAi\Handlers\Text;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Video;
 use Atlasphp\Atlas\Providers\ProviderConfig;
+use Atlasphp\Atlas\Providers\Responses\Handlers\Text;
 use Atlasphp\Atlas\Providers\ResponsesDriver;
 
 function makeResponsesDriver(array $capabilityOverrides = []): ResponsesDriver

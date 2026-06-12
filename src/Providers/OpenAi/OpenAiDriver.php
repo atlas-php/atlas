@@ -24,6 +24,9 @@ use Atlasphp\Atlas\Providers\OpenAi\Handlers\Text;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Video;
 use Atlasphp\Atlas\Providers\OpenAi\Handlers\Voice;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
+use Atlasphp\Atlas\Providers\Responses\MediaResolver;
+use Atlasphp\Atlas\Providers\Responses\ResponseParser;
+use Atlasphp\Atlas\Providers\Responses\ToolMapper;
 
 /**
  * OpenAI provider driver using the Responses API.
