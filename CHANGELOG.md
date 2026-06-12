@@ -21,12 +21,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 - Extended thinking now works through multi-step tool calls and persisted-conversation reloads.
 - Google (Gemini) tool calls no longer 400 on non-object results (number, boolean, array, quoted string) — wrapped automatically. Plain strings and JSON objects are unchanged.
 - Google (Gemini) `withProviderOptions()` no longer corrupts nested `generationConfig` fields — extra keys (e.g. `topP`) merge alongside Atlas's values, and an overridden key (e.g. `temperature`) now replaces the value instead of becoming a list Gemini rejects with a 400.
+- Google (Gemini) now honors `temperature: 0.0` instead of silently dropping it, so deterministic output works.
+- Streaming Google (Gemini) tool calls now surface `FinishReason::ToolCalls` and keep every call when several arrive in one chunk — previously a streamed, tool-terminated response lost its finish reason and could drop a parallel call.
 - Chunked embeddings now work when persistence runs on a separate Postgres connection (`atlas.persistence.connection`) and the app default isn't Postgres — pgvector is detected on the persistence connection, so chunk writes and similarity search no longer fail.
 - OpenAI (and xAI) document inputs now send the correct `input_file` content part instead of `input_image`, so attaching a `Document` (PDF, Word, Excel, CSV, text, Markdown, …) works — previously non-file-ID documents were sent as images and rejected with a 400. URLs pass through as `file_url`; base64/path/storage/upload inline as `file_data`.
-- xAI streaming errors are now attributed to `xai`, not `openai` — a mid-stream error through the shared Responses parser previously carried `$provider === 'openai'`, misattributing xAI failures for anything branching on the provider (retry/fallback, metrics, logging).
-- Providers built on the shared `chat_completions`/`responses` drivers (Ollama, Groq, LM Studio, custom OpenAI-compatible endpoints) now report the configured provider key in exceptions, transport events, and middleware — previously failures were attributed to the generic driver type (`chat_completions`), so two such providers were indistinguishable when branching on the provider.
-- Google (Gemini) now honors `temperature: 0.0` instead of silently dropping it, so requests for deterministic output are no longer ignored.
-- Google (Gemini) tool calls made during streaming now surface `FinishReason::ToolCalls` and keep every tool call when several arrive in one chunk — previously a streamed, tool-terminated response lost its finish reason and could drop a parallel call.
+- xAI streaming errors are now attributed to `xai`, not `openai` — a mid-stream error through the shared Responses parser previously carried `$provider === 'openai'`, misattributing xAI failures for anything branching on the provider.
+- Providers on the shared `chat_completions`/`responses` drivers (Ollama, Groq, LM Studio, custom OpenAI-compatible endpoints) now report their configured provider key in exceptions, events, and middleware — previously failures were attributed to the generic driver type (`chat_completions`), making two such providers indistinguishable.
 
 ### Migration
 
