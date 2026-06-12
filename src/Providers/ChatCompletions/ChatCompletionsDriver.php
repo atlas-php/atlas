@@ -53,6 +53,7 @@ class ChatCompletionsDriver extends Driver
                 vision: true,
                 toolCalling: true,
                 models: true,
+                batch: false,
             ),
             $this->config->capabilityOverrides,
         );

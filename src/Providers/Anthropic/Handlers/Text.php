@@ -8,6 +8,7 @@ use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Http\ProviderRequestContext;
 use Atlasphp\Atlas\Messages\ToolCall;
+use Atlasphp\Atlas\Providers\Anthropic\Concerns\BuildsAnthropicHeaders;
 use Atlasphp\Atlas\Providers\Anthropic\MediaResolver;
 use Atlasphp\Atlas\Providers\Anthropic\MessageFactory;
 use Atlasphp\Atlas\Providers\Anthropic\ResponseParser;
@@ -34,6 +35,7 @@ use Generator;
 class Text implements TextHandler
 {
     use AppliesToolChoice;
+    use BuildsAnthropicHeaders;
 
     public function __construct(
         protected readonly ProviderConfig $config,
@@ -55,6 +57,18 @@ class Text implements TextHandler
             context: new ProviderRequestContext($this->config->provider, $request->model),
         );
 
+        return $this->parser->parseText($data);
+    }
+
+    /**
+     * Parse a Messages API payload into a TextResponse.
+     *
+     * Public so the batch handler parses a batch line's result identically.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function parse(array $data): TextResponse
+    {
         return $this->parser->parseText($data);
     }
 
@@ -151,9 +165,12 @@ class Text implements TextHandler
     /**
      * Build the Anthropic Messages API request body.
      *
+     * Public so the batch handler serializes a batch line's params identically
+     * to a synchronous call.
+     *
      * @return array<string, mixed>
      */
-    protected function buildBody(TextRequest $request): array
+    public function buildBody(TextRequest $request): array
     {
         $messageData = $this->messages->buildAll($request, $this->media);
 
@@ -321,12 +338,4 @@ class Text implements TextHandler
     /**
      * @return array<string, string>
      */
-    protected function headers(): array
-    {
-        return [
-            'x-api-key' => $this->config->apiKey,
-            'anthropic-version' => $this->config->extra['version'] ?? '2023-06-01',
-            'Content-Type' => 'application/json',
-        ];
-    }
 }

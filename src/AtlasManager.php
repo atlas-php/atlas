@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 namespace Atlasphp\Atlas;
 
+use Atlasphp\Atlas\Batch\BatchService;
 use Atlasphp\Atlas\Embeddings\Chunkable;
 use Atlasphp\Atlas\Embeddings\ChunkableRegistry;
 use Atlasphp\Atlas\Embeddings\SearchResult;
 use Atlasphp\Atlas\Embeddings\VectorEmbeddable;
 use Atlasphp\Atlas\Enums\Provider;
 use Atlasphp\Atlas\Exceptions\AtlasException;
+use Atlasphp\Atlas\Exceptions\BatchException;
 use Atlasphp\Atlas\Pending\AgentRequest;
 use Atlasphp\Atlas\Pending\AudioRequest;
+use Atlasphp\Atlas\Pending\BatchRequest;
 use Atlasphp\Atlas\Pending\EmbedRequest;
 use Atlasphp\Atlas\Pending\ImageRequest;
 use Atlasphp\Atlas\Pending\ModerateRequest;
@@ -23,6 +26,7 @@ use Atlasphp\Atlas\Pending\SpeechRequest;
 use Atlasphp\Atlas\Pending\TextRequest;
 use Atlasphp\Atlas\Pending\VideoRequest;
 use Atlasphp\Atlas\Pending\VoiceRequest;
+use Atlasphp\Atlas\Persistence\Models\BatchGroup;
 use Atlasphp\Atlas\Persistence\Services\ChunkSearchService;
 use Atlasphp\Atlas\Persistence\Services\RecordSearchService;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
@@ -130,6 +134,36 @@ class AtlasManager
     public function provider(Provider|string $provider): ProviderRequest
     {
         return new ProviderRequest($provider, $this->providerRegistry);
+    }
+
+    /**
+     * Begin assembling a batch job. Provider may be omitted and inferred from
+     * the first added request.
+     */
+    public function batch(Provider|string|null $provider = null): BatchRequest
+    {
+        $batchService = $this->config->persistenceEnabled
+            ? $this->app->make(BatchService::class)
+            : null;
+
+        return new BatchRequest($provider, $this->providerRegistry, $batchService);
+    }
+
+    /**
+     * Create a batch group to tie multiple batches into one logical operation.
+     *
+     * @throws BatchException When persistence is not enabled.
+     */
+    public function batchGroup(?string $label = null): BatchGroup
+    {
+        if (! $this->config->persistenceEnabled) {
+            throw BatchException::persistenceRequired();
+        }
+
+        /** @var class-string<BatchGroup> $model */
+        $model = $this->config->model('batch_group', BatchGroup::class);
+
+        return $model::create(['label' => $label]);
     }
 
     public function agent(string $key): AgentRequest

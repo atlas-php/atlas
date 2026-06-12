@@ -4,7 +4,7 @@ Status of each provider's modalities against **real provider APIs**, exercised v
 sandbox harness (`sandbox/test-{provider}-provider.php` and feature scripts). This file
 records the date each modality last **passed a live API test** — not unit-test coverage.
 
-**Token counting (live, all 4 providers, 22/22): 2026-06-11** · **Last full run: 2026-06-10** (all 4 providers — **97/97 green**; the two 2026-06-09 transient failures (OpenAI TTS, xAI voices) now pass) · **Structured output strict-mode (builder, live OpenAI/Google/Anthropic): 2026-06-10** · **Error handling & resilience (all 4 providers): 2026-06-10** · **Error & request context tracing (all 4 providers, 56/56): 2026-06-10** · **Forced tool choice (all 4 providers): 2026-06-09** · **Image-to-image (reference media): 2026-06-08** · **Prompt caching + media replay: 2026-06-07** · **Provider-tools run: 2026-06-06**
+**Batch API (live, OpenAI/Anthropic/Google, both persistence modes): 2026-06-12** · **Token counting (live, all 4 providers, 22/22): 2026-06-11** · **Last full run: 2026-06-10** (all 4 providers — **97/97 green**; the two 2026-06-09 transient failures (OpenAI TTS, xAI voices) now pass) · **Structured output strict-mode (builder, live OpenAI/Google/Anthropic): 2026-06-10** · **Error handling & resilience (all 4 providers): 2026-06-10** · **Error & request context tracing (all 4 providers, 56/56): 2026-06-10** · **Forced tool choice (all 4 providers): 2026-06-09** · **Image-to-image (reference media): 2026-06-08** · **Prompt caching + media replay: 2026-06-07** · **Provider-tools run: 2026-06-06**
 
 Reproduce:
 - Per-provider suites: `cd sandbox && php test-{provider}-provider.php`
@@ -35,6 +35,20 @@ Both require the provider's API key in `sandbox/.env`.
 | LM Studio¹  | ⚠️   | ⚠️     | ⚠️         | ⚠️    | —          | —      | —     | —   | —   | —          | —          | —      | —     | —     | —              |
 
 ¹ OpenAI-compatible endpoints via the shared `chat_completions` driver.
+
+## Batch API (live, 2026-06-12)
+
+Deferred batch jobs at ~50% cost, exercised end-to-end against the real provider APIs via `sandbox/test-batch*.php`. Verified in **both** persistence modes (stateless = submit + poll the provider yourself; tracked = persisted `BatchJob`, hydrated by `atlas:batch-poll`).
+
+| Provider | Modalities | Stateless | Tracked (tables) | End-to-end results |
+|----------|------------|:---------:|:----------------:|--------------------|
+| OpenAI    | text, embeddings | ✅ | ✅ | ✅ text round-trip (ALPHA/BETA); embeddings submit+status (results verify-later) |
+| Anthropic | text             | ✅ | ✅ | ✅ submit+status both modes (results verify-later — slower turnaround) |
+| Google    | text             | ✅ | ✅ | ✅ full round-trip both modes — results + counts + rolled-up usage accurate in `atlas_batch_jobs`/`atlas_batch_results` |
+
+- ✅ Tables verified: per-line results correlated by `custom_id`, job counts accurate, token usage rolled up = sum of line usage. Prune (`atlas:batch-prune`) deletes jobs + results + empty groups past `atlas.batch.retention_days` (90).
+- Reproduce: `cd sandbox && php test-batch-modes.php` (both modes, OpenAI+Anthropic), `php test-batch-google-e2e.php` (Google both modes), `php test-batch-tables.php` (table accuracy + prune).
+- Anthropic/Google embeddings batch and image/video batch are a documented follow-up; xAI batch likewise.
 
 ## Provider tools (live, 2026-06-06; full coverage re-run 2026-06-10)
 

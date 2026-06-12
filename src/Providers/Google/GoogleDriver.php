@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Providers\Google;
 
 use Atlasphp\Atlas\Providers\Driver;
+use Atlasphp\Atlas\Providers\Handlers\BatchHandler;
 use Atlasphp\Atlas\Providers\Handlers\EmbedHandler;
 use Atlasphp\Atlas\Providers\Handlers\ImageHandler;
 use Atlasphp\Atlas\Providers\Handlers\ProviderHandler;
@@ -39,12 +40,22 @@ class GoogleDriver extends Driver
                 toolCalling: true,
                 providerTools: true,
                 models: true,
+                batch: true,
+                batchModalities: ['text'],
             ),
             $this->config->capabilityOverrides,
         );
     }
 
     protected function textHandler(): TextHandler
+    {
+        return $this->buildTextHandler();
+    }
+
+    /**
+     * Construct the Google text handler, shared by the text and batch handlers.
+     */
+    private function buildTextHandler(): Handlers\Text
     {
         $toolMapper = new ToolMapper;
 
@@ -56,6 +67,11 @@ class GoogleDriver extends Driver
             tools: $toolMapper,
             parser: new ResponseParser($toolMapper),
         );
+    }
+
+    protected function batchHandler(): BatchHandler
+    {
+        return new Handlers\Batch($this->config, $this->http, $this->buildTextHandler());
     }
 
     protected function imageHandler(): ImageHandler

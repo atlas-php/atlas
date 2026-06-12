@@ -64,6 +64,19 @@ class Text implements TextHandler
         return $this->parser->parseText($data);
     }
 
+    /**
+     * Parse a Responses API payload into a TextResponse.
+     *
+     * Public so the batch handler parses a batch line's result identically to a
+     * synchronous call.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function parse(array $data): TextResponse
+    {
+        return $this->parser->parseText($data);
+    }
+
     public function stream(TextRequest $request): StreamResponse
     {
         $body = $this->buildPayload($request);
@@ -162,9 +175,12 @@ class Text implements TextHandler
     /**
      * Build the Responses API request payload.
      *
+     * Public so the batch handler can serialize a batch line's body identically
+     * to a synchronous call — the two paths must never produce divergent bodies.
+     *
      * @return array<string, mixed>
      */
-    protected function buildPayload(TextRequest $request): array
+    public function buildPayload(TextRequest $request): array
     {
         $messageData = $this->messages->buildAll($request, $this->media);
 

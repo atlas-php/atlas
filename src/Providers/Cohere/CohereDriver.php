@@ -21,7 +21,7 @@ class CohereDriver extends Driver
     public function capabilities(): ProviderCapabilities
     {
         return ProviderCapabilities::withOverrides(
-            new ProviderCapabilities(rerank: true),
+            new ProviderCapabilities(rerank: true, batch: false),
             $this->config->capabilityOverrides,
         );
     }

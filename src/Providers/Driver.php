@@ -19,6 +19,7 @@ use Atlasphp\Atlas\Middleware\MiddlewareResolver;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
 use Atlasphp\Atlas\Middleware\ProviderContext;
 use Atlasphp\Atlas\Providers\Handlers\AudioHandler;
+use Atlasphp\Atlas\Providers\Handlers\BatchHandler;
 use Atlasphp\Atlas\Providers\Handlers\EmbedHandler;
 use Atlasphp\Atlas\Providers\Handlers\ImageHandler;
 use Atlasphp\Atlas\Providers\Handlers\ModerateHandler;
@@ -28,6 +29,7 @@ use Atlasphp\Atlas\Providers\Handlers\TextHandler;
 use Atlasphp\Atlas\Providers\Handlers\VideoHandler;
 use Atlasphp\Atlas\Providers\Handlers\VoiceHandler;
 use Atlasphp\Atlas\Requests\AudioRequest;
+use Atlasphp\Atlas\Requests\Batch;
 use Atlasphp\Atlas\Requests\EmbedRequest;
 use Atlasphp\Atlas\Requests\ImageRequest;
 use Atlasphp\Atlas\Requests\ModerateRequest;
@@ -36,6 +38,8 @@ use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Requests\VideoRequest;
 use Atlasphp\Atlas\Requests\VoiceRequest;
 use Atlasphp\Atlas\Responses\AudioResponse;
+use Atlasphp\Atlas\Responses\BatchResponse;
+use Atlasphp\Atlas\Responses\BatchResult;
 use Atlasphp\Atlas\Responses\EmbeddingsResponse;
 use Atlasphp\Atlas\Responses\ImageResponse;
 use Atlasphp\Atlas\Responses\ModerationResponse;
@@ -81,6 +85,7 @@ abstract class Driver
      * - 'moderate' → ModerateHandler
      * - 'rerank' → RerankHandler
      * - 'voice' → VoiceHandler (covers createVoiceSession, connectVoice)
+     * - 'batch' → BatchHandler (covers batch, batchStatus, batchResults, batchCancel)
      * - 'provider' → ProviderHandler (covers models, voices, validate)
      */
     public function withHandler(string $modality, object $handler): static
@@ -191,6 +196,53 @@ abstract class Driver
         return $this->resolveHandler('voice', fn () => $this->voiceHandler())->connect($session);
     }
 
+    // ─── Batch ───────────────────────────────────────────────────────────
+
+    /**
+     * Submit a batch job.
+     *
+     * Not routed through per-request middleware (a batch spans many models);
+     * like the interrogation endpoints it translates transport failures to
+     * typed Atlas exceptions. Validates that the provider can batch the
+     * requested modality before dispatching.
+     *
+     * @throws UnsupportedFeatureException When the provider cannot batch this modality.
+     */
+    public function batch(Batch $request): BatchResponse
+    {
+        if (! $this->capabilities()->canBatch($request->modality)) {
+            throw UnsupportedFeatureException::make('batch:'.$request->modality->value, $this->name());
+        }
+
+        return $this->translating('', fn () => $this->resolveHandler('batch', fn () => $this->batchHandler())->submit($request));
+    }
+
+    /**
+     * Fetch the current state of a submitted batch.
+     */
+    public function batchStatus(string $batchId): BatchResponse
+    {
+        return $this->translating('', fn () => $this->resolveHandler('batch', fn () => $this->batchHandler())->status($batchId));
+    }
+
+    /**
+     * Stream the per-line results of a completed batch.
+     *
+     * @return iterable<int, BatchResult>
+     */
+    public function batchResults(string $batchId): iterable
+    {
+        return $this->translating('', fn () => $this->resolveHandler('batch', fn () => $this->batchHandler())->results($batchId));
+    }
+
+    /**
+     * Request cancellation of an in-flight batch.
+     */
+    public function batchCancel(string $batchId): BatchResponse
+    {
+        return $this->translating('', fn () => $this->resolveHandler('batch', fn () => $this->batchHandler())->cancel($batchId));
+    }
+
     // ─── Middleware Dispatch ─────────────────────────────────────────────
 
     /**
@@ -289,6 +341,11 @@ abstract class Driver
     protected function voiceHandler(): VoiceHandler
     {
         throw UnsupportedFeatureException::make('voice', $this->name());
+    }
+
+    protected function batchHandler(): BatchHandler
+    {
+        throw UnsupportedFeatureException::make('batch', $this->name());
     }
 
     // ─── Provider Interrogation ──────────────────────────────────────────

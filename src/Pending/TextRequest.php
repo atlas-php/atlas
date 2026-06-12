@@ -28,6 +28,7 @@ use Atlasphp\Atlas\Pending\Concerns\HasRequestConfig;
 use Atlasphp\Atlas\Pending\Concerns\HasVariables;
 use Atlasphp\Atlas\Pending\Concerns\NormalizesMessages;
 use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
+use Atlasphp\Atlas\Pending\Contracts\Batchable;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Tools\ProviderTool;
 use Atlasphp\Atlas\Queue\Contracts\QueueableRequest;
@@ -53,7 +54,7 @@ use Illuminate\Support\Str;
  * When tools are present, terminal methods route through the executor's step loop
  * for automatic tool call handling. Without tools, calls go directly to the driver.
  */
-class TextRequest implements QueueableRequest
+class TextRequest implements Batchable, QueueableRequest
 {
     use ConvertsResultToChunks;
     use HasMeta;
@@ -430,6 +431,16 @@ class TextRequest implements QueueableRequest
         $this->ensureCapability($driver, 'text');
 
         return $driver->countTokens($this->buildRequest());
+    }
+
+    public function batchModality(): Modality
+    {
+        return Modality::Text;
+    }
+
+    public function batchProvider(): string
+    {
+        return $this->resolveProviderKey();
     }
 
     public function buildRequest(): TextRequestObject

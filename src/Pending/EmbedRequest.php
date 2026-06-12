@@ -15,6 +15,7 @@ use Atlasphp\Atlas\Pending\Concerns\HasProviderOptions;
 use Atlasphp\Atlas\Pending\Concerns\HasQueueDispatch;
 use Atlasphp\Atlas\Pending\Concerns\HasRequestConfig;
 use Atlasphp\Atlas\Pending\Concerns\ResolvesProvider;
+use Atlasphp\Atlas\Pending\Contracts\Batchable;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Queue\Contracts\QueueableRequest;
 use Atlasphp\Atlas\Queue\PendingExecution;
@@ -26,7 +27,7 @@ use Illuminate\Support\Str;
 /**
  * Fluent builder for embedding requests.
  */
-class EmbedRequest implements QueueableRequest
+class EmbedRequest implements Batchable, QueueableRequest
 {
     use HasMeta;
     use HasMiddleware;
@@ -84,6 +85,16 @@ class EmbedRequest implements QueueableRequest
         event(new ModalityCompleted(modality: Modality::Embed, provider: $provider, model: $model, usage: $response->usage, traceId: $traceId));
 
         return $response;
+    }
+
+    public function batchModality(): Modality
+    {
+        return Modality::Embed;
+    }
+
+    public function batchProvider(): string
+    {
+        return $this->resolveProviderKey();
     }
 
     public function buildRequest(): EmbedRequestObject

@@ -31,6 +31,28 @@ class Embed implements EmbedHandler
 
     public function embed(EmbedRequest $request): EmbeddingsResponse
     {
+        $data = $this->http->post(
+            url: "{$this->config->baseUrl}/embeddings",
+            headers: $this->headers(),
+            body: $this->buildBody($request),
+            timeout: $this->config->timeout,
+            config: $request->requestConfig,
+            context: new ProviderRequestContext($this->config->provider, $request->model),
+        );
+
+        return $this->parse($data);
+    }
+
+    /**
+     * Build the /embeddings request body.
+     *
+     * Public so the batch handler serializes a batch line identically to a
+     * synchronous call.
+     *
+     * @return array<string, mixed>
+     */
+    public function buildBody(EmbedRequest $request): array
+    {
         $body = [
             'model' => $request->model,
             'input' => $request->input,
@@ -47,17 +69,18 @@ class Embed implements EmbedHandler
             $body['dimensions'] = app(AtlasConfig::class)->embeddingDimensions;
         }
 
-        $body = array_merge($body, $request->providerOptions);
+        return array_merge($body, $request->providerOptions);
+    }
 
-        $data = $this->http->post(
-            url: "{$this->config->baseUrl}/embeddings",
-            headers: $this->headers(),
-            body: $body,
-            timeout: $this->config->timeout,
-            config: $request->requestConfig,
-            context: new ProviderRequestContext($this->config->provider, $request->model),
-        );
-
+    /**
+     * Parse an /embeddings response into an EmbeddingsResponse.
+     *
+     * Public so the batch handler parses a batch line's result identically.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function parse(array $data): EmbeddingsResponse
+    {
         /** @var array<int, array<string, mixed>> $items */
         $items = $data['data'] ?? [];
 
