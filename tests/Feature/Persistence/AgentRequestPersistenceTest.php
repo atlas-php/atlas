@@ -6,6 +6,7 @@ use Atlasphp\Atlas\Agent;
 use Atlasphp\Atlas\AgentRegistry;
 use Atlasphp\Atlas\AtlasConfig;
 use Atlasphp\Atlas\Enums\Provider;
+use Atlasphp\Atlas\Input\Document;
 use Atlasphp\Atlas\Input\Image;
 use Atlasphp\Atlas\Pending\AgentRequest;
 use Atlasphp\Atlas\Persistence\Concerns\HasConversations;
@@ -201,6 +202,37 @@ it('stores eager media attachments as assets linked to the message', function ()
         ->and(ConversationMessageAsset::where('message_id', $message->id)->where('asset_id', $asset->id)->count())->toBe(1);
 
     Storage::disk($asset->disk)->assertExists($asset->path);
+});
+
+it('stores an attached document as an AssetType::Document asset', function () {
+    config(['filesystems.default' => 'local']);
+    Storage::fake('local');
+
+    registerPersistAgent(PersistTestConversationAgent::class);
+    setupPersistFake();
+
+    $conversation = Conversation::factory()->create();
+
+    $request = makePersistRequest('persist-conv')
+        ->message('Summarize this file', [Document::fromBase64(base64_encode('%PDF-1.4 fake'), 'application/pdf')])
+        ->forConversation($conversation->id);
+
+    (new ReflectionMethod($request, 'storeUserMessageEagerly'))->invoke($request);
+
+    $message = ConversationMessage::where('conversation_id', $conversation->id)->first();
+    expect($message)->not->toBeNull();
+
+    $asset = Asset::first();
+    expect(Asset::count())->toBe(1)
+        ->and($asset->type)->toBe(AssetType::Document)
+        ->and($asset->mime_type)->toBe('application/pdf')
+        ->and(ConversationMessageAsset::where('message_id', $message->id)->where('asset_id', $asset->id)->count())->toBe(1);
+
+    Storage::disk($asset->disk)->assertExists($asset->path);
+
+    // The stored document round-trips back to a Document input on reload.
+    $reloaded = $message->toAtlasMessage();
+    expect(collect($reloaded->media)->contains(fn ($m) => $m instanceof Document))->toBeTrue();
 });
 
 it('sets conversation title from first user message', function () {

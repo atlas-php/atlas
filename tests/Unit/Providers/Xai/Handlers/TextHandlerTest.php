@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Enums\ReasoningEffort;
+use Atlasphp\Atlas\Exceptions\ProviderException;
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\OpenAi\MediaResolver;
 use Atlasphp\Atlas\Providers\OpenAi\ResponseParser;
@@ -26,7 +27,7 @@ function makeXaiTextHandler(?HttpClient $http = null): Text
     $toolMapper = new ToolMapper;
 
     return new Text(
-        config: ProviderConfig::fromArray(['api_key' => 'test-key', 'url' => 'https://api.x.ai/v1']),
+        config: ProviderConfig::fromArray(['api_key' => 'test-key', 'url' => 'https://api.x.ai/v1', 'provider' => 'xai']),
         http: $http ?? app(HttpClient::class),
         messages: new MessageFactory,
         media: new MediaResolver,
@@ -68,6 +69,30 @@ it('forwards the request config to the HTTP layer (post and stream)', function (
     $handler = makeXaiTextHandler($http);
     $handler->text(makeXaiHandlerTextRequest(['requestConfig' => $config]));
     $handler->stream(makeXaiHandlerTextRequest(['requestConfig' => $config]));
+});
+
+it('attributes a mid-stream error to xai, not openai (shared OpenAI parser)', function () {
+    Http::fake([
+        'api.x.ai/v1/responses' => Http::response(
+            "event: response.failed\ndata: {\"response\":{\"error\":{\"message\":\"boom\"}}}\n\n",
+            200,
+        ),
+    ]);
+
+    $caught = null;
+
+    try {
+        foreach (makeXaiTextHandler()->stream(makeXaiHandlerTextRequest(['model' => 'grok-4'])) as $chunk) {
+            // consume the stream
+        }
+    } catch (ProviderException $e) {
+        $caught = $e;
+    }
+
+    expect($caught)->not->toBeNull();
+    expect($caught->provider)->toBe('xai');
+    expect($caught->model)->toBe('grok-4');
+    expect($caught->getMessage())->toContain('Provider [xai]');
 });
 
 it('does not include instructions in body', function () {
