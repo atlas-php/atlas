@@ -66,7 +66,7 @@ foreach ($results as $result) {
 
 ## Tracked usage (recommended)
 
-Persistence is **ambient**: with [persistence](/guides/persistence) enabled, `submit()` automatically persists a `BatchJob` and Atlas brings the results in for you — no extra call. Just schedule the poll command and listen for completion. (With persistence off, the same `submit()` is stateless and returns a `BatchResponse`, as above.)
+Persistence is **ambient**: with [persistence](/advanced/persistence) enabled, `submit()` automatically persists a `BatchJob` and Atlas brings the results in for you — no extra call. Just schedule the poll command and listen for completion. (With persistence off, the same `submit()` is stateless and returns a `BatchResponse`, as above.)
 
 ```php
 $job = Atlas::batch('openai')
