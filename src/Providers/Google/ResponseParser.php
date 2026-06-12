@@ -135,15 +135,26 @@ class ResponseParser implements ResponseParserContract
         // Extract usage from the terminal chunk regardless of content.
         $usage = $finishReason !== null ? $this->parseUsage($data) : null;
 
-        foreach ($parts as $part) {
-            if (isset($part['functionCall'])) {
-                return new StreamChunk(
-                    type: ChunkType::ToolCall,
-                    toolCalls: $this->toolMapper->parseToolCalls([$part]),
-                    usage: $usage,
-                );
-            }
+        // Gemini bundles functionCall parts with finishReason + usage in the same
+        // terminal chunk, and may emit several functionCall parts (parallel calls)
+        // in one chunk. Collect them all and carry finishReason through, mirroring
+        // the non-streaming path — otherwise a tool-terminated stream ends with a
+        // null finishReason and parallel calls past the first are dropped.
+        $functionCallParts = array_values(array_filter(
+            $parts,
+            fn (array $part): bool => isset($part['functionCall']),
+        ));
 
+        if ($functionCallParts !== []) {
+            return new StreamChunk(
+                type: ChunkType::ToolCall,
+                toolCalls: $this->toolMapper->parseToolCalls($functionCallParts),
+                usage: $usage,
+                finishReason: $finishReason !== null ? $this->parseFinishReason($data) : null,
+            );
+        }
+
+        foreach ($parts as $part) {
             if (isset($part['thought']) && $part['thought'] === true && isset($part['text'])) {
                 return new StreamChunk(
                     type: ChunkType::Thinking,

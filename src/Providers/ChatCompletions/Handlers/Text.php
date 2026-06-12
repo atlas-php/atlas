@@ -75,7 +75,7 @@ class Text implements TextHandler
             context: new ProviderRequestContext($this->config->provider, $request->model),
         );
 
-        return new StreamResponse($this->parseSSE($raw, $request->model));
+        return new StreamResponse($this->parseSSE($raw, $request->model, $this->config->provider ?: 'chat_completions'));
     }
 
     public function structured(TextRequest $request): StructuredResponse
@@ -161,7 +161,7 @@ class Text implements TextHandler
      *
      * @return Generator<int, StreamChunk>
      */
-    protected function parseSSE(mixed $rawResponse, string $model = ''): Generator
+    protected function parseSSE(mixed $rawResponse, string $model = '', string $provider = 'chat_completions'): Generator
     {
         /** @var array<int, array{id: string, name: string, arguments: string}> $toolBlocks */
         $toolBlocks = [];
@@ -210,7 +210,7 @@ class Text implements TextHandler
                 $toolBlocks = [];
             }
 
-            yield $this->parser->parseStreamChunk($data, $model);
+            yield $this->parser->parseStreamChunk($data, $model, $provider);
         }
     }
 

@@ -214,6 +214,50 @@ it('parses stream chunk with function call', function () {
     expect($result->toolCalls[0]->thoughtSignature)->toBe('signature-from-gemini');
 });
 
+it('carries finishReason on a streamed chunk that bundles a function call (regression)', function () {
+    // Gemini bundles functionCall + finishReason + usageMetadata into one
+    // terminal SSE chunk. The finishReason must survive so a tool-terminated
+    // stream resolves to FinishReason::ToolCalls, not null.
+    $parser = makeGoogleResponseParser();
+
+    $result = $parser->parseStreamChunk([
+        'candidates' => [[
+            'content' => ['parts' => [
+                ['functionCall' => ['name' => 'get_weather', 'args' => ['city' => 'Paris']]],
+            ]],
+            'finishReason' => 'STOP',
+        ]],
+        'usageMetadata' => ['promptTokenCount' => 10, 'candidatesTokenCount' => 5],
+    ]);
+
+    expect($result->type)->toBe(ChunkType::ToolCall);
+    expect($result->toolCalls)->toHaveCount(1);
+    expect($result->finishReason)->toBe(FinishReason::ToolCalls);
+    expect($result->usage?->inputTokens)->toBe(10);
+});
+
+it('emits all function calls bundled in one streamed chunk (regression)', function () {
+    // Parallel tool calls may arrive as multiple functionCall parts in a single
+    // chunk; none may be dropped.
+    $parser = makeGoogleResponseParser();
+
+    $result = $parser->parseStreamChunk([
+        'candidates' => [[
+            'content' => ['parts' => [
+                ['functionCall' => ['name' => 'get_weather', 'args' => ['city' => 'Paris']]],
+                ['functionCall' => ['name' => 'get_weather', 'args' => ['city' => 'Tokyo']]],
+            ]],
+            'finishReason' => 'STOP',
+        ]],
+    ]);
+
+    expect($result->type)->toBe(ChunkType::ToolCall);
+    expect($result->toolCalls)->toHaveCount(2);
+    expect($result->toolCalls[0]->arguments)->toBe(['city' => 'Paris']);
+    expect($result->toolCalls[1]->arguments)->toBe(['city' => 'Tokyo']);
+    expect($result->finishReason)->toBe(FinishReason::ToolCalls);
+});
+
 it('parses stream chunk with thinking', function () {
     $parser = makeGoogleResponseParser();
 

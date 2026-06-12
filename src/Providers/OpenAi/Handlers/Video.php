@@ -77,7 +77,7 @@ class Video implements VideoHandler
 
         if ($videoId === '') {
             throw new ProviderException(
-                provider: 'openai',
+                provider: $this->config->provider ?: 'openai',
                 model: $request->model,
                 statusCode: 500,
                 providerMessage: 'Video generation response missing id',
@@ -101,7 +101,7 @@ class Video implements VideoHandler
 
         if ($written === false) {
             throw new ProviderException(
-                provider: 'openai',
+                provider: $this->config->provider ?: 'openai',
                 model: $request->model,
                 statusCode: 500,
                 providerMessage: 'Failed to write video to temporary file',
@@ -122,7 +122,7 @@ class Video implements VideoHandler
 
     public function videoToText(VideoRequest $request): TextResponse
     {
-        throw UnsupportedFeatureException::make('videoToText', 'openai');
+        throw UnsupportedFeatureException::make('videoToText', $this->config->provider ?: 'openai');
     }
 
     /**
@@ -156,7 +156,7 @@ class Video implements VideoHandler
                     : (string) ($data['error'] ?? 'Unknown error');
 
                 throw new ProviderException(
-                    provider: 'openai',
+                    provider: $this->config->provider ?: 'openai',
                     model: $model,
                     statusCode: 422,
                     providerMessage: "Video generation failed for {$videoId}: {$errorMessage}",
@@ -165,7 +165,7 @@ class Video implements VideoHandler
         }
 
         throw new ProviderException(
-            provider: 'openai',
+            provider: $this->config->provider ?: 'openai',
             model: $model,
             statusCode: 408,
             providerMessage: "Video generation timed out after polling {$videoId} for ".($this->maxAttempts * $this->pollInterval).' seconds',
@@ -208,7 +208,7 @@ class Video implements VideoHandler
 
             if ($raw === false) {
                 throw new ProviderException(
-                    provider: 'openai',
+                    provider: $this->config->provider ?: 'openai',
                     model: $model,
                     statusCode: 400,
                     providerMessage: "Cannot read image file: {$input->path()}",
@@ -223,7 +223,7 @@ class Video implements VideoHandler
                 return ['image_url' => "data:{$input->mimeType()};base64,".base64_encode($input->contents())];
             } catch (\RuntimeException $e) {
                 throw new ProviderException(
-                    provider: 'openai',
+                    provider: $this->config->provider ?: 'openai',
                     model: $model,
                     statusCode: 400,
                     providerMessage: 'Cannot read image from storage: '.$e->getMessage(),
@@ -232,7 +232,7 @@ class Video implements VideoHandler
         }
 
         throw new ProviderException(
-            provider: 'openai',
+            provider: $this->config->provider ?: 'openai',
             model: $model,
             statusCode: 400,
             providerMessage: 'Cannot resolve image input — no supported source set.',

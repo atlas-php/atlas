@@ -39,6 +39,37 @@ it('a mid-stream error carries the model passed to the parser', function () {
     expect($caught?->model)->toBe('llama3.2');
 });
 
+it('attributes a mid-stream error to the configured provider key (regression)', function () {
+    // chat_completions is the driver for secondary providers (Groq, Ollama, …);
+    // a streamed error must report the configured key, not the driver type.
+    $caught = null;
+
+    try {
+        makeCcParser()->parseStreamChunk([
+            'error' => ['message' => 'rate limited'],
+        ], 'llama3.2', 'groq');
+    } catch (ProviderException $e) {
+        $caught = $e;
+    }
+
+    expect($caught?->provider)->toBe('groq');
+    expect($caught?->getMessage())->not->toContain('chat_completions');
+});
+
+it('defaults the mid-stream error provider to chat_completions when none is threaded', function () {
+    $caught = null;
+
+    try {
+        makeCcParser()->parseStreamChunk([
+            'error' => ['message' => 'boom'],
+        ], 'llama3.2');
+    } catch (ProviderException $e) {
+        $caught = $e;
+    }
+
+    expect($caught?->provider)->toBe('chat_completions');
+});
+
 it('parses text from choices message', function () {
     $parser = makeCcParser();
 

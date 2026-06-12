@@ -168,10 +168,17 @@ class Text implements TextHandler
             $body['system_instruction'] = $messageData['system_instruction'];
         }
 
-        $genConfig = array_filter([
-            'maxOutputTokens' => $request->maxTokens,
-            'temperature' => $request->temperature,
-        ]);
+        // Explicit null checks, not array_filter: temperature 0.0 is a valid,
+        // deliberate value (deterministic output) and must not be filtered as falsy.
+        $genConfig = [];
+
+        if ($request->maxTokens !== null) {
+            $genConfig['maxOutputTokens'] = $request->maxTokens;
+        }
+
+        if ($request->temperature !== null) {
+            $genConfig['temperature'] = $request->temperature;
+        }
 
         if ($genConfig !== []) {
             $body['generationConfig'] = $genConfig;

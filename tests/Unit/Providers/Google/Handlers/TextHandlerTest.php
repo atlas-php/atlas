@@ -193,6 +193,31 @@ it('includes generationConfig with maxOutputTokens and temperature', function ()
     });
 });
 
+it('sends temperature 0.0 instead of dropping it as falsy (regression)', function () {
+    Http::fake([
+        'generativelanguage.googleapis.com/*' => Http::response(fakeGeminiTextResponse()),
+    ]);
+
+    $handler = makeGoogleTextHandler();
+    $handler->text(makeGoogleTextRequest(['temperature' => 0.0]));
+
+    Http::assertSent(function ($request) {
+        return array_key_exists('temperature', $request['generationConfig'] ?? [])
+            && $request['generationConfig']['temperature'] === 0.0;
+    });
+});
+
+it('omits generationConfig entirely when neither maxTokens nor temperature is set', function () {
+    Http::fake([
+        'generativelanguage.googleapis.com/*' => Http::response(fakeGeminiTextResponse()),
+    ]);
+
+    $handler = makeGoogleTextHandler();
+    $handler->text(makeGoogleTextRequest(['maxTokens' => null, 'temperature' => null]));
+
+    Http::assertSent(fn ($request) => ! array_key_exists('generationConfig', $request->data()));
+});
+
 it('deep-merges providerOptions generationConfig keys alongside the fields Atlas sets', function () {
     Http::fake([
         'generativelanguage.googleapis.com/*' => Http::response(fakeGeminiTextResponse()),
