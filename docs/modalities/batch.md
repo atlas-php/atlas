@@ -9,9 +9,11 @@ Batch is ideal for latency-tolerant fan-out work — captioning thousands of ima
 | Provider | Batchable modalities |
 |----------|----------------------|
 | **OpenAI** | `text` (including vision input), `embeddings` |
+| **Anthropic** | `text` (including vision input) |
+| **Google** (Gemini) | `text` (including vision input) |
 
 ::: tip
-Anthropic, Google, and xAI also offer batch APIs; their Atlas handlers are a planned follow-up. Any provider that can't batch a request throws `UnsupportedFeatureException` up front.
+Asking a provider to batch a modality it doesn't support — or a non-batchable modality (audio, voice, rerank, …) — throws `UnsupportedFeatureException` up front. xAI batch, image/video batch, and embeddings batch for Anthropic/Google are a planned follow-up.
 :::
 
 ## What can and cannot be batched
@@ -31,7 +33,9 @@ What **cannot** be batched (and is rejected at build time, never silently droppe
 
 ## Stateless usage
 
-**No persistence required.** Submit and get a batch id back immediately, then poll the provider yourself — no database, no migrations, no `track()`. Use this when you manage batch state in your own app and just want Atlas for the provider API. (Everything below works with `atlas.persistence.enabled` off.)
+**No persistence required.** Submit and get a batch id back immediately, then poll the provider yourself — no database, no migrations, no setup. Use this when you manage batch state in your own app and just want Atlas for the provider API. (Everything below works with `atlas.persistence.enabled` off.)
+
+Batch works the same across providers — swap the string (`Atlas::batch('anthropic')`, `Atlas::batch('google')`); each maps to that provider's native batch endpoint.
 
 ```php
 use Atlasphp\Atlas\Atlas;
@@ -62,13 +66,12 @@ foreach ($results as $result) {
 
 ## Tracked usage (recommended)
 
-With [persistence](/guides/persistence) enabled, `track()` persists a `BatchJob` and Atlas brings the results in for you — schedule the poll command and listen for completion.
+Persistence is **ambient**: with [persistence](/guides/persistence) enabled, `submit()` automatically persists a `BatchJob` and Atlas brings the results in for you — no extra call. Just schedule the poll command and listen for completion. (With persistence off, the same `submit()` is stateless and returns a `BatchResponse`, as above.)
 
 ```php
 $job = Atlas::batch('openai')
     ->add(Atlas::embed()->fromInput($chunk->text), key: (string) $chunk->id)
-    ->track()
-    ->submit();                      // returns a BatchJob model
+    ->submit();                      // returns a BatchJob model (persistence on)
 ```
 
 Schedule the poller (it advances every open job and hydrates completed ones):
@@ -103,7 +106,7 @@ A single batch can hold tens of thousands of requests, but you'll often split a 
 $group = Atlas::batchGroup('caption-run');
 
 Image::whereNull('caption')->chunkById(1000, function ($images) use ($group) {
-    $batch = Atlas::batch('openai')->track()->group($group);
+    $batch = Atlas::batch('openai')->group($group); // groups require persistence
 
     foreach ($images as $image) {
         $batch->add(
@@ -136,4 +139,4 @@ Schedule::command('atlas:batch-prune')->daily();
 | Command | Purpose |
 |---------|---------|
 | `atlas:batch-poll` | Advance open jobs and hydrate completed ones. Schedule every few minutes. |
-| `atlas:batch-prune` | Delete jobs and results older than the retention window. Schedule daily. |
+| `atlas:batch-prune` | Delete jobs, their results, and empty groups older than the retention window. Schedule daily. |
