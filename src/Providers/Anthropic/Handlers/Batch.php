@@ -9,6 +9,7 @@ use Atlasphp\Atlas\Enums\BatchStatus;
 use Atlasphp\Atlas\Exceptions\BatchException;
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Http\ProviderRequestContext;
+use Atlasphp\Atlas\Providers\Anthropic\Concerns\BuildsAnthropicHeaders;
 use Atlasphp\Atlas\Providers\Handlers\BatchHandler;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Requests\Batch as BatchRequest;
@@ -27,6 +28,8 @@ use Atlasphp\Atlas\Responses\RequestCounts;
  */
 class Batch implements BatchHandler
 {
+    use BuildsAnthropicHeaders;
+
     public function __construct(
         protected readonly ProviderConfig $config,
         protected readonly HttpClient $http,
@@ -182,17 +185,5 @@ class Batch implements BatchHandler
             'ended' => BatchStatus::Completed,
             default => BatchStatus::InProgress,
         };
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    private function headers(): array
-    {
-        return [
-            'x-api-key' => $this->config->apiKey,
-            'anthropic-version' => $this->config->extra['version'] ?? '2023-06-01',
-            'content-type' => 'application/json',
-        ];
     }
 }

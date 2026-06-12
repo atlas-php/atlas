@@ -8,6 +8,7 @@ use Atlasphp\Atlas\Enums\ChunkType;
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Http\ProviderRequestContext;
 use Atlasphp\Atlas\Messages\ToolCall;
+use Atlasphp\Atlas\Providers\Anthropic\Concerns\BuildsAnthropicHeaders;
 use Atlasphp\Atlas\Providers\Anthropic\MediaResolver;
 use Atlasphp\Atlas\Providers\Anthropic\MessageFactory;
 use Atlasphp\Atlas\Providers\Anthropic\ResponseParser;
@@ -34,6 +35,7 @@ use Generator;
 class Text implements TextHandler
 {
     use AppliesToolChoice;
+    use BuildsAnthropicHeaders;
 
     public function __construct(
         protected readonly ProviderConfig $config,
@@ -336,12 +338,4 @@ class Text implements TextHandler
     /**
      * @return array<string, string>
      */
-    protected function headers(): array
-    {
-        return [
-            'x-api-key' => $this->config->apiKey,
-            'anthropic-version' => $this->config->extra['version'] ?? '2023-06-01',
-            'Content-Type' => 'application/json',
-        ];
-    }
 }

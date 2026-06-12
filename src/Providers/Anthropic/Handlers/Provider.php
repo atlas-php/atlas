@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Providers\Anthropic\Handlers;
 
 use Atlasphp\Atlas\Http\ProviderRequestContext;
+use Atlasphp\Atlas\Providers\Anthropic\Concerns\BuildsAnthropicHeaders;
 use Atlasphp\Atlas\Providers\Handlers\AbstractProviderHandler;
 use Atlasphp\Atlas\Providers\ModelList;
 use Atlasphp\Atlas\Providers\VoiceList;
@@ -17,18 +18,7 @@ use Atlasphp\Atlas\Providers\VoiceList;
  */
 class Provider extends AbstractProviderHandler
 {
-    /**
-     * Anthropic uses x-api-key header, not Bearer.
-     *
-     * @return array<string, string>
-     */
-    protected function headersWithoutContentType(): array
-    {
-        return [
-            'x-api-key' => $this->config->apiKey,
-            'anthropic-version' => $this->config->extra['version'] ?? '2023-06-01',
-        ];
-    }
+    use BuildsAnthropicHeaders;
 
     /**
      * Fetch models from Anthropic's /v1/models endpoint.
