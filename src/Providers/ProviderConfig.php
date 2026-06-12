@@ -25,6 +25,18 @@ class ProviderConfig
     ) {}
 
     /**
+     * Resolve the consumer-facing provider name for attribution.
+     *
+     * Prefers the registry-stamped config key (e.g. 'groq', 'ollama') so a
+     * provider built on a shared driver reports under its real name, and falls
+     * back to the given driver default when no key was stamped.
+     */
+    public function providerName(string $default): string
+    {
+        return $this->provider !== '' ? $this->provider : $default;
+    }
+
+    /**
      * Create a ProviderConfig from a configuration array.
      *
      * The provider key is injected by the registry under `provider` so handlers

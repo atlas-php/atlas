@@ -41,6 +41,34 @@ it('a mid-stream error carries the model passed to the parser', function () {
     expect($caught?->model)->toBe('claude-sonnet-4-5');
 });
 
+it('a mid-stream error defaults to the anthropic provider and honors an override', function () {
+    $default = null;
+
+    try {
+        makeAnthropicResponseParser()->parseStreamChunk([
+            'event' => 'error',
+            'data' => ['error' => ['message' => 'Overloaded']],
+        ], 'claude-sonnet-4-5');
+    } catch (ProviderException $e) {
+        $default = $e;
+    }
+
+    expect($default?->provider)->toBe('anthropic');
+
+    $aliased = null;
+
+    try {
+        makeAnthropicResponseParser()->parseStreamChunk([
+            'event' => 'error',
+            'data' => ['error' => ['message' => 'Overloaded']],
+        ], 'claude-sonnet-4-5', 'anthropic-prod');
+    } catch (ProviderException $e) {
+        $aliased = $e;
+    }
+
+    expect($aliased?->provider)->toBe('anthropic-prod');
+});
+
 it('parses text from content blocks', function () {
     $parser = makeAnthropicResponseParser();
 

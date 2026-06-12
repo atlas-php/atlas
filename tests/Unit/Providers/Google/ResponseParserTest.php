@@ -37,6 +37,28 @@ it('a mid-stream error carries the model passed to the parser', function () {
     expect($caught?->model)->toBe('gemini-2.5-flash');
 });
 
+it('a mid-stream error defaults to the google provider and honors an override', function () {
+    $default = null;
+
+    try {
+        makeGoogleResponseParser()->parseStreamChunk(['error' => ['message' => 'boom']], 'gemini-2.5-flash');
+    } catch (ProviderException $e) {
+        $default = $e;
+    }
+
+    expect($default?->provider)->toBe('google');
+
+    $aliased = null;
+
+    try {
+        makeGoogleResponseParser()->parseStreamChunk(['error' => ['message' => 'boom']], 'gemini-2.5-flash', 'gemini-prod');
+    } catch (ProviderException $e) {
+        $aliased = $e;
+    }
+
+    expect($aliased?->provider)->toBe('gemini-prod');
+});
+
 it('parses text from candidates parts', function () {
     $parser = makeGoogleResponseParser();
 
@@ -214,6 +236,50 @@ it('parses stream chunk with function call', function () {
     expect($result->toolCalls[0]->thoughtSignature)->toBe('signature-from-gemini');
 });
 
+it('carries finishReason on a streamed chunk that bundles a function call (regression)', function () {
+    // Gemini bundles functionCall + finishReason + usageMetadata into one
+    // terminal SSE chunk. The finishReason must survive so a tool-terminated
+    // stream resolves to FinishReason::ToolCalls, not null.
+    $parser = makeGoogleResponseParser();
+
+    $result = $parser->parseStreamChunk([
+        'candidates' => [[
+            'content' => ['parts' => [
+                ['functionCall' => ['name' => 'get_weather', 'args' => ['city' => 'Paris']]],
+            ]],
+            'finishReason' => 'STOP',
+        ]],
+        'usageMetadata' => ['promptTokenCount' => 10, 'candidatesTokenCount' => 5],
+    ]);
+
+    expect($result->type)->toBe(ChunkType::ToolCall);
+    expect($result->toolCalls)->toHaveCount(1);
+    expect($result->finishReason)->toBe(FinishReason::ToolCalls);
+    expect($result->usage?->inputTokens)->toBe(10);
+});
+
+it('emits all function calls bundled in one streamed chunk (regression)', function () {
+    // Parallel tool calls may arrive as multiple functionCall parts in a single
+    // chunk; none may be dropped.
+    $parser = makeGoogleResponseParser();
+
+    $result = $parser->parseStreamChunk([
+        'candidates' => [[
+            'content' => ['parts' => [
+                ['functionCall' => ['name' => 'get_weather', 'args' => ['city' => 'Paris']]],
+                ['functionCall' => ['name' => 'get_weather', 'args' => ['city' => 'Tokyo']]],
+            ]],
+            'finishReason' => 'STOP',
+        ]],
+    ]);
+
+    expect($result->type)->toBe(ChunkType::ToolCall);
+    expect($result->toolCalls)->toHaveCount(2);
+    expect($result->toolCalls[0]->arguments)->toBe(['city' => 'Paris']);
+    expect($result->toolCalls[1]->arguments)->toBe(['city' => 'Tokyo']);
+    expect($result->finishReason)->toBe(FinishReason::ToolCalls);
+});
+
 it('parses stream chunk with thinking', function () {
     $parser = makeGoogleResponseParser();
 
@@ -235,4 +301,39 @@ it('parses stream chunk as done when finishReason present', function () {
     ]);
 
     expect($result->type)->toBe(ChunkType::Done);
+});
+
+it('emits a Done chunk carrying text, usage, and the resolved finishReason when a terminal chunk bundles text (regression)', function () {
+    // Gemini's final chunk often carries a text part AND finishReason + usage in
+    // the same payload; the Done chunk must surface all three.
+    $parser = makeGoogleResponseParser();
+
+    $result = $parser->parseStreamChunk([
+        'candidates' => [[
+            'content' => ['parts' => [['text' => 'final answer']]],
+            'finishReason' => 'STOP',
+        ]],
+        'usageMetadata' => ['promptTokenCount' => 7, 'candidatesTokenCount' => 3],
+    ]);
+
+    expect($result->type)->toBe(ChunkType::Done);
+    expect($result->text)->toBe('final answer');
+    expect($result->finishReason)->toBe(FinishReason::Stop);
+    expect($result->usage?->inputTokens)->toBe(7);
+    expect($result->usage?->outputTokens)->toBe(3);
+});
+
+it('maps a non-STOP finishReason on a terminal text chunk (resolvedFinish branch)', function () {
+    $parser = makeGoogleResponseParser();
+
+    $result = $parser->parseStreamChunk([
+        'candidates' => [[
+            'content' => ['parts' => [['text' => 'truncated']]],
+            'finishReason' => 'MAX_TOKENS',
+        ]],
+    ]);
+
+    expect($result->type)->toBe(ChunkType::Done);
+    expect($result->text)->toBe('truncated');
+    expect($result->finishReason)->toBe(FinishReason::Length);
 });

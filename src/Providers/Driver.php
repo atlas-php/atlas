@@ -211,7 +211,7 @@ abstract class Driver
     public function batch(Batch $request): BatchResponse
     {
         if (! $this->capabilities()->canBatch($request->modality)) {
-            throw UnsupportedFeatureException::make('batch:'.$request->modality->value, $this->name());
+            throw UnsupportedFeatureException::make('batch:'.$request->modality->value, $this->providerName());
         }
 
         return $this->translating('', fn () => $this->resolveHandler('batch', fn () => $this->batchHandler())->submit($request));
@@ -266,7 +266,7 @@ abstract class Driver
             }
 
             $context = new ProviderContext(
-                provider: $this->name(),
+                provider: $this->providerName(),
                 model: $request->model,
                 method: $method,
                 request: $request,
@@ -297,7 +297,7 @@ abstract class Driver
             $this->handleRequestException($model ?? '', $e);
         } catch (HttpConnectionException $e) {
             // Network-level failure before any response (timeout, DNS, refused).
-            throw new ConnectionException($this->name(), $model ?? '', $e);
+            throw new ConnectionException($this->providerName(), $model ?? '', $e);
         }
     }
 
@@ -305,47 +305,47 @@ abstract class Driver
 
     protected function textHandler(): TextHandler
     {
-        throw UnsupportedFeatureException::make('text', $this->name());
+        throw UnsupportedFeatureException::make('text', $this->providerName());
     }
 
     protected function imageHandler(): ImageHandler
     {
-        throw UnsupportedFeatureException::make('image', $this->name());
+        throw UnsupportedFeatureException::make('image', $this->providerName());
     }
 
     protected function audioHandler(): AudioHandler
     {
-        throw UnsupportedFeatureException::make('audio', $this->name());
+        throw UnsupportedFeatureException::make('audio', $this->providerName());
     }
 
     protected function videoHandler(): VideoHandler
     {
-        throw UnsupportedFeatureException::make('video', $this->name());
+        throw UnsupportedFeatureException::make('video', $this->providerName());
     }
 
     protected function embedHandler(): EmbedHandler
     {
-        throw UnsupportedFeatureException::make('embed', $this->name());
+        throw UnsupportedFeatureException::make('embed', $this->providerName());
     }
 
     protected function moderateHandler(): ModerateHandler
     {
-        throw UnsupportedFeatureException::make('moderate', $this->name());
+        throw UnsupportedFeatureException::make('moderate', $this->providerName());
     }
 
     protected function rerankHandler(): RerankHandler
     {
-        throw UnsupportedFeatureException::make('rerank', $this->name());
+        throw UnsupportedFeatureException::make('rerank', $this->providerName());
     }
 
     protected function voiceHandler(): VoiceHandler
     {
-        throw UnsupportedFeatureException::make('voice', $this->name());
+        throw UnsupportedFeatureException::make('voice', $this->providerName());
     }
 
     protected function batchHandler(): BatchHandler
     {
-        throw UnsupportedFeatureException::make('batch', $this->name());
+        throw UnsupportedFeatureException::make('batch', $this->providerName());
     }
 
     // ─── Provider Interrogation ──────────────────────────────────────────
@@ -372,14 +372,35 @@ abstract class Driver
      */
     protected function providerHandler(string $feature = 'provider'): ProviderHandler
     {
-        throw UnsupportedFeatureException::make($feature, $this->name());
+        throw UnsupportedFeatureException::make($feature, $this->providerName());
     }
 
     // ─── Capabilities & Identity ─────────────────────────────────────────
 
     abstract public function capabilities(): ProviderCapabilities;
 
+    /**
+     * The driver's wire-format identity (e.g. 'openai', 'chat_completions').
+     *
+     * Used internally to route by driver type (e.g. provider-tool support).
+     * For consumer-facing attribution (exceptions, events, middleware) use
+     * {@see providerName()} instead, which honors the configured provider key.
+     */
     abstract public function name(): string;
+
+    /**
+     * The configured provider key for consumer-facing attribution.
+     *
+     * Prefers the registry-stamped config key (e.g. 'groq', 'ollama') so a
+     * provider built on a shared driver (chat_completions, responses) is
+     * reported under its real name rather than the driver type. Falls back to
+     * the driver's wire-format name when no key was stamped (e.g. a directly
+     * constructed driver in tests).
+     */
+    protected function providerName(): string
+    {
+        return $this->config->providerName($this->name());
+    }
 
     // ─── Error Handling ──────────────────────────────────────────────────
 
@@ -389,17 +410,18 @@ abstract class Driver
     public function handleRequestException(string $model, RequestException $e): never
     {
         $status = $e->response->status();
+        $provider = $this->providerName();
 
         // Each category resolves the provider's real error text (the typed
         // factories extract it from the response); match evaluates one arm.
         match ($status) {
-            400 => throw new InvalidRequestException($this->name(), $model, $status, $this->errorMessage($e), $e),
-            401 => throw AuthenticationException::from($this->name(), $model, $e, $this->extractErrorMessage($e)),
-            403 => throw AuthorizationException::from($this->name(), $model, $e, $this->extractErrorMessage($e)),
-            404 => throw new ModelNotFoundException($this->name(), $model, $status, $this->errorMessage($e), $e),
-            429, 529 => throw RateLimitException::from($this->name(), $model, $e),
-            500, 502, 503, 504 => throw new ServerException($this->name(), $model, $status, $this->errorMessage($e), $e),
-            default => throw new ProviderException($this->name(), $model, $status, $this->errorMessage($e), $e),
+            400 => throw new InvalidRequestException($provider, $model, $status, $this->errorMessage($e), $e),
+            401 => throw AuthenticationException::from($provider, $model, $e, $this->extractErrorMessage($e)),
+            403 => throw AuthorizationException::from($provider, $model, $e, $this->extractErrorMessage($e)),
+            404 => throw new ModelNotFoundException($provider, $model, $status, $this->errorMessage($e), $e),
+            429, 529 => throw RateLimitException::from($provider, $model, $e),
+            500, 502, 503, 504 => throw new ServerException($provider, $model, $status, $this->errorMessage($e), $e),
+            default => throw new ProviderException($provider, $model, $status, $this->errorMessage($e), $e),
         };
     }
 

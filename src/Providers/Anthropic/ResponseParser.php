@@ -130,7 +130,7 @@ class ResponseParser implements ResponseParserContract
      *
      * @param  array<string, mixed>  $data
      */
-    public function parseStreamChunk(array $data, string $model = ''): StreamChunk
+    public function parseStreamChunk(array $data, string $model = '', string $provider = 'anthropic'): StreamChunk
     {
         $event = $data['event'] ?? '';
         $payload = $data['data'] ?? [];
@@ -138,7 +138,7 @@ class ResponseParser implements ResponseParserContract
         if ($event === 'error') {
             $error = $payload['error'] ?? $payload;
 
-            throw ProviderException::fromStreamError('anthropic', $model, is_array($error) ? $error : ['message' => (string) $error]);
+            throw ProviderException::fromStreamError($provider, $model, is_array($error) ? $error : ['message' => (string) $error]);
         }
 
         if ($event === 'content_block_delta') {

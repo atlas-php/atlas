@@ -113,37 +113,46 @@ class ResponseParser implements ResponseParserContract
     /**
      * Parse a streaming SSE data payload into a StreamChunk.
      *
-     * Note: Processes only the first matching part per chunk. If Gemini sends
-     * multi-part chunks (e.g., text + function call), only the first part is emitted.
-     * This matches observed Gemini streaming behavior where parts arrive separately.
+     * Collects every functionCall part in the chunk (Gemini bundles parallel
+     * calls plus the terminal finishReason + usage into a single chunk), then
+     * falls through to thinking/text parts.
      *
      * @param  array<string, mixed>  $data
      */
-    public function parseStreamChunk(array $data, string $model = ''): StreamChunk
+    public function parseStreamChunk(array $data, string $model = '', string $provider = 'google'): StreamChunk
     {
         if (isset($data['error'])) {
             $error = is_array($data['error']) ? $data['error'] : ['message' => (string) $data['error']];
 
-            throw ProviderException::fromStreamError('google', $model, $error);
+            throw ProviderException::fromStreamError($provider, $model, $error);
         }
 
         $candidate = $data['candidates'][0] ?? [];
         $parts = $candidate['content']['parts'] ?? [];
         $finishReason = $candidate['finishReason'] ?? null;
 
-        // Gemini's final chunk often carries both text content AND finishReason + usageMetadata.
-        // Extract usage from the terminal chunk regardless of content.
+        // Gemini's final chunk often carries content AND finishReason + usageMetadata.
+        // Resolve both from the terminal chunk once and reuse across branches.
         $usage = $finishReason !== null ? $this->parseUsage($data) : null;
+        $resolvedFinish = $finishReason !== null ? $this->parseFinishReason($data) : null;
+
+        // Carry the finishReason through so a tool-terminated stream resolves to
+        // ToolCalls, and keep every parallel call — mirroring the non-streaming path.
+        $functionCallParts = array_values(array_filter(
+            $parts,
+            fn (array $part): bool => isset($part['functionCall']),
+        ));
+
+        if ($functionCallParts !== []) {
+            return new StreamChunk(
+                type: ChunkType::ToolCall,
+                toolCalls: $this->toolMapper->parseToolCalls($functionCallParts),
+                usage: $usage,
+                finishReason: $resolvedFinish,
+            );
+        }
 
         foreach ($parts as $part) {
-            if (isset($part['functionCall'])) {
-                return new StreamChunk(
-                    type: ChunkType::ToolCall,
-                    toolCalls: $this->toolMapper->parseToolCalls([$part]),
-                    usage: $usage,
-                );
-            }
-
             if (isset($part['thought']) && $part['thought'] === true && isset($part['text'])) {
                 return new StreamChunk(
                     type: ChunkType::Thinking,
@@ -160,7 +169,7 @@ class ResponseParser implements ResponseParserContract
                         type: ChunkType::Done,
                         text: $part['text'],
                         usage: $usage,
-                        finishReason: $this->parseFinishReason($data),
+                        finishReason: $resolvedFinish,
                     );
                 }
 
@@ -176,7 +185,7 @@ class ResponseParser implements ResponseParserContract
             return new StreamChunk(
                 type: ChunkType::Done,
                 usage: $usage,
-                finishReason: $this->parseFinishReason($data),
+                finishReason: $resolvedFinish,
             );
         }
 

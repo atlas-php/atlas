@@ -172,6 +172,50 @@ it('throws ProviderException when id is missing', function () {
     $handler->video(makeOpenAiVideoRequest());
 })->throws(ProviderException::class, 'missing id');
 
+it('attributes a handler-built error to the configured provider key, not openai (regression)', function () {
+    // The OpenAI Video handler is reused by the chat_completions and responses
+    // drivers; a custom provider's video error must not be mislabeled 'openai'.
+    Http::fake([
+        'api.openai.com/v1/videos' => Http::response(['status' => 'queued']), // no id
+    ]);
+
+    $handler = new Video(
+        config: ProviderConfig::fromArray([
+            'api_key' => 'test-key',
+            'url' => 'https://api.openai.com/v1',
+            'provider' => 'fireworks',
+        ]),
+        http: app(HttpClient::class),
+        pollInterval: 0,
+    );
+
+    $caught = null;
+
+    try {
+        $handler->video(makeOpenAiVideoRequest());
+    } catch (ProviderException $e) {
+        $caught = $e;
+    }
+
+    expect($caught->provider)->toBe('fireworks');
+});
+
+it('falls back to openai for handler-built errors when no provider key is set', function () {
+    Http::fake([
+        'api.openai.com/v1/videos' => Http::response(['status' => 'queued']), // no id
+    ]);
+
+    $caught = null;
+
+    try {
+        makeOpenAiVideoHandler()->video(makeOpenAiVideoRequest());
+    } catch (ProviderException $e) {
+        $caught = $e;
+    }
+
+    expect($caught->provider)->toBe('openai');
+});
+
 it('an unresolvable reference image throws a ProviderException carrying the model', function () {
     $caught = null;
 

@@ -60,6 +60,16 @@ class FakeDriver extends Driver
         return $this->providerName;
     }
 
+    /**
+     * The fake skips the parent constructor, so {@see Driver::$config} is never
+     * set. Resolve attribution from the fake's own name instead of reading the
+     * uninitialized config, keeping every base-class path (e.g. batch()) safe.
+     */
+    protected function providerName(): string
+    {
+        return $this->name();
+    }
+
     public function capabilities(): ProviderCapabilities
     {
         return new ProviderCapabilities(

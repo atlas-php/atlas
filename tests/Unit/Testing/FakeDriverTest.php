@@ -3,7 +3,10 @@
 declare(strict_types=1);
 
 use Atlasphp\Atlas\Enums\ChunkType;
+use Atlasphp\Atlas\Enums\Modality;
+use Atlasphp\Atlas\Exceptions\UnsupportedFeatureException;
 use Atlasphp\Atlas\Requests\AudioRequest;
+use Atlasphp\Atlas\Requests\Batch;
 use Atlasphp\Atlas\Requests\EmbedRequest;
 use Atlasphp\Atlas\Requests\ImageRequest;
 use Atlasphp\Atlas\Requests\ModerateRequest;
@@ -302,6 +305,21 @@ it('records rerank calls for assertions', function () {
     expect($driver->recorded('rerank'))->toHaveCount(1);
     expect($driver->recorded('rerank')[0]->method)->toBe('rerank');
     expect($driver->recorded('rerank')[0]->request->query)->toBe('Test');
+});
+
+// ─── Base-class paths stay safe despite the skipped constructor ──────────────
+
+it('batch() on a fake throws UnsupportedFeatureException, not an uninitialized-config error (regression)', function () {
+    // FakeDriver skips the parent constructor, so $config is never set. The base
+    // batch() path resolves the provider name for its error — it must not read
+    // the uninitialized config and fatal.
+    $driver = new FakeDriver('openai');
+
+    expect(fn () => $driver->batch(new Batch(
+        provider: 'openai',
+        modality: Modality::Text,
+        lines: [],
+    )))->toThrow(UnsupportedFeatureException::class, 'openai');
 });
 
 // ─── Per-Instance Isolation ─────────────────────────────────────────────────

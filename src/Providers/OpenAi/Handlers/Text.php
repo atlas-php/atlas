@@ -91,7 +91,7 @@ class Text implements TextHandler
             context: new ProviderRequestContext($this->config->provider, $request->model),
         );
 
-        return new StreamResponse($this->parseSSE($raw, $request->model, $this->config->provider ?: 'openai'));
+        return new StreamResponse($this->parseSSE($raw, $request->model, $this->config->providerName('openai')));
     }
 
     public function structured(TextRequest $request): StructuredResponse

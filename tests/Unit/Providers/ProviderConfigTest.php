@@ -131,3 +131,18 @@ it('defaults the provider to an empty string when absent', function () {
 
     expect($config->provider)->toBe('');
 });
+
+it('providerName() returns the stamped key, or the given default when unset', function () {
+    $stamped = ProviderConfig::fromArray([
+        'api_key' => 'sk-test',
+        'url' => 'https://api.test.com',
+        'provider' => 'groq',
+    ]);
+    $unstamped = ProviderConfig::fromArray([
+        'api_key' => 'sk-test',
+        'url' => 'https://api.test.com',
+    ]);
+
+    expect($stamped->providerName('chat_completions'))->toBe('groq');
+    expect($unstamped->providerName('chat_completions'))->toBe('chat_completions');
+});
