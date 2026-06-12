@@ -160,16 +160,32 @@ class Batch implements BatchHandler
      * Map Gemini's job state to the normalized enum. Matches by suffix so it
      * tolerates both `JOB_STATE_*` (operation metadata) and `BATCH_STATE_*`
      * (resource) spellings the API inconsistently returns.
+     *
+     * Written as explicit `if` returns rather than `match (true)` so coverage
+     * tools attribute each branch cleanly.
      */
     private function mapStatus(string $state): BatchStatus
     {
-        return match (true) {
-            str_ends_with($state, 'SUCCEEDED') => BatchStatus::Completed,
-            str_ends_with($state, 'FAILED') => BatchStatus::Failed,
-            str_ends_with($state, 'CANCELLED') => BatchStatus::Cancelled,
-            str_ends_with($state, 'EXPIRED') => BatchStatus::Expired,
-            str_ends_with($state, 'PENDING') => BatchStatus::Validating,
-            default => BatchStatus::InProgress,
-        };
+        if (str_ends_with($state, 'SUCCEEDED')) {
+            return BatchStatus::Completed;
+        }
+
+        if (str_ends_with($state, 'FAILED')) {
+            return BatchStatus::Failed;
+        }
+
+        if (str_ends_with($state, 'CANCELLED')) {
+            return BatchStatus::Cancelled;
+        }
+
+        if (str_ends_with($state, 'EXPIRED')) {
+            return BatchStatus::Expired;
+        }
+
+        if (str_ends_with($state, 'PENDING')) {
+            return BatchStatus::Validating;
+        }
+
+        return BatchStatus::InProgress;
     }
 }
