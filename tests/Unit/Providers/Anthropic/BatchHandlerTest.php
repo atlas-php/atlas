@@ -67,6 +67,22 @@ it('maps processing_status to the normalized enum', function (string $raw, Batch
     ['ended', BatchStatus::Completed],
 ]);
 
+it('maps the lifecycle with correct terminal/successful semantics', function (string $raw, bool $terminal, bool $successful) {
+    $http = Mockery::mock(HttpClient::class);
+    $http->shouldReceive('get')->once()->andReturn(['id' => 'b', 'processing_status' => $raw, 'request_counts' => ['succeeded' => 1, 'errored' => 0, 'processing' => 0]]);
+
+    $response = anthropicBatchHandler($http)->status('b');
+
+    expect($response->isTerminal())->toBe($terminal);
+    expect($response->isSuccessful())->toBe($successful);
+})->with([
+    // Anthropic has no "validating": a submitted batch is immediately in_progress.
+    'in progress (submitted)' => ['in_progress', false, false],
+    'canceling' => ['canceling', false, false],
+    'ended (completed)' => ['ended', true, true],
+    'unknown future' => ['some_new_state', false, false], // safe default: keep polling
+]);
+
 it('parses succeeded and errored line results', function () {
     $http = Mockery::mock(HttpClient::class);
     $http->shouldReceive('get')->once()->andReturn(['id' => 'b', 'processing_status' => 'ended', 'results_url' => 'https://api.anthropic.com/v1/messages/batches/b/results']);

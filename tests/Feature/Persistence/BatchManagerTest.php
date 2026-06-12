@@ -1,0 +1,35 @@
+<?php
+
+declare(strict_types=1);
+
+use Atlasphp\Atlas\Atlas;
+use Atlasphp\Atlas\Enums\BatchResultStatus;
+use Atlasphp\Atlas\Enums\BatchStatus;
+use Atlasphp\Atlas\Persistence\Models\BatchGroup;
+use Atlasphp\Atlas\Persistence\Models\BatchJob;
+use Atlasphp\Atlas\Persistence\Models\BatchResult;
+
+it('Atlas::batchGroup() creates a persisted group when persistence is enabled', function () {
+    $group = Atlas::batchGroup('my-run');
+
+    expect($group)->toBeInstanceOf(BatchGroup::class);
+    expect(BatchGroup::find($group->id)?->label)->toBe('my-run');
+});
+
+it('BatchJob results() returns the job\'s result rows', function () {
+    $job = BatchJob::create(['provider' => 'openai', 'modality' => 'text', 'batch_id' => 'b', 'status' => BatchStatus::Completed]);
+    BatchResult::create(['batch_job_id' => $job->id, 'custom_id' => 'rec-1', 'status' => BatchResultStatus::Succeeded]);
+    BatchResult::create(['batch_job_id' => $job->id, 'custom_id' => 'rec-2', 'status' => BatchResultStatus::Errored]);
+
+    expect($job->results)->toHaveCount(2);
+    expect($job->results->pluck('custom_id')->sort()->values()->all())->toBe(['rec-1', 'rec-2']);
+});
+
+it('BatchJob scopeForProvider filters by provider', function () {
+    $openai = BatchJob::create(['provider' => 'openai', 'modality' => 'text', 'batch_id' => 'a', 'status' => BatchStatus::Completed]);
+    BatchJob::create(['provider' => 'anthropic', 'modality' => 'text', 'batch_id' => 'b', 'status' => BatchStatus::Completed]);
+
+    $ids = BatchJob::query()->forProvider('openai')->pluck('id')->all();
+
+    expect($ids)->toBe([$openai->id]);
+});

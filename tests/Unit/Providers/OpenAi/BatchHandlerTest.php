@@ -18,6 +18,7 @@ use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Requests\Batch as BatchRequest;
 use Atlasphp\Atlas\Requests\BatchLine;
 use Atlasphp\Atlas\Requests\EmbedRequest;
+use Atlasphp\Atlas\Requests\TextRequest;
 
 function openAiBatchHandler(HttpClient $http): Batch
 {
@@ -76,6 +77,44 @@ it('uploads JSONL and creates a batch, serializing each line via the embed body 
     expect($first['body']['input'])->toBe('hello');
 });
 
+it('serializes a text batch line via the text payload builder', function () {
+    $http = Mockery::mock(HttpClient::class);
+
+    $captured = null;
+    $http->shouldReceive('postMultipart')->once()
+        ->withArgs(function (string $url, array $headers, array $data, array $attachments) use (&$captured) {
+            $captured = $attachments[0]['contents'];
+
+            return true;
+        })
+        ->andReturn(['id' => 'file_t']);
+    $http->shouldReceive('post')->once()
+        ->withArgs(fn (string $url, array $h, array $body) => $body['endpoint'] === '/v1/responses')
+        ->andReturn(['id' => 'batch_t', 'status' => 'validating', 'request_counts' => ['total' => 1, 'completed' => 0, 'failed' => 0]]);
+
+    $batch = new BatchRequest('openai', Modality::Text, [
+        new BatchLine('a', new TextRequest('gpt-5', null, 'Hi', [], [], null, null, null, [], [], [])),
+    ]);
+
+    $response = openAiBatchHandler($http)->submit($batch);
+
+    expect($response->batchId)->toBe('batch_t');
+    $first = json_decode(explode("\n", $captured)[0], true);
+    expect($first['url'])->toBe('/v1/responses');
+    expect($first['body']['model'])->toBe('gpt-5'); // built via Text::buildPayload
+});
+
+it('throws when a line request does not match the batch modality', function () {
+    $http = Mockery::mock(HttpClient::class);
+
+    // serialize() runs before any HTTP call, so the mismatch throws first.
+    $batch = new BatchRequest('openai', Modality::Text, [
+        new BatchLine('a', new EmbedRequest('m', 'x')),
+    ]);
+
+    openAiBatchHandler($http)->submit($batch);
+})->throws(BatchException::class, 'must share one modality');
+
 it('maps each provider status to the normalized enum', function (string $raw, BatchStatus $expected) {
     $http = Mockery::mock(HttpClient::class);
     $http->shouldReceive('get')->once()->andReturn(['id' => 'b', 'status' => $raw, 'request_counts' => ['total' => 1, 'completed' => 1, 'failed' => 0]]);
@@ -90,6 +129,25 @@ it('maps each provider status to the normalized enum', function (string $raw, Ba
     ['expired', BatchStatus::Expired],
     ['cancelling', BatchStatus::Cancelling],
     ['cancelled', BatchStatus::Cancelled],
+]);
+
+it('maps the lifecycle with correct terminal/successful semantics', function (string $raw, bool $terminal, bool $successful) {
+    $http = Mockery::mock(HttpClient::class);
+    $http->shouldReceive('get')->once()->andReturn(['id' => 'b', 'status' => $raw, 'request_counts' => ['total' => 1, 'completed' => 0, 'failed' => 0]]);
+
+    $response = openAiBatchHandler($http)->status('b');
+
+    expect($response->isTerminal())->toBe($terminal);
+    expect($response->isSuccessful())->toBe($successful);
+})->with([
+    'just submitted' => ['validating', false, false],
+    'in progress' => ['in_progress', false, false],
+    'finalizing' => ['finalizing', false, false],
+    'completed' => ['completed', true, true],
+    'failed' => ['failed', true, false],
+    'expired' => ['expired', true, false],
+    'cancelled' => ['cancelled', true, false],
+    'unknown future' => ['some_new_state', false, false], // safe default: keep polling
 ]);
 
 it('returns no results while the output file is not ready', function () {
