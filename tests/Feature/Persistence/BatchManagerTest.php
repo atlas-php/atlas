@@ -25,6 +25,14 @@ it('BatchJob results() returns the job\'s result rows', function () {
     expect($job->results->pluck('custom_id')->sort()->values()->all())->toBe(['rec-1', 'rec-2']);
 });
 
+it('BatchResult batchJob() returns its parent job', function () {
+    $job = BatchJob::create(['provider' => 'openai', 'modality' => 'text', 'batch_id' => 'b', 'status' => BatchStatus::Completed]);
+    $result = BatchResult::create(['batch_job_id' => $job->id, 'custom_id' => 'a', 'status' => BatchResultStatus::Succeeded]);
+
+    expect($result->batchJob)->not->toBeNull();
+    expect($result->batchJob->id)->toBe($job->id);
+});
+
 it('BatchJob scopeForProvider filters by provider', function () {
     $openai = BatchJob::create(['provider' => 'openai', 'modality' => 'text', 'batch_id' => 'a', 'status' => BatchStatus::Completed]);
     BatchJob::create(['provider' => 'anthropic', 'modality' => 'text', 'batch_id' => 'b', 'status' => BatchStatus::Completed]);

@@ -93,8 +93,10 @@ class BatchService
             if ($results === []) {
                 // Provider reports success but results aren't available yet (some
                 // providers, e.g. Gemini, deliver inline results shortly after the
-                // state flip). Keep the job open and retry on the next poll.
-                $job->applyStatus(BatchStatus::InProgress, $response->counts);
+                // state flip). Keep the job open and retry on the next poll — but
+                // don't overwrite the stored counts with this response's transient
+                // zero counts (its result set is empty for the same reason).
+                $job->update(['status' => BatchStatus::InProgress]);
 
                 return $job->refresh();
             }

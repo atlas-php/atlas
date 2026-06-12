@@ -128,6 +128,26 @@ it('marks the job failed and fires BatchFailed on a terminal failure', function 
     Event::assertDispatched(BatchFailed::class);
 });
 
+it('keeps a successful job open and preserves counts when results are not yet available', function () {
+    // Provider flips to success but inline results aren't ready yet (the Gemini
+    // race). The job must stay non-terminal, store no results, and NOT have its
+    // counts zeroed by the transient empty response.
+    $job = BatchJob::create(['provider' => 'google', 'modality' => 'text', 'batch_id' => 'b', 'status' => BatchStatus::InProgress, 'total' => 5, 'succeeded' => 0]);
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('batchStatus')->andReturn(new BatchResponse('b', BatchStatus::Completed, new RequestCounts(total: 0)));
+    $driver->shouldReceive('batchResults')->andReturn([]);
+
+    $registry = Mockery::mock(ProviderRegistryContract::class);
+    $registry->shouldReceive('resolve')->andReturn($driver);
+
+    $synced = batchService($registry)->syncFromProvider($job);
+
+    expect($synced->status)->toBe(BatchStatus::InProgress);
+    expect($synced->total)->toBe(5); // preserved, not overwritten with 0
+    expect(BatchResult::where('batch_job_id', $job->id)->count())->toBe(0);
+});
+
 it('is idempotent — a terminal job is not re-synced', function () {
     $job = BatchJob::create(['provider' => 'openai', 'modality' => 'embed', 'batch_id' => 'b', 'status' => BatchStatus::Completed]);
 

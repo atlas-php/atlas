@@ -2,12 +2,14 @@
 
 declare(strict_types=1);
 
+use Atlasphp\Atlas\Batch\BatchService;
 use Atlasphp\Atlas\Enums\BatchStatus;
 use Atlasphp\Atlas\Enums\Modality;
 use Atlasphp\Atlas\Exceptions\BatchException;
 use Atlasphp\Atlas\Pending\BatchRequest;
 use Atlasphp\Atlas\Pending\Contracts\Batchable;
 use Atlasphp\Atlas\Persistence\Models\BatchGroup;
+use Atlasphp\Atlas\Persistence\Models\BatchJob;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Requests\Batch;
@@ -127,6 +129,32 @@ it('submits statelessly through the resolved driver', function () {
 
     expect($response)->toBeInstanceOf(BatchResponse::class);
     expect($response->batchId)->toBe('batch_x');
+});
+
+it('tracks via the batch service and passes the group through', function () {
+    $job = new BatchJob;
+    $group = new BatchGroup;
+
+    $service = Mockery::mock(BatchService::class);
+    $service->shouldReceive('submitAndTrack')->once()
+        ->withArgs(fn (Batch $batch, $g) => $batch->modality === Modality::Text && $g === $group)
+        ->andReturn($job);
+
+    $builder = new BatchRequest('openai', Mockery::mock(ProviderRegistryContract::class), $service);
+
+    $result = $builder
+        ->group($group)
+        ->add(batchable(Modality::Text, 'openai', cleanText()), 'a')
+        ->submit();
+
+    expect($result)->toBe($job);
+});
+
+it('group() succeeds when persistence is available', function () {
+    $service = Mockery::mock(BatchService::class);
+    $builder = new BatchRequest('openai', Mockery::mock(ProviderRegistryContract::class), $service);
+
+    expect($builder->group(new BatchGroup))->toBe($builder);
 });
 
 it('applies a custom completion window', function () {
