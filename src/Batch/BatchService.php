@@ -11,11 +11,13 @@ use Atlasphp\Atlas\Events\BatchGroupCompleted;
 use Atlasphp\Atlas\Events\BatchSubmitted;
 use Atlasphp\Atlas\Persistence\Models\BatchGroup;
 use Atlasphp\Atlas\Persistence\Models\BatchJob;
+use Atlasphp\Atlas\Enums\BatchStatus;
 use Atlasphp\Atlas\Persistence\Models\BatchResult;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Requests\Batch;
 use Atlasphp\Atlas\Responses\BatchResult as BatchResultData;
 use Atlasphp\Atlas\Responses\EmbeddingsResponse;
+use Atlasphp\Atlas\Responses\RequestCounts;
 use Atlasphp\Atlas\Responses\TextResponse;
 use Atlasphp\Atlas\Responses\Usage;
 use Illuminate\Contracts\Events\Dispatcher;
@@ -82,14 +84,28 @@ class BatchService
         $driver = $this->registry->resolve($job->provider);
         $response = $driver->batchStatus($job->batch_id);
 
-        $job->applyStatus($response->status, $response->counts);
-
         if ($response->status->isSuccessful()) {
-            $this->hydrate($job, $driver->batchResults($job->batch_id));
+            // Fetch results BEFORE writing any terminal status. If this transport
+            // call throws, the job stays non-terminal and the next poll retries —
+            // never orphaned as "completed" with no results.
+            $results = iterator_to_array($driver->batchResults($job->batch_id), false);
+
+            if ($results === []) {
+                // Provider reports success but results aren't available yet (some
+                // providers, e.g. Gemini, deliver inline results shortly after the
+                // state flip). Keep the job open and retry on the next poll.
+                $job->applyStatus(BatchStatus::InProgress, $response->counts);
+
+                return $job->refresh();
+            }
+
+            $this->hydrate($job, $response->counts, $results);
         } elseif ($response->status->isTerminal()) {
             $job->markFailed($response->status, $response->error);
             $this->events->dispatch(new BatchFailed($job));
             $this->checkGroup($job);
+        } else {
+            $job->applyStatus($response->status, $response->counts);
         }
 
         return $job->refresh();
@@ -98,18 +114,20 @@ class BatchService
     /**
      * Store per-line results, roll up usage, and mark the job completed.
      *
-     * @param  iterable<int, BatchResultData>  $results
+     * The terminal "completed" status, the final counts, the rolled-up usage,
+     * and every result row commit together in one transaction or not at all — so
+     * the job only becomes terminal once its results are durably stored. A crash
+     * mid-hydration rolls back, leaving the job non-terminal for the next poll
+     * (no duplicate rows, no double-counted usage, no orphaned completion).
+     *
+     * @param  array<int, BatchResultData>  $results
      */
-    private function hydrate(BatchJob $job, iterable $results): void
+    private function hydrate(BatchJob $job, RequestCounts $counts, array $results): void
     {
         /** @var class-string<BatchResult> $model */
         $model = $this->config->model('batch_result', BatchResult::class);
 
-        // Atomic: the per-line inserts, the rolled-up usage, and the completed
-        // status all commit together or not at all. A crash mid-hydration rolls
-        // back, leaving the job non-terminal so the next poll re-runs it cleanly
-        // — no duplicate result rows, no double-counted usage.
-        DB::transaction(function () use ($job, $model, $results): void {
+        DB::transaction(function () use ($job, $model, $counts, $results): void {
             $usage = new Usage(0, 0);
 
             foreach ($results as $result) {
@@ -127,6 +145,7 @@ class BatchService
                 }
             }
 
+            $job->applyStatus(BatchStatus::Completed, $counts);
             $job->markCompleted($usage);
         });
 

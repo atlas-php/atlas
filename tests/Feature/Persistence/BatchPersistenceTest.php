@@ -146,7 +146,7 @@ it('fires BatchGroupCompleted when the last job in a group completes', function 
 
     $driver = Mockery::mock(Driver::class);
     $driver->shouldReceive('batchStatus')->andReturn(new BatchResponse('b2', BatchStatus::Completed, new RequestCounts(total: 1, succeeded: 1)));
-    $driver->shouldReceive('batchResults')->andReturn([]);
+    $driver->shouldReceive('batchResults')->andReturn([new BatchResultData('x', BatchResultStatus::Succeeded)]);
 
     $registry = Mockery::mock(ProviderRegistryContract::class);
     $registry->shouldReceive('resolve')->andReturn($driver);
@@ -166,7 +166,7 @@ it('the poll command advances open jobs and skips when none', function () {
 
     $driver = Mockery::mock(Driver::class);
     $driver->shouldReceive('batchStatus')->andReturn(new BatchResponse('b', BatchStatus::Completed, new RequestCounts(total: 1, succeeded: 1)));
-    $driver->shouldReceive('batchResults')->andReturn([]);
+    $driver->shouldReceive('batchResults')->andReturn([new BatchResultData('x', BatchResultStatus::Succeeded)]);
 
     $registry = Mockery::mock(ProviderRegistryContract::class);
     $registry->shouldReceive('resolve')->andReturn($driver);

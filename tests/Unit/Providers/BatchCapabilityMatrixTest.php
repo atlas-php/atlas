@@ -31,6 +31,7 @@ it('declares the exact batch modality matrix per provider', function (string $cl
 })->with([
     'openai' => [OpenAiDriver::class, ['text', 'embed']],
     'anthropic' => [AnthropicDriver::class, ['text']],
+    'google' => [GoogleDriver::class, ['text']],
 ]);
 
 it('marks non-batch providers explicitly as not batchable', function (string $class) {
@@ -40,9 +41,8 @@ it('marks non-batch providers explicitly as not batchable', function (string $cl
     expect($caps->batchModalities)->toBe([]);
     expect($caps->canBatch('text'))->toBeFalse();
 })->with([
-    // Google and xAI have batch APIs but their handlers are a documented
-    // follow-up; they are intentionally not advertised yet.
-    'google' => [GoogleDriver::class],
+    // xAI has a batch API but its handler is a documented follow-up; not
+    // advertised yet.
     'xai' => [XaiDriver::class],
     'elevenlabs' => [ElevenLabsDriver::class],
     'cohere' => [CohereDriver::class],

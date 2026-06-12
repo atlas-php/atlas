@@ -118,7 +118,7 @@ class Batch implements BatchHandler
             $result = is_array($row['result'] ?? null) ? $row['result'] : [];
             $type = (string) ($result['type'] ?? 'errored');
 
-            if ($type === 'succeeded' && is_array($result['message'] ?? null)) {
+            if ($type === 'succeeded' && is_array($result['message'] ?? null) && $result['message'] !== []) {
                 $parsed = $this->text->parse($result['message']);
                 $results[] = new BatchResult($customId, BatchResultStatus::Succeeded, response: $parsed, usage: $parsed->usage);
 

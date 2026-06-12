@@ -67,13 +67,26 @@ class PruneBatchJobsCommand extends Command
         } while ($ids->count() === $chunk);
 
         // Sweep groups left empty by the prune (their FK nulls on job delete,
-        // so they'd otherwise accumulate forever).
+        // so they'd otherwise accumulate forever). Chunked like the jobs sweep so
+        // a large backlog can't lock the table in one statement.
         /** @var class-string<BatchGroup> $groupModel */
         $groupModel = $config->model('batch_group', BatchGroup::class);
-        $groups = $groupModel::query()
-            ->where('created_at', '<', $cutoff)
-            ->whereDoesntHave('jobs')
-            ->delete();
+        $groups = 0;
+
+        do {
+            $groupIds = $groupModel::query()
+                ->where('created_at', '<', $cutoff)
+                ->whereDoesntHave('jobs')
+                ->orderBy('id')
+                ->limit($chunk)
+                ->pluck('id');
+
+            if ($groupIds->isEmpty()) {
+                break;
+            }
+
+            $groups += $groupModel::query()->whereIn('id', $groupIds)->delete();
+        } while ($groupIds->count() === $chunk);
 
         $this->info("Pruned {$deleted} batch job(s) and {$groups} empty group(s) older than {$days} day(s).");
 

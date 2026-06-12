@@ -222,6 +222,14 @@ class Batch implements BatchHandler
                 continue;
             }
 
+            if ($payload === []) {
+                // 2xx but no body — a truncated/malformed line. Don't feed an
+                // empty payload to the parser; record it as a failed line.
+                $results[] = new BatchResult($customId, BatchResultStatus::Errored, error: new BatchException('empty response body'));
+
+                continue;
+            }
+
             $parsed = $modality === Modality::Embed
                 ? $this->embed->parse($payload)
                 : $this->text->parse($payload);
