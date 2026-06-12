@@ -6,6 +6,7 @@ use App\Models\User;
 use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Persistence\Models\Asset;
 use Atlasphp\Atlas\Persistence\Models\Conversation;
+use Atlasphp\Atlas\Persistence\Models\ConversationMessage;
 use Atlasphp\Atlas\Persistence\Models\Execution;
 use Atlasphp\Atlas\Persistence\Models\ExecutionStep;
 use Atlasphp\Atlas\Persistence\Models\ExecutionToolCall;
@@ -24,7 +25,7 @@ $prompts = [
 
 echo "=== Agent: {$tool} tool ===\n\n";
 
-$response = Atlas::agent('assistant')
+$response = Atlas::agent('atlas')
     ->for($user)
     ->withMeta(['user_email' => $user->email, 'source' => 'sandbox-test'])
     ->message($prompts[$tool])
