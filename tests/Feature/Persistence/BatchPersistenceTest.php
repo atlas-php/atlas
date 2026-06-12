@@ -117,7 +117,8 @@ it('marks the job failed and fires BatchFailed on a terminal failure', function 
     $job = BatchJob::create(['provider' => 'openai', 'modality' => 'embed', 'batch_id' => 'b', 'status' => BatchStatus::InProgress]);
 
     $driver = Mockery::mock(Driver::class);
-    $driver->shouldReceive('batchStatus')->andReturn(new BatchResponse('b', BatchStatus::Expired, new RequestCounts(total: 1)));
+    // Expired after partial completion: 6 of 10 succeeded before the window closed.
+    $driver->shouldReceive('batchStatus')->andReturn(new BatchResponse('b', BatchStatus::Expired, new RequestCounts(total: 10, succeeded: 6, failed: 4)));
 
     $registry = Mockery::mock(ProviderRegistryContract::class);
     $registry->shouldReceive('resolve')->andReturn($driver);
@@ -125,6 +126,10 @@ it('marks the job failed and fires BatchFailed on a terminal failure', function 
     $synced = batchService($registry)->syncFromProvider($job);
 
     expect($synced->status)->toBe(BatchStatus::Expired);
+    // Counts from the provider must survive on a terminal-but-not-successful job.
+    expect($synced->total)->toBe(10);
+    expect($synced->succeeded)->toBe(6);
+    expect($synced->failed)->toBe(4);
     Event::assertDispatched(BatchFailed::class);
 });
 

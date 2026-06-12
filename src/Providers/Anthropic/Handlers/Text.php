@@ -205,7 +205,15 @@ class Text implements TextHandler
             $body = $this->applyToolChoice($body, $request, $this->tools);
         }
 
-        if ($request->reasoning !== null) {
+        // Anthropic rejects extended thinking alongside a forced tool_choice
+        // (`any` or a specific `tool`). When the caller forces a tool, honor the
+        // force and skip thinking for this turn — mirroring the structured path,
+        // which drops thinking because it forces the schema tool. Without this the
+        // provider 400s ("Thinking may not be enabled when tool_choice forces tool
+        // use"). `auto`/`none` choices are compatible with thinking and pass through.
+        $forcesTool = in_array($body['tool_choice']['type'] ?? null, ['any', 'tool'], true);
+
+        if ($request->reasoning !== null && ! $forcesTool) {
             $budget = $request->reasoning->budgetTokens();
             $body['thinking'] = ['type' => 'enabled', 'budget_tokens' => $budget];
 

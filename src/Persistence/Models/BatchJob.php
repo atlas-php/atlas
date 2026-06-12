@@ -128,12 +128,20 @@ class BatchJob extends Model
     }
 
     /**
-     * Mark the job failed/expired with a terminal status and message.
+     * Mark the job failed/expired with a terminal status, counts, and message.
+     *
+     * Persists the provider's counts too — a job can end `expired`/`cancelled`
+     * after partially completing, so the succeeded/failed totals must survive on
+     * a terminal-but-not-successful job (group roll-ups and reporting read them).
      */
-    public function markFailed(BatchStatus $status, ?string $error = null): void
+    public function markFailed(BatchStatus $status, RequestCounts $counts, ?string $error = null): void
     {
         $this->update([
             'status' => $status,
+            'total' => $counts->total,
+            'succeeded' => $counts->succeeded,
+            'failed' => $counts->failed,
+            'processing' => $counts->processing,
             'error' => $error,
             'completed_at' => now(),
         ]);

@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 - Extended thinking now works through multi-step tool calls and persisted-conversation reloads.
 - Google (Gemini) tool calls no longer 400 on non-object results (number, boolean, array, quoted string) — wrapped automatically. Plain strings and JSON objects are unchanged.
+- Chunked embeddings now work when persistence runs on a separate Postgres connection (`atlas.persistence.connection`) and the app default isn't Postgres — pgvector is detected on the persistence connection, so chunk writes and similarity search no longer fail.
 
 ### Migration
 

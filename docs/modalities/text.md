@@ -338,7 +338,7 @@ Reasoning works inside the tool-call loop: Atlas replays each provider's signed 
 Notes:
 - Reasoning only takes effect on reasoning-capable models.
 - A raw `withProviderOptions()` value overrides `->reasoning()` if both set the same key.
-- On Anthropic, reasoning and structured output (`->withSchema()`) aren't combined — a structured turn forces a tool, which Anthropic disallows alongside thinking.
+- On Anthropic, reasoning isn't combined with a forced tool — structured output (`->withSchema()`), `->forceTools()`, or `->toolChoice(...)` for a specific/required tool all force a tool call, which Anthropic disallows alongside thinking. On those turns the forced tool wins and thinking is skipped; an `auto` choice keeps thinking.
 
 ## Queue Support
 

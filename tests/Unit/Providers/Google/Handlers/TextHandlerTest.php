@@ -193,6 +193,38 @@ it('includes generationConfig with maxOutputTokens and temperature', function ()
     });
 });
 
+it('deep-merges providerOptions generationConfig keys alongside the fields Atlas sets', function () {
+    Http::fake([
+        'generativelanguage.googleapis.com/*' => Http::response(fakeGeminiTextResponse()),
+    ]);
+
+    $handler = makeGoogleTextHandler();
+    $handler->text(makeGoogleTextRequest([
+        'temperature' => 0.7,
+        'providerOptions' => ['generationConfig' => ['topP' => 0.9]],
+    ]));
+
+    Http::assertSent(function ($request) {
+        return $request['generationConfig']['temperature'] === 0.7
+            && $request['generationConfig']['topP'] === 0.9;
+    });
+});
+
+it('overrides a colliding generationConfig scalar instead of turning it into a list', function () {
+    Http::fake([
+        'generativelanguage.googleapis.com/*' => Http::response(fakeGeminiTextResponse()),
+    ]);
+
+    $handler = makeGoogleTextHandler();
+    $handler->text(makeGoogleTextRequest([
+        'temperature' => 0.7,
+        'providerOptions' => ['generationConfig' => ['temperature' => 0.2]],
+    ]));
+
+    // array_merge_recursive would emit ["temperature" => [0.7, 0.2]] and Gemini 400s.
+    Http::assertSent(fn ($request) => $request['generationConfig']['temperature'] === 0.2);
+});
+
 it('sets responseMimeType and responseSchema for structured output', function () {
     Http::fake([
         'generativelanguage.googleapis.com/*' => Http::response(fakeGeminiTextResponse(['text' => '{"name":"John"}'])),

@@ -48,7 +48,10 @@ class Image implements ImageHandler
             ],
         ];
 
-        $body = array_merge_recursive($body, $request->providerOptions);
+        // array_replace_recursive (not array_merge_recursive): deep-merges nested
+        // generationConfig while overriding colliding scalars instead of turning
+        // them into lists (which Gemini rejects). See Text handler for detail.
+        $body = array_replace_recursive($body, $request->providerOptions);
 
         $data = $this->http->post(
             url: "{$this->config->baseUrl}/v1beta/models/{$request->model}:generateContent",

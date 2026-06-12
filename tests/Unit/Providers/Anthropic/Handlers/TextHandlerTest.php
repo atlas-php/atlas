@@ -443,6 +443,32 @@ it('bumps max_tokens above the thinking budget and drops temperature', function 
     Http::assertSent(fn ($request) => $request['max_tokens'] === 8192 + 4096 && ! isset($request['temperature']));
 });
 
+it('drops the thinking block when a tool is forced, honoring the forced tool', function () {
+    Http::fake(['api.anthropic.com/*' => Http::response(fakeAnthropicTextResponse())]);
+
+    // Anthropic 400s if `thinking` is sent with a forced tool_choice (any/tool).
+    // The forced choice must win and thinking must be dropped for this turn.
+    makeAnthropicTextHandler()->text(makeAnthropicTextRequest([
+        'tools' => [new ToolDefinition('get_weather', 'Get weather', ['type' => 'object'])],
+        'toolChoice' => ToolChoice::required(),
+        'reasoning' => new Reasoning(ReasoningEffort::Medium),
+    ]));
+
+    Http::assertSent(fn ($request) => $request['tool_choice'] === ['type' => 'any'] && ! isset($request['thinking']));
+});
+
+it('keeps thinking when the tool choice is auto (compatible with thinking)', function () {
+    Http::fake(['api.anthropic.com/*' => Http::response(fakeAnthropicTextResponse())]);
+
+    makeAnthropicTextHandler()->text(makeAnthropicTextRequest([
+        'tools' => [new ToolDefinition('get_weather', 'Get weather', ['type' => 'object'])],
+        'toolChoice' => ToolChoice::auto(),
+        'reasoning' => new Reasoning(ReasoningEffort::Medium),
+    ]));
+
+    Http::assertSent(fn ($request) => $request['tool_choice'] === ['type' => 'auto'] && $request['thinking']['type'] === 'enabled');
+});
+
 it('omits the thinking block when reasoning is not set', function () {
     Http::fake([
         'api.anthropic.com/*' => Http::response([
