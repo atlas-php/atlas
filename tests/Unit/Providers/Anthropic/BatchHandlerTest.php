@@ -89,9 +89,11 @@ it('parses succeeded and errored line results', function () {
     $http = Mockery::mock(HttpClient::class);
     $http->shouldReceive('get')->once()->andReturn(['id' => 'b', 'processing_status' => 'ended', 'results_url' => 'https://api.anthropic.com/v1/messages/batches/b/results']);
 
+    // Blank line in the MIDDLE (a leading/trailing blank would be removed by
+    // trim() before the loop, so it must be interior to hit the skip branch).
     $jsonl = implode("\n", [
-        '', // blank line → skipped
         json_encode(['custom_id' => 'a', 'result' => ['type' => 'succeeded', 'message' => ['content' => [['type' => 'text', 'text' => 'ALPHA']], 'usage' => ['input_tokens' => 5, 'output_tokens' => 1], 'stop_reason' => 'end_turn']]]),
+        '', // blank line → skipped
         json_encode(['custom_id' => 'b', 'result' => ['type' => 'errored', 'error' => ['type' => 'invalid_request', 'message' => 'too long']]]),
         json_encode(['custom_id' => 'c', 'result' => ['type' => 'expired']]),
         json_encode(['custom_id' => 'd', 'result' => ['type' => 'canceled']]),
