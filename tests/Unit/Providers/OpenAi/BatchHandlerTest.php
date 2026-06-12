@@ -216,6 +216,33 @@ it('surfaces a job-level error from the batch object', function () {
     expect($response->error)->toBe('input file malformed');
 });
 
+it('parses text results, skips blank lines, and errors empty-body lines', function () {
+    $http = Mockery::mock(HttpClient::class);
+    $http->shouldReceive('get')->once()->andReturn([
+        'id' => 'b', 'status' => 'completed', 'endpoint' => '/v1/responses', 'output_file_id' => 'file_out',
+    ]);
+
+    // Leading + interior blank lines (skipped), one good text line, one 2xx
+    // empty-body line (errored).
+    $jsonl = implode("\n", [
+        '',
+        json_encode(['custom_id' => 't1', 'response' => ['status_code' => 200, 'body' => ['output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => 'HELLO']]]], 'usage' => ['input_tokens' => 5, 'output_tokens' => 1]]]]),
+        '',
+        json_encode(['custom_id' => 't2', 'response' => ['status_code' => 200, 'body' => []]]),
+    ]);
+    $http->shouldReceive('getRaw')->once()->andReturn($jsonl);
+
+    $results = iterator_to_array(openAiBatchHandler($http)->results('b'));
+
+    expect($results)->toHaveCount(2);
+    expect($results[0]->customId)->toBe('t1');
+    expect($results[0]->status)->toBe(BatchResultStatus::Succeeded);
+    expect(trim($results[0]->response->text))->toBe('HELLO');
+    expect($results[1]->customId)->toBe('t2');
+    expect($results[1]->status)->toBe(BatchResultStatus::Errored);
+    expect($results[1]->error->getMessage())->toBe('empty response body');
+});
+
 it('cancels a batch', function () {
     $http = Mockery::mock(HttpClient::class);
     $http->shouldReceive('post')->once()

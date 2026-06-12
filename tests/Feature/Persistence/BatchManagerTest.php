@@ -8,6 +8,7 @@ use Atlasphp\Atlas\Enums\BatchStatus;
 use Atlasphp\Atlas\Persistence\Models\BatchGroup;
 use Atlasphp\Atlas\Persistence\Models\BatchJob;
 use Atlasphp\Atlas\Persistence\Models\BatchResult;
+use Atlasphp\Atlas\Responses\RequestCounts;
 
 it('Atlas::batchGroup() creates a persisted group when persistence is enabled', function () {
     $group = Atlas::batchGroup('my-run');
@@ -23,6 +24,19 @@ it('BatchJob results() returns the job\'s result rows', function () {
 
     expect($job->results)->toHaveCount(2);
     expect($job->results->pluck('custom_id')->sort()->values()->all())->toBe(['rec-1', 'rec-2']);
+});
+
+it('BatchJob applyStatus updates the status and counts columns', function () {
+    $job = BatchJob::create(['provider' => 'openai', 'modality' => 'text', 'batch_id' => 'b', 'status' => BatchStatus::Validating]);
+
+    $job->applyStatus(BatchStatus::InProgress, new RequestCounts(total: 5, succeeded: 2, failed: 1, processing: 2));
+
+    $fresh = $job->fresh();
+    expect($fresh->status)->toBe(BatchStatus::InProgress);
+    expect($fresh->total)->toBe(5);
+    expect($fresh->succeeded)->toBe(2);
+    expect($fresh->failed)->toBe(1);
+    expect($fresh->processing)->toBe(2);
 });
 
 it('BatchResult batchJob() returns its parent job', function () {
