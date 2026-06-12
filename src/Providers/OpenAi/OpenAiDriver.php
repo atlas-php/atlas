@@ -116,21 +116,10 @@ class OpenAiDriver extends Driver
 
     protected function batchHandler(): BatchHandler
     {
-        $toolMapper = new ToolMapper;
-
-        $text = new Text(
-            config: $this->config,
-            http: $this->http,
-            messages: new MessageFactory,
-            media: new MediaResolver,
-            toolMapper: $toolMapper,
-            parser: new ResponseParser($toolMapper),
-        );
-
         return new Batch(
             config: $this->config,
             http: $this->http,
-            text: $text,
+            text: $this->buildTextHandler(),
             embed: new Embed($this->config, $this->http),
         );
     }

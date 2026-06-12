@@ -110,12 +110,18 @@ class BatchJob extends Model
     }
 
     /**
-     * Mark the job completed and store the rolled-up usage.
+     * Mark the job completed with its final counts and rolled-up usage.
+     *
+     * One write: status, counts, usage, and completed_at together.
      */
-    public function markCompleted(Usage $usage): void
+    public function markCompleted(RequestCounts $counts, Usage $usage): void
     {
         $this->update([
             'status' => BatchStatus::Completed,
+            'total' => $counts->total,
+            'succeeded' => $counts->succeeded,
+            'failed' => $counts->failed,
+            'processing' => $counts->processing,
             'usage' => $usage->toArray(),
             'completed_at' => now(),
         ]);

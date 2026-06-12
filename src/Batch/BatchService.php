@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Atlasphp\Atlas\Batch;
 
 use Atlasphp\Atlas\AtlasConfig;
+use Atlasphp\Atlas\Enums\BatchStatus;
 use Atlasphp\Atlas\Events\BatchCompleted;
 use Atlasphp\Atlas\Events\BatchFailed;
 use Atlasphp\Atlas\Events\BatchGroupCompleted;
 use Atlasphp\Atlas\Events\BatchSubmitted;
 use Atlasphp\Atlas\Persistence\Models\BatchGroup;
 use Atlasphp\Atlas\Persistence\Models\BatchJob;
-use Atlasphp\Atlas\Enums\BatchStatus;
 use Atlasphp\Atlas\Persistence\Models\BatchResult;
 use Atlasphp\Atlas\Providers\Contracts\ProviderRegistryContract;
 use Atlasphp\Atlas\Requests\Batch;
@@ -145,8 +145,7 @@ class BatchService
                 }
             }
 
-            $job->applyStatus(BatchStatus::Completed, $counts);
-            $job->markCompleted($usage);
+            $job->markCompleted($counts, $usage);
         });
 
         $this->events->dispatch(new BatchCompleted($job));
