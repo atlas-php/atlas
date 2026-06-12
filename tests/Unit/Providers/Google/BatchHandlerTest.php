@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Atlasphp\Atlas\Enums\BatchResultStatus;
 use Atlasphp\Atlas\Enums\BatchStatus;
 use Atlasphp\Atlas\Enums\Modality;
+use Atlasphp\Atlas\Exceptions\BatchException;
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\Google\Handlers\Batch;
 use Atlasphp\Atlas\Providers\Google\Handlers\Text;
@@ -15,6 +16,7 @@ use Atlasphp\Atlas\Providers\Google\ToolMapper;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Requests\Batch as BatchRequest;
 use Atlasphp\Atlas\Requests\BatchLine;
+use Atlasphp\Atlas\Requests\EmbedRequest;
 use Atlasphp\Atlas\Requests\TextRequest;
 
 function googleBatchHandler(HttpClient $http): Batch
@@ -75,7 +77,19 @@ it('maps job state by suffix, tolerating JOB_STATE_* and BATCH_STATE_*', functio
     ['JOB_STATE_EXPIRED', BatchStatus::Expired],
     ['BATCH_STATE_RUNNING', BatchStatus::InProgress],   // leaked spelling, still handled
     ['BATCH_STATE_SUCCEEDED', BatchStatus::Completed],
+    ['JOB_STATE_UNSPECIFIED', BatchStatus::InProgress], // unknown → safe default (keep polling)
+    ['', BatchStatus::InProgress],                      // empty → safe default
 ]);
+
+it('rejects a non-text request line at submit', function () {
+    $http = Mockery::mock(HttpClient::class);
+
+    $batch = new BatchRequest('google', Modality::Text, [
+        new BatchLine('a', new EmbedRequest('text-embedding-3-small', 'x')),
+    ]);
+
+    googleBatchHandler($http)->submit($batch);
+})->throws(BatchException::class, 'cannot be batched');
 
 it('correlates results by metadata.key, not array order', function () {
     $http = Mockery::mock(HttpClient::class);

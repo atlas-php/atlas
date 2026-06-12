@@ -5,10 +5,16 @@ declare(strict_types=1);
 use Atlasphp\Atlas\Atlas;
 use Atlasphp\Atlas\Enums\BatchResultStatus;
 use Atlasphp\Atlas\Enums\BatchStatus;
+use Atlasphp\Atlas\Pending\BatchRequest;
 use Atlasphp\Atlas\Persistence\Models\BatchGroup;
 use Atlasphp\Atlas\Persistence\Models\BatchJob;
 use Atlasphp\Atlas\Persistence\Models\BatchResult;
 use Atlasphp\Atlas\Responses\RequestCounts;
+
+it('Atlas::batch() resolves the batch service when persistence is enabled', function () {
+    // Hits the persistence-on branch of AtlasManager::batch() that resolves BatchService.
+    expect(Atlas::batch('openai'))->toBeInstanceOf(BatchRequest::class);
+});
 
 it('Atlas::batchGroup() creates a persisted group when persistence is enabled', function () {
     $group = Atlas::batchGroup('my-run');

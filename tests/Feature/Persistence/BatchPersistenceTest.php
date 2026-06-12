@@ -223,6 +223,69 @@ it('honors a --days override when pruning', function () {
     expect(BatchJob::find($job->id))->toBeNull();
 });
 
+it('updates counts and stays open on a non-terminal status', function () {
+    $job = BatchJob::create(['provider' => 'openai', 'modality' => 'embed', 'batch_id' => 'b', 'status' => BatchStatus::Validating]);
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('batchStatus')->andReturn(new BatchResponse('b', BatchStatus::InProgress, new RequestCounts(total: 3, processing: 3)));
+    // batchResults is NOT called for a non-successful status.
+
+    $registry = Mockery::mock(ProviderRegistryContract::class);
+    $registry->shouldReceive('resolve')->andReturn($driver);
+
+    $synced = batchService($registry)->syncFromProvider($job);
+
+    expect($synced->status)->toBe(BatchStatus::InProgress);
+    expect($synced->total)->toBe(3);
+    expect($synced->processing)->toBe(3);
+});
+
+it('the poll command filters by provider', function () {
+    BatchJob::create(['provider' => 'openai', 'modality' => 'embed', 'batch_id' => 'oa', 'status' => BatchStatus::InProgress]);
+    $anthropic = BatchJob::create(['provider' => 'anthropic', 'modality' => 'text', 'batch_id' => 'an', 'status' => BatchStatus::InProgress]);
+
+    $driver = Mockery::mock(Driver::class);
+    $driver->shouldReceive('batchStatus')->once()->with('oa')->andReturn(new BatchResponse('oa', BatchStatus::InProgress, new RequestCounts(total: 1, processing: 1)));
+
+    $registry = Mockery::mock(ProviderRegistryContract::class);
+    $registry->shouldReceive('resolve')->with('openai')->andReturn($driver);
+    app()->instance(ProviderRegistryContract::class, $registry);
+
+    $this->artisan('atlas:batch-poll', ['--provider' => 'openai'])->expectsOutputToContain('Polled 1 batch job')->assertSuccessful();
+
+    expect($anthropic->fresh()->status)->toBe(BatchStatus::InProgress); // untouched
+});
+
+it('prune is a clean no-op when nothing is old enough', function () {
+    BatchJob::create(['provider' => 'openai', 'modality' => 'text', 'batch_id' => 'recent', 'status' => BatchStatus::Completed]);
+
+    $this->artisan('atlas:batch-prune')->expectsOutputToContain('Pruned 0 batch job(s)')->assertSuccessful();
+
+    expect(BatchJob::count())->toBe(1);
+});
+
+it('prunes jobs, results and groups across multiple chunks', function () {
+    config()->set('atlas.batch.retention_days', 90);
+
+    foreach (['j1', 'j2'] as $bid) {
+        $job = BatchJob::create(['provider' => 'openai', 'modality' => 'text', 'batch_id' => $bid, 'status' => BatchStatus::Completed]);
+        $job->forceFill(['created_at' => now()->subDays(120)])->save();
+        BatchResult::create(['batch_job_id' => $job->id, 'custom_id' => 'a', 'status' => BatchResultStatus::Succeeded]);
+    }
+    foreach (['g1', 'g2'] as $label) {
+        BatchGroup::create(['label' => $label])->forceFill(['created_at' => now()->subDays(120)])->save();
+    }
+
+    // chunk=1 forces the do/while loops to iterate more than once for both jobs and groups.
+    $this->artisan('atlas:batch-prune', ['--chunk' => 1])
+        ->expectsOutputToContain('Pruned 2 batch job(s) and 2 empty group(s)')
+        ->assertSuccessful();
+
+    expect(BatchJob::count())->toBe(0);
+    expect(BatchResult::count())->toBe(0);
+    expect(BatchGroup::count())->toBe(0);
+});
+
 it('BatchSubmitted fires on submit', function () {
     Event::fake([BatchSubmitted::class]);
 

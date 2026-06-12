@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Atlasphp\Atlas\Enums\BatchResultStatus;
 use Atlasphp\Atlas\Enums\BatchStatus;
 use Atlasphp\Atlas\Enums\Modality;
+use Atlasphp\Atlas\Exceptions\BatchException;
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Providers\Anthropic\Handlers\Batch;
 use Atlasphp\Atlas\Providers\Anthropic\Handlers\Text;
@@ -15,6 +16,7 @@ use Atlasphp\Atlas\Providers\Anthropic\ToolMapper;
 use Atlasphp\Atlas\Providers\ProviderConfig;
 use Atlasphp\Atlas\Requests\Batch as BatchRequest;
 use Atlasphp\Atlas\Requests\BatchLine;
+use Atlasphp\Atlas\Requests\EmbedRequest;
 use Atlasphp\Atlas\Requests\TextRequest;
 
 function anthropicBatchHandler(HttpClient $http): Batch
@@ -88,21 +90,34 @@ it('parses succeeded and errored line results', function () {
     $http->shouldReceive('get')->once()->andReturn(['id' => 'b', 'processing_status' => 'ended', 'results_url' => 'https://api.anthropic.com/v1/messages/batches/b/results']);
 
     $jsonl = implode("\n", [
+        '', // blank line → skipped
         json_encode(['custom_id' => 'a', 'result' => ['type' => 'succeeded', 'message' => ['content' => [['type' => 'text', 'text' => 'ALPHA']], 'usage' => ['input_tokens' => 5, 'output_tokens' => 1], 'stop_reason' => 'end_turn']]]),
         json_encode(['custom_id' => 'b', 'result' => ['type' => 'errored', 'error' => ['type' => 'invalid_request', 'message' => 'too long']]]),
         json_encode(['custom_id' => 'c', 'result' => ['type' => 'expired']]),
+        json_encode(['custom_id' => 'd', 'result' => ['type' => 'canceled']]),
     ]);
     $http->shouldReceive('getRaw')->once()->andReturn($jsonl);
 
     $results = iterator_to_array(anthropicBatchHandler($http)->results('b'));
 
-    expect($results)->toHaveCount(3);
+    expect($results)->toHaveCount(4);
     expect($results[0]->status)->toBe(BatchResultStatus::Succeeded);
     expect(trim($results[0]->response->text))->toBe('ALPHA');
     expect($results[1]->status)->toBe(BatchResultStatus::Errored);
     expect($results[1]->error->getMessage())->toBe('too long');
     expect($results[2]->status)->toBe(BatchResultStatus::Expired);
+    expect($results[3]->status)->toBe(BatchResultStatus::Cancelled);
 });
+
+it('rejects a non-text request line at submit', function () {
+    $http = Mockery::mock(HttpClient::class);
+
+    $batch = new BatchRequest('anthropic', Modality::Text, [
+        new BatchLine('a', new EmbedRequest('m', 'x')),
+    ]);
+
+    anthropicBatchHandler($http)->submit($batch);
+})->throws(BatchException::class, 'cannot be batched');
 
 it('returns nothing while results_url is absent', function () {
     $http = Mockery::mock(HttpClient::class);
