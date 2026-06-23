@@ -91,6 +91,18 @@ it('rejects a non-text request line at submit', function () {
     googleBatchHandler($http)->submit($batch);
 })->throws(BatchException::class, 'cannot be batched');
 
+it('rejects mixed models because Google batch uses one model URL', function () {
+    $http = Mockery::mock(HttpClient::class);
+    $http->shouldNotReceive('post');
+
+    $batch = new BatchRequest('google', Modality::Text, [
+        new BatchLine('request-1', new TextRequest('gemini-2.5-flash', null, 'Say ALPHA', [], [], null, null, null, [], [], [])),
+        new BatchLine('request-2', new TextRequest('gemini-1.5-pro', null, 'Say BETA', [], [], null, null, null, [], [], [])),
+    ]);
+
+    googleBatchHandler($http)->submit($batch);
+})->throws(BatchException::class, 'All Google batch requests must use one model');
+
 it('correlates results by metadata.key, not array order', function () {
     $http = Mockery::mock(HttpClient::class);
     // Note: returned OUT OF ORDER (request-2 first) to prove key-based join.

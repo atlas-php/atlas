@@ -16,6 +16,10 @@ Batch is ideal for latency-tolerant fan-out work — captioning thousands of ima
 Asking a provider to batch a modality it doesn't support — or a non-batchable modality (audio, voice, rerank, …) — throws `UnsupportedFeatureException` up front. xAI batch, image/video batch, and embeddings batch for Anthropic/Google are a planned follow-up.
 :::
 
+::: warning Google batches
+Gemini batch jobs target one model per batch because the model is part of Google's batch URL. Split Google requests by model before calling `submit()`.
+:::
+
 ## What can and cannot be batched
 
 A batch line is a single, one-shot request resolved later and out of band. What survives into a batch is everything that's part of the request body:

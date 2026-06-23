@@ -39,6 +39,8 @@ class Batch implements BatchHandler
 
     public function submit(BatchRequest $batch): BatchResponse
     {
+        $model = $this->modelFor($batch);
+
         $requests = array_map(function ($line): array {
             if (! $line->request instanceof TextRequest) {
                 throw BatchException::notBatchable($line->request::class);
@@ -51,7 +53,7 @@ class Batch implements BatchHandler
         }, $batch->lines);
 
         $data = $this->http->post(
-            url: "{$this->config->baseUrl}/v1beta/models/{$this->modelFor($batch)}:batchGenerateContent",
+            url: "{$this->config->baseUrl}/v1beta/models/{$model}:batchGenerateContent",
             headers: $this->headers(),
             body: ['batch' => [
                 'display_name' => 'atlas-batch',
@@ -117,9 +119,23 @@ class Batch implements BatchHandler
      */
     private function modelFor(BatchRequest $batch): string
     {
-        $first = $batch->lines[0] ?? null;
+        $model = null;
 
-        return $first !== null && $first->request instanceof TextRequest ? $first->request->model : '';
+        foreach ($batch->lines as $line) {
+            if (! $line->request instanceof TextRequest) {
+                throw BatchException::notBatchable($line->request::class);
+            }
+
+            $model ??= $line->request->model;
+
+            if ($line->request->model !== $model) {
+                throw new BatchException(
+                    "All Google batch requests must use one model; expected [{$model}], got [{$line->request->model}]."
+                );
+            }
+        }
+
+        return $model ?? '';
     }
 
     /**
