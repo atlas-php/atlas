@@ -1,30 +1,66 @@
 # AGENTS
 
-This document defines the coding conventions, architecture standards, and quality rules for this Laravel package. All agents (human or AI) must follow these rules — non-compliant contributions will be rejected.
+Rules for every AI coding agent working in this repository. These rules are law; where they conflict with your general habits, this file wins.
 
-For workflow, task management, and Claude Code-specific behavioral rules, see `CLAUDE.md`.
-
----
-
-## Critical Rules
-
-1. **Read documentation first** – Before working on any module, read the relevant documentation
-2. **Documentation is the source of truth** – Documentation overrides all assumptions
-3. **Run `composer check` before submitting code changes** – All lint, analyse, and test checks must pass (not required for documentation-only changes)
-4. **Update documentation when code changes** – Keep docs in sync with implementation
-5. **No function-level namespace imports** – Never use `use function json_decode;`
-6. **Include PHPDoc on every class** – Document purpose and usage
-7. **Respect layer boundaries** – Never violate the layer responsibility model
-8. **Use dependency injection** – Never directly instantiate services; use contracts where appropriate
-9. **Earn your abstractions** – Do not introduce indirection without concrete justification
+This is an **open-source Laravel package**. Everything here ships into strangers' applications: the public API is a contract, every dependency is an imposition on every consumer, and the documentation is the product's front door. For workflow, task management, and Claude Code-specific behavior, see `CLAUDE.md`.
 
 ---
 
-## Atlas v3 Architecture
+## Before You Work
 
-Atlas v3 is a unified AI SDK for Laravel applications. It owns its own provider layer — no external AI package dependency.
+1. Read [`BRIEF.md`](./.ai/BRIEF.md) (scope), [`CODEMAP.md`](./.ai/CODEMAP.md) (structure), and [`MEMORY.md`](./.ai/MEMORY.md) (lessons) before your first edit.
+2. Read the relevant VitePress documentation before working on any module. **Documentation is the source of truth — it overrides all assumptions.**
+3. Read every file before editing it.
+4. Search the codebase before writing new logic. If it exists — reuse, extend, or refactor. Never duplicate.
+5. When the user raises a concern, investigate before contradicting. Contradict only with evidence from the codebase.
 
-### Layer Model
+## Hard Gates — Require Explicit User Approval
+
+- **Public API changes.** Renaming or removing a public method, changing a signature, changing a config key, or changing documented behavior is a breaking change for every consumer. Never do it without approval.
+- **Dependencies.** Never add, remove, or major-version-bump a Composer dependency without approval — a package dependency is imposed on every consuming application.
+- **Migrations.** Any change to shipped migrations or persisted schema must be confirmed before proceeding — consumers have already run the old ones.
+- **Deletions.** Do not delete files or directories outside the immediate scope of the task without approval.
+- **This file.** Never modify `AGENTS.md` without approval. If a rule seems wrong or missing, raise it.
+
+## Never
+
+- Never commit credentials, tokens, or real API keys — not in code, tests, fixtures, docs examples, or sandbox files. This repository is public.
+- Never leave `dd()`, `dump()`, `ray()`, `var_dump()`, or commented-out code in completed work.
+- Never depend on a consuming application. All code is **stateless, framework-aware, and application-agnostic** — the package must be fully self-contained.
+- Never use `use function` imports.
+- Never call a real provider API from an automated test. Unit and Feature tests use the fakes in `src/Testing/`; real-API validation happens only in the sandbox.
+
+## Documentation Duties
+
+This repository has two documentation surfaces with different audiences. Both are your responsibility, not the user's.
+
+**Runtime docs (`.ai/`, agent-facing):**
+
+- Restructured directories or moved files → update `CODEMAP.md` in the same task.
+- Learned something that would have saved you time (a trap, a non-obvious constraint, a tooling quirk) → append it to `MEMORY.md`.
+- Do not add rationale, maintainer commentary, or history to these files. They address the next agent doing work, nothing else.
+
+**Consumer docs (`docs/`, VitePress, published at atlasphp.org):**
+
+| Code change | Documentation update |
+|---|---|
+| Adding a feature | Update the relevant docs in the same task |
+| Changing behavior | Update docs immediately |
+| Adding a module | Add docs to the appropriate section |
+| Fixing a bug | None, unless behavior was misdocumented |
+| Deprecating | Mark deprecated, add migration notes |
+| Removing | Remove from docs completely — no "removed" comments |
+
+- Every code example in the docs must be syntactically correct and runnable.
+- Cross-references use relative links. No duplicate content across files — for Prism-level features, link to Prism docs instead of restating them.
+
+---
+
+## Architecture
+
+Atlas v3 is a unified AI SDK for Laravel. It owns its own provider layer — no external AI package dependency.
+
+**Runtime flow** (a request travels down, never sideways or up):
 
 ```
 Consumer API (Facade, fluent builders)
@@ -38,187 +74,35 @@ Handlers + Resolvers (build HTTP payloads, parse responses)
 HttpClient (sends HTTP, fires transport events)
 ```
 
-### Key Principles
+- **Drivers are thin coordinators** — they route to modality handlers and never build HTTP payloads.
+- **Handlers compose resolvers** — MessageFactory, MediaResolver, ToolMapper, ResponseParser.
+- **Drivers are stateless** — one request → one response; loops belong to the executor.
+- **One shared HttpClient** — all providers use the same transport with consistent event dispatching.
 
-1. **Own the provider layer** — Atlas talks directly to AI provider APIs
-2. **Drivers are thin coordinators** — they route to modality handlers, never build HTTP payloads
-3. **Handlers compose resolvers** — MessageFactory, MediaResolver, ToolMapper, ResponseParser
-4. **Stateless drivers** — one request → one response; the executor handles loops
-5. **Shared HttpClient** — all providers use the same transport with consistent event dispatching
+## Layer Boundaries
 
----
+Dependencies flow **downward only**. A lower layer never imports from a higher one, and no two services depend on each other circularly.
 
-## Core Principles
-
-1. Follow **PSR-12** and **Laravel Pint** formatting
-2. Use **strict types** and modern **PHP 8.2+** syntax
-3. All code must be **stateless**, **framework-aware**, and **application-agnostic**
-4. Keep everything **self-contained** with no hard dependency on a consuming app
-5. Always reference **documentation** for functional requirements and naming accuracy
-6. Write clear, testable, deterministic code
-7. Every class must include a **PHPDoc block** summarizing its purpose
-8. **Program to interfaces, not implementations**, when multiple implementations or testing seams are required
-9. **Single responsibility** – each class does one thing well
-10. **Dependencies flow downward** – higher layers depend on lower layers only
-11. **Earn your abstractions** – every layer must provide real value
-
-**Example PHPDoc:**
-```php
-/**
- * Class UserWebhookService
- *
- * Handles webhook registration, processing, and retry logic for user-related events.
- */
-```
-
----
-
-## Package Structure
-
-```
-package-root/
-├── docs/                 # VitePress documentation
-├── src/
-│   ├── Concerns/         # Cross-domain traits
-│   ├── Console/          # Artisan commands
-│   ├── Embeddings/       # Vector embeddings and similarity search
-│   ├── Enums/            # Shared enums (Provider, Role, Modality, FinishReason, etc.)
-│   ├── Events/           # Transport and orchestration events
-│   ├── Exceptions/       # Exception hierarchy
-│   ├── Executor/         # Agent executor, tool loop, steps
-│   ├── Facades/          # Atlas facade
-│   ├── Input/            # Media input types (Image, Audio, Video, Document)
-│   ├── Messages/         # Typed conversation messages
-│   ├── Middleware/        # MiddlewareStack and context objects
-│   ├── Pending/          # Fluent request builders + Concerns/
-│   ├── Persistence/      # Models/, Services/, Middleware/, Enums/, Concerns/
-│   ├── Providers/        # Contracts/, Concerns/, Handlers/, Tools/, {Provider}/
-│   ├── Queue/            # Queue dispatch infrastructure + Jobs/
-│   ├── Requests/         # Immutable request DTOs
-│   ├── Responses/        # Response objects and StorableContract
-│   ├── Schema/           # JSON schema builder + Fields/
-│   ├── Support/          # Pure utilities
-│   ├── Testing/          # Fakes for testing
-│   ├── Tools/            # Tool infrastructure (definition, serialization)
-│   └── Voice/            # Voice session HTTP controllers
-├── config/
-├── tests/
-│   ├── Unit/
-│   └── Feature/
-└── sandbox/
-```
-
-### Directory Rules
-
-1. **Domain-organized** – Each top-level `src/` directory represents a domain concern, not a generic pattern
-2. **Namespacing follows structure** – e.g., `Atlasphp\Atlas\Messages\UserMessage`
-3. **Cross-domain references are allowed** – Domains may import types from other domains
-4. **Domain-local contracts** – Interfaces live with their domain (e.g., `Providers/Contracts/`), not in a shared `Contracts/` directory
-5. **Domain-local concerns** – Traits scoped to a single domain live in that domain's `Concerns/` subdirectory; only genuinely cross-cutting traits live in the top-level `Concerns/`
-6. **Provider sub-structure** – `Providers/` contains subdirectories for handlers (`Handlers/`), resolver contracts (`Contracts/`), provider tools (`Tools/`), and per-provider implementations (`OpenAi/`, `Anthropic/`, etc.)
-7. **No unnecessary nesting** – Don't create subdirectories until there are enough files to justify them
-
-### Adding Files
-
-| Adding...                          | Location                            |
-|------------------------------------|-------------------------------------|
-| New enum                           | `src/Enums/`                        |
-| New message type                   | `src/Messages/`                     |
-| New request/response object        | `src/Requests/` or `src/Responses/` |
-| New exception                      | `src/Exceptions/`                   |
-| New event                          | `src/Events/`                       |
-| New handler interface              | `src/Providers/Handlers/`           |
-| New resolver contract              | `src/Providers/Contracts/`          |
-| Provider-specific implementation   | `src/Providers/{ProviderName}/`     |
-| Provider-scoped contract           | `src/Providers/Contracts/`          |
-| New tool class                     | `src/Tools/`                        |
-| Embedding/vector feature           | `src/Embeddings/`                   |
-| Cross-domain trait                 | `src/Concerns/`                     |
-| Domain-scoped trait                | `src/{Domain}/Concerns/`            |
-| Domain-scoped contract             | `src/{Domain}/Contracts/`           |
-| Persistence model/service          | `src/Persistence/Models/` or `src/Persistence/Services/` |
-| Queue infrastructure               | `src/Queue/`                        |
-| Fluent builder                     | `src/Pending/`                      |
-| Test fake                          | `src/Testing/`                      |
-
----
-
-## Layer Responsibilities
-
-### Dependency Direction
-
-Dependencies must flow downward only:
-
-```
-Controllers / Commands
-         ↓
-   Services/Domain (Business Layer)
-         ↓
-   Services/Models (Model Layer)
-         ↓
-      Integrations (External Layer)
-         ↓
-       Support (Utility Layer)
-```
-
-**Never allow upward dependencies.** A lower layer must never import from a higher layer.
-
----
-
-### Services/Models (Model Layer)
-
-**Purpose:** Single point of truth for all persistence operations on a model.
-
-**Allowed:** Create, update, delete operations. Model-specific query helpers. Data normalization pre-persistence. Returning models or collections.
-
-**Forbidden:** Orchestrating workflows. Calling other domain services. Calling integrations directly. Cross-domain logic. Event dispatching.
-
-**Naming:** `{Model}ModelService` (e.g., `AgentModelService`)
+**Model services** (`Persistence/Services/`, named `{Model}ModelService`) are the single point of truth for persistence: create/update/delete, model-specific query helpers, pre-persistence normalization. They never orchestrate workflows, call other services, call providers, or dispatch events. All Eloquent access in the package goes through them — no direct queries elsewhere, no business logic in models beyond accessors, mutators, and scopes.
 
 ```php
-// ✅ Correct
-class AgentModelService
-{
-    public function create(array $data): Agent
-    {
-        return Agent::create($data);
-    }
-
-    public function findByName(string $name): ?Agent
-    {
-        return Agent::where('name', $name)->first();
-    }
-}
-```
-
-```php
-// ❌ Violation — orchestrating workflow in model layer
+// ❌ The most common violation — orchestration smuggled into the model layer
 class AgentModelService
 {
     public function createAndNotify(array $data): Agent
     {
         $agent = Agent::create($data);
-        $this->notificationService->send($agent);
-        event(new AgentCreated($agent));
+        $this->notificationService->send($agent);   // belongs in a domain service
+        event(new AgentCreated($agent));            // belongs in a domain service
         return $agent;
     }
 }
 ```
 
----
-
-### Services/Domain (Business Layer)
-
-**Purpose:** Implements business logic and orchestrates workflows.
-
-**Allowed:** Orchestrating multiple model services. Managing transactions. Dispatching events and jobs. Calling integrations through contracts. Cross-domain coordination.
-
-**Forbidden:** Direct Eloquent queries (use model services). Direct model creation/updates. Containing integration implementation details.
-
-**Naming:** Named by intent (e.g., `CreateAgentService`, `ProcessToolCallService`)
+**Domain services** (named by intent: `CreateAgentService`, `ProcessToolCallService`) implement business logic: orchestrating model services, managing transactions, dispatching events and jobs, calling providers through contracts. They contain no direct Eloquent queries and no provider implementation details.
 
 ```php
-// ✅ Correct
+// ✅ Orchestration lives here — persistence delegated, dependencies injected
 class CreateAgentService
 {
     public function __construct(
@@ -238,336 +122,175 @@ class CreateAgentService
 }
 ```
 
-```php
-// ❌ Violation — direct Eloquent and direct instantiation
-class CreateAgentService
-{
-    public function execute(array $data): Agent
-    {
-        $agent = Agent::create($data);
-        $logger = new AuditLogger();
-        $logger->log('agent.created', $agent);
-        return $agent;
-    }
-}
-```
+**Provider clients** (`Providers/{Provider}/`) are low-level external API clients: HTTP calls, authentication, request/response transformation, retries. They return DTOs or primitives and contain no business decisions, no database access, and no dependencies on domain services. `OpenAiClient::complete()` returning a `CompletionResponse` is a provider client; a client that also writes the response to a conversation table is not.
 
----
+**Support** (`Support/`) holds pure utilities only: no database, no HTTP, no service dependencies, no state, no side effects. `TokenCounter::count()` computing from its input is Support; a `TokenCounter` that caches results through a `CacheContract` is not — caching is a side effect and belongs a layer up.
 
-### Integrations (External Layer)
+## Contracts & Dependency Injection
 
-**Purpose:** Low-level clients for external APIs and services.
-
-**Allowed:** API/SDK calls. Authentication handling. Request/response transformation. Retry logic and error handling. Returning DTOs or primitives.
-
-**Forbidden:** Business logic or decisions. Database access. Workflow orchestration. Depending on domain services.
-
-**Naming:** `{Vendor}Client` (e.g., `OpenAiClient`)
+Inject dependencies through the constructor and let Laravel's container resolve them. Type-hint the interface when one exists.
 
 ```php
-// ✅ Correct
-class OpenAiClient implements LlmClientContract
-{
-    public function complete(array $messages): CompletionResponse
-    {
-        $response = Http::post('https://api.openai.com/v1/chat/completions', [
-            'messages' => $messages,
-        ]);
-
-        return new CompletionResponse($response->json());
-    }
-}
-```
-
-```php
-// ❌ Violation — business logic and database access in integration
-class OpenAiClient
-{
-    public function completeAndSave(Agent $agent, array $messages): CompletionResponse
-    {
-        $response = $this->complete($messages);
-        $agent->conversations()->create(['response' => $response->content]);
-        return $response;
-    }
-}
-```
-
----
-
-### Support (Utility Layer)
-
-**Purpose:** Pure utilities with no side effects.
-
-**Allowed:** Helper functions, traits, value objects, data transformers, pure functions.
-
-**Forbidden:** Database access, external API calls, service dependencies, side effects, state mutation.
-
-```php
-// ✅ Correct
-class TokenCounter
-{
-    public static function count(string $text): int
-    {
-        return (int) ceil(strlen($text) / 4);
-    }
-}
-```
-
-```php
-// ❌ Violation — side effect via caching
-class TokenCounter
-{
-    public function __construct(private CacheContract $cache) {}
-
-    public function count(string $text): int
-    {
-        return $this->cache->remember("tokens:$text", fn() => ceil(strlen($text) / 4));
-    }
-}
-```
-
----
-
-## Contracts and Dependency Injection
-
-### When to Create a Contract
-
-**Create a contract when:** Multiple implementations exist or are planned. Testing requires substituting a mock or fake. The dependency crosses a package/module boundary. Requirements explicitly specify extensibility.
-
-**Don't create a contract when:** Only one implementation exists and none are planned. The class is internal to a module and not a testing boundary. Direct instantiation is simpler and testing is not impacted.
-
-### Injection Rules
-
-| Do                                 | Don't                                                 |
-|------------------------------------|-------------------------------------------------------|
-| Inject contracts in constructor    | Instantiate services with `new`                       |
-| Use Laravel's container            | Use static service locators                           |
-| Type-hint interfaces               | Type-hint concrete classes (when an interface exists)  |
-| Let container resolve dependencies | Manually wire dependencies                            |
-
-```php
-// ✅ Correct
-class ProcessAgentResponseService
-{
-    public function __construct(
-        private LlmClientContract $llmClient,
-        private AgentModelService $agentModelService,
-    ) {}
-}
-```
-
-```php
-// ❌ Violation — direct instantiation, service locator, static call
+// ❌ All three forbidden acquisition patterns
 class ProcessAgentResponseService
 {
     public function execute(): void
     {
-        $agentService = new AgentModelService();
-        $toolExecutor = app(ToolExecutor::class);
-        AgentModelService::create($data);
+        $agentService = new AgentModelService();          // direct instantiation
+        $toolExecutor = app(ToolExecutor::class);          // service locator in business code
+        AgentModelService::create($data);                  // static service call
     }
 }
 ```
+
+(`app()` is permitted inside service providers only.)
+
+**Earn your abstractions.** Every layer of indirection needs a concrete justification. Create a contract only when multiple implementations exist or are planned, a test needs a substitution seam, or the dependency crosses a package boundary — a single-implementation class that no test mocks gets no interface. The same discipline forbids: speculative generalization for requirements that don't exist, proxy services that pass through to another service, wrapper classes that add no behavior, and DTOs that mirror an Eloquent model 1:1.
 
 ---
 
 ## Naming Conventions
 
-### Class Naming
+| Type | Pattern | Example |
+|---|---|---|
+| Providers | `*ServiceProvider` | `PackageServiceProvider` |
+| Model services | `{Model}ModelService` | `AgentModelService` |
+| Domain services | `{Action}{Domain}Service` | `CreateAgentService` |
+| Contracts | Domain noun | `MediaResolver`, `Storable` |
+| Handler interfaces | `*Handler` | `TextHandler`, `AudioHandler` |
+| Models | Singular | `Agent`, `Conversation` |
+| Exceptions | `*Exception` | `AgentNotFoundException` |
+| DTOs | `*Data` or `*Dto` | `CompletionResponseData` |
+| Events | Past tense | `AgentCreated`, `ToolExecuted` |
+| Enums (shared) | Singular noun | `Role`, `Provider`, `Modality` |
+| Enums (persistence) | Context-prefixed | `ExecutionStatus`, `MessageRole` |
+| Traits (capability) | `Has*` | `HasMeta`, `HasOwner` |
+| Traits (builder) | `Builds*` | `BuildsHeaders` |
+| Traits (resolver) | `Resolves*` | `ResolvesProvider` |
+| Traits (action) | `{Verb}s*` | `TracksExecution`, `StoresMedia` |
 
-| Type                | Pattern                   | Example                          |
-|---------------------|---------------------------|----------------------------------|
-| Providers           | `*ServiceProvider`        | `PackageServiceProvider`         |
-| Model Services      | `{Model}ModelService`     | `AgentModelService`              |
-| Domain Services     | `{Action}{Domain}Service` | `CreateAgentService`             |
-| Contracts           | Domain noun               | `MediaResolver`, `Storable`      |
-| Handler interfaces  | `*Handler`                | `TextHandler`, `AudioHandler`    |
-| Models              | Singular                  | `Agent`, `Tool`, `Conversation`  |
-| Exceptions          | `*Exception`              | `AgentNotFoundException`         |
-| DTOs                | `*Data` or `*Dto`         | `CompletionResponseData`         |
-| Events              | Past tense                | `AgentCreated`, `ToolExecuted`   |
-| Enums (shared)      | Singular noun             | `Role`, `Provider`, `Modality`   |
-| Enums (persistence) | Context-prefixed          | `ExecutionStatus`, `MessageRole` |
-| Traits (capability) | `Has*`                    | `HasMeta`, `HasOwner`            |
-| Traits (builder)    | `Builds*`                 | `BuildsHeaders`                  |
-| Traits (resolver)   | `Resolves*`               | `ResolvesProvider`               |
-| Traits (action)     | `{Verb}s*`                | `TracksExecution`, `StoresMedia` |
+Handler interfaces (`Providers/Handlers/`) use `*Handler` — they define modality capabilities (what a provider can do). Resolver contracts (`Providers/Contracts/`) use `*Contract` — they define composition seams (how provider internals plug together). Both are PHP interfaces; the naming reflects the architectural role.
 
-> **Handler vs Contract interfaces:** Handler interfaces (`src/Providers/Handlers/`) use `*Handler` naming — they define modality capabilities (what a provider can do). Resolver contracts (`src/Providers/Contracts/`) use `*Contract` naming — they define composition seams (how provider internals plug together). Both are PHP interfaces; the naming distinction reflects their architectural role.
+Methods are short, descriptive, and predictable: booleans prefixed `is`/`has`/`can`, actions named with verbs (`create`, `execute`, `process`), and every name must match documented terminology.
 
-### Methods
+## Package Structure
 
-- Short, descriptive, predictable
-- Boolean methods prefixed with `is`, `has`, or `can`
-- Must match documented terminology
-- Action methods use verbs: `create`, `execute`, `process`
-
----
-
-## Code Practices
-
-### Required
-
-1. Business logic lives in `Services/<Domain>/`
-2. Use `Services/Models/` for all persistence
-3. Support classes must be pure (no side effects)
-4. Config files belong in `config/` with sensible defaults
-5. Write full test coverage
-6. Enforce strict type declarations
-7. Use custom exceptions for expected failures
-8. Inject dependencies via constructor
-9. Include PHPDoc block on every class
-10. **Never use function-level namespace imports** (`use function ...`)
-
-### Forbidden
-
-1. Direct instantiation of services in methods (`new ServiceName()`)
-2. Static service calls (`ServiceName::method()`)
-3. Service locator pattern in business code (`app(ServiceName::class)` outside providers)
-4. Business logic in models (beyond accessors/mutators/scopes)
-5. Database queries in controllers
-6. Upward layer dependencies
-7. Circular dependencies between services
-8. **Interfaces without purpose** – Don't create contracts for single-implementation classes unless testing requires it
-9. **Speculative generalization** – Don't build extensibility for requirements that don't exist
-10. **Proxy services** – Don't create services that just pass through to another service
-11. **Wrapper classes** – Don't wrap a class just to rename methods or add no behavior
-12. **DTOs that mirror models** – Don't create DTOs that are 1:1 copies of Eloquent models
-
----
-
-## Code Quality
-
-### Testability
-
-- Keep methods focused enough to test with a single assertion or small group of related assertions
-- Avoid hidden dependencies — if a method needs something, inject it via the constructor
-- If testing requires mocking 5+ dependencies, the class is doing too much — split it
-- Don't bury logic in untestable private methods; extract to a separate class if complex
-- Avoid global state and singletons
-
-### Complexity
-
-- Keep methods under 20–30 lines; extract smaller methods if larger
-- Avoid nesting deeper than 3 levels (use early returns, extract methods)
-- If a class has 10+ public methods, consider splitting by responsibility
-- Prefer explicit conditionals over clever one-liners
-- If you need a comment to explain what code does, consider renaming or restructuring
-
-### Performance
-
-- Use eager loading (`with()`) for relationships accessed in loops
-- Never run queries inside loops — batch or pre-fetch
-- Consider query count when adding features; use `DB::enableQueryLog()` during development
-- Use chunking (`chunk()`, `chunkById()`) for large dataset operations
-- Cache expensive computations only when measured as slow, not preemptively
-
-### Redundancy
-
-- Extract repeated logic into model service methods or Support utilities
-- If the same validation or transformation appears in 3+ places, consolidate it
-- Duplication is acceptable when isolation or clarity benefits outweigh DRY
-- If you intentionally duplicate, add a brief comment explaining why
-- Watch for "almost identical" code — subtle differences often indicate bugs
-
----
-
-## Quality Checks
-
-```bash
-composer check       # Run all checks (Pint, PHPStan, Pest) in sequence
-composer lint        # Fix code style with Pint
-composer lint:test   # Check code style without fixing
-composer analyse     # Run PHPStan static analysis
-composer test        # Run Pest tests
+```
+package-root/
+├── docs/                 # VitePress documentation
+├── src/
+│   ├── Concerns/
+│   ├── Console/
+│   ├── Embeddings/
+│   ├── Enums/
+│   ├── Events/
+│   ├── Exceptions/
+│   ├── Executor/
+│   ├── Facades/
+│   ├── Input/
+│   ├── Messages/
+│   ├── Middleware/
+│   ├── Pending/
+│   ├── Persistence/      # Models/, Services/, Middleware/, Enums/, Concerns/
+│   ├── Providers/        # Contracts/, Concerns/, Handlers/, Tools/, {Provider}/
+│   ├── Queue/
+│   ├── Requests/
+│   ├── Responses/
+│   ├── Schema/
+│   ├── Support/
+│   ├── Testing/
+│   ├── Tools/
+│   └── Voice/
+├── config/
+├── tests/                # Unit/, Feature/
+└── sandbox/
 ```
 
-All checks must pass before submitting code changes. Not required for documentation-only changes.
+Each top-level `src/` directory is a **domain concern, not a generic pattern**; namespacing follows structure (`Atlasphp\Atlas\Messages\UserMessage`); cross-domain imports are allowed; and no subdirectory is created until there are enough files to justify it.
+
+Where a new file goes:
+
+| Adding... | Location |
+|---|---|
+| Enum | `src/Enums/` (shared) or `src/Persistence/Enums/` |
+| Message type | `src/Messages/` |
+| Request / response object | `src/Requests/` / `src/Responses/` |
+| Exception | `src/Exceptions/` |
+| Event | `src/Events/` |
+| Handler interface | `src/Providers/Handlers/` |
+| Resolver or provider-scoped contract | `src/Providers/Contracts/` |
+| Provider-specific implementation | `src/Providers/{ProviderName}/` |
+| Tool class | `src/Tools/` |
+| Embedding / vector feature | `src/Embeddings/` |
+| Cross-domain trait | `src/Concerns/` |
+| Domain-scoped trait / contract | `src/{Domain}/Concerns/` / `src/{Domain}/Contracts/` |
+| Persistence model / service | `src/Persistence/Models/` / `src/Persistence/Services/` |
+| Queue infrastructure | `src/Queue/` |
+| Fluent builder | `src/Pending/` |
+| Test fake | `src/Testing/` |
+
+Contracts and concerns live with their domain — never in a shared dumping ground — except the genuinely cross-cutting ones in top-level `src/Concerns/`.
+
+---
+
+## Code Rules
+
+- `declare(strict_types=1)` in every PHP file. PSR-12, formatted by Pint. Modern PHP 8.2+ syntax.
+- Every class carries a PHPDoc block summarizing its purpose:
+
+```php
+/**
+ * Class UserWebhookService
+ *
+ * Handles webhook registration, processing, and retry logic for user-related events.
+ */
+```
+
+- Custom exceptions for expected failures. Config files live in `config/` with sensible defaults.
+- New features require full Pest coverage: Feature tests for workflows, Unit tests for services — built on `src/Testing/` fakes, never real APIs.
+
+### Quality thresholds
+
+- Methods stay under **20–30 lines**; nesting stays under **3 levels** — use early returns and extraction.
+- A class with **10+ public methods** splits by responsibility. A class whose tests mock **5+ dependencies** is doing too much.
+- No hidden dependencies — if a method needs something, the constructor receives it. No global state or singletons. No complex logic buried in untestable private methods — extract a class.
+- Eager-load relationships accessed in loops; never query inside a loop — batch or pre-fetch. Chunk large dataset operations. Cache only what is *measured* slow, never preemptively.
+- The same validation or transformation in **3+ places** gets consolidated. Duplication is acceptable when isolation or clarity outweighs DRY — but intentional duplication carries a brief comment saying why. "Almost identical" code is a bug signal — inspect the difference.
 
 ---
 
 ## Sandbox Testing
 
-The sandbox provides real API testing for validating package features against actual providers. See `sandbox/README.md` for full details.
+The sandbox (`sandbox/`) validates package features against real provider APIs and real persistence — see `sandbox/README.md`. Use it for provider integration, real database behavior, and end-to-end validation.
 
-**When to use:** Verifying API/provider integration. Testing real database persistence. Validating end-to-end behavior before deployment.
-
-**CRITICAL:** Many features use Laravel queues. **Horizon MUST be running** for queue jobs to process:
+**Horizon must be running** for queued features to process, and **must be restarted after code changes** to pick up new code:
 
 ```bash
 cd sandbox
-php artisan horizon              # Start Horizon (blocks terminal)
-php artisan horizon &            # Or run in background
+php artisan horizon    # blocks the terminal; append & to background it
 ```
 
-Horizon must be **restarted after code changes** to pick up new code. If tests seem to hang or return empty responses, check if Horizon is running.
+If sandbox tests hang or return empty responses, check Horizon first.
 
 ---
 
-## Documentation
+## Changelog
 
-**Public documentation:** VitePress site at [atlasphp.org](https://atlasphp.org)
+`CHANGELOG.md` is consumer-facing: write for someone deciding whether to upgrade, never for someone reading the diff.
 
-**Key directories:** `docs/getting-started/`, `docs/core-concepts/`, `docs/capabilities/`, `docs/guides/`, `docs/api-reference/`
-
-### Maintenance Rules
-
-| Code Change         | Documentation Update                                |
-|---------------------|-----------------------------------------------------|
-| Adding a feature    | Update relevant VitePress docs                      |
-| Changing behavior   | Update docs immediately                             |
-| Adding a new module | Add documentation to appropriate section            |
-| Fixing a bug        | No docs update unless behavior was misdocumented    |
-| Deprecating         | Mark as deprecated in docs, add migration notes     |
-| Removing            | Remove from docs completely (no "removed" comments) |
-
-- All code examples must be syntactically correct and runnable
-- Cross-references must use relative links
-- No duplicate content across files
-- For Prism-level features, link to Prism documentation instead of duplicating
+- **One line per change**, leading with the user-visible effect, never the internal mechanism.
+- **Section order:** `### Added` → `### Changed` → `### Fixed` → `### Migration`. Omit empty sections — except `### Migration`, which is always present and always last. Drop-in releases state: `No breaking changes — drop-in upgrade. No consumer action required.` Breaking releases name what changed and the smallest steps a consumer must take.
+- **Consumer-facing only.** No housekeeping, refactors, test cleanup, or dependency bumps. No class names, file paths, or stack traces in `### Fixed`. Mention a config key or signature only when the consumer needs it.
+- **Header:** `## [vX.Y.Z](https://github.com/atlas-php/atlas/releases/tag/vX.Y.Z) - YYYY-MM-DD`, with a trailing `---` between releases.
 
 ---
 
-## Changelog Release Notes
+## Definition of Done
 
-`CHANGELOG.md` is consumer-facing. Write for someone deciding whether to upgrade, not for someone reading the diff.
+A task is done when the change is verified against its stated requirement — never based on effort — and:
 
-### Rules
+1. `composer check` passes: Pint, PHPStan, Pest. Use `composer lint` / `lint:test` / `analyse` / `test` for faster iteration — but the full `composer check` must pass before done. Documentation-only changes are exempt.
+2. Documentation reflects the change, per Documentation Duties.
+3. Every rule in this file was upheld. This file is the checklist — re-read it, do not restate it.
 
-- **One line per change.** Lead with the user-visible effect, not the internal mechanism.
-- **Section order:** `### Added` → `### Changed` → `### Fixed` → `### Migration`. Omit any empty section (except `### Migration`, which is always present).
-- **Consumer-facing only.** Skip housekeeping, refactors, test cleanup, dependency bumps, and anything else without consumer impact. No internal-only section.
-- **`### Added`** — new capabilities a consumer can use. Mention the config key or method signature only if a consumer needs it.
-- **`### Changed`** — only what a consumer needs to know about behavior that changed.
-- **`### Fixed`** — only what a consumer needs to know about a bug that's been corrected. No class names, file paths, or stack traces.
-- **`### Migration`** — always last, always present. If the release is drop-in, write: `No breaking changes — drop-in upgrade. No consumer action required.` If anything breaks, name what changed and the smallest steps a consumer must take.
-- **Header format:** `## [vX.Y.Z](https://github.com/atlas-php/atlas/releases/tag/vX.Y.Z) - YYYY-MM-DD`
-- **Separator:** trailing `---` between releases.
-
-### Template
-
-```markdown
-## [vX.Y.Z](https://github.com/atlas-php/atlas/releases/tag/vX.Y.Z) - YYYY-MM-DD
-
-### Added
-
-- <one-line user-visible addition>
-
-### Changed
-
-- <one-line consumer-visible behavior change>
-
-### Fixed
-
-- <one-line consumer-visible bug fix>
-
-### Migration
-
-No breaking changes — drop-in upgrade. No consumer action required.
-
----
-```
-
----
-
-All agents must follow this document and the referenced guides. Non-compliant contributions will be rejected.
+**When creating task lists or plans, the final step is always:** _"Re-read `AGENTS.md` and verify Definition of Done."_
