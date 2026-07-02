@@ -2,7 +2,7 @@
 
 Rules for every AI coding agent working in this repository. These rules are law; where they conflict with your general habits, this file wins.
 
-This is an **open-source Laravel package**. Everything here ships into strangers' applications: the public API is a contract, every dependency is an imposition on every consumer, and the documentation is the product's front door. For workflow, task management, and Claude Code-specific behavior, see `CLAUDE.md`.
+This is an **open-source Laravel package**. Everything here ships into strangers' applications: the public API is a contract, every dependency is an imposition on every consumer, and the documentation is the product's front door.
 
 ---
 
