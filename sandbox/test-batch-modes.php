@@ -62,7 +62,7 @@ function batchFor(string $provider): object
     }
 
     return Atlas::batch('anthropic')
-        ->add(Atlas::text('anthropic', 'claude-sonnet-4-20250514')->message('Say OK'), key: 'a');
+        ->add(Atlas::text('anthropic', 'claude-sonnet-4-5-20250929')->message('Say OK'), key: 'a');
 }
 
 line('=== Atlas Batch — persistence-modes live audit ===');

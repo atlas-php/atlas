@@ -111,10 +111,10 @@ report('openai', $openaiTextId, $openaiTextStatus);
 line('');
 
 // ── 3. Anthropic text batch ──────────────────────────────────────────────────
-line('[3] Anthropic text batch (claude-sonnet-4-20250514, 2 prompts)');
+line('[3] Anthropic text batch (claude-sonnet-4-5-20250929, 2 prompts)');
 $anthropic = Atlas::batch('anthropic')
-    ->add(Atlas::text('anthropic', 'claude-sonnet-4-20250514')->message('Reply with exactly: ALPHA'), key: 'a')
-    ->add(Atlas::text('anthropic', 'claude-sonnet-4-20250514')->message('Reply with exactly: BETA'), key: 'b');
+    ->add(Atlas::text('anthropic', 'claude-sonnet-4-5-20250929')->message('Reply with exactly: ALPHA'), key: 'a')
+    ->add(Atlas::text('anthropic', 'claude-sonnet-4-5-20250929')->message('Reply with exactly: BETA'), key: 'b');
 $anthropicId = batchIdOf($anthropic->submit());
 line("  submitted: {$anthropicId}");
 $anthropicStatus = pollUntilTerminal('anthropic', $anthropicId);
