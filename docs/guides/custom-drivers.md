@@ -52,6 +52,7 @@ namespace App\Atlas;
 
 use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Providers\Concerns\BuildsHeaders;
+use Atlasphp\Atlas\Providers\Concerns\CountsTokens;
 use Atlasphp\Atlas\Providers\Handlers\TextHandler;
 use Atlasphp\Atlas\Providers\HttpClient;
 use Atlasphp\Atlas\Providers\ProviderConfig;
@@ -59,11 +60,13 @@ use Atlasphp\Atlas\Requests\TextRequest;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
+use Atlasphp\Atlas\Responses\TokenCount;
 use Atlasphp\Atlas\Responses\Usage;
 
 class MyTextHandler implements TextHandler
 {
     use BuildsHeaders;
+    use CountsTokens;
 
     public function __construct(
         private readonly ProviderConfig $config,
@@ -98,6 +101,18 @@ class MyTextHandler implements TextHandler
     public function structured(TextRequest $request): StructuredResponse
     {
         throw new \RuntimeException('Not implemented');
+    }
+
+    public function countTokens(TextRequest $request): TokenCount
+    {
+        // Return the input-token count for a request before it is sent.
+        // If your provider has no native count endpoint, the CountsTokens
+        // trait estimates it heuristically from the request body and flags
+        // the result estimated: true.
+        return $this->estimateTokens($this->config->provider, $request->model, [
+            'model' => $request->model,
+            'prompt' => $request->message,
+        ]);
     }
 }
 ```
@@ -185,7 +200,7 @@ Each modality has a handler interface. Implement only the ones your provider sup
 
 | Interface | Methods | Input → Output |
 |-----------|---------|---------------|
-| `TextHandler` | `text()`, `stream()`, `structured()` | `TextRequest` → `TextResponse` / `StreamResponse` / `StructuredResponse` |
+| `TextHandler` | `text()`, `stream()`, `structured()`, `countTokens()` | `TextRequest` → `TextResponse` / `StreamResponse` / `StructuredResponse` / `TokenCount` |
 | `AudioHandler` | `audio()`, `audioToText()` | `AudioRequest` → `AudioResponse` / `TextResponse` |
 | `ImageHandler` | `image()`, `imageToText()` | `ImageRequest` → `ImageResponse` / `TextResponse` |
 | `VideoHandler` | `video()`, `videoToText()` | `VideoRequest` → `VideoResponse` / `TextResponse` |
