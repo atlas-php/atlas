@@ -8,6 +8,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com), and this 
 
 ---
 
+## [v3.6.1](https://github.com/atlas-php/atlas/releases/tag/v3.6.1) - 2026-07-20
+
+### Fixed
+
+- Google (Gemini) batches that mix models now fail fast with a clear error at submit time, instead of silently running every request under the first line's model — Gemini applies one model per batch. Split differing models into separate batches; OpenAI and Anthropic can still mix models freely.
+
+### Migration
+
+No breaking changes — drop-in upgrade. No consumer action required.
+
+---
+
 ## [v3.6.0]
 
 ### Added

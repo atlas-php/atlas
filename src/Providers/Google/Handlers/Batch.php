@@ -39,6 +39,8 @@ class Batch implements BatchHandler
 
     public function submit(BatchRequest $batch): BatchResponse
     {
+        $model = $this->modelFor($batch);
+
         $requests = array_map(function ($line): array {
             if (! $line->request instanceof TextRequest) {
                 throw BatchException::notBatchable($line->request::class);
@@ -51,7 +53,7 @@ class Batch implements BatchHandler
         }, $batch->lines);
 
         $data = $this->http->post(
-            url: "{$this->config->baseUrl}/v1beta/models/{$this->modelFor($batch)}:batchGenerateContent",
+            url: "{$this->config->baseUrl}/v1beta/models/{$model}:batchGenerateContent",
             headers: $this->headers(),
             body: ['batch' => [
                 'display_name' => 'atlas-batch',
@@ -112,14 +114,30 @@ class Batch implements BatchHandler
     }
 
     /**
-     * The model for the batch URL — taken from the first line (Google applies
-     * one model to the whole batch).
+     * The single model every line targets. Google applies one model to the
+     * whole batch — it lives in the request URL, not per line — so all lines
+     * must agree. Non-text lines are left for submit() to reject as not
+     * batchable.
+     *
+     * @throws BatchException when the batch's text lines target more than one model.
      */
     private function modelFor(BatchRequest $batch): string
     {
-        $first = $batch->lines[0] ?? null;
+        $model = null;
 
-        return $first !== null && $first->request instanceof TextRequest ? $first->request->model : '';
+        foreach ($batch->lines as $line) {
+            if (! $line->request instanceof TextRequest) {
+                continue;
+            }
+
+            if ($model !== null && $line->request->model !== $model) {
+                throw BatchException::mixedModel($model, $line->request->model);
+            }
+
+            $model ??= $line->request->model;
+        }
+
+        return $model ?? '';
     }
 
     /**

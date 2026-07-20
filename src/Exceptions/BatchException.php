@@ -53,6 +53,16 @@ class BatchException extends AtlasException
     }
 
     /**
+     * Two different models were mixed in one Google batch.
+     */
+    public static function mixedModel(string $expected, string $got): self
+    {
+        return new self(
+            "All Google batch requests must target one model; expected [{$expected}], got [{$got}]."
+        );
+    }
+
+    /**
      * A request with tools was added to a batch.
      */
     public static function toolsUnsupported(): self
