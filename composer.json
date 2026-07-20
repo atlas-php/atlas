@@ -44,10 +44,13 @@
         "lint:test": "pint --test",
         "analyse": "phpstan analyse --memory-limit=512M",
         "test": "@php -d memory_limit=512M ./vendor/bin/pest",
+        "lint:docs": "python3 .knowledge/scripts/doc-lint .knowledge",
+        "test:docs": "python3 .knowledge/scripts/test_doc_lint.py",
         "check": [
             "@lint:test",
             "@analyse",
-            "@test"
+            "@test",
+            "@lint:docs"
         ]
     },
     "extra": {

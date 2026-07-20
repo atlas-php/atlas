@@ -1,0 +1,11 @@
+name: Knowledge Lint
+on: [push, pull_request]
+jobs:
+  doc-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.x' }
+      - run: python3 .knowledge/scripts/test_doc_lint.py
+      - run: python3 .knowledge/scripts/doc-lint .knowledge
