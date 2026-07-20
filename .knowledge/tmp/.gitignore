@@ -1,0 +1,7 @@
+# .knowledge/tmp/ — local scratch space for AI-generated temporary docs, assets, and experiment output.
+# The folder is kept in git (via .gitkeep); everything you put inside it is ignored and stays local.
+# Use it for throwaway work; never for durable knowledge (that goes in a home like prd/ or MEMORY.md).
+*
+!.gitkeep
+!.gitignore
+!README.md

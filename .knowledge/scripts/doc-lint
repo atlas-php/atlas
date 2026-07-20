@@ -1,0 +1,590 @@
+#!/usr/bin/env python3
+"""doc-lint — enforces the .knowledge/ documentation standard (see guides/docs-prd.md).
+
+Ships inside the copied payload (.knowledge/scripts/), so every project runs the same version.
+Zero dependencies: standard library only.
+
+    python3 .knowledge/scripts/doc-lint [PATH_TO_.knowledge]   # lint (defaults to the parent .knowledge/)
+    python3 .knowledge/scripts/doc-lint --payload <path>       # an unadopted payload: skip the AGENTS.md check
+    python3 .knowledge/scripts/doc-lint --write-manifest <path> # re-record the payload integrity manifest
+
+Its teeth-test lives beside it: python3 .knowledge/scripts/test_doc_lint.py
+Exits non-zero if any rule is broken. A red lint is a broken doc, not a style note.
+"""
+import hashlib
+import os
+import re
+import sys
+
+R_ID = re.compile(r"R-[A-Z0-9]+-\d+")
+R_ID_NS = re.compile(r"R-([A-Z0-9]+)-\d+")
+R_ID_NUM = re.compile(r"R-[A-Z0-9]+-(\d+)")
+WORD = re.compile(r"\S+")
+NUMERIC = re.compile(r"(?<![A-Za-z0-9_-])\d+(?![A-Za-z0-9_-])")
+
+# The shipped payload. Every entry must exist in a project's .knowledge/ — a removal or rename is drift.
+REQUIRED_DIRS = ["prd", "prd-drafts", "research", "references", "guides", "scripts", "tmp"]
+REQUIRED_FILES = [
+    "README.md", ".version", ".payload-manifest",
+    "BRIEF.md", "CODEMAP.md", "MEMORY.md", "OVERVIEW.md",
+    "prd/README.md", "prd-drafts/README.md", "research/README.md", "references/README.md",
+    "guides/README.md", "scripts/README.md", "tmp/README.md",
+    "guides/docs-prd.md", "guides/docs-research.md", "guides/docs-brief.md",
+    "guides/docs-codemap.md", "guides/docs-memory.md", "guides/docs-agents.md", "guides/docs-overview.md",
+    "scripts/doc-lint", "scripts/test_doc_lint.py",
+]
+# Payload integrity. These files are versioned by knowledge-template and an adopter never edits them,
+# so their content is fixed by the version stamped in `.version`. An adopter has no copy of the upstream
+# to diff against, so the checksums travel with the payload: without them a repo can run a superseded
+# linter for months while `.version` still claims the release it no longer matches, and nothing goes red.
+# Deliberately not covered: the catalogs (`guides/README.md`, `scripts/README.md`) and the orientation
+# docs, which an adopting project is meant to extend.
+MANIFEST = ".payload-manifest"
+VERSIONED_FILES = [
+    "guides/docs-agents.md", "guides/docs-brief.md", "guides/docs-codemap.md", "guides/docs-memory.md",
+    "guides/docs-overview.md", "guides/docs-prd.md", "guides/docs-research.md",
+    "scripts/doc-lint", "scripts/test_doc_lint.py",
+]
+MANIFEST_HEADER = (
+    "# payload integrity — sha256 of every file knowledge-template versions.\n"
+    "# The adopted version is stamped in `.version`; these lines prove the files match it.\n"
+    "# Never edit by hand. Regenerate: python3 .knowledge/scripts/doc-lint --write-manifest .knowledge\n"
+)
+# OVERVIEW.md is the one stakeholder-facing doc, and its schema is closed in order, same as a PRD's.
+OVERVIEW_HEADINGS = ["What this is", "The platform", "How it works", "What you use", "What governs it"]
+# The framing line under the title says the file describes the design, and names the two homes the reader
+# can check it against. Adopters reword it, so match its substance: both homes, plus a design/proof word.
+OVERVIEW_FRAMING_WORDS = ("design", "proven", "intend", "plan")
+# Always-loaded trio: each must end with its edit-gated standard pointer (so it can't be dropped).
+TRIO = {"BRIEF.md": "docs-brief.md", "CODEMAP.md": "docs-codemap.md", "MEMORY.md": "docs-memory.md",
+        "OVERVIEW.md": "docs-overview.md"}
+# Each home catalog must link to the guide for writing or modifying its docs.
+CATALOG_GUIDE = {
+    "prd/README.md": "docs-prd.md",
+    "prd-drafts/README.md": "docs-prd.md",
+    "research/README.md": "docs-research.md",
+}
+# Each home's catalog must list everything in that home: "md" = every non-README .md,
+# "dir" = every subfolder (a reference set). Catalogs are maintained by hand; this is what keeps them true.
+CATALOG_CONTENTS = {"prd": "md", "prd-drafts": "md", "research": "md", "guides": "md", "references": "dir"}
+# The repo root's AGENTS.md is the entry point that sends an agent into .knowledge/ at all — it must
+# still load the orientation trio, or every doc below it goes unread.
+AGENTS_TRIO = ["BRIEF.md", "CODEMAP.md", "MEMORY.md"]
+# A research note's schema is closed, same as a PRD's.
+# Shipped placeholder markers. If these survive adoption the docs were never filled in — and a green
+# lint would tell the project it is "ready" when nothing has been written. Skipped under --payload,
+# where they are supposed to be present.
+PLACEHOLDERS = {"BRIEF.md": ["<project>", "_(none)_"], "CODEMAP.md": ["<project>", "_(none)_"],
+                "OVERVIEW.md": ["<project>", "<the platform"]}
+RESEARCH_HEADINGS = {
+    "What they do", "What we can borrow", "What to avoid", "Verdict for us", "Open questions", "Sources",
+}
+# Only these may sit at the .knowledge/ root — anything else added there is drift.
+ALLOWED_ROOT = set(REQUIRED_DIRS) | {"README.md", ".version", MANIFEST, "BRIEF.md", "CODEMAP.md",
+                                     "MEMORY.md", "OVERVIEW.md"}
+# Every shipped README keeps these sections (matched by prefix) — a gutted catalog is drift.
+REQUIRED_SECTIONS = {
+    "README.md": ["## The homes"],
+    "prd/README.md": ["## Components", "## Contents"],
+    "prd-drafts/README.md": ["## Drafts"],
+    "research/README.md": ["## Notes"],
+    "references/README.md": ["## Sets", "## How to add one"],
+    "guides/README.md": ["## Contents", "## Rules for a project how-to"],
+    "scripts/README.md": ["## Contents", "## Usage"],
+    "tmp/README.md": ["## Rules"],
+}
+
+
+def find_cycle(edges):
+    """Return a citation cycle as a list of files, or None. Cross-layer citations are caught by rank;
+    this catches the ones inside a layer, which rank can't see."""
+    state, path = {}, []
+
+    def walk(node):
+        state[node] = "open"
+        path.append(node)
+        for nxt in sorted(edges.get(node, ())):
+            if state.get(nxt) == "open":
+                return path[path.index(nxt):] + [nxt]
+            if nxt not in state:
+                found = walk(nxt)
+                if found:
+                    return found
+        state[node] = "done"
+        path.pop()
+        return None
+
+    for start in sorted(edges):
+        if start not in state:
+            found = walk(start)
+            if found:
+                return found
+    return None
+
+
+def sha256_file(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def write_manifest(root):
+    """Re-record the checksums. A release step runs this after the payload changes, never an adopter.
+
+    The manifest can never hold its own checksum — writing one would change the file that was hashed —
+    so it lists only the files it guards, and is itself guarded by the version control it ships in."""
+    lines = []
+    for rel in sorted(VERSIONED_FILES):
+        path = os.path.join(root, rel)
+        if not os.path.isfile(path):
+            print(f"doc-lint: cannot write the manifest: `{rel}` is missing from {root}")
+            return 1
+        lines.append(f"{sha256_file(path)}  {rel}")
+    out = os.path.join(root, MANIFEST)
+    with open(out, "w", encoding="utf-8") as fh:
+        fh.write(MANIFEST_HEADER + "\n".join(lines) + "\n")
+    print(f"doc-lint: wrote {out} ({len(lines)} versioned files)")
+    return 0
+
+
+class Lint:
+    def __init__(self, root, payload=False):
+        self.root = root
+        self.payload = payload  # an unadopted payload has no repo around it — skip the AGENTS.md check
+        self.errors = []
+
+    def err(self, where, msg):
+        self.errors.append((where, msg))
+
+    # ---- helpers ----------------------------------------------------------
+    def read(self, path):
+        with open(path, encoding="utf-8") as fh:
+            return fh.read()
+
+    def frontmatter(self, text):
+        if not text.startswith("---"):
+            return {}, text
+        end = text.find("\n---", 3)
+        if end == -1:
+            return {}, text
+        block = text[3:end].strip().splitlines()
+        fm = {}
+        for line in block:
+            if ":" in line:
+                k, v = line.split(":", 1)
+                fm[k.strip()] = v.strip()
+        return fm, text[end + 4:]
+
+    def table_rows(self, body):
+        """Yield requirement rows [glyph, id, requirement, evidence] under ## Requirements."""
+        in_req = False
+        for line in body.splitlines():
+            if line.startswith("## "):
+                in_req = line.strip() == "## Requirements"
+                continue
+            if in_req and line.lstrip().startswith("|"):
+                cells = [c.strip() for c in line.strip().strip("|").split("|")]
+                if len(cells) == 4 and R_ID.fullmatch(cells[1] or ""):
+                    yield cells
+
+    def headings(self, body):
+        return [l[3:].strip() for l in body.splitlines() if l.startswith("## ")]
+
+    def collect_prd(self, home):
+        """Return {path: (fm, body)} for every non-README .md in a home."""
+        d = os.path.join(self.root, home)
+        out = {}
+        if not os.path.isdir(d):
+            return out
+        for name in sorted(os.listdir(d)):
+            if name.endswith(".md") and name != "README.md":
+                fm, body = self.frontmatter(self.read(os.path.join(d, name)))
+                out[os.path.join(home, name)] = (fm, body)
+        return out
+
+    def components(self):
+        """Parse the Components fenced list in prd/README.md -> [prefix,...] in order."""
+        path = os.path.join(self.root, "prd", "README.md")
+        if not os.path.isfile(path):
+            return []
+        text = self.read(path)
+        m = re.search(r"## Components.*?```(.*?)```", text, re.S)
+        prefixes = []
+        if m:
+            for line in m.group(1).splitlines():
+                cm = re.match(r"\s*\d+\.\s+(\S+?)\s+—\s+.+", line)
+                if cm:
+                    prefixes.append(cm.group(1))
+                elif line.strip() and not line.strip().startswith("#"):
+                    self.err("prd/README.md", f"Components line not `N. prefix — gloss`: {line.strip()}")
+        return prefixes
+
+    # ---- checks -----------------------------------------------------------
+    def check_manifest(self):
+        """Every shipped directory and file must still exist — catch removals/renames."""
+        for d in REQUIRED_DIRS:
+            if not os.path.isdir(os.path.join(self.root, d)):
+                self.err("manifest", f"required directory `{d}/` is missing (removed or renamed?)")
+        for fp in REQUIRED_FILES:
+            if not os.path.isfile(os.path.join(self.root, fp)):
+                self.err("manifest", f"required file `{fp}` is missing (removed or renamed?)")
+
+    def stamped_version(self):
+        path = os.path.join(self.root, ".version")
+        return self.read(path).strip() if os.path.isfile(path) else "unknown"
+
+    def check_integrity(self):
+        """Every versioned file still hashes to what the shipped manifest records.
+
+        This is the only check an adopting repo can run without a copy of the upstream to diff against:
+        the checksums travel inside the payload, so a project can prove it runs the version it claims."""
+        path = os.path.join(self.root, MANIFEST)
+        version = self.stamped_version()
+        if not os.path.isfile(path):
+            self.err(MANIFEST, f"the payload integrity manifest is missing, so nothing can prove this "
+                               f"`.knowledge/` is the version `.version` claims ({version}) — restore it "
+                               f"from that release, or regenerate it with `--write-manifest`")
+            return
+        recorded = {}
+        for n, raw in enumerate(self.read(path).splitlines(), 1):
+            line = raw.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = line.split(None, 1)
+            if len(parts) != 2 or len(parts[0]) != 64:
+                self.err(MANIFEST, f"line {n} is not `<sha256>  <path>`: {line}")
+                continue
+            recorded[parts[1].strip()] = parts[0]
+        drifted = []
+        for rel in sorted(recorded):
+            target = os.path.join(self.root, rel)
+            if not os.path.isfile(target):
+                self.err(MANIFEST, f"records `{rel}`, which is not in this `.knowledge/` "
+                                   "(a versioned file was deleted or renamed)")
+            elif sha256_file(target) != recorded[rel]:
+                drifted.append(rel)
+        for rel in VERSIONED_FILES:
+            if rel not in recorded:
+                self.err(MANIFEST, f"does not cover `{rel}` — a versioned file with no recorded checksum "
+                                   "is unguarded (regenerate the manifest with `--write-manifest`)")
+        if drifted:
+            self.err(MANIFEST, "these versioned files no longer match the checksums recorded for version "
+                               f"{version}: " + ", ".join(f"`{r}`" for r in drifted) +
+                               " — the docs tooling has drifted from the version `.version` claims. They "
+                               "are owned by knowledge-template and are never edited in place: restore "
+                               "them from that release, or upgrade the whole `.knowledge/` and re-stamp "
+                               "`.version`.")
+
+    def check_overview(self):
+        """OVERVIEW.md is schema-closed, same as a PRD: a fixed set of headings, in a fixed order, under
+        the framing line that says the file describes the design rather than what is built today."""
+        path = os.path.join(self.root, "OVERVIEW.md")
+        if not os.path.isfile(path):
+            return  # manifest already flags a missing OVERVIEW.md
+        text = self.read(path)
+        preamble = text.split("\n## ", 1)[0]
+        lower = preamble.lower()
+        if not ("prd/" in preamble and "prd-drafts/" in preamble
+                and any(w in lower for w in OVERVIEW_FRAMING_WORDS)):
+            self.err("OVERVIEW.md", "the framing line under the title is gone — say once that this "
+                                    "describes the platform as designed, and name both `prd/` and "
+                                    "`prd-drafts/` so a reader can see where the line falls")
+        found = self.headings(text)
+        for h in found:
+            if h not in OVERVIEW_HEADINGS:
+                self.err("OVERVIEW.md", f"`## {h}` is not in the closed schema")
+        for h in OVERVIEW_HEADINGS:
+            if h not in found:
+                self.err("OVERVIEW.md", f"missing required section `## {h}`")
+        kept = [h for h in found if h in OVERVIEW_HEADINGS]
+        if sorted(kept) == sorted(OVERVIEW_HEADINGS) and kept != OVERVIEW_HEADINGS:
+            self.err("OVERVIEW.md", "sections are out of order — the schema reads " +
+                     " -> ".join(OVERVIEW_HEADINGS))
+
+    def check_trio(self):
+        """BRIEF/CODEMAP/MEMORY must end with their edit-gated standard pointer."""
+        for fname, guide in TRIO.items():
+            path = os.path.join(self.root, fname)
+            if not os.path.isfile(path):
+                continue  # manifest already flags a missing trio file
+            nonempty = [l for l in self.read(path).splitlines() if l.strip()]
+            last = nonempty[-1] if nonempty else ""
+            if "Editing this file" not in last or guide not in last:
+                self.err(fname, f"must end with its standard pointer to guides/{guide} (last line)")
+
+    def check_root(self):
+        """Only the known top-level files and homes may sit at the .knowledge/ root."""
+        for name in sorted(os.listdir(self.root)):
+            if name not in ALLOWED_ROOT:
+                self.err(name, "unexpected entry at the .knowledge/ root (only shipped files and homes allowed)")
+
+    def check_guide_links(self):
+        """Each home catalog must link to the guide for writing or modifying its docs."""
+        for rel, guide in CATALOG_GUIDE.items():
+            path = os.path.join(self.root, rel)
+            if not os.path.isfile(path):
+                continue  # manifest flags a missing catalog
+            if f"guides/{guide}" not in self.read(path):
+                self.err(rel, f"catalog must link to `../guides/{guide}` (write or modify)")
+
+    def check_flat(self):
+        """prd/ and prd-drafts/ are one flat directory — a subdirectory hides its files from every check."""
+        for home in ("prd", "prd-drafts"):
+            d = os.path.join(self.root, home)
+            if not os.path.isdir(d):
+                continue  # manifest flags a missing home
+            for name in sorted(os.listdir(d)):
+                if os.path.isdir(os.path.join(d, name)):
+                    self.err(f"{home}/README.md",
+                             f"`{name}/` is a subdirectory — {home}/ is flat, and nothing inside it is linted")
+
+    def check_filled(self):
+        """The orientation docs must actually be written — shipped placeholders may not survive adoption."""
+        for fname, markers in PLACEHOLDERS.items():
+            path = os.path.join(self.root, fname)
+            if not os.path.isfile(path):
+                continue  # manifest flags a missing trio file
+            text = self.read(path)
+            for marker in markers:
+                if marker in text:
+                    self.err(fname, f"still contains the shipped placeholder `{marker}` — fill this in "
+                                    "(or delete the section) before calling the project adopted")
+
+    def check_agents(self):
+        """The repo root must have an AGENTS.md that still routes an agent to the orientation trio."""
+        path = os.path.join(os.path.dirname(self.root), "AGENTS.md")
+        if not os.path.isfile(path):
+            self.err("AGENTS.md", "the repo root has no AGENTS.md (the entry point into .knowledge/)")
+            return
+        text = self.read(path)
+        missing = [f for f in AGENTS_TRIO if f".knowledge/{f}" not in text]
+        if missing:
+            self.err("AGENTS.md", "must load the orientation trio — no reference to " + ", ".join(missing))
+        if "guides/docs-agents.md" not in text:
+            self.err("AGENTS.md", "must point at `.knowledge/guides/docs-agents.md` so a revision is "
+                                  "routed to the standard first (same edit gate as the trio)")
+
+    def check_contiguous(self, path, numbers):
+        """A namespace's numbers run from 1 with no gaps. A gap means a row was deleted without
+        renumbering, or mis-numbered from the start — either way an ID that resolves nowhere."""
+        for ns, seen in sorted(numbers.items()):
+            missing = [n for n in range(1, max(seen) + 1) if n not in seen]
+            if missing:
+                gaps = ", ".join(f"R-{ns}-{n}" for n in missing)
+                self.err(path, f"namespace `{ns}` skips {gaps} (a namespace numbers as an unbroken run "
+                               "— erasing a requirement means renumbering to close the gap)")
+
+    def check(self):
+        self.check_manifest()
+        self.check_integrity()
+        self.check_overview()
+        self.check_trio()
+        self.check_root()
+        self.check_flat()
+        self.check_guide_links()
+        if not self.payload:
+            self.check_agents()
+            self.check_filled()
+        prefixes = self.components()
+        rank = {p: i for i, p in enumerate(prefixes)}
+        prd = self.collect_prd("prd")
+        drafts = self.collect_prd("prd-drafts")
+
+        defined = {}
+        draft_ids = set()
+        ns_owner = {}
+
+        for scope, files in (("prd", prd), ("prd-drafts", drafts)):
+            for path, (fm, body) in files.items():
+                fid = fm.get("id")
+                if not fid:
+                    self.err(path, "missing frontmatter `id:`")
+                if not fm.get("name"):
+                    self.err(path, "missing frontmatter `name:`")
+                if fid:
+                    if fid in ns_owner:
+                        self.err(path, f"namespace `{fid}` is already owned by {ns_owner[fid]} "
+                                       "(one file per namespace)")
+                    else:
+                        ns_owner[fid] = path
+                rows = list(self.table_rows(body))
+                has_pass = False
+                numbers = {}  # namespace -> the requirement numbers this file assigns
+
+                base = os.path.basename(path)
+                if scope == "prd" and prefixes and not any(base.startswith(p) for p in prefixes):
+                    self.err(path, f"filename prefix not a listed component: {base}")
+
+                for glyph, rid, req, evid in rows:
+                    ns = R_ID_NS.match(rid).group(1)
+                    if fid and ns != fid:
+                        self.err(path, f"{rid} does not match file namespace `{fid}` (one namespace per file)")
+                    if rid in defined:
+                        self.err(path, f"{rid} already defined in {defined[rid]} (no ID in two files)")
+                    else:
+                        defined[rid] = path
+                    if scope == "prd-drafts":
+                        draft_ids.add(rid)
+                    numbers.setdefault(ns, set()).add(int(R_ID_NUM.match(rid).group(1)))
+                    if glyph == "✅":
+                        has_pass = True
+                        if not evid or evid == "—":
+                            self.err(path, f"{rid} is ✅ but names no test in Evidence")
+                    elif glyph != "❌":
+                        self.err(path, f"{rid} has invalid glyph `{glyph}` (only ✅/❌)")
+                    words = WORD.findall(req)
+                    if len(words) > 25:
+                        self.err(path, f"{rid} requirement is {len(words)} words (max 25)")
+                    if NUMERIC.search(req):
+                        self.err(path, f"{rid} requirement has a numeric literal (name the tunable instead)")
+                    if ";" in req:
+                        self.err(path, f"{rid} requirement joins two assertions with a semicolon (split it)")
+
+                self.check_contiguous(path, numbers)
+
+                allowed = {"What this is", "Why it exists", "Requirements", "Open questions"}
+                for h in self.headings(body):
+                    if h not in allowed:
+                        self.err(path, f"`## {h}` is not in the closed schema")
+                if "/" in (fid or "") or " " in (fid or ""):
+                    self.err(path, "compound/invalid namespace in `id:`")
+
+                lv = "last_verified" in fm
+                if scope == "prd":
+                    if has_pass and not lv:
+                        self.err(path, "has a ✅ row but no `last_verified:`")
+                    if lv and not has_pass:
+                        self.err(path, "has `last_verified:` but no ✅ row")
+
+        edges = {}
+        for path, (fm, body) in prd.items():
+            fid = fm.get("id")
+            cited = {rid for rid in R_ID.findall(body) if R_ID_NS.match(rid).group(1) != fid}
+            for rid in sorted(cited):
+                if rid in draft_ids:
+                    self.err(path, f"cites {rid} which is a prd-drafts/ proposal (contracts never cite drafts)")
+                elif rid not in defined:
+                    self.err(path, f"cites {rid} which resolves nowhere")
+                else:
+                    dep = defined[rid]
+                    if dep != path:
+                        edges.setdefault(path, set()).add(dep)
+                    if prefixes:
+                        dp = next((p for p in prefixes if os.path.basename(dep).startswith(p)), None)
+                        sp = next((p for p in prefixes if os.path.basename(path).startswith(p)), None)
+                        if dp is not None and sp is not None and rank[dp] > rank[sp]:
+                            self.err(path, f"cites {rid} in a later layer `{dp}` (citations only go up the stack)")
+
+        cycle = find_cycle(edges)
+        if cycle:
+            self.err(cycle[0], "citation cycle: " + " -> ".join(cycle) + " (the graph must be a DAG)")
+
+        self.check_sections()
+        self.check_catalog_complete()
+        self.check_catalog_links()
+        self.check_research()
+        return not self.errors
+
+    def check_sections(self):
+        """Every shipped README keeps its required sections — a gutted catalog is drift."""
+        for rel, sections in REQUIRED_SECTIONS.items():
+            path = os.path.join(self.root, rel)
+            if not os.path.isfile(path):
+                continue  # manifest flags a missing README
+            headings = [l for l in self.read(path).splitlines() if l.startswith("## ")]
+            for sec in sections:
+                if not any(h.startswith(sec) for h in headings):
+                    self.err(rel, f"README missing required section `{sec}`")
+
+    def check_catalog_complete(self):
+        """Every doc in a home is listed in that home's catalog — a catalog behind the tree misleads."""
+        for home, kind in CATALOG_CONTENTS.items():
+            d = os.path.join(self.root, home)
+            readme = os.path.join(d, "README.md")
+            if not os.path.isdir(d) or not os.path.isfile(readme):
+                continue  # manifest flags a missing home or catalog
+            text = self.read(readme)
+            for name in sorted(os.listdir(d)):
+                if name == "README.md" or name.startswith("."):
+                    continue
+                is_dir = os.path.isdir(os.path.join(d, name))
+                if is_dir != (kind == "dir") or (kind == "md" and not name.endswith(".md")):
+                    continue
+                if name not in text:
+                    self.err(f"{home}/README.md", f"catalog omits {name}")
+
+    def check_catalog_links(self):
+        """Every link in every home catalog must resolve to a real file or directory."""
+        for home in ["prd", "prd-drafts", "research", "references", "guides"]:
+            readme = os.path.join(self.root, home, "README.md")
+            if not os.path.isfile(readme):
+                continue  # manifest flags a missing catalog
+            for target in re.findall(r"\]\(([^)]+)\)", self.read(readme)):
+                raw = target.strip()
+                if raw.startswith(("http", "#", "mailto:")) or "://" in raw:
+                    continue
+                rel = raw.split()[0].split("#", 1)[0]  # drop any title / anchor
+                if not rel:
+                    continue
+                if not os.path.exists(os.path.normpath(os.path.join(self.root, home, rel))):
+                    self.err(f"{home}/README.md", f"catalog links to missing `{rel}`")
+
+    def check_research(self):
+        d = os.path.join(self.root, "research")
+        if not os.path.isdir(d):
+            return
+        for name in sorted(os.listdir(d)):
+            if not name.endswith(".md") or name == "README.md":
+                continue
+            path = os.path.join("research", name)
+            text = self.read(os.path.join(d, name))
+            if "**Last updated:**" not in text:
+                self.err(path, "research note missing `**Last updated:**`")
+
+            for h in self.headings(text):
+                if h not in RESEARCH_HEADINGS:
+                    self.err(path, f"`## {h}` is not in the closed schema")
+
+            cites = set(re.findall(r"\[(\d+)\]", text))
+            body = text.split("## What they do", 1)
+            if len(body) > 1 and not re.search(r"\[\d+\]", body[1].split("\n## ", 1)[0]):
+                self.err(path, "`What they do` cites no source — reporting with no citation is assertion")
+            sources = {}
+            if "## Sources" in text:
+                tail = text.split("## Sources", 1)[1].split("\n## ", 1)[0]
+                sources = {n: line for n, line in re.findall(r"^\s*(\d+)\.\s*(.*)$", tail, re.M)}
+            for n in sorted(cites - set(sources), key=int):
+                self.err(path, f"citation [{n}] has no Sources entry")
+            for n, line in sorted(sources.items(), key=lambda kv: int(kv[0])):
+                if "http" not in line and "(internal" not in line:
+                    self.err(path, f"source [{n}] carries no link — give the URL you opened, "
+                                   "or mark it `(internal)` if it isn't a public page")
+                if n not in cites:
+                    self.err(path, f"source [{n}] is never cited (every source earns its place)")
+
+
+
+def main():
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    flags = [a for a in sys.argv[1:] if a.startswith("--")]
+    if [f for f in flags if f not in ("--payload", "--write-manifest")] or len(args) > 1:
+        print("usage: doc-lint [--payload | --write-manifest] [PATH_TO_.knowledge]")
+        return 2
+    here = os.path.dirname(os.path.abspath(__file__))  # .knowledge/scripts
+    root = os.path.abspath(args[0]) if args else os.path.dirname(here)
+    if "--write-manifest" in flags:
+        return write_manifest(root)
+    lint = Lint(root, payload="--payload" in flags)
+    if lint.check():
+        print(f"doc-lint: OK ({root})")
+        return 0
+    for where, msg in lint.errors:
+        print(f"doc-lint: {where}: {msg}")
+    print(f"\ndoc-lint: {len(lint.errors)} problem(s)")
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

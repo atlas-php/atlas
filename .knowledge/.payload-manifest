@@ -1,0 +1,12 @@
+# payload integrity — sha256 of every file knowledge-template versions.
+# The adopted version is stamped in `.version`; these lines prove the files match it.
+# Never edit by hand. Regenerate: python3 .knowledge/scripts/doc-lint --write-manifest .knowledge
+4edfb17fa0d543f4b8fd4570eda8ec5e9ff0c8360fd3c870db5149693d6d1691  guides/docs-agents.md
+38f4b3fa2a16b3b0945f39a606e5409fd57fd4aa7b4cdfcd7392ddbc02acaff7  guides/docs-brief.md
+10414f50f2da4c92a06839e17f5c7e69c270bcc1f71aa20a80914acd61b29844  guides/docs-codemap.md
+5a20ac051e3b169a85bcb97261c12f849ebec4729eb7384393b51735bddd090f  guides/docs-memory.md
+c12b853b37b237e95883572f83b95847242c54b9908f2bd9fe963d53376c1573  guides/docs-overview.md
+7a4c01d616f84724f137e919368f7bd5ea6eca573bf9ff6b80434b291f576b31  guides/docs-prd.md
+12b08fbea8bbabba545ec0345a7c1556a0219bb108415f876f20a731677e19c5  guides/docs-research.md
+0cdd3cd2af746daf0cf67abceeba8afb9e321d98b55e31113b64e0c97be1ea51  scripts/doc-lint
+d4ca902a1689686b6e9c7ebcdb6b77287e72a6fbb611914daf949a7358b3a0db  scripts/test_doc_lint.py
