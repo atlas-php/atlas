@@ -21,6 +21,7 @@ use Atlasphp\Atlas\Enums\FinishReason;
 use Atlasphp\Atlas\Http\HttpClient;
 use Atlasphp\Atlas\Middleware\MiddlewareStack;
 use Atlasphp\Atlas\Providers\Concerns\BuildsHeaders;
+use Atlasphp\Atlas\Providers\Concerns\CountsTokens;
 use Atlasphp\Atlas\Providers\Driver;
 use Atlasphp\Atlas\Providers\Handlers\TextHandler;
 use Atlasphp\Atlas\Providers\ProviderCapabilities;
@@ -31,6 +32,7 @@ use Atlasphp\Atlas\Responses\StreamChunk;
 use Atlasphp\Atlas\Responses\StreamResponse;
 use Atlasphp\Atlas\Responses\StructuredResponse;
 use Atlasphp\Atlas\Responses\TextResponse;
+use Atlasphp\Atlas\Responses\TokenCount;
 use Atlasphp\Atlas\Responses\Usage;
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -40,6 +42,7 @@ use Atlasphp\Atlas\Responses\Usage;
 class CustomOpenAiTextHandler implements TextHandler
 {
     use BuildsHeaders;
+    use CountsTokens;
 
     public function __construct(
         private readonly ProviderConfig $config,
@@ -137,6 +140,13 @@ class CustomOpenAiTextHandler implements TextHandler
     public function structured(TextRequest $request): StructuredResponse
     {
         throw new RuntimeException('Structured output not implemented in this custom handler');
+    }
+
+    public function countTokens(TextRequest $request): TokenCount
+    {
+        // No native count endpoint on this custom handler — estimate from the
+        // built request body via the CountsTokens trait (estimated: true).
+        return $this->estimateTokens($this->config->provider, $request->model, $this->buildPayload($request));
     }
 
     /**
@@ -393,6 +403,11 @@ test('withHandler replaces text handler on a resolved driver', function () use (
         public function structured(TextRequest $request): StructuredResponse
         {
             throw new RuntimeException('Not implemented');
+        }
+
+        public function countTokens(TextRequest $request): TokenCount
+        {
+            return (new CustomOpenAiTextHandler($this->config, $this->http))->countTokens($request);
         }
     };
 
