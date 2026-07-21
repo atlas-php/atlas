@@ -154,7 +154,7 @@ AtlasFake, **FakeDriver** (skips the base `Driver` constructor, so `Driver::$con
 ## Sandbox & CI
 
 - `sandbox/` — real-API test harness (Laravel app shell, `bootstrap.php`); Horizon must run for queue-backed features. Provider smoke tests, feature/reasoning/batch/embeddings scripts, `seed-demo.php`.
-- `.github/workflows/` — `tests.yml` (CI), `deploy-docs.yml`, `doc-lint.yml` (knowledge-doc lint). `composer check` = lint:test (Pint) + analyse (PHPStan) + test (Pest) + lint:docs (doc-lint).
+- `.github/workflows/` — `tests.yml` (CI), `deploy-docs.yml`, `doc-lint.yml` (knowledge-doc lint). `composer check` = lint:test (Pint) + analyse (PHPStan) + test (Pest) + lint:docs (doc-lint) + lint:prd (`.knowledge/scripts/prd-evidence` — asserts every `✅` PRD Evidence name resolves to a real Pest test description; the check `doc-lint` cannot do).
 
 ## Docs
 

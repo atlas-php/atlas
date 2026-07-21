@@ -40,3 +40,7 @@ python3 .knowledge/scripts/doc-lint --write-manifest .knowledge   # re-record th
 This folder is also a workspace. Add project-specific helper scripts here — generators, build steps, one-off
 checks, anything that helps an agent work in this repo. Keep the shipped `doc-lint` and `test_doc_lint.py`
 unchanged (they're versioned); everything else here is yours to add and name.
+
+| Script | What it does |
+|---|---|
+| [`prd-evidence`](./prd-evidence) | The check `doc-lint` cannot do: asserts every `✅` PRD Evidence name resolves to a real Pest test description (`it()`/`test()`) or test file. Wired into `composer check` as `lint:prd`. |

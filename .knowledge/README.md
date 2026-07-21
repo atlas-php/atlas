@@ -17,8 +17,8 @@ each lives in its `guides/*.md`.
 | `references/` | Visual targets — screenshots, UI to match | `references/README.md` |
 | `guides/` | The writing standards (`docs-*`) + project how-tos | `guides/README.md` |
 | `../AGENTS.md` | The project's law (at the repo root, not here) | `guides/docs-agents.md` |
-| `scripts/` | Tooling — the linter + its teeth-test | `scripts/README.md` |
-| `tmp/` | Git-ignored scratch | — |
+| `scripts/` | Tooling — the versioned linter, plus your own project scripts | `scripts/README.md` |
+| `tmp/` | Git-ignored scratch — throwaway working files, never committed | — |
 
 Work flows `research/` + `references/` → `prd-drafts/` → `prd/`.
 
@@ -29,4 +29,5 @@ is stamped in `.version`. To update, follow the upgrade steps in that repo.
 
 `.payload-manifest` holds a checksum for every file that version owns — the `guides/docs-*.md` standards and
 the two shipped scripts. `doc-lint` verifies them on every run, so the stamp is proven rather than trusted.
-Never edit those files or the manifest here; a change belongs upstream and arrives as a version bump.
+Never edit those files or the manifest here; a change belongs upstream and arrives as a version bump. Your
+own project scripts live beside them in `scripts/` — only the listed files are off-limits.

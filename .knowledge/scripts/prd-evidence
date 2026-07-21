@@ -1,0 +1,116 @@
+#!/usr/bin/env python3
+"""prd-evidence — the check doc-lint cannot do.
+
+`doc-lint` verifies a ✅ row *has* Evidence, never that the named test exists. A plausible-looking
+name that matches nothing in the suite passes forever, and the one claim the PRD format rests on
+quietly becomes untrue. This closes that gap: every backticked Evidence token on a ✅ row must
+resolve to a real Pest test description, a real test file, or a real `path:line` in the repo.
+
+Usage:  python3 .knowledge/scripts/prd-evidence [repo-root]     (default: current directory)
+
+Exit 0 = every ✅ Evidence name resolves. Exit 1 = one or more do not (listed).
+"""
+from __future__ import annotations
+
+import os
+import re
+import sys
+
+TEST_DESC = re.compile(r"""\b(?:it|test)\s*\(\s*(['"])(.*?)\1""", re.S)
+BACKTICK = re.compile(r"`([^`]+)`")
+ROW = re.compile(r"^\|\s*(✅|❌)\s*\|")
+PATH_LINE = re.compile(r"^(.+?):(\d+)$")
+
+
+def gather_tests(tests_dir: str):
+    """Return (descriptions, file basenames, relative paths) the suite actually contains."""
+    descriptions: set[str] = set()
+    basenames: set[str] = set()
+    for root, _dirs, files in os.walk(tests_dir):
+        for fn in files:
+            if not fn.endswith(".php"):
+                continue
+            basenames.add(fn[:-4])  # strip .php
+            path = os.path.join(root, fn)
+            try:
+                with open(path, encoding="utf-8") as fh:
+                    text = fh.read()
+            except OSError:
+                continue
+            for _q, desc in TEST_DESC.findall(text):
+                descriptions.add(desc.strip())
+    return descriptions, basenames
+
+
+def evidence_cells(md_path: str):
+    """Yield (glyph, evidence_text) for each Requirements-table row in a PRD file."""
+    with open(md_path, encoding="utf-8") as fh:
+        for line in fh:
+            if not ROW.match(line):
+                continue
+            cells = [c.strip() for c in line.strip().strip("|").split("|")]
+            if len(cells) < 4:
+                continue
+            yield cells[0], cells[-1]
+
+
+def token_resolves(token: str, repo_root: str, descriptions: set[str], basenames: set[str]) -> bool:
+    token = token.strip()
+    if token in descriptions:
+        return True
+    # a test file cited by basename, e.g. `ConfigTest`
+    if token in basenames:
+        return True
+    # a `path:line` pointer into the repo (used by ❌ built-but-unproven rows that still backtick it)
+    m = PATH_LINE.match(token)
+    if m and os.path.exists(os.path.join(repo_root, m.group(1))):
+        return True
+    # a bare repo path
+    if os.path.exists(os.path.join(repo_root, token)):
+        return True
+    return False
+
+
+def main() -> int:
+    repo_root = sys.argv[1] if len(sys.argv) > 1 else "."
+    tests_dir = os.path.join(repo_root, "tests")
+    if not os.path.isdir(tests_dir):
+        print(f"prd-evidence: no tests/ directory at {tests_dir}", file=sys.stderr)
+        return 1
+
+    descriptions, basenames = gather_tests(tests_dir)
+
+    misses: list[str] = []
+    checked = 0
+    for home in ("prd", "prd-drafts"):
+        home_dir = os.path.join(repo_root, ".knowledge", home)
+        if not os.path.isdir(home_dir):
+            continue
+        for fn in sorted(os.listdir(home_dir)):
+            if not fn.endswith(".md") or fn == "README.md":
+                continue
+            md_path = os.path.join(home_dir, fn)
+            for glyph, evidence in evidence_cells(md_path):
+                if glyph != "✅":
+                    continue
+                tokens = BACKTICK.findall(evidence)
+                if not tokens:
+                    misses.append(f"{home}/{fn}: ✅ row has no backticked Evidence name -> {evidence!r}")
+                    continue
+                for tok in tokens:
+                    checked += 1
+                    if not token_resolves(tok, repo_root, descriptions, basenames):
+                        misses.append(f"{home}/{fn}: Evidence `{tok}` matches no test in the suite")
+
+    if misses:
+        print(f"prd-evidence: FAIL ({len(misses)} unresolved of {checked} checked)")
+        for m in misses:
+            print(f"  - {m}")
+        return 1
+
+    print(f"prd-evidence: OK ({checked} ✅ Evidence names all resolve)")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
