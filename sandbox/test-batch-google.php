@@ -19,15 +19,18 @@ $app['config']->set('atlas.providers', [
     ],
 ]);
 $app['config']->set('atlas.persistence.enabled', false); // stateless: exercise the provider API directly
+
+use Atlasphp\Atlas\Atlas;
+use Atlasphp\Atlas\AtlasConfig;
+use Atlasphp\Atlas\AtlasManager;
+use Atlasphp\Atlas\Enums\BatchStatus;
+
 // The Atlas singletons + facade root are resolved in bootstrap before the toggle
 // above, so drop them to force a stateless rebuild — otherwise submit() runs in
 // tracked mode and returns a BatchJob whose camelCase batchId is null.
-$app->forgetInstance(\Atlasphp\Atlas\AtlasConfig::class);
-$app->forgetInstance(\Atlasphp\Atlas\AtlasManager::class);
-\Atlasphp\Atlas\Atlas::clearResolvedInstances();
-
-use Atlasphp\Atlas\Atlas;
-use Atlasphp\Atlas\Enums\BatchStatus;
+$app->forgetInstance(AtlasConfig::class);
+$app->forgetInstance(AtlasManager::class);
+Atlas::clearResolvedInstances();
 
 function line(string $msg): void
 {
